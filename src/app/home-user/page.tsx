@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { authService } from "@/lib/auth";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
 
 // Types for dashboard data
@@ -68,23 +68,23 @@ interface InsightArticle {
     url: string;
   }>;
   image?: string;
+  companies_mentioned?: Array<{
+    id: number;
+    name: string;
+    locations_id: number;
+    _locations: {
+      Country: string;
+    };
+    _is_that_investor: boolean;
+  }>;
 }
 
 interface NewCompany {
   id: number;
   name: string;
   created_at: number;
-  sectors_id: Array<{
-    id: number;
-    sector_name: string;
-    Sector_importance: string;
-  }>;
   _locations: {
     Country: string;
-  };
-  linkedin_data?: {
-    LinkedIn_Employee: number;
-    linkedin_logo: string;
   };
   _linkedin_data_of_new_company?: {
     linkedin_employee: number;
@@ -94,394 +94,14 @@ interface NewCompany {
 
 export default function HomeUserPage() {
   const router = useRouter();
+  const { isAuthenticated, logout, loading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [asymmetrixData, setAsymmetrixData] = useState<AsymmetrixData[]>([]);
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
   const [insightsArticles, setInsightsArticles] = useState<InsightArticle[]>(
     []
   );
-  const [newCompanies] = useState<NewCompany[]>([
-    {
-      id: 1,
-      name: "Idera, Inc",
-      created_at: Date.now() - 86400000, // 1 day ago
-      sectors_id: [
-        {
-          id: 1,
-          sector_name: "Technology",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "US",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 150,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=I",
-      },
-    },
-    {
-      id: 2,
-      name: "Nest Data",
-      created_at: Date.now() - 172800000, // 2 days ago
-      sectors_id: [
-        {
-          id: 2,
-          sector_name: "Data Analytics",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "UK",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 89,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=N",
-      },
-    },
-    {
-      id: 3,
-      name: "Coremetrix",
-      created_at: Date.now() - 259200000, // 3 days ago
-      sectors_id: [
-        {
-          id: 3,
-          sector_name: "Healthcare",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "UK",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 234,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=C",
-      },
-    },
-    {
-      id: 4,
-      name: "TechFlow Solutions",
-      created_at: Date.now() - 345600000, // 4 days ago
-      sectors_id: [
-        {
-          id: 4,
-          sector_name: "Fintech",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "US",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 67,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=T",
-      },
-    },
-    {
-      id: 5,
-      name: "GreenEnergy Corp",
-      created_at: Date.now() - 432000000, // 5 days ago
-      sectors_id: [
-        {
-          id: 5,
-          sector_name: "Clean Energy",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "Germany",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 189,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=G",
-      },
-    },
-    {
-      id: 6,
-      name: "DataVault Systems",
-      created_at: Date.now() - 518400000, // 6 days ago
-      sectors_id: [
-        {
-          id: 6,
-          sector_name: "Cybersecurity",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "Israel",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 112,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=D",
-      },
-    },
-    {
-      id: 7,
-      name: "BioTech Innovations",
-      created_at: Date.now() - 604800000, // 7 days ago
-      sectors_id: [
-        {
-          id: 7,
-          sector_name: "Biotechnology",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "Switzerland",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 78,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=B",
-      },
-    },
-    {
-      id: 8,
-      name: "CloudSync Inc",
-      created_at: Date.now() - 691200000, // 8 days ago
-      sectors_id: [
-        {
-          id: 8,
-          sector_name: "Cloud Computing",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "Canada",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 203,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=C",
-      },
-    },
-    {
-      id: 9,
-      name: "SmartCity Labs",
-      created_at: Date.now() - 777600000, // 9 days ago
-      sectors_id: [
-        {
-          id: 9,
-          sector_name: "Smart Cities",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "Netherlands",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 145,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=S",
-      },
-    },
-    {
-      id: 10,
-      name: "Quantum Computing Ltd",
-      created_at: Date.now() - 864000000, // 10 days ago
-      sectors_id: [
-        {
-          id: 10,
-          sector_name: "Quantum Computing",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "UK",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 92,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=Q",
-      },
-    },
-    {
-      id: 11,
-      name: "AI Solutions Pro",
-      created_at: Date.now() - 950400000, // 11 days ago
-      sectors_id: [
-        {
-          id: 11,
-          sector_name: "Artificial Intelligence",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "US",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 167,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=A",
-      },
-    },
-    {
-      id: 12,
-      name: "Blockchain Ventures",
-      created_at: Date.now() - 1036800000, // 12 days ago
-      sectors_id: [
-        {
-          id: 12,
-          sector_name: "Blockchain",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "Singapore",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 134,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=B",
-      },
-    },
-    {
-      id: 13,
-      name: "Robotics Dynamics",
-      created_at: Date.now() - 1123200000, // 13 days ago
-      sectors_id: [
-        {
-          id: 13,
-          sector_name: "Robotics",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "Japan",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 256,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=R",
-      },
-    },
-    {
-      id: 14,
-      name: "E-commerce Plus",
-      created_at: Date.now() - 1209600000, // 14 days ago
-      sectors_id: [
-        {
-          id: 14,
-          sector_name: "E-commerce",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "Brazil",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 98,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=E",
-      },
-    },
-    {
-      id: 15,
-      name: "Digital Marketing Hub",
-      created_at: Date.now() - 1296000000, // 15 days ago
-      sectors_id: [
-        {
-          id: 15,
-          sector_name: "Digital Marketing",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "Australia",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 73,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=D",
-      },
-    },
-    {
-      id: 16,
-      name: "IoT Connect",
-      created_at: Date.now() - 1382400000, // 16 days ago
-      sectors_id: [
-        {
-          id: 16,
-          sector_name: "Internet of Things",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "South Korea",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 181,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=I",
-      },
-    },
-    {
-      id: 17,
-      name: "VR Experience Lab",
-      created_at: Date.now() - 1468800000, // 17 days ago
-      sectors_id: [
-        {
-          id: 17,
-          sector_name: "Virtual Reality",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "France",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 119,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=V",
-      },
-    },
-    {
-      id: 18,
-      name: "Mobile Gaming Studio",
-      created_at: Date.now() - 1555200000, // 18 days ago
-      sectors_id: [
-        {
-          id: 18,
-          sector_name: "Mobile Gaming",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "Finland",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 156,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=M",
-      },
-    },
-    {
-      id: 19,
-      name: "Supply Chain Tech",
-      created_at: Date.now() - 1641600000, // 19 days ago
-      sectors_id: [
-        {
-          id: 19,
-          sector_name: "Supply Chain",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "India",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 223,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=S",
-      },
-    },
-    {
-      id: 20,
-      name: "EdTech Solutions",
-      created_at: Date.now() - 1728000000, // 20 days ago
-      sectors_id: [
-        {
-          id: 20,
-          sector_name: "Education Technology",
-          Sector_importance: "Primary",
-        },
-      ],
-      _locations: {
-        Country: "Canada",
-      },
-      _linkedin_data_of_new_company: {
-        linkedin_employee: 87,
-        linkedin_logo: "https://via.placeholder.com/24x24/0077B5/FFFFFF?text=E",
-      },
-    },
-  ]);
+  const [newCompanies, setNewCompanies] = useState<NewCompany[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredInsights, setFilteredInsights] = useState<InsightArticle[]>(
     []
@@ -501,6 +121,7 @@ export default function HomeUserPage() {
         investorsResponse,
         eventsResponse,
         insightsResponse,
+        newCompaniesResponse,
       ] = await Promise.allSettled([
         dashboardApiService.getHeroScreenStatisticCompanies(),
         dashboardApiService.getHeroScreenStatisticEventsCount(),
@@ -510,6 +131,7 @@ export default function HomeUserPage() {
         dashboardApiService.getHeroScreenStatisticInvestors(),
         dashboardApiService.getCorporateEvents(),
         dashboardApiService.getAllContentArticlesHome(),
+        dashboardApiService.getRecentlyAddedCompanies(),
       ]);
 
       // Handle asymmetrix data - build from individual statistics
@@ -517,16 +139,10 @@ export default function HomeUserPage() {
 
       // Companies count
       if (companiesCountResponse.status === "fulfilled") {
-        console.log(
-          "Full companies count response:",
-          companiesCountResponse.value
-        );
         // Raw number response
         let companiesCount: number = 0;
         const responseValue = companiesCountResponse.value as unknown as number;
         companiesCount = responseValue || 0;
-
-        console.log("Companies count response:", companiesCount);
         if (companiesCount) {
           statsData.push({
             label: "Companies",
@@ -549,7 +165,6 @@ export default function HomeUserPage() {
           eventsCount = (responseValue.Corporate_Events_count as number) || 0;
         }
 
-        console.log("Events count response:", eventsCount);
         if (eventsCount) {
           statsData.push({
             label: "Corporate Events",
@@ -670,12 +285,10 @@ export default function HomeUserPage() {
         }
       }
 
-      console.log("Final statsData:", statsData);
       setAsymmetrixData(statsData);
 
       // Handle corporate events
       if (eventsResponse.status === "fulfilled") {
-        console.log("Full corporate events response:", eventsResponse.value);
         // Try different possible structures
         let eventsData: CorporateEvent[] = [];
         const responseValue = eventsResponse.value as unknown as Record<
@@ -691,7 +304,6 @@ export default function HomeUserPage() {
           eventsData = responseValue as CorporateEvent[];
         }
 
-        console.log("Corporate events response:", eventsData);
         setCorporateEvents(eventsData || []);
       } else {
         setCorporateEvents([]);
@@ -699,7 +311,6 @@ export default function HomeUserPage() {
 
       // Handle insights articles
       if (insightsResponse.status === "fulfilled") {
-        console.log("Full insights response:", insightsResponse.value);
         // Try different possible structures
         let insightsData: InsightArticle[] = [];
         const responseValue = insightsResponse.value as unknown as Record<
@@ -713,16 +324,42 @@ export default function HomeUserPage() {
           insightsData = responseValue as InsightArticle[];
         }
 
-        console.log("Insights response:", insightsData);
         setInsightsArticles(insightsData || []);
       } else {
         setInsightsArticles([]);
       }
 
-      // New Companies are using static data for now
-      console.log("Using static new companies data");
+      // Handle new companies
+      if (newCompaniesResponse.status === "fulfilled") {
+        // Try different possible structures
+        let newCompaniesData: NewCompany[] = [];
+        const responseValue = newCompaniesResponse.value as unknown as Record<
+          string,
+          unknown
+        >;
+
+        if (responseValue.data) {
+          newCompaniesData = responseValue.data as NewCompany[];
+        } else if (Array.isArray(responseValue)) {
+          newCompaniesData = responseValue as NewCompany[];
+        }
+
+        setNewCompanies(newCompaniesData || []);
+      } else {
+        setNewCompanies([]);
+      }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
+      // If it's an authentication error, redirect to login
+      if (
+        error instanceof Error &&
+        error.message === "Authentication required"
+      ) {
+        console.log("Dashboard - Authentication error, redirecting to login");
+        logout();
+        router.push("/login");
+        return;
+      }
     } finally {
       setIsLoading(false);
     }
@@ -730,15 +367,30 @@ export default function HomeUserPage() {
 
   // Check authentication on component mount
   useEffect(() => {
-    if (!authService.isAuthenticated()) {
+    console.log("Dashboard page - authLoading:", authLoading);
+    console.log("Dashboard page - isAuthenticated:", isAuthenticated);
+
+    // Wait for auth context to finish loading
+    if (authLoading) {
+      console.log("Dashboard page - Still loading auth, waiting...");
+      return;
+    }
+
+    if (!isAuthenticated) {
+      console.log("Dashboard page - Not authenticated, redirecting to login");
       router.push("/login");
       return;
     }
-    fetchDashboardData();
-  }, [router, fetchDashboardData]);
+
+    console.log("Dashboard page - Authenticated, fetching data");
+    // Only fetch data if we're authenticated
+    if (isAuthenticated) {
+      fetchDashboardData();
+    }
+  }, [router, fetchDashboardData, isAuthenticated, authLoading]);
 
   const handleLogout = () => {
-    authService.logout();
+    logout();
     router.push("/login");
   };
 
@@ -759,6 +411,29 @@ export default function HomeUserPage() {
   useEffect(() => {
     setFilteredInsights(insightsArticles);
   }, [insightsArticles]);
+
+  if (authLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 rounded-full border-b-2 border-blue-600 animate-spin"></div>
+          <p className="mt-4 text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, don't render the dashboard
+  if (!isAuthenticated) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 rounded-full border-b-2 border-red-600 animate-spin"></div>
+          <p className="mt-4 text-gray-600">Redirecting to login...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -796,12 +471,12 @@ export default function HomeUserPage() {
                 >
                   Companies
                 </button>
-                <button
-                  className="text-gray-500 cursor-not-allowed hover:text-gray-700"
-                  disabled
+                <Link
+                  href="/sectors-data"
+                  className="text-gray-500 hover:text-gray-700"
                 >
                   Sectors
-                </button>
+                </Link>
                 <button
                   className="text-gray-500 cursor-not-allowed hover:text-gray-700"
                   disabled
@@ -841,6 +516,13 @@ export default function HomeUserPage() {
 
       {/* Main Content */}
       <main className="px-4 py-8 mx-auto w-full">
+        {/* Dashboard Subheader */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">
+            Asymmetrix Dashboard
+          </h1>
+        </div>
+
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-4 lg:grid-cols-2">
           {/* Asymmetrix Data */}
           <div className="bg-white rounded-lg shadow">
@@ -886,62 +568,62 @@ export default function HomeUserPage() {
                 Corporate Events
               </h2>
             </div>
-            <div className="overflow-x-auto max-h-96">
+            <div className="overflow-x-auto max-h-[800px]">
               {corporateEvents.length > 0 ? (
                 <table className="w-full min-w-max">
                   <thead className="sticky top-0 bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                         Description
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                         Date
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                         Target
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                         Primary Sector
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                         Secondary Sectors
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                         Type
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                         Amount
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                         Enterprise Value
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                         Other Counterparties
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                         Advisors
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {corporateEvents.slice(0, 10).map((event) => (
+                    {corporateEvents.slice(0, 25).map((event) => (
                       <tr key={event.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 max-w-xs text-xs text-gray-900">
+                        <td className="px-4 py-4 max-w-xs text-xs text-gray-900">
                           {event.description}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-500">
+                        <td className="px-4 py-4 text-xs text-gray-500">
                           {event.announcement_date || "Not Available"}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-900">
+                        <td className="px-4 py-4 text-xs text-gray-900">
                           {event.Target_Counterparty?.new_company?.name ||
                             "Not Available"}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-900">
+                        <td className="px-4 py-4 text-xs text-gray-900">
                           {event.Target_Counterparty?.new_company?._sectors_objects?.sectors_id?.find(
                             (sector) => sector.Sector_importance === "Primary"
                           )?.sector_name || "Not Available"}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-900">
+                        <td className="px-4 py-4 text-xs text-gray-900">
                           {event.Target_Counterparty?.new_company?._sectors_objects?.sectors_id
                             ?.filter(
                               (sector) => sector.Sector_importance !== "Primary"
@@ -949,22 +631,22 @@ export default function HomeUserPage() {
                             .map((sector) => sector.sector_name)
                             .join(", ") || "Not Available"}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-900">
+                        <td className="px-4 py-4 text-xs text-gray-900">
                           {event.deal_type || "Not Available"}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-900">
+                        <td className="px-4 py-4 text-xs text-gray-900">
                           {event.investment_data?.investment_amount_m &&
                           event.investment_data?.currrency?.Currency
                             ? `${event.investment_data.investment_amount_m} ${event.investment_data.currrency.Currency}`
                             : "Not Available"}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-900">
+                        <td className="px-4 py-4 text-xs text-gray-900">
                           {event.ev_data?.enterprise_value_m &&
                           event.ev_data?.Currency
                             ? `${event.ev_data.enterprise_value_m} ${event.ev_data.Currency}`
                             : "Not Available"}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-900">
+                        <td className="px-4 py-4 text-xs text-gray-900">
                           {event.Other_Counterparties_of_Corporate_Event &&
                           event.Other_Counterparties_of_Corporate_Event.length >
                             0
@@ -975,7 +657,7 @@ export default function HomeUserPage() {
                                 .join(", ")
                             : "Not Available"}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-900">
+                        <td className="px-4 py-4 text-xs text-gray-900">
                           {event.Advisors_of_Corporate_Event &&
                           event.Advisors_of_Corporate_Event.length > 0
                             ? event.Advisors_of_Corporate_Event.map(
@@ -1002,14 +684,17 @@ export default function HomeUserPage() {
           {/* Insights & Analysis */}
           <div className="bg-white rounded-lg shadow">
             <div className="p-4 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Insights & Analysis
-                </h2>
-                <form onSubmit={handleSearch} className="flex">
+              <h2 className="mb-3 text-lg font-bold text-gray-900">
+                Insights & Analysis
+              </h2>
+              <div className="space-y-2">
+                <span className="text-sm text-gray-700">
+                  Search for Articles:
+                </span>
+                <form onSubmit={handleSearch} className="flex max-w-xs">
                   <input
                     type="text"
-                    placeholder="Search headlines..."
+                    placeholder="Keyword search"
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -1024,11 +709,11 @@ export default function HomeUserPage() {
                         setFilteredInsights(insightsArticles);
                       }
                     }}
-                    className="px-2 py-1 text-xs rounded-l-md border border-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="flex-1 px-3 py-1 text-sm rounded-l-md border border-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                   <button
                     type="submit"
-                    className="px-2 py-1 text-xs text-white bg-blue-600 rounded-r-md hover:bg-blue-700"
+                    className="px-3 py-1 text-sm text-white bg-blue-600 rounded-r-md hover:bg-blue-700"
                   >
                     Search
                   </button>
@@ -1038,7 +723,7 @@ export default function HomeUserPage() {
             <div className="p-4">
               {filteredInsights.length > 0 ? (
                 <div className="space-y-3">
-                  {filteredInsights.slice(0, 3).map((article) => (
+                  {filteredInsights.slice(0, 10).map((article) => (
                     <div key={article.id} className="p-3 bg-gray-50 rounded-lg">
                       {article.image && (
                         <img
@@ -1059,6 +744,24 @@ export default function HomeUserPage() {
                       <p className="text-xs text-gray-500">
                         {article.Publication_Date}
                       </p>
+                      {article.companies_mentioned &&
+                        article.companies_mentioned.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {article.companies_mentioned.map(
+                              (company, index) => (
+                                <span
+                                  key={company.id}
+                                  className="text-xs text-blue-600 cursor-pointer hover:text-blue-800"
+                                >
+                                  {company.name}
+                                  {index <
+                                    article.companies_mentioned!.length - 1 &&
+                                    ", "}
+                                </span>
+                              )
+                            )}
+                          </div>
+                        )}
                       {article.keywords && article.keywords.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {article.keywords
@@ -1098,56 +801,83 @@ export default function HomeUserPage() {
           {/* New Companies Added */}
           <div className="bg-white rounded-lg shadow">
             <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">
-                New Companies Added
-              </h2>
+              <div className="flex items-center space-x-2">
+                <span className="text-lg text-green-600">+</span>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  New Companies Added
+                </h2>
+              </div>
             </div>
-            <div className="divide-y divide-gray-200">
+            <div className="p-4">
               {newCompanies.length > 0 ? (
-                newCompanies.map((company) => (
-                  <div key={company.id} className="p-4">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center space-x-2">
-                        {company._linkedin_data_of_new_company
-                          ?.linkedin_logo && (
-                          <img
-                            src={
-                              company._linkedin_data_of_new_company
-                                .linkedin_logo
-                            }
-                            alt={company.name}
-                            className="w-6 h-6 rounded"
-                          />
-                        )}
-                        <div>
-                          <p className="text-xs font-medium text-gray-900">
+                <div className="relative">
+                  {/* Vertical timeline line */}
+                  <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-green-500"></div>
+
+                  <div className="pl-6 space-y-6">
+                    {newCompanies.map((company) => (
+                      <div
+                        key={company.id}
+                        className="flex items-start space-x-3"
+                      >
+                        {/* Company icon/logo */}
+                        <div className="flex-shrink-0">
+                          {company._linkedin_data_of_new_company
+                            ?.linkedin_logo ? (
+                            <img
+                              src={`data:image/jpeg;base64,${company._linkedin_data_of_new_company.linkedin_logo}`}
+                              alt={company.name}
+                              className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
+                              onError={(e) => {
+                                // Fallback to a placeholder if the image fails to load
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <div className="flex justify-center items-center w-6 h-6 bg-gray-300 rounded-full border-2 border-white shadow-sm">
+                              <span className="text-xs font-medium text-gray-600">
+                                {company.name.charAt(0)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Company details */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900">
                             {company.name}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {company._locations?.Country} •{" "}
-                            {company.sectors_id?.[0]?.sector_name ||
-                              "Unknown Sector"}
+                            {company._locations?.Country}
                           </p>
                           {company._linkedin_data_of_new_company
                             ?.linkedin_employee && (
                             <p className="text-xs text-gray-400">
+                              LinkedIn Members:{" "}
                               {
                                 company._linkedin_data_of_new_company
                                   .linkedin_employee
-                              }{" "}
-                              LinkedIn members
+                              }
                             </p>
                           )}
+                          <p className="text-xs text-gray-400">
+                            Date added:{" "}
+                            {new Date(company.created_at).toLocaleDateString(
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              }
+                            )}
+                          </p>
                         </div>
                       </div>
-                      <span className="text-xs text-gray-500">
-                        {new Date(company.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
+                    ))}
                   </div>
-                ))
+                </div>
               ) : (
-                <div className="p-4 text-center">
+                <div className="py-8 text-center">
                   <p className="text-sm text-gray-500">
                     No new companies available
                   </p>

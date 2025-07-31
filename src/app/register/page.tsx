@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { authService } from "@/lib/auth";
@@ -70,9 +71,12 @@ export default function RegisterPage() {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <Link href="/" className="flex items-center">
-            <img
+            <Image
               src="https://www.asymmetrixintelligence.com/images/logo.svg?_wwcv=682"
               alt="Asymmetrix"
+              width={120}
+              height={32}
+              priority
               className="w-auto h-8"
             />
           </Link>

@@ -4,9 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
-import { authService } from "@/lib/auth";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 export default function LoginPage() {
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -19,7 +20,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await authService.login(formData.email, formData.password);
+      await login(formData.email, formData.password);
       toast.success("Login successful!");
       router.push("/home-user");
     } catch {

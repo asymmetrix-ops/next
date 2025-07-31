@@ -17,21 +17,36 @@ class AuthService {
   // Get stored token
   getToken(): string | null {
     if (typeof window === "undefined") return null;
-    return localStorage.getItem(this.tokenKey);
+    try {
+      const token = localStorage.getItem(this.tokenKey);
+      return token;
+    } catch (error) {
+      console.error("Error getting token from localStorage:", error);
+      return null;
+    }
   }
 
   // Store token and user
   setAuth(token: string, user: AuthUser): void {
     if (typeof window === "undefined") return;
-    localStorage.setItem(this.tokenKey, token);
-    localStorage.setItem(this.userKey, JSON.stringify(user));
+    try {
+      localStorage.setItem(this.tokenKey, token);
+      localStorage.setItem(this.userKey, JSON.stringify(user));
+    } catch (error) {
+      console.error("Error storing auth data in localStorage:", error);
+    }
   }
 
   // Get stored user
   getUser(): AuthUser | null {
     if (typeof window === "undefined") return null;
-    const userStr = localStorage.getItem(this.userKey);
-    return userStr ? JSON.parse(userStr) : null;
+    try {
+      const userStr = localStorage.getItem(this.userKey);
+      return userStr ? JSON.parse(userStr) : null;
+    } catch (error) {
+      console.error("Error parsing user data from localStorage:", error);
+      return null;
+    }
   }
 
   // Check if user is authenticated
@@ -44,7 +59,6 @@ class AuthService {
     const apiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
       "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
-    console.log("Auth API URL:", apiUrl); // Debug log
 
     const response = await fetch(`${apiUrl}/auth/login`, {
       method: "POST",
@@ -59,8 +73,35 @@ class AuthService {
     }
 
     const data = await response.json();
-    this.setAuth(data.token, data.user);
-    return data;
+
+    // Handle the actual API response structure
+    const token = data.authToken || data.token;
+
+    // Get user data from /auth/me endpoint
+    let user: AuthUser;
+    try {
+      const userResponse = await fetch(`${apiUrl}/auth/me`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (userResponse.ok) {
+        const userData = await userResponse.json();
+        user = userData;
+      } else {
+        // Fallback user data if /auth/me fails
+        user = { id: "user", email: "user@example.com" };
+      }
+    } catch (error) {
+      console.error("AuthService - Error fetching user data:", error);
+      user = { id: "user", email: "user@example.com" };
+    }
+
+    this.setAuth(token, user);
+    return { token, user };
   }
 
   // Register new user
@@ -93,8 +134,12 @@ class AuthService {
   // Logout
   logout(): void {
     if (typeof window === "undefined") return;
-    localStorage.removeItem(this.tokenKey);
-    localStorage.removeItem(this.userKey);
+    try {
+      localStorage.removeItem(this.tokenKey);
+      localStorage.removeItem(this.userKey);
+    } catch (error) {
+      console.error("Error clearing auth data from localStorage:", error);
+    }
   }
 
   // Get auth headers for API calls

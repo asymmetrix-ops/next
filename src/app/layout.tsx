@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { AnalyticsProvider } from "@/components/providers/AnalyticsProvider";
+import { AuthProvider } from "@/components/providers/AuthProvider";
 import { Toaster } from "react-hot-toast";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -109,10 +110,12 @@ export default function RootLayout({
         </Script>
       </head>
       <body className={inter.className}>
-        <AnalyticsProvider>
-          {children}
-          <Toaster position="top-right" />
-        </AnalyticsProvider>
+        <AuthProvider>
+          <AnalyticsProvider>
+            {children}
+            <Toaster position="top-right" />
+          </AnalyticsProvider>
+        </AuthProvider>
       </body>
     </html>
   );

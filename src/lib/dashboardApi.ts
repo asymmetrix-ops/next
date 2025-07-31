@@ -8,10 +8,14 @@ interface ApiResponse<T> {
 
 class DashboardApiService {
   private baseUrl: string;
+  private sectorsCache: {
+    data: Record<string, unknown>;
+    timestamp: number;
+  } | null = null;
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   constructor() {
     this.baseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr";
-    console.log("Dashboard API Service Base URL:", this.baseUrl);
   }
 
   // Make authenticated API request
@@ -32,9 +36,7 @@ class DashboardApiService {
 
     if (!response.ok) {
       if (response.status === 401) {
-        // Token expired or invalid
-        authService.logout();
-        window.location.href = "/login";
+        // Token expired or invalid - let the AuthProvider handle this
         throw new Error("Authentication required");
       }
       throw new Error(`API request failed: ${response.statusText}`);
@@ -106,6 +108,104 @@ class DashboardApiService {
     ApiResponse<Record<string, unknown>>
   > {
     return this.request<Record<string, unknown>>("/all_Individuals_count");
+  }
+
+  async getPrimarySectorsWithCompanyCounts(
+    sort?: string
+  ): Promise<ApiResponse<Record<string, unknown>>> {
+    // Check cache first
+    if (
+      this.sectorsCache &&
+      Date.now() - this.sectorsCache.timestamp < this.CACHE_DURATION
+    ) {
+      return {
+        data: this.sectorsCache.data,
+        error: undefined,
+        total: undefined,
+      };
+    }
+
+    // Use the same authentication method as dashboard API calls
+    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
+    const endpoint = "/Primary_sectors_with_companies_counts";
+
+    const authHeaders = authService.getAuthHeaders();
+
+    const headers = {
+      "Content-Type": "application/json",
+      ...authHeaders,
+    };
+
+    const options: RequestInit = {
+      method: sort ? "POST" : "GET",
+      headers,
+      ...(sort && { body: JSON.stringify({ sort }) }),
+    };
+
+    const response = await fetch(`${sectorsBaseUrl}${endpoint}`, options);
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Authentication required");
+      }
+      throw new Error(`API request failed: ${response.statusText}`);
+    }
+
+    const responseData = await response.json();
+
+    // Cache the response
+    this.sectorsCache = {
+      data: responseData,
+      timestamp: Date.now(),
+    };
+
+    // Wrap the response in the expected ApiResponse format
+    return {
+      data: responseData,
+      error: undefined,
+      total: undefined,
+    };
+  }
+
+  async getSectorsOverview(): Promise<ApiResponse<Record<string, unknown>>> {
+    // Use the same authentication method as dashboard API calls
+    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
+    const endpoint = "/sectors_overview";
+
+    const authHeaders = authService.getAuthHeaders();
+
+    const headers = {
+      "Content-Type": "application/json",
+      ...authHeaders,
+    };
+
+    const options: RequestInit = {
+      method: "GET",
+      headers,
+    };
+
+    const response = await fetch(`${sectorsBaseUrl}${endpoint}`, options);
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Authentication required");
+      }
+      throw new Error(`API request failed: ${response.statusText}`);
+    }
+
+    const responseData = await response.json();
+
+    // Wrap the response in the expected ApiResponse format
+    return {
+      data: responseData,
+      error: undefined,
+      total: undefined,
+    };
+  }
+
+  // Clear cache method for manual cache invalidation
+  clearSectorsCache(): void {
+    this.sectorsCache = null;
   }
 
   // Generic method for any dashboard endpoint

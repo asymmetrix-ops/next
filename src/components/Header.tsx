@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const Header = () => {
   return (
@@ -9,9 +10,12 @@ const Header = () => {
       <div className="container flex justify-between items-center px-6 py-4 mx-auto">
         <div className="flex items-center space-x-8">
           <div className="flex items-center space-x-2">
-            <img
+            <Image
               src="https://www.asymmetrixintelligence.com/images/logo.svg?_wwcv=682"
               alt="Asymmetrix"
+              width={120}
+              height={32}
+              priority
               className="w-auto h-8"
             />
           </div>
