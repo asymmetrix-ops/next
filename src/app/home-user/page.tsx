@@ -472,7 +472,7 @@ export default function HomeUserPage() {
                   Companies
                 </button>
                 <Link
-                  href="/sectors-data"
+                  href="/sectors"
                   className="text-gray-500 hover:text-gray-700"
                 >
                   Sectors
