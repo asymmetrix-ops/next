@@ -32,8 +32,13 @@ class AuthService {
     try {
       localStorage.setItem(this.tokenKey, token);
       localStorage.setItem(this.userKey, JSON.stringify(user));
+
+      // Also store in cookie for SSR access
+      document.cookie = `${this.tokenKey}=${token}; path=/; max-age=${
+        7 * 24 * 60 * 60
+      }; SameSite=Lax`; // 7 days
     } catch (error) {
-      console.error("Error storing auth data in localStorage:", error);
+      console.error("Error storing auth data:", error);
     }
   }
 
@@ -137,8 +142,11 @@ class AuthService {
     try {
       localStorage.removeItem(this.tokenKey);
       localStorage.removeItem(this.userKey);
+
+      // Also clear cookies
+      document.cookie = `${this.tokenKey}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
     } catch (error) {
-      console.error("Error clearing auth data from localStorage:", error);
+      console.error("Error clearing auth data:", error);
     }
   }
 

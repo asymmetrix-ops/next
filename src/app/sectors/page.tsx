@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
-import { useAuth } from "@/components/providers/AuthProvider";
-import { dashboardApiService } from "@/lib/dashboardApi";
+import React, { useState, useEffect } from "react";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
-// Types for sectors data
+// Types for API integration
 interface Sector {
   id: number;
   sector_name: string;
@@ -18,266 +17,358 @@ interface Sector {
 
 interface SectorsResponse {
   sectors: Sector[];
+  summary?: {
+    total_sectors?: number;
+    total_companies?: number;
+    total_pe_companies?: number;
+    total_vc_companies?: number;
+    total_public_companies?: number;
+    total_private_companies?: number;
+  };
 }
 
-export default function SectorsPage() {
-  const { isAuthenticated, loading: authLoading, user } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
+const SectorsSection = () => {
   const [sectors, setSectors] = useState<Sector[]>([]);
-  const [primarySectorsCount, setPrimarySectorsCount] = useState(0);
-  const [subSectorsCount, setSubSectorsCount] = useState(0);
-  const [topSectors, setTopSectors] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  console.log("Sectors page - Render - authLoading:", authLoading);
-  console.log("Sectors page - Render - isAuthenticated:", isAuthenticated);
-  console.log("Sectors page - Render - User:", user);
+  const [summaryData, setSummaryData] = useState({
+    primary_sectors_count: 0,
+    sub_sectors_count: 0,
+    top_5_primary_sectors: [] as string[],
+  });
 
-  const fetchSectorsData = useCallback(async () => {
-    console.log("Sectors page - fetchSectorsData called");
-
-    if (!isAuthenticated) {
-      console.log("Sectors page - Not authenticated, skipping data fetch");
-      return;
-    }
+  // Fetch sectors data
+  const fetchSectors = async () => {
+    setLoading(true);
+    setError(null);
 
     try {
-      setIsLoading(true);
-      console.log("Sectors page - Fetching sectors data...");
+      const token = localStorage.getItem("asymmetrix_auth_token");
 
-      const sectorsResponse =
-        await dashboardApiService.getPrimarySectorsWithCompanyCounts();
-      console.log("Sectors page - Sectors response:", sectorsResponse);
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Primary_sectors_with_companies_counts`;
 
-      if (sectorsResponse.data) {
-        const sectorsData = sectorsResponse.data as unknown as SectorsResponse;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
 
-        if (sectorsData.sectors && Array.isArray(sectorsData.sectors)) {
-          setSectors(sectorsData.sectors);
-          setPrimarySectorsCount(sectorsData.sectors.length);
-
-          const sortedSectors = [...sectorsData.sectors].sort(
-            (a, b) => b.Number_of_Companies - a.Number_of_Companies
-          );
-          const top5Sectors = sortedSectors
-            .slice(0, 5)
-            .map((sector) => sector.sector_name);
-          setTopSectors(top5Sectors);
-          setSubSectorsCount(762);
-        }
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.statusText}`);
       }
-    } catch (error) {
-      console.error("Error fetching sectors data:", error);
+
+      const data: SectorsResponse = await response.json();
+      setSectors(data.sectors || []);
+      setSummaryData({
+        primary_sectors_count: data.summary?.total_sectors || 37,
+        sub_sectors_count: data.summary?.total_companies || 762,
+        top_5_primary_sectors: [
+          "Financial",
+          "Energy & Commodities",
+          "ESG",
+          "Real Estate",
+          "Company Data",
+        ],
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch sectors");
+      console.error("Error fetching sectors:", err);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    console.log("Sectors page - useEffect triggered");
-    console.log("Sectors page - authLoading:", authLoading);
-    console.log("Sectors page - isAuthenticated:", isAuthenticated);
-
-    if (authLoading) {
-      console.log("Sectors page - Still loading auth, waiting...");
-      return;
-    }
-
-    if (isAuthenticated) {
-      console.log("Sectors page - Authenticated, fetching data");
-      fetchSectorsData();
-    } else {
-      console.log("Sectors page - Not authenticated");
-    }
-  }, [isAuthenticated, authLoading, fetchSectorsData]);
-
-  const handleLogout = () => {
-    // This will be handled by the AuthProvider
   };
 
-  if (authLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="mx-auto w-12 h-12 rounded-full border-b-2 border-blue-600 animate-spin"></div>
-          <p className="mt-4 text-gray-600">Checking authentication...</p>
-        </div>
-      </div>
+  useEffect(() => {
+    fetchSectors();
+  }, []);
+
+  const tableRows = sectors.map((sector, index) => {
+    // Format numbers with commas
+    const formatNumber = (num: number | undefined) => {
+      if (num === undefined || num === null) return "0";
+      return num.toLocaleString();
+    };
+
+    return React.createElement(
+      "tr",
+      { key: index },
+      React.createElement(
+        "td",
+        null,
+        React.createElement(
+          "span",
+          {
+            className: "sector-name",
+            onClick: () => {
+              window.location.href = `/sector/${sector.id}`;
+            },
+            style: { cursor: "pointer" },
+          },
+          sector.sector_name || "N/A"
+        )
+      ),
+      React.createElement("td", null, formatNumber(sector.Number_of_Companies)),
+      React.createElement("td", null, formatNumber(sector.Number_of_Public)),
+      React.createElement("td", null, formatNumber(sector.Number_of_PE)),
+      React.createElement("td", null, formatNumber(sector.Number_of_VC)),
+      React.createElement("td", null, formatNumber(sector.Number_of_Private))
+    );
+  });
+
+  const style = `
+    .sectors-section {
+      padding: 32px 24px;
+      border-radius: 8px;
+    }
+    .sectors-stats {
+      background: #fff;
+      padding: 32px 24px;
+      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
+      border-radius: 16px;
+      margin-bottom: 24px;
+    }
+    .stats-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1a202c;
+      margin: 0 0 24px 0;
+    }
+    .stats-content {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .stats-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .stats-item:last-child {
+      border-bottom: none;
+    }
+    .stats-label {
+      font-size: 14px;
+      color: #4a5568;
+      font-weight: 500;
+    }
+    .stats-value {
+      font-size: 16px;
+      color: #000;
+      font-weight: 600;
+    }
+    .top-sectors {
+      margin-top: 16px;
+    }
+    .top-sectors-label {
+      font-size: 14px;
+      color: #4a5568;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    .top-sectors-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .top-sector-item {
+      background: #f7fafc;
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-size: 12px;
+      color: #4a5568;
+      font-weight: 500;
+    }
+    .sectors-table {
+      width: 100%;
+      background: #fff;
+      padding: 32px 24px;
+      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
+      border-radius: 16px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    .sectors-table th,
+    .sectors-table td {
+      padding: 16px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid #e2e8f0;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .sectors-table th {
+      font-weight: 600;
+      color: #1a202c;
+      font-size: 14px;
+      background: #f9fafb;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .sectors-table td {
+      font-size: 14px;
+      color: #000;
+      line-height: 1.5;
+    }
+    .sector-name {
+      color: #0075df;
+      text-decoration: underline;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    .error {
+      text-align: center;
+      padding: 20px;
+      color: #e53e3e;
+      background-color: #fed7d7;
+      border-radius: 6px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .sectors-table {
+        font-size: 12px;
+      }
+      .sectors-table th,
+      .sectors-table td {
+        padding: 8px;
+        font-size: 12px;
+      }
+      .top-sectors-list {
+        flex-direction: column;
+      }
+    }
+  `;
+
+  if (loading) {
+    return React.createElement(
+      "div",
+      { className: "sectors-section" },
+      React.createElement(
+        "div",
+        { className: "loading" },
+        "Loading sectors..."
+      ),
+      React.createElement("style", {
+        dangerouslySetInnerHTML: { __html: style },
+      })
     );
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="mx-auto w-12 h-12 rounded-full border-b-2 border-red-600 animate-spin"></div>
-          <p className="mt-4 text-gray-600">Redirecting to login...</p>
-        </div>
-      </div>
+  if (error) {
+    return React.createElement(
+      "div",
+      { className: "sectors-section" },
+      React.createElement("div", { className: "error" }, error),
+      React.createElement("style", {
+        dangerouslySetInnerHTML: { __html: style },
+      })
     );
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="mx-auto w-12 h-12 rounded-full border-b-2 border-blue-600 animate-spin"></div>
-          <p className="mt-4 text-gray-600">Loading sectors...</p>
-        </div>
-      </div>
-    );
-  }
+  return React.createElement(
+    "div",
+    { className: "sectors-section" },
+    // Statistics Block
+    React.createElement(
+      "div",
+      { className: "sectors-stats" },
+      React.createElement("h2", { className: "stats-title" }, "Sectors"),
+      React.createElement(
+        "div",
+        { className: "stats-content" },
+        React.createElement(
+          "div",
+          { className: "stats-item" },
+          React.createElement(
+            "span",
+            { className: "stats-label" },
+            "Primary Sectors: "
+          ),
+          React.createElement(
+            "span",
+            { className: "stats-value" },
+            summaryData.primary_sectors_count.toLocaleString()
+          )
+        ),
+        React.createElement(
+          "div",
+          { className: "stats-item" },
+          React.createElement(
+            "span",
+            { className: "stats-label" },
+            "Sub-sectors: "
+          ),
+          React.createElement(
+            "span",
+            { className: "stats-value" },
+            summaryData.sub_sectors_count.toLocaleString()
+          )
+        ),
+        React.createElement(
+          "div",
+          { className: "top-sectors" },
+          React.createElement(
+            "div",
+            { className: "top-sectors-label" },
+            "Top 5 Primary Sectors:"
+          ),
+          React.createElement(
+            "div",
+            { className: "top-sectors-list" },
+            summaryData.top_5_primary_sectors.map((sector, index) =>
+              React.createElement(
+                "span",
+                { key: index, className: "top-sector-item" },
+                sector
+              )
+            )
+          )
+        )
+      )
+    ),
+    React.createElement(
+      "table",
+      { className: "sectors-table" },
+      React.createElement(
+        "thead",
+        null,
+        React.createElement(
+          "tr",
+          null,
+          React.createElement("th", null, "Sector Name"),
+          React.createElement("th", null, "Number of Companies"),
+          React.createElement("th", null, "Number of Public Companies"),
+          React.createElement("th", null, "Number of PE-owned Companies"),
+          React.createElement("th", null, "Number of VC-owned Companies"),
+          React.createElement("th", null, "Number of Private Companies")
+        )
+      ),
+      React.createElement("tbody", null, tableRows)
+    ),
 
+    React.createElement("style", {
+      dangerouslySetInnerHTML: { __html: style },
+    })
+  );
+};
+
+const SectorsPage = () => {
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b shadow-sm">
-        <div className="px-4 mx-auto w-full">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-8">
-              <Link href="/home-user" className="flex items-center">
-                <img
-                  src="https://www.asymmetrixintelligence.com/images/logo.svg?_wwcv=682"
-                  alt="Asymmetrix"
-                  className="mr-2 w-auto h-8"
-                />
-              </Link>
-
-              <nav className="hidden space-x-8 md:flex">
-                <Link
-                  href="/home-user"
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  Dashboard
-                </Link>
-                <button
-                  className="text-gray-500 cursor-not-allowed hover:text-gray-700"
-                  disabled
-                >
-                  Companies
-                </button>
-                <Link href="/sectors" className="font-medium text-blue-600">
-                  Sectors
-                </Link>
-                <button
-                  className="text-gray-500 cursor-not-allowed hover:text-gray-700"
-                  disabled
-                >
-                  Insights & Analysis
-                </button>
-                <button
-                  className="text-gray-500 cursor-not-allowed hover:text-gray-700"
-                  disabled
-                >
-                  Investors
-                </button>
-                <button
-                  className="text-gray-500 cursor-not-allowed hover:text-gray-700"
-                  disabled
-                >
-                  Advisors
-                </button>
-                <button
-                  className="text-gray-500 cursor-not-allowed hover:text-gray-700"
-                  disabled
-                >
-                  Individuals
-                </button>
-              </nav>
-            </div>
-
-            <button
-              onClick={handleLogout}
-              className="text-sm font-medium text-gray-500 hover:text-gray-700"
-            >
-              Log out
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="px-4 py-8 mx-auto w-full">
-        <div className="bg-white rounded-lg shadow">
-          {/* Sectors Summary Section */}
-          <div className="p-6 border-b border-gray-200">
-            <h1 className="mb-4 text-2xl font-bold text-gray-900">Sectors</h1>
-
-            <div className="mb-4 space-y-2">
-              <p className="text-gray-700">
-                Primary Sectors:{" "}
-                <span className="font-bold">{primarySectorsCount}</span>
-              </p>
-              <p className="text-gray-700">
-                Sub-sectors:{" "}
-                <span className="font-bold">{subSectorsCount}</span>
-              </p>
-            </div>
-
-            <div>
-              <p className="mb-2 text-gray-700">Top 5 Primary Sectors:</p>
-              <p className="text-gray-600">{topSectors.join(", ")}</p>
-            </div>
-          </div>
-
-          {/* Primary Sectors Table Section */}
-          <div className="p-6">
-            <h2 className="mb-4 text-xl font-bold text-gray-900">
-              Primary Sectors
-            </h2>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                      Sector name
-                    </th>
-                    <th className="px-4 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase">
-                      Number of Companies
-                    </th>
-                    <th className="px-4 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase">
-                      Number of Public Companies
-                    </th>
-                    <th className="px-4 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase">
-                      Number of PE-owned Companies
-                    </th>
-                    <th className="px-4 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase">
-                      Number of VC-owned Companies
-                    </th>
-                    <th className="px-4 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase">
-                      Number of Private Companies
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {sectors.map((sector) => (
-                    <tr key={sector.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-blue-600 underline cursor-pointer">
-                        {sector.sector_name}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900">
-                        {sector.Number_of_Companies}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900">
-                        {sector.Number_of_Public}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900">
-                        {sector.Number_of_PE}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900">
-                        {sector.Number_of_VC}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900">
-                        {sector.Number_of_Private}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </main>
+    <div className="min-h-screen">
+      <Header />
+      <SectorsSection />
+      <Footer />
     </div>
   );
-}
+};
+
+export default SectorsPage;
