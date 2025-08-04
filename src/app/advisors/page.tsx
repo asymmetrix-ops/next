@@ -421,10 +421,10 @@ const AdvisorSection = () => {
               "div",
               {
                 style: {
-                  width: "60px",
-                  height: "40px",
+                  width: "50px",
+                  height: "50px",
                   backgroundColor: "#f7fafc",
-                  borderRadius: "4px",
+                  borderRadius: "50%",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -525,29 +525,25 @@ const AdvisorSection = () => {
       margin: 0 0 24px 0;
     }
     .stats-content {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px 24px;
     }
     .stats-item {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 0;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .stats-item:last-child {
-      border-bottom: none;
+      flex-direction: column;
+      gap: 4px;
     }
     .stats-label {
       font-size: 14px;
       color: #4a5568;
       font-weight: 500;
+      line-height: 1.4;
     }
     .stats-value {
-      font-size: 16px;
+      font-size: 20px;
       color: #000;
-      font-weight: 600;
+      font-weight: 700;
     }
     .advisor-table {
       width: 100%;
@@ -580,11 +576,11 @@ const AdvisorSection = () => {
       line-height: 1.5;
     }
     .advisor-logo {
-      width: 60px;
-      height: 40px;
-      object-fit: contain;
+      width: 50px;
+      height: 50px;
+      object-fit: cover;
       vertical-align: middle;
-      border-radius: 4px;
+      border-radius: 50%;
     }
     .advisor-name {
       color: #0075df;
@@ -629,6 +625,14 @@ const AdvisorSection = () => {
       margin-bottom: 16px;
     }
     @media (max-width: 768px) {
+      .stats-content {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px 16px;
+      }
+      .stats-title {
+        font-size: 20px;
+        margin-bottom: 16px;
+      }
       .advisor-table {
         font-size: 12px;
       }
@@ -639,13 +643,19 @@ const AdvisorSection = () => {
       }
       .advisor-logo {
         width: 40px;
-        height: 30px;
+        height: 40px;
       }
       .advisor-description {
         max-width: 200px;
       }
       .sectors-list {
         max-width: 150px;
+      }
+    }
+    @media (max-width: 480px) {
+      .stats-content {
+        grid-template-columns: 1fr;
+        gap: 12px;
       }
     }
   `;
@@ -693,7 +703,7 @@ const AdvisorSection = () => {
           React.createElement(
             "span",
             { className: "stats-label" },
-            "Financial Advisors: "
+            "Financial Advisors"
           ),
           React.createElement(
             "span",
@@ -707,7 +717,7 @@ const AdvisorSection = () => {
           React.createElement(
             "span",
             { className: "stats-label" },
-            "Commercial Due Diligence: "
+            "Commercial Due Diligence"
           ),
           React.createElement(
             "span",
@@ -721,7 +731,7 @@ const AdvisorSection = () => {
           React.createElement(
             "span",
             { className: "stats-label" },
-            "Vendor Due Diligence: "
+            "Vendor Due Diligence"
           ),
           React.createElement(
             "span",
@@ -735,7 +745,7 @@ const AdvisorSection = () => {
           React.createElement(
             "span",
             { className: "stats-label" },
-            "Management Team Advisory: "
+            "Management Team Advisory"
           ),
           React.createElement(
             "span",
@@ -746,7 +756,7 @@ const AdvisorSection = () => {
         React.createElement(
           "div",
           { className: "stats-item" },
-          React.createElement("span", { className: "stats-label" }, "NOMAD: "),
+          React.createElement("span", { className: "stats-label" }, "NOMAD"),
           React.createElement(
             "span",
             { className: "stats-value" },

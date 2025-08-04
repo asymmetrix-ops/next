@@ -1,318 +1,876 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
+import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
 // Types for API integration
-interface SectorDetail {
+interface SectorData {
   id: number;
+  created_at: number;
   sector_name: string;
-  Number_of_Companies: number;
-  Number_of_PE: number;
-  Number_of_VC: number;
-  Number_of_Public: number;
-  Number_of_Private: number;
-  description?: string;
+  Sector_importance: string;
+  Related_to_primary_sectors: string[];
+  company_ids: string;
+  Sector_thesis: string;
 }
 
+interface SectorStatistics {
+  Total_number_of_companies: number;
+  Number_Of_Public_Companies: number;
+  Number_Of_PE_Companies: number;
+  "Number_of_VC-owned_companies": number;
+  Number_of_private_companies: number;
+  Number_of_subsidiaries: number;
+  Sector: SectorData;
+}
+
+interface SectorCompany {
+  id: number;
+  name: string;
+  locations_id: number;
+  url: string;
+  sectors: string[];
+  primary_sectors: string[];
+  description: string;
+  linkedin_employee: number;
+  linkedin_employee_latest: number;
+  linkedin_employee_old: number;
+  linkedin_logo: string;
+  country: string;
+  ownership_type_id: number;
+  ownership: string;
+  is_that_investor: boolean;
+  companies_investors: Array<{
+    company_name: string;
+    original_new_company_id: number;
+  }>;
+}
+
+interface SectorCompaniesResponse {
+  result1: {
+    items: SectorCompany[];
+    itemsReceived: number;
+    curPage: number;
+    nextPage: number | null;
+    prevPage: number | null;
+    offset: number;
+    perPage: number;
+    pageTotal: number;
+  };
+}
+
+// Utility functions
+const formatNumber = (num: number | undefined): string => {
+  if (num === undefined || num === null) return "0";
+  return num.toLocaleString();
+};
+
+const truncateDescription = (
+  description: string,
+  maxLength: number = 150
+): { text: string; isLong: boolean } => {
+  const isLong = description.length > maxLength;
+  const truncated = isLong
+    ? description.substring(0, maxLength) + "..."
+    : description;
+  return { text: truncated, isLong };
+};
+
+// Company Logo Component
+const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
+  if (logo) {
+    return (
+      <Image
+        src={`data:image/jpeg;base64,${logo}`}
+        alt={`${name} logo`}
+        width={60}
+        height={40}
+        className="company-logo"
+        style={{ objectFit: "contain", borderRadius: "8px" }}
+      />
+    );
+  }
+
+  return (
+    <div
+      style={{
+        width: "60px",
+        height: "40px",
+        backgroundColor: "#f7fafc",
+        borderRadius: "8px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: "10px",
+        color: "#718096",
+      }}
+    >
+      No Logo
+    </div>
+  );
+};
+
+// Company Description Component
+const CompanyDescription = ({
+  description,
+  index,
+}: {
+  description: string;
+  index: number;
+}) => {
+  const { text: truncatedText, isLong } = truncateDescription(description);
+
+  const toggleDescription = () => {
+    const truncatedEl = document.getElementById(`description-${index}`);
+    const fullEl = document.getElementById(`description-full-${index}`);
+    const expandEl = document.getElementById(`expand-${index}`);
+
+    if (truncatedEl && fullEl && expandEl) {
+      if (truncatedEl.style.display === "block") {
+        truncatedEl.style.display = "none";
+        fullEl.style.display = "block";
+        expandEl.textContent = "Collapse description";
+      } else {
+        truncatedEl.style.display = "block";
+        fullEl.style.display = "none";
+        expandEl.textContent = "Expand description";
+      }
+    }
+  };
+
+  return (
+    <div className="company-description">
+      <div
+        className="company-description-truncated"
+        id={`description-${index}`}
+        style={{ display: isLong ? "block" : "none" }}
+      >
+        {truncatedText}
+      </div>
+      <div
+        className="company-description-full"
+        id={`description-full-${index}`}
+        style={{ display: isLong ? "none" : "block" }}
+      >
+        {description}
+      </div>
+      {isLong && (
+        <span
+          className="expand-description"
+          onClick={toggleDescription}
+          id={`expand-${index}`}
+        >
+          Expand description
+        </span>
+      )}
+    </div>
+  );
+};
+
+// Main Sector Detail Component
 const SectorDetailPage = () => {
   const params = useParams();
-  const sectorId = params.id;
+  const sectorId = params.id as string;
 
-  const [sector, setSector] = useState<SectorDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [sectorData, setSectorData] = useState<SectorStatistics | null>(null);
+  const [companies, setCompanies] = useState<SectorCompany[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({
+    itemsReceived: 0,
+    curPage: 1,
+    nextPage: null as number | null,
+    prevPage: null as number | null,
+    offset: 0,
+    perPage: 50,
+    pageTotal: 0,
+  });
 
-  // Fetch sector detail data
-  const fetchSectorDetail = async () => {
+  // Fetch sector data
+  const fetchSectorData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Primary_sectors_with_companies_counts`;
+      const params = new URLSearchParams();
+      params.append("Sector_id", sectorId);
 
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Get_Sector?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          credentials: "include",
+        }
+      );
 
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error("Sector not found");
+        }
         throw new Error(`API request failed: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      // Find the specific sector by ID
-      const foundSector = data.sectors?.find(
-        (s: SectorDetail) => s.id === Number(sectorId)
-      );
-
-      if (foundSector) {
-        setSector(foundSector);
-      } else {
-        setError("Sector not found");
-      }
+      const data: SectorStatistics = await response.json();
+      setSectorData(data);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to fetch sector details"
+        err instanceof Error ? err.message : "Failed to fetch sector data"
       );
-      console.error("Error fetching sector details:", err);
+      console.error("Error fetching sector data:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [sectorId]);
+
+  // Fetch companies data
+  const fetchCompanies = useCallback(
+    async (page: number = 1) => {
+      setCompaniesLoading(true);
+
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const offset = (page - 1) * 50;
+
+        const params = new URLSearchParams();
+        params.append("Offset", offset.toString());
+        params.append("Per_page", "50");
+        params.append("Sector_id", sectorId);
+
+        const response = await fetch(
+          `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Get_Sector_s_new_companies?${params.toString()}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+            credentials: "include",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`API request failed: ${response.statusText}`);
+        }
+
+        const data: SectorCompaniesResponse = await response.json();
+        setCompanies(data.result1?.items || []);
+        setPagination({
+          itemsReceived: data.result1?.itemsReceived || 0,
+          curPage: data.result1?.curPage || 1,
+          nextPage: data.result1?.nextPage || null,
+          prevPage: data.result1?.prevPage || null,
+          offset: data.result1?.offset || 0,
+          perPage: data.result1?.perPage || 50,
+          pageTotal: data.result1?.pageTotal || 0,
+        });
+      } catch (err) {
+        console.error("Error fetching companies:", err);
+      } finally {
+        setCompaniesLoading(false);
+      }
+    },
+    [sectorId]
+  );
 
   useEffect(() => {
     if (sectorId) {
-      fetchSectorDetail();
+      fetchSectorData();
     }
-  }, [sectorId]);
+  }, [fetchSectorData, sectorId]);
 
-  const formatNumber = (num: number | undefined) => {
-    if (num === undefined || num === null) return "0";
-    return num.toLocaleString();
+  useEffect(() => {
+    if (sectorData) {
+      fetchCompanies(1);
+    }
+  }, [sectorData, fetchCompanies]);
+
+  const handlePageChange = useCallback(
+    (page: number) => {
+      fetchCompanies(page);
+    },
+    [fetchCompanies]
+  );
+
+  const generatePaginationButtons = () => {
+    const buttons = [];
+    const maxVisible = 7;
+
+    if (pagination.pageTotal <= maxVisible) {
+      for (let i = 1; i <= pagination.pageTotal; i++) {
+        buttons.push(
+          <button
+            key={i}
+            className={`pagination-button ${
+              i === pagination.curPage ? "active" : ""
+            }`}
+            onClick={() => handlePageChange(i)}
+          >
+            {i}
+          </button>
+        );
+      }
+    } else {
+      // Always show first page
+      buttons.push(
+        <button
+          key={1}
+          className={`pagination-button ${
+            1 === pagination.curPage ? "active" : ""
+          }`}
+          onClick={() => handlePageChange(1)}
+        >
+          1
+        </button>
+      );
+
+      if (pagination.curPage > 3) {
+        buttons.push(
+          <span key="ellipsis1" className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+
+      // Show pages around current
+      const start = Math.max(2, pagination.curPage - 1);
+      const end = Math.min(pagination.pageTotal - 1, pagination.curPage + 1);
+
+      for (let i = start; i <= end; i++) {
+        if (i > 1 && i < pagination.pageTotal) {
+          buttons.push(
+            <button
+              key={i}
+              className={`pagination-button ${
+                i === pagination.curPage ? "active" : ""
+              }`}
+              onClick={() => handlePageChange(i)}
+            >
+              {i}
+            </button>
+          );
+        }
+      }
+
+      if (pagination.curPage < pagination.pageTotal - 2) {
+        buttons.push(
+          <span key="ellipsis2" className="pagination-ellipsis">
+            ...
+          </span>
+        );
+      }
+
+      // Always show last page
+      if (pagination.pageTotal > 1) {
+        buttons.push(
+          <button
+            key={pagination.pageTotal}
+            className={`pagination-button ${
+              pagination.pageTotal === pagination.curPage ? "active" : ""
+            }`}
+            onClick={() => handlePageChange(pagination.pageTotal)}
+          >
+            {pagination.pageTotal}
+          </button>
+        );
+      }
+    }
+
+    return buttons;
   };
 
+  const styles = {
+    container: {
+      backgroundColor: "#f9fafb",
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column" as const,
+    },
+    maxWidth: {
+      width: "100%",
+      padding: "32px",
+      flex: "1",
+      display: "flex",
+      flexDirection: "column" as const,
+    },
+    header: {
+      backgroundColor: "white",
+      borderRadius: "12px",
+      padding: "32px 24px",
+      marginBottom: "24px",
+      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+    },
+    breadcrumb: {
+      fontSize: "14px",
+      color: "#4a5568",
+      marginBottom: "16px",
+    },
+    breadcrumbLink: {
+      color: "#0075df",
+      textDecoration: "underline",
+      cursor: "pointer",
+    },
+    sectorTitle: {
+      fontSize: "28px",
+      fontWeight: "700",
+      color: "#1a202c",
+      margin: "0 0 8px 0",
+    },
+    sectorImportance: {
+      fontSize: "16px",
+      color: "#4a5568",
+      margin: "0",
+    },
+    mainContent: {
+      display: "grid",
+      gridTemplateColumns: "300px 1fr",
+      gap: "24px",
+      flex: "1",
+    },
+    sidebar: {
+      backgroundColor: "white",
+      borderRadius: "12px",
+      padding: "24px",
+      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+      height: "fit-content",
+    },
+    sidebarTitle: {
+      fontSize: "20px",
+      fontWeight: "600",
+      color: "#1a202c",
+      marginBottom: "24px",
+      marginTop: "0",
+    },
+    statItem: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "12px 0",
+      borderBottom: "1px solid #e2e8f0",
+    },
+    statItemLast: {
+      borderBottom: "none",
+    },
+    statLabel: {
+      fontSize: "14px",
+      color: "#4a5568",
+      fontWeight: "500",
+    },
+    statValue: {
+      fontSize: "16px",
+      color: "#1a202c",
+      fontWeight: "600",
+    },
+    thesis: {
+      fontSize: "14px",
+      color: "#4a5568",
+      lineHeight: "1.6",
+      marginTop: "16px",
+      fontStyle: "italic",
+    },
+    companiesSection: {
+      backgroundColor: "white",
+      borderRadius: "12px",
+      padding: "32px 24px",
+      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+    },
+    companiesTitle: {
+      fontSize: "20px",
+      fontWeight: "600",
+      color: "#1a202c",
+      marginBottom: "24px",
+      marginTop: "0",
+    },
+    "@media (max-width: 768px)": {
+      mainContent: {
+        gridTemplateColumns: "1fr",
+      },
+      maxWidth: {
+        padding: "16px",
+      },
+      header: {
+        padding: "24px 16px",
+      },
+      companiesSection: {
+        padding: "24px 16px",
+      },
+      sectorTitle: {
+        fontSize: "24px",
+      },
+    },
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <div style={{ padding: "40px", textAlign: "center" }}>
+          <div style={{ fontSize: "18px", color: "#666" }}>
+            Loading sector data...
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <div style={{ padding: "40px", textAlign: "center" }}>
+          <div style={{ fontSize: "18px", color: "#e53e3e" }}>
+            {error === "Sector not found" ? (
+              <div>
+                <h1 style={{ fontSize: "24px", marginBottom: "16px" }}>
+                  Sector Not Found
+                </h1>
+                <p style={{ marginBottom: "24px" }}>
+                  The sector you&apos;re looking for doesn&apos;t exist or has
+                  been removed.
+                </p>
+                <a
+                  href="/sectors"
+                  style={{
+                    color: "#0075df",
+                    textDecoration: "underline",
+                    fontSize: "16px",
+                  }}
+                >
+                  ← Back to Sectors
+                </a>
+              </div>
+            ) : (
+              <div>
+                <h1 style={{ fontSize: "24px", marginBottom: "16px" }}>
+                  Error Loading Sector
+                </h1>
+                <p style={{ marginBottom: "24px" }}>{error}</p>
+                <a
+                  href="/sectors"
+                  style={{
+                    color: "#0075df",
+                    textDecoration: "underline",
+                    fontSize: "16px",
+                  }}
+                >
+                  ← Back to Sectors
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!sectorData) {
+    return null;
+  }
+
+  const tableRows = companies.map((company, index) => (
+    <tr key={company.id || index}>
+      <td>
+        <CompanyLogo logo={company.linkedin_logo} name={company.name} />
+      </td>
+      <td>
+        <a
+          href={`/company/${company.id}`}
+          className="company-name"
+          style={{ textDecoration: "none" }}
+        >
+          {company.name || "N/A"}
+        </a>
+      </td>
+      <td>
+        <CompanyDescription
+          description={company.description || "N/A"}
+          index={index}
+        />
+      </td>
+      <td className="sectors-list">
+        {company.sectors?.length > 0 ? company.sectors.join(", ") : "N/A"}
+      </td>
+      <td className="sectors-list">
+        {company.primary_sectors?.length > 0
+          ? company.primary_sectors.join(", ")
+          : "N/A"}
+      </td>
+      <td>{company.ownership || "N/A"}</td>
+      <td>
+        {company.companies_investors?.length > 0
+          ? company.companies_investors
+              .map((investor) => investor.company_name)
+              .join(", ")
+          : "N/A"}
+      </td>
+      <td>{formatNumber(company.linkedin_employee_latest)}</td>
+      <td>{company.country || "N/A"}</td>
+    </tr>
+  ));
+
   const style = `
-    .sector-detail-section {
-      padding: 32px 24px;
-      border-radius: 8px;
-    }
-    .sector-detail-card {
+    .company-table {
+      width: 100%;
       background: #fff;
-      padding: 32px 24px;
-      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
-      border-radius: 16px;
-      margin-bottom: 24px;
+      border-collapse: collapse;
+      table-layout: fixed;
     }
-    .sector-title {
-      font-size: 28px;
-      font-weight: 700;
-      color: #1a202c;
-      margin: 0 0 24px 0;
+    .company-table th,
+    .company-table td {
+      padding: 16px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid #e2e8f0;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
-    .sector-stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 24px;
-      margin-bottom: 32px;
-    }
-    .stat-item {
-      background: #f9fafb;
-      padding: 20px;
-      border-radius: 12px;
-      text-align: center;
-    }
-    .stat-label {
-      font-size: 14px;
-      color: #4a5568;
-      font-weight: 500;
-      margin-bottom: 8px;
-    }
-    .stat-value {
-      font-size: 24px;
-      color: #000;
-      font-weight: 700;
-    }
-    .sector-description {
-      font-size: 16px;
-      color: #4a5568;
-      line-height: 1.6;
-      margin-top: 24px;
-    }
-    .back-button {
-      background: #0075df;
-      color: white;
-      padding: 12px 24px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
+    .company-table th {
       font-weight: 600;
-      margin-bottom: 24px;
+      color: #1a202c;
+      font-size: 14px;
+      background: #f9fafb;
+      border-bottom: 2px solid #e2e8f0;
     }
-    .back-button:hover {
-      background: #005bb5;
+    .company-table td {
+      font-size: 14px;
+      color: #000;
+      line-height: 1.5;
+    }
+    .company-logo {
+      width: 60px;
+      height: 40px;
+      object-fit: contain;
+      vertical-align: middle;
+      border-radius: 8px;
+    }
+    .company-name {
+      color: #0075df;
+      text-decoration: underline;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .company-description {
+      max-width: 300px;
+      line-height: 1.4;
+    }
+    .company-description-truncated {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .expand-description {
+      color: #0075df;
+      text-decoration: underline;
+      cursor: pointer;
+      font-size: 12px;
+      margin-top: 4px;
+      display: block;
+    }
+    .sectors-list {
+      max-width: 250px;
+      line-height: 1.3;
     }
     .loading {
       text-align: center;
       padding: 40px;
       color: #666;
     }
-    .error {
-      text-align: center;
-      padding: 20px;
-      color: #e53e3e;
-      background-color: #fed7d7;
-      border-radius: 6px;
-      margin-bottom: 16px;
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-top: 24px;
+      padding: 16px;
+    }
+    .pagination-button {
+      padding: 8px 12px;
+      border: none;
+      background: none;
+      color: #000;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 400;
+      transition: color 0.2s;
+      text-decoration: none;
+    }
+    .pagination-button:hover {
+      color: #0075df;
+    }
+    .pagination-button.active {
+      color: #0075df;
+      text-decoration: underline;
+      font-weight: 500;
+    }
+    .pagination-button:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      color: #666;
+    }
+    .pagination-ellipsis {
+      padding: 8px 12px;
+      color: #000;
+      font-size: 14px;
     }
     @media (max-width: 768px) {
-      .sector-stats-grid {
-        grid-template-columns: 1fr;
+      .company-table {
+        font-size: 12px;
       }
-      .sector-title {
-        font-size: 24px;
+      .company-table th,
+      .company-table td {
+        padding: 8px;
+        font-size: 12px;
+      }
+      .company-logo {
+        width: 40px;
+        height: 30px;
+      }
+      .company-description {
+        max-width: 200px;
+      }
+      .sectors-list {
+        max-width: 150px;
       }
     }
   `;
 
-  if (loading) {
-    return React.createElement(
-      "div",
-      { className: "sector-detail-section" },
-      React.createElement(
-        "div",
-        { className: "loading" },
-        "Loading sector details..."
-      ),
-      React.createElement("style", {
-        dangerouslySetInnerHTML: { __html: style },
-      })
-    );
-  }
+  return (
+    <div className="min-h-screen" style={styles.container}>
+      <Header />
+      <div style={styles.maxWidth}>
+        {/* Header Section */}
+        <div style={styles.header}>
+          <div style={styles.breadcrumb}>
+            <a href="/sectors" style={styles.breadcrumbLink}>
+              Sectors
+            </a>{" "}
+            &gt; {sectorData.Sector.sector_name}
+          </div>
+          <h1 style={styles.sectorTitle}>{sectorData.Sector.sector_name}</h1>
+          <p style={styles.sectorImportance}>
+            {sectorData.Sector.Sector_importance} Sector
+          </p>
+        </div>
 
-  if (error) {
-    return React.createElement(
-      "div",
-      { className: "sector-detail-section" },
-      React.createElement("div", { className: "error" }, error),
-      React.createElement("style", {
-        dangerouslySetInnerHTML: { __html: style },
-      })
-    );
-  }
+        {/* Main Content */}
+        <div style={styles.mainContent}>
+          {/* Left Sidebar - Statistics */}
+          <div style={styles.sidebar}>
+            <h2 style={styles.sidebarTitle}>Sector Statistics</h2>
+            <div style={styles.statItem}>
+              <span style={styles.statLabel}>Total companies:</span>
+              <span style={styles.statValue}>
+                {formatNumber(sectorData.Total_number_of_companies)}
+              </span>
+            </div>
+            <div style={styles.statItem}>
+              <span style={styles.statLabel}>Public companies:</span>
+              <span style={styles.statValue}>
+                {formatNumber(sectorData.Number_Of_Public_Companies)}
+              </span>
+            </div>
+            <div style={styles.statItem}>
+              <span style={styles.statLabel}>PE companies:</span>
+              <span style={styles.statValue}>
+                {formatNumber(sectorData.Number_Of_PE_Companies)}
+              </span>
+            </div>
+            <div style={styles.statItem}>
+              <span style={styles.statLabel}>VC-owned companies:</span>
+              <span style={styles.statValue}>
+                {formatNumber(sectorData["Number_of_VC-owned_companies"])}
+              </span>
+            </div>
+            <div style={styles.statItem}>
+              <span style={styles.statLabel}>Private companies:</span>
+              <span style={styles.statValue}>
+                {formatNumber(sectorData.Number_of_private_companies)}
+              </span>
+            </div>
+            <div style={styles.statItemLast}>
+              <span style={styles.statLabel}>Subsidiaries:</span>
+              <span style={styles.statValue}>
+                {formatNumber(sectorData.Number_of_subsidiaries)}
+              </span>
+            </div>
+            {sectorData.Sector.Sector_thesis && (
+              <div style={styles.thesis}>
+                <strong>Sector Thesis:</strong>{" "}
+                {sectorData.Sector.Sector_thesis}
+              </div>
+            )}
+          </div>
 
-  if (!sector) {
-    return React.createElement(
-      "div",
-      { className: "sector-detail-section" },
-      React.createElement("div", { className: "error" }, "Sector not found"),
-      React.createElement("style", {
-        dangerouslySetInnerHTML: { __html: style },
-      })
-    );
-  }
+          {/* Right Section - Companies */}
+          <div style={styles.companiesSection}>
+            <h2 style={styles.companiesTitle}>
+              Companies in {sectorData.Sector.sector_name} Sector
+            </h2>
 
-  return React.createElement(
-    "div",
-    { className: "sector-detail-section" },
-    React.createElement(
-      "button",
-      {
-        className: "back-button",
-        onClick: () => window.history.back(),
-      },
-      "← Back to Sectors"
-    ),
-    React.createElement(
-      "div",
-      { className: "sector-detail-card" },
-      React.createElement(
-        "h1",
-        { className: "sector-title" },
-        sector.sector_name
-      ),
-      React.createElement(
-        "div",
-        { className: "sector-stats-grid" },
-        React.createElement(
-          "div",
-          { className: "stat-item" },
-          React.createElement(
-            "div",
-            { className: "stat-label" },
-            "Total Companies"
-          ),
-          React.createElement(
-            "div",
-            { className: "stat-value" },
-            formatNumber(sector.Number_of_Companies)
-          )
-        ),
-        React.createElement(
-          "div",
-          { className: "stat-item" },
-          React.createElement(
-            "div",
-            { className: "stat-label" },
-            "Public Companies"
-          ),
-          React.createElement(
-            "div",
-            { className: "stat-value" },
-            formatNumber(sector.Number_of_Public)
-          )
-        ),
-        React.createElement(
-          "div",
-          { className: "stat-item" },
-          React.createElement(
-            "div",
-            { className: "stat-label" },
-            "PE Companies"
-          ),
-          React.createElement(
-            "div",
-            { className: "stat-value" },
-            formatNumber(sector.Number_of_PE)
-          )
-        ),
-        React.createElement(
-          "div",
-          { className: "stat-item" },
-          React.createElement(
-            "div",
-            { className: "stat-label" },
-            "VC Companies"
-          ),
-          React.createElement(
-            "div",
-            { className: "stat-value" },
-            formatNumber(sector.Number_of_VC)
-          )
-        ),
-        React.createElement(
-          "div",
-          { className: "stat-item" },
-          React.createElement(
-            "div",
-            { className: "stat-label" },
-            "Private Companies"
-          ),
-          React.createElement(
-            "div",
-            { className: "stat-value" },
-            formatNumber(sector.Number_of_Private)
-          )
-        )
-      ),
-      sector.description &&
-        React.createElement(
-          "div",
-          { className: "sector-description" },
-          sector.description
-        )
-    ),
-    React.createElement("style", {
-      dangerouslySetInnerHTML: { __html: style },
-    })
+            {companiesLoading ? (
+              <div style={{ textAlign: "center", padding: "40px" }}>
+                <div style={{ fontSize: "18px", color: "#666" }}>
+                  Loading companies...
+                </div>
+              </div>
+            ) : companies.length > 0 ? (
+              <>
+                <table className="company-table">
+                  <thead>
+                    <tr>
+                      <th>Logo</th>
+                      <th>Name</th>
+                      <th>Description</th>
+                      <th>Sectors</th>
+                      <th>Primary Sectors</th>
+                      <th>Ownership</th>
+                      <th>Investors</th>
+                      <th>LinkedIn Members</th>
+                      <th>Country</th>
+                    </tr>
+                  </thead>
+                  <tbody>{tableRows}</tbody>
+                </table>
+
+                {pagination.pageTotal > 1 && (
+                  <div className="pagination">
+                    {generatePaginationButtons()}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ textAlign: "center", padding: "40px" }}>
+                <div style={{ fontSize: "18px", color: "#666" }}>
+                  No companies found in this sector.
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <Footer />
+      <style dangerouslySetInnerHTML={{ __html: style }} />
+    </div>
   );
 };
 
 const SectorPage = () => {
-  return (
-    <div className="min-h-screen">
-      <Header />
-      <SectorDetailPage />
-      <Footer />
-    </div>
-  );
+  return <SectorDetailPage />;
 };
 
 export default SectorPage;

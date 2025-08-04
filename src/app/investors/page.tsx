@@ -6,6 +6,8 @@ import Footer from "@/components/Footer";
 
 // Types for API integration
 interface Investor {
+  id?: number;
+  original_new_company_id?: number;
   company_name?: string;
   investor_type?: string[];
   description?: string;
@@ -553,11 +555,21 @@ const InvestorSection = () => {
       React.createElement(
         "td",
         null,
-        React.createElement(
-          "span",
-          { className: "investor-name" },
-          investor.company_name || "N/A"
-        )
+        investor.original_new_company_id
+          ? React.createElement(
+              "a",
+              {
+                href: `/investors/${investor.original_new_company_id}`,
+                className: "investor-name",
+                style: { textDecoration: "none" },
+              },
+              investor.company_name || "N/A"
+            )
+          : React.createElement(
+              "span",
+              { className: "investor-name" },
+              investor.company_name || "N/A"
+            )
       ),
       React.createElement(
         "td",
