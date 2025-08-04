@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -283,6 +284,7 @@ const AdvisorDashboard = () => {
 };
 
 const AdvisorSection = () => {
+  const router = useRouter();
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -293,6 +295,11 @@ const AdvisorSection = () => {
     managementTeamAdvisory: 4,
     nomad: 1,
   });
+
+  // Handle advisor name click to navigate to advisor profile
+  const handleAdvisorClick = (advisorId: number) => {
+    router.push(`/advisor/${advisorId}`);
+  };
 
   // Fetch advisors data and counts
   const fetchAdvisors = async (page: number = 1) => {
@@ -440,7 +447,11 @@ const AdvisorSection = () => {
         null,
         React.createElement(
           "span",
-          { className: "advisor-name" },
+          {
+            className: "advisor-name",
+            style: { cursor: "pointer", color: "#3b82f6" },
+            onClick: () => handleAdvisorClick(advisor.id),
+          },
           advisor.name || "N/A"
         )
       ),
@@ -587,6 +598,10 @@ const AdvisorSection = () => {
       text-decoration: underline;
       cursor: pointer;
       font-weight: 500;
+      transition: color 0.2s ease;
+    }
+    .advisor-name:hover {
+      color: #0056b3;
     }
     .advisor-description {
       max-width: 300px;
