@@ -77,7 +77,9 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                 )}
               </td>
               <td className="border border-gray-300 px-4 py-2">
-                {event.ev_data.enterprise_value_m && event.ev_data._currency
+                {event.ev_data.enterprise_value_m &&
+                event.ev_data._currency &&
+                event.ev_data._currency.Currency
                   ? formatCurrency(
                       event.ev_data.enterprise_value_m,
                       event.ev_data._currency.Currency

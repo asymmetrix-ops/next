@@ -626,7 +626,8 @@ export default function IndividualProfilePage() {
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               {event.ev_data.enterprise_value_m &&
-                              event.ev_data._currency
+                              event.ev_data._currency &&
+                              event.ev_data._currency.Currency
                                 ? formatCurrency(
                                     event.ev_data.enterprise_value_m,
                                     event.ev_data._currency.Currency

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -173,6 +173,7 @@ const CompanyDescription = ({
 // Main Sector Detail Component
 const SectorDetailPage = () => {
   const params = useParams();
+  const router = useRouter();
   const sectorId = params.id as string;
 
   const [sectorData, setSectorData] = useState<SectorStatistics | null>(null);
@@ -300,6 +301,15 @@ const SectorDetailPage = () => {
     },
     [fetchCompanies]
   );
+
+  const handleCompanyClick = (companyId: number) => {
+    console.log("Company clicked:", companyId);
+    try {
+      router.push(`/company/${companyId}`);
+    } catch (error) {
+      console.error("Navigation error:", error);
+    }
+  };
 
   const generatePaginationButtons = () => {
     const buttons = [];
@@ -586,13 +596,16 @@ const SectorDetailPage = () => {
         <CompanyLogo logo={company.linkedin_logo} name={company.name} />
       </td>
       <td>
-        <a
-          href={`/company/${company.id}`}
+        <span
           className="company-name"
-          style={{ textDecoration: "none" }}
+          style={{
+            textDecoration: "none",
+            cursor: "pointer",
+          }}
+          onClick={() => handleCompanyClick(company.id)}
         >
           {company.name || "N/A"}
-        </a>
+        </span>
       </td>
       <td>
         <CompanyDescription

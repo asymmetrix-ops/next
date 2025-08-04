@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import Image from "next/image";
 import Header from "@/components/Header";
@@ -51,12 +51,37 @@ const formatNumber = (num: number | undefined): string => {
 
 export default function AdvisorProfilePage() {
   const params = useParams();
+  const router = useRouter();
   const advisorId = parseInt(params.param as string);
   const [eventsExpanded, setEventsExpanded] = useState(false);
 
   const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
     advisorId,
   });
+
+  const handleAdvisorClick = (individualId: number) => {
+    console.log("Advisor clicked:", individualId);
+    // Directly redirect to the individual page using the individualId
+    router.push(`/individual/${individualId}`);
+  };
+
+  const handleOtherAdvisorClick = (advisorId: number) => {
+    console.log("Other advisor clicked:", advisorId);
+    router.push(`/advisor/${advisorId}`);
+  };
+
+  const handleCorporateEventClick = (eventId: number) => {
+    console.log("Corporate event clicked:", eventId);
+    if (!eventId) {
+      console.error("Event ID is missing:", eventId);
+      return;
+    }
+    try {
+      router.push(`/corporate-event/${eventId}`);
+    } catch (error) {
+      console.error("Error navigating to corporate event:", error);
+    }
+  };
 
   const handleReportIncorrectData = () => {
     // Handle report incorrect data functionality
@@ -298,12 +323,18 @@ export default function AdvisorProfilePage() {
                 {Advisors_individuals.length > 0
                   ? Advisors_individuals.map((individual, index) => (
                       <span key={individual.id}>
-                        <a
-                          href="#"
-                          style={{ color: "#3b82f6", textDecoration: "none" }}
+                        <span
+                          onClick={() =>
+                            handleAdvisorClick(individual.individuals_id)
+                          }
+                          style={{
+                            color: "#3b82f6",
+                            textDecoration: "none",
+                            cursor: "pointer",
+                          }}
                         >
                           {individual.advisor_individuals}
-                        </a>
+                        </span>
                         {index < Advisors_individuals.length - 1 ? ", " : ""}
                       </span>
                     ))
@@ -506,7 +537,8 @@ export default function AdvisorProfilePage() {
                         const getEnterpriseValue = () => {
                           if (
                             !event.ev_data?.enterprise_value_m ||
-                            !event.ev_data?._currency
+                            !event.ev_data?._currency ||
+                            !event.ev_data._currency.Currency
                           )
                             return "—";
                           const value = parseFloat(
@@ -533,9 +565,11 @@ export default function AdvisorProfilePage() {
                           if (!event._other_advisors_of_corporate_event?.length)
                             return "—";
                           return event._other_advisors_of_corporate_event
-                            .map((advisor) => advisor._new_company?.name)
-                            .filter(Boolean)
-                            .join(", ");
+                            .map((advisor) => ({
+                              name: advisor._new_company?.name,
+                              id: advisor._new_company?.id,
+                            }))
+                            .filter((advisor) => advisor.name && advisor.id);
                         };
 
                         return (
@@ -544,15 +578,20 @@ export default function AdvisorProfilePage() {
                             style={{ borderBottom: "1px solid #f1f5f9" }}
                           >
                             <td style={{ padding: "8px", fontSize: "12px" }}>
-                              <a
-                                href="#"
+                              <span
+                                onClick={() => {
+                                  console.log("Event object:", event);
+                                  console.log("Event ID:", event.id);
+                                  handleCorporateEventClick(event.id);
+                                }}
                                 style={{
                                   color: "#3b82f6",
                                   textDecoration: "none",
+                                  cursor: "pointer",
                                 }}
                               >
                                 {event.description}
-                              </a>
+                              </span>
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               {formatDate(event.announcement_date)}
@@ -573,7 +612,27 @@ export default function AdvisorProfilePage() {
                               {getIndividuals()}
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
-                              {getOtherAdvisors()}
+                              {(() => {
+                                const advisors = getOtherAdvisors();
+                                if (advisors === "—") return "—";
+                                return advisors.map((advisor, index) => (
+                                  <span key={advisor.id}>
+                                    <span
+                                      onClick={() =>
+                                        handleOtherAdvisorClick(advisor.id)
+                                      }
+                                      style={{
+                                        color: "#3b82f6",
+                                        textDecoration: "none",
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      {advisor.name}
+                                    </span>
+                                    {index < advisors.length - 1 ? ", " : ""}
+                                  </span>
+                                ));
+                              })()}
                             </td>
                           </tr>
                         );

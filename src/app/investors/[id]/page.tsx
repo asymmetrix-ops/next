@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -222,6 +222,7 @@ const CompanyDescription = ({ description }: { description: string }) => {
 
 const InvestorDetailPage = () => {
   const params = useParams();
+  const router = useRouter();
   const investorId = params.id as string;
 
   const [investorData, setInvestorData] = useState<InvestorData | null>(null);
@@ -431,6 +432,7 @@ const InvestorDetailPage = () => {
       }
 
       const data: CorporateEventsResponse = await response.json();
+      console.log("Corporate events API response:", data);
       setCorporateEvents(data.New_Events_Wits_Advisors || []);
     } catch (err) {
       console.error("Error fetching corporate events:", err);
@@ -458,6 +460,162 @@ const InvestorDetailPage = () => {
   const handleReportIncorrectData = () => {
     // TODO: Implement report incorrect data functionality
     console.log("Report incorrect data clicked");
+  };
+
+  const handleCompanyClick = (companyId: number) => {
+    console.log("Company clicked:", companyId);
+    try {
+      router.push(`/company/${companyId}`);
+    } catch (error) {
+      console.error("Navigation error:", error);
+    }
+  };
+
+  const handleCorporateEventDescriptionClick = async (
+    eventDescription: string
+  ) => {
+    console.log("Corporate event description clicked:", eventDescription);
+
+    try {
+      // Try to find the event ID by searching the main corporate events API
+      const token = localStorage.getItem("asymmetrix_auth_token");
+
+      const params = new URLSearchParams();
+      params.append("search_query", eventDescription);
+      params.append("Page", "0");
+      params.append("Per_page", "10");
+
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Search results:", data);
+
+        // Find the matching event by description
+        const matchingEvent = data.items?.find(
+          (event: { description: string; id: number }) =>
+            event.description === eventDescription
+        );
+
+        if (matchingEvent && matchingEvent.id) {
+          console.log("Found matching event with ID:", matchingEvent.id);
+          router.push(`/corporate-event/${matchingEvent.id}`);
+        } else {
+          console.log("No matching event found with ID");
+          // Fallback: just log the description for now
+        }
+      } else {
+        console.error("Failed to search for event:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error searching for event:", error);
+    }
+  };
+
+  const handleInvestorClick = async (investorName: string) => {
+    console.log("Investor clicked:", investorName);
+    try {
+      // Search for the investor using the individuals API
+      const token = localStorage.getItem("asymmetrix_auth_token");
+
+      const params = new URLSearchParams();
+      params.append("search_query", investorName);
+      params.append("Page", "0");
+      params.append("Per_page", "10");
+
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Investor search results:", data);
+
+        // Find the matching individual by name
+        const matchingIndividual = data.Individuals_list?.items?.find(
+          (individual: { advisor_individuals: string; id: number }) =>
+            individual.advisor_individuals === investorName
+        );
+
+        if (matchingIndividual && matchingIndividual.id) {
+          console.log(
+            "Found matching investor with ID:",
+            matchingIndividual.id
+          );
+          router.push(`/individual/${matchingIndividual.id}`);
+        } else {
+          console.log("No matching investor found with ID");
+          // Fallback: just log the name for now
+        }
+      } else {
+        console.error("Failed to search for investor:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error handling investor click:", error);
+    }
+  };
+
+  const handleAdvisorClick = async (advisorName: string) => {
+    console.log("Advisor clicked:", advisorName);
+    try {
+      // Search for the advisor using the individuals API
+      const token = localStorage.getItem("asymmetrix_auth_token");
+
+      const params = new URLSearchParams();
+      params.append("search_query", advisorName);
+      params.append("Page", "0");
+      params.append("Per_page", "10");
+
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Advisor search results:", data);
+
+        // Find the matching individual by name
+        const matchingIndividual = data.Individuals_list?.items?.find(
+          (individual: { advisor_individuals: string; id: number }) =>
+            individual.advisor_individuals === advisorName
+        );
+
+        if (matchingIndividual && matchingIndividual.id) {
+          console.log("Found matching advisor with ID:", matchingIndividual.id);
+          router.push(`/individual/${matchingIndividual.id}`);
+        } else {
+          console.log("No matching advisor found with ID");
+          // Fallback: just log the name for now
+        }
+      } else {
+        console.error("Failed to search for advisor:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error handling advisor click:", error);
+    }
   };
 
   const handlePortfolioPageChange = (page: number) => {
@@ -744,7 +902,7 @@ const InvestorDetailPage = () => {
                   ? Invested_DA_sectors.map((sector, index) => (
                       <span key={sector.id}>
                         <a
-                          href={`/sectors/${sector.id}`}
+                          href={`/sector/${sector.id}`}
                           style={{ color: "#3b82f6", textDecoration: "none" }}
                         >
                           {sector.sector_name}
@@ -1087,16 +1245,19 @@ const InvestorDetailPage = () => {
                                   />
                                 </td>
                                 <td style={{ padding: "12px" }}>
-                                  <a
-                                    href={`/company/${company.id}`}
+                                  <span
                                     style={{
                                       color: "#3b82f6",
                                       textDecoration: "none",
                                       fontWeight: "500",
+                                      cursor: "pointer",
                                     }}
+                                    onClick={() =>
+                                      handleCompanyClick(company.id)
+                                    }
                                   >
                                     {company.name}
-                                  </a>
+                                  </span>
                                 </td>
                                 <td style={{ padding: "12px" }}>
                                   <div style={{ fontSize: "12px" }}>
@@ -1327,16 +1488,19 @@ const InvestorDetailPage = () => {
                                   />
                                 </td>
                                 <td style={{ padding: "12px" }}>
-                                  <a
-                                    href={`/company/${company.id}`}
+                                  <span
                                     style={{
                                       color: "#3b82f6",
                                       textDecoration: "none",
                                       fontWeight: "500",
+                                      cursor: "pointer",
                                     }}
+                                    onClick={() =>
+                                      handleCompanyClick(company.id)
+                                    }
                                   >
                                     {company.name}
-                                  </a>
+                                  </span>
                                 </td>
                                 <td style={{ padding: "12px" }}>
                                   <div style={{ fontSize: "12px" }}>
@@ -1558,9 +1722,23 @@ const InvestorDetailPage = () => {
                             >
                               <td style={{ padding: "12px" }}>
                                 <div style={{ maxWidth: "200px" }}>
-                                  <CompanyDescription
-                                    description={event.description}
-                                  />
+                                  <span
+                                    style={{
+                                      color: "#3b82f6",
+                                      textDecoration: "none",
+                                      fontWeight: "500",
+                                      cursor: "pointer",
+                                    }}
+                                    onClick={() =>
+                                      handleCorporateEventDescriptionClick(
+                                        event.description
+                                      )
+                                    }
+                                  >
+                                    <CompanyDescription
+                                      description={event.description}
+                                    />
+                                  </span>
                                 </div>
                               </td>
                               <td style={{ padding: "12px" }}>
@@ -1581,7 +1759,38 @@ const InvestorDetailPage = () => {
                                     fontSize: "12px",
                                   }}
                                 >
-                                  {event.other_counterparties}
+                                  {event.other_counterparties !== "—"
+                                    ? event.other_counterparties
+                                        .split(", ")
+                                        .map((companyName, index) => (
+                                          <span key={index}>
+                                            <span
+                                              style={{
+                                                color: "#3b82f6",
+                                                textDecoration: "none",
+                                                fontWeight: "500",
+                                                cursor: "pointer",
+                                              }}
+                                              onClick={() => {
+                                                console.log(
+                                                  "Other counterparty clicked:",
+                                                  companyName
+                                                );
+                                                handleInvestorClick(
+                                                  companyName
+                                                );
+                                              }}
+                                            >
+                                              {companyName}
+                                            </span>
+                                            {index <
+                                              event.other_counterparties.split(
+                                                ", "
+                                              ).length -
+                                                1 && ", "}
+                                          </span>
+                                        ))
+                                    : "—"}
                                 </div>
                               </td>
                               <td style={{ padding: "12px" }}>
@@ -1594,7 +1803,35 @@ const InvestorDetailPage = () => {
                                     fontSize: "12px",
                                   }}
                                 >
-                                  {event.advisors}
+                                  {event.advisors !== "—"
+                                    ? event.advisors
+                                        .split(", ")
+                                        .map((companyName, index) => (
+                                          <span key={index}>
+                                            <span
+                                              style={{
+                                                color: "#3b82f6",
+                                                textDecoration: "none",
+                                                fontWeight: "500",
+                                                cursor: "pointer",
+                                              }}
+                                              onClick={() => {
+                                                console.log(
+                                                  "Advisor clicked:",
+                                                  companyName
+                                                );
+                                                handleAdvisorClick(companyName);
+                                              }}
+                                            >
+                                              {companyName}
+                                            </span>
+                                            {index <
+                                              event.advisors.split(", ")
+                                                .length -
+                                                1 && ", "}
+                                          </span>
+                                        ))
+                                    : "—"}
                                 </div>
                               </td>
                             </tr>
