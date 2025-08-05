@@ -597,15 +597,14 @@ export default function IndividualProfilePage() {
                             style={{ borderBottom: "1px solid #f1f5f9" }}
                           >
                             <td style={{ padding: "8px", fontSize: "12px" }}>
-                              <a
-                                href="#"
+                              <span
                                 style={{
                                   color: "#3b82f6",
                                   textDecoration: "none",
                                 }}
                               >
                                 {event.description}
-                              </a>
+                              </span>
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               {formatDate(event.announcement_date)}

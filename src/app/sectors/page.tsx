@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -28,9 +29,14 @@ interface SectorsResponse {
 }
 
 const SectorsSection = () => {
+  const router = useRouter();
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleSectorClick = (sectorId: number) => {
+    router.push(`/sector/${sectorId}`);
+  };
 
   const [summaryData, setSummaryData] = useState({
     primary_sectors_count: 0,
@@ -102,10 +108,12 @@ const SectorsSection = () => {
           "span",
           {
             className: "sector-name",
-            onClick: () => {
-              window.location.href = `/sector/${sector.id}`;
+            onClick: () => handleSectorClick(sector.id),
+            style: {
+              cursor: "pointer",
+              color: "#3b82f6",
+              textDecoration: "underline",
             },
-            style: { cursor: "pointer" },
           },
           sector.sector_name || "N/A"
         )

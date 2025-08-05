@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -314,22 +314,31 @@ const CorporateEventsSection = ({
   const router = useRouter();
 
   // Fix data mapping to match actual API response structure
-  const events = data?.items || [];
+  const events = useMemo(() => data?.items || [], [data?.items]);
   const acquisitions = data?.acquisitions || 0;
   const investments = data?.investments || 0;
   const ipos = data?.ipos || 0;
 
-  const handleEventClick = (eventId: number) => {
-    router.push(`/corporate-event/${eventId}`);
-  };
+  const handleEventClick = useCallback(
+    (eventId: number) => {
+      router.push(`/corporate-event/${eventId}`);
+    },
+    [router]
+  );
 
-  const handleCompanyClick = (companyId: number) => {
-    router.push(`/company/${companyId}`);
-  };
+  const handleCompanyClick = useCallback(
+    (companyId: number) => {
+      router.push(`/company/${companyId}`);
+    },
+    [router]
+  );
 
-  const handleInvestorClick = (investorId: number) => {
-    router.push(`/investors/${investorId}`);
-  };
+  const handleInvestorClick = useCallback(
+    (investorId: number) => {
+      router.push(`/investors/${investorId}`);
+    },
+    [router]
+  );
 
   const tableRows = useMemo(
     () =>
@@ -429,7 +438,7 @@ const CorporateEventsSection = ({
           </tr>
         );
       }),
-    [events, router]
+    [events, handleEventClick, handleCompanyClick, handleInvestorClick]
   );
 
   const style = `

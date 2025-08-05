@@ -87,7 +87,6 @@ class CorporateEventsService {
     if (!response.ok) {
       if (response.status === 401) {
         authService.logout();
-        window.location.href = "/login";
         throw new Error("Authentication required");
       }
       throw new Error(
@@ -112,7 +111,6 @@ class CorporateEventsService {
     if (!response.ok) {
       if (response.status === 401) {
         authService.logout();
-        window.location.href = "/login";
         throw new Error("Authentication required");
       }
       throw new Error(
@@ -139,7 +137,6 @@ class CorporateEventsService {
     if (!response.ok) {
       if (response.status === 401) {
         authService.logout();
-        window.location.href = "/login";
         throw new Error("Authentication required");
       }
       throw new Error(

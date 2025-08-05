@@ -82,6 +82,7 @@ interface PortfolioResponse {
 }
 
 interface CorporateEvent {
+  id?: number;
   description: string;
   announcement_date: string;
   deal_type: string;
@@ -471,10 +472,79 @@ const InvestorDetailPage = () => {
     }
   };
 
+  const handleCompanyNameClick = async (companyName: string) => {
+    console.log("Company name clicked:", companyName);
+    try {
+      // Search for the company using the companies API
+      const token = localStorage.getItem("asymmetrix_auth_token");
+
+      const params = new URLSearchParams();
+      params.append("search_query", companyName);
+      params.append("page", "1");
+      params.append("per_page", "10");
+
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_all_companies?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Company search results:", data);
+
+        // Find the matching company by name
+        const matchingCompany = data.companies?.items?.find(
+          (company: { name: string; id: number }) =>
+            company.name === companyName
+        );
+
+        if (matchingCompany && matchingCompany.id) {
+          console.log("Found matching company with ID:", matchingCompany.id);
+          router.push(`/company/${matchingCompany.id}`);
+        } else {
+          console.log("No matching company found with ID");
+          // Fallback: navigate to companies page with search
+          router.push(`/companies?search=${encodeURIComponent(companyName)}`);
+        }
+      } else {
+        console.error("Failed to search for company:", response.statusText);
+        // Fallback: navigate to companies page with search
+        router.push(`/companies?search=${encodeURIComponent(companyName)}`);
+      }
+    } catch (error) {
+      console.error("Error handling company name click:", error);
+      // Fallback: navigate to companies page with search
+      router.push(`/companies?search=${encodeURIComponent(companyName)}`);
+    }
+  };
+
   const handleCorporateEventDescriptionClick = async (
-    eventDescription: string
+    eventId?: number,
+    eventDescription?: string
   ) => {
-    console.log("Corporate event description clicked:", eventDescription);
+    console.log("Corporate event description clicked:", {
+      eventId,
+      eventDescription,
+    });
+
+    // If we have a direct ID, use it immediately
+    if (eventId) {
+      console.log("Using direct event ID:", eventId);
+      router.push(`/corporate-event/${eventId}`);
+      return;
+    }
+
+    // Fallback: search by description if no ID available
+    if (!eventDescription) {
+      console.error("No event ID or description provided");
+      return;
+    }
 
     try {
       // Try to find the event ID by searching the main corporate events API
@@ -511,63 +581,24 @@ const InvestorDetailPage = () => {
           router.push(`/corporate-event/${matchingEvent.id}`);
         } else {
           console.log("No matching event found with ID");
-          // Fallback: just log the description for now
+          // Fallback: navigate to corporate events page with search
+          router.push(
+            `/corporate-events?search=${encodeURIComponent(eventDescription)}`
+          );
         }
       } else {
         console.error("Failed to search for event:", response.statusText);
+        // Fallback: navigate to corporate events page with search
+        router.push(
+          `/corporate-events?search=${encodeURIComponent(eventDescription)}`
+        );
       }
     } catch (error) {
       console.error("Error searching for event:", error);
-    }
-  };
-
-  const handleInvestorClick = async (investorName: string) => {
-    console.log("Investor clicked:", investorName);
-    try {
-      // Search for the investor using the individuals API
-      const token = localStorage.getItem("asymmetrix_auth_token");
-
-      const params = new URLSearchParams();
-      params.append("search_query", investorName);
-      params.append("Page", "0");
-      params.append("Per_page", "10");
-
-      const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
+      // Fallback: navigate to corporate events page with search
+      router.push(
+        `/corporate-events?search=${encodeURIComponent(eventDescription)}`
       );
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Investor search results:", data);
-
-        // Find the matching individual by name
-        const matchingIndividual = data.Individuals_list?.items?.find(
-          (individual: { advisor_individuals: string; id: number }) =>
-            individual.advisor_individuals === investorName
-        );
-
-        if (matchingIndividual && matchingIndividual.id) {
-          console.log(
-            "Found matching investor with ID:",
-            matchingIndividual.id
-          );
-          router.push(`/individual/${matchingIndividual.id}`);
-        } else {
-          console.log("No matching investor found with ID");
-          // Fallback: just log the name for now
-        }
-      } else {
-        console.error("Failed to search for investor:", response.statusText);
-      }
-    } catch (error) {
-      console.error("Error handling investor click:", error);
     }
   };
 
@@ -723,7 +754,7 @@ const InvestorDetailPage = () => {
     .replace(/,\s*$/, "");
 
   // Map corporate events for display
-  const mappedCorporateEvents = corporateEvents.map((event) => {
+  const mappedCorporateEvents = corporateEvents.map((event, index) => {
     const counterparties = event["0"] || [];
 
     // Get other counterparties (filter out new_company_counterparty === 6662 if needed)
@@ -741,6 +772,8 @@ const InvestorDetailPage = () => {
       .join(", ");
 
     return {
+      id: event.id,
+      originalIndex: index, // Fallback for navigation if no ID
       description: event.description,
       announcement_date: event.announcement_date,
       type: event.deal_type,
@@ -1731,6 +1764,7 @@ const InvestorDetailPage = () => {
                                     }}
                                     onClick={() =>
                                       handleCorporateEventDescriptionClick(
+                                        event.id,
                                         event.description
                                       )
                                     }
@@ -1776,7 +1810,7 @@ const InvestorDetailPage = () => {
                                                   "Other counterparty clicked:",
                                                   companyName
                                                 );
-                                                handleInvestorClick(
+                                                handleCompanyNameClick(
                                                   companyName
                                                 );
                                               }}

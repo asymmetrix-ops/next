@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -80,7 +81,7 @@ const InvestorDashboard = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Fetch investors data from API
-  const fetchInvestors = async (filters: InvestorsFilters) => {
+  const fetchInvestors = useCallback(async (filters: InvestorsFilters) => {
     setLoading(true);
     setError(null);
 
@@ -148,7 +149,7 @@ const InvestorDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Handle search
   const handleSearch = () => {
@@ -164,7 +165,7 @@ const InvestorDashboard = () => {
   // Initial data fetch
   useEffect(() => {
     fetchInvestors(filters);
-  }, []);
+  }, [fetchInvestors, filters]);
 
   const styles = {
     container: {
@@ -396,6 +397,7 @@ const InvestorDashboard = () => {
 };
 
 const InvestorSection = () => {
+  const router = useRouter();
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -557,11 +559,17 @@ const InvestorSection = () => {
         null,
         investor.original_new_company_id
           ? React.createElement(
-              "a",
+              "span",
               {
-                href: `/investors/${investor.original_new_company_id}`,
                 className: "investor-name",
-                style: { textDecoration: "none" },
+                style: {
+                  textDecoration: "underline",
+                  color: "#0075df",
+                  cursor: "pointer",
+                  fontWeight: "500",
+                },
+                onClick: () =>
+                  router.push(`/investors/${investor.original_new_company_id}`),
               },
               investor.company_name || "N/A"
             )
@@ -737,6 +745,10 @@ const InvestorSection = () => {
       text-decoration: underline;
       cursor: pointer;
       font-weight: 500;
+      transition: color 0.2s;
+    }
+    .investor-name:hover {
+      color: #005bb5;
     }
     .investor-description {
       max-width: 300px;

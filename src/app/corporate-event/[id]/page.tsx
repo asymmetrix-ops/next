@@ -349,6 +349,7 @@ const CorporateEventDetail = ({
 // Main Page Component
 const CorporateEventDetailPage = () => {
   const params = useParams();
+  const router = useRouter();
   const [data, setData] = useState<CorporateEventDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -359,20 +360,40 @@ const CorporateEventDetailPage = () => {
       setError(null);
 
       const corporateEventId = params.id as string;
+
+      // Safety check for missing ID
+      if (!corporateEventId) {
+        throw new Error("Corporate event ID is required");
+      }
+
       const response = await corporateEventsService.getCorporateEvent(
         corporateEventId
       );
       setData(response);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      const errorMessage =
+        err instanceof Error ? err.message : "An error occurred";
+
+      // Handle authentication errors by redirecting to login
+      if (
+        errorMessage === "Authentication required" ||
+        errorMessage.includes("Authentication token not found")
+      ) {
+        router.push("/login");
+        return;
+      }
+
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [params.id]);
+  }, [params.id, router]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (params.id) {
+      fetchData();
+    }
+  }, [fetchData, params.id]);
 
   if (loading) {
     return (

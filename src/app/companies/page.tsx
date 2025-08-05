@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -477,6 +478,7 @@ const CompanyDashboard = () => {
 
 // Main Companies Component
 const CompanySection = () => {
+  const router = useRouter();
   const {
     companies,
     loading,
@@ -485,6 +487,13 @@ const CompanySection = () => {
     ownershipCounts,
     fetchCompanies,
   } = useCompaniesAPI();
+
+  const handleCompanyClick = useCallback(
+    (companyId: number) => {
+      router.push(`/company/${companyId}`);
+    },
+    [router]
+  );
 
   const handlePageChange = useCallback(
     (page: number) => {
@@ -505,13 +514,17 @@ const CompanySection = () => {
             <CompanyLogo logo={company.linkedin_logo} name={company.name} />
           </td>
           <td>
-            <a
-              href={`/company/${company.id}`}
+            <span
               className="company-name"
-              style={{ textDecoration: "none" }}
+              style={{
+                textDecoration: "none",
+                cursor: "pointer",
+                color: "#3b82f6",
+              }}
+              onClick={() => handleCompanyClick(company.id)}
             >
               {company.name || "N/A"}
-            </a>
+            </span>
           </td>
           <td>
             <CompanyDescription
@@ -534,7 +547,7 @@ const CompanySection = () => {
           <td>{company.country || "N/A"}</td>
         </tr>
       )),
-    [companies]
+    [companies, handleCompanyClick]
   );
 
   const generatePaginationButtons = () => {
