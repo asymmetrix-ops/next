@@ -7,35 +7,15 @@ import Footer from "@/components/Footer";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
 import {
-  CorporateEvent,
-  CorporateEventsResponse,
-  CorporateEventsFilters,
-} from "../../types/corporateEvents";
-
-// Types for API integration
-interface Country {
-  locations_Country: string;
-}
-
-interface Province {
-  State__Province__County: string;
-}
-
-interface City {
-  City: string;
-}
-
-interface PrimarySector {
-  id: number;
-  sector_name: string;
-}
-
-interface SecondarySector {
-  id: number;
-  sector_name: string;
-}
-
-// Removed unused interfaces since we're using hardcoded options
+  ContentArticle,
+  InsightsAnalysisResponse,
+  InsightsAnalysisFilters,
+  Country,
+  Province,
+  City,
+  PrimarySector,
+  SecondarySector,
+} from "../../types/insightsAnalysis";
 
 // Shared styles object
 const styles = {
@@ -129,8 +109,12 @@ const styles = {
   },
 };
 
-// Corporate Events Stats Component
-const CorporateEventsStats = ({ data }: { data: CorporateEventsResponse }) => {
+// Insights Analysis Stats Component
+const InsightsAnalysisStats = ({
+  data,
+}: {
+  data: InsightsAnalysisResponse;
+}) => {
   return (
     <div
       style={{
@@ -149,7 +133,7 @@ const CorporateEventsStats = ({ data }: { data: CorporateEventsResponse }) => {
           margin: "0 0 24px 0",
         }}
       >
-        Corporate Events
+        Insights & Analysis
       </h2>
 
       <div
@@ -168,7 +152,7 @@ const CorporateEventsStats = ({ data }: { data: CorporateEventsResponse }) => {
               lineHeight: "1.4",
             }}
           >
-            Acquisitions:
+            Total Articles:
           </span>
           <span
             style={{
@@ -177,7 +161,7 @@ const CorporateEventsStats = ({ data }: { data: CorporateEventsResponse }) => {
               fontWeight: "700",
             }}
           >
-            {data.acquisitions?.toLocaleString() || "0"}
+            {data.itemsReceived?.toLocaleString() || "0"}
           </span>
         </div>
 
@@ -190,7 +174,7 @@ const CorporateEventsStats = ({ data }: { data: CorporateEventsResponse }) => {
               lineHeight: "1.4",
             }}
           >
-            Investments:
+            Current Page:
           </span>
           <span
             style={{
@@ -199,7 +183,7 @@ const CorporateEventsStats = ({ data }: { data: CorporateEventsResponse }) => {
               fontWeight: "700",
             }}
           >
-            {data.investments?.toLocaleString() || "0"}
+            {data.curPage?.toLocaleString() || "0"}
           </span>
         </div>
 
@@ -212,7 +196,7 @@ const CorporateEventsStats = ({ data }: { data: CorporateEventsResponse }) => {
               lineHeight: "1.4",
             }}
           >
-            IPOs:
+            Total Pages:
           </span>
           <span
             style={{
@@ -221,7 +205,7 @@ const CorporateEventsStats = ({ data }: { data: CorporateEventsResponse }) => {
               fontWeight: "700",
             }}
           >
-            {data.ipos?.toLocaleString() || "0"}
+            {data.pageTotal?.toLocaleString() || "0"}
           </span>
         </div>
       </div>
@@ -281,7 +265,7 @@ const Pagination = ({
       {/* Page info */}
       <div style={{ fontSize: "14px", color: "#6b7280" }}>
         Showing {startItem.toLocaleString()} to {endItem.toLocaleString()} of{" "}
-        {totalItems.toLocaleString()} corporate events
+        {totalItems.toLocaleString()} articles
       </div>
 
       {/* Page navigation */}
@@ -383,40 +367,33 @@ const Pagination = ({
   );
 };
 
-// Corporate Events Table Component
-const CorporateEventsTable = ({
-  events,
+// Insights Analysis Cards Component
+const InsightsAnalysisCards = ({
+  articles,
   loading,
 }: {
-  events: CorporateEvent[];
+  articles: ContentArticle[];
   loading: boolean;
 }) => {
   const router = useRouter();
 
-  const handleEventClick = (eventId: number) => {
-    router.push(`/corporate-event/${eventId}`);
-  };
-
-  const handleCompanyClick = (companyId: number) => {
-    router.push(`/company/${companyId}`);
-  };
-
-  const handleInvestorClick = (investorId: number) => {
-    router.push(`/investors/${investorId}`);
+  const handleArticleClick = (articleId: number) => {
+    // Navigate to article detail page
+    router.push(`/article/${articleId}`);
   };
 
   if (loading) {
     return (
       <div style={{ textAlign: "center", padding: "40px", color: "#666" }}>
-        Loading corporate events...
+        Loading articles...
       </div>
     );
   }
 
-  if (!events || events.length === 0) {
+  if (!articles || articles.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "40px", color: "#666" }}>
-        No corporate events found.
+        No articles found.
       </div>
     );
   }
@@ -430,423 +407,156 @@ const CorporateEventsTable = ({
     }
   };
 
-  const formatCurrency = (
-    amount: string | undefined,
-    currency: string | undefined
+  const formatSectors = (
+    sectors: Array<Array<{ sector_name: string }>> | undefined
   ) => {
-    if (!amount || !currency) return "Not available";
-    return `${currency} ${parseFloat(amount).toLocaleString()}`;
+    if (!sectors || sectors.length === 0) return "Not available";
+    const allSectors = sectors.flat().map((s) => s.sector_name);
+    return allSectors.join(", ");
   };
 
-  const formatSectors = (sectors: { sector_name: string }[] | undefined) => {
-    if (!sectors || sectors.length === 0) return "Not available";
-    return sectors.map((s) => s.sector_name).join(", ");
+  const formatCompanies = (
+    companies: ContentArticle["companies_mentioned"] | undefined
+  ) => {
+    if (!companies || companies.length === 0) return "Not available";
+    return companies.map((c) => c.name).join(", ");
   };
 
   return (
     <div
       style={{
-        background: "#fff",
-        padding: "32px 24px",
-        boxShadow: "0px 1px 3px 0px rgba(227, 228, 230, 1)",
-        borderRadius: "16px",
-        overflowX: "auto",
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
+        gap: "24px",
+        padding: "0",
       }}
     >
-      <table
-        style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          tableLayout: "fixed",
-        }}
-      >
-        <thead>
-          <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-            <th
+      {articles.map((article: ContentArticle, index: number) => (
+        <div
+          key={article.id || index}
+          style={{
+            backgroundColor: "white",
+            borderRadius: "12px",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            padding: "24px",
+            border: "1px solid #e2e8f0",
+            cursor: "pointer",
+            transition: "transform 0.2s ease, box-shadow 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-2px)";
+            e.currentTarget.style.boxShadow = "0 8px 25px rgba(0, 0, 0, 0.15)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = "0 4px 6px rgba(0, 0, 0, 0.1)";
+          }}
+          onClick={() => handleArticleClick(article.id)}
+        >
+          {/* Article Title */}
+          <h3
+            style={{
+              fontSize: "18px",
+              fontWeight: "700",
+              color: "#1a202c",
+              margin: "0 0 8px 0",
+              lineHeight: "1.3",
+            }}
+          >
+            {article.Headline || "Not Available"}
+          </h3>
+
+          {/* Publication Date */}
+          <p
+            style={{
+              fontSize: "14px",
+              color: "#6b7280",
+              margin: "0 0 16px 0",
+              fontWeight: "500",
+            }}
+          >
+            {formatDate(article.Publication_Date)}
+          </p>
+
+          {/* Strapline/Summary */}
+          <p
+            style={{
+              fontSize: "14px",
+              color: "#374151",
+              lineHeight: "1.6",
+              margin: "0 0 16px 0",
+              display: "-webkit-box",
+              WebkitLineClamp: 4,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {article.Strapline || "No summary available"}
+          </p>
+
+          {/* Companies Section */}
+          <div style={{ marginBottom: "12px" }}>
+            <span
               style={{
-                padding: "16px",
-                textAlign: "left",
-                verticalAlign: "top",
+                fontSize: "13px",
                 fontWeight: "600",
-                color: "#1a202c",
-                fontSize: "14px",
-                background: "#f9fafb",
+                color: "#374151",
+                marginRight: "8px",
               }}
             >
-              Description
-            </th>
-            <th
+              Companies:
+            </span>
+            <span
               style={{
-                padding: "16px",
-                textAlign: "left",
-                verticalAlign: "top",
-                fontWeight: "600",
-                color: "#1a202c",
-                fontSize: "14px",
-                background: "#f9fafb",
+                fontSize: "13px",
+                color: "#6b7280",
+                lineHeight: "1.4",
               }}
             >
-              Date Announced
-            </th>
-            <th
+              {formatCompanies(article.companies_mentioned)}
+            </span>
+          </div>
+
+          {/* Sectors Section */}
+          <div>
+            <span
               style={{
-                padding: "16px",
-                textAlign: "left",
-                verticalAlign: "top",
+                fontSize: "13px",
                 fontWeight: "600",
-                color: "#1a202c",
-                fontSize: "14px",
-                background: "#f9fafb",
+                color: "#374151",
+                marginRight: "8px",
               }}
             >
-              Target Name
-            </th>
-            <th
+              Sectors:
+            </span>
+            <span
               style={{
-                padding: "16px",
-                textAlign: "left",
-                verticalAlign: "top",
-                fontWeight: "600",
-                color: "#1a202c",
-                fontSize: "14px",
-                background: "#f9fafb",
+                fontSize: "13px",
+                color: "#6b7280",
+                lineHeight: "1.4",
               }}
             >
-              Target Country
-            </th>
-            <th
-              style={{
-                padding: "16px",
-                textAlign: "left",
-                verticalAlign: "top",
-                fontWeight: "600",
-                color: "#1a202c",
-                fontSize: "14px",
-                background: "#f9fafb",
-              }}
-            >
-              Primary Sector
-            </th>
-            <th
-              style={{
-                padding: "16px",
-                textAlign: "left",
-                verticalAlign: "top",
-                fontWeight: "600",
-                color: "#1a202c",
-                fontSize: "14px",
-                background: "#f9fafb",
-              }}
-            >
-              Secondary Sectors
-            </th>
-            <th
-              style={{
-                padding: "16px",
-                textAlign: "left",
-                verticalAlign: "top",
-                fontWeight: "600",
-                color: "#1a202c",
-                fontSize: "14px",
-                background: "#f9fafb",
-              }}
-            >
-              Type
-            </th>
-            <th
-              style={{
-                padding: "16px",
-                textAlign: "left",
-                verticalAlign: "top",
-                fontWeight: "600",
-                color: "#1a202c",
-                fontSize: "14px",
-                background: "#f9fafb",
-              }}
-            >
-              Investment
-            </th>
-            <th
-              style={{
-                padding: "16px",
-                textAlign: "left",
-                verticalAlign: "top",
-                fontWeight: "600",
-                color: "#1a202c",
-                fontSize: "14px",
-                background: "#f9fafb",
-              }}
-            >
-              Enterprise Value
-            </th>
-            <th
-              style={{
-                padding: "16px",
-                textAlign: "left",
-                verticalAlign: "top",
-                fontWeight: "600",
-                color: "#1a202c",
-                fontSize: "14px",
-                background: "#f9fafb",
-              }}
-            >
-              Other Counterparties
-            </th>
-            <th
-              style={{
-                padding: "16px",
-                textAlign: "left",
-                verticalAlign: "top",
-                fontWeight: "600",
-                color: "#1a202c",
-                fontSize: "14px",
-                background: "#f9fafb",
-              }}
-            >
-              Advisors
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {events.map((event: CorporateEvent, index: number) => {
-            const target = event.target_counterparty?.new_company;
-            const targetCounterpartyId =
-              event.target_counterparty?.new_company_counterparty;
-            return (
-              <tr
-                key={event.id || index}
-                style={{
-                  borderBottom: "1px solid #e2e8f0",
-                }}
-              >
-                <td
-                  style={{
-                    padding: "16px",
-                    textAlign: "left",
-                    verticalAlign: "top",
-                    fontSize: "14px",
-                    color: "#000",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  <span
-                    style={{
-                      color: "#0075df",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                      fontWeight: "500",
-                    }}
-                    onClick={() => handleEventClick(event.id)}
-                  >
-                    {event.description || "Not Available"}
-                  </span>
-                </td>
-                <td
-                  style={{
-                    padding: "16px",
-                    textAlign: "left",
-                    verticalAlign: "top",
-                    fontSize: "14px",
-                    color: "#000",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  {formatDate(event.announcement_date)}
-                </td>
-                <td
-                  style={{
-                    padding: "16px",
-                    textAlign: "left",
-                    verticalAlign: "top",
-                    fontSize: "14px",
-                    color: "#000",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  <span
-                    style={{
-                      color: "#0075df",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => {
-                      if (targetCounterpartyId) {
-                        handleCompanyClick(targetCounterpartyId);
-                      }
-                    }}
-                  >
-                    {target?.name || "Not Available"}
-                  </span>
-                </td>
-                <td
-                  style={{
-                    padding: "16px",
-                    textAlign: "left",
-                    verticalAlign: "top",
-                    fontSize: "14px",
-                    color: "#000",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  {target?.country || "Not Available"}
-                </td>
-                <td
-                  style={{
-                    padding: "16px",
-                    textAlign: "left",
-                    verticalAlign: "top",
-                    fontSize: "14px",
-                    color: "#000",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  {formatSectors(target?._sectors_primary)}
-                </td>
-                <td
-                  style={{
-                    padding: "16px",
-                    textAlign: "left",
-                    verticalAlign: "top",
-                    fontSize: "14px",
-                    color: "#000",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  {formatSectors(target?._sectors_secondary)}
-                </td>
-                <td
-                  style={{
-                    padding: "16px",
-                    textAlign: "left",
-                    verticalAlign: "top",
-                    fontSize: "14px",
-                    color: "#000",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  {event.deal_type || "Not Available"}
-                </td>
-                <td
-                  style={{
-                    padding: "16px",
-                    textAlign: "left",
-                    verticalAlign: "top",
-                    fontSize: "14px",
-                    color: "#000",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  {formatCurrency(
-                    event.investment_data?.investment_amount_m,
-                    event.investment_data?.currency?.Currency
-                  )}
-                </td>
-                <td
-                  style={{
-                    padding: "16px",
-                    textAlign: "left",
-                    verticalAlign: "top",
-                    fontSize: "14px",
-                    color: "#000",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  {formatCurrency(
-                    event.ev_data?.enterprise_value_m,
-                    event.ev_data?.currency?.Currency
-                  )}
-                </td>
-                <td
-                  style={{
-                    padding: "16px",
-                    textAlign: "left",
-                    verticalAlign: "top",
-                    fontSize: "14px",
-                    color: "#000",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  {event.other_counterparties?.map((counterparty, subIndex) => {
-                    return (
-                      <span key={subIndex}>
-                        {counterparty._new_company._is_that_investor ? (
-                          <span
-                            style={{
-                              color: "#0075df",
-                              textDecoration: "underline",
-                              cursor: "pointer",
-                            }}
-                            onClick={() => {
-                              handleInvestorClick(
-                                counterparty.new_company_counterparty
-                              );
-                            }}
-                          >
-                            {counterparty._new_company.name}
-                          </span>
-                        ) : (
-                          <span style={{ color: "#000" }}>
-                            {counterparty._new_company.name}
-                          </span>
-                        )}
-                        {subIndex < event.other_counterparties.length - 1 &&
-                          ", "}
-                      </span>
-                    );
-                  }) || "Not Available"}
-                </td>
-                <td
-                  style={{
-                    padding: "16px",
-                    textAlign: "left",
-                    verticalAlign: "top",
-                    fontSize: "14px",
-                    color: "#000",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  {event.advisors?.map((advisor, subIndex) => (
-                    <span key={subIndex}>
-                      <span
-                        style={{
-                          color: "#0075df",
-                          textDecoration: "underline",
-                          cursor: "pointer",
-                        }}
-                        onClick={() =>
-                          handleCompanyClick(advisor._new_company.id)
-                        }
-                      >
-                        {advisor._new_company.name}
-                      </span>
-                      {subIndex < event.advisors.length - 1 && ", "}
-                    </span>
-                  )) || "Not Available"}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+              {formatSectors(article.sectors)}
+            </span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 };
 
-// Main Corporate Events Page Component
-const CorporateEventsPage = () => {
+// Main Insights Analysis Page Component
+const InsightsAnalysisPage = () => {
   // State for filters
-  const [filters, setFilters] = useState<CorporateEventsFilters>({
+  const [filters, setFilters] = useState<InsightsAnalysisFilters>({
+    search_query: "",
+    primary_sectors_ids: [],
+    Secondary_sectors_ids: [],
     Countries: [],
     Provinces: [],
     Cities: [],
-    primary_sectors_ids: [],
-    Secondary_sectors_ids: [],
-    deal_types: [],
-    Deal_Status: [],
-    Date_start: null,
-    Date_end: null,
-    search_query: "",
-    Page: 1,
+    Offset: 1,
     Per_page: 50,
   });
 
@@ -860,13 +570,7 @@ const CorporateEventsPage = () => {
   const [selectedSecondarySectors, setSelectedSecondarySectors] = useState<
     number[]
   >([]);
-  const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([]);
-  const [selectedDealStatuses, setSelectedDealStatuses] = useState<string[]>(
-    []
-  );
   const [searchTerm, setSearchTerm] = useState("");
-  const [dateStart, setDateStart] = useState("");
-  const [dateEnd, setDateEnd] = useState("");
 
   // State for API data
   const [countries, setCountries] = useState<Country[]>([]);
@@ -876,7 +580,6 @@ const CorporateEventsPage = () => {
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
   );
-  // Removed eventTypes and dealStatuses state since we're using hardcoded options
 
   // Loading states
   const [loadingCountries, setLoadingCountries] = useState(false);
@@ -884,10 +587,9 @@ const CorporateEventsPage = () => {
   const [loadingCities, setLoadingCities] = useState(false);
   const [loadingPrimarySectors, setLoadingPrimarySectors] = useState(false);
   const [loadingSecondarySectors, setLoadingSecondarySectors] = useState(false);
-  // Removed loading states for event types and deal statuses since we're using hardcoded options
 
-  // State for corporate events data
-  const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
+  // State for insights analysis data
+  const [articles, setArticles] = useState<ContentArticle[]>([]);
   const [pagination, setPagination] = useState({
     itemsReceived: 0,
     curPage: 1,
@@ -896,11 +598,6 @@ const CorporateEventsPage = () => {
     offset: 0,
     perPage: 50,
     pageTotal: 0,
-  });
-  const [summaryData, setSummaryData] = useState({
-    acquisitions: 0,
-    investments: 0,
-    ipos: 0,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -931,32 +628,6 @@ const CorporateEventsPage = () => {
     label: sector.sector_name,
   }));
 
-  // Hardcoded options for Deal Types (By Type)
-  const eventTypeOptions = [
-    { value: "Acquisition", label: "Acquisition" },
-    { value: "Sale", label: "Sale" },
-    { value: "IPO", label: "IPO" },
-    { value: "MBO", label: "MBO" },
-    { value: "Investment", label: "Investment" },
-    { value: "Strategic Review", label: "Strategic Review" },
-    { value: "Divestment", label: "Divestment" },
-    { value: "Restructuring", label: "Restructuring" },
-    { value: "Dual track", label: "Dual track" },
-    { value: "Closing", label: "Closing" },
-    { value: "Grant", label: "Grant" },
-    { value: "Debt financing", label: "Debt financing" },
-  ];
-
-  // Hardcoded options for Deal Status
-  const dealStatusOptions = [
-    { value: "Completed", label: "Completed" },
-    { value: "In Market", label: "In Market" },
-    { value: "Not yet launched", label: "Not yet launched" },
-    { value: "Strategic Review", label: "Strategic Review" },
-    { value: "Deal Prep", label: "Deal Prep" },
-    { value: "In Exclusivity", label: "In Exclusivity" },
-  ];
-
   // Fetch functions
   const fetchCountries = async () => {
     try {
@@ -981,8 +652,6 @@ const CorporateEventsPage = () => {
       setLoadingPrimarySectors(false);
     }
   };
-
-  // Removed fetchEventTypes and fetchDealStatuses functions since we're using hardcoded options
 
   const fetchProvinces = async () => {
     if (selectedCountries.length === 0) {
@@ -1039,7 +708,7 @@ const CorporateEventsPage = () => {
     }
   };
 
-  const fetchCorporateEvents = async (filters: CorporateEventsFilters) => {
+  const fetchInsightsAnalysis = async (filters: InsightsAnalysisFilters) => {
     try {
       setLoading(true);
       setError(null);
@@ -1053,8 +722,8 @@ const CorporateEventsPage = () => {
       // Convert filters to URL parameters for GET request
       const params = new URLSearchParams();
 
-      // Add page and per_page
-      params.append("Page", filters.Page.toString());
+      // Add offset and per_page
+      params.append("Offset", filters.Offset.toString());
       params.append("Per_page", filters.Per_page.toString());
 
       // Add search query
@@ -1089,26 +758,7 @@ const CorporateEventsPage = () => {
         );
       }
 
-      // Add event types as comma-separated values
-      if (filters.deal_types.length > 0) {
-        params.append("deal_types", filters.deal_types.join(","));
-      }
-
-      // Add deal statuses as comma-separated values
-      if (filters.Deal_Status.length > 0) {
-        params.append("Deal_Status", filters.Deal_Status.join(","));
-      }
-
-      // Add date filters
-      if (filters.Date_start) {
-        params.append("Date_start", filters.Date_start);
-      }
-
-      if (filters.Date_end) {
-        params.append("Date_end", filters.Date_end);
-      }
-
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`;
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
 
       const response = await fetch(url, {
         method: "GET",
@@ -1122,9 +772,9 @@ const CorporateEventsPage = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: CorporateEventsResponse = await response.json();
+      const data: InsightsAnalysisResponse = await response.json();
 
-      setCorporateEvents(data.items);
+      setArticles(data.items);
       setPagination({
         itemsReceived: data.itemsReceived,
         curPage: data.curPage,
@@ -1134,17 +784,12 @@ const CorporateEventsPage = () => {
         perPage: filters.Per_page,
         pageTotal: data.pageTotal,
       });
-      setSummaryData({
-        acquisitions: data.acquisitions,
-        investments: data.investments,
-        ipos: data.ipos,
-      });
     } catch (error) {
-      console.error("Error fetching corporate events:", error);
+      console.error("Error fetching insights analysis:", error);
       setError(
         error instanceof Error
           ? error.message
-          : "Failed to fetch corporate events"
+          : "Failed to fetch insights analysis"
       );
     } finally {
       setLoading(false);
@@ -1157,9 +802,9 @@ const CorporateEventsPage = () => {
     fetchPrimarySectors();
   }, []);
 
-  // Initial fetch of all corporate events
+  // Initial fetch of all articles
   useEffect(() => {
-    fetchCorporateEvents(filters);
+    fetchInsightsAnalysis(filters);
   }, []);
 
   // Fetch provinces when countries change
@@ -1187,28 +832,24 @@ const CorporateEventsPage = () => {
       Cities: selectedCities,
       primary_sectors_ids: selectedPrimarySectors,
       Secondary_sectors_ids: selectedSecondarySectors,
-      deal_types: selectedEventTypes,
-      Deal_Status: selectedDealStatuses,
-      Date_start: dateStart || null,
-      Date_end: dateEnd || null,
-      Page: 1, // Reset to first page when searching
+      Offset: 1, // Reset to first page when searching
     };
     setFilters(updatedFilters);
-    fetchCorporateEvents(updatedFilters);
+    fetchInsightsAnalysis(updatedFilters);
   };
 
   // Handle page change
   const handlePageChange = (page: number) => {
-    const updatedFilters = { ...filters, Page: page };
+    const updatedFilters = { ...filters, Offset: page };
     setFilters(updatedFilters);
-    fetchCorporateEvents(updatedFilters);
+    fetchInsightsAnalysis(updatedFilters);
   };
 
   // Handle per page change
   const handlePerPageChange = (perPage: number) => {
-    const updatedFilters = { ...filters, Per_page: perPage, Page: 1 };
+    const updatedFilters = { ...filters, Per_page: perPage, Offset: 1 };
     setFilters(updatedFilters);
-    fetchCorporateEvents(updatedFilters);
+    fetchInsightsAnalysis(updatedFilters);
   };
 
   return (
@@ -1216,81 +857,13 @@ const CorporateEventsPage = () => {
       <Header />
       <div style={styles.maxWidth}>
         <div style={styles.card}>
-          <h1 style={styles.heading}>Corporate Events</h1>
+          <h1 style={styles.heading}>Insights & Analysis</h1>
           <p style={{ color: "#666", marginBottom: "24px" }}>
-            Search and filter corporate events by location, sectors, event
-            types, and more.
+            Search and filter insights and analysis articles by location,
+            sectors, and more.
           </p>
 
           <div style={styles.grid}>
-            <div style={styles.gridItem}>
-              <h3 style={styles.subHeading}>Corporate Event Type</h3>
-              <span style={styles.label}>By Type</span>
-              <SearchableSelect
-                options={eventTypeOptions}
-                value=""
-                onChange={(value) => {
-                  if (
-                    typeof value === "string" &&
-                    value &&
-                    !selectedEventTypes.includes(value)
-                  ) {
-                    setSelectedEventTypes([...selectedEventTypes, value]);
-                  }
-                }}
-                placeholder="Select Type"
-                disabled={false}
-                style={styles.select}
-              />
-
-              {/* Selected Event Types Tags */}
-              {selectedEventTypes.length > 0 && (
-                <div
-                  style={{
-                    marginTop: "8px",
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "4px",
-                  }}
-                >
-                  {selectedEventTypes.map((eventType) => (
-                    <span
-                      key={eventType}
-                      style={{
-                        backgroundColor: "#e3f2fd",
-                        color: "#1976d2",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      {eventType}
-                      <button
-                        onClick={() => {
-                          setSelectedEventTypes(
-                            selectedEventTypes.filter((t) => t !== eventType)
-                          );
-                        }}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#1976d2",
-                          cursor: "pointer",
-                          fontWeight: "bold",
-                          fontSize: "14px",
-                        }}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
             <div style={styles.gridItem}>
               <h3 style={styles.subHeading}>Location</h3>
               <span style={styles.label}>By Country</span>
@@ -1669,100 +1242,11 @@ const CorporateEventsPage = () => {
             </div>
 
             <div style={styles.gridItem}>
-              <h3 style={styles.subHeading}>Deal Status</h3>
-              <span style={styles.label}>By Deal Status</span>
-              <SearchableSelect
-                options={dealStatusOptions}
-                value=""
-                onChange={(value) => {
-                  if (
-                    typeof value === "string" &&
-                    value &&
-                    !selectedDealStatuses.includes(value)
-                  ) {
-                    setSelectedDealStatuses([...selectedDealStatuses, value]);
-                  }
-                }}
-                placeholder="Select Deal Status"
-                disabled={false}
-                style={styles.select}
-              />
-
-              {/* Selected Deal Statuses Tags */}
-              {selectedDealStatuses.length > 0 && (
-                <div
-                  style={{
-                    marginTop: "8px",
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "4px",
-                  }}
-                >
-                  {selectedDealStatuses.map((dealStatus) => (
-                    <span
-                      key={dealStatus}
-                      style={{
-                        backgroundColor: "#ffebee",
-                        color: "#c62828",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      {dealStatus}
-                      <button
-                        onClick={() => {
-                          setSelectedDealStatuses(
-                            selectedDealStatuses.filter((s) => s !== dealStatus)
-                          );
-                        }}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#c62828",
-                          cursor: "pointer",
-                          fontWeight: "bold",
-                          fontSize: "14px",
-                        }}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div style={styles.gridItem}>
-              <h3 style={styles.subHeading}>Announcement Date</h3>
-              <span style={styles.label}>Start</span>
-              <input
-                type="date"
-                value={dateStart}
-                onChange={(e) => setDateStart(e.target.value)}
-                style={styles.input}
-                placeholder="dd/mm/yyyy"
-              />
-
-              <span style={styles.label}>End</span>
-              <input
-                type="date"
-                value={dateEnd}
-                onChange={(e) => setDateEnd(e.target.value)}
-                style={styles.input}
-                placeholder="dd/mm/yyyy"
-              />
-            </div>
-
-            <div style={styles.gridItem}>
               <h3 style={styles.subHeading}>Search</h3>
-              <span style={styles.label}>Search for Corporate Event</span>
+              <span style={styles.label}>Search for Articles</span>
               <input
                 type="text"
-                placeholder="Enter name here"
+                placeholder="Enter search term here"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 style={styles.input}
@@ -1774,15 +1258,23 @@ const CorporateEventsPage = () => {
           </div>
 
           {/* Summary Stats */}
-          {summaryData.acquisitions > 0 && (
-            <CorporateEventsStats
-              data={summaryData as CorporateEventsResponse}
+          {pagination.itemsReceived > 0 && (
+            <InsightsAnalysisStats
+              data={{
+                itemsReceived: pagination.itemsReceived,
+                curPage: pagination.curPage,
+                nextPage: pagination.nextPage,
+                prevPage: pagination.prevPage,
+                offset: pagination.offset,
+                pageTotal: pagination.pageTotal,
+                items: articles,
+              }}
             />
           )}
 
-          {/* Results Table */}
-          {corporateEvents.length > 0 && (
-            <CorporateEventsTable events={corporateEvents} loading={loading} />
+          {/* Results Cards */}
+          {articles.length > 0 && (
+            <InsightsAnalysisCards articles={articles} loading={loading} />
           )}
 
           {/* Pagination */}
@@ -1808,4 +1300,4 @@ const CorporateEventsPage = () => {
   );
 };
 
-export default CorporateEventsPage;
+export default InsightsAnalysisPage;

@@ -191,7 +191,7 @@ const Header = () => {
                 const getHref = (item: string) => {
                   switch (item) {
                     case "Dashboard":
-                      return "/";
+                      return "/home-user";
                     case "Companies":
                       return "/companies";
                     case "Sectors":
@@ -296,7 +296,7 @@ const Header = () => {
             const getHref = (item: string) => {
               switch (item) {
                 case "Dashboard":
-                  return "/";
+                  return "/home-user";
                 case "Companies":
                   return "/companies";
                 case "Sectors":

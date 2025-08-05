@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import SearchableSelect from "@/components/ui/SearchableSelect";
+import { locationsService } from "@/lib/locationsService";
 
 // Types for API integration
 interface Advisor {
@@ -41,41 +43,392 @@ interface AdvisorsCountsResponse {
 }
 
 interface AdvisorsFilters {
-  Countries: string[];
-  Provinces: string[];
-  Cities: string[];
-  primary_sectors_ids: string[];
-  Secondary_sectors_ids: string[];
-  search_query: string;
+  countries: string[];
+  provinces: string[];
+  cities: string[];
+  primarySectors: number[];
+  secondarySectors: number[];
+  searchQuery: string;
   page: number;
   per_page: number;
 }
 
-const AdvisorDashboard = () => {
+// API data interfaces (same as companies page)
+interface Country {
+  locations_Country: string;
+}
+
+interface Province {
+  State__Province__County: string;
+}
+
+interface City {
+  City: string;
+}
+
+interface PrimarySector {
+  id: number;
+  sector_name: string;
+}
+
+interface SecondarySector {
+  id: number;
+  sector_name: string;
+}
+
+const AdvisorsPage = () => {
+  const router = useRouter();
+
+  // Shared state for advisors data
+  const [advisors, setAdvisors] = useState<Advisor[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({
+    itemsReceived: 0,
+    curPage: 1,
+    nextPage: null as number | null,
+    prevPage: null as number | null,
+    offset: 0,
+    itemsTotal: 0,
+    pageTotal: 0,
+  });
+  const [countsData, setCountsData] = useState({
+    financialAdvisors: 0,
+    commercialDueDiligence: 0,
+    vendorDueDiligence: 0,
+    managementTeamAdvisory: 0,
+    nomad: 0,
+  });
+
+  // Filter state
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<AdvisorsFilters>({
-    Countries: [],
-    Provinces: [],
-    Cities: [],
-    primary_sectors_ids: [],
-    Secondary_sectors_ids: [],
-    search_query: "",
+    countries: [],
+    provinces: [],
+    cities: [],
+    primarySectors: [],
+    secondarySectors: [],
+    searchQuery: "",
     page: 1,
     per_page: 50,
   });
-  const [loading] = useState(false);
-  const [error] = useState<string | null>(null);
+
+  // State for API data (same as companies page)
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
+  const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
+  const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
+    []
+  );
+
+  // Loading states
+  const [loadingCountries, setLoadingCountries] = useState(false);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingPrimarySectors, setLoadingPrimarySectors] = useState(false);
+  const [loadingSecondarySectors, setLoadingSecondarySectors] = useState(false);
+
+  // Convert API data to dropdown options format
+  const countryOptions = countries.map((country) => ({
+    value: country.locations_Country,
+    label: country.locations_Country,
+  }));
+
+  const provinceOptions = provinces.map((province) => ({
+    value: province.State__Province__County,
+    label: province.State__Province__County,
+  }));
+
+  const cityOptions = cities.map((city) => ({
+    value: city.City,
+    label: city.City,
+  }));
+
+  const primarySectorOptions = primarySectors.map((sector) => ({
+    value: sector.id,
+    label: sector.sector_name,
+  }));
+
+  const secondarySectorOptions = secondarySectors.map((sector) => ({
+    value: sector.id,
+    label: sector.sector_name,
+  }));
+
+  // State for each filter (arrays for multi-select)
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const [selectedProvinces, setSelectedProvinces] = useState<string[]>([]);
+  const [selectedCities, setSelectedCities] = useState<string[]>([]);
+  const [selectedPrimarySectors, setSelectedPrimarySectors] = useState<
+    number[]
+  >([]);
+  const [selectedSecondarySectors, setSelectedSecondarySectors] = useState<
+    number[]
+  >([]);
+
+  // Fetch data from API (same as companies page)
+  const fetchCountries = async () => {
+    try {
+      setLoadingCountries(true);
+      const countriesData = await locationsService.getCountries();
+      setCountries(countriesData);
+    } catch (error) {
+      console.error("Error fetching countries:", error);
+    } finally {
+      setLoadingCountries(false);
+    }
+  };
+
+  const fetchPrimarySectors = async () => {
+    try {
+      setLoadingPrimarySectors(true);
+      const sectorsData = await locationsService.getPrimarySectors();
+      setPrimarySectors(sectorsData);
+    } catch (error) {
+      console.error("Error fetching primary sectors:", error);
+    } finally {
+      setLoadingPrimarySectors(false);
+    }
+  };
+
+  const fetchSecondarySectors = async () => {
+    if (selectedPrimarySectors.length === 0) {
+      setSecondarySectors([]);
+      setSelectedSecondarySectors([]);
+      return;
+    }
+
+    try {
+      setLoadingSecondarySectors(true);
+
+      // Get the IDs of selected primary sectors
+      const selectedPrimarySectorIds = primarySectors
+        .filter((sector) => selectedPrimarySectors.includes(sector.id))
+        .map((sector) => sector.id);
+
+      const secondarySectorsData = await locationsService.getSecondarySectors(
+        selectedPrimarySectorIds
+      );
+      setSecondarySectors(secondarySectorsData);
+      // Reset selected secondary sectors when primary sectors change
+      setSelectedSecondarySectors([]);
+    } catch (error) {
+      console.error("Error fetching secondary sectors:", error);
+    } finally {
+      setLoadingSecondarySectors(false);
+    }
+  };
+
+  const fetchProvinces = async () => {
+    if (selectedCountries.length === 0) {
+      setProvinces([]);
+      setSelectedProvinces([]);
+      return;
+    }
+
+    try {
+      setLoadingProvinces(true);
+      const provincesData = await locationsService.getProvinces(
+        selectedCountries
+      );
+      setProvinces(provincesData);
+      // Reset selected provinces when countries change
+      setSelectedProvinces([]);
+    } catch (error) {
+      console.error("Error fetching provinces:", error);
+    } finally {
+      setLoadingProvinces(false);
+    }
+  };
+
+  const fetchCities = async () => {
+    if (selectedCountries.length === 0) {
+      setCities([]);
+      setSelectedCities([]);
+      return;
+    }
+
+    try {
+      setLoadingCities(true);
+      const citiesData = await locationsService.getCities(
+        selectedCountries,
+        selectedProvinces
+      );
+      setCities(citiesData);
+      // Reset selected cities when countries or provinces change
+      setSelectedCities([]);
+    } catch (error) {
+      console.error("Error fetching cities:", error);
+    } finally {
+      setLoadingCities(false);
+    }
+  };
+
+  // Fetch advisors data from API
+  const fetchAdvisors = useCallback(async (filters: AdvisorsFilters) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+
+      // Convert filters to URL parameters for GET request
+      const params = new URLSearchParams();
+
+      // Add page and per_page
+      if (filters.page > 0) params.append("page", filters.page.toString());
+      if (filters.per_page > 0)
+        params.append("per_page", filters.per_page.toString());
+
+      // Add search query
+      if (filters.searchQuery)
+        params.append("search_query", filters.searchQuery);
+
+      // Add location filters as arrays
+      if (filters.countries.length > 0) {
+        filters.countries.forEach((country) => {
+          params.append("Countries[]", country);
+        });
+      }
+
+      if (filters.provinces.length > 0) {
+        filters.provinces.forEach((province) => {
+          params.append("Provinces[]", province);
+        });
+      }
+
+      if (filters.cities.length > 0) {
+        filters.cities.forEach((city) => {
+          params.append("Cities[]", city);
+        });
+      }
+
+      // Add sector filters as arrays
+      if (filters.primarySectors.length > 0) {
+        filters.primarySectors.forEach((sector) => {
+          params.append("primary_sectors_ids[]", sector.toString());
+        });
+      }
+
+      if (filters.secondarySectors.length > 0) {
+        filters.secondarySectors.forEach((sector) => {
+          params.append("Secondary_sectors_ids[]", sector.toString());
+        });
+      }
+
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_list?${params.toString()}`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.statusText}`);
+      }
+
+      const data: AdvisorsResponse = await response.json();
+      setAdvisors(data.items);
+      setPagination({
+        itemsReceived: data.itemsReceived,
+        curPage: data.curPage,
+        nextPage: data.nextPage,
+        prevPage: data.prevPage,
+        offset: data.offset,
+        itemsTotal: data.itemsTotal,
+        pageTotal: data.pageTotal,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch advisors");
+      console.error("Error fetching advisors:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch counts data
+  const fetchCounts = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const response = await fetch(
+        "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/advisors_counts",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.statusText}`);
+      }
+
+      const data: AdvisorsCountsResponse = await response.json();
+      setCountsData({
+        financialAdvisors: data.lambda.companiesByRole.financialAdvisors,
+        commercialDueDiligence:
+          data.lambda.companiesByRole.commercialDueDiligence,
+        vendorDueDiligence: data.lambda.companiesByRole.vendorDueDiligence,
+        managementTeamAdvisory:
+          data.lambda.companiesByRole.managementTeamAdvisory,
+        nomad: data.lambda.companiesByRole.nomad,
+      });
+    } catch (err) {
+      console.error("Error fetching counts:", err);
+    }
+  }, []);
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchCountries();
+    fetchPrimarySectors();
+    fetchCounts();
+    // Initial fetch of all advisors
+    fetchAdvisors(filters);
+  }, []);
+
+  // Fetch provinces when countries are selected
+  useEffect(() => {
+    fetchProvinces();
+  }, [selectedCountries]);
+
+  // Fetch cities when countries or provinces are selected
+  useEffect(() => {
+    fetchCities();
+  }, [selectedCountries, selectedProvinces]);
+
+  // Fetch secondary sectors when primary sectors are selected
+  useEffect(() => {
+    fetchSecondarySectors();
+  }, [selectedPrimarySectors, primarySectors]);
 
   // Handle search
   const handleSearch = () => {
     const updatedFilters = {
       ...filters,
-      search_query: searchTerm,
+      searchQuery: searchTerm,
+      countries: selectedCountries,
+      provinces: selectedProvinces,
+      cities: selectedCities,
+      primarySectors: selectedPrimarySectors,
+      secondarySectors: selectedSecondarySectors,
       page: 1, // Reset to first page when searching
     };
     setFilters(updatedFilters);
-    // API call will be implemented later
+    fetchAdvisors(updatedFilters);
+  };
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    const updatedFilters = { ...filters, page };
+    setFilters(updatedFilters);
+    fetchAdvisors(updatedFilters);
   };
 
   const styles = {
@@ -193,210 +546,6 @@ const AdvisorDashboard = () => {
     },
   };
 
-  return (
-    <div style={styles.container}>
-      <div style={styles.maxWidth}>
-        {/* Filters Section */}
-        <div style={styles.card}>
-          <h2 style={styles.heading}>Filters</h2>
-
-          {showFilters && (
-            <div style={styles.grid}>
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading}>Location</h3>
-                <span style={styles.label}>By Country</span>
-                <input
-                  type="text"
-                  placeholder="Type Country"
-                  style={styles.select}
-                />
-                <span style={styles.label}>By State/County/Province</span>
-                <input
-                  type="text"
-                  placeholder="Type State/County/Province"
-                  style={styles.select}
-                />
-                <span style={styles.label}>By City</span>
-                <input
-                  type="text"
-                  placeholder="Type City"
-                  style={styles.select}
-                />
-              </div>
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading}>Sector</h3>
-                <span style={styles.label}>By Primary Sectors</span>
-                <select style={styles.select}>
-                  <option value="">Select Primary Sectors</option>
-                </select>
-                <span style={styles.label}>By Secondary Sector</span>
-                <select style={styles.select}>
-                  <option value="">Select Secondary Sectors</option>
-                </select>
-              </div>
-            </div>
-          )}
-
-          <div style={{ marginTop: showFilters ? "20px" : "0" }}>
-            <h3 style={styles.subHeading}>Search for Advisors</h3>
-            <div style={styles.searchDiv}>
-              <input
-                type="text"
-                placeholder="Enter name here"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={styles.input}
-                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-              />
-              <button
-                style={styles.button}
-                onClick={handleSearch}
-                onMouseOver={(e) =>
-                  ((e.target as HTMLButtonElement).style.backgroundColor =
-                    "#005bb5")
-                }
-                onMouseOut={(e) =>
-                  ((e.target as HTMLButtonElement).style.backgroundColor =
-                    "#0075df")
-                }
-              >
-                {loading ? "Searching..." : "Search"}
-              </button>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            style={styles.linkButton}
-          >
-            {showFilters ? "Hide and Reset Filters" : "Show Filters"}
-          </button>
-        </div>
-
-        {/* Error Display */}
-        {error && <div style={styles.error}>{error}</div>}
-
-        {/* Loading Display */}
-        {loading && <div style={styles.loading}>Loading advisors...</div>}
-      </div>
-    </div>
-  );
-};
-
-const AdvisorSection = () => {
-  const router = useRouter();
-  const [advisors, setAdvisors] = useState<Advisor[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [summaryData, setSummaryData] = useState({
-    financialAdvisors: 133,
-    commercialDueDiligence: 15,
-    vendorDueDiligence: 5,
-    managementTeamAdvisory: 4,
-    nomad: 1,
-  });
-
-  // Handle advisor name click to navigate to advisor profile
-  const handleAdvisorClick = (advisorId: number) => {
-    router.push(`/advisor/${advisorId}`);
-  };
-
-  // Fetch advisors data and counts
-  const fetchAdvisors = async (page: number = 1) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-
-      // Fetch advisors list
-      const params = new URLSearchParams();
-      params.append("page", page.toString());
-      params.append("per_page", "50");
-      params.append("Countries", JSON.stringify([]));
-      params.append("Provinces", JSON.stringify([]));
-      params.append("Cities", JSON.stringify([]));
-      params.append("search_query", "");
-      params.append("primary_sectors_ids", JSON.stringify([]));
-      params.append("Secondary_sectors_ids", JSON.stringify([]));
-
-      const advisorsUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_list?${params.toString()}`;
-
-      // Fetch advisors counts
-      const countsParams = new URLSearchParams();
-      countsParams.append("Countries", JSON.stringify([]));
-      countsParams.append("Provinces", JSON.stringify([]));
-      countsParams.append("Cities", JSON.stringify([]));
-      countsParams.append("search_query", "");
-      countsParams.append("primary_sectors_ids", JSON.stringify([]));
-      countsParams.append("Secondary_sectors_ids", JSON.stringify([]));
-
-      const countsUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_counts?${countsParams.toString()}`;
-
-      // Make both API calls in parallel
-      const [advisorsResponse, countsResponse] = await Promise.all([
-        fetch(advisorsUrl, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }),
-        fetch(countsUrl, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }),
-      ]);
-
-      if (!advisorsResponse.ok) {
-        throw new Error(
-          `Advisors API request failed: ${advisorsResponse.statusText}`
-        );
-      }
-
-      if (!countsResponse.ok) {
-        throw new Error(
-          `Counts API request failed: ${countsResponse.statusText}`
-        );
-      }
-
-      const advisorsData: AdvisorsResponse = await advisorsResponse.json();
-      const countsData: AdvisorsCountsResponse = await countsResponse.json();
-
-      // Debug: Log the response structure
-      console.log("Advisors API Response:", advisorsData);
-      console.log("Counts API Response:", countsData);
-
-      // Safely access advisors data with null checks
-      setAdvisors(advisorsData?.items || []);
-
-      // Safely access counts data with null checks
-      setSummaryData({
-        financialAdvisors:
-          countsData?.lambda?.companiesByRole?.financialAdvisors || 133,
-        commercialDueDiligence:
-          countsData?.lambda?.companiesByRole?.commercialDueDiligence || 15,
-        vendorDueDiligence:
-          countsData?.lambda?.companiesByRole?.vendorDueDiligence || 5,
-        managementTeamAdvisory:
-          countsData?.lambda?.companiesByRole?.managementTeamAdvisory || 4,
-        nomad: countsData?.lambda?.companiesByRole?.nomad || 1,
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch advisors");
-      console.error("Error fetching advisors:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAdvisors(1);
-  }, []);
-
   const tableRows = advisors.map((advisor, index) => {
     // Truncate description for display
     const description = advisor.description || "N/A";
@@ -428,10 +577,10 @@ const AdvisorSection = () => {
               "div",
               {
                 style: {
-                  width: "50px",
-                  height: "50px",
+                  width: "60px",
+                  height: "40px",
                   backgroundColor: "#f7fafc",
-                  borderRadius: "50%",
+                  borderRadius: "4px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -449,8 +598,13 @@ const AdvisorSection = () => {
           "span",
           {
             className: "advisor-name",
-            style: { cursor: "pointer", color: "#3b82f6" },
-            onClick: () => handleAdvisorClick(advisor.id),
+            style: {
+              textDecoration: "underline",
+              color: "#0075df",
+              cursor: "pointer",
+              fontWeight: "500",
+            },
+            onClick: () => router.push(`/advisors/${advisor.id}`),
           },
           advisor.name || "N/A"
         )
@@ -535,26 +689,35 @@ const AdvisorSection = () => {
       color: #1a202c;
       margin: 0 0 24px 0;
     }
-    .stats-content {
+    .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px 24px;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+    .stats-column {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
     }
     .stats-item {
       display: flex;
-      flex-direction: column;
-      gap: 4px;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .stats-item:last-child {
+      border-bottom: none;
     }
     .stats-label {
       font-size: 14px;
       color: #4a5568;
       font-weight: 500;
-      line-height: 1.4;
     }
     .stats-value {
-      font-size: 20px;
+      font-size: 16px;
       color: #000;
-      font-weight: 700;
+      font-weight: 600;
     }
     .advisor-table {
       width: 100%;
@@ -587,21 +750,21 @@ const AdvisorSection = () => {
       line-height: 1.5;
     }
     .advisor-logo {
-      width: 50px;
-      height: 50px;
-      object-fit: cover;
+      width: 60px;
+      height: 40px;
+      object-fit: contain;
       vertical-align: middle;
-      border-radius: 50%;
+      border-radius: 4px;
     }
     .advisor-name {
       color: #0075df;
       text-decoration: underline;
       cursor: pointer;
       font-weight: 500;
-      transition: color 0.2s ease;
+      transition: color 0.2s;
     }
     .advisor-name:hover {
-      color: #0056b3;
+      color: #005bb5;
     }
     .advisor-description {
       max-width: 300px;
@@ -639,15 +802,44 @@ const AdvisorSection = () => {
       border-radius: 6px;
       margin-bottom: 16px;
     }
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-top: 24px;
+      padding: 16px;
+    }
+    .pagination-button {
+      padding: 8px 12px;
+      border: none;
+      background: none;
+      color: #000;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 400;
+      transition: color 0.2s;
+      text-decoration: none;
+    }
+    .pagination-button:hover {
+      color: #0075df;
+    }
+    .pagination-button.active {
+      color: #0075df;
+      text-decoration: underline;
+      font-weight: 500;
+    }
+    .pagination-button:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      color: #666;
+    }
+    .pagination-ellipsis {
+      padding: 8px 12px;
+      color: #000;
+      font-size: 14px;
+    }
     @media (max-width: 768px) {
-      .stats-content {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 12px 16px;
-      }
-      .stats-title {
-        font-size: 20px;
-        margin-bottom: 16px;
-      }
       .advisor-table {
         font-size: 12px;
       }
@@ -658,7 +850,7 @@ const AdvisorSection = () => {
       }
       .advisor-logo {
         width: 40px;
-        height: 40px;
+        height: 30px;
       }
       .advisor-description {
         max-width: 200px;
@@ -667,152 +859,670 @@ const AdvisorSection = () => {
         max-width: 150px;
       }
     }
-    @media (max-width: 480px) {
-      .stats-content {
-        grid-template-columns: 1fr;
-        gap: 12px;
-      }
-    }
   `;
 
-  if (loading) {
-    return React.createElement(
-      "div",
-      { className: "advisor-section" },
-      React.createElement(
-        "div",
-        { className: "loading" },
-        "Loading advisors..."
-      ),
-      React.createElement("style", {
-        dangerouslySetInnerHTML: { __html: style },
-      })
-    );
-  }
+  // Generate pagination buttons
+  const generatePaginationButtons = () => {
+    const buttons = [];
+    const currentPage = pagination.curPage;
+    const totalPages = pagination.pageTotal;
 
-  if (error) {
-    return React.createElement(
-      "div",
-      { className: "advisor-section" },
-      React.createElement("div", { className: "error" }, error),
-      React.createElement("style", {
-        dangerouslySetInnerHTML: { __html: style },
-      })
-    );
-  }
-
-  return React.createElement(
-    "div",
-    { className: "advisor-section" },
-    // Statistics Block
-    React.createElement(
-      "div",
-      { className: "advisor-stats" },
-      React.createElement("h2", { className: "stats-title" }, "Advisors"),
+    // Previous button
+    buttons.push(
       React.createElement(
-        "div",
-        { className: "stats-content" },
-        React.createElement(
-          "div",
-          { className: "stats-item" },
-          React.createElement(
-            "span",
-            { className: "stats-label" },
-            "Financial Advisors"
-          ),
-          React.createElement(
-            "span",
-            { className: "stats-value" },
-            summaryData.financialAdvisors.toLocaleString()
-          )
-        ),
-        React.createElement(
-          "div",
-          { className: "stats-item" },
-          React.createElement(
-            "span",
-            { className: "stats-label" },
-            "Commercial Due Diligence"
-          ),
-          React.createElement(
-            "span",
-            { className: "stats-value" },
-            summaryData.commercialDueDiligence.toLocaleString()
-          )
-        ),
-        React.createElement(
-          "div",
-          { className: "stats-item" },
-          React.createElement(
-            "span",
-            { className: "stats-label" },
-            "Vendor Due Diligence"
-          ),
-          React.createElement(
-            "span",
-            { className: "stats-value" },
-            summaryData.vendorDueDiligence.toLocaleString()
-          )
-        ),
-        React.createElement(
-          "div",
-          { className: "stats-item" },
-          React.createElement(
-            "span",
-            { className: "stats-label" },
-            "Management Team Advisory"
-          ),
-          React.createElement(
-            "span",
-            { className: "stats-value" },
-            summaryData.managementTeamAdvisory.toLocaleString()
-          )
-        ),
-        React.createElement(
-          "div",
-          { className: "stats-item" },
-          React.createElement("span", { className: "stats-label" }, "NOMAD"),
-          React.createElement(
-            "span",
-            { className: "stats-value" },
-            summaryData.nomad.toLocaleString()
-          )
-        )
+        "button",
+        {
+          key: "prev",
+          className: "pagination-button",
+          onClick: () => handlePageChange(currentPage - 1),
+          disabled: !pagination.prevPage,
+        },
+        "<"
       )
-    ),
-    React.createElement(
-      "table",
-      { className: "advisor-table" },
-      React.createElement(
-        "thead",
-        null,
-        React.createElement(
-          "tr",
-          null,
-          React.createElement("th", null, "Logo"),
-          React.createElement("th", null, "Advisor"),
-          React.createElement("th", null, "Description"),
-          React.createElement("th", null, "# Corporate Events Advised"),
-          React.createElement("th", null, "Advised D&A Sectors"),
-          React.createElement("th", null, "LinkedIn Members"),
-          React.createElement("th", null, "Country")
-        )
-      ),
-      React.createElement("tbody", null, tableRows)
-    ),
-    React.createElement("style", {
-      dangerouslySetInnerHTML: { __html: style },
-    })
-  );
-};
+    );
 
-const AdvisorsPage = () => {
+    // Page numbers
+    if (totalPages <= 7) {
+      // Show all pages if total is 7 or less
+      for (let i = 1; i <= totalPages; i++) {
+        buttons.push(
+          React.createElement(
+            "button",
+            {
+              key: i,
+              className: `pagination-button ${
+                i === currentPage ? "active" : ""
+              }`,
+              onClick: () => handlePageChange(i),
+            },
+            i.toString()
+          )
+        );
+      }
+    } else {
+      // Show first page
+      buttons.push(
+        React.createElement(
+          "button",
+          {
+            key: 1,
+            className: `pagination-button ${currentPage === 1 ? "active" : ""}`,
+            onClick: () => handlePageChange(1),
+          },
+          "1"
+        )
+      );
+
+      // Show second page if not first
+      if (currentPage > 2) {
+        buttons.push(
+          React.createElement(
+            "button",
+            {
+              key: 2,
+              className: "pagination-button",
+              onClick: () => handlePageChange(2),
+            },
+            "2"
+          )
+        );
+      }
+
+      // Show ellipsis if needed
+      if (currentPage > 3) {
+        buttons.push(
+          React.createElement(
+            "span",
+            { key: "ellipsis1", className: "pagination-ellipsis" },
+            "..."
+          )
+        );
+      }
+
+      // Show current page and neighbors
+      for (
+        let i = Math.max(3, currentPage - 1);
+        i <= Math.min(totalPages - 2, currentPage + 1);
+        i++
+      ) {
+        if (i > 2 && i < totalPages - 1) {
+          buttons.push(
+            React.createElement(
+              "button",
+              {
+                key: i,
+                className: `pagination-button ${
+                  i === currentPage ? "active" : ""
+                }`,
+                onClick: () => handlePageChange(i),
+              },
+              i.toString()
+            )
+          );
+        }
+      }
+
+      // Show ellipsis if needed
+      if (currentPage < totalPages - 2) {
+        buttons.push(
+          React.createElement(
+            "span",
+            { key: "ellipsis2", className: "pagination-ellipsis" },
+            "..."
+          )
+        );
+      }
+
+      // Show second to last page if not last
+      if (currentPage < totalPages - 1) {
+        buttons.push(
+          React.createElement(
+            "button",
+            {
+              key: totalPages - 1,
+              className: "pagination-button",
+              onClick: () => handlePageChange(totalPages - 1),
+            },
+            (totalPages - 1).toString()
+          )
+        );
+      }
+
+      // Show last page
+      buttons.push(
+        React.createElement(
+          "button",
+          {
+            key: totalPages,
+            className: `pagination-button ${
+              currentPage === totalPages ? "active" : ""
+            }`,
+            onClick: () => handlePageChange(totalPages),
+          },
+          totalPages.toString()
+        )
+      );
+    }
+
+    // Next button
+    buttons.push(
+      React.createElement(
+        "button",
+        {
+          key: "next",
+          className: "pagination-button",
+          onClick: () => handlePageChange(currentPage + 1),
+          disabled: !pagination.nextPage,
+        },
+        ">"
+      )
+    );
+
+    return buttons;
+  };
+
   return (
     <div className="min-h-screen">
       <Header />
-      <AdvisorDashboard />
-      <AdvisorSection />
+
+      {/* Filters Section */}
+      <div style={styles.container}>
+        <div style={styles.maxWidth}>
+          <div style={styles.card}>
+            <h2 style={styles.heading}>Filters</h2>
+
+            {showFilters && (
+              <div style={styles.grid}>
+                <div style={styles.gridItem}>
+                  <h3 style={styles.subHeading}>Location</h3>
+                  <span style={styles.label}>By Country</span>
+                  <SearchableSelect
+                    options={countryOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedCountries.includes(value)
+                      ) {
+                        setSelectedCountries([...selectedCountries, value]);
+                      }
+                    }}
+                    placeholder={
+                      loadingCountries
+                        ? "Loading countries..."
+                        : "Select Country"
+                    }
+                    disabled={loadingCountries}
+                    style={styles.select}
+                  />
+
+                  {/* Selected Countries Tags */}
+                  {selectedCountries.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedCountries.map((country) => (
+                        <span
+                          key={country}
+                          style={{
+                            backgroundColor: "#e3f2fd",
+                            color: "#1976d2",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {country}
+                          <button
+                            onClick={() => {
+                              setSelectedCountries(
+                                selectedCountries.filter((c) => c !== country)
+                              );
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#1976d2",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <span style={styles.label}>By State/County/Province</span>
+                  <SearchableSelect
+                    options={provinceOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedProvinces.includes(value)
+                      ) {
+                        setSelectedProvinces([...selectedProvinces, value]);
+                      }
+                    }}
+                    placeholder={
+                      loadingProvinces
+                        ? "Loading provinces..."
+                        : selectedCountries.length === 0
+                        ? "Select country first"
+                        : "Select Province"
+                    }
+                    disabled={
+                      loadingProvinces || selectedCountries.length === 0
+                    }
+                    style={styles.select}
+                  />
+
+                  {/* Selected Provinces Tags */}
+                  {selectedProvinces.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedProvinces.map((province) => (
+                        <span
+                          key={province}
+                          style={{
+                            backgroundColor: "#e8f5e8",
+                            color: "#2e7d32",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {province}
+                          <button
+                            onClick={() => {
+                              setSelectedProvinces(
+                                selectedProvinces.filter((p) => p !== province)
+                              );
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#2e7d32",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <span style={styles.label}>By City</span>
+                  <SearchableSelect
+                    options={cityOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedCities.includes(value)
+                      ) {
+                        setSelectedCities([...selectedCities, value]);
+                      }
+                    }}
+                    placeholder={
+                      loadingCities
+                        ? "Loading cities..."
+                        : selectedCountries.length === 0
+                        ? "Select country first"
+                        : "Select City"
+                    }
+                    disabled={loadingCities || selectedCountries.length === 0}
+                    style={styles.select}
+                  />
+
+                  {/* Selected Cities Tags */}
+                  {selectedCities.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedCities.map((city) => (
+                        <span
+                          key={city}
+                          style={{
+                            backgroundColor: "#fff3e0",
+                            color: "#f57c00",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {city}
+                          <button
+                            onClick={() => {
+                              setSelectedCities(
+                                selectedCities.filter((c) => c !== city)
+                              );
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#f57c00",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div style={styles.gridItem}>
+                  <h3 style={styles.subHeading}>Sector</h3>
+                  <span style={styles.label}>By Primary Sectors</span>
+                  <SearchableSelect
+                    options={primarySectorOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "number" &&
+                        value &&
+                        !selectedPrimarySectors.includes(value)
+                      ) {
+                        setSelectedPrimarySectors([
+                          ...selectedPrimarySectors,
+                          value,
+                        ]);
+                      }
+                    }}
+                    placeholder={
+                      loadingPrimarySectors
+                        ? "Loading primary sectors..."
+                        : "Select Primary Sector"
+                    }
+                    disabled={loadingPrimarySectors}
+                    style={styles.select}
+                  />
+
+                  {/* Selected Primary Sectors Tags */}
+                  {selectedPrimarySectors.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedPrimarySectors.map((sectorId) => {
+                        const sector = primarySectors.find(
+                          (s) => s.id === sectorId
+                        );
+                        return (
+                          <span
+                            key={sectorId}
+                            style={{
+                              backgroundColor: "#f3e5f5",
+                              color: "#7b1fa2",
+                              padding: "4px 8px",
+                              borderRadius: "4px",
+                              fontSize: "12px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            {sector?.sector_name || sectorId}
+                            <button
+                              onClick={() => {
+                                setSelectedPrimarySectors(
+                                  selectedPrimarySectors.filter(
+                                    (s) => s !== sectorId
+                                  )
+                                );
+                              }}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "#7b1fa2",
+                                cursor: "pointer",
+                                fontWeight: "bold",
+                                fontSize: "14px",
+                              }}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <span style={styles.label}>By Secondary Sector</span>
+                  <SearchableSelect
+                    options={secondarySectorOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "number" &&
+                        value &&
+                        !selectedSecondarySectors.includes(value)
+                      ) {
+                        setSelectedSecondarySectors([
+                          ...selectedSecondarySectors,
+                          value,
+                        ]);
+                      }
+                    }}
+                    placeholder={
+                      loadingSecondarySectors
+                        ? "Loading secondary sectors..."
+                        : selectedPrimarySectors.length === 0
+                        ? "Select primary sector first"
+                        : "Select Secondary Sector"
+                    }
+                    disabled={
+                      loadingSecondarySectors ||
+                      selectedPrimarySectors.length === 0
+                    }
+                    style={styles.select}
+                  />
+
+                  {/* Selected Secondary Sectors Tags */}
+                  {selectedSecondarySectors.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedSecondarySectors.map((sectorId) => {
+                        const sector = secondarySectors.find(
+                          (s) => s.id === sectorId
+                        );
+                        return (
+                          <span
+                            key={sectorId}
+                            style={{
+                              backgroundColor: "#e8f5e8",
+                              color: "#388e3c",
+                              padding: "4px 8px",
+                              borderRadius: "4px",
+                              fontSize: "12px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            {sector?.sector_name || sectorId}
+                            <button
+                              onClick={() => {
+                                setSelectedSecondarySectors(
+                                  selectedSecondarySectors.filter(
+                                    (s) => s !== sectorId
+                                  )
+                                );
+                              }}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "#388e3c",
+                                cursor: "pointer",
+                                fontWeight: "bold",
+                                fontSize: "14px",
+                              }}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginTop: showFilters ? "20px" : "0" }}>
+              <h3 style={styles.subHeading}>Search for Advisors</h3>
+              <div style={styles.searchDiv}>
+                <input
+                  type="text"
+                  placeholder="Enter name here"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={styles.input}
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                />
+                <button
+                  style={styles.button}
+                  onClick={handleSearch}
+                  onMouseOver={(e) =>
+                    ((e.target as HTMLButtonElement).style.backgroundColor =
+                      "#005bb5")
+                  }
+                  onMouseOut={(e) =>
+                    ((e.target as HTMLButtonElement).style.backgroundColor =
+                      "#0075df")
+                  }
+                >
+                  {loading ? "Searching..." : "Search"}
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              style={styles.linkButton}
+            >
+              {showFilters ? "Hide & Reset Filters" : "Show Filters"}
+            </button>
+          </div>
+
+          {/* Error Display */}
+          {error && <div style={styles.error}>{error}</div>}
+
+          {/* Loading Display */}
+          {loading && <div style={styles.loading}>Loading advisors...</div>}
+        </div>
+      </div>
+
+      {/* Advisors Table Section */}
+      <div className="advisor-section">
+        {/* Statistics Block */}
+        <div className="advisor-stats">
+          <h2 className="stats-title">Advisors</h2>
+          <div className="stats-grid">
+            <div className="stats-column">
+              <div className="stats-item">
+                <span className="stats-label">Financial Advisors: </span>
+                <span className="stats-value">
+                  {countsData.financialAdvisors.toLocaleString()}
+                </span>
+              </div>
+              <div className="stats-item">
+                <span className="stats-label">Commercial Due Diligence: </span>
+                <span className="stats-value">
+                  {countsData.commercialDueDiligence.toLocaleString()}
+                </span>
+              </div>
+              <div className="stats-item">
+                <span className="stats-label">Vendor Due Diligence: </span>
+                <span className="stats-value">
+                  {countsData.vendorDueDiligence.toLocaleString()}
+                </span>
+              </div>
+            </div>
+            <div className="stats-column">
+              <div className="stats-item">
+                <span className="stats-label">Management Team Advisory: </span>
+                <span className="stats-value">
+                  {countsData.managementTeamAdvisory.toLocaleString()}
+                </span>
+              </div>
+              <div className="stats-item">
+                <span className="stats-label">NOMAD: </span>
+                <span className="stats-value">
+                  {countsData.nomad.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <table className="advisor-table">
+          <thead>
+            <tr>
+              <th>Logo</th>
+              <th>Advisor</th>
+              <th>Description</th>
+              <th># Corporate Events Advised</th>
+              <th>Advised D&A Sectors</th>
+              <th>LinkedIn Members</th>
+              <th>Country</th>
+            </tr>
+          </thead>
+          <tbody>{tableRows}</tbody>
+        </table>
+
+        <div className="pagination">{generatePaginationButtons()}</div>
+      </div>
+
       <Footer />
+      <style dangerouslySetInnerHTML={{ __html: style }} />
     </div>
   );
 };

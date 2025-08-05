@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 // Types for dashboard data
 interface AsymmetrixData {
@@ -95,6 +96,155 @@ interface NewCompany {
 export default function HomeUserPage() {
   const router = useRouter();
   const { isAuthenticated, logout, loading: authLoading } = useAuth();
+
+  // Corporate Event navigation handler
+  const handleCorporateEventClick = useCallback(
+    (eventId: number) => {
+      router.push(`/corporate-event/${eventId}`);
+    },
+    [router]
+  );
+
+  // Company/Investor navigation handler
+  const handleCompanyClick = useCallback(
+    async (companyName: string) => {
+      try {
+        // Search for the company in investors
+        const response = await fetch(
+          `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_investors?search_query=${encodeURIComponent(
+            companyName
+          )}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const exactMatch = data.investors?.items?.find(
+            (investor: {
+              company_name?: string;
+              original_new_company_id?: number;
+            }) =>
+              investor.company_name?.toLowerCase() === companyName.toLowerCase()
+          );
+
+          if (exactMatch?.original_new_company_id) {
+            router.push(`/investors/${exactMatch.original_new_company_id}`);
+            return;
+          }
+        }
+
+        // If not found in investors, try companies
+        const companiesResponse = await fetch(
+          `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_companies?search_query=${encodeURIComponent(
+            companyName
+          )}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (companiesResponse.ok) {
+          const companiesData = await companiesResponse.json();
+          const exactMatch = companiesData.items?.find(
+            (company: { name?: string; id?: number }) =>
+              company.name?.toLowerCase() === companyName.toLowerCase()
+          );
+
+          if (exactMatch?.id) {
+            router.push(`/company/${exactMatch.id}`);
+            return;
+          }
+        }
+
+        // If no exact match found, navigate to general companies page with search
+        router.push(`/companies?search=${encodeURIComponent(companyName)}`);
+      } catch (error) {
+        console.error("Error searching for company:", error);
+        // Fallback to companies page with search
+        router.push(`/companies?search=${encodeURIComponent(companyName)}`);
+      }
+    },
+    [router]
+  );
+
+  // Insights company navigation handler - prioritizes dynamic company pages
+  const handleInsightsCompanyClick = useCallback(
+    async (companyName: string) => {
+      try {
+        // First search in companies (prioritize company pages for insights)
+        const companiesResponse = await fetch(
+          `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_companies?search_query=${encodeURIComponent(
+            companyName
+          )}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (companiesResponse.ok) {
+          const companiesData = await companiesResponse.json();
+          const exactMatch = companiesData.items?.find(
+            (company: { name?: string; id?: number }) =>
+              company.name?.toLowerCase() === companyName.toLowerCase()
+          );
+
+          if (exactMatch?.id) {
+            router.push(`/company/${exactMatch.id}`);
+            return;
+          }
+        }
+
+        // If not found in companies, try investors as fallback
+        const response = await fetch(
+          `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_investors?search_query=${encodeURIComponent(
+            companyName
+          )}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const exactMatch = data.investors?.items?.find(
+            (investor: {
+              company_name?: string;
+              original_new_company_id?: number;
+            }) =>
+              investor.company_name?.toLowerCase() === companyName.toLowerCase()
+          );
+
+          if (exactMatch?.original_new_company_id) {
+            router.push(`/investors/${exactMatch.original_new_company_id}`);
+            return;
+          }
+        }
+
+        // If no exact match found, navigate to general companies page with search
+        router.push(`/companies?search=${encodeURIComponent(companyName)}`);
+      } catch (error) {
+        console.error("Error searching for company:", error);
+        // Fallback to companies page with search
+        router.push(`/companies?search=${encodeURIComponent(companyName)}`);
+      }
+    },
+    [router]
+  );
+
   const [isLoading, setIsLoading] = useState(true);
   const [asymmetrixData, setAsymmetrixData] = useState<AsymmetrixData[]>([]);
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
@@ -363,7 +513,7 @@ export default function HomeUserPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [logout, router]);
 
   // Check authentication on component mount
   useEffect(() => {
@@ -388,11 +538,6 @@ export default function HomeUserPage() {
       fetchDashboardData();
     }
   }, [router, fetchDashboardData, isAuthenticated, authLoading]);
-
-  const handleLogout = () => {
-    logout();
-    router.push("/login");
-  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -447,72 +592,8 @@ export default function HomeUserPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b shadow-sm">
-        <div className="px-4 mx-auto w-full">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-8">
-              <Link href="/home-user" className="flex items-center">
-                <img
-                  src="https://www.asymmetrixintelligence.com/images/logo.svg?_wwcv=682"
-                  alt="Asymmetrix"
-                  className="mr-2 w-auto h-8"
-                />
-              </Link>
-
-              <nav className="hidden space-x-8 md:flex">
-                <Link href="/home-user" className="font-medium text-blue-600">
-                  Dashboard
-                </Link>
-                <button
-                  className="text-gray-500 cursor-not-allowed hover:text-gray-700"
-                  disabled
-                >
-                  Companies
-                </button>
-                <Link
-                  href="/sectors"
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  Sectors
-                </Link>
-                <button
-                  className="text-gray-500 cursor-not-allowed hover:text-gray-700"
-                  disabled
-                >
-                  Insights & Analysis
-                </button>
-                <button
-                  className="text-gray-500 cursor-not-allowed hover:text-gray-700"
-                  disabled
-                >
-                  Investors
-                </button>
-                <button
-                  className="text-gray-500 cursor-not-allowed hover:text-gray-700"
-                  disabled
-                >
-                  Advisors
-                </button>
-                <button
-                  className="text-gray-500 cursor-not-allowed hover:text-gray-700"
-                  disabled
-                >
-                  Individuals
-                </button>
-              </nav>
-            </div>
-
-            <button
-              onClick={handleLogout}
-              className="text-sm font-medium text-gray-500 hover:text-gray-700"
-            >
-              Log out
-            </button>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen">
+      <Header />
 
       {/* Main Content */}
       <main className="px-4 py-8 mx-auto w-full">
@@ -609,7 +690,18 @@ export default function HomeUserPage() {
                     {corporateEvents.slice(0, 25).map((event) => (
                       <tr key={event.id} className="hover:bg-gray-50">
                         <td className="px-4 py-4 max-w-xs text-xs text-gray-900">
-                          {event.description}
+                          <span
+                            onClick={() => handleCorporateEventClick(event.id)}
+                            className="text-blue-600 underline cursor-pointer hover:text-blue-800"
+                            style={{
+                              textDecoration: "underline",
+                              color: "#0075df",
+                              cursor: "pointer",
+                              fontWeight: "500",
+                            }}
+                          >
+                            {event.description}
+                          </span>
                         </td>
                         <td className="px-4 py-4 text-xs text-gray-500">
                           {event.announcement_date || "Not Available"}
@@ -654,7 +746,27 @@ export default function HomeUserPage() {
                                 (cp) => cp._new_company?.name
                               )
                                 .filter(Boolean)
-                                .join(", ")
+                                .map((companyName, index, array) => (
+                                  <span
+                                    key={`${event.id}-counterparty-${index}`}
+                                  >
+                                    <span
+                                      onClick={() =>
+                                        handleCompanyClick(companyName!)
+                                      }
+                                      className="text-blue-600 underline cursor-pointer hover:text-blue-800"
+                                      style={{
+                                        textDecoration: "underline",
+                                        color: "#0075df",
+                                        cursor: "pointer",
+                                        fontWeight: "500",
+                                      }}
+                                    >
+                                      {companyName}
+                                    </span>
+                                    {index < array.length - 1 && ", "}
+                                  </span>
+                                ))
                             : "Not Available"}
                         </td>
                         <td className="px-4 py-4 text-xs text-gray-900">
@@ -751,7 +863,14 @@ export default function HomeUserPage() {
                               (company, index) => (
                                 <span
                                   key={company.id}
+                                  onClick={() =>
+                                    handleInsightsCompanyClick(company.name)
+                                  }
                                   className="text-xs text-blue-600 cursor-pointer hover:text-blue-800"
+                                  style={{
+                                    textDecoration: "underline",
+                                    fontWeight: "500",
+                                  }}
                                 >
                                   {company.name}
                                   {index <
@@ -887,6 +1006,7 @@ export default function HomeUserPage() {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

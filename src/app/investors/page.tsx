@@ -4,6 +4,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import SearchableMultiSelect from "@/components/ui/SearchableMultiSelect";
+import { locationsService } from "@/lib/locationsService";
 
 // Types for API integration
 interface Investor {
@@ -47,8 +49,8 @@ interface InvestorsResponse {
 
 interface InvestorsFilters {
   Investor_Types: string[];
-  Primary_Sectors: string[];
-  Secondary_Sectors: string[];
+  Primary_Sectors: number[]; // Changed from string[] to number[]
+  Secondary_Sectors: number[]; // Changed from string[] to number[]
   Horizontals: string[];
   Portfolio_Companies_Min: number;
   Portfolio_Companies_Max: number;
@@ -60,7 +62,60 @@ interface InvestorsFilters {
   Cities: string[];
 }
 
-const InvestorDashboard = () => {
+// API data interfaces (same as companies page)
+interface Country {
+  locations_Country: string;
+}
+
+interface Province {
+  State__Province__County: string;
+}
+
+interface City {
+  City: string;
+}
+
+interface PrimarySector {
+  id: number;
+  sector_name: string;
+}
+
+interface SecondarySector {
+  id: number;
+  sector_name: string;
+}
+
+const InvestorsPage = () => {
+  const router = useRouter();
+
+  // Shared state for investors data
+  const [investors, setInvestors] = useState<Investor[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({
+    itemsReceived: 0,
+    curPage: 1,
+    nextPage: null as number | null,
+    prevPage: null as number | null,
+    offset: 0,
+    itemsTotal: 0,
+    pageTotal: 0,
+  });
+  const [summaryData, setSummaryData] = useState({
+    privateEquityCount: 0,
+    ventureCapitalCount: 0,
+    familyOfficeCount: 0,
+    assetManagementCount: 0,
+    hedgeFundCount: 0,
+    numberOfPEInvestments: 0,
+    numberOfVCInvestments: 0,
+    numberOfFamilyOfficeInvestments: 0,
+    numberOfAssetManagerInvestments: 0,
+    numberOfHedgeFundInvestments: 0,
+    sumOfInvestorsActiveDAInvestments: 0,
+  });
+
+  // Filter state
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<InvestorsFilters>({
@@ -77,8 +132,200 @@ const InvestorDashboard = () => {
     Provinces: [],
     Cities: [],
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  // State for API data (same as companies page)
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
+  const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
+  const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
+    []
+  );
+  const [investorTypes, setInvestorTypes] = useState<
+    Array<{ id: number; sector_name: string }>
+  >([]);
+
+  // Loading states
+  const [loadingCountries, setLoadingCountries] = useState(false);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingPrimarySectors, setLoadingPrimarySectors] = useState(false);
+  const [loadingSecondarySectors, setLoadingSecondarySectors] = useState(false);
+  const [loadingInvestorTypes, setLoadingInvestorTypes] = useState(false);
+
+  // Convert API data to dropdown options format
+  const countryOptions = countries.map((country) => ({
+    value: country.locations_Country,
+    label: country.locations_Country,
+  }));
+
+  const provinceOptions = provinces.map((province) => ({
+    value: province.State__Province__County,
+    label: province.State__Province__County,
+  }));
+
+  const cityOptions = cities.map((city) => ({
+    value: city.City,
+    label: city.City,
+  }));
+
+  const primarySectorOptions = primarySectors.map((sector) => ({
+    value: sector.id,
+    label: sector.sector_name,
+  }));
+
+  const secondarySectorOptions = secondarySectors.map((sector) => ({
+    value: sector.id,
+    label: sector.sector_name,
+  }));
+
+  const investorTypeOptions = investorTypes.map((type) => ({
+    value: type.sector_name,
+    label: type.sector_name,
+  }));
+
+  // State for each filter (arrays for multi-select)
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const [selectedProvinces, setSelectedProvinces] = useState<string[]>([]);
+  const [selectedCities, setSelectedCities] = useState<string[]>([]);
+  const [selectedPrimarySectors, setSelectedPrimarySectors] = useState<
+    number[]
+  >([]);
+  const [selectedSecondarySectors, setSelectedSecondarySectors] = useState<
+    number[]
+  >([]);
+  const [selectedInvestorTypes, setSelectedInvestorTypes] = useState<string[]>(
+    []
+  );
+
+  // Fetch data from API (same as companies page)
+  const fetchCountries = async () => {
+    try {
+      setLoadingCountries(true);
+      const countriesData = await locationsService.getCountries();
+      setCountries(countriesData);
+    } catch (error) {
+      console.error("Error fetching countries:", error);
+    } finally {
+      setLoadingCountries(false);
+    }
+  };
+
+  const fetchPrimarySectors = async () => {
+    try {
+      setLoadingPrimarySectors(true);
+      const sectorsData = await locationsService.getPrimarySectors();
+      setPrimarySectors(sectorsData);
+    } catch (error) {
+      console.error("Error fetching primary sectors:", error);
+    } finally {
+      setLoadingPrimarySectors(false);
+    }
+  };
+
+  const fetchSecondarySectors = async () => {
+    if (selectedPrimarySectors.length === 0) {
+      setSecondarySectors([]);
+      setSelectedSecondarySectors([]);
+      return;
+    }
+
+    try {
+      setLoadingSecondarySectors(true);
+
+      // Get the IDs of selected primary sectors
+      const selectedPrimarySectorIds = primarySectors
+        .filter((sector) => selectedPrimarySectors.includes(sector.id))
+        .map((sector) => sector.id);
+
+      const secondarySectorsData = await locationsService.getSecondarySectors(
+        selectedPrimarySectorIds
+      );
+      setSecondarySectors(secondarySectorsData);
+      // Reset selected secondary sectors when primary sectors change
+      setSelectedSecondarySectors([]);
+    } catch (error) {
+      console.error("Error fetching secondary sectors:", error);
+    } finally {
+      setLoadingSecondarySectors(false);
+    }
+  };
+
+  const fetchProvinces = async () => {
+    if (selectedCountries.length === 0) {
+      setProvinces([]);
+      setSelectedProvinces([]);
+      return;
+    }
+
+    try {
+      setLoadingProvinces(true);
+      const provincesData = await locationsService.getProvinces(
+        selectedCountries
+      );
+      setProvinces(provincesData);
+      // Reset selected provinces when countries change
+      setSelectedProvinces([]);
+    } catch (error) {
+      console.error("Error fetching provinces:", error);
+    } finally {
+      setLoadingProvinces(false);
+    }
+  };
+
+  const fetchCities = async () => {
+    if (selectedCountries.length === 0) {
+      setCities([]);
+      setSelectedCities([]);
+      return;
+    }
+
+    try {
+      setLoadingCities(true);
+      const citiesData = await locationsService.getCities(
+        selectedCountries,
+        selectedProvinces
+      );
+      setCities(citiesData);
+      // Reset selected cities when countries or provinces change
+      setSelectedCities([]);
+    } catch (error) {
+      console.error("Error fetching cities:", error);
+    } finally {
+      setLoadingCities(false);
+    }
+  };
+
+  // Fetch investor types from API
+  const fetchInvestorTypes = useCallback(async () => {
+    setLoadingInvestorTypes(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const response = await fetch(
+        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/Get_investor_types_for_filter",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch investor types: ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+      setInvestorTypes(data);
+    } catch (err) {
+      console.error("Error fetching investor types:", err);
+    } finally {
+      setLoadingInvestorTypes(false);
+    }
+  }, []);
 
   // Fetch investors data from API
   const fetchInvestors = useCallback(async (filters: InvestorsFilters) => {
@@ -90,41 +337,75 @@ const InvestorDashboard = () => {
 
       // Convert filters to URL parameters for GET request
       const params = new URLSearchParams();
-      if (filters.Investor_Types.length > 0)
-        params.append("Investor_Types", JSON.stringify(filters.Investor_Types));
-      if (filters.Primary_Sectors.length > 0)
-        params.append(
-          "Primary_Sectors",
-          JSON.stringify(filters.Primary_Sectors)
-        );
-      if (filters.Secondary_Sectors.length > 0)
-        params.append(
-          "Secondary_Sectors",
-          JSON.stringify(filters.Secondary_Sectors)
-        );
-      if (filters.Horizontals.length > 0)
-        params.append("Horizontals", JSON.stringify(filters.Horizontals));
-      if (filters.Portfolio_Companies_Min > 0)
+
+      // Add page and per_page
+      if (filters.page > 0) params.append("page", filters.page.toString());
+      if (filters.per_page > 0)
+        params.append("per_page", filters.per_page.toString());
+
+      // Add search query
+      if (filters.Search_Query)
+        params.append("Search_Query", filters.Search_Query);
+
+      // Add location filters as arrays
+      if (filters.Countries.length > 0) {
+        filters.Countries.forEach((country) => {
+          params.append("Countries[]", country);
+        });
+      }
+
+      if (filters.Provinces.length > 0) {
+        filters.Provinces.forEach((province) => {
+          params.append("Provinces[]", province);
+        });
+      }
+
+      if (filters.Cities.length > 0) {
+        filters.Cities.forEach((city) => {
+          params.append("Cities[]", city);
+        });
+      }
+
+      // Add sector filters as arrays
+      if (filters.Primary_Sectors.length > 0) {
+        filters.Primary_Sectors.forEach((sector) => {
+          params.append("Primary_Sectors[]", sector.toString());
+        });
+      }
+
+      if (filters.Secondary_Sectors.length > 0) {
+        filters.Secondary_Sectors.forEach((sector) => {
+          params.append("Secondary_Sectors[]", sector.toString());
+        });
+      }
+
+      // Add investor types as arrays
+      if (filters.Investor_Types.length > 0) {
+        filters.Investor_Types.forEach((type) => {
+          params.append("Investor_Types[]", type);
+        });
+      }
+
+      // Add portfolio company range
+      if (filters.Portfolio_Companies_Min > 0) {
         params.append(
           "Portfolio_Companies_Min",
           filters.Portfolio_Companies_Min.toString()
         );
-      if (filters.Portfolio_Companies_Max > 0)
+      }
+      if (filters.Portfolio_Companies_Max > 0) {
         params.append(
           "Portfolio_Companies_Max",
           filters.Portfolio_Companies_Max.toString()
         );
-      if (filters.Search_Query)
-        params.append("Search_Query", filters.Search_Query);
-      if (filters.page > 0) params.append("page", filters.page.toString());
-      if (filters.per_page > 0)
-        params.append("per_page", filters.per_page.toString());
-      if (filters.Countries.length > 0)
-        params.append("Countries", JSON.stringify(filters.Countries));
-      if (filters.Provinces.length > 0)
-        params.append("Provinces", JSON.stringify(filters.Provinces));
-      if (filters.Cities.length > 0)
-        params.append("Cities", JSON.stringify(filters.Cities));
+      }
+
+      // Add horizontals if needed
+      if (filters.Horizontals.length > 0) {
+        filters.Horizontals.forEach((horizontal) => {
+          params.append("Horizontals[]", horizontal);
+        });
+      }
 
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/investors_with_d_a_list?${params.toString()}`;
 
@@ -140,7 +421,45 @@ const InvestorDashboard = () => {
         throw new Error(`API request failed: ${response.statusText}`);
       }
 
-      // Data is fetched but not used in the static layout
+      const data: InvestorsResponse = await response.json();
+      setInvestors(data.investors.items);
+      setPagination({
+        itemsReceived: data.investors.itemsReceived,
+        curPage: data.investors.curPage,
+        nextPage: data.investors.nextPage,
+        prevPage: data.investors.prevPage,
+        offset: data.investors.offset,
+        itemsTotal: data.investors.itemsTotal,
+        pageTotal: data.investors.pageTotal,
+      });
+      setSummaryData({
+        privateEquityCount:
+          data.investors.summary_by_company_focus?.privateEquityCount || 0,
+        ventureCapitalCount:
+          data.investors.summary_by_company_focus?.ventureCapitalCount || 0,
+        familyOfficeCount:
+          data.investors.summary_by_company_focus?.familyOfficeCount || 0,
+        assetManagementCount:
+          data.investors.summary_by_company_focus?.assetManagementCount || 0,
+        hedgeFundCount:
+          data.investors.summary_by_company_focus?.hedgeFundCount || 0,
+        numberOfPEInvestments:
+          data.investors.summary_by_company_focus?.numberOfPEInvestments || 0,
+        numberOfVCInvestments:
+          data.investors.summary_by_company_focus?.numberOfVCInvestments || 0,
+        numberOfFamilyOfficeInvestments:
+          data.investors.summary_by_company_focus
+            ?.numberOfFamilyOfficeInvestments || 0,
+        numberOfAssetManagerInvestments:
+          data.investors.summary_by_company_focus
+            ?.numberOfAssetManagerInvestments || 0,
+        numberOfHedgeFundInvestments:
+          data.investors.summary_by_company_focus
+            ?.numberOfHedgeFundInvestments || 0,
+        sumOfInvestorsActiveDAInvestments:
+          data.investors.summary_by_company_focus
+            ?.sumOfInvestorsActiveDAInvestments || 0,
+      });
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to fetch investors"
@@ -151,21 +470,53 @@ const InvestorDashboard = () => {
     }
   }, []);
 
+  // Initial data fetch
+  useEffect(() => {
+    fetchCountries();
+    fetchPrimarySectors();
+    fetchInvestorTypes();
+    // Initial fetch of all investors
+    fetchInvestors(filters);
+  }, []);
+
+  // Fetch provinces when countries are selected
+  useEffect(() => {
+    fetchProvinces();
+  }, [selectedCountries]);
+
+  // Fetch cities when countries or provinces are selected
+  useEffect(() => {
+    fetchCities();
+  }, [selectedCountries, selectedProvinces]);
+
+  // Fetch secondary sectors when primary sectors are selected
+  useEffect(() => {
+    fetchSecondarySectors();
+  }, [selectedPrimarySectors, primarySectors]);
+
   // Handle search
   const handleSearch = () => {
     const updatedFilters = {
       ...filters,
       Search_Query: searchTerm,
+      Countries: selectedCountries,
+      Provinces: selectedProvinces,
+      Cities: selectedCities,
+      Primary_Sectors: selectedPrimarySectors,
+      Secondary_Sectors: selectedSecondarySectors,
+      Investor_Types: selectedInvestorTypes,
       page: 1, // Reset to first page when searching
     };
     setFilters(updatedFilters);
     fetchInvestors(updatedFilters);
   };
 
-  // Initial data fetch
-  useEffect(() => {
-    fetchInvestors(filters);
-  }, [fetchInvestors, filters]);
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    const updatedFilters = { ...filters, page };
+    setFilters(updatedFilters);
+    fetchInvestors(updatedFilters);
+  };
 
   const styles = {
     container: {
@@ -291,223 +642,6 @@ const InvestorDashboard = () => {
       marginBottom: "16px",
     },
   };
-
-  return (
-    <div style={styles.container}>
-      <div style={styles.maxWidth}>
-        {/* Filters Section */}
-        <div style={styles.card}>
-          <h2 style={styles.heading}>Filters</h2>
-
-          {showFilters && (
-            <div style={styles.grid}>
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading}>HQ of Portfolio companies</h3>
-                <span style={styles.label}>By Country</span>
-                <select style={styles.select}>
-                  <option value="">By Country</option>
-                </select>
-                <span style={styles.label}>By State/County/Province</span>
-                <select style={styles.select}>
-                  <option value="">By State/County/Province</option>
-                </select>
-                <span style={styles.label}>By City</span>
-                <select style={styles.select}>
-                  <option value="">By City</option>
-                </select>
-              </div>
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading}>Sector Invested In</h3>
-                <span style={styles.label}>By Primary Sectors</span>
-                <select style={styles.select}>
-                  <option value="">By Primary Sectors</option>
-                </select>
-                <span style={styles.label}>By Secondary Sector</span>
-                <select style={styles.select}>
-                  <option value="">By Secondary Sector</option>
-                </select>
-              </div>
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading}>Investor Type</h3>
-                <span style={styles.label}>By Type</span>
-                <select style={styles.select}>
-                  <option value="">By Type</option>
-                </select>
-                <span style={styles.label}>Portfolio Companies</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    placeholder="0"
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div style={{ marginTop: showFilters ? "20px" : "0" }}>
-            <h3 style={styles.subHeading}>Search for Investor</h3>
-            <div style={styles.searchDiv}>
-              <input
-                type="text"
-                placeholder="Enter name here"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={styles.input}
-                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-              />
-              <button
-                style={styles.button}
-                onClick={handleSearch}
-                onMouseOver={(e) =>
-                  ((e.target as HTMLButtonElement).style.backgroundColor =
-                    "#005bb5")
-                }
-                onMouseOut={(e) =>
-                  ((e.target as HTMLButtonElement).style.backgroundColor =
-                    "#0075df")
-                }
-              >
-                {loading ? "Searching..." : "Search"}
-              </button>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            style={styles.linkButton}
-          >
-            {showFilters ? "Hide & Reset Filters" : "Show Filters"}
-          </button>
-        </div>
-
-        {/* Error Display */}
-        {error && <div style={styles.error}>{error}</div>}
-
-        {/* Loading Display */}
-        {loading && <div style={styles.loading}>Loading investors...</div>}
-      </div>
-    </div>
-  );
-};
-
-const InvestorSection = () => {
-  const router = useRouter();
-  const [investors, setInvestors] = useState<Investor[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [pagination, setPagination] = useState({
-    itemsReceived: 0,
-    curPage: 1,
-    nextPage: null as number | null,
-    prevPage: null as number | null,
-    offset: 0,
-    itemsTotal: 0,
-    pageTotal: 0,
-  });
-  const [summaryData, setSummaryData] = useState({
-    privateEquityCount: 0,
-    ventureCapitalCount: 0,
-    familyOfficeCount: 0,
-    assetManagementCount: 0,
-    hedgeFundCount: 0,
-    numberOfPEInvestments: 0,
-    numberOfVCInvestments: 0,
-    numberOfFamilyOfficeInvestments: 0,
-    numberOfAssetManagerInvestments: 0,
-    numberOfHedgeFundInvestments: 0,
-    sumOfInvestorsActiveDAInvestments: 0,
-  });
-
-  // Fetch investors data
-  const fetchInvestors = async (page: number = 1) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-
-      // Use parameters for GET request
-      const params = new URLSearchParams();
-      params.append("page", page.toString());
-      params.append("per_page", "50");
-
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/investors_with_d_a_list?${params.toString()}`;
-
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.statusText}`);
-      }
-
-      const data: InvestorsResponse = await response.json();
-      setInvestors(data.investors.items);
-      setPagination({
-        itemsReceived: data.investors.itemsReceived,
-        curPage: data.investors.curPage,
-        nextPage: data.investors.nextPage,
-        prevPage: data.investors.prevPage,
-        offset: data.investors.offset,
-        itemsTotal: data.investors.itemsTotal,
-        pageTotal: data.investors.pageTotal,
-      });
-      setSummaryData({
-        privateEquityCount:
-          data.investors.summary_by_company_focus?.privateEquityCount || 0,
-        ventureCapitalCount:
-          data.investors.summary_by_company_focus?.ventureCapitalCount || 0,
-        familyOfficeCount:
-          data.investors.summary_by_company_focus?.familyOfficeCount || 0,
-        assetManagementCount:
-          data.investors.summary_by_company_focus?.assetManagementCount || 0,
-        hedgeFundCount:
-          data.investors.summary_by_company_focus?.hedgeFundCount || 0,
-        numberOfPEInvestments:
-          data.investors.summary_by_company_focus?.numberOfPEInvestments || 0,
-        numberOfVCInvestments:
-          data.investors.summary_by_company_focus?.numberOfVCInvestments || 0,
-        numberOfFamilyOfficeInvestments:
-          data.investors.summary_by_company_focus
-            ?.numberOfFamilyOfficeInvestments || 0,
-        numberOfAssetManagerInvestments:
-          data.investors.summary_by_company_focus
-            ?.numberOfAssetManagerInvestments || 0,
-        numberOfHedgeFundInvestments:
-          data.investors.summary_by_company_focus
-            ?.numberOfHedgeFundInvestments || 0,
-        sumOfInvestorsActiveDAInvestments:
-          data.investors.summary_by_company_focus
-            ?.sumOfInvestorsActiveDAInvestments || 0,
-      });
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch investors"
-      );
-      console.error("Error fetching investors:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle page change
-  const handlePageChange = (page: number) => {
-    fetchInvestors(page);
-  };
-
-  useEffect(() => {
-    fetchInvestors(1);
-  }, []);
 
   const tableRows = investors.map((investor, index) => {
     // Truncate description for display
@@ -845,32 +979,6 @@ const InvestorSection = () => {
     }
   `;
 
-  if (loading) {
-    return React.createElement(
-      "div",
-      { className: "investor-section" },
-      React.createElement(
-        "div",
-        { className: "loading" },
-        "Loading investors..."
-      ),
-      React.createElement("style", {
-        dangerouslySetInnerHTML: { __html: style },
-      })
-    );
-  }
-
-  if (error) {
-    return React.createElement(
-      "div",
-      { className: "investor-section" },
-      React.createElement("div", { className: "error" }, error),
-      React.createElement("style", {
-        dangerouslySetInnerHTML: { __html: style },
-      })
-    );
-  }
-
   // Generate pagination buttons
   const generatePaginationButtons = () => {
     const buttons = [];
@@ -1031,206 +1139,257 @@ const InvestorSection = () => {
     return buttons;
   };
 
-  return React.createElement(
-    "div",
-    { className: "investor-section" },
-    // Statistics Block
-    React.createElement(
-      "div",
-      { className: "investor-stats" },
-      React.createElement("h2", { className: "stats-title" }, "Investors"),
-      React.createElement(
-        "div",
-        { className: "stats-grid" },
-        React.createElement(
-          "div",
-          { className: "stats-column" },
-          React.createElement(
-            "div",
-            { className: "stats-item" },
-            React.createElement(
-              "span",
-              { className: "stats-label" },
-              "Private Equity: "
-            ),
-            React.createElement(
-              "span",
-              { className: "stats-value" },
-              summaryData.privateEquityCount.toLocaleString()
-            )
-          ),
-          React.createElement(
-            "div",
-            { className: "stats-item" },
-            React.createElement(
-              "span",
-              { className: "stats-label" },
-              "Venture Capital: "
-            ),
-            React.createElement(
-              "span",
-              { className: "stats-value" },
-              summaryData.ventureCapitalCount.toLocaleString()
-            )
-          ),
-          React.createElement(
-            "div",
-            { className: "stats-item" },
-            React.createElement(
-              "span",
-              { className: "stats-label" },
-              "Asset Managers: "
-            ),
-            React.createElement(
-              "span",
-              { className: "stats-value" },
-              summaryData.assetManagementCount.toLocaleString()
-            )
-          ),
-          React.createElement(
-            "div",
-            { className: "stats-item" },
-            React.createElement(
-              "span",
-              { className: "stats-label" },
-              "Hedge Fund: "
-            ),
-            React.createElement(
-              "span",
-              { className: "stats-value" },
-              summaryData.hedgeFundCount.toLocaleString()
-            )
-          ),
-          React.createElement(
-            "div",
-            { className: "stats-item" },
-            React.createElement(
-              "span",
-              { className: "stats-label" },
-              "Family Office: "
-            ),
-            React.createElement(
-              "span",
-              { className: "stats-value" },
-              summaryData.familyOfficeCount.toLocaleString()
-            )
-          )
-        ),
-        React.createElement(
-          "div",
-          { className: "stats-column" },
-          React.createElement(
-            "div",
-            { className: "stats-item" },
-            React.createElement(
-              "span",
-              { className: "stats-label" },
-              "Number of PE investments: "
-            ),
-            React.createElement(
-              "span",
-              { className: "stats-value" },
-              summaryData.numberOfPEInvestments.toLocaleString()
-            )
-          ),
-          React.createElement(
-            "div",
-            { className: "stats-item" },
-            React.createElement(
-              "span",
-              { className: "stats-label" },
-              "Number of VC investments: "
-            ),
-            React.createElement(
-              "span",
-              { className: "stats-value" },
-              summaryData.numberOfVCInvestments.toLocaleString()
-            )
-          ),
-          React.createElement(
-            "div",
-            { className: "stats-item" },
-            React.createElement(
-              "span",
-              { className: "stats-label" },
-              "Number of Asset Management investments: "
-            ),
-            React.createElement(
-              "span",
-              { className: "stats-value" },
-              summaryData.numberOfAssetManagerInvestments.toLocaleString()
-            )
-          ),
-          React.createElement(
-            "div",
-            { className: "stats-item" },
-            React.createElement(
-              "span",
-              { className: "stats-label" },
-              "Number Hedge Fund investments: "
-            ),
-            React.createElement(
-              "span",
-              { className: "stats-value" },
-              summaryData.numberOfHedgeFundInvestments.toLocaleString()
-            )
-          ),
-          React.createElement(
-            "div",
-            { className: "stats-item" },
-            React.createElement(
-              "span",
-              { className: "stats-label" },
-              "Number of Family Office investments: "
-            ),
-            React.createElement(
-              "span",
-              { className: "stats-value" },
-              summaryData.numberOfFamilyOfficeInvestments.toLocaleString()
-            )
-          )
-        )
-      )
-    ),
-    React.createElement(
-      "table",
-      { className: "investor-table" },
-      React.createElement(
-        "thead",
-        null,
-        React.createElement(
-          "tr",
-          null,
-          React.createElement("th", null, "Logo"),
-          React.createElement("th", null, "Name"),
-          React.createElement("th", null, "Type"),
-          React.createElement("th", null, "Description"),
-          React.createElement("th", null, "Current D&A Portfolio Companies"),
-          React.createElement("th", null, "D&A Primary Sectors"),
-          React.createElement("th", null, "LinkedIn Members"),
-          React.createElement("th", null, "Country")
-        )
-      ),
-      React.createElement("tbody", null, tableRows)
-    ),
-    React.createElement(
-      "div",
-      { className: "pagination" },
-      generatePaginationButtons()
-    ),
-    React.createElement("style", {
-      dangerouslySetInnerHTML: { __html: style },
-    })
-  );
-};
-
-const InvestorsPage = () => {
   return (
     <div className="min-h-screen">
       <Header />
-      <InvestorDashboard />
-      <InvestorSection />
+
+      {/* Filters Section */}
+      <div style={styles.container}>
+        <div style={styles.maxWidth}>
+          <div style={styles.card}>
+            <h2 style={styles.heading}>Filters</h2>
+
+            {showFilters && (
+              <div style={styles.grid}>
+                <div style={styles.gridItem}>
+                  <h3 style={styles.subHeading}>HQ of Portfolio companies</h3>
+                  <span style={styles.label}>By Country</span>
+                  <SearchableMultiSelect
+                    options={countryOptions}
+                    selectedValues={selectedCountries}
+                    onSelectionChange={setSelectedCountries}
+                    placeholder={
+                      loadingCountries ? "Loading..." : "Select Country"
+                    }
+                    disabled={loadingCountries}
+                    style={styles.select}
+                  />
+                  <span style={styles.label}>By State/County/Province</span>
+                  <SearchableMultiSelect
+                    options={provinceOptions}
+                    selectedValues={selectedProvinces}
+                    onSelectionChange={setSelectedProvinces}
+                    placeholder={
+                      loadingProvinces ? "Loading..." : "Select Province"
+                    }
+                    disabled={loadingProvinces}
+                    style={styles.select}
+                  />
+                  <span style={styles.label}>By City</span>
+                  <SearchableMultiSelect
+                    options={cityOptions}
+                    selectedValues={selectedCities}
+                    onSelectionChange={setSelectedCities}
+                    placeholder={loadingCities ? "Loading..." : "Select City"}
+                    disabled={loadingCities}
+                    style={styles.select}
+                  />
+                </div>
+                <div style={styles.gridItem}>
+                  <h3 style={styles.subHeading}>Sector Invested In</h3>
+                  <span style={styles.label}>By Primary Sectors</span>
+                  <SearchableMultiSelect
+                    options={primarySectorOptions}
+                    selectedValues={selectedPrimarySectors}
+                    onSelectionChange={setSelectedPrimarySectors}
+                    placeholder={
+                      loadingPrimarySectors
+                        ? "Loading..."
+                        : "Select Primary Sector"
+                    }
+                    disabled={loadingPrimarySectors}
+                    style={styles.select}
+                  />
+                  <span style={styles.label}>By Secondary Sector</span>
+                  <SearchableMultiSelect
+                    options={secondarySectorOptions}
+                    selectedValues={selectedSecondarySectors}
+                    onSelectionChange={setSelectedSecondarySectors}
+                    placeholder={
+                      loadingSecondarySectors
+                        ? "Loading..."
+                        : "Select Secondary Sector"
+                    }
+                    disabled={loadingSecondarySectors}
+                    style={styles.select}
+                  />
+                </div>
+                <div style={styles.gridItem}>
+                  <h3 style={styles.subHeading}>Investor Type</h3>
+                  <span style={styles.label}>By Type</span>
+                  <SearchableMultiSelect
+                    options={investorTypeOptions}
+                    selectedValues={selectedInvestorTypes}
+                    onSelectionChange={setSelectedInvestorTypes}
+                    placeholder={
+                      loadingInvestorTypes
+                        ? "Loading..."
+                        : "Select Investor Type"
+                    }
+                    disabled={loadingInvestorTypes}
+                    style={styles.select}
+                  />
+                  <span style={styles.label}>Portfolio Companies</span>
+                  <div style={{ display: "flex", gap: "14px" }}>
+                    <input
+                      type="number"
+                      style={styles.rangeInput}
+                      placeholder="0"
+                    />
+                    <input
+                      type="number"
+                      style={styles.rangeInput}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginTop: showFilters ? "20px" : "0" }}>
+              <h3 style={styles.subHeading}>Search for Investor</h3>
+              <div style={styles.searchDiv}>
+                <input
+                  type="text"
+                  placeholder="Enter name here"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={styles.input}
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                />
+                <button
+                  style={styles.button}
+                  onClick={handleSearch}
+                  onMouseOver={(e) =>
+                    ((e.target as HTMLButtonElement).style.backgroundColor =
+                      "#005bb5")
+                  }
+                  onMouseOut={(e) =>
+                    ((e.target as HTMLButtonElement).style.backgroundColor =
+                      "#0075df")
+                  }
+                >
+                  {loading ? "Searching..." : "Search"}
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              style={styles.linkButton}
+            >
+              {showFilters ? "Hide & Reset Filters" : "Show Filters"}
+            </button>
+          </div>
+
+          {/* Error Display */}
+          {error && <div style={styles.error}>{error}</div>}
+
+          {/* Loading Display */}
+          {loading && <div style={styles.loading}>Loading investors...</div>}
+        </div>
+      </div>
+
+      {/* Investors Table Section */}
+      <div className="investor-section">
+        {/* Statistics Block */}
+        <div className="investor-stats">
+          <h2 className="stats-title">Investors</h2>
+          <div className="stats-grid">
+            <div className="stats-column">
+              <div className="stats-item">
+                <span className="stats-label">Private Equity: </span>
+                <span className="stats-value">
+                  {summaryData.privateEquityCount.toLocaleString()}
+                </span>
+              </div>
+              <div className="stats-item">
+                <span className="stats-label">Venture Capital: </span>
+                <span className="stats-value">
+                  {summaryData.ventureCapitalCount.toLocaleString()}
+                </span>
+              </div>
+              <div className="stats-item">
+                <span className="stats-label">Asset Managers: </span>
+                <span className="stats-value">
+                  {summaryData.assetManagementCount.toLocaleString()}
+                </span>
+              </div>
+              <div className="stats-item">
+                <span className="stats-label">Hedge Fund: </span>
+                <span className="stats-value">
+                  {summaryData.hedgeFundCount.toLocaleString()}
+                </span>
+              </div>
+              <div className="stats-item">
+                <span className="stats-label">Family Office: </span>
+                <span className="stats-value">
+                  {summaryData.familyOfficeCount.toLocaleString()}
+                </span>
+              </div>
+            </div>
+            <div className="stats-column">
+              <div className="stats-item">
+                <span className="stats-label">Number of PE investments: </span>
+                <span className="stats-value">
+                  {summaryData.numberOfPEInvestments.toLocaleString()}
+                </span>
+              </div>
+              <div className="stats-item">
+                <span className="stats-label">Number of VC investments: </span>
+                <span className="stats-value">
+                  {summaryData.numberOfVCInvestments.toLocaleString()}
+                </span>
+              </div>
+              <div className="stats-item">
+                <span className="stats-label">
+                  Number of Asset Management investments:{" "}
+                </span>
+                <span className="stats-value">
+                  {summaryData.numberOfAssetManagerInvestments.toLocaleString()}
+                </span>
+              </div>
+              <div className="stats-item">
+                <span className="stats-label">
+                  Number Hedge Fund investments:{" "}
+                </span>
+                <span className="stats-value">
+                  {summaryData.numberOfHedgeFundInvestments.toLocaleString()}
+                </span>
+              </div>
+              <div className="stats-item">
+                <span className="stats-label">
+                  Number of Family Office investments:{" "}
+                </span>
+                <span className="stats-value">
+                  {summaryData.numberOfFamilyOfficeInvestments.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <table className="investor-table">
+          <thead>
+            <tr>
+              <th>Logo</th>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Description</th>
+              <th>Current D&A Portfolio Companies</th>
+              <th>D&A Primary Sectors</th>
+              <th>LinkedIn Members</th>
+              <th>Country</th>
+            </tr>
+          </thead>
+          <tbody>{tableRows}</tbody>
+        </table>
+
+        <div className="pagination">{generatePaginationButtons()}</div>
+      </div>
+
       <Footer />
+      <style dangerouslySetInnerHTML={{ __html: style }} />
     </div>
   );
 };

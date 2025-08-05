@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { locationsService } from "@/lib/locationsService";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 
 // Types for API integration
 interface Company {
@@ -20,6 +22,51 @@ interface Company {
   linkedin_members_latest: number;
   linkedin_members_old: number;
   linkedin_members: number;
+}
+
+interface Country {
+  locations_Country: string;
+}
+
+interface Province {
+  State__Province__County: string;
+}
+
+interface City {
+  City: string;
+}
+
+interface PrimarySector {
+  id: number;
+  sector_name: string;
+}
+
+interface SecondarySector {
+  id: number;
+  sector_name: string;
+}
+
+interface HybridBusinessFocus {
+  id: number;
+  business_focus: string;
+}
+
+interface OwnershipType {
+  id: number;
+  ownership: string;
+}
+
+interface Filters {
+  countries: string[];
+  provinces: string[];
+  cities: string[];
+  primarySectors: number[]; // Changed from string[] to number[]
+  secondarySectors: number[]; // Changed from string[] to number[]
+  hybridBusinessFocuses: number[];
+  ownershipTypes: number[]; // Changed from string[] to number[]
+  linkedinMembersMin: number | null;
+  linkedinMembersMax: number | null;
+  searchQuery: string;
 }
 
 interface CompaniesResponse {
@@ -207,66 +254,123 @@ const useCompaniesAPI = () => {
     subsidiaryCompanies: 0,
   });
 
-  const fetchCompanies = useCallback(async (page: number = 1) => {
-    setLoading(true);
-    setError(null);
+  const fetchCompanies = useCallback(
+    async (page: number = 1, filters?: Filters) => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const offset = page === 1 ? 1 : (page - 1) * 25;
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const offset = page === 1 ? 1 : (page - 1) * 25;
 
-      const params = new URLSearchParams();
-      params.append("Offset", offset.toString());
-      params.append("Per_page", "25");
+        const params = new URLSearchParams();
+        params.append("Offset", offset.toString());
+        params.append("Per_page", "25");
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+        // Add filters to the request
+        if (filters) {
+          if (filters.countries.length > 0) {
+            filters.countries.forEach((country) => {
+              params.append("Countries[]", country);
+            });
+          }
+          if (filters.provinces.length > 0) {
+            filters.provinces.forEach((province) => {
+              params.append("Provinces[]", province);
+            });
+          }
+          if (filters.cities.length > 0) {
+            filters.cities.forEach((city) => {
+              params.append("Cities[]", city);
+            });
+          }
+          if (filters.primarySectors.length > 0) {
+            filters.primarySectors.forEach((sector) => {
+              params.append("Primary_sectors_ids[]", sector.toString());
+            });
+          }
+          if (filters.secondarySectors.length > 0) {
+            filters.secondarySectors.forEach((sector) => {
+              params.append("Secondary_sectors_ids[]", sector.toString());
+            });
+          }
+          if (filters.ownershipTypes.length > 0) {
+            filters.ownershipTypes.forEach((type) => {
+              params.append("Ownership_types_ids[]", type.toString());
+            });
+          }
+          if (filters.hybridBusinessFocuses.length > 0) {
+            filters.hybridBusinessFocuses.forEach((focus) => {
+              params.append("Hybrid_Data_ids[]", focus.toString());
+            });
+          }
+          if (filters.linkedinMembersMin !== null) {
+            params.append(
+              "Min_linkedin_members",
+              filters.linkedinMembersMin.toString()
+            );
+          }
+          if (filters.linkedinMembersMax !== null) {
+            params.append(
+              "Max_linkedin_members",
+              filters.linkedinMembersMax.toString()
+            );
+          }
+          if (filters.searchQuery) {
+            params.append("query", filters.searchQuery);
+          }
+        }
 
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        credentials: "include",
-      });
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `API request failed: ${response.statusText} - ${errorText}`
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `API request failed: ${response.statusText} - ${errorText}`
+          );
+        }
+
+        const data: CompaniesResponse = JSON.parse(await response.text());
+
+        setCompanies(data.result1?.items || []);
+        setPagination({
+          itemsReceived: data.result1?.itemsReceived || 0,
+          curPage: data.result1?.curPage || 1,
+          nextPage: data.result1?.nextPage || null,
+          prevPage: data.result1?.prevPage || null,
+          offset: data.result1?.offset || 0,
+          perPage: data.result1?.perPage || 25,
+          pageTotal: data.result1?.pageTotal || 0,
+        });
+
+        const ownershipData = data.result1?.ownershipCounts || {};
+        setOwnershipCounts({
+          publicCompanies: ownershipData.publicCompanies || 0,
+          peOwnedCompanies: ownershipData.peOwnedCompanies || 0,
+          vcOwnedCompanies: ownershipData.vcOwnedCompanies || 0,
+          privateCompanies: ownershipData.privateCompanies || 0,
+          subsidiaryCompanies: ownershipData.subsidiaryCompanies || 0,
+        });
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch companies"
         );
+        console.error("Error fetching companies:", err);
+      } finally {
+        setLoading(false);
       }
-
-      const data: CompaniesResponse = JSON.parse(await response.text());
-
-      setCompanies(data.result1?.items || []);
-      setPagination({
-        itemsReceived: data.result1?.itemsReceived || 0,
-        curPage: data.result1?.curPage || 1,
-        nextPage: data.result1?.nextPage || null,
-        prevPage: data.result1?.prevPage || null,
-        offset: data.result1?.offset || 0,
-        perPage: data.result1?.perPage || 25,
-        pageTotal: data.result1?.pageTotal || 0,
-      });
-
-      const ownershipData = data.result1?.ownershipCounts || {};
-      setOwnershipCounts({
-        publicCompanies: ownershipData.publicCompanies || 0,
-        peOwnedCompanies: ownershipData.peOwnedCompanies || 0,
-        vcOwnedCompanies: ownershipData.vcOwnedCompanies || 0,
-        privateCompanies: ownershipData.privateCompanies || 0,
-        subsidiaryCompanies: ownershipData.subsidiaryCompanies || 0,
-      });
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch companies"
-      );
-      console.error("Error fetching companies:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   return {
     companies,
@@ -370,13 +474,258 @@ const CompanyDescription = ({
 };
 
 // Filters Component
-const CompanyDashboard = () => {
+const CompanyDashboard = ({
+  onSearch,
+}: {
+  onSearch?: (filters: Filters) => void;
+}) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
+  // Filter data state
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
+  const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
+  const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
+    []
+  );
+  const [hybridBusinessFocuses, setHybridBusinessFocuses] = useState<
+    HybridBusinessFocus[]
+  >([]);
+  const [ownershipTypes, setOwnershipTypes] = useState<OwnershipType[]>([]);
+
+  // Selected filters state
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const [selectedProvinces, setSelectedProvinces] = useState<string[]>([]);
+  const [selectedCities, setSelectedCities] = useState<string[]>([]);
+  const [selectedPrimarySectors, setSelectedPrimarySectors] = useState<
+    number[]
+  >([]);
+  const [selectedSecondarySectors, setSelectedSecondarySectors] = useState<
+    number[]
+  >([]);
+  const [selectedHybridBusinessFocuses, setSelectedHybridBusinessFocuses] =
+    useState<number[]>([]);
+  const [selectedOwnershipTypes, setSelectedOwnershipTypes] = useState<
+    number[]
+  >([]);
+  const [linkedinMembersMin, setLinkedinMembersMin] = useState<number | null>(
+    null
+  );
+  const [linkedinMembersMax, setLinkedinMembersMax] = useState<number | null>(
+    null
+  );
+
+  // Loading states
+  const [loadingCountries, setLoadingCountries] = useState(false);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingPrimarySectors, setLoadingPrimarySectors] = useState(false);
+  const [loadingSecondarySectors, setLoadingSecondarySectors] = useState(false);
+  const [loadingHybridBusinessFocuses, setLoadingHybridBusinessFocuses] =
+    useState(false);
+  const [loadingOwnershipTypes, setLoadingOwnershipTypes] = useState(false);
+
+  // Fetch countries and primary sectors on component mount
+  useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        setLoadingCountries(true);
+        const countriesData = await locationsService.getCountries();
+        setCountries(countriesData);
+      } catch (error) {
+        console.error("Error fetching countries:", error);
+      } finally {
+        setLoadingCountries(false);
+      }
+    };
+
+    const fetchPrimarySectors = async () => {
+      try {
+        setLoadingPrimarySectors(true);
+        const sectorsData = await locationsService.getPrimarySectors();
+        setPrimarySectors(sectorsData);
+      } catch (error) {
+        console.error("Error fetching primary sectors:", error);
+      } finally {
+        setLoadingPrimarySectors(false);
+      }
+    };
+
+    const fetchHybridBusinessFocuses = async () => {
+      try {
+        setLoadingHybridBusinessFocuses(true);
+        const hybridData = await locationsService.getHybridBusinessFocuses();
+        setHybridBusinessFocuses(hybridData);
+      } catch (error) {
+        console.error("Error fetching hybrid business focuses:", error);
+      } finally {
+        setLoadingHybridBusinessFocuses(false);
+      }
+    };
+
+    const fetchOwnershipTypes = async () => {
+      try {
+        setLoadingOwnershipTypes(true);
+        const ownershipData = await locationsService.getOwnershipTypes();
+        setOwnershipTypes(ownershipData);
+      } catch (error) {
+        console.error("Error fetching ownership types:", error);
+      } finally {
+        setLoadingOwnershipTypes(false);
+      }
+    };
+
+    fetchCountries();
+    fetchPrimarySectors();
+    fetchHybridBusinessFocuses();
+    fetchOwnershipTypes();
+  }, []);
+
+  // Fetch provinces when countries are selected
+  useEffect(() => {
+    const fetchProvinces = async () => {
+      if (selectedCountries.length === 0) {
+        setProvinces([]);
+        setSelectedProvinces([]);
+        return;
+      }
+
+      try {
+        setLoadingProvinces(true);
+        const provincesData = await locationsService.getProvinces(
+          selectedCountries
+        );
+        setProvinces(provincesData);
+        // Reset selected provinces when countries change
+        setSelectedProvinces([]);
+      } catch (error) {
+        console.error("Error fetching provinces:", error);
+      } finally {
+        setLoadingProvinces(false);
+      }
+    };
+
+    fetchProvinces();
+  }, [selectedCountries]);
+
+  // Fetch cities when countries or provinces are selected
+  useEffect(() => {
+    const fetchCities = async () => {
+      if (selectedCountries.length === 0) {
+        setCities([]);
+        setSelectedCities([]);
+        return;
+      }
+
+      try {
+        setLoadingCities(true);
+        const citiesData = await locationsService.getCities(
+          selectedCountries,
+          selectedProvinces
+        );
+        setCities(citiesData);
+        // Reset selected cities when countries or provinces change
+        setSelectedCities([]);
+      } catch (error) {
+        console.error("Error fetching cities:", error);
+      } finally {
+        setLoadingCities(false);
+      }
+    };
+
+    fetchCities();
+  }, [selectedCountries, selectedProvinces]);
+
+  const removeCountry = (country: string) => {
+    setSelectedCountries(selectedCountries.filter((c) => c !== country));
+  };
+
+  const removeProvince = (province: string) => {
+    setSelectedProvinces(selectedProvinces.filter((p) => p !== province));
+  };
+
+  const removeCity = (city: string) => {
+    setSelectedCities(selectedCities.filter((c) => c !== city));
+  };
+
+  const removePrimarySector = (sectorId: number) => {
+    setSelectedPrimarySectors(
+      selectedPrimarySectors.filter((s) => s !== sectorId)
+    );
+  };
+
+  // Fetch secondary sectors when primary sectors are selected
+  useEffect(() => {
+    const fetchSecondarySectors = async () => {
+      if (selectedPrimarySectors.length === 0) {
+        setSecondarySectors([]);
+        setSelectedSecondarySectors([]);
+        return;
+      }
+
+      try {
+        setLoadingSecondarySectors(true);
+
+        // Get the IDs of selected primary sectors
+        const selectedPrimarySectorIds = primarySectors
+          .filter((sector) => selectedPrimarySectors.includes(sector.id))
+          .map((sector) => sector.id);
+
+        const secondarySectorsData = await locationsService.getSecondarySectors(
+          selectedPrimarySectorIds
+        );
+        setSecondarySectors(secondarySectorsData);
+        // Reset selected secondary sectors when primary sectors change
+        setSelectedSecondarySectors([]);
+      } catch (error) {
+        console.error("Error fetching secondary sectors:", error);
+      } finally {
+        setLoadingSecondarySectors(false);
+      }
+    };
+
+    fetchSecondarySectors();
+  }, [selectedPrimarySectors, primarySectors]);
+
+  const removeSecondarySector = (sectorId: number) => {
+    setSelectedSecondarySectors(
+      selectedSecondarySectors.filter((s) => s !== sectorId)
+    );
+  };
+
+  const removeHybridBusinessFocus = (focusId: number) => {
+    setSelectedHybridBusinessFocuses(
+      selectedHybridBusinessFocuses.filter((f) => f !== focusId)
+    );
+  };
+
+  const removeOwnershipType = (ownershipTypeId: number) => {
+    setSelectedOwnershipTypes(
+      selectedOwnershipTypes.filter((o) => o !== ownershipTypeId)
+    );
+  };
+
   const handleSearch = () => {
-    // TODO: Implement search functionality
-    console.log("Searching for:", searchTerm);
+    const filters: Filters = {
+      countries: selectedCountries,
+      provinces: selectedProvinces,
+      cities: selectedCities,
+      primarySectors: selectedPrimarySectors,
+      secondarySectors: selectedSecondarySectors,
+      hybridBusinessFocuses: selectedHybridBusinessFocuses,
+      ownershipTypes: selectedOwnershipTypes,
+      linkedinMembersMin,
+      linkedinMembersMax,
+      searchQuery: searchTerm,
+    };
+    console.log("Searching with filters:", filters);
+
+    // Call the search function from parent component
+    if (onSearch) {
+      onSearch(filters);
+    }
   };
 
   return (
@@ -390,46 +739,548 @@ const CompanyDashboard = () => {
               <div style={styles.gridItem}>
                 <h3 style={styles.subHeading}>Location</h3>
                 <span style={styles.label}>By Country</span>
-                <select style={styles.select}>
-                  <option value="">By Country</option>
-                </select>
+                <SearchableSelect
+                  options={countries.map((country) => ({
+                    value: country.locations_Country,
+                    label: country.locations_Country,
+                  }))}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedCountries.includes(value)
+                    ) {
+                      setSelectedCountries([...selectedCountries, value]);
+                    }
+                  }}
+                  placeholder={
+                    loadingCountries ? "Loading countries..." : "Select Country"
+                  }
+                  disabled={loadingCountries}
+                  style={styles.select}
+                />
+
+                {/* Selected Countries Tags */}
+                {selectedCountries.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    }}
+                  >
+                    {selectedCountries.map((country) => (
+                      <span
+                        key={country}
+                        style={{
+                          backgroundColor: "#e3f2fd",
+                          color: "#1976d2",
+                          padding: "4px 8px",
+                          borderRadius: "4px",
+                          fontSize: "12px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        {country}
+                        <button
+                          onClick={() => removeCountry(country)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#1976d2",
+                            cursor: "pointer",
+                            fontWeight: "bold",
+                            fontSize: "14px",
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <span style={styles.label}>By State/County/Province</span>
-                <select style={styles.select}>
-                  <option value="">By State/County/Province</option>
-                </select>
+                <SearchableSelect
+                  options={provinces.map((province) => ({
+                    value: province.State__Province__County,
+                    label: province.State__Province__County,
+                  }))}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedProvinces.includes(value)
+                    ) {
+                      setSelectedProvinces([...selectedProvinces, value]);
+                    }
+                  }}
+                  placeholder={
+                    loadingProvinces
+                      ? "Loading provinces..."
+                      : selectedCountries.length === 0
+                      ? "Select country first"
+                      : "Select Province"
+                  }
+                  disabled={loadingProvinces || selectedCountries.length === 0}
+                  style={styles.select}
+                />
+
+                {/* Selected Provinces Tags */}
+                {selectedProvinces.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    }}
+                  >
+                    {selectedProvinces.map((province) => (
+                      <span
+                        key={province}
+                        style={{
+                          backgroundColor: "#e8f5e8",
+                          color: "#2e7d32",
+                          padding: "4px 8px",
+                          borderRadius: "4px",
+                          fontSize: "12px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        {province}
+                        <button
+                          onClick={() => removeProvince(province)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#2e7d32",
+                            cursor: "pointer",
+                            fontWeight: "bold",
+                            fontSize: "14px",
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <span style={styles.label}>By City</span>
-                <select style={styles.select}>
-                  <option value="">By City</option>
-                </select>
+                <SearchableSelect
+                  options={cities.map((city) => ({
+                    value: city.City,
+                    label: city.City,
+                  }))}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedCities.includes(value)
+                    ) {
+                      setSelectedCities([...selectedCities, value]);
+                    }
+                  }}
+                  placeholder={
+                    loadingCities
+                      ? "Loading cities..."
+                      : selectedCountries.length === 0
+                      ? "Select country first"
+                      : "Select City"
+                  }
+                  disabled={loadingCities || selectedCountries.length === 0}
+                  style={styles.select}
+                />
+
+                {/* Selected Cities Tags */}
+                {selectedCities.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    }}
+                  >
+                    {selectedCities.map((city) => (
+                      <span
+                        key={city}
+                        style={{
+                          backgroundColor: "#fff3e0",
+                          color: "#f57c00",
+                          padding: "4px 8px",
+                          borderRadius: "4px",
+                          fontSize: "12px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        {city}
+                        <button
+                          onClick={() => removeCity(city)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#f57c00",
+                            cursor: "pointer",
+                            fontWeight: "bold",
+                            fontSize: "14px",
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <div style={styles.gridItem}>
                 <h3 style={styles.subHeading}>Sectors</h3>
                 <span style={styles.label}>By Primary Sectors</span>
-                <select style={styles.select}>
-                  <option value="">By Primary Sectors</option>
-                </select>
+                <SearchableSelect
+                  options={primarySectors.map((sector) => ({
+                    value: sector.id,
+                    label: sector.sector_name,
+                  }))}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "number" &&
+                      value &&
+                      !selectedPrimarySectors.includes(value)
+                    ) {
+                      setSelectedPrimarySectors([
+                        ...selectedPrimarySectors,
+                        value,
+                      ]);
+                    }
+                  }}
+                  placeholder={
+                    loadingPrimarySectors
+                      ? "Loading sectors..."
+                      : "Select Primary Sector"
+                  }
+                  disabled={loadingPrimarySectors}
+                  style={styles.select}
+                />
+
+                {/* Selected Primary Sectors Tags */}
+                {selectedPrimarySectors.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    }}
+                  >
+                    {selectedPrimarySectors.map((sectorId) => {
+                      const sector = primarySectors.find(
+                        (s) => s.id === sectorId
+                      );
+                      return (
+                        <span
+                          key={sectorId}
+                          style={{
+                            backgroundColor: "#f3e5f5",
+                            color: "#7b1fa2",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {sector?.sector_name || `Sector ${sectorId}`}
+                          <button
+                            onClick={() => removePrimarySector(sectorId)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#7b1fa2",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
                 <span style={styles.label}>By Secondary Sectors</span>
-                <select style={styles.select}>
-                  <option value="">By Secondary Sectors</option>
-                </select>
+                <SearchableSelect
+                  options={secondarySectors.map((sector) => ({
+                    value: sector.id,
+                    label: sector.sector_name,
+                  }))}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "number" &&
+                      value &&
+                      !selectedSecondarySectors.includes(value)
+                    ) {
+                      setSelectedSecondarySectors([
+                        ...selectedSecondarySectors,
+                        value,
+                      ]);
+                    }
+                  }}
+                  placeholder={
+                    loadingSecondarySectors
+                      ? "Loading sectors..."
+                      : selectedPrimarySectors.length === 0
+                      ? "Select primary sectors first"
+                      : "Select Secondary Sector"
+                  }
+                  disabled={
+                    loadingSecondarySectors ||
+                    selectedPrimarySectors.length === 0
+                  }
+                  style={styles.select}
+                />
+
+                {/* Selected Secondary Sectors Tags */}
+                {selectedSecondarySectors.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    }}
+                  >
+                    {selectedSecondarySectors.map((sectorId) => {
+                      const sector = secondarySectors.find(
+                        (s) => s.id === sectorId
+                      );
+                      return (
+                        <span
+                          key={sectorId}
+                          style={{
+                            backgroundColor: "#e8f5e8",
+                            color: "#2e7d32",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {sector?.sector_name || `Sector ${sectorId}`}
+                          <button
+                            onClick={() => removeSecondarySector(sectorId)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#2e7d32",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <span style={styles.label}>
+                  Show Data & Analytics Companies with non-D&A Products/Services
+                </span>
+                <SearchableSelect
+                  options={hybridBusinessFocuses.map((focus) => ({
+                    value: focus.id,
+                    label: focus.business_focus,
+                  }))}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "number" &&
+                      value &&
+                      !selectedHybridBusinessFocuses.includes(value)
+                    ) {
+                      setSelectedHybridBusinessFocuses([
+                        ...selectedHybridBusinessFocuses,
+                        value,
+                      ]);
+                    }
+                  }}
+                  placeholder={
+                    loadingHybridBusinessFocuses
+                      ? "Loading business focuses..."
+                      : "Select Business Focus"
+                  }
+                  disabled={loadingHybridBusinessFocuses}
+                  style={styles.select}
+                />
+
+                {/* Selected Hybrid Business Focuses Tags */}
+                {selectedHybridBusinessFocuses.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    }}
+                  >
+                    {selectedHybridBusinessFocuses.map((focusId) => {
+                      const focus = hybridBusinessFocuses.find(
+                        (f) => f.id === focusId
+                      );
+                      return (
+                        <span
+                          key={focusId}
+                          style={{
+                            backgroundColor: "#fff8e1",
+                            color: "#f57f17",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {focus?.business_focus || `Focus ${focusId}`}
+                          <button
+                            onClick={() => removeHybridBusinessFocus(focusId)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#f57f17",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <div style={styles.gridItem}>
                 <h3 style={styles.subHeading}>Company Details</h3>
                 <span style={styles.label}>By Ownership Type</span>
-                <select style={styles.select}>
-                  <option value="">By Ownership Type</option>
-                </select>
+                <SearchableSelect
+                  options={ownershipTypes.map((ownershipType) => ({
+                    value: ownershipType.id,
+                    label: ownershipType.ownership,
+                  }))}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "number" &&
+                      value &&
+                      !selectedOwnershipTypes.includes(value)
+                    ) {
+                      setSelectedOwnershipTypes([
+                        ...selectedOwnershipTypes,
+                        value,
+                      ]);
+                    }
+                  }}
+                  placeholder={
+                    loadingOwnershipTypes
+                      ? "Loading ownership types..."
+                      : "Select Ownership Type"
+                  }
+                  disabled={loadingOwnershipTypes}
+                  style={styles.select}
+                />
+
+                {/* Selected Ownership Types Tags */}
+                {selectedOwnershipTypes.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    }}
+                  >
+                    {selectedOwnershipTypes.map((ownershipTypeId) => {
+                      const ownershipType = ownershipTypes.find(
+                        (o) => o.id === ownershipTypeId
+                      );
+                      return (
+                        <span
+                          key={ownershipTypeId}
+                          style={{
+                            backgroundColor: "#f3e5f5",
+                            color: "#7b1fa2",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {ownershipType?.ownership ||
+                            `Ownership ${ownershipTypeId}`}
+                          <button
+                            onClick={() => removeOwnershipType(ownershipTypeId)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#7b1fa2",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
                 <span style={styles.label}>LinkedIn Members Range</span>
                 <div style={{ display: "flex", gap: "14px" }}>
                   <input
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Min"
+                    value={linkedinMembersMin || ""}
+                    onChange={(e) =>
+                      setLinkedinMembersMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
                   />
                   <input
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Max"
+                    value={linkedinMembersMax || ""}
+                    onChange={(e) =>
+                      setLinkedinMembersMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
                   />
                 </div>
               </div>
@@ -477,16 +1328,36 @@ const CompanyDashboard = () => {
 };
 
 // Main Companies Component
-const CompanySection = () => {
+const CompanySection = ({
+  companies,
+  loading,
+  error,
+  pagination,
+  ownershipCounts,
+  fetchCompanies,
+}: {
+  companies: Company[];
+  loading: boolean;
+  error: string | null;
+  pagination: {
+    itemsReceived: number;
+    curPage: number;
+    nextPage: number | null;
+    prevPage: number | null;
+    offset: number;
+    perPage: number;
+    pageTotal: number;
+  };
+  ownershipCounts: {
+    publicCompanies: number;
+    peOwnedCompanies: number;
+    vcOwnedCompanies: number;
+    privateCompanies: number;
+    subsidiaryCompanies: number;
+  };
+  fetchCompanies: (page?: number, filters?: Filters) => Promise<void>;
+}) => {
   const router = useRouter();
-  const {
-    companies,
-    loading,
-    error,
-    pagination,
-    ownershipCounts,
-    fetchCompanies,
-  } = useCompaniesAPI();
 
   const handleCompanyClick = useCallback(
     (companyId: number) => {
@@ -960,11 +1831,35 @@ const CompanySection = () => {
 
 // Main Page Component
 const CompaniesPage = () => {
+  const {
+    companies,
+    loading,
+    error,
+    pagination,
+    ownershipCounts,
+    fetchCompanies,
+  } = useCompaniesAPI();
+
+  const handleSearch = useCallback(
+    (filters: Filters) => {
+      console.log("Searching with filters:", filters);
+      fetchCompanies(1, filters);
+    },
+    [fetchCompanies]
+  );
+
   return (
     <div className="min-h-screen">
       <Header />
-      <CompanyDashboard />
-      <CompanySection />
+      <CompanyDashboard onSearch={handleSearch} />
+      <CompanySection
+        companies={companies}
+        loading={loading}
+        error={error}
+        pagination={pagination}
+        ownershipCounts={ownershipCounts}
+        fetchCompanies={fetchCompanies}
+      />
       <Footer />
     </div>
   );
