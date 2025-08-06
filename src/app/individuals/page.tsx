@@ -192,321 +192,265 @@ const styles = {
   },
 };
 
-// Individuals Stats Component
-const IndividualsStats = ({ data }: { data: IndividualsResponse }) => {
-  return (
-    <div
-      style={{
-        background: "#fff",
-        padding: "32px 24px",
-        boxShadow: "0px 1px 3px 0px rgba(227, 228, 230, 1)",
-        borderRadius: "16px",
-        marginBottom: "24px",
-      }}
+// Generate pagination buttons (similar to advisors page)
+const generatePaginationButtons = (
+  pagination: {
+    curPage: number;
+    pageTotal: number;
+    prevPage: number | null;
+    nextPage: number | null;
+  },
+  handlePageChange: (page: number) => void
+) => {
+  const buttons = [];
+  const currentPage = pagination.curPage;
+  const totalPages = pagination.pageTotal;
+
+  // Previous button
+  buttons.push(
+    <button
+      key="prev"
+      className="pagination-button"
+      onClick={() => handlePageChange(currentPage - 1)}
+      disabled={!pagination.prevPage}
     >
-      <h2
-        style={{
-          fontSize: "24px",
-          fontWeight: "700",
-          color: "#1a202c",
-          margin: "0 0 24px 0",
-        }}
-      >
-        Individuals
-      </h2>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: "16px 24px",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          <span
-            style={{
-              fontSize: "14px",
-              color: "#4a5568",
-              fontWeight: "500",
-              lineHeight: "1.4",
-            }}
-          >
-            Individuals:
-          </span>
-          <span
-            style={{
-              fontSize: "20px",
-              color: "#000",
-              fontWeight: "700",
-            }}
-          >
-            {data.totalIndividuals?.toLocaleString() || "0"}
-          </span>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          <span
-            style={{
-              fontSize: "14px",
-              color: "#4a5568",
-              fontWeight: "500",
-              lineHeight: "1.4",
-            }}
-          >
-            CEOs:
-          </span>
-          <span
-            style={{
-              fontSize: "20px",
-              color: "#000",
-              fontWeight: "700",
-            }}
-          >
-            {data.ceos?.toLocaleString() || "0"}
-          </span>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          <span
-            style={{
-              fontSize: "14px",
-              color: "#4a5568",
-              fontWeight: "500",
-              lineHeight: "1.4",
-            }}
-          >
-            Current roles:
-          </span>
-          <span
-            style={{
-              fontSize: "20px",
-              color: "#000",
-              fontWeight: "700",
-            }}
-          >
-            {data.currentRoles?.toLocaleString() || "0"}
-          </span>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          <span
-            style={{
-              fontSize: "14px",
-              color: "#4a5568",
-              fontWeight: "500",
-              lineHeight: "1.4",
-            }}
-          >
-            Chair:
-          </span>
-          <span
-            style={{
-              fontSize: "20px",
-              color: "#000",
-              fontWeight: "700",
-            }}
-          >
-            {data.chairs?.toLocaleString() || "0"}
-          </span>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          <span
-            style={{
-              fontSize: "14px",
-              color: "#4a5568",
-              fontWeight: "500",
-              lineHeight: "1.4",
-            }}
-          >
-            Past roles:
-          </span>
-          <span
-            style={{
-              fontSize: "20px",
-              color: "#000",
-              fontWeight: "700",
-            }}
-          >
-            {data.pastRoles?.toLocaleString() || "0"}
-          </span>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          <span
-            style={{
-              fontSize: "14px",
-              color: "#4a5568",
-              fontWeight: "500",
-              lineHeight: "1.4",
-            }}
-          >
-            Founder:
-          </span>
-          <span
-            style={{
-              fontSize: "20px",
-              color: "#000",
-              fontWeight: "700",
-            }}
-          >
-            {data.founders?.toLocaleString() || "0"}
-          </span>
-        </div>
-      </div>
-    </div>
+      &lt;
+    </button>
   );
-};
 
-// Pagination Component
-const Pagination = ({
-  currentPage,
-  totalItems,
-  perPage,
-  onPageChange,
-  onPerPageChange,
-}: {
-  currentPage: number;
-  totalItems: number;
-  perPage: number;
-  onPageChange: (page: number) => void;
-  onPerPageChange: (perPage: number) => void;
-}) => {
-  const totalPages = Math.ceil(totalItems / perPage);
-  const startItem = (currentPage - 1) * perPage + 1;
-  const endItem = Math.min(currentPage * perPage, totalItems);
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginTop: "24px",
-        padding: "16px 0",
-      }}
-    >
-      {/* Items per page */}
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        <span style={{ fontSize: "14px", color: "#6b7280" }}>Show:</span>
-        <select
-          value={perPage}
-          onChange={(e) => onPerPageChange(parseInt(e.target.value))}
-          style={{
-            padding: "8px 12px",
-            border: "1px solid #e2e8f0",
-            borderRadius: "4px",
-            fontSize: "14px",
-            outline: "none",
-          }}
-        >
-          <option value={25}>25</option>
-          <option value={50}>50</option>
-          <option value={100}>100</option>
-        </select>
-        <span style={{ fontSize: "14px", color: "#6b7280" }}>per page</span>
-      </div>
-
-      {/* Page info */}
-      <div style={{ fontSize: "14px", color: "#6b7280" }}>
-        Showing {startItem.toLocaleString()} to {endItem.toLocaleString()} of{" "}
-        {totalItems.toLocaleString()} individuals
-      </div>
-
-      {/* Page navigation */}
-      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-        {/* Previous arrow */}
+  // Page numbers
+  if (totalPages <= 7) {
+    // Show all pages if total is 7 or less
+    for (let i = 1; i <= totalPages; i++) {
+      buttons.push(
         <button
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage <= 1}
-          style={{
-            padding: "8px 12px",
-            border: "1px solid #e2e8f0",
-            borderRadius: "4px",
-            fontSize: "14px",
-            backgroundColor: "white",
-            cursor: currentPage <= 1 ? "not-allowed" : "pointer",
-            opacity: currentPage <= 1 ? 0.5 : 1,
-          }}
+          key={i}
+          className={`pagination-button ${i === currentPage ? "active" : ""}`}
+          onClick={() => handlePageChange(i)}
         >
-          ←
+          {i.toString()}
         </button>
+      );
+    }
+  } else {
+    // Show first page
+    buttons.push(
+      <button
+        key={1}
+        className={`pagination-button ${currentPage === 1 ? "active" : ""}`}
+        onClick={() => handlePageChange(1)}
+      >
+        1
+      </button>
+    );
 
-        {/* First page */}
+    // Show second page if not first
+    if (currentPage > 2) {
+      buttons.push(
         <button
-          onClick={() => onPageChange(1)}
-          style={{
-            padding: "8px 12px",
-            border: "1px solid #e2e8f0",
-            borderRadius: "4px",
-            fontSize: "14px",
-            backgroundColor: currentPage === 1 ? "#0075df" : "white",
-            color: currentPage === 1 ? "white" : "#000",
-            cursor: "pointer",
-          }}
-        >
-          1
-        </button>
-
-        {/* Second page */}
-        <button
-          onClick={() => onPageChange(2)}
-          style={{
-            padding: "8px 12px",
-            border: "1px solid #e2e8f0",
-            borderRadius: "4px",
-            fontSize: "14px",
-            backgroundColor: currentPage === 2 ? "#0075df" : "white",
-            color: currentPage === 2 ? "white" : "#000",
-            cursor: "pointer",
-          }}
+          key={2}
+          className="pagination-button"
+          onClick={() => handlePageChange(2)}
         >
           2
         </button>
+      );
+    }
 
-        {/* Ellipsis */}
-        {totalPages > 3 && (
-          <span
-            style={{ padding: "8px 12px", fontSize: "14px", color: "#6b7280" }}
-          >
-            ...
-          </span>
-        )}
+    // Show ellipsis if needed
+    if (currentPage > 3) {
+      buttons.push(
+        <span key="ellipsis1" className="pagination-ellipsis">
+          ...
+        </span>
+      );
+    }
 
-        {/* Last page */}
-        {totalPages > 2 && (
+    // Show current page and neighbors
+    for (
+      let i = Math.max(3, currentPage - 1);
+      i <= Math.min(totalPages - 2, currentPage + 1);
+      i++
+    ) {
+      if (i > 2 && i < totalPages - 1) {
+        buttons.push(
           <button
-            onClick={() => onPageChange(totalPages)}
-            style={{
-              padding: "8px 12px",
-              border: "1px solid #e2e8f0",
-              borderRadius: "4px",
-              fontSize: "14px",
-              backgroundColor: currentPage === totalPages ? "#0075df" : "white",
-              color: currentPage === totalPages ? "white" : "#000",
-              cursor: "pointer",
-            }}
+            key={i}
+            className={`pagination-button ${i === currentPage ? "active" : ""}`}
+            onClick={() => handlePageChange(i)}
           >
-            {totalPages}
+            {i.toString()}
           </button>
-        )}
+        );
+      }
+    }
 
-        {/* Next arrow */}
+    // Show ellipsis if needed
+    if (currentPage < totalPages - 2) {
+      buttons.push(
+        <span key="ellipsis2" className="pagination-ellipsis">
+          ...
+        </span>
+      );
+    }
+
+    // Show second to last page if not last
+    if (currentPage < totalPages - 1) {
+      buttons.push(
         <button
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
+          key={totalPages - 1}
+          className="pagination-button"
+          onClick={() => handlePageChange(totalPages - 1)}
+        >
+          {(totalPages - 1).toString()}
+        </button>
+      );
+    }
+
+    // Show last page
+    buttons.push(
+      <button
+        key={totalPages}
+        className={`pagination-button ${
+          currentPage === totalPages ? "active" : ""
+        }`}
+        onClick={() => handlePageChange(totalPages)}
+      >
+        {totalPages.toString()}
+      </button>
+    );
+  }
+
+  // Next button
+  buttons.push(
+    <button
+      key="next"
+      className="pagination-button"
+      onClick={() => handlePageChange(currentPage + 1)}
+      disabled={!pagination.nextPage}
+    >
+      &gt;
+    </button>
+  );
+
+  return buttons;
+};
+
+// Individual Card Component for mobile
+const IndividualCard = (individual: Individual, index: number) => {
+  const router = useRouter();
+
+  const handleIndividualClick = (individualId: number) => {
+    router.push(`/individual/${individualId}`);
+  };
+
+  return (
+    <div
+      key={index}
+      className="individual-card"
+      style={{
+        backgroundColor: "white",
+        borderRadius: "8px",
+        padding: "12px",
+        marginBottom: "8px",
+        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+        border: "1px solid #e2e8f0",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          marginBottom: "12px",
+          gap: "12px",
+        }}
+      >
+        <div
           style={{
-            padding: "8px 12px",
-            border: "1px solid #e2e8f0",
-            borderRadius: "4px",
-            fontSize: "14px",
-            backgroundColor: "white",
-            cursor: currentPage >= totalPages ? "not-allowed" : "pointer",
-            opacity: currentPage >= totalPages ? 0.5 : 1,
+            flex: "1",
           }}
         >
-          →
-        </button>
+          <div
+            style={{
+              fontSize: "16px",
+              fontWeight: "600",
+              color: "#0075df",
+              textDecoration: "underline",
+              cursor: "pointer",
+              marginBottom: "4px",
+            }}
+            onClick={() => handleIndividualClick(individual.id)}
+          >
+            {individual.advisor_individuals || "N/A"}
+          </div>
+          <div
+            style={{
+              fontSize: "14px",
+              color: "#4a5568",
+            }}
+          >
+            {individual._locations_individual
+              ? `${individual._locations_individual.City || ""}, ${
+                  individual._locations_individual.State__Province__County || ""
+                }, ${individual._locations_individual.Country || ""}`
+                  .replace(/^,\s*/, "")
+                  .replace(/,\s*$/, "")
+              : "Not available"}
+          </div>
+        </div>
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "8px",
+          fontSize: "12px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            padding: "4px 0",
+          }}
+        >
+          <span style={{ color: "#4a5568" }}>Company:</span>
+          <span
+            style={{
+              fontWeight: "600",
+              maxWidth: "60%",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {individual.current_company || "N/A"}
+          </span>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            padding: "4px 0",
+            gridColumn: "1 / -1",
+          }}
+        >
+          <span style={{ color: "#4a5568" }}>Roles:</span>
+          <span
+            style={{
+              fontWeight: "600",
+              textAlign: "right",
+              maxWidth: "60%",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {individual.current_roles
+              ?.map((role) => role.job_title)
+              .join(", ") || "N/A"}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -527,184 +471,80 @@ const IndividualsTable = ({
   };
 
   if (loading) {
-    return (
-      <div style={{ textAlign: "center", padding: "40px", color: "#666" }}>
-        Loading individuals...
-      </div>
-    );
+    return <div className="loading">Loading individuals...</div>;
   }
 
   if (!individuals || individuals.length === 0) {
-    return (
-      <div style={{ textAlign: "center", padding: "40px", color: "#666" }}>
-        No individuals found.
-      </div>
-    );
+    return <div className="loading">No individuals found.</div>;
   }
 
+  const tableRows = individuals.map((individual, index) => (
+    <tr key={index}>
+      <td>
+        <span
+          className="individual-name"
+          style={{
+            textDecoration: "underline",
+            color: "#0075df",
+            cursor: "pointer",
+            fontWeight: "500",
+          }}
+          onClick={() => handleIndividualClick(individual.id)}
+        >
+          {individual.advisor_individuals || "N/A"}
+        </span>
+      </td>
+      <td>
+        {individual.current_company ? (
+          <span
+            style={{
+              color: "#0075df",
+              textDecoration: "underline",
+              cursor: "pointer",
+            }}
+          >
+            {individual.current_company}
+          </span>
+        ) : (
+          <span style={{ color: "#6b7280" }}>Not available</span>
+        )}
+      </td>
+      <td>
+        {individual.current_roles?.map((role) => role.job_title).join(", ") ||
+          "Not available"}
+      </td>
+      <td>
+        {individual._locations_individual
+          ? `${individual._locations_individual.City || ""}, ${
+              individual._locations_individual.State__Province__County || ""
+            }, ${individual._locations_individual.Country || ""}`
+              .replace(/^,\s*/, "")
+              .replace(/,\s*$/, "")
+          : "Not available"}
+      </td>
+    </tr>
+  ));
+
   return (
-    <div
-      style={{
-        background: "#fff",
-        padding: "32px 24px",
-        boxShadow: "0px 1px 3px 0px rgba(227, 228, 230, 1)",
-        borderRadius: "16px",
-        overflowX: "auto",
-      }}
-    >
-      <table
-        style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          tableLayout: "fixed",
-        }}
-      >
+    <div>
+      {/* Mobile Cards */}
+      <div className="individual-cards">
+        {individuals.map((individual, index) =>
+          IndividualCard(individual, index)
+        )}
+      </div>
+
+      {/* Desktop Table */}
+      <table className="individual-table">
         <thead>
-          <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-            <th
-              style={{
-                padding: "16px",
-                textAlign: "left",
-                verticalAlign: "top",
-                fontWeight: "600",
-                color: "#1a202c",
-                fontSize: "14px",
-                background: "#f9fafb",
-              }}
-            >
-              Name
-            </th>
-            <th
-              style={{
-                padding: "16px",
-                textAlign: "left",
-                verticalAlign: "top",
-                fontWeight: "600",
-                color: "#1a202c",
-                fontSize: "14px",
-                background: "#f9fafb",
-              }}
-            >
-              Current Companies
-            </th>
-            <th
-              style={{
-                padding: "16px",
-                textAlign: "left",
-                verticalAlign: "top",
-                fontWeight: "600",
-                color: "#1a202c",
-                fontSize: "14px",
-                background: "#f9fafb",
-              }}
-            >
-              Current Roles
-            </th>
-            <th
-              style={{
-                padding: "16px",
-                textAlign: "left",
-                verticalAlign: "top",
-                fontWeight: "600",
-                color: "#1a202c",
-                fontSize: "14px",
-                background: "#f9fafb",
-              }}
-            >
-              Location
-            </th>
+          <tr>
+            <th>Name</th>
+            <th>Current Companies</th>
+            <th>Current Roles</th>
+            <th>Location</th>
           </tr>
         </thead>
-        <tbody>
-          {individuals.map((individual: Individual) => (
-            <tr
-              key={individual.id}
-              style={{
-                borderBottom: "1px solid #e2e8f0",
-              }}
-            >
-              <td
-                style={{
-                  padding: "16px",
-                  textAlign: "left",
-                  verticalAlign: "top",
-                  fontSize: "14px",
-                  color: "#000",
-                  lineHeight: "1.5",
-                }}
-              >
-                <span
-                  style={{
-                    color: "#0075df",
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                    fontWeight: "500",
-                  }}
-                  onClick={() => handleIndividualClick(individual.id)}
-                >
-                  {individual.advisor_individuals || "N/A"}
-                </span>
-              </td>
-              <td
-                style={{
-                  padding: "16px",
-                  textAlign: "left",
-                  verticalAlign: "top",
-                  fontSize: "14px",
-                  color: "#000",
-                  lineHeight: "1.5",
-                }}
-              >
-                {individual.current_company ? (
-                  <span
-                    style={{
-                      color: "#0075df",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {individual.current_company}
-                  </span>
-                ) : (
-                  <span style={{ color: "#6b7280" }}>Not available</span>
-                )}
-              </td>
-              <td
-                style={{
-                  padding: "16px",
-                  textAlign: "left",
-                  verticalAlign: "top",
-                  fontSize: "14px",
-                  color: "#000",
-                  lineHeight: "1.5",
-                }}
-              >
-                {individual.current_roles
-                  ?.map((role) => role.job_title)
-                  .join(", ") || "Not available"}
-              </td>
-              <td
-                style={{
-                  padding: "16px",
-                  textAlign: "left",
-                  verticalAlign: "top",
-                  fontSize: "14px",
-                  color: "#000",
-                  lineHeight: "1.5",
-                }}
-              >
-                {individual._locations_individual
-                  ? `${individual._locations_individual.City || ""}, ${
-                      individual._locations_individual
-                        .State__Province__County || ""
-                    }, ${individual._locations_individual.Country || ""}`
-                      .replace(/^,\s*/, "")
-                      .replace(/,\s*$/, "")
-                  : "Not available"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
+        <tbody>{tableRows}</tbody>
       </table>
     </div>
   );
@@ -1000,8 +840,8 @@ const IndividualsPage = () => {
         nextPage: data.Individuals_list.nextPage,
         prevPage: data.Individuals_list.prevPage,
         offset: data.Individuals_list.offset,
-        perPage: data.Individuals_list.pageTotal,
-        pageTotal: data.Individuals_list.pageTotal,
+        perPage: filters.per_page,
+        pageTotal: Math.ceil(data.totalIndividuals / filters.per_page),
       });
       setSummaryData({
         totalIndividuals: data.totalIndividuals,
@@ -1028,22 +868,22 @@ const IndividualsPage = () => {
     fetchJobTitles();
     // Initial fetch of all individuals
     fetchIndividuals(filters);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch provinces when countries change
   useEffect(() => {
     fetchProvinces();
-  }, [selectedCountries]);
+  }, [selectedCountries]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch cities when provinces change
   useEffect(() => {
     fetchCities();
-  }, [selectedProvinces]);
+  }, [selectedProvinces]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch secondary sectors when primary sectors are selected
   useEffect(() => {
     fetchSecondarySectors();
-  }, [selectedPrimarySectors]);
+  }, [selectedPrimarySectors]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle search
   const handleSearch = () => {
@@ -1070,277 +910,274 @@ const IndividualsPage = () => {
     fetchIndividuals(updatedFilters);
   };
 
+  const style = `
+    .individual-section {
+      padding: 32px 24px;
+      border-radius: 8px;
+    }
+    .individual-stats {
+      background: #fff;
+      padding: 32px 24px;
+      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
+      border-radius: 16px;
+      margin-bottom: 24px;
+    }
+    .stats-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1a202c;
+      margin: 0 0 24px 0;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px 24px;
+    }
+    .stats-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .stats-label {
+      font-size: 14px;
+      color: #4a5568;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+    .stats-value {
+      font-size: 20px;
+      color: #000;
+      font-weight: 700;
+    }
+    .individual-table {
+      width: 100%;
+      background: #fff;
+      padding: 32px 24px;
+      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
+      border-radius: 16px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    .individual-table th,
+    .individual-table td {
+      padding: 16px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid #e2e8f0;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .individual-table th {
+      font-weight: 600;
+      color: #1a202c;
+      font-size: 14px;
+      background: #f9fafb;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .individual-table td {
+      font-size: 14px;
+      color: #000;
+      line-height: 1.5;
+    }
+    .individual-name {
+      color: #0075df;
+      text-decoration: underline;
+      cursor: pointer;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .individual-name:hover {
+      color: #005bb5;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    .error {
+      text-align: center;
+      padding: 20px;
+      color: #e53e3e;
+      background-color: #fed7d7;
+      border-radius: 6px;
+      margin-bottom: 16px;
+    }
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-top: 24px;
+      padding: 16px;
+    }
+    .pagination-button {
+      padding: 8px 12px;
+      border: none;
+      background: none;
+      color: #000;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 400;
+      transition: color 0.2s;
+      text-decoration: none;
+    }
+    .pagination-button:hover {
+      color: #0075df;
+    }
+    .pagination-button.active {
+      color: #0075df;
+      text-decoration: underline;
+      font-weight: 500;
+    }
+    .pagination-button:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      color: #666;
+    }
+    .pagination-ellipsis {
+      padding: 8px 12px;
+      color: #000;
+      font-size: 14px;
+    }
+    .individual-cards {
+      display: none;
+    }
+    @media (max-width: 768px) {
+      .individual-table {
+        display: none !important;
+      }
+      .individual-cards {
+        display: block !important;
+        padding: 8px !important;
+      }
+      .pagination {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        padding: 16px 8px !important;
+      }
+      .pagination-button {
+        padding: 8px 10px !important;
+        font-size: 13px !important;
+        min-width: 32px !important;
+        text-align: center !important;
+      }
+      .pagination-ellipsis {
+        padding: 8px 6px !important;
+        font-size: 13px !important;
+      }
+      .individual-section {
+        padding: 20px 8px !important;
+      }
+      .individual-stats {
+        padding: 20px 16px !important;
+      }
+      .stats-title {
+        font-size: 20px !important;
+        margin-bottom: 16px !important;
+      }
+      .stats-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+      }
+      .stats-item {
+        padding: 8px 0 !important;
+      }
+      .stats-label {
+        font-size: 12px !important;
+      }
+      .stats-value {
+        font-size: 14px !important;
+      }
+      .filters-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+      }
+      .filters-card {
+        padding: 20px 16px !important;
+      }
+      .filters-heading {
+        font-size: 20px !important;
+        margin-bottom: 16px !important;
+      }
+      .filters-sub-heading {
+        font-size: 16px !important;
+        margin-bottom: 8px !important;
+      }
+      .filters-input {
+        max-width: 100% !important;
+      }
+      .filters-button {
+        max-width: 100% !important;
+      }
+    }
+    @media (min-width: 769px) {
+      .individual-cards {
+        display: none !important;
+      }
+      .individual-table {
+        display: table !important;
+      }
+    }
+  `;
+
   return (
-    <div style={styles.container}>
+    <div className="min-h-screen">
       <Header />
-      <div style={styles.maxWidth}>
-        <div style={styles.card}>
-          <h1 style={styles.heading}>Individuals</h1>
-          <p style={{ color: "#666", marginBottom: "24px" }}>
-            Search and filter individuals by location, sectors, job titles, and
-            more.
-          </p>
 
-          <div style={styles.grid}>
-            <div style={styles.gridItem}>
-              <h3 style={styles.subHeading}>Location</h3>
-              <span style={styles.label}>By Country</span>
-              <SearchableSelect
-                options={countryOptions}
-                value=""
-                onChange={(value) => {
-                  if (
-                    typeof value === "string" &&
-                    value &&
-                    !selectedCountries.includes(value)
-                  ) {
-                    setSelectedCountries([...selectedCountries, value]);
-                  }
-                }}
-                placeholder={
-                  loadingCountries ? "Loading countries..." : "Select Country"
-                }
-                disabled={loadingCountries}
-                style={styles.select}
-              />
+      {/* Filters Section */}
+      <div style={styles.container}>
+        <div style={styles.maxWidth}>
+          <div style={styles.card} className="filters-card">
+            <h2 style={styles.heading} className="filters-heading">
+              Individuals
+            </h2>
+            <p style={{ color: "#666", marginBottom: "24px" }}>
+              Search and filter individuals by location, sectors, job titles,
+              and more.
+            </p>
 
-              {/* Selected Countries Tags */}
-              {selectedCountries.length > 0 && (
-                <div
-                  style={{
-                    marginTop: "8px",
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "4px",
+            <div style={styles.grid} className="filters-grid">
+              <div style={styles.gridItem}>
+                <h3 style={styles.subHeading} className="filters-sub-heading">
+                  Location
+                </h3>
+                <span style={styles.label}>By Country</span>
+                <SearchableSelect
+                  options={countryOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedCountries.includes(value)
+                    ) {
+                      setSelectedCountries([...selectedCountries, value]);
+                    }
                   }}
-                >
-                  {selectedCountries.map((country) => (
-                    <span
-                      key={country}
-                      style={{
-                        backgroundColor: "#e3f2fd",
-                        color: "#1976d2",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      {country}
-                      <button
-                        onClick={() => {
-                          setSelectedCountries(
-                            selectedCountries.filter((c) => c !== country)
-                          );
-                        }}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#1976d2",
-                          cursor: "pointer",
-                          fontWeight: "bold",
-                          fontSize: "14px",
-                        }}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <span style={styles.label}>By State/County/Province</span>
-              <SearchableSelect
-                options={provinceOptions}
-                value=""
-                onChange={(value) => {
-                  if (
-                    typeof value === "string" &&
-                    value &&
-                    !selectedProvinces.includes(value)
-                  ) {
-                    setSelectedProvinces([...selectedProvinces, value]);
+                  placeholder={
+                    loadingCountries ? "Loading countries..." : "Select Country"
                   }
-                }}
-                placeholder={
-                  loadingProvinces
-                    ? "Loading provinces..."
-                    : selectedCountries.length === 0
-                    ? "Select country first"
-                    : "Select Province"
-                }
-                disabled={loadingProvinces || selectedCountries.length === 0}
-                style={styles.select}
-              />
+                  disabled={loadingCountries}
+                  style={styles.select}
+                />
 
-              {/* Selected Provinces Tags */}
-              {selectedProvinces.length > 0 && (
-                <div
-                  style={{
-                    marginTop: "8px",
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "4px",
-                  }}
-                >
-                  {selectedProvinces.map((province) => (
-                    <span
-                      key={province}
-                      style={{
-                        backgroundColor: "#e8f5e8",
-                        color: "#2e7d32",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      {province}
-                      <button
-                        onClick={() => {
-                          setSelectedProvinces(
-                            selectedProvinces.filter((p) => p !== province)
-                          );
-                        }}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#2e7d32",
-                          cursor: "pointer",
-                          fontWeight: "bold",
-                          fontSize: "14px",
-                        }}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <span style={styles.label}>By City</span>
-              <SearchableSelect
-                options={cityOptions}
-                value=""
-                onChange={(value) => {
-                  if (
-                    typeof value === "string" &&
-                    value &&
-                    !selectedCities.includes(value)
-                  ) {
-                    setSelectedCities([...selectedCities, value]);
-                  }
-                }}
-                placeholder={
-                  loadingCities
-                    ? "Loading cities..."
-                    : selectedCountries.length === 0
-                    ? "Select country first"
-                    : "Select City"
-                }
-                disabled={loadingCities || selectedCountries.length === 0}
-                style={styles.select}
-              />
-
-              {/* Selected Cities Tags */}
-              {selectedCities.length > 0 && (
-                <div
-                  style={{
-                    marginTop: "8px",
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "4px",
-                  }}
-                >
-                  {selectedCities.map((city) => (
-                    <span
-                      key={city}
-                      style={{
-                        backgroundColor: "#fff3e0",
-                        color: "#f57c00",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      {city}
-                      <button
-                        onClick={() => {
-                          setSelectedCities(
-                            selectedCities.filter((c) => c !== city)
-                          );
-                        }}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#f57c00",
-                          cursor: "pointer",
-                          fontWeight: "bold",
-                          fontSize: "14px",
-                        }}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div style={styles.gridItem}>
-              <h3 style={styles.subHeading}>Sector</h3>
-              <span style={styles.label}>By Primary Sectors</span>
-              <SearchableSelect
-                options={primarySectorOptions}
-                value=""
-                onChange={(value) => {
-                  if (
-                    typeof value === "number" &&
-                    value &&
-                    !selectedPrimarySectors.includes(value)
-                  ) {
-                    setSelectedPrimarySectors([
-                      ...selectedPrimarySectors,
-                      value,
-                    ]);
-                  }
-                }}
-                placeholder={
-                  loadingPrimarySectors
-                    ? "Loading sectors..."
-                    : "Select Primary Sector"
-                }
-                disabled={loadingPrimarySectors}
-                style={styles.select}
-              />
-
-              {/* Selected Primary Sectors Tags */}
-              {selectedPrimarySectors.length > 0 && (
-                <div
-                  style={{
-                    marginTop: "8px",
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "4px",
-                  }}
-                >
-                  {selectedPrimarySectors.map((sectorId) => {
-                    const sector = primarySectors.find(
-                      (s) => s.id === sectorId
-                    );
-                    return (
+                {/* Selected Countries Tags */}
+                {selectedCountries.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    }}
+                  >
+                    {selectedCountries.map((country) => (
                       <span
-                        key={sectorId}
+                        key={country}
                         style={{
-                          backgroundColor: "#f3e5f5",
-                          color: "#7b1fa2",
+                          backgroundColor: "#e3f2fd",
+                          color: "#1976d2",
                           padding: "4px 8px",
                           borderRadius: "4px",
                           fontSize: "12px",
@@ -1349,19 +1186,17 @@ const IndividualsPage = () => {
                           gap: "4px",
                         }}
                       >
-                        {sector?.sector_name || `Sector ${sectorId}`}
+                        {country}
                         <button
                           onClick={() => {
-                            setSelectedPrimarySectors(
-                              selectedPrimarySectors.filter(
-                                (s) => s !== sectorId
-                              )
+                            setSelectedCountries(
+                              selectedCountries.filter((c) => c !== country)
                             );
                           }}
                           style={{
                             background: "none",
                             border: "none",
-                            color: "#7b1fa2",
+                            color: "#1976d2",
                             cursor: "pointer",
                             fontWeight: "bold",
                             fontSize: "14px",
@@ -1370,57 +1205,47 @@ const IndividualsPage = () => {
                           ×
                         </button>
                       </span>
-                    );
-                  })}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
 
-              <span style={styles.label}>By Secondary Sectors</span>
-              <SearchableSelect
-                options={secondarySectorOptions}
-                value=""
-                onChange={(value) => {
-                  if (
-                    typeof value === "number" &&
-                    value &&
-                    !selectedSecondarySectors.includes(value)
-                  ) {
-                    setSelectedSecondarySectors([
-                      ...selectedSecondarySectors,
-                      value,
-                    ]);
-                  }
-                }}
-                placeholder={
-                  loadingSecondarySectors
-                    ? "Loading sectors..."
-                    : selectedPrimarySectors.length === 0
-                    ? "Select primary sectors first"
-                    : "Select Secondary Sector"
-                }
-                disabled={
-                  loadingSecondarySectors || selectedPrimarySectors.length === 0
-                }
-                style={styles.select}
-              />
-
-              {/* Selected Secondary Sectors Tags */}
-              {selectedSecondarySectors.length > 0 && (
-                <div
-                  style={{
-                    marginTop: "8px",
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "4px",
+                <span style={styles.label}>By State/County/Province</span>
+                <SearchableSelect
+                  options={provinceOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedProvinces.includes(value)
+                    ) {
+                      setSelectedProvinces([...selectedProvinces, value]);
+                    }
                   }}
-                >
-                  {selectedSecondarySectors.map((sectorId) => {
-                    const sector = secondarySectors.find(
-                      (s) => s.id === sectorId
-                    );
-                    return (
+                  placeholder={
+                    loadingProvinces
+                      ? "Loading provinces..."
+                      : selectedCountries.length === 0
+                      ? "Select country first"
+                      : "Select Province"
+                  }
+                  disabled={loadingProvinces || selectedCountries.length === 0}
+                  style={styles.select}
+                />
+
+                {/* Selected Provinces Tags */}
+                {selectedProvinces.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    }}
+                  >
+                    {selectedProvinces.map((province) => (
                       <span
-                        key={sectorId}
+                        key={province}
                         style={{
                           backgroundColor: "#e8f5e8",
                           color: "#2e7d32",
@@ -1432,13 +1257,11 @@ const IndividualsPage = () => {
                           gap: "4px",
                         }}
                       >
-                        {sector?.sector_name || `Sector ${sectorId}`}
+                        {province}
                         <button
                           onClick={() => {
-                            setSelectedSecondarySectors(
-                              selectedSecondarySectors.filter(
-                                (s) => s !== sectorId
-                              )
+                            setSelectedProvinces(
+                              selectedProvinces.filter((p) => p !== province)
                             );
                           }}
                           style={{
@@ -1453,54 +1276,50 @@ const IndividualsPage = () => {
                           ×
                         </button>
                       </span>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                )}
 
-            <div style={styles.gridItem}>
-              <h3 style={styles.subHeading}>Job Information</h3>
-              <span style={styles.label}>By Job Titles</span>
-              <SearchableSelect
-                options={jobTitleOptions}
-                value=""
-                onChange={(value) => {
-                  if (
-                    typeof value === "number" &&
-                    value &&
-                    !selectedJobTitles.includes(value)
-                  ) {
-                    setSelectedJobTitles([...selectedJobTitles, value]);
-                  }
-                }}
-                placeholder={
-                  loadingJobTitles
-                    ? "Loading job titles..."
-                    : "Select Job Title"
-                }
-                disabled={loadingJobTitles}
-                style={styles.select}
-              />
-
-              {/* Selected Job Titles Tags */}
-              {selectedJobTitles.length > 0 && (
-                <div
-                  style={{
-                    marginTop: "8px",
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "4px",
+                <span style={styles.label}>By City</span>
+                <SearchableSelect
+                  options={cityOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedCities.includes(value)
+                    ) {
+                      setSelectedCities([...selectedCities, value]);
+                    }
                   }}
-                >
-                  {selectedJobTitles.map((jobTitleId) => {
-                    const jobTitle = jobTitles.find((j) => j.id === jobTitleId);
-                    return (
+                  placeholder={
+                    loadingCities
+                      ? "Loading cities..."
+                      : selectedCountries.length === 0
+                      ? "Select country first"
+                      : "Select City"
+                  }
+                  disabled={loadingCities || selectedCountries.length === 0}
+                  style={styles.select}
+                />
+
+                {/* Selected Cities Tags */}
+                {selectedCities.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    }}
+                  >
+                    {selectedCities.map((city) => (
                       <span
-                        key={jobTitleId}
+                        key={city}
                         style={{
-                          backgroundColor: "#ffebee",
-                          color: "#c62828",
+                          backgroundColor: "#fff3e0",
+                          color: "#f57c00",
                           padding: "4px 8px",
                           borderRadius: "4px",
                           fontSize: "12px",
@@ -1509,17 +1328,17 @@ const IndividualsPage = () => {
                           gap: "4px",
                         }}
                       >
-                        {jobTitle?.job_title || `Job ${jobTitleId}`}
+                        {city}
                         <button
                           onClick={() => {
-                            setSelectedJobTitles(
-                              selectedJobTitles.filter((j) => j !== jobTitleId)
+                            setSelectedCities(
+                              selectedCities.filter((c) => c !== city)
                             );
                           }}
                           style={{
                             background: "none",
                             border: "none",
-                            color: "#c62828",
+                            color: "#f57c00",
                             cursor: "pointer",
                             fontWeight: "bold",
                             fontSize: "14px",
@@ -1528,121 +1347,427 @@ const IndividualsPage = () => {
                           ×
                         </button>
                       </span>
-                    );
-                  })}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
 
-              <span style={styles.label}>By Status</span>
-              <SearchableSelect
-                options={statusOptions}
-                value=""
-                onChange={(value) => {
-                  if (
-                    typeof value === "string" &&
-                    value &&
-                    !selectedStatuses.includes(value)
-                  ) {
-                    setSelectedStatuses([...selectedStatuses, value]);
-                  }
-                }}
-                placeholder="Select Status"
-                style={styles.select}
-              />
-
-              {/* Selected Statuses Tags */}
-              {selectedStatuses.length > 0 && (
-                <div
-                  style={{
-                    marginTop: "8px",
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "4px",
+              <div style={styles.gridItem}>
+                <h3 style={styles.subHeading} className="filters-sub-heading">
+                  Sector
+                </h3>
+                <span style={styles.label}>By Primary Sectors</span>
+                <SearchableSelect
+                  options={primarySectorOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "number" &&
+                      value &&
+                      !selectedPrimarySectors.includes(value)
+                    ) {
+                      setSelectedPrimarySectors([
+                        ...selectedPrimarySectors,
+                        value,
+                      ]);
+                    }
                   }}
-                >
-                  {selectedStatuses.map((status) => (
-                    <span
-                      key={status}
-                      style={{
-                        backgroundColor: "#f3e5f5",
-                        color: "#7b1fa2",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      {status}
-                      <button
-                        onClick={() => {
-                          setSelectedStatuses(
-                            selectedStatuses.filter((s) => s !== status)
-                          );
-                        }}
+                  placeholder={
+                    loadingPrimarySectors
+                      ? "Loading sectors..."
+                      : "Select Primary Sector"
+                  }
+                  disabled={loadingPrimarySectors}
+                  style={styles.select}
+                />
+
+                {/* Selected Primary Sectors Tags */}
+                {selectedPrimarySectors.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    }}
+                  >
+                    {selectedPrimarySectors.map((sectorId) => {
+                      const sector = primarySectors.find(
+                        (s) => s.id === sectorId
+                      );
+                      return (
+                        <span
+                          key={sectorId}
+                          style={{
+                            backgroundColor: "#f3e5f5",
+                            color: "#7b1fa2",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {sector?.sector_name || `Sector ${sectorId}`}
+                          <button
+                            onClick={() => {
+                              setSelectedPrimarySectors(
+                                selectedPrimarySectors.filter(
+                                  (s) => s !== sectorId
+                                )
+                              );
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#7b1fa2",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <span style={styles.label}>By Secondary Sectors</span>
+                <SearchableSelect
+                  options={secondarySectorOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "number" &&
+                      value &&
+                      !selectedSecondarySectors.includes(value)
+                    ) {
+                      setSelectedSecondarySectors([
+                        ...selectedSecondarySectors,
+                        value,
+                      ]);
+                    }
+                  }}
+                  placeholder={
+                    loadingSecondarySectors
+                      ? "Loading sectors..."
+                      : selectedPrimarySectors.length === 0
+                      ? "Select primary sectors first"
+                      : "Select Secondary Sector"
+                  }
+                  disabled={
+                    loadingSecondarySectors ||
+                    selectedPrimarySectors.length === 0
+                  }
+                  style={styles.select}
+                />
+
+                {/* Selected Secondary Sectors Tags */}
+                {selectedSecondarySectors.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    }}
+                  >
+                    {selectedSecondarySectors.map((sectorId) => {
+                      const sector = secondarySectors.find(
+                        (s) => s.id === sectorId
+                      );
+                      return (
+                        <span
+                          key={sectorId}
+                          style={{
+                            backgroundColor: "#e8f5e8",
+                            color: "#2e7d32",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {sector?.sector_name || `Sector ${sectorId}`}
+                          <button
+                            onClick={() => {
+                              setSelectedSecondarySectors(
+                                selectedSecondarySectors.filter(
+                                  (s) => s !== sectorId
+                                )
+                              );
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#2e7d32",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div style={styles.gridItem}>
+                <h3 style={styles.subHeading} className="filters-sub-heading">
+                  Job Information
+                </h3>
+                <span style={styles.label}>By Job Titles</span>
+                <SearchableSelect
+                  options={jobTitleOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "number" &&
+                      value &&
+                      !selectedJobTitles.includes(value)
+                    ) {
+                      setSelectedJobTitles([...selectedJobTitles, value]);
+                    }
+                  }}
+                  placeholder={
+                    loadingJobTitles
+                      ? "Loading job titles..."
+                      : "Select Job Title"
+                  }
+                  disabled={loadingJobTitles}
+                  style={styles.select}
+                />
+
+                {/* Selected Job Titles Tags */}
+                {selectedJobTitles.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    }}
+                  >
+                    {selectedJobTitles.map((jobTitleId) => {
+                      const jobTitle = jobTitles.find(
+                        (j) => j.id === jobTitleId
+                      );
+                      return (
+                        <span
+                          key={jobTitleId}
+                          style={{
+                            backgroundColor: "#ffebee",
+                            color: "#c62828",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {jobTitle?.job_title || `Job ${jobTitleId}`}
+                          <button
+                            onClick={() => {
+                              setSelectedJobTitles(
+                                selectedJobTitles.filter(
+                                  (j) => j !== jobTitleId
+                                )
+                              );
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#c62828",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <span style={styles.label}>By Status</span>
+                <SearchableSelect
+                  options={statusOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedStatuses.includes(value)
+                    ) {
+                      setSelectedStatuses([...selectedStatuses, value]);
+                    }
+                  }}
+                  placeholder="Select Status"
+                  style={styles.select}
+                />
+
+                {/* Selected Statuses Tags */}
+                {selectedStatuses.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    }}
+                  >
+                    {selectedStatuses.map((status) => (
+                      <span
+                        key={status}
                         style={{
-                          background: "none",
-                          border: "none",
+                          backgroundColor: "#f3e5f5",
                           color: "#7b1fa2",
-                          cursor: "pointer",
-                          fontWeight: "bold",
-                          fontSize: "14px",
+                          padding: "4px 8px",
+                          borderRadius: "4px",
+                          fontSize: "12px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
                         }}
                       >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
+                        {status}
+                        <button
+                          onClick={() => {
+                            setSelectedStatuses(
+                              selectedStatuses.filter((s) => s !== status)
+                            );
+                          }}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#7b1fa2",
+                            cursor: "pointer",
+                            fontWeight: "bold",
+                            fontSize: "14px",
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={styles.gridItem}>
+                <h3 style={styles.subHeading} className="filters-sub-heading">
+                  Search
+                </h3>
+                <span style={styles.label}>Search for Individuals</span>
+                <input
+                  type="text"
+                  placeholder="Enter name here"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={styles.input}
+                  className="filters-input"
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                />
+                <button
+                  onClick={handleSearch}
+                  style={styles.button}
+                  className="filters-button"
+                  onMouseOver={(e) =>
+                    ((e.target as HTMLButtonElement).style.backgroundColor =
+                      "#005bb5")
+                  }
+                  onMouseOut={(e) =>
+                    ((e.target as HTMLButtonElement).style.backgroundColor =
+                      "#0075df")
+                  }
+                >
+                  {loading ? "Searching..." : "Search"}
+                </button>
+              </div>
             </div>
 
-            <div style={styles.gridItem}>
-              <h3 style={styles.subHeading}>Search</h3>
-              <span style={styles.label}>Search for Individuals</span>
-              <input
-                type="text"
-                placeholder="Enter name here"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={styles.input}
-              />
-              <button onClick={handleSearch} style={styles.button}>
-                Search
-              </button>
-            </div>
+            {/* Error Display */}
+            {error && <div className="error">{error}</div>}
+
+            {/* Loading Display */}
+            {loading && <div className="loading">Loading individuals...</div>}
           </div>
-
-          {/* Summary Stats */}
-          {summaryData.totalIndividuals > 0 && (
-            <IndividualsStats data={summaryData as IndividualsResponse} />
-          )}
-
-          {/* Results Table */}
-          {individuals.length > 0 && (
-            <IndividualsTable individuals={individuals} loading={loading} />
-          )}
-
-          {/* Pagination */}
-          {pagination.pageTotal > 1 && (
-            <Pagination
-              currentPage={pagination.curPage}
-              totalItems={pagination.itemsReceived}
-              perPage={pagination.perPage}
-              onPageChange={handlePageChange}
-              onPerPageChange={() => {}} // Not implemented yet
-            />
-          )}
-
-          {error && (
-            <div style={{ color: "red", marginTop: "16px" }}>
-              Error: {error}
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Individuals Table Section */}
+      <div className="individual-section">
+        {/* Statistics Block */}
+        {summaryData.totalIndividuals > 0 && (
+          <div className="individual-stats">
+            <h2 className="stats-title">Individuals</h2>
+            <div className="stats-grid">
+              <div className="stats-item">
+                <span className="stats-label">Individuals:</span>
+                <span className="stats-value">
+                  {summaryData.totalIndividuals?.toLocaleString() || "0"}
+                </span>
+              </div>
+              <div className="stats-item">
+                <span className="stats-label">CEOs:</span>
+                <span className="stats-value">
+                  {summaryData.ceos?.toLocaleString() || "0"}
+                </span>
+              </div>
+              <div className="stats-item">
+                <span className="stats-label">Current roles:</span>
+                <span className="stats-value">
+                  {summaryData.currentRoles?.toLocaleString() || "0"}
+                </span>
+              </div>
+              <div className="stats-item">
+                <span className="stats-label">Chair:</span>
+                <span className="stats-value">
+                  {summaryData.chairs?.toLocaleString() || "0"}
+                </span>
+              </div>
+              <div className="stats-item">
+                <span className="stats-label">Past roles:</span>
+                <span className="stats-value">
+                  {summaryData.pastRoles?.toLocaleString() || "0"}
+                </span>
+              </div>
+              <div className="stats-item">
+                <span className="stats-label">Founder:</span>
+                <span className="stats-value">
+                  {summaryData.founders?.toLocaleString() || "0"}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Results Table */}
+        {individuals.length > 0 && (
+          <IndividualsTable individuals={individuals} loading={loading} />
+        )}
+
+        {/* Pagination */}
+        {pagination.pageTotal > 1 && (
+          <div className="pagination">
+            {generatePaginationButtons(pagination, handlePageChange)}
+          </div>
+        )}
+      </div>
+
       <Footer />
+      <style dangerouslySetInnerHTML={{ __html: style }} />
     </div>
   );
 };

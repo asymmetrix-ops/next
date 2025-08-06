@@ -546,6 +546,253 @@ const AdvisorsPage = () => {
     },
   };
 
+  // Helper functions
+  const formatNumber = (num: number | undefined) => {
+    if (num === undefined || num === null) return "0";
+    return num.toLocaleString();
+  };
+
+  const truncateDescription = (description: string) => {
+    return description.length > 150
+      ? description.substring(0, 150) + "..."
+      : description;
+  };
+
+  // Advisor Card Component for mobile
+  const AdvisorCard = (advisor: Advisor, index: number) => {
+    const description = advisor.description || "N/A";
+    const isDescriptionLong = description.length > 150;
+    const truncatedDescription = truncateDescription(description);
+
+    return React.createElement(
+      "div",
+      {
+        key: index,
+        className: "advisor-card",
+        style: {
+          backgroundColor: "white",
+          borderRadius: "8px",
+          padding: "12px",
+          marginBottom: "8px",
+          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+          border: "1px solid #e2e8f0",
+        },
+      },
+      React.createElement(
+        "div",
+        {
+          style: {
+            display: "flex",
+            alignItems: "center",
+            marginBottom: "12px",
+            gap: "12px",
+          },
+        },
+        advisor.linkedin_logo
+          ? React.createElement("img", {
+              src: `data:image/jpeg;base64,${advisor.linkedin_logo}`,
+              alt: `${advisor.name} logo`,
+              style: {
+                width: "50px",
+                height: "35px",
+                objectFit: "contain",
+                borderRadius: "4px",
+              },
+            })
+          : React.createElement(
+              "div",
+              {
+                style: {
+                  width: "50px",
+                  height: "35px",
+                  backgroundColor: "#f7fafc",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "10px",
+                  color: "#718096",
+                },
+              },
+              "No Logo"
+            ),
+        React.createElement(
+          "div",
+          {
+            style: {
+              flex: "1",
+            },
+          },
+          React.createElement(
+            "div",
+            {
+              style: {
+                fontSize: "16px",
+                fontWeight: "600",
+                color: "#0075df",
+                textDecoration: "underline",
+                cursor: "pointer",
+                marginBottom: "4px",
+              },
+              onClick: () => router.push(`/advisor/${advisor.id}`),
+            },
+            advisor.name || "N/A"
+          ),
+          React.createElement(
+            "div",
+            {
+              style: {
+                fontSize: "14px",
+                color: "#4a5568",
+              },
+            },
+            advisor.country || "N/A"
+          )
+        )
+      ),
+      React.createElement(
+        "div",
+        {
+          style: {
+            fontSize: "14px",
+            color: "#4a5568",
+            lineHeight: "1.4",
+            marginBottom: "12px",
+          },
+        },
+        React.createElement(
+          "div",
+          {
+            id: `card-description-${index}`,
+            style: { display: isDescriptionLong ? "block" : "none" },
+          },
+          truncatedDescription
+        ),
+        React.createElement(
+          "div",
+          {
+            id: `card-description-full-${index}`,
+            style: { display: isDescriptionLong ? "none" : "block" },
+          },
+          description
+        ),
+        isDescriptionLong &&
+          React.createElement(
+            "span",
+            {
+              style: {
+                color: "#0075df",
+                textDecoration: "underline",
+                cursor: "pointer",
+                fontSize: "12px",
+                marginTop: "4px",
+                display: "block",
+              },
+              onClick: () => {
+                const truncatedEl = document.getElementById(
+                  `card-description-${index}`
+                );
+                const fullEl = document.getElementById(
+                  `card-description-full-${index}`
+                );
+                if (truncatedEl && fullEl) {
+                  if (truncatedEl.style.display === "block") {
+                    truncatedEl.style.display = "none";
+                    fullEl.style.display = "block";
+                  } else {
+                    truncatedEl.style.display = "block";
+                    fullEl.style.display = "none";
+                  }
+                }
+              },
+            },
+            "Expand description"
+          )
+      ),
+      React.createElement(
+        "div",
+        {
+          style: {
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "8px",
+            fontSize: "12px",
+          },
+        },
+        React.createElement(
+          "div",
+          {
+            style: {
+              display: "flex",
+              justifyContent: "space-between",
+              padding: "4px 0",
+            },
+          },
+          React.createElement(
+            "span",
+            { style: { color: "#4a5568" } },
+            "Events:"
+          ),
+          React.createElement(
+            "span",
+            { style: { fontWeight: "600" } },
+            formatNumber(advisor.events_advised)
+          )
+        ),
+        React.createElement(
+          "div",
+          {
+            style: {
+              display: "flex",
+              justifyContent: "space-between",
+              padding: "4px 0",
+            },
+          },
+          React.createElement(
+            "span",
+            { style: { color: "#4a5568" } },
+            "LinkedIn:"
+          ),
+          React.createElement(
+            "span",
+            { style: { fontWeight: "600" } },
+            formatNumber(advisor.linkedin_members)
+          )
+        ),
+        React.createElement(
+          "div",
+          {
+            style: {
+              display: "flex",
+              justifyContent: "space-between",
+              padding: "4px 0",
+              gridColumn: "1 / -1",
+            },
+          },
+          React.createElement(
+            "span",
+            { style: { color: "#4a5568" } },
+            "Sectors:"
+          ),
+          React.createElement(
+            "span",
+            {
+              style: {
+                fontWeight: "600",
+                textAlign: "right",
+                maxWidth: "60%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              },
+            },
+            advisor.sectors || "N/A"
+          )
+        )
+      )
+    );
+  };
+
   const tableRows = advisors.map((advisor, index) => {
     // Truncate description for display
     const description = advisor.description || "N/A";
@@ -553,12 +800,6 @@ const AdvisorsPage = () => {
     const truncatedDescription = isDescriptionLong
       ? description.substring(0, 150) + "..."
       : description;
-
-    // Format numbers with commas
-    const formatNumber = (num: number | undefined) => {
-      if (num === undefined || num === null) return "0";
-      return num.toLocaleString();
-    };
 
     return React.createElement(
       "tr",
@@ -604,7 +845,7 @@ const AdvisorsPage = () => {
               cursor: "pointer",
               fontWeight: "500",
             },
-            onClick: () => router.push(`/advisors/${advisor.id}`),
+            onClick: () => router.push(`/advisor/${advisor.id}`),
           },
           advisor.name || "N/A"
         )
@@ -839,24 +1080,54 @@ const AdvisorsPage = () => {
       color: #000;
       font-size: 14px;
     }
+    .advisor-cards {
+      display: none;
+    }
     @media (max-width: 768px) {
       .advisor-table {
-        font-size: 12px;
+        display: none !important;
       }
-      .advisor-table th,
-      .advisor-table td {
-        padding: 8px;
-        font-size: 12px;
+      .advisor-cards {
+        display: block !important;
+        padding: 8px !important;
       }
-      .advisor-logo {
-        width: 40px;
-        height: 30px;
+      .pagination {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        padding: 16px 8px !important;
       }
-      .advisor-description {
-        max-width: 200px;
+      .pagination-button {
+        padding: 8px 10px !important;
+        font-size: 13px !important;
+        min-width: 32px !important;
+        text-align: center !important;
       }
-      .sectors-list {
-        max-width: 150px;
+      .pagination-ellipsis {
+        padding: 8px 6px !important;
+        font-size: 13px !important;
+      }
+      .advisor-section {
+        padding: 20px 8px !important;
+      }
+      .advisor-stats {
+        padding: 20px 16px !important;
+      }
+      .stats-title {
+        font-size: 20px !important;
+        margin-bottom: 16px !important;
+      }
+      .stats-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+      }
+      .stats-item {
+        padding: 8px 0 !important;
+      }
+      .stats-label {
+        font-size: 12px !important;
+      }
+      .stats-value {
+        font-size: 14px !important;
       }
       .filters-grid {
         display: grid !important;
@@ -879,6 +1150,14 @@ const AdvisorsPage = () => {
       }
       .filters-button {
         max-width: 100% !important;
+      }
+    }
+    @media (min-width: 769px) {
+      .advisor-cards {
+        display: none !important;
+      }
+      .advisor-table {
+        display: table !important;
       }
     }
   `;
@@ -1533,6 +1812,12 @@ const AdvisorsPage = () => {
           </div>
         </div>
 
+        {/* Mobile Cards */}
+        <div className="advisor-cards">
+          {advisors.map((advisor, index) => AdvisorCard(advisor, index))}
+        </div>
+
+        {/* Desktop Table */}
         <table className="advisor-table">
           <thead>
             <tr>

@@ -788,149 +788,433 @@ const InvestorDetailPage = () => {
     };
   });
 
+  const style = `
+    .investor-detail-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .investor-content {
+      flex: 1;
+      padding: 32px;
+      width: 100%;
+    }
+    .investor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .investor-title-section {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex: 1;
+    }
+    .investor-title {
+      margin: 0;
+      font-size: 32px;
+      font-weight: bold;
+    }
+    .report-button {
+      padding: 8px 16px;
+      background-color: #dc2626;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .investor-layout {
+      display: flex;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .investor-left-column {
+      flex: 1;
+      min-width: 300px;
+    }
+    .investor-right-column {
+      flex: 2;
+      min-width: 600px;
+    }
+    .investor-section {
+      background-color: white;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 24px;
+    }
+    .section-title {
+      margin: 0 0 16px 0;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .section-subtitle {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+      font-weight: bold;
+    }
+    .info-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .info-label {
+      font-weight: bold;
+      color: #374151;
+    }
+    .info-value {
+      color: #6b7280;
+    }
+    .portfolio-tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid #e2e8f0;
+      margin-bottom: 16px;
+    }
+    .portfolio-tab {
+      padding: 12px 16px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      background: transparent;
+      color: #64748b;
+      border-bottom: 2px solid transparent;
+    }
+    .portfolio-tab.active {
+      background-color: #3b82f6;
+      color: white;
+      border-bottom: 2px solid #3b82f6;
+    }
+    .portfolio-table-container {
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+    }
+    .portfolio-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .portfolio-table thead {
+      background-color: #f8fafc;
+    }
+    .portfolio-table th,
+    .portfolio-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .portfolio-table th {
+      font-weight: 600;
+      color: #374151;
+    }
+    .portfolio-table td {
+      color: #6b7280;
+    }
+    .company-name {
+      color: #3b82f6;
+      text-decoration: none;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .company-name:hover {
+      text-decoration: underline;
+    }
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      padding: 16px;
+    }
+    .pagination-button {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .pagination-button:disabled {
+      background-color: #e2e8f0;
+      color: #64748b;
+      cursor: not-allowed;
+    }
+    .pagination-button:not(:disabled) {
+      background-color: #3b82f6;
+      color: white;
+    }
+    .pagination-info {
+      font-size: 14px;
+      color: #64748b;
+    }
+    .portfolio-cards {
+      display: none;
+    }
+    .portfolio-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .portfolio-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .portfolio-card-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #3b82f6;
+      cursor: pointer;
+    }
+    .portfolio-card-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 14px;
+    }
+    .portfolio-card-info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .portfolio-card-info-label {
+      font-weight: 600;
+      color: #374151;
+      font-size: 12px;
+    }
+    .portfolio-card-info-value {
+      color: #6b7280;
+      font-size: 12px;
+    }
+    .corporate-event-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .corporate-event-card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #3b82f6;
+      cursor: pointer;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+    .corporate-event-card-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 14px;
+    }
+    .corporate-event-card-info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .corporate-event-card-info-label {
+      font-weight: 600;
+      color: #374151;
+      font-size: 12px;
+    }
+    .corporate-event-card-info-value {
+      color: #6b7280;
+      font-size: 12px;
+    }
+    .loading {
+      text-align: center;
+      padding: 24px;
+      color: #6b7280;
+    }
+    .no-data {
+      text-align: center;
+      padding: 24px;
+      color: #64748b;
+    }
+
+    @media (max-width: 768px) {
+      .investor-content {
+        padding: 16px !important;
+      }
+      .investor-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 16px !important;
+      }
+      .investor-title-section {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+      }
+      .investor-title {
+        font-size: 24px !important;
+      }
+      .report-button {
+        align-self: flex-start !important;
+        width: fit-content !important;
+      }
+      .investor-layout {
+        flex-direction: column !important;
+        gap: 16px !important;
+      }
+      .investor-left-column,
+      .investor-right-column {
+        flex: none !important;
+        min-width: auto !important;
+        width: 100% !important;
+      }
+      .investor-section {
+        padding: 16px !important;
+        margin-bottom: 16px !important;
+      }
+      .section-title {
+        font-size: 18px !important;
+        margin-bottom: 12px !important;
+      }
+      .portfolio-tabs {
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+      }
+      .portfolio-tab {
+        padding: 8px 12px !important;
+        font-size: 13px !important;
+        flex: 1 !important;
+        min-width: 100px !important;
+        text-align: center !important;
+      }
+      .portfolio-table-container {
+        display: none !important;
+      }
+      .portfolio-cards {
+        display: block !important;
+      }
+      .pagination {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        padding: 12px 8px !important;
+      }
+      .pagination-button {
+        padding: 6px 10px !important;
+        font-size: 13px !important;
+        min-width: 70px !important;
+      }
+      .pagination-info {
+        font-size: 13px !important;
+        text-align: center !important;
+        width: 100% !important;
+        order: -1 !important;
+      }
+    }
+
+    @media (min-width: 769px) {
+      .portfolio-cards {
+        display: none !important;
+      }
+      .portfolio-table-container {
+        display: block !important;
+      }
+    }
+  `;
+
   return (
-    <div
-      style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
-    >
+    <div className="investor-detail-page">
       <Header />
 
-      <div style={{ flex: "1", padding: "32px", width: "100%" }}>
+      <div className="investor-content">
         {/* Page Header */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: "32px",
-            flexWrap: "wrap",
-            gap: "16px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "16px",
-              flex: "1",
-            }}
-          >
+        <div className="investor-header">
+          <div className="investor-title-section">
             <CompanyLogo
               logo={Investor._linkedin_data_of_new_company?.linkedin_logo || ""}
               name={Investor.name}
             />
             <div>
-              <h1 style={{ margin: "0", fontSize: "32px", fontWeight: "bold" }}>
-                {Investor.name}
-              </h1>
+              <h1 className="investor-title">{Investor.name}</h1>
             </div>
           </div>
-          <button
-            onClick={handleReportIncorrectData}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#dc2626",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
+          <button onClick={handleReportIncorrectData} className="report-button">
             Report Incorrect Data
           </button>
         </div>
 
-        <div style={{ display: "flex", gap: "32px", flexWrap: "wrap" }}>
+        <div className="investor-layout">
           {/* Left Column - Overview */}
-          <div style={{ flex: "1", minWidth: "300px" }}>
+          <div className="investor-left-column">
             {/* Overview Section */}
-            <div
-              style={{
-                backgroundColor: "white",
-                padding: "24px",
-                borderRadius: "8px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                marginBottom: "24px",
-              }}
-            >
-              <h2
-                style={{
-                  margin: "0 0 16px 0",
-                  fontSize: "20px",
-                  fontWeight: "bold",
-                }}
-              >
-                Overview
-              </h2>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "12px",
-                }}
-              >
-                <div>
-                  <strong>Focus:</strong>{" "}
-                  {Focus.map((f) => f.sector_name).join(", ") ||
-                    "Not available"}
+            <div className="investor-section">
+              <h2 className="section-title">Overview</h2>
+              <div className="info-grid">
+                <div className="info-item">
+                  <span className="info-label">Focus:</span>
+                  <span className="info-value">
+                    {Focus.map((f) => f.sector_name).join(", ") ||
+                      "Not available"}
+                  </span>
                 </div>
-                <div>
-                  <strong>Year founded:</strong>{" "}
-                  {Investor._years?.Year || "Not available"}
+                <div className="info-item">
+                  <span className="info-label">Year founded:</span>
+                  <span className="info-value">
+                    {Investor._years?.Year || "Not available"}
+                  </span>
                 </div>
-                <div>
-                  <strong>HQ:</strong> {hq || "Not available"}
+                <div className="info-item">
+                  <span className="info-label">HQ:</span>
+                  <span className="info-value">{hq || "Not available"}</span>
                 </div>
-                <div>
-                  <strong>Website:</strong>{" "}
-                  {Investor.url ? (
-                    <a
-                      href={Investor.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: "#3b82f6", textDecoration: "none" }}
-                    >
-                      {Investor.url}
-                    </a>
-                  ) : (
-                    "Not available"
-                  )}
+                <div className="info-item">
+                  <span className="info-label">Website:</span>
+                  <span className="info-value">
+                    {Investor.url ? (
+                      <a
+                        href={Investor.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "#3b82f6", textDecoration: "none" }}
+                      >
+                        {Investor.url}
+                      </a>
+                    ) : (
+                      "Not available"
+                    )}
+                  </span>
                 </div>
-                <div>
-                  <strong>LinkedIn Members:</strong>{" "}
-                  {formatNumber(
-                    Investor._linkedin_data_of_new_company?.linkedin_employee
-                  )}
+                <div className="info-item">
+                  <span className="info-label">LinkedIn Members:</span>
+                  <span className="info-value">
+                    {formatNumber(
+                      Investor._linkedin_data_of_new_company?.linkedin_employee
+                    )}
+                  </span>
                 </div>
-                <div>
-                  <strong>LinkedIn Members Date:</strong>{" "}
-                  {formatDate(
-                    Investor._linkedin_data_of_new_company?.linkedin_emp_date
-                  )}
+                <div className="info-item">
+                  <span className="info-label">LinkedIn Members Date:</span>
+                  <span className="info-value">
+                    {formatDate(
+                      Investor._linkedin_data_of_new_company?.linkedin_emp_date
+                    )}
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Invested D&A Sectors Section */}
-            <div
-              style={{
-                backgroundColor: "white",
-                padding: "24px",
-                borderRadius: "8px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                marginBottom: "24px",
-              }}
-            >
-              <h2
-                style={{
-                  margin: "0 0 16px 0",
-                  fontSize: "20px",
-                  fontWeight: "bold",
-                }}
-              >
-                Invested D&A sectors:
-              </h2>
-              <div>
+            <div className="investor-section">
+              <h2 className="section-title">Invested D&A sectors:</h2>
+              <div className="info-value">
                 {Invested_DA_sectors.length > 0
                   ? Invested_DA_sectors.map((sector, index) => (
                       <span key={sector.id}>
@@ -948,69 +1232,24 @@ const InvestorDetailPage = () => {
             </div>
 
             {/* Description Section */}
-            <div
-              style={{
-                backgroundColor: "white",
-                padding: "24px",
-                borderRadius: "8px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                marginBottom: "24px",
-              }}
-            >
-              <h2
-                style={{
-                  margin: "0 0 16px 0",
-                  fontSize: "20px",
-                  fontWeight: "bold",
-                }}
-              >
-                Description:
-              </h2>
-              <div style={{ whiteSpace: "pre-wrap" }}>
+            <div className="investor-section">
+              <h2 className="section-title">Description:</h2>
+              <div className="info-value" style={{ whiteSpace: "pre-wrap" }}>
                 {Investor.description || "Not available"}
               </div>
             </div>
 
             {/* Investment Team Section */}
-            <div
-              style={{
-                backgroundColor: "white",
-                padding: "24px",
-                borderRadius: "8px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-              }}
-            >
-              <h2
-                style={{
-                  margin: "0 0 16px 0",
-                  fontSize: "20px",
-                  fontWeight: "bold",
-                }}
-              >
-                Investment Team
-              </h2>
+            <div className="investor-section">
+              <h2 className="section-title">Investment Team</h2>
 
               {/* Current Team */}
               <div style={{ marginBottom: "16px" }}>
-                <h3
-                  style={{
-                    margin: "0 0 8px 0",
-                    fontSize: "16px",
-                    fontWeight: "bold",
-                  }}
-                >
-                  Current:
-                </h3>
+                <h3 className="section-subtitle">Current:</h3>
                 {Investment_Team_Roles_current.length > 0 ? (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "8px",
-                    }}
-                  >
+                  <div className="info-grid">
                     {Investment_Team_Roles_current.map((member, index) => (
-                      <div key={index}>
+                      <div key={index} className="info-value">
                         {member.current_employer_url ? (
                           <a
                             href={member.current_employer_url}
@@ -1031,31 +1270,17 @@ const InvestorDetailPage = () => {
                     ))}
                   </div>
                 ) : (
-                  <div>Not available</div>
+                  <div className="info-value">Not available</div>
                 )}
               </div>
 
               {/* Past Team */}
               <div>
-                <h3
-                  style={{
-                    margin: "0 0 8px 0",
-                    fontSize: "16px",
-                    fontWeight: "bold",
-                  }}
-                >
-                  Past:
-                </h3>
+                <h3 className="section-subtitle">Past:</h3>
                 {Investment_Team_Roles_past.length > 0 ? (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "8px",
-                    }}
-                  >
+                  <div className="info-grid">
                     {Investment_Team_Roles_past.map((member, index) => (
-                      <div key={index}>
+                      <div key={index} className="info-value">
                         {member.current_employer_url ? (
                           <a
                             href={member.current_employer_url}
@@ -1076,97 +1301,39 @@ const InvestorDetailPage = () => {
                     ))}
                   </div>
                 ) : (
-                  <div>Not available</div>
+                  <div className="info-value">Not available</div>
                 )}
               </div>
             </div>
           </div>
 
           {/* Right Column - Portfolio and Corporate Events */}
-          <div style={{ flex: "2", minWidth: "600px" }}>
+          <div className="investor-right-column">
             {/* Portfolio Section */}
-            <div
-              style={{
-                backgroundColor: "white",
-                padding: "24px",
-                borderRadius: "8px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                marginBottom: "24px",
-              }}
-            >
+            <div className="investor-section">
               <div style={{ marginBottom: "16px" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "8px",
-                    borderBottom: "1px solid #e2e8f0",
-                  }}
-                >
+                <div className="portfolio-tabs">
                   <button
                     onClick={() => setActivePortfolioTab("current")}
-                    style={{
-                      padding: "12px 16px",
-                      backgroundColor:
-                        activePortfolioTab === "current"
-                          ? "#3b82f6"
-                          : "transparent",
-                      color:
-                        activePortfolioTab === "current" ? "white" : "#64748b",
-                      border: "none",
-                      cursor: "pointer",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      borderBottom:
-                        activePortfolioTab === "current"
-                          ? "2px solid #3b82f6"
-                          : "none",
-                    }}
+                    className={`portfolio-tab ${
+                      activePortfolioTab === "current" ? "active" : ""
+                    }`}
                   >
                     Current Portfolio
                   </button>
                   <button
                     onClick={() => setActivePortfolioTab("past")}
-                    style={{
-                      padding: "12px 16px",
-                      backgroundColor:
-                        activePortfolioTab === "past"
-                          ? "#3b82f6"
-                          : "transparent",
-                      color:
-                        activePortfolioTab === "past" ? "white" : "#64748b",
-                      border: "none",
-                      cursor: "pointer",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      borderBottom:
-                        activePortfolioTab === "past"
-                          ? "2px solid #3b82f6"
-                          : "none",
-                    }}
+                    className={`portfolio-tab ${
+                      activePortfolioTab === "past" ? "active" : ""
+                    }`}
                   >
                     Past Portfolio
                   </button>
                   <button
                     onClick={() => setActivePortfolioTab("corporate")}
-                    style={{
-                      padding: "12px 16px",
-                      backgroundColor:
-                        activePortfolioTab === "corporate"
-                          ? "#3b82f6"
-                          : "transparent",
-                      color:
-                        activePortfolioTab === "corporate"
-                          ? "white"
-                          : "#64748b",
-                      border: "none",
-                      cursor: "pointer",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      borderBottom:
-                        activePortfolioTab === "corporate"
-                          ? "2px solid #3b82f6"
-                          : "none",
-                    }}
+                    className={`portfolio-tab ${
+                      activePortfolioTab === "corporate" ? "active" : ""
+                    }`}
                   >
                     Corporate Events
                   </button>
@@ -1175,100 +1342,30 @@ const InvestorDetailPage = () => {
 
               {activePortfolioTab === "current" &&
                 (portfolioLoading ? (
-                  <div style={{ textAlign: "center", padding: "24px" }}>
+                  <div className="loading">
                     Loading current portfolio companies...
                   </div>
                 ) : (
                   <>
-                    <div
-                      style={{
-                        overflowX: "auto",
-                        border: "1px solid #e2e8f0",
-                        borderRadius: "8px",
-                      }}
-                    >
-                      <table
-                        style={{
-                          width: "100%",
-                          borderCollapse: "collapse",
-                          fontSize: "14px",
-                        }}
-                      >
+                    {/* Desktop Table View */}
+                    <div className="portfolio-table-container">
+                      <table className="portfolio-table">
                         <thead>
-                          <tr style={{ backgroundColor: "#f8fafc" }}>
-                            <th
-                              style={{
-                                padding: "12px",
-                                textAlign: "left",
-                                borderBottom: "1px solid #e2e8f0",
-                              }}
-                            >
-                              Logo
-                            </th>
-                            <th
-                              style={{
-                                padding: "12px",
-                                textAlign: "left",
-                                borderBottom: "1px solid #e2e8f0",
-                              }}
-                            >
-                              Name
-                            </th>
-                            <th
-                              style={{
-                                padding: "12px",
-                                textAlign: "left",
-                                borderBottom: "1px solid #e2e8f0",
-                              }}
-                            >
-                              Sectors
-                            </th>
-                            <th
-                              style={{
-                                padding: "12px",
-                                textAlign: "left",
-                                borderBottom: "1px solid #e2e8f0",
-                              }}
-                            >
-                              Description
-                            </th>
-                            <th
-                              style={{
-                                padding: "12px",
-                                textAlign: "left",
-                                borderBottom: "1px solid #e2e8f0",
-                              }}
-                            >
-                              Related Individuals
-                            </th>
-                            <th
-                              style={{
-                                padding: "12px",
-                                textAlign: "left",
-                                borderBottom: "1px solid #e2e8f0",
-                              }}
-                            >
-                              LinkedIn Members
-                            </th>
-                            <th
-                              style={{
-                                padding: "12px",
-                                textAlign: "left",
-                                borderBottom: "1px solid #e2e8f0",
-                              }}
-                            >
-                              Country
-                            </th>
+                          <tr>
+                            <th>Logo</th>
+                            <th>Name</th>
+                            <th>Sectors</th>
+                            <th>Description</th>
+                            <th>Related Individuals</th>
+                            <th>LinkedIn Members</th>
+                            <th>Country</th>
                           </tr>
                         </thead>
                         <tbody>
                           {portfolioCompanies.length > 0 ? (
                             portfolioCompanies.map((company) => (
-                              <tr
-                                key={company.id}
-                                style={{ borderBottom: "1px solid #e2e8f0" }}
-                              >
-                                <td style={{ padding: "12px" }}>
+                              <tr key={company.id}>
+                                <td>
                                   <CompanyLogo
                                     logo={
                                       company._linkedin_data_of_new_company
@@ -1277,14 +1374,9 @@ const InvestorDetailPage = () => {
                                     name={company.name}
                                   />
                                 </td>
-                                <td style={{ padding: "12px" }}>
+                                <td>
                                   <span
-                                    style={{
-                                      color: "#3b82f6",
-                                      textDecoration: "none",
-                                      fontWeight: "500",
-                                      cursor: "pointer",
-                                    }}
+                                    className="company-name"
                                     onClick={() =>
                                       handleCompanyClick(company.id)
                                     }
@@ -1292,7 +1384,7 @@ const InvestorDetailPage = () => {
                                     {company.name}
                                   </span>
                                 </td>
-                                <td style={{ padding: "12px" }}>
+                                <td>
                                   <div style={{ fontSize: "12px" }}>
                                     {company.sectors_id
                                       .slice(0, 3)
@@ -1301,25 +1393,23 @@ const InvestorDetailPage = () => {
                                     {company.sectors_id.length > 3 && "..."}
                                   </div>
                                 </td>
-                                <td
-                                  style={{ padding: "12px", maxWidth: "200px" }}
-                                >
+                                <td style={{ maxWidth: "200px" }}>
                                   <CompanyDescription
                                     description={company.description}
                                   />
                                 </td>
-                                <td style={{ padding: "12px" }}>
+                                <td>
                                   <span style={{ color: "#64748b" }}>
                                     Not available
                                   </span>
                                 </td>
-                                <td style={{ padding: "12px" }}>
+                                <td>
                                   {formatNumber(
                                     company._linkedin_data_of_new_company
                                       ?.linkedin_employee
                                   )}
                                 </td>
-                                <td style={{ padding: "12px" }}>
+                                <td>
                                   {company._locations?.Country ||
                                     "Not available"}
                                 </td>
@@ -1327,14 +1417,7 @@ const InvestorDetailPage = () => {
                             ))
                           ) : (
                             <tr>
-                              <td
-                                colSpan={7}
-                                style={{
-                                  padding: "24px",
-                                  textAlign: "center",
-                                  color: "#64748b",
-                                }}
-                              >
+                              <td colSpan={7} className="no-data">
                                 No portfolio companies found
                               </td>
                             </tr>
@@ -1343,18 +1426,89 @@ const InvestorDetailPage = () => {
                       </table>
                     </div>
 
+                    {/* Mobile Cards View */}
+                    <div className="portfolio-cards">
+                      {portfolioCompanies.length > 0 ? (
+                        portfolioCompanies.map((company) => (
+                          <div key={company.id} className="portfolio-card">
+                            <div className="portfolio-card-header">
+                              <CompanyLogo
+                                logo={
+                                  company._linkedin_data_of_new_company
+                                    ?.linkedin_logo || ""
+                                }
+                                name={company.name}
+                              />
+                              <div
+                                className="portfolio-card-name"
+                                onClick={() => handleCompanyClick(company.id)}
+                              >
+                                {company.name}
+                              </div>
+                            </div>
+                            <div className="portfolio-card-info">
+                              <div className="portfolio-card-info-item">
+                                <span className="portfolio-card-info-label">
+                                  Sectors:
+                                </span>
+                                <span className="portfolio-card-info-value">
+                                  {company.sectors_id
+                                    .slice(0, 3)
+                                    .map((s) => s.sector_name)
+                                    .join(", ")}
+                                  {company.sectors_id.length > 3 && "..."}
+                                </span>
+                              </div>
+                              <div className="portfolio-card-info-item">
+                                <span className="portfolio-card-info-label">
+                                  LinkedIn:
+                                </span>
+                                <span className="portfolio-card-info-value">
+                                  {formatNumber(
+                                    company._linkedin_data_of_new_company
+                                      ?.linkedin_employee
+                                  )}
+                                </span>
+                              </div>
+                              <div className="portfolio-card-info-item">
+                                <span className="portfolio-card-info-label">
+                                  Country:
+                                </span>
+                                <span className="portfolio-card-info-value">
+                                  {company._locations?.Country ||
+                                    "Not available"}
+                                </span>
+                              </div>
+                              <div className="portfolio-card-info-item">
+                                <span className="portfolio-card-info-label">
+                                  Individuals:
+                                </span>
+                                <span className="portfolio-card-info-value">
+                                  Not available
+                                </span>
+                              </div>
+                            </div>
+                            <div style={{ marginTop: "12px" }}>
+                              <CompanyDescription
+                                description={company.description}
+                              />
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="no-data">
+                          No portfolio companies found
+                        </div>
+                      )}
+                    </div>
+
                     {/* Pagination */}
                     {portfolioPagination.pageTotal > 1 && (
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          gap: "8px",
-                          marginTop: "16px",
-                          padding: "16px",
-                        }}
-                      >
+                      <div className="pagination">
+                        <span className="pagination-info">
+                          Page {portfolioPagination.curPage} of{" "}
+                          {portfolioPagination.pageTotal}
+                        </span>
                         <button
                           onClick={() =>
                             handlePortfolioPageChange(
@@ -1362,30 +1516,10 @@ const InvestorDetailPage = () => {
                             )
                           }
                           disabled={!portfolioPagination.prevPage}
-                          style={{
-                            padding: "8px 12px",
-                            backgroundColor: portfolioPagination.prevPage
-                              ? "#3b82f6"
-                              : "#e2e8f0",
-                            color: portfolioPagination.prevPage
-                              ? "white"
-                              : "#64748b",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: portfolioPagination.prevPage
-                              ? "pointer"
-                              : "not-allowed",
-                            fontSize: "14px",
-                          }}
+                          className="pagination-button"
                         >
                           Previous
                         </button>
-
-                        <span style={{ fontSize: "14px", color: "#64748b" }}>
-                          Page {portfolioPagination.curPage} of{" "}
-                          {portfolioPagination.pageTotal}
-                        </span>
-
                         <button
                           onClick={() =>
                             handlePortfolioPageChange(
@@ -1393,21 +1527,7 @@ const InvestorDetailPage = () => {
                             )
                           }
                           disabled={!portfolioPagination.nextPage}
-                          style={{
-                            padding: "8px 12px",
-                            backgroundColor: portfolioPagination.nextPage
-                              ? "#3b82f6"
-                              : "#e2e8f0",
-                            color: portfolioPagination.nextPage
-                              ? "white"
-                              : "#64748b",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: portfolioPagination.nextPage
-                              ? "pointer"
-                              : "not-allowed",
-                            fontSize: "14px",
-                          }}
+                          className="pagination-button"
                         >
                           Next
                         </button>
@@ -1894,6 +2014,7 @@ const InvestorDetailPage = () => {
       </div>
 
       <Footer />
+      <style dangerouslySetInnerHTML={{ __html: style }} />
     </div>
   );
 };

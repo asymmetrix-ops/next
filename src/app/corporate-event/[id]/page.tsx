@@ -7,141 +7,22 @@ import Footer from "@/components/Footer";
 import { corporateEventsService } from "../../../lib/corporateEventsService";
 import { CorporateEventDetailResponse } from "../../../types/corporateEvents";
 
-// Shared styles object
-const styles = {
-  container: {
-    backgroundColor: "#f9fafb",
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-  },
-  maxWidth: {
-    padding: "32px",
-    display: "flex" as const,
-    flexDirection: "column" as const,
-    gap: "24px",
-  },
-  card: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-    padding: "32px 24px",
-    marginBottom: "0",
-  },
-  heading: {
-    fontSize: "24px",
-    fontWeight: "700",
-    color: "#1a202c",
-    marginBottom: "8px",
-    marginTop: "0px",
-  },
-  subHeading: {
-    fontSize: "20px",
-    fontWeight: "600",
-    color: "#1a202c",
-    marginBottom: "12px",
-  },
-  reportButton: {
-    backgroundColor: "#dc2626",
-    color: "white",
-    fontWeight: "600",
-    padding: "8px 16px",
-    borderRadius: "6px",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "14px",
-    float: "right" as const,
-  },
-  infoGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "24px",
-    marginTop: "24px",
-  },
-  infoColumn: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "16px",
-  },
-  infoItem: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "4px",
-  },
-  infoLabel: {
-    fontSize: "14px",
-    color: "#6b7280",
-    fontWeight: "500",
-  },
-  infoValue: {
-    fontSize: "16px",
-    color: "#1a202c",
-    fontWeight: "600",
-  },
-  link: {
-    color: "#2563eb",
-    textDecoration: "underline",
-    cursor: "pointer",
-  },
-  description: {
-    fontSize: "16px",
-    color: "#374151",
-    lineHeight: "1.6",
-    marginTop: "24px",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse" as const,
-    marginTop: "16px",
-  },
-  tableHeader: {
-    backgroundColor: "#f9fafb",
-    borderBottom: "2px solid #e5e7eb",
-    padding: "12px 16px",
-    textAlign: "left" as const,
-    fontWeight: "600",
-    fontSize: "14px",
-    color: "#374151",
-  },
-  tableCell: {
-    padding: "12px 16px",
-    borderBottom: "1px solid #e5e7eb",
-    fontSize: "14px",
-    color: "#374151",
-  },
-  logo: {
-    width: "40px",
-    height: "40px",
-    borderRadius: "4px",
-    objectFit: "cover" as const,
-  },
-  placeholderLogo: {
-    width: "40px",
-    height: "40px",
-    backgroundColor: "#e5e7eb",
-    borderRadius: "4px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "12px",
-    color: "#6b7280",
-  },
-};
-
 // Company Logo Component
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
   if (logo) {
     return (
-      <img
-        src={`data:image/jpeg;base64,${logo}`}
-        alt={`${name} logo`}
-        style={styles.logo}
-      />
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`data:image/jpeg;base64,${logo}`}
+          alt={`${name} logo`}
+          className="company-logo"
+        />
+      </>
     );
   }
 
-  return (
-    <div style={styles.placeholderLogo}>{name.charAt(0).toUpperCase()}</div>
-  );
+  return <div className="placeholder-logo">{name.charAt(0).toUpperCase()}</div>;
 };
 
 // Corporate Event Detail Component
@@ -179,39 +60,272 @@ const CorporateEventDetail = ({
     }
   };
 
+  const style = `
+    .corporate-event-container {
+      background-color: #f9fafb;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .corporate-event-content {
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .corporate-event-card {
+      background-color: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      padding: 32px 24px;
+      margin-bottom: 0;
+    }
+    .corporate-event-header {
+      position: relative;
+    }
+    .corporate-event-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1a202c;
+      margin-bottom: 8px;
+      margin-top: 0px;
+    }
+    .corporate-event-subtitle {
+      font-size: 20px;
+      font-weight: 600;
+      color: #1a202c;
+      margin-bottom: 12px;
+    }
+    .report-button {
+      background-color: #dc2626;
+      color: white;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      float: right;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 24px;
+    }
+    .info-column {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .info-label {
+      font-size: 14px;
+      color: #6b7280;
+      font-weight: 500;
+    }
+    .info-value {
+      font-size: 16px;
+      color: #1a202c;
+      font-weight: 600;
+    }
+    .corporate-event-link {
+      color: #2563eb;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .corporate-event-description {
+      font-size: 16px;
+      color: #374151;
+      line-height: 1.6;
+      margin-top: 24px;
+    }
+    .counterparties-table-container {
+      overflow-x: auto;
+    }
+    .counterparties-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+    .counterparties-table th {
+      background-color: #f9fafb;
+      border-bottom: 2px solid #e5e7eb;
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 14px;
+      color: #374151;
+    }
+    .counterparties-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 14px;
+      color: #374151;
+    }
+    .company-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 4px;
+      object-fit: cover;
+    }
+    .placeholder-logo {
+      width: 40px;
+      height: 40px;
+      background-color: #e5e7eb;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #6b7280;
+    }
+    .counterparties-cards {
+      display: none;
+    }
+    .counterparty-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .counterparty-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .counterparty-card-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #2563eb;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .counterparty-card-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 14px;
+    }
+    .counterparty-card-info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .counterparty-card-info-label {
+      font-weight: 600;
+      color: #374151;
+      font-size: 12px;
+    }
+    .counterparty-card-info-value {
+      color: #6b7280;
+      font-size: 12px;
+    }
+    .counterparty-card-full-width {
+      grid-column: 1 / -1;
+    }
+
+    @media (max-width: 768px) {
+      .corporate-event-content {
+        padding: 16px !important;
+        gap: 16px !important;
+      }
+      .corporate-event-card {
+        padding: 16px !important;
+        border-radius: 8px !important;
+      }
+      .corporate-event-header {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+      }
+      .corporate-event-title {
+        font-size: 20px !important;
+        margin-bottom: 0 !important;
+      }
+      .corporate-event-subtitle {
+        font-size: 18px !important;
+        margin-bottom: 8px !important;
+      }
+      .report-button {
+        float: none !important;
+        align-self: flex-start !important;
+        width: fit-content !important;
+      }
+      .info-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+        margin-top: 16px !important;
+      }
+      .info-column {
+        gap: 12px !important;
+      }
+      .info-label {
+        font-size: 13px !important;
+      }
+      .info-value {
+        font-size: 15px !important;
+      }
+      .corporate-event-description {
+        font-size: 15px !important;
+        margin-top: 16px !important;
+      }
+      .counterparties-table-container {
+        display: none !important;
+      }
+      .counterparties-cards {
+        display: block !important;
+        margin-top: 16px !important;
+      }
+    }
+
+    @media (min-width: 769px) {
+      .counterparties-cards {
+        display: none !important;
+      }
+      .counterparties-table-container {
+        display: block !important;
+      }
+    }
+  `;
+
   return (
-    <div style={styles.container}>
-      <div style={styles.maxWidth}>
+    <div className="corporate-event-container">
+      <div className="corporate-event-content">
         {/* Event Details Card */}
-        <div style={styles.card}>
-          <div style={{ position: "relative" }}>
-            <h1 style={styles.heading}>{event.description}</h1>
-            <button style={styles.reportButton}>Report Incorrect Data</button>
+        <div className="corporate-event-card">
+          <div className="corporate-event-header">
+            <h1 className="corporate-event-title">{event.description}</h1>
+            <button className="report-button">Report Incorrect Data</button>
           </div>
 
-          <div style={styles.infoGrid}>
-            <div style={styles.infoColumn}>
-              <div style={styles.infoItem}>
-                <span style={styles.infoLabel}>Deal Type:</span>
-                <span style={styles.infoValue}>{event.deal_type}</span>
+          <div className="info-grid">
+            <div className="info-column">
+              <div className="info-item">
+                <span className="info-label">Deal Type:</span>
+                <span className="info-value">{event.deal_type}</span>
               </div>
-              <div style={styles.infoItem}>
-                <span style={styles.infoLabel}>Date Announced:</span>
-                <span style={styles.infoValue}>
+              <div className="info-item">
+                <span className="info-label">Date Announced:</span>
+                <span className="info-value">
                   {formatDate(event.announcement_date)}
                 </span>
               </div>
-              <div style={styles.infoItem}>
-                <span style={styles.infoLabel}>Date Closed:</span>
-                <span style={styles.infoValue}>
+              <div className="info-item">
+                <span className="info-label">Date Closed:</span>
+                <span className="info-value">
                   {formatDate(event.closed_date)}
                 </span>
               </div>
             </div>
-            <div style={styles.infoColumn}>
-              <div style={styles.infoItem}>
-                <span style={styles.infoLabel}>Enterprise Value:</span>
-                <span style={styles.infoValue}>
+            <div className="info-column">
+              <div className="info-item">
+                <span className="info-label">Enterprise Value:</span>
+                <span className="info-value">
                   {event.ev_data._currency?.Currency
                     ? formatCurrency(
                         event.ev_data.enterprise_value_m,
@@ -220,13 +334,13 @@ const CorporateEventDetail = ({
                     : "Not available"}
                 </span>
               </div>
-              <div style={styles.infoItem}>
-                <span style={styles.infoLabel}>Enterprise source:</span>
+              <div className="info-item">
+                <span className="info-label">Enterprise source:</span>
                 <a
                   href={event.ev_data.ev_source}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={styles.link}
+                  className="corporate-event-link"
                 >
                   {event.ev_data.ev_source}
                 </a>
@@ -234,27 +348,29 @@ const CorporateEventDetail = ({
             </div>
           </div>
 
-          <p style={styles.description}>{event.long_description}</p>
+          <p className="corporate-event-description">
+            {event.long_description}
+          </p>
         </div>
 
         {/* Sectors Card */}
-        <div style={styles.card}>
-          <h2 style={styles.subHeading}>Sectors</h2>
-          <div style={styles.infoGrid}>
-            <div style={styles.infoColumn}>
-              <div style={styles.infoItem}>
-                <span style={styles.infoLabel}>Primary Sectors:</span>
-                <span style={styles.infoValue}>
+        <div className="corporate-event-card">
+          <h2 className="corporate-event-subtitle">Sectors</h2>
+          <div className="info-grid">
+            <div className="info-column">
+              <div className="info-item">
+                <span className="info-label">Primary Sectors:</span>
+                <span className="info-value">
                   {data.Primary_sectors.length > 0
                     ? data.Primary_sectors.map((s) => s.sector_name).join(", ")
                     : "Not available"}
                 </span>
               </div>
             </div>
-            <div style={styles.infoColumn}>
-              <div style={styles.infoItem}>
-                <span style={styles.infoLabel}>Sub-Sector(s):</span>
-                <span style={styles.infoValue}>
+            <div className="info-column">
+              <div className="info-item">
+                <span className="info-label">Sub-Sector(s):</span>
+                <span className="info-value">
                   {subSectors.length > 0
                     ? subSectors.map((s) => s.sector_name).join(", ")
                     : "Not available"}
@@ -265,83 +381,155 @@ const CorporateEventDetail = ({
         </div>
 
         {/* Counterparties Card */}
-        <div style={styles.card}>
-          <h2 style={styles.subHeading}>Counterparties</h2>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.tableHeader}>Logo</th>
-                <th style={styles.tableHeader}>Company</th>
-                <th style={styles.tableHeader}>Counterparty type</th>
-                <th style={styles.tableHeader}>Announcement URL</th>
-                <th style={styles.tableHeader}>Individuals</th>
-              </tr>
-            </thead>
-            <tbody>
-              {counterparties.map((counterparty) => (
-                <tr key={counterparty.id}>
-                  <td style={styles.tableCell}>
-                    <CompanyLogo
-                      logo={
-                        counterparty._new_company._linkedin_data_of_new_company
-                          ?.linkedin_logo ||
-                        counterparty._new_company.linkedin_data.linkedin_logo
-                      }
-                      name={counterparty._new_company.name}
-                    />
-                  </td>
-                  <td style={styles.tableCell}>
-                    <span
-                      style={{
-                        ...styles.link,
-                        cursor: "pointer",
-                      }}
-                      onClick={(e) => {
-                        console.log("Company data:", counterparty._new_company);
-                        e.currentTarget.style.backgroundColor = "#f0f0f0";
-                        setTimeout(() => {
-                          e.currentTarget.style.backgroundColor = "transparent";
-                        }, 200);
-                        handleCompanyClick(counterparty._new_company.id);
-                      }}
-                    >
-                      {counterparty._new_company.name}
+        <div className="corporate-event-card">
+          <h2 className="corporate-event-subtitle">Counterparties</h2>
+
+          {/* Desktop Table View */}
+          <div className="counterparties-table-container">
+            <table className="counterparties-table">
+              <thead>
+                <tr>
+                  <th>Logo</th>
+                  <th>Company</th>
+                  <th>Counterparty type</th>
+                  <th>Announcement URL</th>
+                  <th>Individuals</th>
+                </tr>
+              </thead>
+              <tbody>
+                {counterparties.map((counterparty) => (
+                  <tr key={counterparty.id}>
+                    <td>
+                      <CompanyLogo
+                        logo={
+                          counterparty._new_company
+                            ._linkedin_data_of_new_company?.linkedin_logo ||
+                          counterparty._new_company.linkedin_data.linkedin_logo
+                        }
+                        name={counterparty._new_company.name}
+                      />
+                    </td>
+                    <td>
+                      <span
+                        className="corporate-event-link"
+                        onClick={(e) => {
+                          console.log(
+                            "Company data:",
+                            counterparty._new_company
+                          );
+                          e.currentTarget.style.backgroundColor = "#f0f0f0";
+                          setTimeout(() => {
+                            e.currentTarget.style.backgroundColor =
+                              "transparent";
+                          }, 200);
+                          handleCompanyClick(counterparty._new_company.id);
+                        }}
+                      >
+                        {counterparty._new_company.name}
+                      </span>
+                    </td>
+                    <td>
+                      {counterparty._counterpartys_type.counterparty_status}
+                    </td>
+                    <td>
+                      {counterparty.counterparty_announcement_url ? (
+                        <a
+                          href={counterparty.counterparty_announcement_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="corporate-event-link"
+                        >
+                          {counterparty.counterparty_announcement_url}
+                        </a>
+                      ) : (
+                        "Not available"
+                      )}
+                    </td>
+                    <td>
+                      {counterparty.counterparty_individuals.length > 0
+                        ? counterparty.counterparty_individuals.map(
+                            (individual) => (
+                              <span
+                                key={individual.id}
+                                className="corporate-event-link"
+                              >
+                                {individual.advisor_individuals}
+                              </span>
+                            )
+                          )
+                        : "Not available"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Cards View */}
+          <div className="counterparties-cards">
+            {counterparties.map((counterparty) => (
+              <div key={counterparty.id} className="counterparty-card">
+                <div className="counterparty-card-header">
+                  <CompanyLogo
+                    logo={
+                      counterparty._new_company._linkedin_data_of_new_company
+                        ?.linkedin_logo ||
+                      counterparty._new_company.linkedin_data.linkedin_logo
+                    }
+                    name={counterparty._new_company.name}
+                  />
+                  <div
+                    className="counterparty-card-name"
+                    onClick={() => {
+                      console.log("Company data:", counterparty._new_company);
+                      handleCompanyClick(counterparty._new_company.id);
+                    }}
+                  >
+                    {counterparty._new_company.name}
+                  </div>
+                </div>
+                <div className="counterparty-card-info">
+                  <div className="counterparty-card-info-item">
+                    <span className="counterparty-card-info-label">Type:</span>
+                    <span className="counterparty-card-info-value">
+                      {counterparty._counterpartys_type.counterparty_status}
                     </span>
-                  </td>
-                  <td style={styles.tableCell}>
-                    {counterparty._counterpartys_type.counterparty_status}
-                  </td>
-                  <td style={styles.tableCell}>
-                    {counterparty.counterparty_announcement_url ? (
+                  </div>
+                  <div className="counterparty-card-info-item">
+                    <span className="counterparty-card-info-label">
+                      Individuals:
+                    </span>
+                    <span className="counterparty-card-info-value">
+                      {counterparty.counterparty_individuals.length > 0
+                        ? counterparty.counterparty_individuals
+                            .map((individual) => individual.advisor_individuals)
+                            .join(", ")
+                        : "Not available"}
+                    </span>
+                  </div>
+                  {counterparty.counterparty_announcement_url && (
+                    <div className="counterparty-card-info-item counterparty-card-full-width">
+                      <span className="counterparty-card-info-label">
+                        Announcement URL:
+                      </span>
                       <a
                         href={counterparty.counterparty_announcement_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={styles.link}
+                        className="corporate-event-link"
+                        style={{ fontSize: "12px" }}
                       >
                         {counterparty.counterparty_announcement_url}
                       </a>
-                    ) : (
-                      "Not available"
-                    )}
-                  </td>
-                  <td style={styles.tableCell}>
-                    {counterparty.counterparty_individuals.length > 0
-                      ? counterparty.counterparty_individuals.map(
-                          (individual) => (
-                            <span key={individual.id} style={styles.link}>
-                              {individual.advisor_individuals}
-                            </span>
-                          )
-                        )
-                      : "Not available"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
+      <style dangerouslySetInnerHTML={{ __html: style }} />
     </div>
   );
 };

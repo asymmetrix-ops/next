@@ -174,152 +174,345 @@ export default function AdvisorProfilePage() {
     .replace(/^,\s*/, "")
     .replace(/,\s*$/, "");
 
+  const style = `
+    .advisor-detail-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .advisor-content {
+      flex: 1;
+      padding: 32px;
+      width: 100%;
+    }
+    .advisor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .advisor-title-section {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex: 1;
+    }
+    .advisor-title {
+      margin: 0;
+      font-size: 32px;
+      font-weight: bold;
+    }
+    .report-button {
+      padding: 8px 16px;
+      background-color: #dc2626;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .advisor-layout {
+      display: flex;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .advisor-left-column {
+      flex: 1;
+      min-width: 300px;
+    }
+    .advisor-right-column {
+      flex: 1;
+      min-width: 300px;
+    }
+    .advisor-section {
+      background-color: white;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 24px;
+    }
+    .section-title {
+      margin: 0 0 16px 0;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .info-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .info-label {
+      font-weight: bold;
+      color: #374151;
+    }
+    .info-value {
+      color: #6b7280;
+    }
+    .corporate-events-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .toggle-button {
+      color: #3b82f6;
+      text-decoration: none;
+      font-size: 14px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+    }
+    .events-table-container {
+      overflow-x: auto;
+    }
+    .events-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .events-table thead tr {
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .events-table th {
+      text-align: left;
+      padding: 8px;
+      font-weight: bold;
+      font-size: 12px;
+    }
+    .events-table tbody tr {
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .events-table td {
+      padding: 8px;
+      font-size: 12px;
+    }
+    .event-link {
+      color: #3b82f6;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .event-link:hover {
+      text-decoration: underline;
+    }
+    .advisor-link {
+      color: #3b82f6;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .advisor-link:hover {
+      text-decoration: underline;
+    }
+    .no-events {
+      color: #6b7280;
+      text-align: center;
+      padding: 20px;
+    }
+    .events-cards {
+      display: none;
+    }
+    .event-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .event-card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #3b82f6;
+      cursor: pointer;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+    .event-card-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 14px;
+    }
+    .event-card-info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .event-card-info-label {
+      font-weight: 600;
+      color: #374151;
+      font-size: 12px;
+    }
+    .event-card-info-value {
+      color: #6b7280;
+      font-size: 12px;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    @media (max-width: 768px) {
+      .advisor-content {
+        padding: 16px !important;
+      }
+      .advisor-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 16px !important;
+      }
+      .advisor-title-section {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+      }
+      .advisor-title {
+        font-size: 24px !important;
+      }
+      .report-button {
+        align-self: flex-start !important;
+        width: fit-content !important;
+      }
+      .advisor-layout {
+        flex-direction: column !important;
+        gap: 16px !important;
+      }
+      .advisor-left-column,
+      .advisor-right-column {
+        flex: none !important;
+        min-width: auto !important;
+        width: 100% !important;
+      }
+      .advisor-section {
+        padding: 16px !important;
+        margin-bottom: 16px !important;
+      }
+      .section-title {
+        font-size: 18px !important;
+        margin-bottom: 12px !important;
+      }
+      .events-table-container {
+        display: none !important;
+      }
+      .events-cards {
+        display: block !important;
+      }
+      .corporate-events-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+      }
+    }
+
+    @media (min-width: 769px) {
+      .events-cards {
+        display: none !important;
+      }
+      .events-table-container {
+        display: block !important;
+      }
+    }
+  `;
+
   return (
-    <div
-      style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
-    >
+    <div className="advisor-detail-page">
       <Header />
 
-      <div style={{ flex: "1", padding: "32px", width: "100%" }}>
+      <div className="advisor-content">
         {/* Page Header */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: "32px",
-            flexWrap: "wrap",
-            gap: "16px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "16px",
-              flex: "1",
-            }}
-          >
+        <div className="advisor-header">
+          <div className="advisor-title-section">
             <CompanyLogo
               logo={Advisor._linkedin_data_of_new_company?.linkedin_logo || ""}
               name={Advisor.name}
             />
             <div>
-              <h1 style={{ margin: "0", fontSize: "32px", fontWeight: "bold" }}>
-                {Advisor.name}
-              </h1>
+              <h1 className="advisor-title">{Advisor.name}</h1>
             </div>
           </div>
-          <button
-            onClick={handleReportIncorrectData}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#dc2626",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
+          <button onClick={handleReportIncorrectData} className="report-button">
             Report Incorrect Data
           </button>
         </div>
 
-        <div style={{ display: "flex", gap: "32px", flexWrap: "wrap" }}>
+        <div className="advisor-layout">
           {/* Left Column - Overview */}
-          <div style={{ flex: "1", minWidth: "300px" }}>
+          <div className="advisor-left-column">
             {/* Overview Section */}
-            <div
-              style={{
-                backgroundColor: "white",
-                padding: "24px",
-                borderRadius: "8px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                marginBottom: "24px",
-              }}
-            >
-              <h2
-                style={{
-                  margin: "0 0 16px 0",
-                  fontSize: "20px",
-                  fontWeight: "bold",
-                }}
-              >
-                Overview
-              </h2>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "12px",
-                }}
-              >
-                <div>
-                  <strong>Advised D&A sectors:</strong>{" "}
-                  {formatSectorsList(Advised_DA_sectors) || "Not available"}
+            <div className="advisor-section">
+              <h2 className="section-title">Overview</h2>
+              <div className="info-grid">
+                <div className="info-item">
+                  <span className="info-label">Advised D&A sectors:</span>
+                  <span className="info-value">
+                    {formatSectorsList(Advised_DA_sectors) || "Not available"}
+                  </span>
                 </div>
-                <div>
-                  <strong>Year founded:</strong>{" "}
-                  {Advisor.year_founded || "Not available"}
+                <div className="info-item">
+                  <span className="info-label">Year founded:</span>
+                  <span className="info-value">
+                    {Advisor.year_founded || "Not available"}
+                  </span>
                 </div>
-                <div>
-                  <strong>HQ:</strong> {hq || "Not available"}
+                <div className="info-item">
+                  <span className="info-label">HQ:</span>
+                  <span className="info-value">{hq || "Not available"}</span>
                 </div>
-                <div>
-                  <strong>Website:</strong>{" "}
-                  {Advisor.url ? (
-                    <a
-                      href={Advisor.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: "#3b82f6", textDecoration: "none" }}
-                    >
-                      {Advisor.url}
-                    </a>
-                  ) : (
-                    "Not available"
-                  )}
+                <div className="info-item">
+                  <span className="info-label">Website:</span>
+                  <span className="info-value">
+                    {Advisor.url ? (
+                      <a
+                        href={Advisor.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "#3b82f6", textDecoration: "none" }}
+                      >
+                        {Advisor.url}
+                      </a>
+                    ) : (
+                      "Not available"
+                    )}
+                  </span>
                 </div>
-                <div>
-                  <strong>Data & Analytics transactions advised:</strong>{" "}
-                  {Portfolio_companies_count}
+                <div className="info-item">
+                  <span className="info-label">
+                    Data & Analytics transactions advised:
+                  </span>
+                  <span className="info-value">
+                    {Portfolio_companies_count}
+                  </span>
                 </div>
-                <div>
-                  <strong>LinkedIn Members:</strong>{" "}
-                  {formatNumber(
-                    Advisor._linkedin_data_of_new_company?.linkedin_employee
-                  )}
+                <div className="info-item">
+                  <span className="info-label">LinkedIn Members:</span>
+                  <span className="info-value">
+                    {formatNumber(
+                      Advisor._linkedin_data_of_new_company?.linkedin_employee
+                    )}
+                  </span>
                 </div>
-                <div>
-                  <strong>LinkedIn Members Date:</strong>{" "}
-                  {formatDate(
-                    Advisor._linkedin_data_of_new_company?.linkedin_emp_date
-                  )}
+                <div className="info-item">
+                  <span className="info-label">LinkedIn Members Date:</span>
+                  <span className="info-value">
+                    {formatDate(
+                      Advisor._linkedin_data_of_new_company?.linkedin_emp_date
+                    )}
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Advisors Section */}
-            <div
-              style={{
-                backgroundColor: "white",
-                padding: "24px",
-                borderRadius: "8px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                marginBottom: "24px",
-              }}
-            >
-              <h2
-                style={{
-                  margin: "0 0 16px 0",
-                  fontSize: "20px",
-                  fontWeight: "bold",
-                }}
-              >
-                Advisors
-              </h2>
-              <div>
+            <div className="advisor-section">
+              <h2 className="section-title">Advisors</h2>
+              <div className="info-value">
                 {Advisors_individuals.length > 0
                   ? Advisors_individuals.map((individual, index) => (
                       <span key={individual.id}>
@@ -327,11 +520,7 @@ export default function AdvisorProfilePage() {
                           onClick={() =>
                             handleAdvisorClick(individual.individuals_id)
                           }
-                          style={{
-                            color: "#3b82f6",
-                            textDecoration: "none",
-                            cursor: "pointer",
-                          }}
+                          className="advisor-link"
                         >
                           {individual.advisor_individuals}
                         </span>
@@ -343,69 +532,24 @@ export default function AdvisorProfilePage() {
             </div>
 
             {/* Description Section */}
-            <div
-              style={{
-                backgroundColor: "white",
-                padding: "24px",
-                borderRadius: "8px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-              }}
-            >
-              <h2
-                style={{
-                  margin: "0 0 16px 0",
-                  fontSize: "20px",
-                  fontWeight: "bold",
-                }}
-              >
-                Description
-              </h2>
-              <div style={{ whiteSpace: "pre-wrap" }}>
+            <div className="advisor-section">
+              <h2 className="section-title">Description</h2>
+              <div className="info-value" style={{ whiteSpace: "pre-wrap" }}>
                 {Advisor.description || "Not available"}
               </div>
             </div>
           </div>
 
           {/* Right Column - Corporate Events */}
-          <div style={{ flex: "1", minWidth: "300px" }}>
-            <div
-              style={{
-                backgroundColor: "white",
-                padding: "24px",
-                borderRadius: "8px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "16px",
-                }}
-              >
-                <h2
-                  style={{
-                    margin: "0",
-                    fontSize: "20px",
-                    fontWeight: "bold",
-                  }}
-                >
-                  Corporate Events
-                </h2>
+          <div className="advisor-right-column">
+            <div className="advisor-section">
+              <div className="corporate-events-header">
+                <h2 className="section-title">Corporate Events</h2>
                 {corporateEvents?.New_Events_Wits_Advisors &&
                   corporateEvents.New_Events_Wits_Advisors.length > 5 && (
                     <button
                       onClick={handleToggleEvents}
-                      style={{
-                        color: "#3b82f6",
-                        textDecoration: "none",
-                        fontSize: "14px",
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: "0",
-                      }}
+                      className="toggle-button"
                     >
                       {eventsExpanded ? "Show less" : "See more"}
                     </button>
@@ -414,242 +558,306 @@ export default function AdvisorProfilePage() {
 
               {corporateEvents?.New_Events_Wits_Advisors &&
               corporateEvents.New_Events_Wits_Advisors.length > 0 ? (
-                <div style={{ overflowX: "auto" }}>
-                  <table
-                    style={{
-                      width: "100%",
-                      borderCollapse: "collapse",
-                      fontSize: "14px",
-                    }}
-                  >
-                    <thead>
-                      <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px",
-                            fontWeight: "bold",
-                            fontSize: "12px",
-                          }}
-                        >
-                          Description
-                        </th>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px",
-                            fontWeight: "bold",
-                            fontSize: "12px",
-                          }}
-                        >
-                          Date Announced
-                        </th>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px",
-                            fontWeight: "bold",
-                            fontSize: "12px",
-                          }}
-                        >
-                          Type
-                        </th>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px",
-                            fontWeight: "bold",
-                            fontSize: "12px",
-                          }}
-                        >
-                          Counterparty Advised
-                        </th>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px",
-                            fontWeight: "bold",
-                            fontSize: "12px",
-                          }}
-                        >
-                          Other Counterparties
-                        </th>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px",
-                            fontWeight: "bold",
-                            fontSize: "12px",
-                          }}
-                        >
-                          Enterprise Value
-                        </th>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px",
-                            fontWeight: "bold",
-                            fontSize: "12px",
-                          }}
-                        >
-                          Individuals
-                        </th>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px",
-                            fontWeight: "bold",
-                            fontSize: "12px",
-                          }}
-                        >
-                          Other Advisors
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {corporateEvents.New_Events_Wits_Advisors.slice(
-                        0,
-                        eventsExpanded ? undefined : 5
-                      ).map((event, index) => {
-                        // Helper functions to extract data
-                        const getCounterpartyAdvised = () => {
-                          const advised =
-                            event
-                              ._counterparty_advised_of_corporate_events?.[0];
+                <>
+                  {/* Desktop Table View */}
+                  <div className="events-table-container">
+                    <table className="events-table">
+                      <thead>
+                        <tr>
+                          <th>Description</th>
+                          <th>Date Announced</th>
+                          <th>Type</th>
+                          <th>Counterparty Advised</th>
+                          <th>Other Counterparties</th>
+                          <th>Enterprise Value</th>
+                          <th>Individuals</th>
+                          <th>Other Advisors</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {corporateEvents.New_Events_Wits_Advisors.slice(
+                          0,
+                          eventsExpanded ? undefined : 5
+                        ).map((event, index) => {
+                          // Helper functions to extract data
+                          const getCounterpartyAdvised = () => {
+                            const advised =
+                              event
+                                ._counterparty_advised_of_corporate_events?.[0];
+                            return (
+                              advised?._counterpartys_type
+                                ?.counterparty_status || "—"
+                            );
+                          };
+
+                          const getOtherCounterparties = () => {
+                            if (
+                              !event._other_counterparties_of_corporate_events
+                                ?.length
+                            )
+                              return "—";
+                            return event._other_counterparties_of_corporate_events
+                              .map((cp) => cp.name)
+                              .filter(Boolean)
+                              .join(", ");
+                          };
+
+                          const getEnterpriseValue = () => {
+                            if (
+                              !event.ev_data?.enterprise_value_m ||
+                              !event.ev_data?._currency ||
+                              !event.ev_data._currency.Currency
+                            )
+                              return "—";
+                            const value = parseFloat(
+                              event.ev_data.enterprise_value_m
+                            );
+                            const currency = event.ev_data._currency.Currency;
+                            return `${currency}${value.toLocaleString()}`;
+                          };
+
+                          const getIndividuals = () => {
+                            if (
+                              !event
+                                .__related_to_corporate_event_advisors_individuals
+                                ?.length
+                            )
+                              return "—";
+                            return event.__related_to_corporate_event_advisors_individuals
+                              .map(
+                                (ind) => ind._individuals?.advisor_individuals
+                              )
+                              .filter(Boolean)
+                              .join(", ");
+                          };
+
+                          const getOtherAdvisors = () => {
+                            if (
+                              !event._other_advisors_of_corporate_event?.length
+                            )
+                              return "—";
+                            return event._other_advisors_of_corporate_event
+                              .map((advisor) => ({
+                                name: advisor._new_company?.name,
+                                id: advisor._new_company?.id,
+                              }))
+                              .filter((advisor) => advisor.name && advisor.id);
+                          };
+
                           return (
-                            advised?._counterpartys_type?.counterparty_status ||
-                            "—"
-                          );
-                        };
-
-                        const getOtherCounterparties = () => {
-                          if (
-                            !event._other_counterparties_of_corporate_events
-                              ?.length
-                          )
-                            return "—";
-                          return event._other_counterparties_of_corporate_events
-                            .map((cp) => cp.name)
-                            .filter(Boolean)
-                            .join(", ");
-                        };
-
-                        const getEnterpriseValue = () => {
-                          if (
-                            !event.ev_data?.enterprise_value_m ||
-                            !event.ev_data?._currency ||
-                            !event.ev_data._currency.Currency
-                          )
-                            return "—";
-                          const value = parseFloat(
-                            event.ev_data.enterprise_value_m
-                          );
-                          const currency = event.ev_data._currency.Currency;
-                          return `${currency}${value.toLocaleString()}`;
-                        };
-
-                        const getIndividuals = () => {
-                          if (
-                            !event
-                              .__related_to_corporate_event_advisors_individuals
-                              ?.length
-                          )
-                            return "—";
-                          return event.__related_to_corporate_event_advisors_individuals
-                            .map((ind) => ind._individuals?.advisor_individuals)
-                            .filter(Boolean)
-                            .join(", ");
-                        };
-
-                        const getOtherAdvisors = () => {
-                          if (!event._other_advisors_of_corporate_event?.length)
-                            return "—";
-                          return event._other_advisors_of_corporate_event
-                            .map((advisor) => ({
-                              name: advisor._new_company?.name,
-                              id: advisor._new_company?.id,
-                            }))
-                            .filter((advisor) => advisor.name && advisor.id);
-                        };
-
-                        return (
-                          <tr
-                            key={index}
-                            style={{ borderBottom: "1px solid #f1f5f9" }}
-                          >
-                            <td style={{ padding: "8px", fontSize: "12px" }}>
-                              <span
-                                onClick={() => {
-                                  console.log("Event object:", event);
-                                  console.log("Event ID:", event.id);
-                                  handleCorporateEventClick(event.id);
-                                }}
-                                style={{
-                                  color: "#3b82f6",
-                                  textDecoration: "none",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                {event.description}
-                              </span>
-                            </td>
-                            <td style={{ padding: "8px", fontSize: "12px" }}>
-                              {formatDate(event.announcement_date)}
-                            </td>
-                            <td style={{ padding: "8px", fontSize: "12px" }}>
-                              {event.deal_type || "—"}
-                            </td>
-                            <td style={{ padding: "8px", fontSize: "12px" }}>
-                              {getCounterpartyAdvised()}
-                            </td>
-                            <td style={{ padding: "8px", fontSize: "12px" }}>
-                              {getOtherCounterparties()}
-                            </td>
-                            <td style={{ padding: "8px", fontSize: "12px" }}>
-                              {getEnterpriseValue()}
-                            </td>
-                            <td style={{ padding: "8px", fontSize: "12px" }}>
-                              {getIndividuals()}
-                            </td>
-                            <td style={{ padding: "8px", fontSize: "12px" }}>
-                              {(() => {
-                                const advisors = getOtherAdvisors();
-                                if (advisors === "—") return "—";
-                                return advisors.map((advisor, index) => (
-                                  <span key={advisor.id}>
-                                    <span
-                                      onClick={() =>
-                                        handleOtherAdvisorClick(advisor.id)
-                                      }
-                                      style={{
-                                        color: "#3b82f6",
-                                        textDecoration: "none",
-                                        cursor: "pointer",
-                                      }}
-                                    >
-                                      {advisor.name}
+                            <tr key={index}>
+                              <td>
+                                <span
+                                  onClick={() => {
+                                    console.log("Event object:", event);
+                                    console.log("Event ID:", event.id);
+                                    handleCorporateEventClick(event.id);
+                                  }}
+                                  className="event-link"
+                                >
+                                  {event.description}
+                                </span>
+                              </td>
+                              <td>{formatDate(event.announcement_date)}</td>
+                              <td>{event.deal_type || "—"}</td>
+                              <td>{getCounterpartyAdvised()}</td>
+                              <td>{getOtherCounterparties()}</td>
+                              <td>{getEnterpriseValue()}</td>
+                              <td>{getIndividuals()}</td>
+                              <td>
+                                {(() => {
+                                  const advisors = getOtherAdvisors();
+                                  if (advisors === "—") return "—";
+                                  return advisors.map((advisor, index) => (
+                                    <span key={advisor.id}>
+                                      <span
+                                        onClick={() =>
+                                          handleOtherAdvisorClick(advisor.id)
+                                        }
+                                        className="advisor-link"
+                                      >
+                                        {advisor.name}
+                                      </span>
+                                      {index < advisors.length - 1 ? ", " : ""}
                                     </span>
-                                    {index < advisors.length - 1 ? ", " : ""}
-                                  </span>
-                                ));
-                              })()}
-                            </td>
-                          </tr>
+                                  ));
+                                })()}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile Cards View */}
+                  <div className="events-cards">
+                    {corporateEvents.New_Events_Wits_Advisors.slice(
+                      0,
+                      eventsExpanded ? undefined : 5
+                    ).map((event, index) => {
+                      // Same helper functions for mobile cards
+                      const getCounterpartyAdvised = () => {
+                        const advised =
+                          event._counterparty_advised_of_corporate_events?.[0];
+                        return (
+                          advised?._counterpartys_type?.counterparty_status ||
+                          "—"
                         );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                      };
+
+                      const getOtherCounterparties = () => {
+                        if (
+                          !event._other_counterparties_of_corporate_events
+                            ?.length
+                        )
+                          return "—";
+                        return event._other_counterparties_of_corporate_events
+                          .map((cp) => cp.name)
+                          .filter(Boolean)
+                          .join(", ");
+                      };
+
+                      const getEnterpriseValue = () => {
+                        if (
+                          !event.ev_data?.enterprise_value_m ||
+                          !event.ev_data?._currency ||
+                          !event.ev_data._currency.Currency
+                        )
+                          return "—";
+                        const value = parseFloat(
+                          event.ev_data.enterprise_value_m
+                        );
+                        const currency = event.ev_data._currency.Currency;
+                        return `${currency}${value.toLocaleString()}`;
+                      };
+
+                      const getIndividuals = () => {
+                        if (
+                          !event
+                            .__related_to_corporate_event_advisors_individuals
+                            ?.length
+                        )
+                          return "—";
+                        return event.__related_to_corporate_event_advisors_individuals
+                          .map((ind) => ind._individuals?.advisor_individuals)
+                          .filter(Boolean)
+                          .join(", ");
+                      };
+
+                      const getOtherAdvisors = () => {
+                        if (!event._other_advisors_of_corporate_event?.length)
+                          return "—";
+                        return event._other_advisors_of_corporate_event
+                          .map((advisor) => ({
+                            name: advisor._new_company?.name,
+                            id: advisor._new_company?.id,
+                          }))
+                          .filter((advisor) => advisor.name && advisor.id);
+                      };
+
+                      return (
+                        <div key={index} className="event-card">
+                          <div
+                            className="event-card-title"
+                            onClick={() => {
+                              console.log("Event object:", event);
+                              console.log("Event ID:", event.id);
+                              handleCorporateEventClick(event.id);
+                            }}
+                          >
+                            {event.description}
+                          </div>
+                          <div className="event-card-info">
+                            <div className="event-card-info-item">
+                              <span className="event-card-info-label">
+                                Date:
+                              </span>
+                              <span className="event-card-info-value">
+                                {formatDate(event.announcement_date)}
+                              </span>
+                            </div>
+                            <div className="event-card-info-item">
+                              <span className="event-card-info-label">
+                                Type:
+                              </span>
+                              <span className="event-card-info-value">
+                                {event.deal_type || "—"}
+                              </span>
+                            </div>
+                            <div className="event-card-info-item">
+                              <span className="event-card-info-label">
+                                Counterparty:
+                              </span>
+                              <span className="event-card-info-value">
+                                {getCounterpartyAdvised()}
+                              </span>
+                            </div>
+                            <div className="event-card-info-item">
+                              <span className="event-card-info-label">
+                                Value:
+                              </span>
+                              <span className="event-card-info-value">
+                                {getEnterpriseValue()}
+                              </span>
+                            </div>
+                            <div
+                              className="event-card-info-item"
+                              style={{ gridColumn: "1 / -1" }}
+                            >
+                              <span className="event-card-info-label">
+                                Other Counterparties:
+                              </span>
+                              <span className="event-card-info-value">
+                                {getOtherCounterparties()}
+                              </span>
+                            </div>
+                            <div
+                              className="event-card-info-item"
+                              style={{ gridColumn: "1 / -1" }}
+                            >
+                              <span className="event-card-info-label">
+                                Individuals:
+                              </span>
+                              <span className="event-card-info-value">
+                                {getIndividuals()}
+                              </span>
+                            </div>
+                            <div
+                              className="event-card-info-item"
+                              style={{ gridColumn: "1 / -1" }}
+                            >
+                              <span className="event-card-info-label">
+                                Other Advisors:
+                              </span>
+                              <span className="event-card-info-value">
+                                {(() => {
+                                  const advisors = getOtherAdvisors();
+                                  if (advisors === "—") return "—";
+                                  return advisors.map((advisor, index) => (
+                                    <span key={advisor.id}>
+                                      <span
+                                        onClick={() =>
+                                          handleOtherAdvisorClick(advisor.id)
+                                        }
+                                        className="advisor-link"
+                                      >
+                                        {advisor.name}
+                                      </span>
+                                      {index < advisors.length - 1 ? ", " : ""}
+                                    </span>
+                                  ));
+                                })()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               ) : (
-                <div
-                  style={{
-                    color: "#6b7280",
-                    textAlign: "center",
-                    padding: "20px",
-                  }}
-                >
-                  No corporate events available
-                </div>
+                <div className="no-events">No corporate events available</div>
               )}
             </div>
           </div>
@@ -657,6 +865,7 @@ export default function AdvisorProfilePage() {
       </div>
 
       <Footer />
+      <style dangerouslySetInnerHTML={{ __html: style }} />
     </div>
   );
 }
