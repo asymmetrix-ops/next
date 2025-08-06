@@ -30,7 +30,7 @@ const Header = () => {
       alignItems: "center",
       justifyContent: "space-between",
       padding: "0px 32px",
-      margin: "0 auto", // optional, centers the container horizontally
+      width: "100%",
     },
     leftSection: {
       display: "flex",

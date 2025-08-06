@@ -170,6 +170,140 @@ const CompanyDescription = ({
   );
 };
 
+// Company Card Component for mobile
+const CompanyCard = ({
+  company,
+  onClick,
+}: {
+  company: SectorCompany;
+  onClick: () => void;
+}) => {
+  const { text: truncatedDescription, isLong } = truncateDescription(
+    company.description
+  );
+  const [showFullDescription, setShowFullDescription] = useState(false);
+
+  return React.createElement(
+    "div",
+    {
+      className: "company-card",
+      onClick,
+      style: {
+        backgroundColor: "white",
+        borderRadius: "12px",
+        padding: "16px",
+        marginBottom: "12px",
+        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+        cursor: "pointer",
+        border: "1px solid #e2e8f0",
+      },
+    },
+    React.createElement(
+      "div",
+      {
+        style: {
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "12px",
+          marginBottom: "12px",
+        },
+      },
+      React.createElement(CompanyLogo, {
+        logo: company.linkedin_logo,
+        name: company.name,
+      }),
+      React.createElement(
+        "div",
+        {
+          style: {
+            flex: "1",
+            minWidth: "0",
+          },
+        },
+        React.createElement(
+          "h3",
+          {
+            style: {
+              fontSize: "16px",
+              fontWeight: "600",
+              color: "#0075df",
+              margin: "0 0 4px 0",
+              textDecoration: "underline",
+            },
+          },
+          company.name
+        ),
+        React.createElement(
+          "div",
+          {
+            style: {
+              fontSize: "12px",
+              color: "#4a5568",
+              marginBottom: "8px",
+            },
+          },
+          company.country || "N/A"
+        ),
+        React.createElement(
+          "div",
+          {
+            style: {
+              fontSize: "12px",
+              color: "#4a5568",
+              marginBottom: "8px",
+            },
+          },
+          `Employees: ${formatNumber(
+            company.linkedin_employee_latest || company.linkedin_employee
+          )}`
+        ),
+        React.createElement(
+          "div",
+          {
+            style: {
+              fontSize: "12px",
+              color: "#4a5568",
+            },
+          },
+          `Ownership: ${company.ownership || "N/A"}`
+        )
+      )
+    ),
+    React.createElement(
+      "div",
+      {
+        style: {
+          fontSize: "13px",
+          color: "#4a5568",
+          lineHeight: "1.4",
+        },
+      },
+      showFullDescription ? company.description : truncatedDescription,
+      isLong &&
+        React.createElement(
+          "button",
+          {
+            onClick: (e: React.MouseEvent) => {
+              e.stopPropagation();
+              setShowFullDescription(!showFullDescription);
+            },
+            style: {
+              color: "#0075df",
+              background: "none",
+              border: "none",
+              padding: "0",
+              marginLeft: "4px",
+              cursor: "pointer",
+              textDecoration: "underline",
+              fontSize: "12px",
+            },
+          },
+          showFullDescription ? "Show less" : "Show more"
+        )
+    )
+  );
+};
+
 // Main Sector Detail Component
 const SectorDetailPage = () => {
   const params = useParams();
@@ -443,8 +577,8 @@ const SectorDetailPage = () => {
       margin: "0",
     },
     mainContent: {
-      display: "grid",
-      gridTemplateColumns: "300px 1fr",
+      display: "flex",
+      flexDirection: "row" as const,
       gap: "24px",
       flex: "1",
     },
@@ -454,8 +588,23 @@ const SectorDetailPage = () => {
       padding: "24px",
       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
       height: "fit-content",
+      flex: "0 0 300px",
+    },
+    companiesSection: {
+      backgroundColor: "white",
+      borderRadius: "12px",
+      padding: "32px 24px",
+      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+      flex: "1",
     },
     sidebarTitle: {
+      fontSize: "20px",
+      fontWeight: "600",
+      color: "#1a202c",
+      marginBottom: "24px",
+      marginTop: "0",
+    },
+    companiesTitle: {
       fontSize: "20px",
       fontWeight: "600",
       color: "#1a202c",
@@ -488,36 +637,6 @@ const SectorDetailPage = () => {
       lineHeight: "1.6",
       marginTop: "16px",
       fontStyle: "italic",
-    },
-    companiesSection: {
-      backgroundColor: "white",
-      borderRadius: "12px",
-      padding: "32px 24px",
-      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-    },
-    companiesTitle: {
-      fontSize: "20px",
-      fontWeight: "600",
-      color: "#1a202c",
-      marginBottom: "24px",
-      marginTop: "0",
-    },
-    "@media (max-width: 768px)": {
-      mainContent: {
-        gridTemplateColumns: "1fr",
-      },
-      maxWidth: {
-        padding: "16px",
-      },
-      header: {
-        padding: "24px 16px",
-      },
-      companiesSection: {
-        padding: "24px 16px",
-      },
-      sectorTitle: {
-        fontSize: "24px",
-      },
     },
   };
 
@@ -741,13 +860,26 @@ const SectorDetailPage = () => {
       font-size: 14px;
     }
     @media (max-width: 768px) {
-      .company-table {
-        font-size: 12px;
+      .main-content {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
       }
-      .company-table th,
-      .company-table td {
-        padding: 8px;
-        font-size: 12px;
+      .sidebar {
+        flex: none !important;
+        width: 100% !important;
+        order: 1 !important;
+      }
+      .companies-section {
+        flex: none !important;
+        width: 100% !important;
+        order: 2 !important;
+      }
+      .company-table {
+        display: none;
+      }
+      .company-cards {
+        display: block;
       }
       .company-logo {
         width: 40px;
@@ -760,31 +892,43 @@ const SectorDetailPage = () => {
         max-width: 150px;
       }
     }
+    @media (min-width: 769px) {
+      .company-cards {
+        display: none;
+      }
+      .company-table {
+        display: table;
+      }
+    }
   `;
 
   return (
     <div className="min-h-screen" style={styles.container}>
       <Header />
-      <div style={styles.maxWidth}>
+      <div className="max-width" style={styles.maxWidth}>
         {/* Header Section */}
-        <div style={styles.header}>
+        <div className="header" style={styles.header}>
           <div style={styles.breadcrumb}>
             <a href="/sectors" style={styles.breadcrumbLink}>
               Sectors
             </a>{" "}
             &gt; {sectorData.Sector.sector_name}
           </div>
-          <h1 style={styles.sectorTitle}>{sectorData.Sector.sector_name}</h1>
+          <h1 className="sector-title" style={styles.sectorTitle}>
+            {sectorData.Sector.sector_name}
+          </h1>
           <p style={styles.sectorImportance}>
             {sectorData.Sector.Sector_importance} Sector
           </p>
         </div>
 
         {/* Main Content */}
-        <div style={styles.mainContent}>
+        <div className="main-content" style={styles.mainContent}>
           {/* Left Sidebar - Statistics */}
-          <div style={styles.sidebar}>
-            <h2 style={styles.sidebarTitle}>Sector Statistics</h2>
+          <div className="sidebar" style={styles.sidebar}>
+            <h2 className="sidebar-title" style={styles.sidebarTitle}>
+              Sector Statistics
+            </h2>
             <div style={styles.statItem}>
               <span style={styles.statLabel}>Total companies:</span>
               <span style={styles.statValue}>
@@ -830,8 +974,8 @@ const SectorDetailPage = () => {
           </div>
 
           {/* Right Section - Companies */}
-          <div style={styles.companiesSection}>
-            <h2 style={styles.companiesTitle}>
+          <div className="companies-section" style={styles.companiesSection}>
+            <h2 className="companies-title" style={styles.companiesTitle}>
               Companies in {sectorData.Sector.sector_name} Sector
             </h2>
 
@@ -843,6 +987,7 @@ const SectorDetailPage = () => {
               </div>
             ) : companies.length > 0 ? (
               <>
+                {/* Desktop Table */}
                 <table className="company-table">
                   <thead>
                     <tr>
@@ -859,6 +1004,17 @@ const SectorDetailPage = () => {
                   </thead>
                   <tbody>{tableRows}</tbody>
                 </table>
+
+                {/* Mobile Cards */}
+                <div className="company-cards">
+                  {companies.map((company) => (
+                    <CompanyCard
+                      key={company.id}
+                      company={company}
+                      onClick={() => handleCompanyClick(company.id)}
+                    />
+                  ))}
+                </div>
 
                 {pagination.pageTotal > 1 && (
                   <div className="pagination">

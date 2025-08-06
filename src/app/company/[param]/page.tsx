@@ -102,6 +102,23 @@ const validateFinancialData = (value: string): string => {
 
 // Company Logo Component
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
+  const logoStyle = {
+    objectFit: "contain" as const,
+    borderRadius: "8px",
+  };
+
+  const placeholderStyle = {
+    width: "80px",
+    height: "60px",
+    backgroundColor: "#f7fafc",
+    borderRadius: "8px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "12px",
+    color: "#718096",
+  };
+
   if (logo) {
     return (
       <Image
@@ -110,28 +127,12 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
         width={80}
         height={60}
         className="company-logo"
-        style={{ objectFit: "contain", borderRadius: "8px" }}
+        style={logoStyle}
       />
     );
   }
 
-  return (
-    <div
-      style={{
-        width: "80px",
-        height: "60px",
-        backgroundColor: "#f7fafc",
-        borderRadius: "8px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: "12px",
-        color: "#718096",
-      }}
-    >
-      No Logo
-    </div>
-  );
+  return <div style={placeholderStyle}>No Logo</div>;
 };
 
 // Employee Chart Component
@@ -173,7 +174,13 @@ const EmployeeChart = ({ data }: { data: EmployeeCount[] }) => {
   };
 
   return (
-    <div style={{ width: "100%", height: "300px" }}>
+    <div
+      style={{
+        width: "100%",
+        height: "300px",
+        minHeight: "250px",
+      }}
+    >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -191,7 +198,11 @@ const EmployeeChart = ({ data }: { data: EmployeeCount[] }) => {
             dataKey="count"
             stroke="#0075df"
             strokeWidth={2}
-            dot={{ fill: "#0075df", strokeWidth: 2, r: 4 }}
+            dot={{
+              fill: "#0075df",
+              strokeWidth: 2,
+              r: 4,
+            }}
           />
         </LineChart>
       </ResponsiveContainer>
@@ -477,6 +488,7 @@ const CompanyDetail = () => {
     },
     chartContainer: {
       marginTop: "24px",
+      overflow: "hidden",
     },
     chartTitle: {
       fontSize: "16px",
@@ -508,231 +520,559 @@ const CompanyDetail = () => {
     "@media (max-width: 768px)": {
       responsiveGrid: {
         gridTemplateColumns: "1fr",
+        gap: "16px",
       },
       header: {
         flexDirection: "column",
         alignItems: "flex-start",
+        padding: "20px 16px",
+        gap: "12px",
+      },
+      headerLeft: {
+        flexDirection: "column",
+        alignItems: "flex-start",
+        gap: "12px",
+        width: "100%",
       },
       headerRight: {
-        alignSelf: "flex-end",
+        alignSelf: "stretch",
+        justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: "8px",
       },
       maxWidth: {
-        padding: "32px",
+        padding: "16px",
       },
       card: {
-        padding: "24px 16px",
+        padding: "20px 16px",
       },
       companyName: {
-        fontSize: "24px",
+        fontSize: "22px",
+        lineHeight: "1.3",
+      },
+      sectionTitle: {
+        fontSize: "18px",
+        marginBottom: "20px",
+      },
+      infoRow: {
+        flexDirection: "column",
+        alignItems: "flex-start",
+        gap: "4px",
+        padding: "16px 0",
+      },
+      label: {
+        fontSize: "13px",
+        color: "#718096",
+        fontWeight: "600",
+        minWidth: "auto",
+        marginBottom: "4px",
+      },
+      value: {
+        fontSize: "14px",
+        textAlign: "left",
+        marginLeft: "0",
+        lineHeight: "1.4",
+        wordBreak: "break-word",
+      },
+      description: {
+        fontSize: "14px",
+        lineHeight: "1.5",
+        marginTop: "12px",
+      },
+      chartTitle: {
+        fontSize: "15px",
+        marginBottom: "12px",
+      },
+      currentCount: {
+        fontSize: "20px",
+        marginBottom: "12px",
+      },
+
+      scoreBadge: {
+        fontSize: "12px",
+        padding: "6px 12px",
+      },
+      reportButton: {
+        fontSize: "12px",
+        padding: "6px 12px",
+      },
+      linkedinLink: {
+        fontSize: "13px",
+        justifyContent: "center",
+        padding: "12px",
+        backgroundColor: "#f7fafc",
+        borderRadius: "8px",
+        width: "100%",
+      },
+      // Hide chart in desktop financial metrics on mobile
+      chartContainer: {
+        marginTop: "20px",
+        overflow: "hidden",
+        padding: "0 8px",
+        width: "100%",
+        display: "none", // Hide on mobile by default
+      },
+      // Show mobile chart section on mobile
+      mobileChartSection: {
+        display: "block",
       },
     },
   };
 
-  return (
-    <div className="min-h-screen" style={styles.container}>
-      <Head>
-        <title>{company.name} - Company Profile | Asymmetrix</title>
-        <meta
-          name="description"
-          content={
-            company.description ||
-            `Learn more about ${company.name}, a company in the ${primarySectors
-              .map((s) => s.sector_name)
-              .join(", ")} sector.`
-          }
-        />
-        <meta
-          property="og:title"
-          content={`${company.name} - Company Profile`}
-        />
-        <meta
-          property="og:description"
-          content={company.description || `Learn more about ${company.name}`}
-        />
-        {company._linkedin_data_of_new_company?.linkedin_logo && (
-          <meta
-            property="og:image"
-            content={`data:image/jpeg;base64,${company._linkedin_data_of_new_company.linkedin_logo}`}
-          />
-        )}
-      </Head>
-      <Header />
-
-      <div style={styles.maxWidth}>
-        {/* Header Section */}
-        <div style={styles.header}>
-          <div style={styles.headerLeft}>
-            <CompanyLogo
-              logo={company._linkedin_data_of_new_company?.linkedin_logo}
-              name={company.name}
-            />
-            <h1 style={styles.companyName}>{company.name}</h1>
-          </div>
-          <div style={styles.headerRight}>
-            <div style={styles.scoreBadge}>Asymmetrix Score: Coming Soon</div>
-            <button style={styles.reportButton}>Report Incorrect Data</button>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div style={styles.responsiveGrid}>
-          {/* Left Column - Overview */}
-          <div style={styles.card}>
-            <h2 style={styles.sectionTitle}>Overview</h2>
-
-            <div style={styles.infoRow}>
-              <span style={styles.label}>Primary Sector:</span>
-              <div style={styles.value}>
-                {primarySectors.length > 0
-                  ? primarySectors.map((sector, index) => (
-                      <span key={sector.sector_id}>
-                        <span style={styles.link}>{sector.sector_name}</span>
-                        {index < primarySectors.length - 1 && ", "}
-                      </span>
-                    ))
-                  : "Not available"}
-              </div>
-            </div>
-
-            <div style={styles.infoRow}>
-              <span style={styles.label}>Secondary Sector(s):</span>
-              <div style={styles.value}>
-                {secondarySectors.length > 0
-                  ? secondarySectors.map((sector, index) => (
-                      <span key={sector.sector_id}>
-                        <span style={styles.link}>{sector.sector_name}</span>
-                        {index < secondarySectors.length - 1 && ", "}
-                      </span>
-                    ))
-                  : "Not available"}
-              </div>
-            </div>
-
-            <div style={styles.infoRow}>
-              <span style={styles.label}>Year Founded:</span>
-              <span style={styles.value}>
-                {company.year_founded && company.year_founded > 0
+  return React.createElement(
+    React.Fragment,
+    null,
+    React.createElement(
+      "div",
+      { className: "min-h-screen", style: styles.container },
+      React.createElement(
+        Head,
+        null,
+        [
+          React.createElement(
+            "title",
+            { key: "title" },
+            `${company.name} - Company Profile | Asymmetrix`
+          ),
+          React.createElement("meta", {
+            key: "description",
+            name: "description",
+            content:
+              company.description ||
+              `Learn more about ${
+                company.name
+              }, a company in the ${primarySectors
+                .map((s) => s.sector_name)
+                .join(", ")} sector.`,
+          }),
+          React.createElement("meta", {
+            key: "og:title",
+            property: "og:title",
+            content: `${company.name} - Company Profile`,
+          }),
+          React.createElement("meta", {
+            key: "og:description",
+            property: "og:description",
+            content: company.description || `Learn more about ${company.name}`,
+          }),
+          company._linkedin_data_of_new_company?.linkedin_logo &&
+            React.createElement("meta", {
+              key: "og:image",
+              property: "og:image",
+              content: `data:image/jpeg;base64,${company._linkedin_data_of_new_company.linkedin_logo}`,
+            }),
+        ].filter(Boolean)
+      ),
+      React.createElement(Header),
+      React.createElement(
+        "div",
+        { style: styles.maxWidth },
+        React.createElement(
+          "div",
+          { style: styles.header },
+          React.createElement(
+            "div",
+            { style: styles.headerLeft },
+            React.createElement(CompanyLogo, {
+              logo: company._linkedin_data_of_new_company?.linkedin_logo,
+              name: company.name,
+            }),
+            React.createElement(
+              "h1",
+              { style: styles.companyName },
+              company.name
+            )
+          ),
+          React.createElement(
+            "div",
+            { style: styles.headerRight },
+            React.createElement(
+              "div",
+              { style: styles.scoreBadge },
+              "Asymmetrix Score: Coming Soon"
+            ),
+            React.createElement(
+              "button",
+              { style: styles.reportButton },
+              "Report Incorrect Data"
+            )
+          )
+        ),
+        React.createElement(
+          "div",
+          { style: styles.responsiveGrid, className: "responsiveGrid" },
+          React.createElement(
+            "div",
+            { style: styles.card, className: "card" },
+            React.createElement(
+              "h2",
+              { style: styles.sectionTitle },
+              "Overview"
+            ),
+            React.createElement(
+              "div",
+              { style: styles.infoRow },
+              React.createElement(
+                "span",
+                { style: styles.label },
+                "Primary Sector:"
+              ),
+              React.createElement(
+                "div",
+                { style: styles.value },
+                primarySectors.length > 0
+                  ? primarySectors.map((sector, index) =>
+                      React.createElement("span", { key: sector.sector_id }, [
+                        React.createElement(
+                          "span",
+                          { key: "link", style: styles.link },
+                          sector.sector_name
+                        ),
+                        index < primarySectors.length - 1 && ", ",
+                      ])
+                    )
+                  : "Not available"
+              )
+            ),
+            React.createElement(
+              "div",
+              { style: styles.infoRow },
+              React.createElement(
+                "span",
+                { style: styles.label },
+                "Secondary Sector(s):"
+              ),
+              React.createElement(
+                "div",
+                { style: styles.value },
+                secondarySectors.length > 0
+                  ? secondarySectors.map((sector, index) =>
+                      React.createElement("span", { key: sector.sector_id }, [
+                        React.createElement(
+                          "span",
+                          { key: "link", style: styles.link },
+                          sector.sector_name
+                        ),
+                        index < secondarySectors.length - 1 && ", ",
+                      ])
+                    )
+                  : "Not available"
+              )
+            ),
+            React.createElement(
+              "div",
+              { style: styles.infoRow },
+              React.createElement(
+                "span",
+                { style: styles.label },
+                "Year Founded:"
+              ),
+              React.createElement(
+                "span",
+                { style: styles.value },
+                company.year_founded && company.year_founded > 0
                   ? company.year_founded
-                  : "Not available"}
-              </span>
-            </div>
-
-            <div style={styles.infoRow}>
-              <span style={styles.label}>Website:</span>
-              <span style={styles.value}>
-                {company.url ? (
-                  <a
-                    href={company.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={styles.link}
-                  >
-                    {company.url}
-                  </a>
-                ) : (
-                  "Not available"
-                )}
-              </span>
-            </div>
-
-            <div style={styles.infoRow}>
-              <span style={styles.label}>Ownership:</span>
-              <span style={styles.value}>
-                {company._ownership_type?.ownership || "Not available"}
-              </span>
-            </div>
-
-            <div style={styles.infoRow}>
-              <span style={styles.label}>HQ:</span>
-              <span style={styles.value}>{fullAddress || "Not available"}</span>
-            </div>
-
-            <div style={styles.infoRow}>
-              <span style={styles.label}>Lifecycle stage:</span>
-              <span style={styles.value}>
-                {company.Lifecycle_stage?.Lifecycle_Stage || "Not available"}
-              </span>
-            </div>
-
-            <div style={styles.infoRowLast}>
-              <span style={styles.label}>Description:</span>
-            </div>
-
-            <div style={styles.description}>
-              {company.description || "No description available"}
-            </div>
-          </div>
-
-          {/* Right Column - Financial Metrics */}
-          <div style={styles.card}>
-            <h2 style={styles.sectionTitle}>Financial Metrics</h2>
-
-            <div style={styles.infoRow}>
-              <span style={styles.label}>Revenue (m):</span>
-              <span style={styles.value}>{revenue}</span>
-            </div>
-
-            <div style={styles.infoRow}>
-              <span style={styles.label}>EBITDA (m):</span>
-              <span style={styles.value}>{ebitda}</span>
-            </div>
-
-            <div style={styles.infoRow}>
-              <span style={styles.label}>Enterprise Value:</span>
-              <span style={styles.value}>{enterpriseValue}</span>
-            </div>
-
-            <div style={styles.chartContainer}>
-              <div style={styles.chartTitle}>LinkedIn Employee Count</div>
-              <div style={styles.currentCount}>
-                {formatNumber(currentEmployeeCount)} employees
-              </div>
-
-              {employeeData.length > 0 ? (
-                <EmployeeChart data={employeeData} />
-              ) : (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "40px",
-                    color: "#666",
-                    fontSize: "14px",
-                  }}
-                >
-                  No employee data available
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Footer Section */}
-        <div style={styles.card}>
-          <div style={{ display: "flex", justifyContent: "center" }}>
-            {company._linkedin_data_of_new_company?.LinkedIn_URL && (
-              <a
-                href={company._linkedin_data_of_new_company.LinkedIn_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={styles.linkedinLink}
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                </svg>
-                View on LinkedIn
-              </a>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <Footer />
-    </div>
+                  : "Not available"
+              )
+            ),
+            React.createElement(
+              "div",
+              { style: styles.infoRow },
+              React.createElement("span", { style: styles.label }, "Website:"),
+              React.createElement(
+                "span",
+                { style: styles.value },
+                company.url
+                  ? React.createElement(
+                      "a",
+                      {
+                        href: company.url,
+                        target: "_blank",
+                        rel: "noopener noreferrer",
+                        style: styles.link,
+                      },
+                      company.url
+                    )
+                  : "Not available"
+              )
+            ),
+            React.createElement(
+              "div",
+              { style: styles.infoRow },
+              React.createElement(
+                "span",
+                { style: styles.label },
+                "Ownership:"
+              ),
+              React.createElement(
+                "span",
+                { style: styles.value },
+                company._ownership_type?.ownership || "Not available"
+              )
+            ),
+            React.createElement(
+              "div",
+              { style: styles.infoRow },
+              React.createElement("span", { style: styles.label }, "HQ:"),
+              React.createElement(
+                "span",
+                { style: styles.value },
+                fullAddress || "Not available"
+              )
+            ),
+            React.createElement(
+              "div",
+              { style: styles.infoRow },
+              React.createElement(
+                "span",
+                { style: styles.label },
+                "Lifecycle stage:"
+              ),
+              React.createElement(
+                "span",
+                { style: styles.value },
+                company.Lifecycle_stage?.Lifecycle_Stage || "Not available"
+              )
+            ),
+            React.createElement(
+              "div",
+              { style: styles.infoRowLast },
+              React.createElement(
+                "span",
+                { style: styles.label },
+                "Description:"
+              )
+            ),
+            React.createElement(
+              "div",
+              { style: styles.description },
+              company.description || "No description available"
+            )
+          ),
+          // Desktop Financial Metrics (stays in grid for desktop)
+          React.createElement(
+            "div",
+            { style: styles.card, className: "card desktop-financial-metrics" },
+            React.createElement(
+              "h2",
+              { style: styles.sectionTitle },
+              "Financial Metrics"
+            ),
+            React.createElement(
+              "div",
+              { style: styles.infoRow },
+              React.createElement(
+                "span",
+                { style: styles.label },
+                "Revenue (m):"
+              ),
+              React.createElement("span", { style: styles.value }, revenue)
+            ),
+            React.createElement(
+              "div",
+              { style: styles.infoRow },
+              React.createElement(
+                "span",
+                { style: styles.label },
+                "EBITDA (m):"
+              ),
+              React.createElement("span", { style: styles.value }, ebitda)
+            ),
+            React.createElement(
+              "div",
+              { style: styles.infoRow },
+              React.createElement(
+                "span",
+                { style: styles.label },
+                "Enterprise Value:"
+              ),
+              React.createElement(
+                "span",
+                { style: styles.value },
+                enterpriseValue
+              )
+            ),
+            React.createElement(
+              "div",
+              { style: styles.chartContainer, className: "chartContainer" },
+              React.createElement(
+                "div",
+                { style: styles.chartTitle },
+                "LinkedIn Employee Count"
+              ),
+              React.createElement(
+                "div",
+                { style: styles.currentCount },
+                `${formatNumber(currentEmployeeCount)} employees`
+              ),
+              employeeData.length > 0
+                ? React.createElement(EmployeeChart, { data: employeeData })
+                : React.createElement(
+                    "div",
+                    {
+                      style: {
+                        textAlign: "center",
+                        padding: "40px",
+                        color: "#666",
+                        fontSize: "14px",
+                      },
+                    },
+                    "No employee data available"
+                  )
+            )
+          )
+        ),
+        // Mobile Financial Metrics (shown on mobile)
+        React.createElement(
+          "div",
+          {
+            style: { display: "none", marginTop: "8px" },
+            className: "mobile-financial-metrics",
+          },
+          React.createElement(
+            "div",
+            {
+              style: {
+                ...styles.card,
+                width: "100%",
+                padding: "20px 16px", // Ensure consistent mobile padding
+              },
+            },
+            React.createElement(
+              "h2",
+              { style: styles.sectionTitle },
+              "Financial Metrics"
+            ),
+            React.createElement(
+              "div",
+              { style: styles.infoRow },
+              React.createElement(
+                "span",
+                { style: styles.label },
+                "Revenue (m):"
+              ),
+              React.createElement("span", { style: styles.value }, revenue)
+            ),
+            React.createElement(
+              "div",
+              { style: styles.infoRow },
+              React.createElement(
+                "span",
+                { style: styles.label },
+                "EBITDA (m):"
+              ),
+              React.createElement("span", { style: styles.value }, ebitda)
+            ),
+            React.createElement(
+              "div",
+              { style: styles.infoRow },
+              React.createElement(
+                "span",
+                { style: styles.label },
+                "Enterprise Value:"
+              ),
+              React.createElement(
+                "span",
+                { style: styles.value },
+                enterpriseValue
+              )
+            ),
+            React.createElement(
+              "div",
+              { style: styles.chartContainer },
+              React.createElement(
+                "div",
+                { style: styles.chartTitle },
+                "LinkedIn Employee Count"
+              ),
+              React.createElement(
+                "div",
+                { style: styles.currentCount },
+                `${formatNumber(currentEmployeeCount)} employees`
+              ),
+              employeeData.length > 0
+                ? React.createElement(EmployeeChart, { data: employeeData })
+                : React.createElement(
+                    "div",
+                    {
+                      style: {
+                        textAlign: "center",
+                        padding: "40px",
+                        color: "#666",
+                        fontSize: "14px",
+                      },
+                    },
+                    "No employee data available"
+                  )
+            )
+          )
+        ),
+        // LinkedIn section (desktop only) - only render if LinkedIn URL exists
+        company._linkedin_data_of_new_company?.LinkedIn_URL &&
+          React.createElement(
+            "div",
+            { style: styles.card, className: "desktop-linkedin-section" },
+            React.createElement(
+              "div",
+              { style: { display: "flex", justifyContent: "center" } },
+              React.createElement(
+                "a",
+                {
+                  href: company._linkedin_data_of_new_company.LinkedIn_URL,
+                  target: "_blank",
+                  rel: "noopener noreferrer",
+                  style: styles.linkedinLink,
+                },
+                [
+                  React.createElement(
+                    "svg",
+                    {
+                      key: "svg",
+                      width: "20",
+                      height: "20",
+                      viewBox: "0 0 24 24",
+                      fill: "currentColor",
+                    },
+                    React.createElement("path", {
+                      d: "M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z",
+                    })
+                  ),
+                  "View on LinkedIn",
+                ]
+              )
+            )
+          )
+      ),
+      React.createElement(Footer)
+    ),
+    React.createElement(
+      "style",
+      { jsx: true },
+      `
+         @media (max-width: 768px) {
+           .mobile-financial-metrics {
+             display: block !important;
+           }
+           .desktop-financial-metrics {
+             display: none !important;
+           }
+           .desktop-linkedin-section {
+             display: none !important;
+           }
+         }
+         @media (min-width: 769px) {
+           .mobile-financial-metrics {
+             display: none !important;
+           }
+           .desktop-financial-metrics {
+             display: block !important;
+           }
+           .desktop-linkedin-section {
+             display: block !important;
+           }
+         }
+             `
+    )
   );
 };
 

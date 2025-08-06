@@ -643,6 +643,20 @@ const InvestorsPage = () => {
     },
   };
 
+  // Format numbers with commas
+  const formatNumber = (num: number | undefined) => {
+    if (num === undefined || num === null) return "0";
+    return num.toLocaleString();
+  };
+
+  // Truncate description for display
+  const truncateDescription = (description: string) => {
+    const isDescriptionLong = description.length > 150;
+    return isDescriptionLong
+      ? description.substring(0, 150) + "..."
+      : description;
+  };
+
   const tableRows = investors.map((investor, index) => {
     // Truncate description for display
     const description = investor.description || "N/A";
@@ -650,12 +664,6 @@ const InvestorsPage = () => {
     const truncatedDescription = isDescriptionLong
       ? description.substring(0, 150) + "..."
       : description;
-
-    // Format numbers with commas
-    const formatNumber = (num: number | undefined) => {
-      if (num === undefined || num === null) return "0";
-      return num.toLocaleString();
-    };
 
     return React.createElement(
       "tr",
@@ -788,6 +796,278 @@ const InvestorsPage = () => {
       React.createElement("td", null, investor.country || "N/A")
     );
   });
+
+  // Investor Card Component for mobile
+  const InvestorCard = (investor: Investor, index: number) => {
+    const description = investor.description || "N/A";
+    const isDescriptionLong = description.length > 150;
+    const truncatedDescription = truncateDescription(description);
+
+    return React.createElement(
+      "div",
+      {
+        key: index,
+        className: "investor-card",
+        style: {
+          backgroundColor: "white",
+          borderRadius: "12px",
+          padding: "16px",
+          marginBottom: "16px",
+          boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+          border: "1px solid #e2e8f0",
+        },
+      },
+      React.createElement(
+        "div",
+        {
+          style: {
+            display: "flex",
+            alignItems: "center",
+            marginBottom: "12px",
+            gap: "12px",
+          },
+        },
+        investor.linkedin_logo
+          ? React.createElement("img", {
+              src: `data:image/jpeg;base64,${investor.linkedin_logo}`,
+              alt: `${investor.company_name} logo`,
+              style: {
+                width: "50px",
+                height: "35px",
+                objectFit: "contain",
+                borderRadius: "4px",
+              },
+            })
+          : React.createElement(
+              "div",
+              {
+                style: {
+                  width: "50px",
+                  height: "35px",
+                  backgroundColor: "#f7fafc",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "10px",
+                  color: "#718096",
+                },
+              },
+              "No Logo"
+            ),
+        React.createElement(
+          "div",
+          {
+            style: {
+              flex: "1",
+            },
+          },
+          React.createElement(
+            "div",
+            {
+              style: {
+                fontSize: "16px",
+                fontWeight: "600",
+                color: "#1a202c",
+                marginBottom: "4px",
+              },
+            },
+            investor.original_new_company_id
+              ? React.createElement(
+                  "span",
+                  {
+                    style: {
+                      color: "#0075df",
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                    },
+                    onClick: () =>
+                      router.push(
+                        `/investors/${investor.original_new_company_id}`
+                      ),
+                  },
+                  investor.company_name || "N/A"
+                )
+              : investor.company_name || "N/A"
+          ),
+          React.createElement(
+            "div",
+            {
+              style: {
+                fontSize: "14px",
+                color: "#4a5568",
+              },
+            },
+            investor.investor_type && investor.investor_type.length > 0
+              ? investor.investor_type.join(", ")
+              : "N/A"
+          )
+        )
+      ),
+      React.createElement(
+        "div",
+        {
+          style: {
+            fontSize: "14px",
+            color: "#4a5568",
+            lineHeight: "1.4",
+            marginBottom: "12px",
+          },
+        },
+        React.createElement(
+          "div",
+          {
+            id: `card-description-${index}`,
+            style: { display: isDescriptionLong ? "block" : "none" },
+          },
+          truncatedDescription
+        ),
+        React.createElement(
+          "div",
+          {
+            id: `card-description-full-${index}`,
+            style: { display: isDescriptionLong ? "none" : "block" },
+          },
+          description
+        ),
+        isDescriptionLong &&
+          React.createElement(
+            "span",
+            {
+              style: {
+                color: "#0075df",
+                textDecoration: "underline",
+                cursor: "pointer",
+                fontSize: "12px",
+                marginTop: "4px",
+                display: "block",
+              },
+              onClick: () => {
+                const truncatedEl = document.getElementById(
+                  `card-description-${index}`
+                );
+                const fullEl = document.getElementById(
+                  `card-description-full-${index}`
+                );
+                if (truncatedEl && fullEl) {
+                  if (truncatedEl.style.display === "block") {
+                    truncatedEl.style.display = "none";
+                    fullEl.style.display = "block";
+                  } else {
+                    truncatedEl.style.display = "block";
+                    fullEl.style.display = "none";
+                  }
+                }
+              },
+            },
+            "Expand description"
+          )
+      ),
+      React.createElement(
+        "div",
+        {
+          style: {
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "8px",
+            fontSize: "12px",
+          },
+        },
+        React.createElement(
+          "div",
+          {
+            style: {
+              display: "flex",
+              justifyContent: "space-between",
+              padding: "4px 0",
+            },
+          },
+          React.createElement(
+            "span",
+            { style: { color: "#4a5568" } },
+            "Portfolio:"
+          ),
+          React.createElement(
+            "span",
+            { style: { fontWeight: "600" } },
+            formatNumber(investor.number_of_active_investments)
+          )
+        ),
+        React.createElement(
+          "div",
+          {
+            style: {
+              display: "flex",
+              justifyContent: "space-between",
+              padding: "4px 0",
+            },
+          },
+          React.createElement(
+            "span",
+            { style: { color: "#4a5568" } },
+            "LinkedIn:"
+          ),
+          React.createElement(
+            "span",
+            { style: { fontWeight: "600" } },
+            formatNumber(investor.linkedin_members)
+          )
+        ),
+        React.createElement(
+          "div",
+          {
+            style: {
+              display: "flex",
+              justifyContent: "space-between",
+              padding: "4px 0",
+            },
+          },
+          React.createElement(
+            "span",
+            { style: { color: "#4a5568" } },
+            "Country:"
+          ),
+          React.createElement(
+            "span",
+            { style: { fontWeight: "600" } },
+            investor.country || "N/A"
+          )
+        ),
+        React.createElement(
+          "div",
+          {
+            style: {
+              display: "flex",
+              justifyContent: "space-between",
+              padding: "4px 0",
+            },
+          },
+          React.createElement(
+            "span",
+            { style: { color: "#4a5568" } },
+            "Sectors:"
+          ),
+          React.createElement(
+            "span",
+            {
+              style: {
+                fontWeight: "600",
+                textAlign: "right",
+                maxWidth: "50%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              },
+            },
+            investor.da_primary_sector_names &&
+              investor.da_primary_sector_names.length > 0
+              ? investor.da_primary_sector_names.join(", ")
+              : "N/A"
+          )
+        )
+      )
+    );
+  };
 
   const style = `
     .investor-section {
@@ -959,12 +1239,10 @@ const InvestorsPage = () => {
     }
     @media (max-width: 768px) {
       .investor-table {
-        font-size: 12px;
+        display: none !important;
       }
-      .investor-table th,
-      .investor-table td {
-        padding: 8px;
-        font-size: 12px;
+      .investor-cards {
+        display: block !important;
       }
       .investor-logo {
         width: 40px;
@@ -975,6 +1253,38 @@ const InvestorsPage = () => {
       }
       .sectors-list {
         max-width: 150px;
+      }
+      .filters-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+      }
+      .filters-sub-heading {
+        font-size: 16px !important;
+        margin-bottom: 8px !important;
+      }
+      .filters-label {
+        font-size: 14px !important;
+        margin-bottom: 6px !important;
+      }
+      .filters-input {
+        width: 100% !important;
+        padding: 12px 10px !important;
+        font-size: 14px !important;
+      }
+      .filters-card {
+        padding: 20px 16px !important;
+      }
+      .filters-heading {
+        font-size: 20px !important;
+        margin-bottom: 16px !important;
+      }
+    }
+    @media (min-width: 769px) {
+      .investor-cards {
+        display: none !important;
+      }
+      .investor-table {
+        display: table !important;
       }
     }
   `;
@@ -1146,14 +1456,20 @@ const InvestorsPage = () => {
       {/* Filters Section */}
       <div style={styles.container}>
         <div style={styles.maxWidth}>
-          <div style={styles.card}>
-            <h2 style={styles.heading}>Filters</h2>
+          <div className="filters-card" style={styles.card}>
+            <h2 className="filters-heading" style={styles.heading}>
+              Filters
+            </h2>
 
             {showFilters && (
-              <div style={styles.grid}>
+              <div className="filters-grid" style={styles.grid}>
                 <div style={styles.gridItem}>
-                  <h3 style={styles.subHeading}>HQ of Portfolio companies</h3>
-                  <span style={styles.label}>By Country</span>
+                  <h3 className="filters-sub-heading" style={styles.subHeading}>
+                    HQ of Portfolio companies
+                  </h3>
+                  <span className="filters-label" style={styles.label}>
+                    By Country
+                  </span>
                   <SearchableMultiSelect
                     options={countryOptions}
                     selectedValues={selectedCountries}
@@ -1164,7 +1480,9 @@ const InvestorsPage = () => {
                     disabled={loadingCountries}
                     style={styles.select}
                   />
-                  <span style={styles.label}>By State/County/Province</span>
+                  <span className="filters-label" style={styles.label}>
+                    By State/County/Province
+                  </span>
                   <SearchableMultiSelect
                     options={provinceOptions}
                     selectedValues={selectedProvinces}
@@ -1175,7 +1493,9 @@ const InvestorsPage = () => {
                     disabled={loadingProvinces}
                     style={styles.select}
                   />
-                  <span style={styles.label}>By City</span>
+                  <span className="filters-label" style={styles.label}>
+                    By City
+                  </span>
                   <SearchableMultiSelect
                     options={cityOptions}
                     selectedValues={selectedCities}
@@ -1186,8 +1506,12 @@ const InvestorsPage = () => {
                   />
                 </div>
                 <div style={styles.gridItem}>
-                  <h3 style={styles.subHeading}>Sector Invested In</h3>
-                  <span style={styles.label}>By Primary Sectors</span>
+                  <h3 className="filters-sub-heading" style={styles.subHeading}>
+                    Sector Invested In
+                  </h3>
+                  <span className="filters-label" style={styles.label}>
+                    By Primary Sectors
+                  </span>
                   <SearchableMultiSelect
                     options={primarySectorOptions}
                     selectedValues={selectedPrimarySectors}
@@ -1200,7 +1524,9 @@ const InvestorsPage = () => {
                     disabled={loadingPrimarySectors}
                     style={styles.select}
                   />
-                  <span style={styles.label}>By Secondary Sector</span>
+                  <span className="filters-label" style={styles.label}>
+                    By Secondary Sector
+                  </span>
                   <SearchableMultiSelect
                     options={secondarySectorOptions}
                     selectedValues={selectedSecondarySectors}
@@ -1215,8 +1541,12 @@ const InvestorsPage = () => {
                   />
                 </div>
                 <div style={styles.gridItem}>
-                  <h3 style={styles.subHeading}>Investor Type</h3>
-                  <span style={styles.label}>By Type</span>
+                  <h3 className="filters-sub-heading" style={styles.subHeading}>
+                    Investor Type
+                  </h3>
+                  <span className="filters-label" style={styles.label}>
+                    By Type
+                  </span>
                   <SearchableMultiSelect
                     options={investorTypeOptions}
                     selectedValues={selectedInvestorTypes}
@@ -1229,17 +1559,21 @@ const InvestorsPage = () => {
                     disabled={loadingInvestorTypes}
                     style={styles.select}
                   />
-                  <span style={styles.label}>Portfolio Companies</span>
+                  <span className="filters-label" style={styles.label}>
+                    Portfolio Companies
+                  </span>
                   <div style={{ display: "flex", gap: "14px" }}>
                     <input
                       type="number"
                       style={styles.rangeInput}
                       placeholder="0"
+                      className="filters-input"
                     />
                     <input
                       type="number"
                       style={styles.rangeInput}
                       placeholder="0"
+                      className="filters-input"
                     />
                   </div>
                 </div>
@@ -1369,6 +1703,7 @@ const InvestorsPage = () => {
           </div>
         </div>
 
+        {/* Desktop Table */}
         <table className="investor-table">
           <thead>
             <tr>
@@ -1384,6 +1719,11 @@ const InvestorsPage = () => {
           </thead>
           <tbody>{tableRows}</tbody>
         </table>
+
+        {/* Mobile Cards */}
+        <div className="investor-cards">
+          {investors.map((investor, index) => InvestorCard(investor, index))}
+        </div>
 
         <div className="pagination">{generatePaginationButtons()}</div>
       </div>

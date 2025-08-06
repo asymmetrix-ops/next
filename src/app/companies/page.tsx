@@ -416,6 +416,183 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
   );
 };
 
+// Company Card Component for Mobile
+const CompanyCard = ({
+  company,
+  index,
+}: {
+  company: Company;
+  index: number;
+}) => {
+  const router = useRouter();
+
+  const handleCompanyClick = () => {
+    router.push(`/company/${company.id}`);
+  };
+
+  const toggleDescription = () => {
+    const truncatedEl = document.getElementById(`card-description-${index}`);
+    const fullEl = document.getElementById(`card-description-full-${index}`);
+    const expandEl = document.getElementById(`card-expand-${index}`);
+
+    if (truncatedEl && fullEl && expandEl) {
+      if (truncatedEl.style.display === "block") {
+        truncatedEl.style.display = "none";
+        fullEl.style.display = "block";
+        expandEl.textContent = "Show less";
+      } else {
+        truncatedEl.style.display = "block";
+        fullEl.style.display = "none";
+        expandEl.textContent = "Show more";
+      }
+    }
+  };
+
+  const { text: truncatedText, isLong } = truncateDescription(
+    company.description || "N/A"
+  );
+
+  return React.createElement(
+    "div",
+    { className: "company-card" },
+    React.createElement(
+      "div",
+      { className: "company-card-header" },
+      company.linkedin_logo
+        ? React.createElement("img", {
+            src: `data:image/jpeg;base64,${company.linkedin_logo}`,
+            alt: `${company.name} logo`,
+            className: "company-card-logo",
+            onError: (e: React.SyntheticEvent<HTMLImageElement>) => {
+              (e.target as HTMLImageElement).style.display = "none";
+            },
+          })
+        : React.createElement(
+            "div",
+            { className: "company-card-logo-placeholder" },
+            "No Logo"
+          ),
+      React.createElement(
+        "span",
+        {
+          className: "company-card-name",
+          onClick: handleCompanyClick,
+        },
+        company.name || "N/A"
+      )
+    ),
+    React.createElement(
+      "div",
+      { className: "company-card-content" },
+      React.createElement(
+        "div",
+        { className: "company-card-row" },
+        React.createElement(
+          "span",
+          { className: "company-card-label" },
+          "Primary Sectors:"
+        ),
+        React.createElement(
+          "span",
+          { className: "company-card-value" },
+          company.primary_sectors?.length > 0
+            ? company.primary_sectors.join(", ")
+            : "N/A"
+        )
+      ),
+      React.createElement(
+        "div",
+        { className: "company-card-row" },
+        React.createElement(
+          "span",
+          { className: "company-card-label" },
+          "Secondary Sectors:"
+        ),
+        React.createElement(
+          "span",
+          { className: "company-card-value" },
+          company.secondary_sectors?.length > 0
+            ? company.secondary_sectors.join(", ")
+            : "N/A"
+        )
+      ),
+      React.createElement(
+        "div",
+        { className: "company-card-row" },
+        React.createElement(
+          "span",
+          { className: "company-card-label" },
+          "Ownership:"
+        ),
+        React.createElement(
+          "span",
+          { className: "company-card-value" },
+          company.ownership || "N/A"
+        )
+      ),
+      React.createElement(
+        "div",
+        { className: "company-card-row" },
+        React.createElement(
+          "span",
+          { className: "company-card-label" },
+          "LinkedIn Members:"
+        ),
+        React.createElement(
+          "span",
+          { className: "company-card-value" },
+          formatNumber(company.linkedin_members)
+        )
+      ),
+      React.createElement(
+        "div",
+        { className: "company-card-row" },
+        React.createElement(
+          "span",
+          { className: "company-card-label" },
+          "Country:"
+        ),
+        React.createElement(
+          "span",
+          { className: "company-card-value" },
+          company.country || "N/A"
+        )
+      ),
+      React.createElement(
+        "div",
+        { className: "company-card-description" },
+        React.createElement(
+          "div",
+          {
+            className: "company-card-description-truncated",
+            id: `card-description-${index}`,
+            style: { display: isLong ? "block" : "none" },
+          },
+          truncatedText
+        ),
+        React.createElement(
+          "div",
+          {
+            id: `card-description-full-${index}`,
+            style: { display: isLong ? "none" : "block" },
+          },
+          company.description || "N/A"
+        ),
+        isLong &&
+          React.createElement(
+            "span",
+            {
+              className: "company-card-expand",
+              onClick: toggleDescription,
+              id: `card-expand-${index}`,
+            },
+            "Show more"
+          )
+      )
+    )
+  );
+};
+
 // Company Description Component
 const CompanyDescription = ({
   description,
@@ -731,13 +908,17 @@ const CompanyDashboard = ({
   return (
     <div style={styles.container}>
       <div style={styles.maxWidth}>
-        <div style={styles.card}>
-          <h2 style={styles.heading}>Filters</h2>
+        <div style={styles.card} className="filters-card">
+          <h2 style={styles.heading} className="filters-heading">
+            Filters
+          </h2>
 
           {showFilters && (
-            <div style={styles.grid}>
+            <div style={styles.grid} className="filters-grid">
               <div style={styles.gridItem}>
-                <h3 style={styles.subHeading}>Location</h3>
+                <h3 style={styles.subHeading} className="filters-sub-heading">
+                  Location
+                </h3>
                 <span style={styles.label}>By Country</span>
                 <SearchableSelect
                   options={countries.map((country) => ({
@@ -945,7 +1126,9 @@ const CompanyDashboard = ({
                 )}
               </div>
               <div style={styles.gridItem}>
-                <h3 style={styles.subHeading}>Sectors</h3>
+                <h3 style={styles.subHeading} className="filters-sub-heading">
+                  Sectors
+                </h3>
                 <span style={styles.label}>By Primary Sectors</span>
                 <SearchableSelect
                   options={primarySectors.map((sector) => ({
@@ -1181,7 +1364,9 @@ const CompanyDashboard = ({
                 )}
               </div>
               <div style={styles.gridItem}>
-                <h3 style={styles.subHeading}>Company Details</h3>
+                <h3 style={styles.subHeading} className="filters-sub-heading">
+                  Company Details
+                </h3>
                 <span style={styles.label}>By Ownership Type</span>
                 <SearchableSelect
                   options={ownershipTypes.map((ownershipType) => ({
@@ -1288,7 +1473,9 @@ const CompanyDashboard = ({
           )}
 
           <div style={{ marginTop: showFilters ? "20px" : "0" }}>
-            <h3 style={styles.subHeading}>Search for Company</h3>
+            <h3 style={styles.subHeading} className="filters-sub-heading">
+              Search for Company
+            </h3>
             <div style={styles.searchDiv}>
               <input
                 type="text"
@@ -1296,10 +1483,12 @@ const CompanyDashboard = ({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 style={styles.input}
+                className="filters-input"
                 onKeyPress={(e) => e.key === "Enter" && handleSearch()}
               />
               <button
                 style={styles.button}
+                className="filters-button"
                 onClick={handleSearch}
                 onMouseOver={(e) =>
                   ((e.target as HTMLButtonElement).style.backgroundColor =
@@ -1667,24 +1856,138 @@ const CompanySection = ({
       color: #000;
       font-size: 14px;
     }
+    
+    /* Mobile Card Layout */
+    .company-cards {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+      padding: 16px;
+    }
+    .company-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      border: 1px solid #e2e8f0;
+    }
+    .company-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .company-card-logo {
+      width: 50px;
+      height: 35px;
+      object-fit: contain;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .company-card-logo-placeholder {
+      width: 50px;
+      height: 35px;
+      background-color: #f7fafc;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      color: #718096;
+      flex-shrink: 0;
+    }
+    .company-card-name {
+      color: #0075df;
+      text-decoration: underline;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 16px;
+      line-height: 1.3;
+      flex: 1;
+    }
+    .company-card-content {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .company-card-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .company-card-label {
+      color: #4a5568;
+      font-weight: 500;
+      min-width: 80px;
+      flex-shrink: 0;
+    }
+    .company-card-value {
+      color: #000;
+      text-align: right;
+      flex: 1;
+      word-break: break-word;
+    }
+    .company-card-description {
+      color: #000;
+      line-height: 1.4;
+      margin-top: 8px;
+      font-size: 14px;
+    }
+    .company-card-description-truncated {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .company-card-expand {
+      color: #0075df;
+      text-decoration: underline;
+      cursor: pointer;
+      font-size: 12px;
+      margin-top: 4px;
+      display: block;
+    }
+    
     @media (max-width: 768px) {
       .company-table {
-        font-size: 12px;
+        display: none;
       }
-      .company-table th,
-      .company-table td {
-        padding: 8px;
-        font-size: 12px;
+      .company-cards {
+        display: flex;
       }
-      .company-logo {
-        width: 40px;
-        height: 30px;
+      .filters-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
       }
-      .company-description {
-        max-width: 200px;
+      .filters-card {
+        padding: 20px 16px !important;
       }
-      .sectors-list {
-        max-width: 150px;
+      .filters-heading {
+        font-size: 20px !important;
+        margin-bottom: 16px !important;
+      }
+      .filters-sub-heading {
+        font-size: 16px !important;
+        margin-bottom: 8px !important;
+      }
+      .filters-input {
+        max-width: 100% !important;
+      }
+      .filters-button {
+        max-width: 100% !important;
+      }
+    }
+    
+    @media (min-width: 769px) {
+      .company-cards {
+        display: none;
+      }
+      .company-table {
+        display: table;
       }
     }
   `;
@@ -1795,6 +2098,17 @@ const CompanySection = ({
             ownershipCounts.privateCompanies.toLocaleString()
           )
         )
+      )
+    ),
+    React.createElement(
+      "div",
+      { className: "company-cards" },
+      companies.map((company, index) =>
+        React.createElement(CompanyCard, {
+          key: company.id || index,
+          company: company,
+          index: index,
+        })
       )
     ),
     React.createElement(

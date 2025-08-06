@@ -596,32 +596,34 @@ export default function HomeUserPage() {
       <Header />
 
       {/* Main Content */}
-      <main className="px-4 py-8 mx-auto w-full">
+      <main className="px-2 py-4 mx-auto w-full sm:px-4 sm:py-8">
         {/* Dashboard Subheader */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
             Asymmetrix Dashboard
           </h1>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-4 lg:grid-cols-2">
           {/* Asymmetrix Data */}
           <div className="bg-white rounded-lg shadow">
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">
+            <div className="p-3 border-b border-gray-200 sm:p-4">
+              <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
                 Asymmetrix Data
               </h2>
             </div>
-            <div className="p-4">
+            <div className="p-3 sm:p-4">
               {asymmetrixData.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {asymmetrixData.map((item, index) => (
                     <div
                       key={index}
-                      className="flex justify-between items-center p-2 bg-gray-50 rounded-lg"
+                      className="flex justify-between items-center p-2 bg-gray-50 rounded-lg sm:p-2"
                     >
                       <div className="flex items-center space-x-2">
-                        <span className="text-lg">{item.icon}</span>
+                        <span className="text-base sm:text-lg">
+                          {item.icon}
+                        </span>
                         <span className="text-xs text-gray-600">
                           {item.label}
                         </span>
@@ -633,7 +635,7 @@ export default function HomeUserPage() {
                   ))}
                 </div>
               ) : (
-                <div className="py-8 text-center">
+                <div className="py-6 text-center sm:py-8">
                   <p className="text-sm text-gray-500">
                     No statistics available
                   </p>
@@ -644,145 +646,205 @@ export default function HomeUserPage() {
 
           {/* Corporate Events */}
           <div className="bg-white rounded-lg shadow">
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">
+            <div className="p-3 border-b border-gray-200 sm:p-4">
+              <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
                 Corporate Events
               </h2>
             </div>
-            <div className="overflow-x-auto max-h-[800px]">
+            <div className="overflow-hidden">
               {corporateEvents.length > 0 ? (
-                <table className="w-full min-w-max">
-                  <thead className="sticky top-0 bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                        Description
-                      </th>
-                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                        Date
-                      </th>
-                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                        Target
-                      </th>
-                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                        Primary Sector
-                      </th>
-                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                        Secondary Sectors
-                      </th>
-                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                        Type
-                      </th>
-                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                        Amount
-                      </th>
-                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                        Enterprise Value
-                      </th>
-                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                        Other Counterparties
-                      </th>
-                      <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                        Advisors
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {corporateEvents.slice(0, 25).map((event) => (
-                      <tr key={event.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-4 max-w-xs text-xs text-gray-900">
-                          <span
-                            onClick={() => handleCorporateEventClick(event.id)}
-                            className="text-blue-600 underline cursor-pointer hover:text-blue-800"
-                            style={{
-                              textDecoration: "underline",
-                              color: "#0075df",
-                              cursor: "pointer",
-                              fontWeight: "500",
-                            }}
-                          >
-                            {event.description}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 text-xs text-gray-500">
-                          {event.announcement_date || "Not Available"}
-                        </td>
-                        <td className="px-4 py-4 text-xs text-gray-900">
-                          {event.Target_Counterparty?.new_company?.name ||
-                            "Not Available"}
-                        </td>
-                        <td className="px-4 py-4 text-xs text-gray-900">
-                          {event.Target_Counterparty?.new_company?._sectors_objects?.sectors_id?.find(
-                            (sector) => sector.Sector_importance === "Primary"
-                          )?.sector_name || "Not Available"}
-                        </td>
-                        <td className="px-4 py-4 text-xs text-gray-900">
-                          {event.Target_Counterparty?.new_company?._sectors_objects?.sectors_id
-                            ?.filter(
-                              (sector) => sector.Sector_importance !== "Primary"
-                            )
-                            .map((sector) => sector.sector_name)
-                            .join(", ") || "Not Available"}
-                        </td>
-                        <td className="px-4 py-4 text-xs text-gray-900">
-                          {event.deal_type || "Not Available"}
-                        </td>
-                        <td className="px-4 py-4 text-xs text-gray-900">
-                          {event.investment_data?.investment_amount_m &&
-                          event.investment_data?.currrency?.Currency
-                            ? `${event.investment_data.investment_amount_m} ${event.investment_data.currrency.Currency}`
-                            : "Not Available"}
-                        </td>
-                        <td className="px-4 py-4 text-xs text-gray-900">
-                          {event.ev_data?.enterprise_value_m &&
-                          event.ev_data?.Currency
-                            ? `${event.ev_data.enterprise_value_m} ${event.ev_data.Currency}`
-                            : "Not Available"}
-                        </td>
-                        <td className="px-4 py-4 text-xs text-gray-900">
-                          {event.Other_Counterparties_of_Corporate_Event &&
-                          event.Other_Counterparties_of_Corporate_Event.length >
-                            0
-                            ? event.Other_Counterparties_of_Corporate_Event.map(
-                                (cp) => cp._new_company?.name
-                              )
-                                .filter(Boolean)
-                                .map((companyName, index, array) => (
-                                  <span
-                                    key={`${event.id}-counterparty-${index}`}
-                                  >
-                                    <span
-                                      onClick={() =>
-                                        handleCompanyClick(companyName!)
-                                      }
-                                      className="text-blue-600 underline cursor-pointer hover:text-blue-800"
-                                      style={{
-                                        textDecoration: "underline",
-                                        color: "#0075df",
-                                        cursor: "pointer",
-                                        fontWeight: "500",
-                                      }}
-                                    >
-                                      {companyName}
-                                    </span>
-                                    {index < array.length - 1 && ", "}
-                                  </span>
-                                ))
-                            : "Not Available"}
-                        </td>
-                        <td className="px-4 py-4 text-xs text-gray-900">
-                          {event.Advisors_of_Corporate_Event &&
-                          event.Advisors_of_Corporate_Event.length > 0
-                            ? event.Advisors_of_Corporate_Event.map(
-                                (advisor) => advisor._new_company?.name
-                              )
-                                .filter(Boolean)
-                                .join(", ")
-                            : "Not Available"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="min-w-full">
+                  {/* Mobile view - cards */}
+                  <div className="block lg:hidden">
+                    <div className="p-3 space-y-3">
+                      {corporateEvents.slice(0, 10).map((event) => (
+                        <div
+                          key={event.id}
+                          className="p-3 space-y-2 bg-gray-50 rounded-lg"
+                        >
+                          <div className="flex justify-between items-start">
+                            <span
+                              onClick={() =>
+                                handleCorporateEventClick(event.id)
+                              }
+                              className="flex-1 text-sm font-medium text-blue-600 underline break-words cursor-pointer hover:text-blue-800"
+                              style={{
+                                textDecoration: "underline",
+                                color: "#0075df",
+                                cursor: "pointer",
+                                fontWeight: "500",
+                              }}
+                            >
+                              {event.description}
+                            </span>
+                          </div>
+                          <div className="space-y-1 text-xs text-gray-500">
+                            <div>
+                              <strong>Date:</strong>{" "}
+                              {event.announcement_date || "Not Available"}
+                            </div>
+                            <div>
+                              <strong>Target:</strong>{" "}
+                              {event.Target_Counterparty?.new_company?.name ||
+                                "Not Available"}
+                            </div>
+                            <div>
+                              <strong>Type:</strong>{" "}
+                              {event.deal_type || "Not Available"}
+                            </div>
+                            <div>
+                              <strong>Amount:</strong>{" "}
+                              {event.investment_data?.investment_amount_m &&
+                              event.investment_data?.currrency?.Currency
+                                ? `${event.investment_data.investment_amount_m} ${event.investment_data.currrency.Currency}`
+                                : "Not Available"}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Desktop view - table */}
+                  <div className="hidden lg:block overflow-x-auto max-h-[800px]">
+                    <table className="w-full min-w-max">
+                      <thead className="sticky top-0 bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            Description
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            Date
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            Target
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            Primary Sector
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            Secondary Sectors
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            Type
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            Amount
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            Enterprise Value
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            Other Counterparties
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            Advisors
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {corporateEvents.slice(0, 25).map((event) => (
+                          <tr key={event.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-4 max-w-xs text-xs text-gray-900">
+                              <span
+                                onClick={() =>
+                                  handleCorporateEventClick(event.id)
+                                }
+                                className="text-blue-600 underline break-words cursor-pointer hover:text-blue-800"
+                                style={{
+                                  textDecoration: "underline",
+                                  color: "#0075df",
+                                  cursor: "pointer",
+                                  fontWeight: "500",
+                                }}
+                              >
+                                {event.description}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4 text-xs text-gray-500">
+                              {event.announcement_date || "Not Available"}
+                            </td>
+                            <td className="px-4 py-4 text-xs text-gray-900">
+                              {event.Target_Counterparty?.new_company?.name ||
+                                "Not Available"}
+                            </td>
+                            <td className="px-4 py-4 text-xs text-gray-900">
+                              {event.Target_Counterparty?.new_company?._sectors_objects?.sectors_id?.find(
+                                (sector) =>
+                                  sector.Sector_importance === "Primary"
+                              )?.sector_name || "Not Available"}
+                            </td>
+                            <td className="px-4 py-4 text-xs text-gray-900">
+                              {event.Target_Counterparty?.new_company?._sectors_objects?.sectors_id
+                                ?.filter(
+                                  (sector) =>
+                                    sector.Sector_importance !== "Primary"
+                                )
+                                .map((sector) => sector.sector_name)
+                                .join(", ") || "Not Available"}
+                            </td>
+                            <td className="px-4 py-4 text-xs text-gray-900">
+                              {event.deal_type || "Not Available"}
+                            </td>
+                            <td className="px-4 py-4 text-xs text-gray-900">
+                              {event.investment_data?.investment_amount_m &&
+                              event.investment_data?.currrency?.Currency
+                                ? `${event.investment_data.investment_amount_m} ${event.investment_data.currrency.Currency}`
+                                : "Not Available"}
+                            </td>
+                            <td className="px-4 py-4 text-xs text-gray-900">
+                              {event.ev_data?.enterprise_value_m &&
+                              event.ev_data?.Currency
+                                ? `${event.ev_data.enterprise_value_m} ${event.ev_data.Currency}`
+                                : "Not Available"}
+                            </td>
+                            <td className="px-4 py-4 text-xs text-gray-900">
+                              {event.Other_Counterparties_of_Corporate_Event &&
+                              event.Other_Counterparties_of_Corporate_Event
+                                .length > 0
+                                ? event.Other_Counterparties_of_Corporate_Event.map(
+                                    (cp) => cp._new_company?.name
+                                  )
+                                    .filter(Boolean)
+                                    .map((companyName, index, array) => (
+                                      <span
+                                        key={`${event.id}-counterparty-${index}`}
+                                      >
+                                        <span
+                                          onClick={() =>
+                                            handleCompanyClick(companyName!)
+                                          }
+                                          className="text-blue-600 underline cursor-pointer hover:text-blue-800"
+                                          style={{
+                                            textDecoration: "underline",
+                                            color: "#0075df",
+                                            cursor: "pointer",
+                                            fontWeight: "500",
+                                          }}
+                                        >
+                                          {companyName}
+                                        </span>
+                                        {index < array.length - 1 && ", "}
+                                      </span>
+                                    ))
+                                : "Not Available"}
+                            </td>
+                            <td className="px-4 py-4 text-xs text-gray-900">
+                              {event.Advisors_of_Corporate_Event &&
+                              event.Advisors_of_Corporate_Event.length > 0
+                                ? event.Advisors_of_Corporate_Event.map(
+                                    (advisor) => advisor._new_company?.name
+                                  )
+                                    .filter(Boolean)
+                                    .join(", ")
+                                : "Not Available"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               ) : (
                 <div className="p-4 text-center">
                   <p className="text-sm text-gray-500">
@@ -795,15 +857,18 @@ export default function HomeUserPage() {
 
           {/* Insights & Analysis */}
           <div className="bg-white rounded-lg shadow">
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="mb-3 text-lg font-bold text-gray-900">
+            <div className="p-3 border-b border-gray-200 sm:p-4">
+              <h2 className="mb-3 text-base font-bold text-gray-900 sm:text-lg">
                 Insights & Analysis
               </h2>
               <div className="space-y-2">
                 <span className="text-sm text-gray-700">
                   Search for Articles:
                 </span>
-                <form onSubmit={handleSearch} className="flex max-w-xs">
+                <form
+                  onSubmit={handleSearch}
+                  className="flex w-full sm:max-w-xs"
+                >
                   <input
                     type="text"
                     placeholder="Keyword search"
@@ -821,18 +886,18 @@ export default function HomeUserPage() {
                         setFilteredInsights(insightsArticles);
                       }
                     }}
-                    className="flex-1 px-3 py-1 text-sm rounded-l-md border border-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="flex-1 px-3 py-2 text-sm rounded-l-md border border-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                   <button
                     type="submit"
-                    className="px-3 py-1 text-sm text-white bg-blue-600 rounded-r-md hover:bg-blue-700"
+                    className="px-4 py-2 text-sm text-white bg-blue-600 rounded-r-md hover:bg-blue-700"
                   >
                     Search
                   </button>
                 </form>
               </div>
             </div>
-            <div className="p-4">
+            <div className="p-3 sm:p-4">
               {filteredInsights.length > 0 ? (
                 <div className="space-y-3">
                   {filteredInsights.slice(0, 10).map((article) => (
@@ -910,7 +975,7 @@ export default function HomeUserPage() {
                   ))}
                 </div>
               ) : (
-                <div className="py-8 text-center">
+                <div className="py-6 text-center sm:py-8">
                   <p className="text-sm text-gray-500">No insights available</p>
                 </div>
               )}
@@ -919,21 +984,21 @@ export default function HomeUserPage() {
 
           {/* New Companies Added */}
           <div className="bg-white rounded-lg shadow">
-            <div className="p-4 border-b border-gray-200">
+            <div className="p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center space-x-2">
                 <span className="text-lg text-green-600">+</span>
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
                   New Companies Added
                 </h2>
               </div>
             </div>
-            <div className="p-4">
+            <div className="p-3 sm:p-4">
               {newCompanies.length > 0 ? (
                 <div className="relative">
                   {/* Vertical timeline line */}
                   <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-green-500"></div>
 
-                  <div className="pl-6 space-y-6">
+                  <div className="pl-6 space-y-4 sm:space-y-6">
                     {newCompanies.map((company) => (
                       <div
                         key={company.id}
@@ -996,7 +1061,7 @@ export default function HomeUserPage() {
                   </div>
                 </div>
               ) : (
-                <div className="py-8 text-center">
+                <div className="py-6 text-center sm:py-8">
                   <p className="text-sm text-gray-500">
                     No new companies available
                   </p>

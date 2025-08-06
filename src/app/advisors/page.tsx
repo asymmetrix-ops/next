@@ -858,6 +858,28 @@ const AdvisorsPage = () => {
       .sectors-list {
         max-width: 150px;
       }
+      .filters-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+      }
+      .filters-card {
+        padding: 20px 16px !important;
+      }
+      .filters-heading {
+        font-size: 20px !important;
+        margin-bottom: 16px !important;
+      }
+      .filters-sub-heading {
+        font-size: 16px !important;
+        margin-bottom: 8px !important;
+      }
+      .filters-input {
+        max-width: 100% !important;
+      }
+      .filters-button {
+        max-width: 100% !important;
+      }
     }
   `;
 
@@ -1028,13 +1050,17 @@ const AdvisorsPage = () => {
       {/* Filters Section */}
       <div style={styles.container}>
         <div style={styles.maxWidth}>
-          <div style={styles.card}>
-            <h2 style={styles.heading}>Filters</h2>
+          <div style={styles.card} className="filters-card">
+            <h2 style={styles.heading} className="filters-heading">
+              Filters
+            </h2>
 
             {showFilters && (
-              <div style={styles.grid}>
+              <div style={styles.grid} className="filters-grid">
                 <div style={styles.gridItem}>
-                  <h3 style={styles.subHeading}>Location</h3>
+                  <h3 style={styles.subHeading} className="filters-sub-heading">
+                    Location
+                  </h3>
                   <span style={styles.label}>By Country</span>
                   <SearchableSelect
                     options={countryOptions}
@@ -1249,7 +1275,9 @@ const AdvisorsPage = () => {
                   )}
                 </div>
                 <div style={styles.gridItem}>
-                  <h3 style={styles.subHeading}>Sector</h3>
+                  <h3 style={styles.subHeading} className="filters-sub-heading">
+                    Sector
+                  </h3>
                   <span style={styles.label}>By Primary Sectors</span>
                   <SearchableSelect
                     options={primarySectorOptions}
@@ -1425,10 +1453,12 @@ const AdvisorsPage = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   style={styles.input}
+                  className="filters-input"
                   onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                 />
                 <button
                   style={styles.button}
+                  className="filters-button"
                   onClick={handleSearch}
                   onMouseOver={(e) =>
                     ((e.target as HTMLButtonElement).style.backgroundColor =
