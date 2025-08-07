@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { useParams } from "next/navigation";
 import Head from "next/head";
@@ -85,6 +85,36 @@ interface CompanySubsidiary {
   linkedin_members?: number;
   country?: string;
   logo?: string;
+}
+
+interface CorporateEvent {
+  id?: number;
+  description: string;
+  announcement_date: string;
+  deal_type: string;
+  counterparty_status?: {
+    counterparty_syayus?: {
+      counterparty_status: string;
+    };
+  };
+  ev_data?: {
+    enterprise_value_m?: number;
+    ev_band?: string;
+  };
+  "0"?: Array<{
+    _new_company?: {
+      name: string;
+    };
+  }>;
+  "1"?: Array<{
+    _new_company?: {
+      name: string;
+    };
+  }>;
+}
+
+interface CorporateEventsResponse {
+  New_Events_Wits_Advisors: CorporateEvent[];
 }
 
 interface Company {
@@ -331,6 +361,8 @@ const CompanyDetail = () => {
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(
     new Set()
   );
+  const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
+  const [corporateEventsLoading, setCorporateEventsLoading] = useState(false);
 
   const toggleDescription = (subsidiaryId: number) => {
     setExpandedDescriptions((prev) => {
@@ -343,6 +375,44 @@ const CompanyDetail = () => {
       return newSet;
     });
   };
+
+  // Fetch corporate events
+  const fetchCorporateEvents = useCallback(async () => {
+    setCorporateEventsLoading(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+
+      const params = new URLSearchParams();
+      params.append("new_company_id", companyId);
+
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/Get_investors_corporate_events?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Corporate Events API request failed: ${response.statusText}`
+        );
+      }
+
+      const data: CorporateEventsResponse = await response.json();
+      console.log("Corporate events API response:", data);
+      setCorporateEvents(data.New_Events_Wits_Advisors || []);
+    } catch (err) {
+      console.error("Error fetching corporate events:", err);
+      // Don't set main error state for corporate events loading failure
+    } finally {
+      setCorporateEventsLoading(false);
+    }
+  }, [companyId]);
 
   useEffect(() => {
     const fetchCompanyData = async () => {
@@ -432,8 +502,9 @@ const CompanyDetail = () => {
 
     if (companyId) {
       fetchCompanyData();
+      fetchCorporateEvents();
     }
-  }, [companyId]);
+  }, [companyId, fetchCorporateEvents]);
 
   if (loading) {
     return (
@@ -1600,6 +1671,195 @@ const CompanyDetail = () => {
                   },
                 },
                 "No subsidiaries available"
+              )
+        ),
+        // Corporate Events section
+        React.createElement(
+          "div",
+          { style: { ...styles.card, marginTop: "32px" } },
+          React.createElement(
+            "div",
+            {
+              style: {
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "24px",
+              },
+            },
+            React.createElement(
+              "h2",
+              { style: styles.sectionTitle },
+              "Corporate Events"
+            )
+          ),
+          corporateEventsLoading
+            ? React.createElement(
+                "div",
+                {
+                  style: {
+                    textAlign: "center",
+                    padding: "40px",
+                    color: "#666",
+                    fontSize: "14px",
+                  },
+                },
+                "Loading corporate events..."
+              )
+            : corporateEvents.length > 0
+            ? React.createElement(
+                "div",
+                { style: { overflowX: "auto" } },
+                React.createElement(
+                  "table",
+                  { style: { width: "100%", borderCollapse: "collapse" } },
+                  React.createElement(
+                    "thead",
+                    null,
+                    React.createElement(
+                      "tr",
+                      null,
+                      [
+                        "Description",
+                        "Date Announced",
+                        "Type",
+                        "Counterparty status",
+                        "Other counterparties",
+                        "Enterprise value",
+                        "Advisors",
+                      ].map((header) =>
+                        React.createElement(
+                          "th",
+                          {
+                            key: header,
+                            style: {
+                              textAlign: "left",
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                              fontWeight: "600",
+                              color: "#4a5568",
+                            },
+                          },
+                          header
+                        )
+                      )
+                    )
+                  ),
+                  React.createElement(
+                    "tbody",
+                    null,
+                    corporateEvents.slice(0, 3).map((event, index) =>
+                      React.createElement(
+                        "tr",
+                        { key: event.id || index },
+                        React.createElement(
+                          "td",
+                          {
+                            style: {
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                            },
+                          },
+                          createClickableElement(
+                            `/corporate-event/${event.id}`,
+                            event.description
+                          )
+                        ),
+                        React.createElement(
+                          "td",
+                          {
+                            style: {
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            },
+                          },
+                          new Date(event.announcement_date).toLocaleDateString()
+                        ),
+                        React.createElement(
+                          "td",
+                          {
+                            style: {
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            },
+                          },
+                          event.deal_type || "N/A"
+                        ),
+                        React.createElement(
+                          "td",
+                          {
+                            style: {
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            },
+                          },
+                          event.counterparty_status?.counterparty_syayus
+                            ?.counterparty_status || "N/A"
+                        ),
+                        React.createElement(
+                          "td",
+                          {
+                            style: {
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            },
+                          },
+                          [
+                            ...(event["0"] || []).map(
+                              (item) => item._new_company?.name
+                            ),
+                            ...(event["1"] || []).map(
+                              (item) => item._new_company?.name
+                            ),
+                          ]
+                            .filter(Boolean)
+                            .join(", ") || "N/A"
+                        ),
+                        React.createElement(
+                          "td",
+                          {
+                            style: {
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            },
+                          },
+                          event.ev_data?.enterprise_value_m
+                            ? `$${event.ev_data.enterprise_value_m}M`
+                            : event.ev_data?.ev_band || "Not available"
+                        ),
+                        React.createElement(
+                          "td",
+                          {
+                            style: {
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            },
+                          },
+                          "N/A"
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            : React.createElement(
+                "div",
+                {
+                  style: {
+                    textAlign: "center",
+                    padding: "40px",
+                    color: "#666",
+                    fontSize: "14px",
+                  },
+                },
+                "No corporate events available"
               )
         )
       ),

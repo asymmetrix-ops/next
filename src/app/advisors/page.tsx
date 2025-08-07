@@ -438,16 +438,16 @@ const AdvisorsPage = () => {
         '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     },
     maxWidth: {
-      padding: "32px",
+      padding: "16px",
       display: "flex" as const,
       flexDirection: "column" as const,
-      gap: "24px",
+      gap: "16px",
     },
     card: {
       backgroundColor: "white",
       borderRadius: "12px",
       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-      padding: "32px 24px",
+      padding: "20px 24px",
       marginBottom: "0",
     },
     heading: {
@@ -503,8 +503,8 @@ const AdvisorsPage = () => {
     grid: {
       display: "grid",
       gridTemplateColumns: "repeat(2, 1fr)",
-      gap: "16px 40px",
-      marginBottom: "20px",
+      gap: "12px 24px",
+      marginBottom: "16px",
     },
     gridItem: {
       display: "flex" as const,
@@ -553,15 +553,15 @@ const AdvisorsPage = () => {
   };
 
   const truncateDescription = (description: string) => {
-    return description.length > 150
-      ? description.substring(0, 150) + "..."
+    return description.length > 220
+      ? description.substring(0, 220) + "..."
       : description;
   };
 
   // Advisor Card Component for mobile
   const AdvisorCard = (advisor: Advisor, index: number) => {
     const description = advisor.description || "N/A";
-    const isDescriptionLong = description.length > 150;
+    const isDescriptionLong = description.length > 220;
     const truncatedDescription = truncateDescription(description);
 
     return React.createElement(
@@ -791,9 +791,9 @@ const AdvisorsPage = () => {
   const tableRows = advisors.map((advisor, index) => {
     // Truncate description for display
     const description = advisor.description || "N/A";
-    const isDescriptionLong = description.length > 150;
+    const isDescriptionLong = description.length > 220;
     const truncatedDescription = isDescriptionLong
-      ? description.substring(0, 150) + "..."
+      ? description.substring(0, 220) + "..."
       : description;
 
     return React.createElement(
@@ -903,37 +903,37 @@ const AdvisorsPage = () => {
 
   const style = `
     .advisor-section {
-      padding: 32px 24px;
+      padding: 16px 24px;
       border-radius: 8px;
     }
     .advisor-stats {
       background: #fff;
-      padding: 32px 24px;
+      padding: 20px 24px;
       box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
       border-radius: 16px;
-      margin-bottom: 24px;
+      margin-bottom: 16px;
     }
     .stats-title {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       color: #1a202c;
-      margin: 0 0 24px 0;
+      margin: 0 0 16px 0;
     }
     .stats-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 32px;
+      gap: 20px;
     }
     .stats-column {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 10px;
     }
     .stats-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 0;
+      padding: 8px 0;
       border-bottom: 1px solid #e2e8f0;
     }
     .stats-item:last-child {
@@ -952,15 +952,22 @@ const AdvisorsPage = () => {
     .advisor-table {
       width: 100%;
       background: #fff;
-      padding: 32px 24px;
+      padding: 20px 24px;
       box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
       border-radius: 16px;
       border-collapse: collapse;
       table-layout: fixed;
     }
+    .advisor-table th:nth-child(1) { width: 8%; }  /* Logo */
+    .advisor-table th:nth-child(2) { width: 15%; } /* Advisor */
+    .advisor-table th:nth-child(3) { width: 28%; } /* Description - Wider */
+    .advisor-table th:nth-child(4) { width: 12%; } /* Corporate Events Advised */
+    .advisor-table th:nth-child(5) { width: 22%; } /* Advised D&A Sectors */
+    .advisor-table th:nth-child(6) { width: 10%; } /* LinkedIn Members */
+    .advisor-table th:nth-child(7) { width: 5%; }  /* Country */
     .advisor-table th,
     .advisor-table td {
-      padding: 16px;
+      padding: 12px;
       text-align: left;
       vertical-align: top;
       border-bottom: 1px solid #e2e8f0;
@@ -997,7 +1004,7 @@ const AdvisorsPage = () => {
       color: #005bb5;
     }
     .advisor-description {
-      max-width: 300px;
+      max-width: 450px;
       line-height: 1.4;
     }
     .advisor-description-truncated {
@@ -1096,21 +1103,21 @@ const AdvisorsPage = () => {
         font-size: 13px !important;
       }
       .advisor-section {
-        padding: 20px 8px !important;
+        padding: 12px 8px !important;
       }
       .advisor-stats {
-        padding: 20px 16px !important;
+        padding: 16px 16px !important;
       }
       .stats-title {
-        font-size: 20px !important;
-        margin-bottom: 16px !important;
+        font-size: 18px !important;
+        margin-bottom: 12px !important;
       }
       .stats-grid {
         grid-template-columns: 1fr !important;
-        gap: 16px !important;
+        gap: 12px !important;
       }
       .stats-item {
-        padding: 8px 0 !important;
+        padding: 6px 0 !important;
       }
       .stats-label {
         font-size: 12px !important;
@@ -1124,7 +1131,7 @@ const AdvisorsPage = () => {
         gap: 16px !important;
       }
       .filters-card {
-        padding: 20px 16px !important;
+        padding: 16px 16px !important;
       }
       .filters-heading {
         font-size: 20px !important;

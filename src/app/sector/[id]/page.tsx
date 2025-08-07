@@ -324,6 +324,7 @@ const SectorDetailPage = () => {
     perPage: 50,
     pageTotal: 0,
   });
+  const [selectedPerPage, setSelectedPerPage] = useState(50);
 
   // Fetch sector data
   const fetchSectorData = useCallback(async () => {
@@ -369,16 +370,17 @@ const SectorDetailPage = () => {
 
   // Fetch companies data
   const fetchCompanies = useCallback(
-    async (page: number = 1) => {
+    async (page: number = 1, perPageOverride?: number) => {
       setCompaniesLoading(true);
+      const perPageToUse = perPageOverride || selectedPerPage;
 
       try {
         const token = localStorage.getItem("asymmetrix_auth_token");
-        const offset = (page - 1) * 50;
+        const offset = (page - 1) * perPageToUse;
 
         const params = new URLSearchParams();
         params.append("Offset", offset.toString());
-        params.append("Per_page", "50");
+        params.append("Per_page", perPageToUse.toString());
         params.append("Sector_id", sectorId);
 
         const response = await fetch(
@@ -414,7 +416,7 @@ const SectorDetailPage = () => {
         setCompaniesLoading(false);
       }
     },
-    [sectorId]
+    [sectorId, selectedPerPage]
   );
 
   useEffect(() => {
@@ -583,19 +585,18 @@ const SectorDetailPage = () => {
       flex: "1",
     },
     sidebar: {
-      backgroundColor: "white",
-      borderRadius: "12px",
-      padding: "24px",
-      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
       height: "fit-content",
-      flex: "0 0 400px",
+      flex: "0 0 33.33%",
+      display: "flex",
+      flexDirection: "column" as const,
+      gap: "24px",
     },
     companiesSection: {
       backgroundColor: "white",
       borderRadius: "12px",
       padding: "32px 24px",
       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-      flex: "1",
+      flex: "0 0 66.67%",
     },
     sidebarTitle: {
       fontSize: "20px",
@@ -635,12 +636,22 @@ const SectorDetailPage = () => {
       color: "#1a202c",
       fontWeight: "600",
     },
+    sectorBox: {
+      backgroundColor: "white",
+      borderRadius: "12px",
+      padding: "24px",
+      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+    },
     thesis: {
       fontSize: "14px",
       color: "#4a5568",
       lineHeight: "1.6",
       marginTop: "16px",
-      fontStyle: "italic",
+    },
+    thesisContent: {
+      fontSize: "14px",
+      color: "#4a5568",
+      lineHeight: "1.6",
     },
   };
 
@@ -873,11 +884,23 @@ const SectorDetailPage = () => {
         flex: none !important;
         width: 100% !important;
         order: 1 !important;
+        flex-direction: column !important;
+        gap: 16px !important;
       }
       .companies-section {
         flex: none !important;
         width: 100% !important;
         order: 2 !important;
+      }
+      .companies-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+      }
+      .companies-controls {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
       }
       .company-table {
         display: none;
@@ -928,60 +951,151 @@ const SectorDetailPage = () => {
 
         {/* Main Content */}
         <div className="main-content" style={styles.mainContent}>
-          {/* Left Sidebar - Statistics */}
+          {/* Left Sidebar - Statistics and Thesis */}
           <div className="sidebar" style={styles.sidebar}>
-            <h2 className="sidebar-title" style={styles.sidebarTitle}>
-              Sector Statistics
-            </h2>
-            <div style={styles.statItem}>
-              <span style={styles.statLabel}>Total companies:</span>
-              <span style={styles.statValue}>
-                {formatNumber(sectorData.Total_number_of_companies)}
-              </span>
-            </div>
-            <div style={styles.statItem}>
-              <span style={styles.statLabel}>Public companies:</span>
-              <span style={styles.statValue}>
-                {formatNumber(sectorData.Number_Of_Public_Companies)}
-              </span>
-            </div>
-            <div style={styles.statItem}>
-              <span style={styles.statLabel}>PE companies:</span>
-              <span style={styles.statValue}>
-                {formatNumber(sectorData.Number_Of_PE_Companies)}
-              </span>
-            </div>
-            <div style={styles.statItem}>
-              <span style={styles.statLabel}>VC-owned companies:</span>
-              <span style={styles.statValue}>
-                {formatNumber(sectorData["Number_of_VC-owned_companies"])}
-              </span>
-            </div>
-            <div style={styles.statItem}>
-              <span style={styles.statLabel}>Private companies:</span>
-              <span style={styles.statValue}>
-                {formatNumber(sectorData.Number_of_private_companies)}
-              </span>
-            </div>
-            <div style={styles.statItemLast}>
-              <span style={styles.statLabel}>Subsidiaries:</span>
-              <span style={styles.statValue}>
-                {formatNumber(sectorData.Number_of_subsidiaries)}
-              </span>
-            </div>
-            {sectorData.Sector.Sector_thesis && (
-              <div style={styles.thesis}>
-                <strong>Sector Thesis:</strong>{" "}
-                {sectorData.Sector.Sector_thesis}
+            {/* Sector Statistics Box */}
+            <div className="statistics-box" style={styles.sectorBox}>
+              <h2 className="sidebar-title" style={styles.sidebarTitle}>
+                Sector Statistics
+              </h2>
+              <div style={styles.statItem}>
+                <span style={styles.statLabel}>Total companies:</span>
+                <span style={styles.statValue}>
+                  {formatNumber(sectorData.Total_number_of_companies)}
+                </span>
               </div>
-            )}
+              <div style={styles.statItem}>
+                <span style={styles.statLabel}>Public companies:</span>
+                <span style={styles.statValue}>
+                  {formatNumber(sectorData.Number_Of_Public_Companies)}
+                </span>
+              </div>
+              <div style={styles.statItem}>
+                <span style={styles.statLabel}>PE companies:</span>
+                <span style={styles.statValue}>
+                  {formatNumber(sectorData.Number_Of_PE_Companies)}
+                </span>
+              </div>
+              <div style={styles.statItem}>
+                <span style={styles.statLabel}>VC-owned companies:</span>
+                <span style={styles.statValue}>
+                  {formatNumber(sectorData["Number_of_VC-owned_companies"])}
+                </span>
+              </div>
+              <div style={styles.statItem}>
+                <span style={styles.statLabel}>Private companies:</span>
+                <span style={styles.statValue}>
+                  {formatNumber(sectorData.Number_of_private_companies)}
+                </span>
+              </div>
+              <div style={styles.statItemLast}>
+                <span style={styles.statLabel}>Subsidiaries:</span>
+                <span style={styles.statValue}>
+                  {formatNumber(sectorData.Number_of_subsidiaries)}
+                </span>
+              </div>
+            </div>
+
+            {/* Sector Thesis Box */}
+            <div className="thesis-box" style={styles.sectorBox}>
+              <h2 className="sidebar-title" style={styles.sidebarTitle}>
+                Sector Thesis
+              </h2>
+              {sectorData.Sector.Sector_thesis ? (
+                <div style={styles.thesisContent}>
+                  {sectorData.Sector.Sector_thesis}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    ...styles.thesisContent,
+                    fontStyle: "italic",
+                    color: "#9ca3af",
+                  }}
+                >
+                  Healthcare Data & Analytics market valued at USD43.1bn in
+                  2023; Huge shift taking place within healthcare towards
+                  personalisation and preventative medicine; Doctors require
+                  highest quality research in order to make best quality
+                  decisions in potentially life-or-death situations; Poor
+                  quality decision-making can lead to malpractice suits;
+                  Artificial Intelligence disrupting traditional data providers
+                  but enabling new diagnostic methodologies and treatments.
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right Section - Companies */}
           <div className="companies-section" style={styles.companiesSection}>
-            <h2 className="companies-title" style={styles.companiesTitle}>
-              Companies in {sectorData.Sector.sector_name} Sector
-            </h2>
+            <div
+              className="companies-header"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "24px",
+              }}
+            >
+              <h2 className="companies-title" style={styles.companiesTitle}>
+                Companies in {sectorData.Sector.sector_name} Sector
+              </h2>
+              {pagination.pageTotal > 0 && (
+                <div
+                  className="companies-controls"
+                  style={{ display: "flex", alignItems: "center", gap: "16px" }}
+                >
+                  <div style={{ fontSize: "14px", color: "#666" }}>
+                    Showing {pagination.offset + 1} -{" "}
+                    {Math.min(
+                      pagination.offset + pagination.perPage,
+                      sectorData.Total_number_of_companies
+                    )}{" "}
+                    of {formatNumber(sectorData.Total_number_of_companies)}{" "}
+                    companies
+                    {pagination.pageTotal > 1 && (
+                      <span style={{ marginLeft: "8px" }}>
+                        (Page {pagination.curPage} of {pagination.pageTotal})
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    <span style={{ fontSize: "14px", color: "#666" }}>
+                      Show:
+                    </span>
+                    <select
+                      value={selectedPerPage}
+                      onChange={(e) => {
+                        const newPerPage = parseInt(e.target.value);
+                        setSelectedPerPage(newPerPage);
+                        fetchCompanies(1, newPerPage);
+                      }}
+                      style={{
+                        padding: "4px 8px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "4px",
+                        fontSize: "14px",
+                      }}
+                    >
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                      <option value={200}>200</option>
+                      <option value={500}>500</option>
+                    </select>
+                    <span style={{ fontSize: "14px", color: "#666" }}>
+                      per page
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {companiesLoading ? (
               <div style={{ textAlign: "center", padding: "40px" }}>
@@ -1022,7 +1136,41 @@ const SectorDetailPage = () => {
 
                 {pagination.pageTotal > 1 && (
                   <div className="pagination">
+                    {pagination.prevPage && (
+                      <button
+                        className="pagination-button"
+                        onClick={() => handlePageChange(pagination.prevPage!)}
+                        style={{
+                          padding: "8px 16px",
+                          marginRight: "8px",
+                          border: "1px solid #0075df",
+                          background: "white",
+                          color: "#0075df",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        ← Previous
+                      </button>
+                    )}
                     {generatePaginationButtons()}
+                    {pagination.nextPage && (
+                      <button
+                        className="pagination-button"
+                        onClick={() => handlePageChange(pagination.nextPage!)}
+                        style={{
+                          padding: "8px 16px",
+                          marginLeft: "8px",
+                          border: "1px solid #0075df",
+                          background: "white",
+                          color: "#0075df",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Next →
+                      </button>
+                    )}
                   </div>
                 )}
               </>

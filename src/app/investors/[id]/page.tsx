@@ -5,6 +5,15 @@ import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 // Types for API integration
 interface InvestorLocation {
@@ -22,6 +31,11 @@ interface LinkedInData {
   linkedin_employee: number;
   linkedin_emp_date: string;
   linkedin_logo: string;
+}
+
+interface LinkedInHistory {
+  date: string;
+  employees_count: number;
 }
 
 interface Investor {
@@ -139,6 +153,79 @@ const formatDate = (dateString: string | null): string => {
   }
 };
 
+const formatChartDate = (dateString: string): string => {
+  const [year, month] = dateString.split("-");
+  const date = new Date(parseInt(year), parseInt(month) - 1);
+  return date.toLocaleDateString("en-US", { year: "numeric", month: "short" });
+};
+
+// LinkedIn History Chart Component
+const LinkedInHistoryChart = ({ data }: { data: LinkedInHistory[] }) => {
+  const chartData = data.map((item) => ({
+    date: formatChartDate(item.date),
+    count: item.employees_count,
+    fullDate: item.date,
+  }));
+
+  interface TooltipProps {
+    active?: boolean;
+    payload?: Array<{
+      value: number;
+      dataKey: string;
+    }>;
+    label?: string;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
+    if (active && payload && payload.length) {
+      return (
+        <div
+          style={{
+            backgroundColor: "white",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            padding: "10px",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+          }}
+        >
+          <p style={{ margin: 0, fontWeight: "bold" }}>{`${label}`}</p>
+          <p style={{ margin: 0, color: "#0075df" }}>
+            {`Employees: ${formatNumber(payload[0].value)}`}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <div style={{ width: "100%", height: "300px" }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis
+            dataKey="date"
+            tick={{ fontSize: 12 }}
+            angle={-45}
+            textAnchor="end"
+            height={60}
+          />
+          <YAxis tick={{ fontSize: 12 }} />
+          <Tooltip content={<CustomTooltip />} />
+          <Line
+            type="monotone"
+            dataKey="count"
+            stroke="#0075df"
+            strokeWidth={2}
+            dot={{ fill: "#0075df", strokeWidth: 2, r: 4 }}
+            activeDot={{ r: 6, fill: "#0075df" }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
 const truncateDescription = (
   description: string,
   maxLength: number = 150
@@ -253,6 +340,8 @@ const InvestorDetailPage = () => {
   });
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(false);
+  const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
+  const [linkedInHistoryLoading, setLinkedInHistoryLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [pastPortfolioLoading, setPastPortfolioLoading] = useState(false);
@@ -443,18 +532,67 @@ const InvestorDetailPage = () => {
     }
   }, [investorId]);
 
+  // Fetch LinkedIn history data
+  const fetchLinkedInHistory = useCallback(async () => {
+    setLinkedInHistoryLoading(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+
+      const params = new URLSearchParams();
+      params.append("new_company_id", investorId);
+
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/companies_employees_count_monthly?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `LinkedIn History API request failed: ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+      console.log("LinkedIn history API response:", data);
+
+      // Transform the data to match our interface - same format as company page
+      const historyData = (data || []).map(
+        (item: { date?: string; employees_count?: number }) => ({
+          date: item.date || "",
+          employees_count: item.employees_count || 0,
+        })
+      );
+
+      setLinkedInHistory(historyData);
+    } catch (err) {
+      console.error("Error fetching LinkedIn history:", err);
+      // Don't set main error state for LinkedIn history loading failure
+    } finally {
+      setLinkedInHistoryLoading(false);
+    }
+  }, [investorId]);
+
   useEffect(() => {
     if (investorId) {
       fetchInvestorData();
       fetchPortfolioCompanies(1);
       fetchPastPortfolioCompanies(1);
       fetchCorporateEvents();
+      fetchLinkedInHistory();
     }
   }, [
     fetchInvestorData,
     fetchPortfolioCompanies,
     fetchPastPortfolioCompanies,
     fetchCorporateEvents,
+    fetchLinkedInHistory,
     investorId,
   ]);
 
@@ -1209,6 +1347,20 @@ const InvestorDetailPage = () => {
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* Historic LinkedIn Data Section */}
+            <div className="investor-section">
+              <h2 className="section-title">Historic LinkedIn Data</h2>
+              {linkedInHistoryLoading ? (
+                <div className="loading">Loading LinkedIn history...</div>
+              ) : linkedInHistory.length > 0 ? (
+                <LinkedInHistoryChart data={linkedInHistory} />
+              ) : (
+                <div className="no-data">
+                  No LinkedIn history data available
+                </div>
+              )}
             </div>
 
             {/* Invested D&A Sectors Section */}

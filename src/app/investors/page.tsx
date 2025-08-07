@@ -48,7 +48,7 @@ interface InvestorsResponse {
 }
 
 interface InvestorsFilters {
-  Investor_Types: string[];
+  Investor_Types: number[];
   Primary_Sectors: number[]; // Changed from string[] to number[]
   Secondary_Sectors: number[]; // Changed from string[] to number[]
   Horizontals: string[];
@@ -142,7 +142,12 @@ const InvestorsPage = () => {
     []
   );
   const [investorTypes, setInvestorTypes] = useState<
-    Array<{ id: number; sector_name: string }>
+    Array<{
+      id: number;
+      sector_name?: string;
+      name?: string;
+      investor_type?: string;
+    }>
   >([]);
 
   // Loading states
@@ -180,8 +185,8 @@ const InvestorsPage = () => {
   }));
 
   const investorTypeOptions = investorTypes.map((type) => ({
-    value: type.sector_name,
-    label: type.sector_name,
+    value: type.id,
+    label: type.sector_name || type.name || type.investor_type || String(type),
   }));
 
   // State for each filter (arrays for multi-select)
@@ -194,9 +199,11 @@ const InvestorsPage = () => {
   const [selectedSecondarySectors, setSelectedSecondarySectors] = useState<
     number[]
   >([]);
-  const [selectedInvestorTypes, setSelectedInvestorTypes] = useState<string[]>(
+  const [selectedInvestorTypes, setSelectedInvestorTypes] = useState<number[]>(
     []
   );
+  const [portfolioMin, setPortfolioMin] = useState<number>(0);
+  const [portfolioMax, setPortfolioMax] = useState<number>(0);
 
   // Fetch data from API (same as companies page)
   const fetchCountries = async () => {
@@ -319,9 +326,15 @@ const InvestorsPage = () => {
       }
 
       const data = await response.json();
+      console.log("Investor types API response:", data);
       setInvestorTypes(data);
     } catch (err) {
       console.error("Error fetching investor types:", err);
+      setError(
+        `Failed to load investor types: ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`
+      );
     } finally {
       setLoadingInvestorTypes(false);
     }
@@ -382,7 +395,7 @@ const InvestorsPage = () => {
       // Add investor types as arrays
       if (filters.Investor_Types.length > 0) {
         filters.Investor_Types.forEach((type) => {
-          params.append("Investor_Types[]", type);
+          params.append("Investor_Types[]", type.toString());
         });
       }
 
@@ -418,7 +431,10 @@ const InvestorsPage = () => {
       });
 
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(
+          `API request failed: ${response.statusText} - ${errorText}`
+        );
       }
 
       const data: InvestorsResponse = await response.json();
@@ -505,6 +521,8 @@ const InvestorsPage = () => {
       Primary_Sectors: selectedPrimarySectors,
       Secondary_Sectors: selectedSecondarySectors,
       Investor_Types: selectedInvestorTypes,
+      Portfolio_Companies_Min: portfolioMin,
+      Portfolio_Companies_Max: portfolioMax,
       page: 1, // Reset to first page when searching
     };
     setFilters(updatedFilters);
@@ -518,6 +536,36 @@ const InvestorsPage = () => {
     fetchInvestors(updatedFilters);
   };
 
+  // Handle filter reset
+  const handleResetFilters = () => {
+    setSelectedCountries([]);
+    setSelectedProvinces([]);
+    setSelectedCities([]);
+    setSelectedPrimarySectors([]);
+    setSelectedSecondarySectors([]);
+    setSelectedInvestorTypes([]);
+    setPortfolioMin(0);
+    setPortfolioMax(0);
+    setSearchTerm("");
+
+    const resetFilters: InvestorsFilters = {
+      Investor_Types: [],
+      Primary_Sectors: [],
+      Secondary_Sectors: [],
+      Horizontals: [],
+      Portfolio_Companies_Min: 0,
+      Portfolio_Companies_Max: 0,
+      Search_Query: "",
+      page: 1,
+      per_page: 50,
+      Countries: [],
+      Provinces: [],
+      Cities: [],
+    };
+    setFilters(resetFilters);
+    fetchInvestors(resetFilters);
+  };
+
   const styles = {
     container: {
       backgroundColor: "#f9fafb",
@@ -525,16 +573,16 @@ const InvestorsPage = () => {
         '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     },
     maxWidth: {
-      padding: "32px",
+      padding: "16px",
       display: "flex" as const,
       flexDirection: "column" as const,
-      gap: "24px",
+      gap: "16px",
     },
     card: {
       backgroundColor: "white",
       borderRadius: "12px",
       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-      padding: "32px 24px",
+      padding: "20px 24px",
       marginBottom: "0",
     },
     heading: {
@@ -590,8 +638,8 @@ const InvestorsPage = () => {
     grid: {
       display: "grid",
       gridTemplateColumns: "repeat(3, 1fr)",
-      gap: "16px 40px",
-      marginBottom: "20px",
+      gap: "12px 24px",
+      marginBottom: "16px",
     },
     gridItem: {
       display: "flex" as const,
@@ -651,18 +699,18 @@ const InvestorsPage = () => {
 
   // Truncate description for display
   const truncateDescription = (description: string) => {
-    const isDescriptionLong = description.length > 150;
+    const isDescriptionLong = description.length > 220;
     return isDescriptionLong
-      ? description.substring(0, 150) + "..."
+      ? description.substring(0, 220) + "..."
       : description;
   };
 
   const tableRows = investors.map((investor, index) => {
     // Truncate description for display
     const description = investor.description || "N/A";
-    const isDescriptionLong = description.length > 150;
+    const isDescriptionLong = description.length > 220;
     const truncatedDescription = isDescriptionLong
-      ? description.substring(0, 150) + "..."
+      ? description.substring(0, 220) + "..."
       : description;
 
     return React.createElement(
@@ -810,7 +858,7 @@ const InvestorsPage = () => {
   // Investor Card Component for mobile
   const InvestorCard = (investor: Investor, index: number) => {
     const description = investor.description || "N/A";
-    const isDescriptionLong = description.length > 150;
+    const isDescriptionLong = description.length > 220;
     const truncatedDescription = truncateDescription(description);
 
     return React.createElement(
@@ -1082,37 +1130,38 @@ const InvestorsPage = () => {
 
   const style = `
     .investor-section {
-      padding: 32px 24px;
+      padding: 16px 24px;
       border-radius: 8px;
     }
     .investor-stats {
       background: #fff;
-      padding: 32px 24px;
+      padding: 20px 24px;
       box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
       border-radius: 16px;
-      margin-bottom: 24px;
+      margin-bottom: 16px;
     }
     .stats-title {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       color: #1a202c;
-      margin: 0 0 24px 0;
+      margin: 0 0 16px 0;
     }
     .stats-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 32px;
+      gap: 20px;
     }
     .stats-column {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 10px;
     }
     .stats-item {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-start;
       align-items: center;
-      padding: 12px 0;
+      gap: 8px;
+      padding: 8px 0;
       border-bottom: 1px solid #e2e8f0;
     }
     .stats-item:last-child {
@@ -1131,15 +1180,23 @@ const InvestorsPage = () => {
     .investor-table {
       width: 100%;
       background: #fff;
-      padding: 32px 24px;
+      padding: 20px 24px;
       box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
       border-radius: 16px;
       border-collapse: collapse;
       table-layout: fixed;
     }
+    .investor-table th:nth-child(1) { width: 8%; }  /* Logo */
+    .investor-table th:nth-child(2) { width: 12%; } /* Name */
+    .investor-table th:nth-child(3) { width: 10%; } /* Type */
+    .investor-table th:nth-child(4) { width: 25%; } /* Description - Wider */
+    .investor-table th:nth-child(5) { width: 10%; } /* Portfolio Companies */
+    .investor-table th:nth-child(6) { width: 18%; } /* Sectors */
+    .investor-table th:nth-child(7) { width: 9%; }  /* LinkedIn Members */
+    .investor-table th:nth-child(8) { width: 8%; }  /* Country */
     .investor-table th,
     .investor-table td {
-      padding: 16px;
+      padding: 12px;
       text-align: left;
       vertical-align: top;
       border-bottom: 1px solid #e2e8f0;
@@ -1176,7 +1233,7 @@ const InvestorsPage = () => {
       color: #005bb5;
     }
     .investor-description {
-      max-width: 300px;
+      max-width: 450px;
       line-height: 1.4;
     }
     .investor-description-truncated {
@@ -1275,21 +1332,21 @@ const InvestorsPage = () => {
         font-size: 13px !important;
       }
       .investor-section {
-        padding: 20px 8px !important;
+        padding: 12px 8px !important;
       }
       .investor-stats {
-        padding: 20px 16px !important;
+        padding: 16px 16px !important;
       }
       .stats-title {
-        font-size: 20px !important;
-        margin-bottom: 16px !important;
+        font-size: 18px !important;
+        margin-bottom: 12px !important;
       }
       .stats-grid {
         grid-template-columns: 1fr !important;
-        gap: 16px !important;
+        gap: 12px !important;
       }
       .stats-item {
-        padding: 8px 0 !important;
+        padding: 6px 0 !important;
       }
       .stats-label {
         font-size: 12px !important;
@@ -1303,7 +1360,7 @@ const InvestorsPage = () => {
         gap: 16px !important;
       }
       .filters-card {
-        padding: 20px 16px !important;
+        padding: 16px 16px !important;
       }
       .filters-heading {
         font-size: 20px !important;
@@ -1607,14 +1664,22 @@ const InvestorsPage = () => {
                     <input
                       type="number"
                       style={styles.rangeInput}
-                      placeholder="0"
+                      placeholder="Min"
                       className="filters-input"
+                      value={portfolioMin || ""}
+                      onChange={(e) =>
+                        setPortfolioMin(Number(e.target.value) || 0)
+                      }
                     />
                     <input
                       type="number"
                       style={styles.rangeInput}
-                      placeholder="0"
+                      placeholder="Max"
                       className="filters-input"
+                      value={portfolioMax || ""}
+                      onChange={(e) =>
+                        setPortfolioMax(Number(e.target.value) || 0)
+                      }
                     />
                   </div>
                 </div>
@@ -1650,7 +1715,12 @@ const InvestorsPage = () => {
             </div>
 
             <button
-              onClick={() => setShowFilters(!showFilters)}
+              onClick={() => {
+                if (showFilters) {
+                  handleResetFilters();
+                }
+                setShowFilters(!showFilters);
+              }}
               style={styles.linkButton}
             >
               {showFilters ? "Hide & Reset Filters" : "Show Filters"}

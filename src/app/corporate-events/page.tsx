@@ -45,16 +45,16 @@ const styles = {
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   },
   maxWidth: {
-    padding: "32px",
+    padding: "16px",
     display: "flex" as const,
     flexDirection: "column" as const,
-    gap: "24px",
+    gap: "16px",
   },
   card: {
     backgroundColor: "white",
     borderRadius: "12px",
     boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-    padding: "32px 24px",
+    padding: "20px 24px",
     marginBottom: "0",
   },
   heading: {
@@ -109,8 +109,8 @@ const styles = {
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-    gap: "24px",
-    marginBottom: "24px",
+    gap: "16px",
+    marginBottom: "16px",
   },
   gridItem: {
     display: "flex",
@@ -501,6 +501,9 @@ const CorporateEventsTable = ({
 
 // Main Corporate Events Page Component
 const CorporateEventsPage = () => {
+  // State for filter visibility
+  const [showFilters, setShowFilters] = useState(false);
+
   // State for filters
   const [filters, setFilters] = useState<CorporateEventsFilters>({
     Countries: [],
@@ -1174,345 +1177,51 @@ const CorporateEventsPage = () => {
             <h2 style={styles.heading} className="filters-heading">
               Corporate Events
             </h2>
-            <p style={{ color: "#666", marginBottom: "24px" }}>
+            <p style={{ color: "#666", marginBottom: "16px" }}>
               Search and filter corporate events by location, sectors, event
               types, and more.
             </p>
 
-            <div style={styles.grid} className="filters-grid">
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Corporate Event Type
-                </h3>
-                <span style={styles.label}>By Type</span>
-                <SearchableSelect
-                  options={eventTypeOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedEventTypes.includes(value)
-                    ) {
-                      setSelectedEventTypes([...selectedEventTypes, value]);
-                    }
-                  }}
-                  placeholder="Select Type"
-                  disabled={false}
-                  style={styles.select}
-                />
-
-                {/* Selected Event Types Tags */}
-                {selectedEventTypes.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
+            {showFilters && (
+              <div style={styles.grid} className="filters-grid">
+                <div style={styles.gridItem}>
+                  <h3 style={styles.subHeading} className="filters-sub-heading">
+                    Corporate Event Type
+                  </h3>
+                  <span style={styles.label}>By Type</span>
+                  <SearchableSelect
+                    options={eventTypeOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedEventTypes.includes(value)
+                      ) {
+                        setSelectedEventTypes([...selectedEventTypes, value]);
+                      }
                     }}
-                  >
-                    {selectedEventTypes.map((eventType) => (
-                      <span
-                        key={eventType}
-                        style={{
-                          backgroundColor: "#e3f2fd",
-                          color: "#1976d2",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {eventType}
-                        <button
-                          onClick={() => {
-                            setSelectedEventTypes(
-                              selectedEventTypes.filter((t) => t !== eventType)
-                            );
-                          }}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#1976d2",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
+                    placeholder="Select Type"
+                    disabled={false}
+                    style={styles.select}
+                  />
 
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Location
-                </h3>
-                <span style={styles.label}>By Country</span>
-                <SearchableSelect
-                  options={countryOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedCountries.includes(value)
-                    ) {
-                      setSelectedCountries([...selectedCountries, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingCountries ? "Loading countries..." : "Select Country"
-                  }
-                  disabled={loadingCountries}
-                  style={styles.select}
-                />
-
-                {/* Selected Countries Tags */}
-                {selectedCountries.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedCountries.map((country) => (
-                      <span
-                        key={country}
-                        style={{
-                          backgroundColor: "#e3f2fd",
-                          color: "#1976d2",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {country}
-                        <button
-                          onClick={() => {
-                            setSelectedCountries(
-                              selectedCountries.filter((c) => c !== country)
-                            );
-                          }}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#1976d2",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <span style={styles.label}>By State/County/Province</span>
-                <SearchableSelect
-                  options={provinceOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedProvinces.includes(value)
-                    ) {
-                      setSelectedProvinces([...selectedProvinces, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingProvinces
-                      ? "Loading provinces..."
-                      : selectedCountries.length === 0
-                      ? "Select country first"
-                      : "Select Province"
-                  }
-                  disabled={loadingProvinces || selectedCountries.length === 0}
-                  style={styles.select}
-                />
-
-                {/* Selected Provinces Tags */}
-                {selectedProvinces.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedProvinces.map((province) => (
-                      <span
-                        key={province}
-                        style={{
-                          backgroundColor: "#e8f5e8",
-                          color: "#2e7d32",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {province}
-                        <button
-                          onClick={() => {
-                            setSelectedProvinces(
-                              selectedProvinces.filter((p) => p !== province)
-                            );
-                          }}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#2e7d32",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <span style={styles.label}>By City</span>
-                <SearchableSelect
-                  options={cityOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedCities.includes(value)
-                    ) {
-                      setSelectedCities([...selectedCities, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingCities
-                      ? "Loading cities..."
-                      : selectedCountries.length === 0
-                      ? "Select country first"
-                      : "Select City"
-                  }
-                  disabled={loadingCities || selectedCountries.length === 0}
-                  style={styles.select}
-                />
-
-                {/* Selected Cities Tags */}
-                {selectedCities.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedCities.map((city) => (
-                      <span
-                        key={city}
-                        style={{
-                          backgroundColor: "#fff3e0",
-                          color: "#f57c00",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {city}
-                        <button
-                          onClick={() => {
-                            setSelectedCities(
-                              selectedCities.filter((c) => c !== city)
-                            );
-                          }}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#f57c00",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Sector
-                </h3>
-                <span style={styles.label}>By Primary Sectors</span>
-                <SearchableSelect
-                  options={primarySectorOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "number" &&
-                      value &&
-                      !selectedPrimarySectors.includes(value)
-                    ) {
-                      setSelectedPrimarySectors([
-                        ...selectedPrimarySectors,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder={
-                    loadingPrimarySectors
-                      ? "Loading sectors..."
-                      : "Select Primary Sector"
-                  }
-                  disabled={loadingPrimarySectors}
-                  style={styles.select}
-                />
-
-                {/* Selected Primary Sectors Tags */}
-                {selectedPrimarySectors.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedPrimarySectors.map((sectorId) => {
-                      const sector = primarySectors.find(
-                        (s) => s.id === sectorId
-                      );
-                      return (
+                  {/* Selected Event Types Tags */}
+                  {selectedEventTypes.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedEventTypes.map((eventType) => (
                         <span
-                          key={sectorId}
+                          key={eventType}
                           style={{
-                            backgroundColor: "#f3e5f5",
-                            color: "#7b1fa2",
+                            backgroundColor: "#e3f2fd",
+                            color: "#1976d2",
                             padding: "4px 8px",
                             borderRadius: "4px",
                             fontSize: "12px",
@@ -1521,19 +1230,19 @@ const CorporateEventsPage = () => {
                             gap: "4px",
                           }}
                         >
-                          {sector?.sector_name || `Sector ${sectorId}`}
+                          {eventType}
                           <button
                             onClick={() => {
-                              setSelectedPrimarySectors(
-                                selectedPrimarySectors.filter(
-                                  (s) => s !== sectorId
+                              setSelectedEventTypes(
+                                selectedEventTypes.filter(
+                                  (t) => t !== eventType
                                 )
                               );
                             }}
                             style={{
                               background: "none",
                               border: "none",
-                              color: "#7b1fa2",
+                              color: "#1976d2",
                               cursor: "pointer",
                               fontWeight: "bold",
                               fontSize: "14px",
@@ -1542,58 +1251,123 @@ const CorporateEventsPage = () => {
                             ×
                           </button>
                         </span>
-                      );
-                    })}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-                <span style={styles.label}>By Secondary Sectors</span>
-                <SearchableSelect
-                  options={secondarySectorOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "number" &&
-                      value &&
-                      !selectedSecondarySectors.includes(value)
-                    ) {
-                      setSelectedSecondarySectors([
-                        ...selectedSecondarySectors,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder={
-                    loadingSecondarySectors
-                      ? "Loading sectors..."
-                      : selectedPrimarySectors.length === 0
-                      ? "Select primary sectors first"
-                      : "Select Secondary Sector"
-                  }
-                  disabled={
-                    loadingSecondarySectors ||
-                    selectedPrimarySectors.length === 0
-                  }
-                  style={styles.select}
-                />
-
-                {/* Selected Secondary Sectors Tags */}
-                {selectedSecondarySectors.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
+                <div style={styles.gridItem}>
+                  <h3 style={styles.subHeading} className="filters-sub-heading">
+                    Location
+                  </h3>
+                  <span style={styles.label}>By Country</span>
+                  <SearchableSelect
+                    options={countryOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedCountries.includes(value)
+                      ) {
+                        setSelectedCountries([...selectedCountries, value]);
+                      }
                     }}
-                  >
-                    {selectedSecondarySectors.map((sectorId) => {
-                      const sector = secondarySectors.find(
-                        (s) => s.id === sectorId
-                      );
-                      return (
+                    placeholder={
+                      loadingCountries
+                        ? "Loading countries..."
+                        : "Select Country"
+                    }
+                    disabled={loadingCountries}
+                    style={styles.select}
+                  />
+
+                  {/* Selected Countries Tags */}
+                  {selectedCountries.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedCountries.map((country) => (
                         <span
-                          key={sectorId}
+                          key={country}
+                          style={{
+                            backgroundColor: "#e3f2fd",
+                            color: "#1976d2",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {country}
+                          <button
+                            onClick={() => {
+                              setSelectedCountries(
+                                selectedCountries.filter((c) => c !== country)
+                              );
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#1976d2",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <span style={styles.label}>By State/County/Province</span>
+                  <SearchableSelect
+                    options={provinceOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedProvinces.includes(value)
+                      ) {
+                        setSelectedProvinces([...selectedProvinces, value]);
+                      }
+                    }}
+                    placeholder={
+                      loadingProvinces
+                        ? "Loading provinces..."
+                        : selectedCountries.length === 0
+                        ? "Select country first"
+                        : "Select Province"
+                    }
+                    disabled={
+                      loadingProvinces || selectedCountries.length === 0
+                    }
+                    style={styles.select}
+                  />
+
+                  {/* Selected Provinces Tags */}
+                  {selectedProvinces.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedProvinces.map((province) => (
+                        <span
+                          key={province}
                           style={{
                             backgroundColor: "#e8f5e8",
                             color: "#2e7d32",
@@ -1605,13 +1379,11 @@ const CorporateEventsPage = () => {
                             gap: "4px",
                           }}
                         >
-                          {sector?.sector_name || `Sector ${sectorId}`}
+                          {province}
                           <button
                             onClick={() => {
-                              setSelectedSecondarySectors(
-                                selectedSecondarySectors.filter(
-                                  (s) => s !== sectorId
-                                )
+                              setSelectedProvinces(
+                                selectedProvinces.filter((p) => p !== province)
                               );
                             }}
                             style={{
@@ -1626,127 +1398,398 @@ const CorporateEventsPage = () => {
                             ×
                           </button>
                         </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  )}
 
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Deal Status
-                </h3>
-                <span style={styles.label}>By Deal Status</span>
-                <SearchableSelect
-                  options={dealStatusOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedDealStatuses.includes(value)
-                    ) {
-                      setSelectedDealStatuses([...selectedDealStatuses, value]);
-                    }
-                  }}
-                  placeholder="Select Deal Status"
-                  disabled={false}
-                  style={styles.select}
-                />
-
-                {/* Selected Deal Statuses Tags */}
-                {selectedDealStatuses.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
+                  <span style={styles.label}>By City</span>
+                  <SearchableSelect
+                    options={cityOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedCities.includes(value)
+                      ) {
+                        setSelectedCities([...selectedCities, value]);
+                      }
                     }}
-                  >
-                    {selectedDealStatuses.map((dealStatus) => (
-                      <span
-                        key={dealStatus}
-                        style={{
-                          backgroundColor: "#ffebee",
-                          color: "#c62828",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {dealStatus}
-                        <button
-                          onClick={() => {
-                            setSelectedDealStatuses(
-                              selectedDealStatuses.filter(
-                                (s) => s !== dealStatus
-                              )
-                            );
-                          }}
+                    placeholder={
+                      loadingCities
+                        ? "Loading cities..."
+                        : selectedCountries.length === 0
+                        ? "Select country first"
+                        : "Select City"
+                    }
+                    disabled={loadingCities || selectedCountries.length === 0}
+                    style={styles.select}
+                  />
+
+                  {/* Selected Cities Tags */}
+                  {selectedCities.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedCities.map((city) => (
+                        <span
+                          key={city}
                           style={{
-                            background: "none",
-                            border: "none",
-                            color: "#c62828",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
+                            backgroundColor: "#fff3e0",
+                            color: "#f57c00",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
                           }}
                         >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
+                          {city}
+                          <button
+                            onClick={() => {
+                              setSelectedCities(
+                                selectedCities.filter((c) => c !== city)
+                              );
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#f57c00",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div style={styles.gridItem}>
+                  <h3 style={styles.subHeading} className="filters-sub-heading">
+                    Sector
+                  </h3>
+                  <span style={styles.label}>By Primary Sectors</span>
+                  <SearchableSelect
+                    options={primarySectorOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "number" &&
+                        value &&
+                        !selectedPrimarySectors.includes(value)
+                      ) {
+                        setSelectedPrimarySectors([
+                          ...selectedPrimarySectors,
+                          value,
+                        ]);
+                      }
+                    }}
+                    placeholder={
+                      loadingPrimarySectors
+                        ? "Loading sectors..."
+                        : "Select Primary Sector"
+                    }
+                    disabled={loadingPrimarySectors}
+                    style={styles.select}
+                  />
+
+                  {/* Selected Primary Sectors Tags */}
+                  {selectedPrimarySectors.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedPrimarySectors.map((sectorId) => {
+                        const sector = primarySectors.find(
+                          (s) => s.id === sectorId
+                        );
+                        return (
+                          <span
+                            key={sectorId}
+                            style={{
+                              backgroundColor: "#f3e5f5",
+                              color: "#7b1fa2",
+                              padding: "4px 8px",
+                              borderRadius: "4px",
+                              fontSize: "12px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            {sector?.sector_name || `Sector ${sectorId}`}
+                            <button
+                              onClick={() => {
+                                setSelectedPrimarySectors(
+                                  selectedPrimarySectors.filter(
+                                    (s) => s !== sectorId
+                                  )
+                                );
+                              }}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "#7b1fa2",
+                                cursor: "pointer",
+                                fontWeight: "bold",
+                                fontSize: "14px",
+                              }}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <span style={styles.label}>By Secondary Sectors</span>
+                  <SearchableSelect
+                    options={secondarySectorOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "number" &&
+                        value &&
+                        !selectedSecondarySectors.includes(value)
+                      ) {
+                        setSelectedSecondarySectors([
+                          ...selectedSecondarySectors,
+                          value,
+                        ]);
+                      }
+                    }}
+                    placeholder={
+                      loadingSecondarySectors
+                        ? "Loading sectors..."
+                        : selectedPrimarySectors.length === 0
+                        ? "Select primary sectors first"
+                        : "Select Secondary Sector"
+                    }
+                    disabled={
+                      loadingSecondarySectors ||
+                      selectedPrimarySectors.length === 0
+                    }
+                    style={styles.select}
+                  />
+
+                  {/* Selected Secondary Sectors Tags */}
+                  {selectedSecondarySectors.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedSecondarySectors.map((sectorId) => {
+                        const sector = secondarySectors.find(
+                          (s) => s.id === sectorId
+                        );
+                        return (
+                          <span
+                            key={sectorId}
+                            style={{
+                              backgroundColor: "#e8f5e8",
+                              color: "#2e7d32",
+                              padding: "4px 8px",
+                              borderRadius: "4px",
+                              fontSize: "12px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            {sector?.sector_name || `Sector ${sectorId}`}
+                            <button
+                              onClick={() => {
+                                setSelectedSecondarySectors(
+                                  selectedSecondarySectors.filter(
+                                    (s) => s !== sectorId
+                                  )
+                                );
+                              }}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "#2e7d32",
+                                cursor: "pointer",
+                                fontWeight: "bold",
+                                fontSize: "14px",
+                              }}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div style={styles.gridItem}>
+                  <h3 style={styles.subHeading} className="filters-sub-heading">
+                    Deal Status
+                  </h3>
+                  <span style={styles.label}>By Deal Status</span>
+                  <SearchableSelect
+                    options={dealStatusOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedDealStatuses.includes(value)
+                      ) {
+                        setSelectedDealStatuses([
+                          ...selectedDealStatuses,
+                          value,
+                        ]);
+                      }
+                    }}
+                    placeholder="Select Deal Status"
+                    disabled={false}
+                    style={styles.select}
+                  />
+
+                  {/* Selected Deal Statuses Tags */}
+                  {selectedDealStatuses.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedDealStatuses.map((dealStatus) => (
+                        <span
+                          key={dealStatus}
+                          style={{
+                            backgroundColor: "#ffebee",
+                            color: "#c62828",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {dealStatus}
+                          <button
+                            onClick={() => {
+                              setSelectedDealStatuses(
+                                selectedDealStatuses.filter(
+                                  (s) => s !== dealStatus
+                                )
+                              );
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#c62828",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div style={styles.gridItem}>
+                  <h3 style={styles.subHeading} className="filters-sub-heading">
+                    Announcement Date
+                  </h3>
+                  <span style={styles.label}>Start</span>
+                  <input
+                    type="date"
+                    value={dateStart}
+                    onChange={(e) => setDateStart(e.target.value)}
+                    style={styles.input}
+                    className="filters-input"
+                    placeholder="dd/mm/yyyy"
+                  />
+
+                  <span style={styles.label}>End</span>
+                  <input
+                    type="date"
+                    value={dateEnd}
+                    onChange={(e) => setDateEnd(e.target.value)}
+                    style={styles.input}
+                    className="filters-input"
+                    placeholder="dd/mm/yyyy"
+                  />
+                </div>
+
+                <div style={styles.gridItem}>
+                  <h3 style={styles.subHeading} className="filters-sub-heading">
+                    Search
+                  </h3>
+                  <span style={styles.label}>Search for Corporate Event</span>
+                  <input
+                    type="text"
+                    placeholder="Enter name here"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={styles.input}
+                    className="filters-input"
+                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                  />
+                  <button
+                    onClick={handleSearch}
+                    style={styles.button}
+                    className="filters-button"
+                    onMouseOver={(e) =>
+                      ((e.target as HTMLButtonElement).style.backgroundColor =
+                        "#005bb5")
+                    }
+                    onMouseOut={(e) =>
+                      ((e.target as HTMLButtonElement).style.backgroundColor =
+                        "#0075df")
+                    }
+                  >
+                    {loading ? "Searching..." : "Search"}
+                  </button>
+                </div>
               </div>
+            )}
 
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Announcement Date
-                </h3>
-                <span style={styles.label}>Start</span>
-                <input
-                  type="date"
-                  value={dateStart}
-                  onChange={(e) => setDateStart(e.target.value)}
-                  style={styles.input}
-                  className="filters-input"
-                  placeholder="dd/mm/yyyy"
-                />
-
-                <span style={styles.label}>End</span>
-                <input
-                  type="date"
-                  value={dateEnd}
-                  onChange={(e) => setDateEnd(e.target.value)}
-                  style={styles.input}
-                  className="filters-input"
-                  placeholder="dd/mm/yyyy"
-                />
-              </div>
-
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Search
-                </h3>
-                <span style={styles.label}>Search for Corporate Event</span>
+            {/* Search Section - Always Visible */}
+            <div style={{ marginTop: showFilters ? "20px" : "0" }}>
+              <h3 style={styles.subHeading}>Search Corporate Events</h3>
+              <div style={styles.searchDiv}>
                 <input
                   type="text"
-                  placeholder="Enter name here"
+                  placeholder="Enter search terms here"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   style={styles.input}
-                  className="filters-input"
                   onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                 />
                 <button
                   onClick={handleSearch}
                   style={styles.button}
-                  className="filters-button"
                   onMouseOver={(e) =>
                     ((e.target as HTMLButtonElement).style.backgroundColor =
                       "#005bb5")
@@ -1760,6 +1803,13 @@ const CorporateEventsPage = () => {
                 </button>
               </div>
             </div>
+
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              style={styles.linkButton}
+            >
+              {showFilters ? "Hide & Reset Filters" : "Show Filters"}
+            </button>
 
             {/* Error Display */}
             {error && <div className="error">{error}</div>}
