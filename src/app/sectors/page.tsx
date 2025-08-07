@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for API integration
 interface Sector {
@@ -15,6 +16,15 @@ interface Sector {
   Number_of_Public: number;
   Number_of_Private: number;
 }
+
+type SortField =
+  | "sector_name"
+  | "Number_of_Companies"
+  | "Number_of_Public"
+  | "Number_of_PE"
+  | "Number_of_VC"
+  | "Number_of_Private";
+type SortDirection = "asc" | "desc";
 
 interface SectorsResponse {
   sectors: Sector[];
@@ -36,6 +46,7 @@ const SectorCard = ({
   sector: Sector;
   onClick: () => void;
 }) => {
+  const { createClickableElement } = useRightClick();
   const formatNumber = (num: number | undefined) => {
     if (num === undefined || num === null) return "0";
     return num.toLocaleString();
@@ -66,18 +77,16 @@ const SectorCard = ({
           marginBottom: "12px",
         },
       },
-      React.createElement(
-        "h3",
+      createClickableElement(
+        `/sector/${sector.id}`,
+        sector.sector_name || "N/A",
+        undefined,
         {
-          style: {
-            fontSize: "16px",
-            fontWeight: "600",
-            color: "#0075df",
-            margin: "0",
-            textDecoration: "underline",
-          },
-        },
-        sector.sector_name || "N/A"
+          fontSize: "16px",
+          fontWeight: "600",
+          margin: "0",
+          display: "block",
+        }
       ),
       React.createElement(
         "span",
@@ -178,13 +187,43 @@ const SectorCard = ({
 
 const SectorsSection = () => {
   const router = useRouter();
+  const { createClickableElement } = useRightClick();
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<SortField>("Number_of_Companies");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   const handleSectorClick = (sectorId: number) => {
     router.push(`/sector/${sectorId}`);
   };
+
+  // Sorting function
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
+    }
+  };
+
+  // Sort sectors
+  const sortedSectors = [...sectors].sort((a, b) => {
+    let aValue: string | number = a[sortField];
+    let bValue: string | number = b[sortField];
+
+    if (typeof aValue === "string") {
+      aValue = aValue.toLowerCase();
+      bValue = (bValue as string).toLowerCase();
+    }
+
+    if (sortDirection === "asc") {
+      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+    } else {
+      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+    }
+  });
 
   const [summaryData, setSummaryData] = useState({
     primary_sectors_count: 0,
@@ -239,7 +278,7 @@ const SectorsSection = () => {
     fetchSectors();
   }, []);
 
-  const tableRows = sectors.map((sector, index) => {
+  const tableRows = sortedSectors.map((sector, index) => {
     // Format numbers with commas
     const formatNumber = (num: number | undefined) => {
       if (num === undefined || num === null) return "0";
@@ -252,18 +291,10 @@ const SectorsSection = () => {
       React.createElement(
         "td",
         null,
-        React.createElement(
-          "span",
-          {
-            className: "sector-name",
-            onClick: () => handleSectorClick(sector.id),
-            style: {
-              cursor: "pointer",
-              color: "#3b82f6",
-              textDecoration: "underline",
-            },
-          },
-          sector.sector_name || "N/A"
+        createClickableElement(
+          `/sector/${sector.id}`,
+          sector.sector_name || "N/A",
+          "sector-name"
         )
       ),
       React.createElement("td", null, formatNumber(sector.Number_of_Companies)),
@@ -295,13 +326,13 @@ const SectorsSection = () => {
     .stats-content {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 8px;
     }
     .stats-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 0;
+      padding: 8px 0;
       border-bottom: 1px solid #e2e8f0;
     }
     .stats-item:last-child {
@@ -318,13 +349,13 @@ const SectorsSection = () => {
       font-weight: 600;
     }
     .top-sectors {
-      margin-top: 16px;
+      margin-top: 12px;
     }
     .top-sectors-label {
       font-size: 14px;
       color: #4a5568;
       font-weight: 500;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     .top-sectors-list {
       display: flex;
@@ -531,12 +562,66 @@ const SectorsSection = () => {
         React.createElement(
           "tr",
           null,
-          React.createElement("th", null, "Sector Name"),
-          React.createElement("th", null, "Number of Companies"),
-          React.createElement("th", null, "Number of Public Companies"),
-          React.createElement("th", null, "Number of PE-owned Companies"),
-          React.createElement("th", null, "Number of VC-owned Companies"),
-          React.createElement("th", null, "Number of Private Companies")
+          React.createElement(
+            "th",
+            {
+              onClick: () => handleSort("sector_name"),
+              style: { cursor: "pointer", userSelect: "none" },
+            },
+            "Sector Name",
+            sortField === "sector_name" &&
+              (sortDirection === "asc" ? " ↑" : " ↓")
+          ),
+          React.createElement(
+            "th",
+            {
+              onClick: () => handleSort("Number_of_Companies"),
+              style: { cursor: "pointer", userSelect: "none" },
+            },
+            "Number of Companies",
+            sortField === "Number_of_Companies" &&
+              (sortDirection === "asc" ? " ↑" : " ↓")
+          ),
+          React.createElement(
+            "th",
+            {
+              onClick: () => handleSort("Number_of_Public"),
+              style: { cursor: "pointer", userSelect: "none" },
+            },
+            "Number of Public Companies",
+            sortField === "Number_of_Public" &&
+              (sortDirection === "asc" ? " ↑" : " ↓")
+          ),
+          React.createElement(
+            "th",
+            {
+              onClick: () => handleSort("Number_of_PE"),
+              style: { cursor: "pointer", userSelect: "none" },
+            },
+            "Number of PE-owned Companies",
+            sortField === "Number_of_PE" &&
+              (sortDirection === "asc" ? " ↑" : " ↓")
+          ),
+          React.createElement(
+            "th",
+            {
+              onClick: () => handleSort("Number_of_VC"),
+              style: { cursor: "pointer", userSelect: "none" },
+            },
+            "Number of VC-owned Companies",
+            sortField === "Number_of_VC" &&
+              (sortDirection === "asc" ? " ↑" : " ↓")
+          ),
+          React.createElement(
+            "th",
+            {
+              onClick: () => handleSort("Number_of_Private"),
+              style: { cursor: "pointer", userSelect: "none" },
+            },
+            "Number of Private Companies",
+            sortField === "Number_of_Private" &&
+              (sortDirection === "asc" ? " ↑" : " ↓")
+          )
         )
       ),
       React.createElement("tbody", null, tableRows)
@@ -545,7 +630,7 @@ const SectorsSection = () => {
     React.createElement(
       "div",
       { className: "sectors-cards" },
-      sectors.map((sector) =>
+      sortedSectors.map((sector) =>
         React.createElement(SectorCard, {
           key: sector.id,
           sector,

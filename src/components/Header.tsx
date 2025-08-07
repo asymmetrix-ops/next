@@ -2,10 +2,18 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { authService } from "@/lib/auth";
 
 const Header = () => {
   const [activeTab, setActiveTab] = useState("Dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const router = useRouter();
+
+  const handleLogout = () => {
+    authService.logout();
+    router.push("/login");
+  };
 
   const navItems = [
     "Dashboard",
@@ -245,6 +253,7 @@ const Header = () => {
             {/* Log out */}
             <button
               style={styles.logoutButton}
+              onClick={handleLogout}
               onMouseOver={(e) =>
                 ((e.target as HTMLElement).style.color = "#111827")
               }

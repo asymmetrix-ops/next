@@ -712,6 +712,16 @@ const InvestorsPage = () => {
                 },
                 onClick: () =>
                   router.push(`/investors/${investor.original_new_company_id}`),
+                onContextMenu: (e: React.MouseEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.open(
+                    `/investors/${investor.original_new_company_id}`,
+                    "_blank",
+                    "noopener,noreferrer"
+                  );
+                },
+                title: "Left click to navigate, Right click to open in new tab",
               },
               investor.company_name || "N/A"
             )

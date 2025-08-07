@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useRightClick } from "@/hooks/useRightClick";
 import {
   LineChart,
   Line,
@@ -62,6 +63,30 @@ interface EmployeeCount {
   employees_count: number;
 }
 
+interface CompanyInvestor {
+  id: number;
+  name: string;
+  url?: string;
+}
+
+interface CompanyManagement {
+  id: number;
+  name: string;
+  title: string;
+  linkedin_url?: string;
+  individual_id?: number;
+}
+
+interface CompanySubsidiary {
+  id: number;
+  name: string;
+  description: string;
+  sectors: string;
+  linkedin_members?: number;
+  country?: string;
+  logo?: string;
+}
+
 interface Company {
   id: number;
   name: string;
@@ -77,10 +102,88 @@ interface Company {
   ev_data: CompanyEV;
   _companies_employees_count_monthly: EmployeeCount[];
   Lifecycle_stage: LifecycleStage;
+  investors?: CompanyInvestor[];
+  management_current?: CompanyManagement[];
+  management_past?: CompanyManagement[];
+  subsidiaries?: CompanySubsidiary[];
+  have_subsidiaries_companies?: {
+    have_subsidiaries_companies: boolean;
+    Subsidiaries_companies: Array<{
+      id: number;
+      name: string;
+      description: string;
+      sectors_id: Array<{
+        sector_name: string;
+        Sector_importance: string;
+      }>;
+      _locations: CompanyLocation;
+      _linkedin_data_of_new_company: {
+        linkedin_employee: number;
+        linkedin_logo: string;
+      };
+    }>;
+  };
+  Managmant_Roles_current?: Array<{
+    id: number;
+    Individual_text: string;
+    individuals_id: number;
+    Status: string;
+    job_titles_id: Array<{
+      id: number;
+      job_title: string;
+    }>;
+  }>;
+  Managmant_Roles_past?: Array<{
+    id: number;
+    Individual_text: string;
+    individuals_id: number;
+    Status: string;
+    job_titles_id: Array<{
+      id: number;
+      job_title: string;
+    }>;
+  }>;
 }
 
 interface CompanyResponse {
   Company: Company;
+  Managmant_Roles_current?: Array<{
+    id: number;
+    Individual_text: string;
+    individuals_id: number;
+    Status: string;
+    job_titles_id: Array<{
+      id: number;
+      job_title: string;
+    }>;
+  }>;
+  Managmant_Roles_past?: Array<{
+    id: number;
+    Individual_text: string;
+    individuals_id: number;
+    Status: string;
+    job_titles_id: Array<{
+      id: number;
+      job_title: string;
+    }>;
+  }>;
+  have_subsidiaries_companies?: {
+    have_subsidiaries_companies: boolean;
+    Subsidiaries_companies: Array<{
+      id: number;
+      name: string;
+      description: string;
+      sectors_id: Array<{
+        sector_name: string;
+        Sector_importance: string;
+      }>;
+      _locations: CompanyLocation;
+      _linkedin_data_of_new_company: {
+        linkedin_employee: number;
+        linkedin_logo: string;
+      };
+    }>;
+  };
 }
 
 // Utility functions
@@ -95,8 +198,14 @@ const formatDate = (dateString: string): string => {
   return date.toLocaleDateString("en-US", { year: "numeric", month: "short" });
 };
 
-const validateFinancialData = (value: string): string => {
+const formatFinancialValue = (value: string, currency?: string): string => {
   if (!value || value === "nan" || value === "null") return "Not available";
+
+  // If currency is available, prepend it to the value
+  if (currency && currency !== "nan" && currency !== "null") {
+    return `${currency} ${value}`;
+  }
+
   return value;
 };
 
@@ -214,10 +323,26 @@ const EmployeeChart = ({ data }: { data: EmployeeCount[] }) => {
 const CompanyDetail = () => {
   const params = useParams();
   const companyId = params.param as string;
+  const { createClickableElement } = useRightClick();
 
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(
+    new Set()
+  );
+
+  const toggleDescription = (subsidiaryId: number) => {
+    setExpandedDescriptions((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(subsidiaryId)) {
+        newSet.delete(subsidiaryId);
+      } else {
+        newSet.add(subsidiaryId);
+      }
+      return newSet;
+    });
+  };
 
   useEffect(() => {
     const fetchCompanyData = async () => {
@@ -248,11 +373,53 @@ const CompanyDetail = () => {
 
         const data: CompanyResponse = await response.json();
 
+        // LOG COMPLETE API RESPONSE AS JSON
+        console.log("=== API RESPONSE JSON ===");
+        console.log(JSON.stringify(data, null, 2));
+        console.log("========================");
+
         if (!data.Company) {
           throw new Error("Invalid company data");
         }
 
-        setCompany(data.Company);
+        // LOG SPECIFIC FIELDS WE'RE LOOKING FOR
+        console.log("=== SPECIFIC FIELD CHECKS ===");
+        console.log(
+          "Management Current:",
+          data.Company.Managmant_Roles_current
+        );
+        console.log("Management Past:", data.Company.Managmant_Roles_past);
+        console.log("Subsidiaries:", data.Company.have_subsidiaries_companies);
+        console.log("All Company Keys:", Object.keys(data.Company));
+        console.log("===============================");
+
+        // Add mock investors data since this isn't in the API yet
+        const enrichedCompany = {
+          ...data.Company,
+          investors: [{ id: 1, name: "Motive Partners", url: "/investor/1" }],
+          // Add the actual API fields - THESE ARE AT ROOT LEVEL, NOT IN data.Company!
+          Managmant_Roles_current: data.Managmant_Roles_current || [],
+          Managmant_Roles_past: data.Managmant_Roles_past || [],
+          have_subsidiaries_companies: data.have_subsidiaries_companies || {
+            have_subsidiaries_companies: false,
+            Subsidiaries_companies: [],
+          },
+        };
+
+        // LOG FINAL ENRICHED COMPANY
+        console.log("=== ENRICHED COMPANY ===");
+        console.log("Final company object:", enrichedCompany);
+        console.log(
+          "Management Current in enriched:",
+          enrichedCompany.Managmant_Roles_current
+        );
+        console.log(
+          "Management Past in enriched:",
+          enrichedCompany.Managmant_Roles_past
+        );
+        console.log("========================");
+
+        setCompany(enrichedCompany);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to fetch company data"
@@ -337,6 +504,20 @@ const CompanyDetail = () => {
     return null;
   }
 
+  // LOG COMPANY STATE IN RENDER
+  console.log("=== RENDER PHASE ===");
+  console.log("Company state:", company);
+  console.log("Management Current in render:", company.Managmant_Roles_current);
+  console.log("Management Past in render:", company.Managmant_Roles_past);
+  console.log("Has management current?", !!company.Managmant_Roles_current);
+  console.log(
+    "Management current length:",
+    company.Managmant_Roles_current?.length
+  );
+  console.log("Has subsidiaries?", !!company.have_subsidiaries_companies);
+  console.log("All company object keys:", Object.keys(company));
+  console.log("===================");
+
   // Process sectors
   const primarySectors =
     company.sectors_id?.filter(
@@ -358,9 +539,13 @@ const CompanyDetail = () => {
     .join(", ");
 
   // Process financial data
-  const revenue = validateFinancialData(company.revenues?.revenues_m);
-  const ebitda = validateFinancialData(company.EBITDA?.EBITDA_m);
-  const enterpriseValue = validateFinancialData(company.ev_data?.ev_value);
+  const currency = company.revenues?.revenues_currency;
+  const revenue = formatFinancialValue(company.revenues?.revenues_m, currency);
+  const ebitda = formatFinancialValue(company.EBITDA?.EBITDA_m, currency);
+  const enterpriseValue = formatFinancialValue(
+    company.ev_data?.ev_value,
+    currency
+  );
 
   // Process employee data
   const employeeData = company._companies_employees_count_monthly || [];
@@ -432,12 +617,7 @@ const CompanyDetail = () => {
       cursor: "pointer",
       textDecoration: "none",
     },
-    mainContent: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: "24px",
-      marginBottom: "24px",
-    },
+
     card: {
       backgroundColor: "white",
       borderRadius: "12px",
@@ -513,7 +693,7 @@ const CompanyDetail = () => {
     },
     responsiveGrid: {
       display: "grid",
-      gridTemplateColumns: "1fr 1fr",
+      gridTemplateColumns: "2fr 1fr",
       gap: "24px",
       flex: "1",
     },
@@ -723,9 +903,8 @@ const CompanyDetail = () => {
                 primarySectors.length > 0
                   ? primarySectors.map((sector, index) =>
                       React.createElement("span", { key: sector.sector_id }, [
-                        React.createElement(
-                          "span",
-                          { key: "link", style: styles.link },
+                        createClickableElement(
+                          `/sector/${sector.sector_id}`,
                           sector.sector_name
                         ),
                         index < primarySectors.length - 1 && ", ",
@@ -748,9 +927,8 @@ const CompanyDetail = () => {
                 secondarySectors.length > 0
                   ? secondarySectors.map((sector, index) =>
                       React.createElement("span", { key: sector.sector_id }, [
-                        React.createElement(
-                          "span",
-                          { key: "link", style: styles.link },
+                        createClickableElement(
+                          `/sector/${sector.sector_id}`,
                           sector.sector_name
                         ),
                         index < secondarySectors.length - 1 && ", ",
@@ -832,6 +1010,32 @@ const CompanyDetail = () => {
                 "span",
                 { style: styles.value },
                 company.Lifecycle_stage?.Lifecycle_Stage || "Not available"
+              )
+            ),
+            React.createElement(
+              "div",
+              { style: styles.infoRow },
+              React.createElement(
+                "span",
+                { style: styles.label },
+                "Investors:"
+              ),
+              React.createElement(
+                "span",
+                { style: styles.value },
+                company.investors && company.investors.length > 0
+                  ? company.investors.map((investor, index) =>
+                      React.createElement("span", { key: investor.id }, [
+                        investor.url
+                          ? createClickableElement(
+                              `/investor/${investor.id}`,
+                              investor.name
+                            )
+                          : investor.name,
+                        index < company.investors!.length - 1 && ", ",
+                      ])
+                    )
+                  : "Not available"
               )
             ),
             React.createElement(
@@ -1041,7 +1245,363 @@ const CompanyDetail = () => {
                 ]
               )
             )
+          ),
+        // Management section
+        React.createElement(
+          "div",
+          { style: { ...styles.card, marginTop: "32px" } },
+          React.createElement(
+            "h2",
+            { style: { ...styles.sectionTitle, marginBottom: "32px" } },
+            "Management"
+          ),
+          React.createElement(
+            "div",
+            {
+              style: {
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "24px",
+              },
+              className: "management-grid",
+            },
+            React.createElement(
+              "div",
+              null,
+              React.createElement(
+                "h3",
+                {
+                  style: {
+                    ...styles.label,
+                    fontSize: "16px",
+                    marginBottom: "16px",
+                    fontWeight: "600",
+                  },
+                },
+                "Current:"
+              ),
+              (() => {
+                console.log("=== MANAGEMENT RENDERING CHECK ===");
+                console.log(
+                  "company.Managmant_Roles_current:",
+                  company.Managmant_Roles_current
+                );
+                console.log(
+                  "Is array?",
+                  Array.isArray(company.Managmant_Roles_current)
+                );
+                console.log("Length:", company.Managmant_Roles_current?.length);
+                console.log(
+                  "Condition result:",
+                  company.Managmant_Roles_current &&
+                    company.Managmant_Roles_current.length > 0
+                );
+                console.log("===================================");
+                return company.Managmant_Roles_current &&
+                  company.Managmant_Roles_current.length > 0
+                  ? company.Managmant_Roles_current.map((person) => {
+                      console.log(
+                        "Rendering current management person:",
+                        person
+                      );
+                      return React.createElement(
+                        "div",
+                        {
+                          key: person.id,
+                          style: { marginBottom: "12px", fontSize: "14px" },
+                        },
+                        createClickableElement(
+                          `/individual/${person.individuals_id}`,
+                          `${person.Individual_text}: ${person.job_titles_id
+                            .map((job) => job.job_title)
+                            .join(", ")}`
+                        )
+                      );
+                    })
+                  : React.createElement(
+                      "div",
+                      { style: { color: "#6b7280", fontSize: "14px" } },
+                      "Not available"
+                    );
+              })()
+            ),
+            React.createElement(
+              "div",
+              null,
+              React.createElement(
+                "h3",
+                {
+                  style: {
+                    ...styles.label,
+                    fontSize: "16px",
+                    marginBottom: "16px",
+                    fontWeight: "600",
+                  },
+                },
+                "Past:"
+              ),
+              company.Managmant_Roles_past &&
+                company.Managmant_Roles_past.length > 0
+                ? company.Managmant_Roles_past.map((person) => {
+                    console.log("Rendering past management person:", person);
+                    return React.createElement(
+                      "div",
+                      {
+                        key: person.id,
+                        style: { marginBottom: "12px", fontSize: "14px" },
+                      },
+                      createClickableElement(
+                        `/individual/${person.individuals_id}`,
+                        `${person.Individual_text}: ${person.job_titles_id
+                          .map((job) => job.job_title)
+                          .join(", ")}`
+                      )
+                    );
+                  })
+                : React.createElement(
+                    "div",
+                    { style: { color: "#6b7280", fontSize: "14px" } },
+                    "Not available"
+                  )
+            )
           )
+        ),
+        // Current Subsidiaries section
+        React.createElement(
+          "div",
+          { style: { ...styles.card, marginTop: "32px" } },
+          React.createElement(
+            "div",
+            {
+              style: {
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "24px",
+              },
+            },
+            React.createElement(
+              "h2",
+              { style: styles.sectionTitle },
+              "Current Subsidiaries"
+            ),
+            React.createElement(
+              "button",
+              {
+                style: {
+                  background: "none",
+                  border: "none",
+                  color: "#0075df",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  textDecoration: "underline",
+                },
+              },
+              "See more"
+            )
+          ),
+          company.have_subsidiaries_companies?.have_subsidiaries_companies &&
+            company.have_subsidiaries_companies?.Subsidiaries_companies &&
+            company.have_subsidiaries_companies.Subsidiaries_companies.length >
+              0
+            ? React.createElement(
+                "div",
+                { style: { overflowX: "auto" } },
+                React.createElement(
+                  "table",
+                  { style: { width: "100%", borderCollapse: "collapse" } },
+                  React.createElement(
+                    "thead",
+                    null,
+                    React.createElement(
+                      "tr",
+                      null,
+                      [
+                        "Logo",
+                        "Name",
+                        "Description",
+                        "Sectors",
+                        "LinkedIn Members",
+                        "Country",
+                      ].map((header) =>
+                        React.createElement(
+                          "th",
+                          {
+                            key: header,
+                            style: {
+                              textAlign: "left",
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                              fontWeight: "600",
+                              color: "#4a5568",
+                            },
+                          },
+                          header
+                        )
+                      )
+                    )
+                  ),
+                  React.createElement(
+                    "tbody",
+                    null,
+                    company.have_subsidiaries_companies.Subsidiaries_companies.slice(
+                      0,
+                      3
+                    ).map((subsidiary) =>
+                      React.createElement(
+                        "tr",
+                        { key: subsidiary.id },
+                        React.createElement(
+                          "td",
+                          {
+                            style: {
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                            },
+                          },
+                          subsidiary._linkedin_data_of_new_company
+                            ?.linkedin_logo
+                            ? React.createElement("img", {
+                                src: `data:image/jpeg;base64,${subsidiary._linkedin_data_of_new_company.linkedin_logo}`,
+                                alt: `${subsidiary.name} logo`,
+                                style: {
+                                  width: "40px",
+                                  height: "30px",
+                                  objectFit: "contain",
+                                },
+                              })
+                            : React.createElement(
+                                "div",
+                                {
+                                  style: {
+                                    width: "40px",
+                                    height: "30px",
+                                    backgroundColor: "#f7fafc",
+                                    borderRadius: "4px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: "10px",
+                                    color: "#718096",
+                                  },
+                                },
+                                "N/A"
+                              )
+                        ),
+                        React.createElement(
+                          "td",
+                          {
+                            style: {
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                            },
+                          },
+                          createClickableElement(
+                            `/company/${subsidiary.id}`,
+                            subsidiary.name
+                          )
+                        ),
+                        React.createElement(
+                          "td",
+                          {
+                            style: {
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                              maxWidth: "300px",
+                            },
+                          },
+                          subsidiary.description
+                            ? React.createElement(
+                                "div",
+                                null,
+                                expandedDescriptions.has(subsidiary.id) ||
+                                  subsidiary.description.length <= 100
+                                  ? subsidiary.description
+                                  : `${subsidiary.description.substring(
+                                      0,
+                                      100
+                                    )}...`,
+                                subsidiary.description.length > 100 &&
+                                  React.createElement(
+                                    "button",
+                                    {
+                                      onClick: () =>
+                                        toggleDescription(subsidiary.id),
+                                      style: {
+                                        background: "none",
+                                        border: "none",
+                                        color: "#0075df",
+                                        cursor: "pointer",
+                                        fontSize: "12px",
+                                        textDecoration: "underline",
+                                        marginLeft: "4px",
+                                        padding: "0",
+                                      },
+                                    },
+                                    expandedDescriptions.has(subsidiary.id)
+                                      ? "Show less"
+                                      : "Expand description"
+                                  )
+                              )
+                            : "N/A"
+                        ),
+                        React.createElement(
+                          "td",
+                          {
+                            style: {
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            },
+                          },
+                          subsidiary.sectors_id
+                            ?.map((sector) => sector.sector_name)
+                            .join(", ") || "N/A"
+                        ),
+                        React.createElement(
+                          "td",
+                          {
+                            style: {
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                              textAlign: "center",
+                            },
+                          },
+                          subsidiary._linkedin_data_of_new_company
+                            ?.linkedin_employee || "N/A"
+                        ),
+                        React.createElement(
+                          "td",
+                          {
+                            style: {
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            },
+                          },
+                          subsidiary._locations?.Country || "N/A"
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            : React.createElement(
+                "div",
+                {
+                  style: {
+                    textAlign: "center",
+                    padding: "40px",
+                    color: "#666",
+                    fontSize: "14px",
+                  },
+                },
+                "No subsidiaries available"
+              )
+        )
       ),
       React.createElement(Footer)
     ),
@@ -1058,6 +1618,10 @@ const CompanyDetail = () => {
            }
            .desktop-linkedin-section {
              display: none !important;
+           }
+           .management-grid {
+             grid-template-columns: 1fr !important;
+             gap: 16px !important;
            }
          }
          @media (min-width: 769px) {

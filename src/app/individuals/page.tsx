@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { IndividualsResponse, Individual } from "../../types/individuals";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
+import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for API integration
 interface Country {
@@ -338,11 +338,7 @@ const generatePaginationButtons = (
 
 // Individual Card Component for mobile
 const IndividualCard = (individual: Individual, index: number) => {
-  const router = useRouter();
-
-  const handleIndividualClick = (individualId: number) => {
-    router.push(`/individual/${individualId}`);
-  };
+  const { createClickableElement } = useRightClick();
 
   return (
     <div
@@ -370,19 +366,17 @@ const IndividualCard = (individual: Individual, index: number) => {
             flex: "1",
           }}
         >
-          <div
-            style={{
+          {createClickableElement(
+            `/individual/${individual.id}`,
+            individual.advisor_individuals || "N/A",
+            undefined,
+            {
               fontSize: "16px",
               fontWeight: "600",
-              color: "#0075df",
-              textDecoration: "underline",
-              cursor: "pointer",
               marginBottom: "4px",
-            }}
-            onClick={() => handleIndividualClick(individual.id)}
-          >
-            {individual.advisor_individuals || "N/A"}
-          </div>
+              display: "block",
+            }
+          )}
           <div
             style={{
               fontSize: "14px",
@@ -415,17 +409,36 @@ const IndividualCard = (individual: Individual, index: number) => {
           }}
         >
           <span style={{ color: "#4a5568" }}>Company:</span>
-          <span
-            style={{
-              fontWeight: "600",
-              maxWidth: "60%",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {individual.current_company || "N/A"}
-          </span>
+          {individual.current_company ? (
+            createClickableElement(
+              `/companies?search=${encodeURIComponent(
+                individual.current_company
+              )}`,
+              individual.current_company,
+              undefined,
+              {
+                fontWeight: "600",
+                maxWidth: "60%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                display: "inline-block",
+              }
+            )
+          ) : (
+            <span
+              style={{
+                fontWeight: "600",
+                maxWidth: "60%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                color: "#6b7280",
+              }}
+            >
+              N/A
+            </span>
+          )}
         </div>
         <div
           style={{
@@ -464,11 +477,7 @@ const IndividualsTable = ({
   individuals: Individual[];
   loading: boolean;
 }) => {
-  const router = useRouter();
-
-  const handleIndividualClick = (individualId: number) => {
-    router.push(`/individual/${individualId}`);
-  };
+  const { createClickableElement } = useRightClick();
 
   if (loading) {
     return <div className="loading">Loading individuals...</div>;
@@ -481,30 +490,23 @@ const IndividualsTable = ({
   const tableRows = individuals.map((individual, index) => (
     <tr key={index}>
       <td>
-        <span
-          className="individual-name"
-          style={{
-            textDecoration: "underline",
-            color: "#0075df",
-            cursor: "pointer",
+        {createClickableElement(
+          `/individual/${individual.id}`,
+          individual.advisor_individuals || "N/A",
+          "individual-name",
+          {
             fontWeight: "500",
-          }}
-          onClick={() => handleIndividualClick(individual.id)}
-        >
-          {individual.advisor_individuals || "N/A"}
-        </span>
+          }
+        )}
       </td>
       <td>
         {individual.current_company ? (
-          <span
-            style={{
-              color: "#0075df",
-              textDecoration: "underline",
-              cursor: "pointer",
-            }}
-          >
-            {individual.current_company}
-          </span>
+          createClickableElement(
+            `/companies?search=${encodeURIComponent(
+              individual.current_company
+            )}`,
+            individual.current_company
+          )
         ) : (
           <span style={{ color: "#6b7280" }}>Not available</span>
         )}

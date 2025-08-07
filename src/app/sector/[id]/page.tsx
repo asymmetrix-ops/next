@@ -588,7 +588,7 @@ const SectorDetailPage = () => {
       padding: "24px",
       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
       height: "fit-content",
-      flex: "0 0 300px",
+      flex: "0 0 400px",
     },
     companiesSection: {
       backgroundColor: "white",
@@ -619,6 +619,10 @@ const SectorDetailPage = () => {
       borderBottom: "1px solid #e2e8f0",
     },
     statItemLast: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "12px 0",
       borderBottom: "none",
     },
     statLabel: {

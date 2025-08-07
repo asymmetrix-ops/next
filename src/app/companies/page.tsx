@@ -97,30 +97,30 @@ const styles = {
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   },
   maxWidth: {
-    padding: "32px",
+    padding: "16px",
     display: "flex" as const,
     flexDirection: "column" as const,
-    gap: "24px",
+    gap: "12px",
   },
   card: {
     backgroundColor: "white",
-    borderRadius: "12px",
-    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-    padding: "32px 24px",
+    borderRadius: "8px",
+    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+    padding: "16px",
     marginBottom: "0",
   },
   heading: {
-    fontSize: "24px",
+    fontSize: "20px",
     fontWeight: "700",
     color: "#1a202c",
-    marginBottom: "8px",
+    marginBottom: "4px",
     marginTop: "0px",
   },
   subHeading: {
-    fontSize: "20px",
+    fontSize: "16px",
     fontWeight: "600",
     color: "#1a202c",
-    marginBottom: "12px",
+    marginBottom: "8px",
   },
   searchDiv: {
     display: "flex" as const,
@@ -129,13 +129,13 @@ const styles = {
   input: {
     width: "100%",
     maxWidth: "300px",
-    padding: "15px 14px",
+    padding: "8px 12px",
     border: "1px solid #e2e8f0",
     borderRadius: "6px",
     fontSize: "14px",
     color: "#4a5568",
     outline: "none",
-    marginBottom: "12px",
+    marginBottom: "8px",
   },
   button: {
     width: "100%",
@@ -143,11 +143,11 @@ const styles = {
     backgroundColor: "#0075df",
     color: "white",
     fontWeight: "600",
-    padding: "15px 14px",
+    padding: "8px 12px",
     borderRadius: "6px",
     border: "none",
     cursor: "pointer",
-    marginTop: "8px",
+    marginTop: "4px",
   },
   linkButton: {
     color: "#000",
@@ -223,7 +223,7 @@ const formatNumber = (num: number | undefined): string => {
 
 const truncateDescription = (
   description: string,
-  maxLength: number = 150
+  maxLength: number = 250
 ): { text: string; isLong: boolean } => {
   const isLong = description.length > maxLength;
   const truncated = isLong
@@ -1472,7 +1472,7 @@ const CompanyDashboard = ({
             </div>
           )}
 
-          <div style={{ marginTop: showFilters ? "20px" : "0" }}>
+          <div style={{ marginTop: showFilters ? "12px" : "0" }}>
             <h3 style={styles.subHeading} className="filters-sub-heading">
               Search for Company
             </h3>
@@ -1582,6 +1582,16 @@ const CompanySection = ({
                 color: "#3b82f6",
               }}
               onClick={() => handleCompanyClick(company.id)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.open(
+                  `/company/${company.id}`,
+                  "_blank",
+                  "noopener,noreferrer"
+                );
+              }}
+              title="Left click to navigate, Right click to open in new tab"
             >
               {company.name || "N/A"}
             </span>
@@ -1699,32 +1709,32 @@ const CompanySection = ({
 
   const style = `
     .company-section {
-      padding: 32px 24px;
+      padding: 16px 12px;
       border-radius: 8px;
     }
     .company-stats {
       background: #fff;
-      padding: 32px 24px;
+      padding: 16px;
       box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
-      border-radius: 16px;
-      margin-bottom: 24px;
+      border-radius: 8px;
+      margin-bottom: 12px;
     }
     .stats-title {
-      font-size: 24px;
+      font-size: 18px;
       font-weight: 700;
       color: #1a202c;
-      margin: 0 0 24px 0;
+      margin: 0 0 12px 0;
     }
     .stats-column {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 16px;
     }
     .stats-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 0;
+      padding: 6px 0;
       border-bottom: 1px solid #e2e8f0;
     }
     .stats-item:last-child {
@@ -1743,15 +1753,15 @@ const CompanySection = ({
     .company-table {
       width: 100%;
       background: #fff;
-      padding: 32px 24px;
+      padding: 16px;
       box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
-      border-radius: 16px;
+      border-radius: 8px;
       border-collapse: collapse;
       table-layout: fixed;
     }
     .company-table th,
     .company-table td {
-      padding: 16px;
+      padding: 8px 12px;
       text-align: left;
       vertical-align: top;
       border-bottom: 1px solid #e2e8f0;
@@ -1784,12 +1794,12 @@ const CompanySection = ({
       font-weight: 500;
     }
     .company-description {
-      max-width: 300px;
+      max-width: 500px;
       line-height: 1.4;
     }
     .company-description-truncated {
       display: -webkit-box;
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1803,7 +1813,7 @@ const CompanySection = ({
       display: block;
     }
     .sectors-list {
-      max-width: 250px;
+      max-width: 300px;
       line-height: 1.3;
     }
     .loading {
@@ -1823,9 +1833,9 @@ const CompanySection = ({
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 16px;
-      margin-top: 24px;
-      padding: 16px;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 8px;
     }
     .pagination-button {
       padding: 8px 12px;
@@ -1861,13 +1871,13 @@ const CompanySection = ({
     .company-cards {
       display: none;
       flex-direction: column;
-      gap: 16px;
-      padding: 16px;
+      gap: 12px;
+      padding: 12px;
     }
     .company-card {
       background: #fff;
-      border-radius: 12px;
-      padding: 16px;
+      border-radius: 8px;
+      padding: 12px;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       border: 1px solid #e2e8f0;
     }
@@ -1958,21 +1968,25 @@ const CompanySection = ({
       .company-cards {
         display: flex;
       }
+      .stats-column {
+        grid-template-columns: 1fr !important;
+        gap: 6px !important;
+      }
       .filters-grid {
         display: grid !important;
         grid-template-columns: 1fr !important;
         gap: 16px !important;
       }
       .filters-card {
-        padding: 20px 16px !important;
+        padding: 12px !important;
       }
       .filters-heading {
-        font-size: 20px !important;
-        margin-bottom: 16px !important;
+        font-size: 18px !important;
+        margin-bottom: 8px !important;
       }
       .filters-sub-heading {
-        font-size: 16px !important;
-        margin-bottom: 8px !important;
+        font-size: 14px !important;
+        margin-bottom: 6px !important;
       }
       .filters-input {
         max-width: 100% !important;

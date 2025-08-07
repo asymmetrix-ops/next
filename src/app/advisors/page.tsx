@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
+import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for API integration
 interface Advisor {
@@ -77,7 +77,7 @@ interface SecondarySector {
 }
 
 const AdvisorsPage = () => {
-  const router = useRouter();
+  const { createClickableElement } = useRightClick();
 
   // Shared state for advisors data
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
@@ -623,20 +623,15 @@ const AdvisorsPage = () => {
               flex: "1",
             },
           },
-          React.createElement(
-            "div",
+          createClickableElement(
+            `/advisor/${advisor.id}`,
+            advisor.name || "N/A",
+            undefined,
             {
-              style: {
-                fontSize: "16px",
-                fontWeight: "600",
-                color: "#0075df",
-                textDecoration: "underline",
-                cursor: "pointer",
-                marginBottom: "4px",
-              },
-              onClick: () => router.push(`/advisor/${advisor.id}`),
-            },
-            advisor.name || "N/A"
+              fontSize: "16px",
+              fontWeight: "600",
+              marginBottom: "4px",
+            }
           ),
           React.createElement(
             "div",
@@ -835,19 +830,13 @@ const AdvisorsPage = () => {
       React.createElement(
         "td",
         null,
-        React.createElement(
-          "span",
+        createClickableElement(
+          `/advisor/${advisor.id}`,
+          advisor.name || "N/A",
+          "advisor-name",
           {
-            className: "advisor-name",
-            style: {
-              textDecoration: "underline",
-              color: "#0075df",
-              cursor: "pointer",
-              fontWeight: "500",
-            },
-            onClick: () => router.push(`/advisor/${advisor.id}`),
-          },
-          advisor.name || "N/A"
+            fontWeight: "500",
+          }
         )
       ),
       React.createElement(

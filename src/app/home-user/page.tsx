@@ -6,6 +6,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
 interface AsymmetrixData {
@@ -96,151 +97,26 @@ interface NewCompany {
 export default function HomeUserPage() {
   const router = useRouter();
   const { isAuthenticated, logout, loading: authLoading } = useAuth();
+  const { createClickableElement } = useRightClick();
+
+  // Helper function to format dates consistently
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "Not Available";
+    try {
+      return new Date(dateString).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch {
+      return "Invalid date";
+    }
+  };
 
   // Corporate Event navigation handler
   const handleCorporateEventClick = useCallback(
     (eventId: number) => {
       router.push(`/corporate-event/${eventId}`);
-    },
-    [router]
-  );
-
-  // Company/Investor navigation handler
-  const handleCompanyClick = useCallback(
-    async (companyName: string) => {
-      try {
-        // Search for the company in investors
-        const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_investors?search_query=${encodeURIComponent(
-            companyName
-          )}`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          const exactMatch = data.investors?.items?.find(
-            (investor: {
-              company_name?: string;
-              original_new_company_id?: number;
-            }) =>
-              investor.company_name?.toLowerCase() === companyName.toLowerCase()
-          );
-
-          if (exactMatch?.original_new_company_id) {
-            router.push(`/investors/${exactMatch.original_new_company_id}`);
-            return;
-          }
-        }
-
-        // If not found in investors, try companies
-        const companiesResponse = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_companies?search_query=${encodeURIComponent(
-            companyName
-          )}`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        if (companiesResponse.ok) {
-          const companiesData = await companiesResponse.json();
-          const exactMatch = companiesData.items?.find(
-            (company: { name?: string; id?: number }) =>
-              company.name?.toLowerCase() === companyName.toLowerCase()
-          );
-
-          if (exactMatch?.id) {
-            router.push(`/company/${exactMatch.id}`);
-            return;
-          }
-        }
-
-        // If no exact match found, navigate to general companies page with search
-        router.push(`/companies?search=${encodeURIComponent(companyName)}`);
-      } catch (error) {
-        console.error("Error searching for company:", error);
-        // Fallback to companies page with search
-        router.push(`/companies?search=${encodeURIComponent(companyName)}`);
-      }
-    },
-    [router]
-  );
-
-  // Insights company navigation handler - prioritizes dynamic company pages
-  const handleInsightsCompanyClick = useCallback(
-    async (companyName: string) => {
-      try {
-        // First search in companies (prioritize company pages for insights)
-        const companiesResponse = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_companies?search_query=${encodeURIComponent(
-            companyName
-          )}`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        if (companiesResponse.ok) {
-          const companiesData = await companiesResponse.json();
-          const exactMatch = companiesData.items?.find(
-            (company: { name?: string; id?: number }) =>
-              company.name?.toLowerCase() === companyName.toLowerCase()
-          );
-
-          if (exactMatch?.id) {
-            router.push(`/company/${exactMatch.id}`);
-            return;
-          }
-        }
-
-        // If not found in companies, try investors as fallback
-        const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_investors?search_query=${encodeURIComponent(
-            companyName
-          )}`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          const exactMatch = data.investors?.items?.find(
-            (investor: {
-              company_name?: string;
-              original_new_company_id?: number;
-            }) =>
-              investor.company_name?.toLowerCase() === companyName.toLowerCase()
-          );
-
-          if (exactMatch?.original_new_company_id) {
-            router.push(`/investors/${exactMatch.original_new_company_id}`);
-            return;
-          }
-        }
-
-        // If no exact match found, navigate to general companies page with search
-        router.push(`/companies?search=${encodeURIComponent(companyName)}`);
-      } catch (error) {
-        console.error("Error searching for company:", error);
-        // Fallback to companies page with search
-        router.push(`/companies?search=${encodeURIComponent(companyName)}`);
-      }
     },
     [router]
   );
@@ -252,10 +128,6 @@ export default function HomeUserPage() {
     []
   );
   const [newCompanies, setNewCompanies] = useState<NewCompany[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filteredInsights, setFilteredInsights] = useState<InsightArticle[]>(
-    []
-  );
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -539,24 +411,6 @@ export default function HomeUserPage() {
     }
   }, [router, fetchDashboardData, isAuthenticated, authLoading]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Filter insights based on search query
-    if (searchQuery.trim()) {
-      const filtered = insightsArticles.filter((article) =>
-        article.Headline.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredInsights(filtered);
-    } else {
-      setFilteredInsights(insightsArticles);
-    }
-  };
-
-  // Update filtered insights when insightsArticles changes
-  useEffect(() => {
-    setFilteredInsights(insightsArticles);
-  }, [insightsArticles]);
-
   if (authLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50">
@@ -629,7 +483,9 @@ export default function HomeUserPage() {
                         </span>
                       </div>
                       <span className="text-sm font-semibold text-gray-900">
-                        {item.value}
+                        {parseInt(item.value)
+                          ? parseInt(item.value).toLocaleString()
+                          : item.value}
                       </span>
                     </div>
                   ))}
@@ -667,6 +523,15 @@ export default function HomeUserPage() {
                               onClick={() =>
                                 handleCorporateEventClick(event.id)
                               }
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                window.open(
+                                  `/corporate-event/${event.id}`,
+                                  "_blank",
+                                  "noopener,noreferrer"
+                                );
+                              }}
                               className="flex-1 text-sm font-medium text-blue-600 underline break-words cursor-pointer hover:text-blue-800"
                               style={{
                                 textDecoration: "underline",
@@ -674,6 +539,7 @@ export default function HomeUserPage() {
                                 cursor: "pointer",
                                 fontWeight: "500",
                               }}
+                              title="Left click to navigate, Right click to open in new tab"
                             >
                               {event.description}
                             </span>
@@ -681,7 +547,7 @@ export default function HomeUserPage() {
                           <div className="space-y-1 text-xs text-gray-500">
                             <div>
                               <strong>Date:</strong>{" "}
-                              {event.announcement_date || "Not Available"}
+                              {formatDate(event.announcement_date)}
                             </div>
                             <div>
                               <strong>Target:</strong>{" "}
@@ -711,34 +577,16 @@ export default function HomeUserPage() {
                       <thead className="sticky top-0 bg-gray-50">
                         <tr>
                           <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                            Description
+                            Event Details
                           </th>
                           <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                            Date
+                            Target & Sectors
                           </th>
                           <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                            Target
+                            Financial Data
                           </th>
                           <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                            Primary Sector
-                          </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                            Secondary Sectors
-                          </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                            Type
-                          </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                            Amount
-                          </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                            Enterprise Value
-                          </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                            Other Counterparties
-                          </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                            Advisors
+                            Parties Involved
                           </th>
                         </tr>
                       </thead>
@@ -746,98 +594,130 @@ export default function HomeUserPage() {
                         {corporateEvents.slice(0, 25).map((event) => (
                           <tr key={event.id} className="hover:bg-gray-50">
                             <td className="px-4 py-4 max-w-xs text-xs text-gray-900">
-                              <span
-                                onClick={() =>
-                                  handleCorporateEventClick(event.id)
-                                }
-                                className="text-blue-600 underline break-words cursor-pointer hover:text-blue-800"
-                                style={{
-                                  textDecoration: "underline",
-                                  color: "#0075df",
-                                  cursor: "pointer",
-                                  fontWeight: "500",
-                                }}
-                              >
-                                {event.description}
-                              </span>
-                            </td>
-                            <td className="px-4 py-4 text-xs text-gray-500">
-                              {event.announcement_date || "Not Available"}
+                              <div className="mb-2">
+                                <span
+                                  onClick={() =>
+                                    handleCorporateEventClick(event.id)
+                                  }
+                                  onContextMenu={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    window.open(
+                                      `/corporate-event/${event.id}`,
+                                      "_blank",
+                                      "noopener,noreferrer"
+                                    );
+                                  }}
+                                  className="font-medium text-blue-600 underline break-words cursor-pointer hover:text-blue-800"
+                                  style={{
+                                    textDecoration: "underline",
+                                    color: "#0075df",
+                                    cursor: "pointer",
+                                    fontWeight: "500",
+                                  }}
+                                  title="Left click to navigate, Right click to open in new tab"
+                                >
+                                  {event.description}
+                                </span>
+                              </div>
+                              <div className="mb-1 text-xs text-gray-500">
+                                Date: {formatDate(event.announcement_date)}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Type: {event.deal_type || "Not Available"}
+                              </div>
                             </td>
                             <td className="px-4 py-4 text-xs text-gray-900">
-                              {event.Target_Counterparty?.new_company?.name ||
-                                "Not Available"}
-                            </td>
-                            <td className="px-4 py-4 text-xs text-gray-900">
-                              {event.Target_Counterparty?.new_company?._sectors_objects?.sectors_id?.find(
-                                (sector) =>
-                                  sector.Sector_importance === "Primary"
-                              )?.sector_name || "Not Available"}
-                            </td>
-                            <td className="px-4 py-4 text-xs text-gray-900">
-                              {event.Target_Counterparty?.new_company?._sectors_objects?.sectors_id
-                                ?.filter(
+                              <div className="mb-2">
+                                <span className="font-medium">
+                                  {event.Target_Counterparty?.new_company
+                                    ?.name || "Not Available"}
+                                </span>
+                              </div>
+                              <div className="mb-1 text-xs text-gray-500">
+                                <strong>Primary:</strong>{" "}
+                                {event.Target_Counterparty?.new_company?._sectors_objects?.sectors_id?.find(
                                   (sector) =>
-                                    sector.Sector_importance !== "Primary"
-                                )
-                                .map((sector) => sector.sector_name)
-                                .join(", ") || "Not Available"}
-                            </td>
-                            <td className="px-4 py-4 text-xs text-gray-900">
-                              {event.deal_type || "Not Available"}
-                            </td>
-                            <td className="px-4 py-4 text-xs text-gray-900">
-                              {event.investment_data?.investment_amount_m &&
-                              event.investment_data?.currrency?.Currency
-                                ? `${event.investment_data.investment_amount_m} ${event.investment_data.currrency.Currency}`
-                                : "Not Available"}
-                            </td>
-                            <td className="px-4 py-4 text-xs text-gray-900">
-                              {event.ev_data?.enterprise_value_m &&
-                              event.ev_data?.Currency
-                                ? `${event.ev_data.enterprise_value_m} ${event.ev_data.Currency}`
-                                : "Not Available"}
-                            </td>
-                            <td className="px-4 py-4 text-xs text-gray-900">
-                              {event.Other_Counterparties_of_Corporate_Event &&
-                              event.Other_Counterparties_of_Corporate_Event
-                                .length > 0
-                                ? event.Other_Counterparties_of_Corporate_Event.map(
-                                    (cp) => cp._new_company?.name
+                                    sector.Sector_importance === "Primary"
+                                )?.sector_name || "Not Available"}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                <strong>Secondary:</strong>{" "}
+                                {event.Target_Counterparty?.new_company?._sectors_objects?.sectors_id
+                                  ?.filter(
+                                    (sector) =>
+                                      sector.Sector_importance !== "Primary"
                                   )
-                                    .filter(Boolean)
-                                    .map((companyName, index, array) => (
-                                      <span
-                                        key={`${event.id}-counterparty-${index}`}
-                                      >
-                                        <span
-                                          onClick={() =>
-                                            handleCompanyClick(companyName!)
-                                          }
-                                          className="text-blue-600 underline cursor-pointer hover:text-blue-800"
-                                          style={{
-                                            textDecoration: "underline",
-                                            color: "#0075df",
-                                            cursor: "pointer",
-                                            fontWeight: "500",
-                                          }}
-                                        >
-                                          {companyName}
-                                        </span>
-                                        {index < array.length - 1 && ", "}
-                                      </span>
-                                    ))
-                                : "Not Available"}
+                                  .map((sector) => sector.sector_name)
+                                  .join(", ") || "Not Available"}
+                              </div>
                             </td>
                             <td className="px-4 py-4 text-xs text-gray-900">
-                              {event.Advisors_of_Corporate_Event &&
-                              event.Advisors_of_Corporate_Event.length > 0
-                                ? event.Advisors_of_Corporate_Event.map(
-                                    (advisor) => advisor._new_company?.name
-                                  )
-                                    .filter(Boolean)
-                                    .join(", ")
-                                : "Not Available"}
+                              <div className="mb-2">
+                                <div className="mb-1 text-xs text-gray-500">
+                                  <strong>Investment:</strong>{" "}
+                                  {event.investment_data?.investment_amount_m &&
+                                  event.investment_data?.currrency?.Currency
+                                    ? `${event.investment_data.investment_amount_m} ${event.investment_data.currrency.Currency}`
+                                    : "Not Available"}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  <strong>EV:</strong>{" "}
+                                  {event.ev_data?.enterprise_value_m &&
+                                  event.ev_data?.Currency
+                                    ? `${event.ev_data.enterprise_value_m} ${event.ev_data.Currency}`
+                                    : "Not Available"}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 text-xs text-gray-900">
+                              <div className="mb-2">
+                                <div className="mb-1 text-xs text-gray-500">
+                                  <strong>Other Parties:</strong>
+                                </div>
+                                <div className="text-xs text-gray-600">
+                                  {event.Other_Counterparties_of_Corporate_Event &&
+                                  event.Other_Counterparties_of_Corporate_Event
+                                    .length > 0
+                                    ? event.Other_Counterparties_of_Corporate_Event.map(
+                                        (cp) => cp._new_company?.name
+                                      )
+                                        .filter(Boolean)
+                                        .map((companyName, index, array) => (
+                                          <span
+                                            key={`${event.id}-counterparty-${index}`}
+                                          >
+                                            {createClickableElement(
+                                              `/companies?search=${encodeURIComponent(
+                                                companyName!
+                                              )}`,
+                                              companyName,
+                                              "text-blue-600 underline cursor-pointer hover:text-blue-800",
+                                              {
+                                                fontWeight: "500",
+                                              }
+                                            )}
+                                            {index < array.length - 1 && ", "}
+                                          </span>
+                                        ))
+                                    : "Not Available"}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="mb-1 text-xs text-gray-500">
+                                  <strong>Advisors:</strong>
+                                </div>
+                                <div className="text-xs text-gray-600">
+                                  {event.Advisors_of_Corporate_Event &&
+                                  event.Advisors_of_Corporate_Event.length > 0
+                                    ? event.Advisors_of_Corporate_Event.map(
+                                        (advisor) => advisor._new_company?.name
+                                      )
+                                        .filter(Boolean)
+                                        .join(", ")
+                                    : "Not Available"}
+                                </div>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -858,49 +738,14 @@ export default function HomeUserPage() {
           {/* Insights & Analysis */}
           <div className="bg-white rounded-lg shadow">
             <div className="p-3 border-b border-gray-200 sm:p-4">
-              <h2 className="mb-3 text-base font-bold text-gray-900 sm:text-lg">
+              <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
                 Insights & Analysis
               </h2>
-              <div className="space-y-2">
-                <span className="text-sm text-gray-700">
-                  Search for Articles:
-                </span>
-                <form
-                  onSubmit={handleSearch}
-                  className="flex w-full sm:max-w-xs"
-                >
-                  <input
-                    type="text"
-                    placeholder="Keyword search"
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      if (e.target.value.trim()) {
-                        const filtered = insightsArticles.filter((article) =>
-                          article.Headline.toLowerCase().includes(
-                            e.target.value.toLowerCase()
-                          )
-                        );
-                        setFilteredInsights(filtered);
-                      } else {
-                        setFilteredInsights(insightsArticles);
-                      }
-                    }}
-                    className="flex-1 px-3 py-2 text-sm rounded-l-md border border-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                  <button
-                    type="submit"
-                    className="px-4 py-2 text-sm text-white bg-blue-600 rounded-r-md hover:bg-blue-700"
-                  >
-                    Search
-                  </button>
-                </form>
-              </div>
             </div>
             <div className="p-3 sm:p-4">
-              {filteredInsights.length > 0 ? (
+              {insightsArticles.length > 0 ? (
                 <div className="space-y-3">
-                  {filteredInsights.slice(0, 10).map((article) => (
+                  {insightsArticles.slice(0, 10).map((article) => (
                     <div key={article.id} className="p-3 bg-gray-50 rounded-lg">
                       {article.image && (
                         <img
@@ -909,7 +754,24 @@ export default function HomeUserPage() {
                           className="object-cover mb-2 w-full h-20 rounded"
                         />
                       )}
-                      <h3 className="mb-1 text-xs font-medium text-gray-900">
+                      <h3
+                        onClick={() => router.push(`/article/${article.id}`)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          window.open(
+                            `/article/${article.id}`,
+                            "_blank",
+                            "noopener,noreferrer"
+                          );
+                        }}
+                        className="mb-1 text-xs font-medium text-gray-900 cursor-pointer hover:text-blue-600"
+                        style={{
+                          textDecoration: "underline",
+                          fontWeight: "500",
+                        }}
+                        title="Left click to navigate, Right click to open in new tab"
+                      >
                         {article.Headline}
                       </h3>
                       {article.Strapline && (
@@ -919,25 +781,22 @@ export default function HomeUserPage() {
                         </p>
                       )}
                       <p className="text-xs text-gray-500">
-                        {article.Publication_Date}
+                        {formatDate(article.Publication_Date)}
                       </p>
                       {article.companies_mentioned &&
                         article.companies_mentioned.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">
                             {article.companies_mentioned.map(
                               (company, index) => (
-                                <span
-                                  key={company.id}
-                                  onClick={() =>
-                                    handleInsightsCompanyClick(company.name)
-                                  }
-                                  className="text-xs text-blue-600 cursor-pointer hover:text-blue-800"
-                                  style={{
-                                    textDecoration: "underline",
-                                    fontWeight: "500",
-                                  }}
-                                >
-                                  {company.name}
+                                <span key={company.id}>
+                                  {createClickableElement(
+                                    `/company/${company.id}`,
+                                    company.name,
+                                    "text-xs text-blue-600 cursor-pointer hover:text-blue-800",
+                                    {
+                                      fontWeight: "500",
+                                    }
+                                  )}
                                   {index <
                                     article.companies_mentioned!.length - 1 &&
                                     ", "}
@@ -960,17 +819,39 @@ export default function HomeUserPage() {
                             ))}
                         </div>
                       )}
-                      {article.related_documents &&
-                        article.related_documents.length > 0 && (
-                          <a
-                            href={article.related_documents[0].url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-block mt-1 text-xs text-blue-600 hover:text-blue-800"
-                          >
-                            Read full article →
-                          </a>
-                        )}
+                      <div className="flex justify-between items-center mt-2">
+                        <span
+                          onClick={() => router.push(`/article/${article.id}`)}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            window.open(
+                              `/article/${article.id}`,
+                              "_blank",
+                              "noopener,noreferrer"
+                            );
+                          }}
+                          className="text-xs text-blue-600 cursor-pointer hover:text-blue-800"
+                          style={{
+                            textDecoration: "underline",
+                            fontWeight: "500",
+                          }}
+                          title="Left click to navigate, Right click to open in new tab"
+                        >
+                          Read full article →
+                        </span>
+                        {article.related_documents &&
+                          article.related_documents.length > 0 && (
+                            <a
+                              href={article.related_documents[0].url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-gray-500 hover:text-gray-700"
+                            >
+                              External link
+                            </a>
+                          )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1028,9 +909,16 @@ export default function HomeUserPage() {
 
                         {/* Company details */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">
-                            {company.name}
-                          </p>
+                          <div className="text-sm font-medium text-gray-900">
+                            {createClickableElement(
+                              `/company/${company.id}`,
+                              company.name,
+                              undefined,
+                              {
+                                fontWeight: "500",
+                              }
+                            )}
+                          </div>
                           <p className="text-xs text-gray-500">
                             {company._locations?.Country}
                           </p>
