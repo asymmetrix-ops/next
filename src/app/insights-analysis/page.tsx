@@ -4,17 +4,10 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import SearchableSelect from "@/components/ui/SearchableSelect";
-import { locationsService } from "@/lib/locationsService";
 import {
   ContentArticle,
   InsightsAnalysisResponse,
   InsightsAnalysisFilters,
-  Country,
-  Province,
-  City,
-  PrimarySector,
-  SecondarySector,
 } from "../../types/insightsAnalysis";
 
 // Shared styles object
@@ -356,33 +349,7 @@ const InsightsAnalysisPage = () => {
     Per_page: 50,
   });
 
-  // State for each filter (arrays for multi-select)
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
-  const [selectedProvinces, setSelectedProvinces] = useState<string[]>([]);
-  const [selectedCities, setSelectedCities] = useState<string[]>([]);
-  const [selectedPrimarySectors, setSelectedPrimarySectors] = useState<
-    number[]
-  >([]);
-  const [selectedSecondarySectors, setSelectedSecondarySectors] = useState<
-    number[]
-  >([]);
   const [searchTerm, setSearchTerm] = useState("");
-
-  // State for API data
-  const [countries, setCountries] = useState<Country[]>([]);
-  const [provinces, setProvinces] = useState<Province[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
-  const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
-  const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
-    []
-  );
-
-  // Loading states
-  const [loadingCountries, setLoadingCountries] = useState(false);
-  const [loadingProvinces, setLoadingProvinces] = useState(false);
-  const [loadingCities, setLoadingCities] = useState(false);
-  const [loadingPrimarySectors, setLoadingPrimarySectors] = useState(false);
-  const [loadingSecondarySectors, setLoadingSecondarySectors] = useState(false);
 
   // State for insights analysis data
   const [articles, setArticles] = useState<ContentArticle[]>([]);
@@ -397,112 +364,6 @@ const InsightsAnalysisPage = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Convert API data to dropdown options format
-  const countryOptions = countries.map((country) => ({
-    value: country.locations_Country,
-    label: country.locations_Country,
-  }));
-
-  const provinceOptions = provinces.map((province) => ({
-    value: province.State__Province__County,
-    label: province.State__Province__County,
-  }));
-
-  const cityOptions = cities.map((city) => ({
-    value: city.City,
-    label: city.City,
-  }));
-
-  const primarySectorOptions = primarySectors.map((sector) => ({
-    value: sector.id,
-    label: sector.sector_name,
-  }));
-
-  const secondarySectorOptions = secondarySectors.map((sector) => ({
-    value: sector.id,
-    label: sector.sector_name,
-  }));
-
-  // Fetch functions
-  const fetchCountries = async () => {
-    try {
-      setLoadingCountries(true);
-      const countriesData = await locationsService.getCountries();
-      setCountries(countriesData);
-    } catch (error) {
-      console.error("Error fetching countries:", error);
-    } finally {
-      setLoadingCountries(false);
-    }
-  };
-
-  const fetchPrimarySectors = async () => {
-    try {
-      setLoadingPrimarySectors(true);
-      const sectorsData = await locationsService.getPrimarySectors();
-      setPrimarySectors(sectorsData);
-    } catch (error) {
-      console.error("Error fetching primary sectors:", error);
-    } finally {
-      setLoadingPrimarySectors(false);
-    }
-  };
-
-  const fetchProvinces = async () => {
-    if (selectedCountries.length === 0) {
-      setProvinces([]);
-      return;
-    }
-    try {
-      setLoadingProvinces(true);
-      const provincesData = await locationsService.getProvinces(
-        selectedCountries
-      );
-      setProvinces(provincesData);
-    } catch (error) {
-      console.error("Error fetching provinces:", error);
-    } finally {
-      setLoadingProvinces(false);
-    }
-  };
-
-  const fetchCities = async () => {
-    if (selectedCountries.length === 0 || selectedProvinces.length === 0) {
-      setCities([]);
-      return;
-    }
-    try {
-      setLoadingCities(true);
-      const citiesData = await locationsService.getCities(
-        selectedCountries,
-        selectedProvinces
-      );
-      setCities(citiesData);
-    } catch (error) {
-      console.error("Error fetching cities:", error);
-    } finally {
-      setLoadingCities(false);
-    }
-  };
-
-  const fetchSecondarySectors = async () => {
-    if (selectedPrimarySectors.length === 0) {
-      setSecondarySectors([]);
-      return;
-    }
-    try {
-      setLoadingSecondarySectors(true);
-      const sectorsData = await locationsService.getSecondarySectors(
-        selectedPrimarySectors
-      );
-      setSecondarySectors(sectorsData);
-    } catch (error) {
-      console.error("Error fetching secondary sectors:", error);
-    } finally {
-      setLoadingSecondarySectors(false);
-    }
-  };
 
   const fetchInsightsAnalysis = async (filters: InsightsAnalysisFilters) => {
     try {
@@ -594,37 +455,15 @@ const InsightsAnalysisPage = () => {
 
   // Initial data fetch
   useEffect(() => {
-    fetchCountries();
-    fetchPrimarySectors();
     // Initial fetch of all articles
     fetchInsightsAnalysis(filters);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Fetch provinces when countries change
-  useEffect(() => {
-    fetchProvinces();
-  }, [selectedCountries]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Fetch cities when provinces change
-  useEffect(() => {
-    fetchCities();
-  }, [selectedProvinces]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Fetch secondary sectors when primary sectors are selected
-  useEffect(() => {
-    fetchSecondarySectors();
-  }, [selectedPrimarySectors]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle search
   const handleSearch = () => {
     const updatedFilters = {
       ...filters,
       search_query: searchTerm,
-      Countries: selectedCountries,
-      Provinces: selectedProvinces,
-      Cities: selectedCities,
-      primary_sectors_ids: selectedPrimarySectors,
-      Secondary_sectors_ids: selectedSecondarySectors,
       Offset: 1, // Reset to first page when searching
     };
     setFilters(updatedFilters);
@@ -868,424 +707,31 @@ const InsightsAnalysisPage = () => {
             <h2 style={styles.heading} className="filters-heading">
               Insights & Analysis
             </h2>
-            <p style={{ color: "#666", marginBottom: "24px" }}>
-              Search and filter insights and analysis articles by location,
-              sectors, and more.
-            </p>
-
-            <div style={styles.grid} className="filters-grid">
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Location
-                </h3>
-                <span style={styles.label}>By Country</span>
-                <SearchableSelect
-                  options={countryOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedCountries.includes(value)
-                    ) {
-                      setSelectedCountries([...selectedCountries, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingCountries ? "Loading countries..." : "Select Country"
-                  }
-                  disabled={loadingCountries}
-                  style={styles.select}
-                />
-
-                {/* Selected Countries Tags */}
-                {selectedCountries.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedCountries.map((country) => (
-                      <span
-                        key={country}
-                        style={{
-                          backgroundColor: "#e3f2fd",
-                          color: "#1976d2",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {country}
-                        <button
-                          onClick={() => {
-                            setSelectedCountries(
-                              selectedCountries.filter((c) => c !== country)
-                            );
-                          }}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#1976d2",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <span style={styles.label}>By State/County/Province</span>
-                <SearchableSelect
-                  options={provinceOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedProvinces.includes(value)
-                    ) {
-                      setSelectedProvinces([...selectedProvinces, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingProvinces
-                      ? "Loading provinces..."
-                      : selectedCountries.length === 0
-                      ? "Select country first"
-                      : "Select Province"
-                  }
-                  disabled={loadingProvinces || selectedCountries.length === 0}
-                  style={styles.select}
-                />
-
-                {/* Selected Provinces Tags */}
-                {selectedProvinces.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedProvinces.map((province) => (
-                      <span
-                        key={province}
-                        style={{
-                          backgroundColor: "#e8f5e8",
-                          color: "#2e7d32",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {province}
-                        <button
-                          onClick={() => {
-                            setSelectedProvinces(
-                              selectedProvinces.filter((p) => p !== province)
-                            );
-                          }}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#2e7d32",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <span style={styles.label}>By City</span>
-                <SearchableSelect
-                  options={cityOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedCities.includes(value)
-                    ) {
-                      setSelectedCities([...selectedCities, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingCities
-                      ? "Loading cities..."
-                      : selectedCountries.length === 0
-                      ? "Select country first"
-                      : "Select City"
-                  }
-                  disabled={loadingCities || selectedCountries.length === 0}
-                  style={styles.select}
-                />
-
-                {/* Selected Cities Tags */}
-                {selectedCities.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedCities.map((city) => (
-                      <span
-                        key={city}
-                        style={{
-                          backgroundColor: "#fff3e0",
-                          color: "#f57c00",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {city}
-                        <button
-                          onClick={() => {
-                            setSelectedCities(
-                              selectedCities.filter((c) => c !== city)
-                            );
-                          }}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#f57c00",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Sector
-                </h3>
-                <span style={styles.label}>By Primary Sectors</span>
-                <SearchableSelect
-                  options={primarySectorOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "number" &&
-                      value &&
-                      !selectedPrimarySectors.includes(value)
-                    ) {
-                      setSelectedPrimarySectors([
-                        ...selectedPrimarySectors,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder={
-                    loadingPrimarySectors
-                      ? "Loading sectors..."
-                      : "Select Primary Sector"
-                  }
-                  disabled={loadingPrimarySectors}
-                  style={styles.select}
-                />
-
-                {/* Selected Primary Sectors Tags */}
-                {selectedPrimarySectors.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedPrimarySectors.map((sectorId) => {
-                      const sector = primarySectors.find(
-                        (s) => s.id === sectorId
-                      );
-                      return (
-                        <span
-                          key={sectorId}
-                          style={{
-                            backgroundColor: "#f3e5f5",
-                            color: "#7b1fa2",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            fontSize: "12px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          {sector?.sector_name || `Sector ${sectorId}`}
-                          <button
-                            onClick={() => {
-                              setSelectedPrimarySectors(
-                                selectedPrimarySectors.filter(
-                                  (s) => s !== sectorId
-                                )
-                              );
-                            }}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#7b1fa2",
-                              cursor: "pointer",
-                              fontWeight: "bold",
-                              fontSize: "14px",
-                            }}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <span style={styles.label}>By Secondary Sectors</span>
-                <SearchableSelect
-                  options={secondarySectorOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "number" &&
-                      value &&
-                      !selectedSecondarySectors.includes(value)
-                    ) {
-                      setSelectedSecondarySectors([
-                        ...selectedSecondarySectors,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder={
-                    loadingSecondarySectors
-                      ? "Loading sectors..."
-                      : selectedPrimarySectors.length === 0
-                      ? "Select primary sectors first"
-                      : "Select Secondary Sector"
-                  }
-                  disabled={
-                    loadingSecondarySectors ||
-                    selectedPrimarySectors.length === 0
-                  }
-                  style={styles.select}
-                />
-
-                {/* Selected Secondary Sectors Tags */}
-                {selectedSecondarySectors.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedSecondarySectors.map((sectorId) => {
-                      const sector = secondarySectors.find(
-                        (s) => s.id === sectorId
-                      );
-                      return (
-                        <span
-                          key={sectorId}
-                          style={{
-                            backgroundColor: "#e8f5e8",
-                            color: "#2e7d32",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            fontSize: "12px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          {sector?.sector_name || `Sector ${sectorId}`}
-                          <button
-                            onClick={() => {
-                              setSelectedSecondarySectors(
-                                selectedSecondarySectors.filter(
-                                  (s) => s !== sectorId
-                                )
-                              );
-                            }}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#2e7d32",
-                              cursor: "pointer",
-                              fontWeight: "bold",
-                              fontSize: "14px",
-                            }}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Search
-                </h3>
-                <span style={styles.label}>Search for Articles</span>
-                <input
-                  type="text"
-                  placeholder="Enter search term here"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={styles.input}
-                  className="filters-input"
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                />
-                <button
-                  onClick={handleSearch}
-                  style={styles.button}
-                  className="filters-button"
-                  onMouseOver={(e) =>
-                    ((e.target as HTMLButtonElement).style.backgroundColor =
-                      "#005bb5")
-                  }
-                  onMouseOut={(e) =>
-                    ((e.target as HTMLButtonElement).style.backgroundColor =
-                      "#0075df")
-                  }
-                >
-                  {loading ? "Searching..." : "Search"}
-                </button>
-              </div>
+            <div style={styles.searchDiv}>
+              <input
+                type="text"
+                placeholder="Enter search term here"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={styles.input}
+                className="filters-input"
+                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+              />
+              <button
+                onClick={handleSearch}
+                style={styles.button}
+                className="filters-button"
+                onMouseOver={(e) =>
+                  ((e.target as HTMLButtonElement).style.backgroundColor =
+                    "#005bb5")
+                }
+                onMouseOut={(e) =>
+                  ((e.target as HTMLButtonElement).style.backgroundColor =
+                    "#0075df")
+                }
+              >
+                {loading ? "Searching..." : "Search"}
+              </button>
             </div>
 
             {/* Error Display */}

@@ -1574,27 +1574,30 @@ const CompanySection = ({
             <CompanyLogo logo={company.linkedin_logo} name={company.name} />
           </td>
           <td>
-            <span
+            <a
+              href={`/company/${company.id}`}
               className="company-name"
               style={{
                 textDecoration: "none",
-                cursor: "pointer",
                 color: "#3b82f6",
               }}
-              onClick={() => handleCompanyClick(company.id)}
-              onContextMenu={(e) => {
+              onClick={(e) => {
+                if (
+                  e.defaultPrevented ||
+                  e.button !== 0 ||
+                  e.metaKey ||
+                  e.ctrlKey ||
+                  e.shiftKey ||
+                  e.altKey
+                ) {
+                  return;
+                }
                 e.preventDefault();
-                e.stopPropagation();
-                window.open(
-                  `/company/${company.id}`,
-                  "_blank",
-                  "noopener,noreferrer"
-                );
+                handleCompanyClick(company.id);
               }}
-              title="Left click to navigate, Right click to open in new tab"
             >
               {company.name || "N/A"}
-            </span>
+            </a>
           </td>
           <td>
             <CompanyDescription
@@ -1759,6 +1762,38 @@ const CompanySection = ({
       border-collapse: collapse;
       table-layout: fixed;
     }
+    .company-table th:nth-child(1), 
+    .company-table td:nth-child(1) { 
+      width: 8%; 
+    } /* Logo */
+    .company-table th:nth-child(2), 
+    .company-table td:nth-child(2) { 
+      width: 12%; 
+    } /* Name */
+    .company-table th:nth-child(3), 
+    .company-table td:nth-child(3) { 
+      width: 35%; 
+    } /* Description - Much wider */
+    .company-table th:nth-child(4), 
+    .company-table td:nth-child(4) { 
+      width: 15%; 
+    } /* Primary Sectors */
+    .company-table th:nth-child(5), 
+    .company-table td:nth-child(5) { 
+      width: 12%; 
+    } /* Sectors */
+    .company-table th:nth-child(6), 
+    .company-table td:nth-child(6) { 
+      width: 8%; 
+    } /* Ownership */
+    .company-table th:nth-child(7), 
+    .company-table td:nth-child(7) { 
+      width: 7%; 
+    } /* LinkedIn Members */
+    .company-table th:nth-child(8), 
+    .company-table td:nth-child(8) { 
+      width: 7%; 
+    } /* Country */
     .company-table th,
     .company-table td {
       padding: 8px 12px;
@@ -1794,7 +1829,6 @@ const CompanySection = ({
       font-weight: 500;
     }
     .company-description {
-      max-width: 500px;
       line-height: 1.4;
     }
     .company-description-truncated {

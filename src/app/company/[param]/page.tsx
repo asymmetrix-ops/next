@@ -16,6 +16,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { ContentArticle } from "@/types/insightsAnalysis";
 
 // Types for API integration
 interface CompanyLocation {
@@ -35,6 +36,9 @@ interface CompanyRevenue {
   rev_source: string;
   years_id: number;
   revenues_currency: string;
+  _years?: {
+    Year?: number | string;
+  };
 }
 
 interface CompanyEBITDA {
@@ -43,6 +47,11 @@ interface CompanyEBITDA {
 
 interface CompanyEV {
   ev_value: string;
+  _years?: {
+    Year?: number | string;
+  };
+  _currency?: { Currency?: string };
+  currency?: { Currency?: string };
 }
 
 interface CompanyLinkedInData {
@@ -122,6 +131,9 @@ interface Company {
   name: string;
   description: string;
   year_founded: number;
+  _years?: {
+    Year?: number | string;
+  };
   url: string;
   _linkedin_data_of_new_company: CompanyLinkedInData;
   _locations: CompanyLocation;
@@ -133,6 +145,7 @@ interface Company {
   _companies_employees_count_monthly: EmployeeCount[];
   Lifecycle_stage: LifecycleStage;
   investors?: CompanyInvestor[];
+  investors_new_company?: CompanyInvestor[];
   management_current?: CompanyManagement[];
   management_past?: CompanyManagement[];
   subsidiaries?: CompanySubsidiary[];
@@ -233,10 +246,66 @@ const formatFinancialValue = (value: string, currency?: string): string => {
 
   // If currency is available, prepend it to the value
   if (currency && currency !== "nan" && currency !== "null") {
-    return `${currency} ${value}`;
+    return `${currency}${value}`;
   }
 
   return value;
+};
+
+// Normalize various currency representations to a displayable 3-letter code
+const normalizeCurrency = (candidate: unknown): string | undefined => {
+  if (!candidate) return undefined;
+  if (typeof candidate === "string") {
+    const trimmed = candidate.trim();
+    // If backend sent an id like "7", ignore it
+    if (/^\d+$/.test(trimmed)) return undefined;
+    return trimmed;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const obj = candidate as any;
+  if (obj && typeof obj === "object" && typeof obj.Currency === "string") {
+    return obj.Currency;
+  }
+  return undefined;
+};
+
+// Extracts a 4-digit year from a candidate value if valid
+const extractValidYear = (candidate: unknown): number | null => {
+  const currentYear = new Date().getFullYear();
+  if (typeof candidate === "number") {
+    const yearNum = candidate;
+    return yearNum >= 1800 && yearNum <= currentYear ? yearNum : null;
+  }
+  if (typeof candidate === "string") {
+    const trimmed = candidate.trim();
+    // Try parse as integer
+    const num = parseInt(trimmed, 10);
+    if (!Number.isNaN(num) && num >= 1800 && num <= currentYear) return num;
+    // Fallback: search for first 4-digit sequence
+    const match = trimmed.match(/\b(18\d{2}|19\d{2}|20\d{2})\b/);
+    if (match) {
+      const mNum = parseInt(match[0], 10);
+      if (mNum >= 1800 && mNum <= currentYear) return mNum;
+    }
+  }
+  return null;
+};
+
+// Determines Year Founded using multiple fallbacks
+const getYearFoundedDisplay = (company: Company): string => {
+  const candidates: Array<unknown> = [
+    company.year_founded,
+    company._years?.Year,
+    company.revenues?._years?.Year,
+    company.ev_data?._years?.Year,
+  ];
+
+  for (const c of candidates) {
+    const year = extractValidYear(c);
+    if (year !== null) return String(year);
+  }
+
+  return "Not available";
 };
 
 // Company Logo Component
@@ -363,6 +432,22 @@ const CompanyDetail = () => {
   );
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(false);
+  const [showAllCorporateEvents, setShowAllCorporateEvents] = useState(false);
+  const [companyArticles, setCompanyArticles] = useState<ContentArticle[]>([]);
+  const [articlesLoading, setArticlesLoading] = useState(false);
+
+  // Safely extract a sector id from various backend shapes
+  const getSectorId = (sector: unknown): number | undefined => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const s = sector as any;
+    const candidate = s?.sector_id ?? s?.id ?? s?.Sector_id;
+    if (typeof candidate === "number") return candidate;
+    if (typeof candidate === "string") {
+      const parsed = parseInt(candidate, 10);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    return undefined;
+  };
 
   const toggleDescription = (subsidiaryId: number) => {
     setExpandedDescriptions((prev) => {
@@ -375,6 +460,65 @@ const CompanyDetail = () => {
       return newSet;
     });
   };
+
+  // Fetch company with intelligent fallbacks (GET first, then POST with common payload keys)
+  const requestCompany = useCallback(
+    async (id: string): Promise<CompanyResponse> => {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+
+      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${id}`;
+
+      // Attempt 1: Standard GET
+      const getResponse = await fetch(endpoint, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      });
+      if (getResponse.ok) {
+        return (await Promise.race([
+          getResponse.json(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Request timed out")), 20000)
+          ),
+        ])) as CompanyResponse;
+      }
+
+      // Attempt 2..N: POST with typical id keys, in case backend expects a body
+      const candidateBodies = [
+        { new_company_id: Number(id) },
+        { company_id: Number(id) },
+        { id: Number(id) },
+      ];
+      for (const body of candidateBodies) {
+        const postResponse = await fetch(endpoint, {
+          method: "POST",
+          headers,
+          credentials: "include",
+          body: JSON.stringify(body),
+        });
+        if (postResponse.ok) {
+          return (await Promise.race([
+            postResponse.json(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("Request timed out")), 20000)
+            ),
+          ])) as CompanyResponse;
+        }
+      }
+
+      // If we reached here, throw a detailed error
+      const errorText = await getResponse.text().catch(() => "");
+      throw new Error(
+        `API request failed: ${getResponse.status} ${getResponse.statusText} ${errorText}`
+      );
+    },
+    []
+  );
 
   // Fetch corporate events
   const fetchCorporateEvents = useCallback(async () => {
@@ -414,59 +558,69 @@ const CompanyDetail = () => {
     }
   }, [companyId]);
 
+  // Fetch Asymmetrix content articles related to this company (by name search)
+  const fetchCompanyArticles = useCallback(async (companyName: string) => {
+    if (!companyName) return;
+    setArticlesLoading(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) return;
+
+      const params = new URLSearchParams();
+      params.append("Offset", "1");
+      params.append("Per_page", "5");
+      params.append("search_query", companyName);
+
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok)
+        throw new Error(`Articles fetch failed: ${response.status}`);
+      const data = await response.json();
+      setCompanyArticles((data?.items as ContentArticle[]) || []);
+    } catch (err) {
+      console.error("Error fetching company articles:", err);
+      setCompanyArticles([]);
+    } finally {
+      setArticlesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchCompanyData = async () => {
       setLoading(true);
       setError(null);
 
       try {
-        const token = localStorage.getItem("asymmetrix_auth_token");
-
-        const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${companyId}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-            credentials: "include",
-          }
-        );
-
-        if (!response.ok) {
-          if (response.status === 404) {
+        let data: CompanyResponse;
+        try {
+          data = await requestCompany(companyId);
+        } catch (apiErr) {
+          // If the GET/POST attempts failed, rethrow with a nicer message
+          const msg = apiErr instanceof Error ? apiErr.message : String(apiErr);
+          if (msg.includes("404")) {
             throw new Error("Company not found");
           }
-          throw new Error(`API request failed: ${response.statusText}`);
+          throw new Error(msg || "API request failed");
         }
 
-        const data: CompanyResponse = await response.json();
-
-        // LOG COMPLETE API RESPONSE AS JSON
-        console.log("=== API RESPONSE JSON ===");
-        console.log(JSON.stringify(data, null, 2));
-        console.log("========================");
+        // Intentionally removed extremely verbose JSON logging that could stall rendering for large payloads
 
         if (!data.Company) {
           throw new Error("Invalid company data");
         }
 
-        // LOG SPECIFIC FIELDS WE'RE LOOKING FOR
-        console.log("=== SPECIFIC FIELD CHECKS ===");
-        console.log(
-          "Management Current:",
-          data.Company.Managmant_Roles_current
-        );
-        console.log("Management Past:", data.Company.Managmant_Roles_past);
-        console.log("Subsidiaries:", data.Company.have_subsidiaries_companies);
-        console.log("All Company Keys:", Object.keys(data.Company));
-        console.log("===============================");
+        // Removed additional verbose logging
 
-        // Add mock investors data since this isn't in the API yet
+        // Use actual investor data from API
         const enrichedCompany = {
           ...data.Company,
-          investors: [{ id: 1, name: "Motive Partners", url: "/investor/1" }],
+          investors: data.Company.investors_new_company || [],
           // Add the actual API fields - THESE ARE AT ROOT LEVEL, NOT IN data.Company!
           Managmant_Roles_current: data.Managmant_Roles_current || [],
           Managmant_Roles_past: data.Managmant_Roles_past || [],
@@ -476,24 +630,17 @@ const CompanyDetail = () => {
           },
         };
 
-        // LOG FINAL ENRICHED COMPANY
-        console.log("=== ENRICHED COMPANY ===");
-        console.log("Final company object:", enrichedCompany);
-        console.log(
-          "Management Current in enriched:",
-          enrichedCompany.Managmant_Roles_current
-        );
-        console.log(
-          "Management Past in enriched:",
-          enrichedCompany.Managmant_Roles_past
-        );
-        console.log("========================");
+        // Removed verbose logging of enriched object
 
         setCompany(enrichedCompany);
+        // Trigger fetching related articles using company name
+        if (enrichedCompany?.name) {
+          fetchCompanyArticles(enrichedCompany.name);
+        }
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch company data"
-        );
+        const message =
+          err instanceof Error ? err.message : "Failed to fetch company data";
+        setError(message);
         console.error("Error fetching company data:", err);
       } finally {
         setLoading(false);
@@ -504,7 +651,7 @@ const CompanyDetail = () => {
       fetchCompanyData();
       fetchCorporateEvents();
     }
-  }, [companyId, fetchCorporateEvents]);
+  }, [companyId, fetchCorporateEvents, fetchCompanyArticles, requestCompany]);
 
   if (loading) {
     return (
@@ -513,6 +660,9 @@ const CompanyDetail = () => {
         <div style={{ padding: "40px", textAlign: "center" }}>
           <div style={{ fontSize: "18px", color: "#666" }}>
             Loading company data...
+          </div>
+          <div style={{ marginTop: 8, fontSize: 12, color: "#9ca3af" }}>
+            If this takes more than a few seconds, please refresh.
           </div>
         </div>
         <Footer />
@@ -575,19 +725,7 @@ const CompanyDetail = () => {
     return null;
   }
 
-  // LOG COMPANY STATE IN RENDER
-  console.log("=== RENDER PHASE ===");
-  console.log("Company state:", company);
-  console.log("Management Current in render:", company.Managmant_Roles_current);
-  console.log("Management Past in render:", company.Managmant_Roles_past);
-  console.log("Has management current?", !!company.Managmant_Roles_current);
-  console.log(
-    "Management current length:",
-    company.Managmant_Roles_current?.length
-  );
-  console.log("Has subsidiaries?", !!company.have_subsidiaries_companies);
-  console.log("All company object keys:", Object.keys(company));
-  console.log("===================");
+  // Removed render-phase debug logging to avoid noise/perf issues
 
   // Process sectors
   const primarySectors =
@@ -610,12 +748,26 @@ const CompanyDetail = () => {
     .join(", ");
 
   // Process financial data
-  const currency = company.revenues?.revenues_currency;
-  const revenue = formatFinancialValue(company.revenues?.revenues_m, currency);
-  const ebitda = formatFinancialValue(company.EBITDA?.EBITDA_m, currency);
+  const revenueCurrency = normalizeCurrency(
+    company.revenues?.revenues_currency
+  );
+  const evCurrency =
+    normalizeCurrency(
+      company.ev_data?._currency?.Currency ||
+        company.ev_data?.currency?.Currency
+    ) || revenueCurrency;
+
+  const revenue = formatFinancialValue(
+    company.revenues?.revenues_m,
+    revenueCurrency
+  );
+  const ebitda = formatFinancialValue(
+    company.EBITDA?.EBITDA_m,
+    revenueCurrency
+  );
   const enterpriseValue = formatFinancialValue(
     company.ev_data?.ev_value,
-    currency
+    evCurrency
   );
 
   // Process employee data
@@ -703,10 +855,11 @@ const CompanyDetail = () => {
       marginTop: "0",
     },
     infoRow: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
-      padding: "12px 0",
+      display: "grid",
+      gridTemplateColumns: "220px 1fr",
+      columnGap: "4px",
+      alignItems: "center",
+      padding: "10px 0",
       borderBottom: "1px solid #e2e8f0",
     },
     infoRowLast: {
@@ -716,15 +869,14 @@ const CompanyDetail = () => {
       fontSize: "14px",
       color: "#4a5568",
       fontWeight: "500",
-      minWidth: "120px",
+      width: "220px",
     },
     value: {
       fontSize: "14px",
       color: "#1a202c",
       fontWeight: "400",
-      textAlign: "right" as const,
-      flex: "1",
-      marginLeft: "16px",
+      textAlign: "left" as const,
+      marginLeft: "0",
     },
     link: {
       color: "#0075df",
@@ -943,8 +1095,15 @@ const CompanyDetail = () => {
               "Asymmetrix Score: Coming Soon"
             ),
             React.createElement(
-              "button",
-              { style: styles.reportButton },
+              "a",
+              {
+                style: {
+                  ...styles.reportButton,
+                  display: "inline-flex",
+                  alignItems: "center",
+                },
+                href: "mailto:a.boden@asymmetrixintelligence.com?subject=Report%20Incorrect%20Company%20Data&body=Please%20describe%20the%20issue%20you%20found.",
+              },
               "Report Incorrect Data"
             )
           )
@@ -972,15 +1131,26 @@ const CompanyDetail = () => {
                 "div",
                 { style: styles.value },
                 primarySectors.length > 0
-                  ? primarySectors.map((sector, index) =>
-                      React.createElement("span", { key: sector.sector_id }, [
-                        createClickableElement(
-                          `/sector/${sector.sector_id}`,
-                          sector.sector_name
-                        ),
-                        index < primarySectors.length - 1 && ", ",
-                      ])
-                    )
+                  ? primarySectors.map((sector, index) => {
+                      const id = getSectorId(sector);
+                      return React.createElement(
+                        "span",
+                        { key: `${sector.sector_name}-${index}` },
+                        [
+                          id
+                            ? createClickableElement(
+                                `/sector/${id}`,
+                                sector.sector_name
+                              )
+                            : React.createElement(
+                                "span",
+                                { style: { color: "#000" } },
+                                sector.sector_name
+                              ),
+                          index < primarySectors.length - 1 && ", ",
+                        ]
+                      );
+                    })
                   : "Not available"
               )
             ),
@@ -996,15 +1166,26 @@ const CompanyDetail = () => {
                 "div",
                 { style: styles.value },
                 secondarySectors.length > 0
-                  ? secondarySectors.map((sector, index) =>
-                      React.createElement("span", { key: sector.sector_id }, [
-                        createClickableElement(
-                          `/sector/${sector.sector_id}`,
-                          sector.sector_name
-                        ),
-                        index < secondarySectors.length - 1 && ", ",
-                      ])
-                    )
+                  ? secondarySectors.map((sector, index) => {
+                      const id = getSectorId(sector);
+                      return React.createElement(
+                        "span",
+                        { key: `${sector.sector_name}-${index}` },
+                        [
+                          id
+                            ? createClickableElement(
+                                `/sector/${id}`,
+                                sector.sector_name
+                              )
+                            : React.createElement(
+                                "span",
+                                { style: { color: "#000" } },
+                                sector.sector_name
+                              ),
+                          index < secondarySectors.length - 1 && ", ",
+                        ]
+                      );
+                    })
                   : "Not available"
               )
             ),
@@ -1019,9 +1200,7 @@ const CompanyDetail = () => {
               React.createElement(
                 "span",
                 { style: styles.value },
-                company.year_founded && company.year_founded > 0
-                  ? company.year_founded
-                  : "Not available"
+                getYearFoundedDisplay(company)
               )
             ),
             React.createElement(
@@ -1097,12 +1276,10 @@ const CompanyDetail = () => {
                 company.investors && company.investors.length > 0
                   ? company.investors.map((investor, index) =>
                       React.createElement("span", { key: investor.id }, [
-                        investor.url
-                          ? createClickableElement(
-                              `/investor/${investor.id}`,
-                              investor.name
-                            )
-                          : investor.name,
+                        createClickableElement(
+                          `/investors/${investor.id}`,
+                          investor.name
+                        ),
                         index < company.investors!.length - 1 && ", ",
                       ])
                     )
@@ -1749,7 +1926,10 @@ const CompanyDetail = () => {
                   React.createElement(
                     "tbody",
                     null,
-                    corporateEvents.slice(0, 3).map((event, index) =>
+                    (showAllCorporateEvents
+                      ? corporateEvents
+                      : corporateEvents.slice(0, 3)
+                    ).map((event, index) =>
                       React.createElement(
                         "tr",
                         { key: event.id || index },
@@ -1847,7 +2027,35 @@ const CompanyDetail = () => {
                       )
                     )
                   )
-                )
+                ),
+                // Show "See More" button if there are more than 3 events
+                corporateEvents.length > 3 &&
+                  React.createElement(
+                    "div",
+                    {
+                      style: {
+                        textAlign: "center",
+                        marginTop: "16px",
+                      },
+                    },
+                    React.createElement(
+                      "button",
+                      {
+                        onClick: () =>
+                          setShowAllCorporateEvents(!showAllCorporateEvents),
+                        style: {
+                          background: "none",
+                          border: "none",
+                          color: "#0075df",
+                          textDecoration: "underline",
+                          cursor: "pointer",
+                          fontSize: "14px",
+                          padding: "8px 0",
+                        },
+                      },
+                      showAllCorporateEvents ? "Show Less" : "See More"
+                    )
+                  )
               )
             : React.createElement(
                 "div",
@@ -1862,6 +2070,107 @@ const CompanyDetail = () => {
                 "No corporate events available"
               )
         )
+      ),
+      // Asymmetrix Content (Insights & Analysis) related to this company
+      React.createElement(
+        "div",
+        { style: { ...styles.card, marginTop: "32px" } },
+        React.createElement(
+          "div",
+          {
+            style: {
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "24px",
+            },
+          },
+          React.createElement(
+            "h2",
+            { style: styles.sectionTitle },
+            "Asymmetrix Insights & Analysis"
+          )
+        ),
+        articlesLoading
+          ? React.createElement(
+              "div",
+              {
+                style: {
+                  textAlign: "center",
+                  padding: "40px",
+                  color: "#666",
+                  fontSize: "14px",
+                },
+              },
+              "Loading content..."
+            )
+          : companyArticles.length > 0
+          ? React.createElement(
+              "div",
+              {
+                style: {
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                },
+              },
+              companyArticles.slice(0, 4).map((article) =>
+                React.createElement(
+                  "div",
+                  {
+                    key: article.id,
+                    style: {
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      padding: "12px 12px",
+                      cursor: "pointer",
+                      background: "#fff",
+                    },
+                    onClick: () =>
+                      (window.location.href = `/article/${article.id}`),
+                  },
+                  React.createElement(
+                    "div",
+                    {
+                      style: {
+                        fontWeight: 700,
+                        marginBottom: 6,
+                        color: "#1a202c",
+                      },
+                    },
+                    article.Headline || "Untitled"
+                  ),
+                  React.createElement(
+                    "div",
+                    {
+                      style: {
+                        fontSize: 12,
+                        color: "#6b7280",
+                        marginBottom: 8,
+                      },
+                    },
+                    new Date(article.Publication_Date).toLocaleDateString()
+                  ),
+                  React.createElement(
+                    "div",
+                    { style: { fontSize: 14, color: "#374151" } },
+                    article.Strapline || ""
+                  )
+                )
+              )
+            )
+          : React.createElement(
+              "div",
+              {
+                style: {
+                  textAlign: "center",
+                  padding: "40px",
+                  color: "#666",
+                  fontSize: "14px",
+                },
+              },
+              "No related content found"
+            )
       ),
       React.createElement(Footer)
     ),
@@ -1879,10 +2188,11 @@ const CompanyDetail = () => {
            .desktop-linkedin-section {
              display: none !important;
            }
-           .management-grid {
+            .management-grid {
              grid-template-columns: 1fr !important;
              gap: 16px !important;
            }
+            .responsiveGrid .card .info-row { grid-template-columns: 1fr !important; }
          }
          @media (min-width: 769px) {
            .mobile-financial-metrics {

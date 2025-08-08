@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import Image from "next/image";
 import Header from "@/components/Header";
@@ -11,8 +11,6 @@ import {
   formatDate,
   formatJobTitles,
   formatCurrency,
-  getCounterpartyRole,
-  formatIndividualsList,
   formatAdvisorsList,
 } from "../../../utils/individualHelpers";
 import {
@@ -20,6 +18,7 @@ import {
   CorporateEvent,
   RelatedIndividual,
 } from "../../../types/individual";
+import { useRightClick } from "../../../hooks/useRightClick";
 
 // Company Logo Component
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
@@ -56,8 +55,10 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
 
 export default function IndividualProfilePage() {
   const params = useParams();
+  const router = useRouter();
   const individualId = parseInt(params.param as string);
   const [eventsExpanded, setEventsExpanded] = useState(false);
+  const { createClickableElement } = useRightClick();
 
   const { profileData, eventsData, individualName, loading, error } =
     useIndividualProfile({
@@ -234,12 +235,7 @@ export default function IndividualProfilePage() {
                 <div>
                   <strong>Location:</strong> {location || "Not available"}
                 </div>
-                <div>
-                  <strong>Phone:</strong> {Individual.phone || "Not available"}
-                </div>
-                <div>
-                  <strong>Email:</strong> {Individual.email || "Not available"}
-                </div>
+
                 <div>
                   <strong>LinkedIn:</strong>{" "}
                   {Individual.linkedin_URL ? (
@@ -247,9 +243,26 @@ export default function IndividualProfilePage() {
                       href={Individual.linkedin_URL}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ color: "#3b82f6", textDecoration: "none" }}
+                      style={{
+                        color: "#3b82f6",
+                        textDecoration: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                      title="Open LinkedIn profile"
                     >
-                      View Profile
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.761 0 5-2.239 5-5v-14c0-2.761-2.239-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764 0-.974.784-1.764 1.75-1.764s1.75.79 1.75 1.764c0 .974-.784 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-1.337-.026-3.059-1.865-3.059-1.865 0-2.151 1.455-2.151 2.961v5.702h-3v-11h2.879v1.507h.041c.401-.759 1.379-1.561 2.84-1.561 3.038 0 3.6 2.001 3.6 4.604v6.45z" />
+                      </svg>
+                      LinkedIn
                     </a>
                   ) : (
                     "Not available"
@@ -379,15 +392,10 @@ export default function IndividualProfilePage() {
                             />
                           </td>
                           <td style={{ padding: "8px", fontSize: "12px" }}>
-                            <a
-                              href="#"
-                              style={{
-                                color: "#3b82f6",
-                                textDecoration: "none",
-                              }}
-                            >
-                              {role.new_company.name}
-                            </a>
+                            {createClickableElement(
+                              `/company/${role.new_company.id}`,
+                              role.new_company.name
+                            )}
                           </td>
                           <td style={{ padding: "8px", fontSize: "12px" }}>
                             <span
@@ -574,7 +582,7 @@ export default function IndividualProfilePage() {
                             fontSize: "12px",
                           }}
                         >
-                          Individuals
+                          Other Individuals
                         </th>
                         <th
                           style={{
@@ -601,7 +609,21 @@ export default function IndividualProfilePage() {
                                 style={{
                                   color: "#3b82f6",
                                   textDecoration: "none",
+                                  cursor: "pointer",
                                 }}
+                                onClick={() =>
+                                  router.push(`/corporate-event/${event.id}`)
+                                }
+                                onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  window.open(
+                                    `/corporate-event/${event.id}`,
+                                    "_blank",
+                                    "noopener,noreferrer"
+                                  );
+                                }}
+                                title="Left click to navigate, Right click to open in new tab"
                               >
                                 {event.description}
                               </span>
@@ -613,7 +635,15 @@ export default function IndividualProfilePage() {
                               {event.deal_type || "—"}
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
-                              {getCounterpartyRole(event)}
+                              {(() => {
+                                const advised =
+                                  event
+                                    ._counterparty_advised_of_corporate_events?.[0];
+                                return (
+                                  advised?._counterpartys_type
+                                    ?.counterparty_status || "Not available"
+                                );
+                              })()}
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               {event._other_counterparties_of_corporate_events
@@ -634,9 +664,36 @@ export default function IndividualProfilePage() {
                                 : "—"}
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
-                              {formatIndividualsList(
-                                event._related_to_corporate_event_individuals
-                              )}
+                              {event._related_to_corporate_event_individuals &&
+                              event._related_to_corporate_event_individuals
+                                .length > 0
+                                ? event._related_to_corporate_event_individuals.map(
+                                    (ind, i) => (
+                                      <span key={`${ind.id}-${i}`}>
+                                        <span
+                                          style={{
+                                            color: "#3b82f6",
+                                            textDecoration: "none",
+                                            cursor: "pointer",
+                                          }}
+                                          onClick={() =>
+                                            router.push(`/individual/${ind.id}`)
+                                          }
+                                          title="Click to open individual's profile"
+                                        >
+                                          {ind.advisor_individuals}
+                                        </span>
+                                        {i <
+                                        event
+                                          ._related_to_corporate_event_individuals
+                                          .length -
+                                          1
+                                          ? ", "
+                                          : ""}
+                                      </span>
+                                    )
+                                  )
+                                : "—"}
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               {formatAdvisorsList(
@@ -764,29 +821,41 @@ export default function IndividualProfilePage() {
                               />
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
-                              <a
-                                href="#"
+                              <span
                                 style={{
                                   color: "#3b82f6",
                                   textDecoration: "none",
+                                  cursor: "pointer",
                                 }}
+                                onClick={() =>
+                                  router.push(
+                                    `/company/${relatedIndividual._new_company.id}`
+                                  )
+                                }
+                                title="Click to open company page"
                               >
                                 {relatedIndividual._new_company.name}
-                              </a>
+                              </span>
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
-                              <a
-                                href="#"
+                              <span
                                 style={{
                                   color: "#3b82f6",
                                   textDecoration: "none",
+                                  cursor: "pointer",
                                 }}
+                                onClick={() =>
+                                  router.push(
+                                    `/individual/${relatedIndividual._individuals.id}`
+                                  )
+                                }
+                                title="Click to open individual's profile"
                               >
                                 {
                                   relatedIndividual._individuals
                                     .advisor_individuals
                                 }
-                              </a>
+                              </span>
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               <span

@@ -5,7 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { corporateEventsService } from "../../../lib/corporateEventsService";
-import { CorporateEventDetailResponse } from "../../../types/corporateEvents";
+import {
+  CorporateEventDetailResponse,
+  CorporateEventAdvisor,
+} from "../../../types/corporateEvents";
 
 // Company Logo Component
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
@@ -35,6 +38,7 @@ const CorporateEventDetail = ({
   const event = data.Event[0];
   const counterparties = data.Event_counterparties;
   const subSectors = data["Sub-sectors"];
+  const advisors: CorporateEventAdvisor[] = data.Event_advisors || [];
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "Not available";
@@ -51,10 +55,27 @@ const CorporateEventDetail = ({
     return `${currency} ${amount}`;
   };
 
-  const handleCompanyClick = (companyId: number) => {
-    console.log("Company clicked:", companyId);
+  // Company click now routed through handleCounterpartyClick; keeping helper removed to avoid unused warnings
+
+  const handleCounterpartyClick = (
+    isInvestor: boolean | undefined,
+    counterpartyId: number,
+    companyIdFallback: number
+  ) => {
     try {
-      router.push(`/company/${companyId}`);
+      if (isInvestor) {
+        router.push(`/investors/${counterpartyId}`);
+      } else {
+        router.push(`/company/${companyIdFallback}`);
+      }
+    } catch (error) {
+      console.error("Navigation error:", error);
+    }
+  };
+
+  const handleIndividualClick = (individualId: number) => {
+    try {
+      router.push(`/individual/${individualId}`);
     } catch (error) {
       console.error("Navigation error:", error);
     }
@@ -182,9 +203,11 @@ const CorporateEventDetail = ({
       font-size: 12px;
       color: #6b7280;
     }
-    .counterparties-cards {
-      display: none;
-    }
+    .counterparties-cards { display: none; }
+    .advisors-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    .advisors-table th { background-color: #f9fafb; border-bottom: 2px solid #e5e7eb; padding: 12px 16px; text-align: left; font-weight: 600; font-size: 14px; color: #374151; }
+    .advisors-table td { padding: 12px 16px; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #374151; }
+    .advisors-cards { display: none; }
     .counterparty-card {
       background: white;
       border: 1px solid #e2e8f0;
@@ -274,22 +297,17 @@ const CorporateEventDetail = ({
         font-size: 15px !important;
         margin-top: 16px !important;
       }
-      .counterparties-table-container {
-        display: none !important;
-      }
-      .counterparties-cards {
-        display: block !important;
-        margin-top: 16px !important;
-      }
+      .counterparties-table-container { display: none !important; }
+      .counterparties-cards { display: block !important; margin-top: 16px !important; }
+      .advisors-cards { display: block !important; margin-top: 16px !important; }
+      .advisors-table { display: none !important; }
     }
 
     @media (min-width: 769px) {
-      .counterparties-cards {
-        display: none !important;
-      }
-      .counterparties-table-container {
-        display: block !important;
-      }
+      .counterparties-cards { display: none !important; }
+      .counterparties-table-container { display: block !important; }
+      .advisors-cards { display: none !important; }
+      .advisors-table { display: table !important; }
     }
   `;
 
@@ -413,16 +431,16 @@ const CorporateEventDetail = ({
                       <span
                         className="corporate-event-link"
                         onClick={(e) => {
-                          console.log(
-                            "Company data:",
-                            counterparty._new_company
-                          );
                           e.currentTarget.style.backgroundColor = "#f0f0f0";
                           setTimeout(() => {
                             e.currentTarget.style.backgroundColor =
                               "transparent";
                           }, 200);
-                          handleCompanyClick(counterparty._new_company.id);
+                          handleCounterpartyClick(
+                            counterparty._new_company?._is_that_investor,
+                            counterparty.new_company_counterparty,
+                            counterparty._new_company.id
+                          );
                         }}
                       >
                         {counterparty._new_company.name}
@@ -448,12 +466,21 @@ const CorporateEventDetail = ({
                     <td>
                       {counterparty.counterparty_individuals.length > 0
                         ? counterparty.counterparty_individuals.map(
-                            (individual) => (
-                              <span
-                                key={individual.id}
-                                className="corporate-event-link"
-                              >
-                                {individual.advisor_individuals}
+                            (individual, idx) => (
+                              <span key={individual.id}>
+                                <span
+                                  className="corporate-event-link"
+                                  onClick={() =>
+                                    handleIndividualClick(
+                                      individual.individuals_id
+                                    )
+                                  }
+                                >
+                                  {individual.advisor_individuals}
+                                </span>
+                                {idx <
+                                  counterparty.counterparty_individuals.length -
+                                    1 && ", "}
                               </span>
                             )
                           )
@@ -480,10 +507,13 @@ const CorporateEventDetail = ({
                   />
                   <div
                     className="counterparty-card-name"
-                    onClick={() => {
-                      console.log("Company data:", counterparty._new_company);
-                      handleCompanyClick(counterparty._new_company.id);
-                    }}
+                    onClick={() =>
+                      handleCounterpartyClick(
+                        counterparty._new_company?._is_that_investor,
+                        counterparty.new_company_counterparty,
+                        counterparty._new_company.id
+                      )
+                    }
                   >
                     {counterparty._new_company.name}
                   </div>
@@ -501,9 +531,25 @@ const CorporateEventDetail = ({
                     </span>
                     <span className="counterparty-card-info-value">
                       {counterparty.counterparty_individuals.length > 0
-                        ? counterparty.counterparty_individuals
-                            .map((individual) => individual.advisor_individuals)
-                            .join(", ")
+                        ? counterparty.counterparty_individuals.map(
+                            (individual, idx) => (
+                              <span key={individual.id}>
+                                <span
+                                  className="corporate-event-link"
+                                  onClick={() =>
+                                    handleIndividualClick(
+                                      individual.individuals_id
+                                    )
+                                  }
+                                >
+                                  {individual.advisor_individuals}
+                                </span>
+                                {idx <
+                                  counterparty.counterparty_individuals.length -
+                                    1 && ", "}
+                              </span>
+                            )
+                          )
                         : "Not available"}
                     </span>
                   </div>
@@ -526,6 +572,149 @@ const CorporateEventDetail = ({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Advisors Card */}
+        <div className="corporate-event-card">
+          <h2 className="corporate-event-subtitle">Advisors</h2>
+          {/* Desktop Table */}
+          <table className="advisors-table">
+            <thead>
+              <tr>
+                <th>Advisor</th>
+                <th>Role</th>
+                <th>Advising</th>
+                <th>Announcement URL</th>
+              </tr>
+            </thead>
+            <tbody>
+              {advisors.length > 0 ? (
+                advisors.map((a) => (
+                  <tr key={a.id}>
+                    <td>
+                      <span
+                        className="corporate-event-link"
+                        onClick={() =>
+                          router.push(`/advisor/${a._new_company.id}`)
+                        }
+                      >
+                        {a._new_company.name}
+                      </span>
+                    </td>
+                    <td>{a._advisor_role?.counterparty_status || "N/A"}</td>
+                    <td>
+                      <span
+                        className="corporate-event-link"
+                        onClick={() =>
+                          handleCounterpartyClick(
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            (a._counterparties as any)?._new_company
+                              ?._is_that_investor,
+                            a._counterparties?.new_company_counterparty,
+                            Number(a._counterparties?._new_company?.id)
+                          )
+                        }
+                      >
+                        {a._counterparties?._new_company?.name || "N/A"}
+                      </span>
+                    </td>
+                    <td>
+                      {a.announcement_url ? (
+                        <a
+                          href={a.announcement_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="corporate-event-link"
+                        >
+                          {a.announcement_url}
+                        </a>
+                      ) : (
+                        "Not available"
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4}>Not available</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          {/* Mobile Cards */}
+          <div className="advisors-cards">
+            {advisors.length > 0 ? (
+              advisors.map((a) => (
+                <div key={a.id} className="counterparty-card">
+                  <div
+                    className="counterparty-card-header"
+                    style={{ marginBottom: 8 }}
+                  >
+                    <div
+                      className="counterparty-card-name"
+                      onClick={() =>
+                        router.push(`/advisor/${a._new_company.id}`)
+                      }
+                    >
+                      {a._new_company.name}
+                    </div>
+                  </div>
+                  <div className="counterparty-card-info">
+                    <div className="counterparty-card-info-item">
+                      <span className="counterparty-card-info-label">
+                        Role:
+                      </span>
+                      <span className="counterparty-card-info-value">
+                        {a._advisor_role?.counterparty_status || "N/A"}
+                      </span>
+                    </div>
+                    <div className="counterparty-card-info-item">
+                      <span className="counterparty-card-info-label">
+                        Advising:
+                      </span>
+                      <span className="counterparty-card-info-value">
+                        <span
+                          className="corporate-event-link"
+                          onClick={() =>
+                            handleCounterpartyClick(
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                              (a._counterparties as any)?._new_company
+                                ?._is_that_investor,
+                              a._counterparties?.new_company_counterparty,
+                              Number(a._counterparties?._new_company?.id)
+                            )
+                          }
+                        >
+                          {a._counterparties?._new_company?.name || "N/A"}
+                        </span>
+                      </span>
+                    </div>
+                    {a.announcement_url && (
+                      <div className="counterparty-card-info-item counterparty-card-full-width">
+                        <span className="counterparty-card-info-label">
+                          Announcement URL:
+                        </span>
+                        <a
+                          href={a.announcement_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="corporate-event-link"
+                          style={{ fontSize: 12 }}
+                        >
+                          {a.announcement_url}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div style={{ color: "#6b7280", fontSize: 14 }}>
+                Not available
+              </div>
+            )}
           </div>
         </div>
       </div>

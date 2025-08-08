@@ -431,10 +431,11 @@ const InvestorsPage = () => {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `API request failed: ${response.statusText} - ${errorText}`
-        );
+        const errorText = await response.text().catch(() => "");
+        const statusText = response.statusText || "";
+        const status = response.status;
+        const details = [statusText, errorText].filter(Boolean).join(" - ");
+        throw new Error(`API request failed (${status}): ${details}`);
       }
 
       const data: InvestorsResponse = await response.json();
@@ -528,6 +529,18 @@ const InvestorsPage = () => {
     setFilters(updatedFilters);
     fetchInvestors(updatedFilters);
   };
+
+  // Auto-refresh results when Investor Types change
+  useEffect(() => {
+    const updatedFilters = {
+      ...filters,
+      Investor_Types: selectedInvestorTypes,
+      page: 1,
+    };
+    setFilters(updatedFilters);
+    fetchInvestors(updatedFilters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedInvestorTypes]);
 
   // Handle page change
   const handlePageChange = (page: number) => {
@@ -749,8 +762,9 @@ const InvestorsPage = () => {
         null,
         investor.original_new_company_id
           ? React.createElement(
-              "span",
+              "a",
               {
+                href: `/investors/${investor.original_new_company_id}`,
                 className: "investor-name",
                 style: {
                   textDecoration: "underline",
@@ -758,18 +772,21 @@ const InvestorsPage = () => {
                   cursor: "pointer",
                   fontWeight: "500",
                 },
-                onClick: () =>
-                  router.push(`/investors/${investor.original_new_company_id}`),
-                onContextMenu: (e: React.MouseEvent) => {
+                onClick: (e: React.MouseEvent<HTMLAnchorElement>) => {
+                  if (
+                    e.defaultPrevented ||
+                    e.button !== 0 ||
+                    e.metaKey ||
+                    e.ctrlKey ||
+                    e.shiftKey ||
+                    e.altKey
+                  ) {
+                    return;
+                  }
                   e.preventDefault();
-                  e.stopPropagation();
-                  window.open(
-                    `/investors/${investor.original_new_company_id}`,
-                    "_blank",
-                    "noopener,noreferrer"
-                  );
+                  router.push(`/investors/${investor.original_new_company_id}`);
                 },
-                title: "Left click to navigate, Right click to open in new tab",
+                title: "Open investor",
               },
               investor.company_name || "N/A"
             )
@@ -1133,13 +1150,7 @@ const InvestorsPage = () => {
       padding: 16px 24px;
       border-radius: 8px;
     }
-    .investor-stats {
-      background: #fff;
-      padding: 20px 24px;
-      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
-      border-radius: 16px;
-      margin-bottom: 16px;
-    }
+    .investor-stats { background: #fff; padding: 16px 16px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; margin-bottom: 12px; }
     .stats-title {
       font-size: 22px;
       font-weight: 700;
@@ -1177,15 +1188,7 @@ const InvestorsPage = () => {
       color: #000;
       font-weight: 600;
     }
-    .investor-table {
-      width: 100%;
-      background: #fff;
-      padding: 20px 24px;
-      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
-      border-radius: 16px;
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
+    .investor-table { width: 100%; background: #fff; padding: 16px 16px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
     .investor-table th:nth-child(1) { width: 8%; }  /* Logo */
     .investor-table th:nth-child(2) { width: 12%; } /* Name */
     .investor-table th:nth-child(3) { width: 10%; } /* Type */
@@ -1232,10 +1235,10 @@ const InvestorsPage = () => {
     .investor-name:hover {
       color: #005bb5;
     }
-    .investor-description {
-      max-width: 450px;
-      line-height: 1.4;
-    }
+    .investor-description { max-width: 380px; line-height: 1.4; }
+    .search-row { display: flex; align-items: center; gap: 12px; }
+    .search-row .filters-input { margin: 0; max-width: 340px; }
+    .search-row .filters-button { margin: 0; max-width: 140px; }
     .investor-description-truncated {
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -1554,10 +1557,18 @@ const InvestorsPage = () => {
       {/* Filters Section */}
       <div style={styles.container}>
         <div style={styles.maxWidth}>
-          <div className="filters-card" style={styles.card}>
-            <h2 className="filters-heading" style={styles.heading}>
-              Filters
-            </h2>
+          <div
+            className="filters-card"
+            style={{
+              ...styles.card,
+              ...(showFilters ? {} : { padding: "12px 16px" }),
+            }}
+          >
+            {showFilters && (
+              <h2 className="filters-heading" style={styles.heading}>
+                Filters
+              </h2>
+            )}
 
             {showFilters && (
               <div className="filters-grid" style={styles.grid}>
@@ -1687,18 +1698,22 @@ const InvestorsPage = () => {
             )}
 
             <div style={{ marginTop: showFilters ? "20px" : "0" }}>
-              <h3 style={styles.subHeading}>Search for Investor</h3>
-              <div style={styles.searchDiv}>
+              {showFilters && (
+                <h3 style={styles.subHeading}>Search for Investor</h3>
+              )}
+              <div className="search-row">
                 <input
                   type="text"
                   placeholder="Enter name here"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  style={styles.input}
+                  style={{ ...styles.input, marginBottom: 0, maxWidth: 340 }}
+                  className="filters-input"
                   onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                 />
                 <button
-                  style={styles.button}
+                  style={{ ...styles.button, marginTop: 0, maxWidth: 140 }}
+                  className="filters-button"
                   onClick={handleSearch}
                   onMouseOver={(e) =>
                     ((e.target as HTMLButtonElement).style.backgroundColor =
@@ -1716,9 +1731,7 @@ const InvestorsPage = () => {
 
             <button
               onClick={() => {
-                if (showFilters) {
-                  handleResetFilters();
-                }
+                if (showFilters) handleResetFilters();
                 setShowFilters(!showFilters);
               }}
               style={styles.linkButton}

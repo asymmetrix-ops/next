@@ -169,10 +169,38 @@ export interface CorporateEventCounterparty {
   };
 }
 
+export interface CorporateEventAdvisor {
+  id: number;
+  corporate_events_id: number;
+  counterparty_advised: number;
+  new_company_advised: number;
+  advisor_role_id: number;
+  individuals_id: number[];
+  announcement_url: string;
+  _new_company: {
+    id: number;
+    name: string;
+  };
+  _counterparties: {
+    id: number;
+    new_company_counterparty: number;
+    counterparty_name: string;
+    _new_company: {
+      id: number;
+      name: string;
+      _linkedin_data_of_new_company?: { linkedin_logo: string };
+    };
+  };
+  _advisor_role: {
+    id: number;
+    counterparty_status: string;
+  };
+}
+
 export interface CorporateEventDetailResponse {
   Event: CorporateEventDetail[];
   Event_counterparties: CorporateEventCounterparty[];
-  Event_advisors: unknown[];
+  Event_advisors: CorporateEventAdvisor[];
   Primary_sectors: Sector[];
   "Sub-sectors": Sector[];
 }

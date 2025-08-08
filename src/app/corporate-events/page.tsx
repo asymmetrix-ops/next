@@ -98,18 +98,19 @@ const styles = {
     fontSize: "14px",
   },
   linkButton: {
-    backgroundColor: "transparent",
-    border: "none",
-    color: "#0075df",
+    color: "#000",
+    fontWeight: "400",
     textDecoration: "underline",
+    background: "none",
+    border: "none",
     cursor: "pointer",
     fontSize: "14px",
-    marginTop: "12px",
+    marginTop: "16px",
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-    gap: "16px",
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gap: "12px 24px",
     marginBottom: "16px",
   },
   gridItem: {
@@ -872,23 +873,9 @@ const CorporateEventsPage = () => {
   };
 
   const style = `
-    .corporate-event-section {
-      padding: 32px 24px;
-      border-radius: 8px;
-    }
-    .corporate-event-stats {
-      background: #fff;
-      padding: 32px 24px;
-      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
-      border-radius: 16px;
-      margin-bottom: 24px;
-    }
-    .stats-title {
-      font-size: 24px;
-      font-weight: 700;
-      color: #1a202c;
-      margin: 0 0 24px 0;
-    }
+    .corporate-event-section { padding: 16px 24px; border-radius: 8px; }
+    .corporate-event-stats { background: #fff; padding: 12px 16px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; margin-bottom: 16px; }
+    .stats-title { font-size: 22px; font-weight: 700; color: #1a202c; margin: 0 0 16px 0; }
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -910,24 +897,19 @@ const CorporateEventsPage = () => {
       color: #000;
       font-weight: 700;
     }
-    .corporate-event-table {
-      width: 100%;
-      background: #fff;
-      padding: 32px 24px;
-      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
-      border-radius: 16px;
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
-    .corporate-event-table th,
-    .corporate-event-table td {
-      padding: 16px;
-      text-align: left;
-      vertical-align: top;
-      border-bottom: 1px solid #e2e8f0;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-    }
+    .corporate-event-table { width: 100%; background: #fff; padding: 20px 24px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
+    .corporate-event-table th, .corporate-event-table td { padding: 12px; text-align: left; vertical-align: top; border-bottom: 1px solid #e2e8f0; word-wrap: break-word; overflow-wrap: break-word; }
+    .corporate-event-table th:nth-child(1) { width: 20%; }
+    .corporate-event-table th:nth-child(2) { width: 10%; }
+    .corporate-event-table th:nth-child(3) { width: 12%; }
+    .corporate-event-table th:nth-child(4) { width: 10%; }
+    .corporate-event-table th:nth-child(5) { width: 12%; }
+    .corporate-event-table th:nth-child(6) { width: 12%; }
+    .corporate-event-table th:nth-child(7) { width: 8%; }
+    .corporate-event-table th:nth-child(8) { width: 8%; }
+    .corporate-event-table th:nth-child(9) { width: 8%; }
+    .corporate-event-table th:nth-child(10) { width: 18%; }
+    .corporate-event-table th:nth-child(11) { width: 18%; }
     .corporate-event-table th {
       font-weight: 600;
       color: #1a202c;
@@ -940,48 +922,14 @@ const CorporateEventsPage = () => {
       color: #000;
       line-height: 1.5;
     }
-    .corporate-event-name {
-      color: #0075df;
-      text-decoration: underline;
-      cursor: pointer;
-      font-weight: 500;
-      transition: color 0.2s;
-    }
+    .corporate-event-name { color: #0075df; text-decoration: underline; cursor: pointer; font-weight: 500; transition: color 0.2s; }
     .corporate-event-name:hover {
       color: #005bb5;
     }
-    .loading {
-      text-align: center;
-      padding: 40px;
-      color: #666;
-    }
-    .error {
-      text-align: center;
-      padding: 20px;
-      color: #e53e3e;
-      background-color: #fed7d7;
-      border-radius: 6px;
-      margin-bottom: 16px;
-    }
-    .pagination {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 16px;
-      margin-top: 24px;
-      padding: 16px;
-    }
-    .pagination-button {
-      padding: 8px 12px;
-      border: none;
-      background: none;
-      color: #000;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 400;
-      transition: color 0.2s;
-      text-decoration: none;
-    }
+    .loading { text-align: center; padding: 40px; color: #666; }
+    .error { text-align: center; padding: 20px; color: #e53e3e; background-color: #fed7d7; border-radius: 6px; margin-bottom: 16px; }
+    .pagination { display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 24px; padding: 16px; }
+    .pagination-button { padding: 8px 12px; border: none; background: none; color: #000; cursor: pointer; font-size: 14px; font-weight: 400; transition: color 0.2s; text-decoration: none; }
     .pagination-button:hover {
       color: #0075df;
     }
@@ -1000,70 +948,20 @@ const CorporateEventsPage = () => {
       color: #000;
       font-size: 14px;
     }
-    .corporate-event-cards {
-      display: none;
-    }
-    .corporate-event-card {
-      background-color: white;
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 12px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      border: 1px solid #e2e8f0;
-    }
-    .corporate-event-card-header {
-      display: flex;
-      align-items: center;
-      margin-bottom: 12px;
-      gap: 12px;
-    }
-    .corporate-event-card-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: #0075df;
-      text-decoration: underline;
-      cursor: pointer;
-      margin-bottom: 4px;
-      line-height: 1.4;
-    }
-    .corporate-event-card-date {
-      font-size: 14px;
-      color: #4a5568;
-    }
-    .corporate-event-card-info {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      font-size: 12px;
-    }
-    .corporate-event-card-info-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 4px 0;
-    }
-    .corporate-event-card-info-label {
-      color: #4a5568;
-    }
-    .corporate-event-card-info-value {
-      font-weight: 600;
-      max-width: 60%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .corporate-event-card-info-value-link {
-      font-weight: 600;
-      color: #0075df;
-      text-decoration: underline;
-      cursor: pointer;
-      max-width: 60%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .corporate-event-card-info-full-width {
-      grid-column: 1 / -1;
-    }
+    .corporate-event-cards { display: none; }
+    .corporate-event-card { background-color: white; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; }
+    .corporate-event-card-header { display: flex; align-items: center; margin-bottom: 12px; gap: 12px; }
+    .corporate-event-card-title { font-size: 16px; font-weight: 600; color: #0075df; text-decoration: underline; cursor: pointer; margin-bottom: 4px; line-height: 1.4; }
+    .corporate-event-card-date { font-size: 14px; color: #4a5568; }
+    .corporate-event-card-info { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; }
+    .corporate-event-card-info-item { display: flex; justify-content: space-between; padding: 4px 0; }
+    .corporate-event-card-info-label { color: #4a5568; }
+    .corporate-event-card-info-value { font-weight: 600; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .corporate-event-card-info-value-link { font-weight: 600; color: #0075df; text-decoration: underline; cursor: pointer; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .corporate-event-card-info-full-width { grid-column: 1 / -1; }
+    .search-row { display: flex; align-items: center; gap: 12px; }
+    .search-row .filters-input { margin: 0; max-width: 340px; }
+    .search-row .filters-button { margin: 0; max-width: 140px; }
     @media (max-width: 768px) {
       .corporate-event-table {
         display: none !important;
@@ -1110,23 +1008,17 @@ const CorporateEventsPage = () => {
         padding: 8px 6px !important;
         font-size: 13px !important;
       }
-      .corporate-event-section {
-        padding: 20px 8px !important;
-      }
-      .corporate-event-stats {
-        padding: 20px 16px !important;
-      }
+      .corporate-event-section { padding: 12px 8px !important; }
+      .corporate-event-stats { padding: 12px 12px !important; }
       .stats-title {
-        font-size: 20px !important;
-        margin-bottom: 16px !important;
+        font-size: 18px !important;
+        margin-bottom: 12px !important;
       }
       .stats-grid {
         grid-template-columns: 1fr !important;
-        gap: 16px !important;
+        gap: 12px !important;
       }
-      .stats-item {
-        padding: 8px 0 !important;
-      }
+      .stats-item { padding: 6px 0 !important; }
       .stats-label {
         font-size: 12px !important;
       }
@@ -1138,9 +1030,7 @@ const CorporateEventsPage = () => {
         grid-template-columns: 1fr !important;
         gap: 16px !important;
       }
-      .filters-card {
-        padding: 20px 16px !important;
-      }
+      .filters-card { padding: 16px 16px !important; }
       .filters-heading {
         font-size: 20px !important;
         margin-bottom: 16px !important;
@@ -1173,14 +1063,18 @@ const CorporateEventsPage = () => {
       {/* Filters Section */}
       <div style={styles.container}>
         <div style={styles.maxWidth}>
-          <div style={styles.card} className="filters-card">
-            <h2 style={styles.heading} className="filters-heading">
-              Corporate Events
-            </h2>
-            <p style={{ color: "#666", marginBottom: "16px" }}>
-              Search and filter corporate events by location, sectors, event
-              types, and more.
-            </p>
+          <div
+            style={{
+              ...styles.card,
+              ...(showFilters ? {} : { padding: "12px 16px" }),
+            }}
+            className="filters-card"
+          >
+            {showFilters && (
+              <h2 style={styles.heading} className="filters-heading">
+                Filters
+              </h2>
+            )}
 
             {showFilters && (
               <div style={styles.grid} className="filters-grid">
@@ -1742,54 +1636,29 @@ const CorporateEventsPage = () => {
                   />
                 </div>
 
-                <div style={styles.gridItem}>
-                  <h3 style={styles.subHeading} className="filters-sub-heading">
-                    Search
-                  </h3>
-                  <span style={styles.label}>Search for Corporate Event</span>
-                  <input
-                    type="text"
-                    placeholder="Enter name here"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    style={styles.input}
-                    className="filters-input"
-                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                  />
-                  <button
-                    onClick={handleSearch}
-                    style={styles.button}
-                    className="filters-button"
-                    onMouseOver={(e) =>
-                      ((e.target as HTMLButtonElement).style.backgroundColor =
-                        "#005bb5")
-                    }
-                    onMouseOut={(e) =>
-                      ((e.target as HTMLButtonElement).style.backgroundColor =
-                        "#0075df")
-                    }
-                  >
-                    {loading ? "Searching..." : "Search"}
-                  </button>
-                </div>
+                {/* Removed inline grid Search section to reduce space; use compact search row below */}
               </div>
             )}
 
-            {/* Search Section - Always Visible */}
+            {/* Compact Search Row */}
             <div style={{ marginTop: showFilters ? "20px" : "0" }}>
-              <h3 style={styles.subHeading}>Search Corporate Events</h3>
-              <div style={styles.searchDiv}>
+              {showFilters && (
+                <h3 style={styles.subHeading}>Search Corporate Events</h3>
+              )}
+              <div className="search-row">
                 <input
                   type="text"
                   placeholder="Enter search terms here"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  style={styles.input}
+                  style={{ ...styles.input, marginBottom: 0, maxWidth: 340 }}
+                  className="filters-input"
                   onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                 />
                 <button
                   onClick={handleSearch}
-                  style={styles.button}
+                  style={{ ...styles.button, marginTop: 0, maxWidth: 140 }}
+                  className="filters-button"
                   onMouseOver={(e) =>
                     ((e.target as HTMLButtonElement).style.backgroundColor =
                       "#005bb5")

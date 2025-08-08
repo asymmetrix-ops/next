@@ -334,6 +334,11 @@ const SectorDetailPage = () => {
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
 
+      if (!token) {
+        setError("Authentication required");
+        return;
+      }
+
       const params = new URLSearchParams();
       params.append("Sector_id", sectorId);
 
@@ -343,13 +348,16 @@ const SectorDetailPage = () => {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
+            Authorization: `Bearer ${token}`,
           },
           credentials: "include",
         }
       );
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Authentication required");
+        }
         if (response.status === 404) {
           throw new Error("Sector not found");
         }
@@ -376,6 +384,11 @@ const SectorDetailPage = () => {
 
       try {
         const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) {
+          setError("Authentication required");
+          setCompaniesLoading(false);
+          return;
+        }
         const offset = (page - 1) * perPageToUse;
 
         const params = new URLSearchParams();
@@ -389,13 +402,16 @@ const SectorDetailPage = () => {
             method: "GET",
             headers: {
               "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` }),
+              Authorization: `Bearer ${token}`,
             },
             credentials: "include",
           }
         );
 
         if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error("Authentication required");
+          }
           throw new Error(`API request failed: ${response.statusText}`);
         }
 
@@ -675,7 +691,26 @@ const SectorDetailPage = () => {
         <Header />
         <div style={{ padding: "40px", textAlign: "center" }}>
           <div style={{ fontSize: "18px", color: "#e53e3e" }}>
-            {error === "Sector not found" ? (
+            {error === "Authentication required" ? (
+              <div>
+                <h1 style={{ fontSize: "24px", marginBottom: "16px" }}>
+                  Authentication Required
+                </h1>
+                <p style={{ marginBottom: "24px" }}>
+                  Please log in to view sector details.
+                </p>
+                <a
+                  href="/login"
+                  style={{
+                    color: "#0075df",
+                    textDecoration: "underline",
+                    fontSize: "16px",
+                  }}
+                >
+                  Go to Login
+                </a>
+              </div>
+            ) : error === "Sector not found" ? (
               <div>
                 <h1 style={{ fontSize: "24px", marginBottom: "16px" }}>
                   Sector Not Found
@@ -1002,9 +1037,13 @@ const SectorDetailPage = () => {
                 Sector Thesis
               </h2>
               {sectorData.Sector.Sector_thesis ? (
-                <div style={styles.thesisContent}>
-                  {sectorData.Sector.Sector_thesis}
-                </div>
+                <div
+                  style={styles.thesisContent}
+                  className="sector-thesis"
+                  dangerouslySetInnerHTML={{
+                    __html: sectorData.Sector.Sector_thesis,
+                  }}
+                />
               ) : (
                 <div
                   style={{
@@ -1013,14 +1052,7 @@ const SectorDetailPage = () => {
                     color: "#9ca3af",
                   }}
                 >
-                  Healthcare Data & Analytics market valued at USD43.1bn in
-                  2023; Huge shift taking place within healthcare towards
-                  personalisation and preventative medicine; Doctors require
-                  highest quality research in order to make best quality
-                  decisions in potentially life-or-death situations; Poor
-                  quality decision-making can lead to malpractice suits;
-                  Artificial Intelligence disrupting traditional data providers
-                  but enabling new diagnostic methodologies and treatments.
+                  Not available
                 </div>
               )}
             </div>
@@ -1185,7 +1217,13 @@ const SectorDetailPage = () => {
         </div>
       </div>
       <Footer />
-      <style dangerouslySetInnerHTML={{ __html: style }} />
+      <style
+        dangerouslySetInnerHTML={{
+          __html:
+            style +
+            `\n.sector-thesis ul{list-style:disc;margin:0 0 1rem 1.25rem;padding-left:1.25rem;}\n.sector-thesis ol{list-style:decimal;margin:0 0 1rem 1.25rem;padding-left:1.25rem;}\n.sector-thesis li{margin-bottom:.5rem;}\n.sector-thesis h1,.sector-thesis h2,.sector-thesis h3{margin:1rem 0 .5rem;font-weight:700;}\n.sector-thesis a{color:#2563eb;text-decoration:underline;}`,
+        }}
+      />
     </div>
   );
 };

@@ -359,18 +359,13 @@ export default function AdvisorProfilePage() {
       font-size: 14px;
     }
     .advisor-layout {
-      display: flex;
-      gap: 32px;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: 1fr 2fr; /* 1/3 left, 2/3 right */
+      gap: 24px 32px;
+      align-items: start;
     }
-    .advisor-left-column {
-      flex: 1;
-      min-width: 300px;
-    }
-    .advisor-right-column {
-      flex: 1;
-      min-width: 300px;
-    }
+    .advisor-left-column { width: 100%; }
+    .advisor-right-column { width: 100%; }
     .advisor-section {
       background-color: white;
       padding: 24px;
@@ -526,13 +521,12 @@ export default function AdvisorProfilePage() {
         width: fit-content !important;
       }
       .advisor-layout {
+        display: flex !important;
         flex-direction: column !important;
         gap: 16px !important;
       }
       .advisor-left-column,
       .advisor-right-column {
-        flex: none !important;
-        min-width: auto !important;
         width: 100% !important;
       }
       .advisor-section {
@@ -761,10 +755,30 @@ export default function AdvisorProfilePage() {
                                 ?.length
                             )
                               return "—";
-                            return event._other_counterparties_of_corporate_events
-                              .map((cp) => cp.name)
-                              .filter(Boolean)
-                              .join(", ");
+                            return event._other_counterparties_of_corporate_events.map(
+                              (cp, i) => (
+                                <span key={`${cp.id}-${i}`}>
+                                  <span
+                                    className="advisor-link"
+                                    onClick={() => {
+                                      if (cp._is_that_investor) {
+                                        router.push(`/investors/${cp.id}`);
+                                      } else {
+                                        router.push(`/company/${cp.id}`);
+                                      }
+                                    }}
+                                  >
+                                    {cp.name}
+                                  </span>
+                                  {i <
+                                  event._other_counterparties_of_corporate_events!
+                                    .length -
+                                    1
+                                    ? ", "
+                                    : ""}
+                                </span>
+                              )
+                            );
                           };
 
                           const getEnterpriseValue = () => {

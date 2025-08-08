@@ -330,10 +330,11 @@ const SectorsSection = () => {
     }
     .stats-item {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-start;
       align-items: center;
       padding: 8px 0;
       border-bottom: 1px solid #e2e8f0;
+      gap: 4px;
     }
     .stats-item:last-child {
       border-bottom: none;

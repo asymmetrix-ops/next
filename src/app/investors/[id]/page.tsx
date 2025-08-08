@@ -116,11 +116,13 @@ interface CorporateEvent {
   };
   "0"?: Array<{
     _new_company?: {
+      id?: number;
       name: string;
     };
   }>;
   "1"?: Array<{
     _new_company?: {
+      id?: number;
       name: string;
     };
   }>;
@@ -606,19 +608,21 @@ const InvestorDetailPage = () => {
     console.log("Report incorrect data clicked");
   };
 
-  const handleCompanyNameClick = async (companyName: string) => {
-    console.log("Company name clicked:", companyName);
+  // Removed: handleCompanyNameClick - no longer used, navigation goes directly to corporate-event/{event.id}
+
+  const handleAdvisorClick = async (advisorName: string) => {
+    console.log("Advisor clicked:", advisorName);
     try {
-      // Search for the company using the companies API
+      // Search for the advisor using the advisors API
       const token = localStorage.getItem("asymmetrix_auth_token");
 
       const params = new URLSearchParams();
-      params.append("search_query", companyName);
-      params.append("page", "1");
+      params.append("search_query", advisorName);
+      params.append("page", "0");
       params.append("per_page", "10");
 
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_all_companies?${params.toString()}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_list?${params.toString()}`,
         {
           method: "GET",
           headers: {
@@ -630,31 +634,90 @@ const InvestorDetailPage = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("Company search results:", data);
+        console.log("Advisor search results:", data);
 
-        // Find the matching company by name
-        const matchingCompany = data.companies?.items?.find(
-          (company: { name: string; id: number }) =>
-            company.name === companyName
+        // Find the matching advisor by name
+        const matchingAdvisor = data.Advisors_companies?.items?.find(
+          (advisor: { name: string; id: number }) =>
+            advisor.name === advisorName
         );
 
-        if (matchingCompany && matchingCompany.id) {
-          console.log("Found matching company with ID:", matchingCompany.id);
-          router.push(`/company/${matchingCompany.id}`);
+        if (matchingAdvisor && matchingAdvisor.id) {
+          console.log("Found matching advisor with ID:", matchingAdvisor.id);
+
+          // Verify the advisor exists using the get_the_advisor_new_company API
+          const advisorResponse = await fetch(
+            `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_the_advisor_new_company?new_comp_id=${matchingAdvisor.id}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token && { Authorization: `Bearer ${token}` }),
+              },
+            }
+          );
+
+          if (advisorResponse.ok) {
+            console.log(
+              "Advisor profile confirmed, navigating to:",
+              `/advisor/${matchingAdvisor.id}`
+            );
+            router.push(`/advisor/${matchingAdvisor.id}`);
+          } else {
+            console.error(
+              "Advisor profile not found:",
+              advisorResponse.statusText
+            );
+          }
         } else {
-          console.log("No matching company found with ID");
-          // Fallback: navigate to companies page with search
-          router.push(`/companies?search=${encodeURIComponent(companyName)}`);
+          console.log("No matching advisor found with ID - no navigation");
         }
       } else {
-        console.error("Failed to search for company:", response.statusText);
-        // Fallback: navigate to companies page with search
-        router.push(`/companies?search=${encodeURIComponent(companyName)}`);
+        console.error("Failed to search for advisor:", response.statusText);
       }
     } catch (error) {
-      console.error("Error handling company name click:", error);
-      // Fallback: navigate to companies page with search
-      router.push(`/companies?search=${encodeURIComponent(companyName)}`);
+      console.error("Error handling advisor click:", error);
+    }
+  };
+
+  // Navigate to individual profile by resolving ID from Individuals API
+  const handleTeamMemberClick = async (individualName: string) => {
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+
+      const params = new URLSearchParams();
+      params.append("search_query", individualName);
+      params.append("Offset", "1");
+      params.append("Per_page", "10");
+
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const match = data.Individuals_list?.items?.find(
+          (ind: { advisor_individuals: string; id: number }) =>
+            ind.advisor_individuals === individualName
+        );
+
+        if (match?.id) {
+          router.push(`/individual/${match.id}`);
+        } else {
+          console.error("No matching individual found");
+        }
+      } else {
+        console.error("Failed to search for individual:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error handling team member click:", error);
     }
   };
 
@@ -853,10 +916,12 @@ const InvestorDetailPage = () => {
 
     // Get advisors if present in index "1"
     const advisorEntries = event["1"] || [];
-    const advisorNames = advisorEntries
-      .map((a) => a._new_company?.name)
-      .filter(Boolean)
-      .join(", ");
+    const advisorList = advisorEntries
+      .map((a) => ({
+        id: a._new_company?.id,
+        name: a._new_company?.name || "",
+      }))
+      .filter((a) => Boolean(a.name));
 
     return {
       id: event.id,
@@ -869,9 +934,9 @@ const InvestorDetailPage = () => {
         "—",
       other_counterparties: otherCounterparties || "—",
       enterprise_value: event.ev_data?.enterprise_value_m
-        ? `$${Number(event.ev_data.enterprise_value_m).toLocaleString()}`
+        ? `$${Number(event.ev_data.enterprise_value_m).toLocaleString()}m`
         : event.ev_data?.ev_band || "—",
-      advisors: advisorNames || "—",
+      advisors: advisorList.length > 0 ? advisorList : "—",
     };
   });
 
@@ -1317,16 +1382,15 @@ const InvestorDetailPage = () => {
                   <div className="info-grid">
                     {Investment_Team_Roles_current.map((member, index) => (
                       <div key={index} className="info-value">
-                        {member.current_employer_url ? (
-                          createClickableElement(
-                            member.current_employer_url,
-                            member.Individual_text,
-                            undefined,
-                            { textDecoration: "none" }
-                          )
-                        ) : (
-                          <span>{member.Individual_text}</span>
-                        )}
+                        <span
+                          style={{ color: "#3b82f6", cursor: "pointer" }}
+                          onClick={() =>
+                            handleTeamMemberClick(member.Individual_text)
+                          }
+                          title="Click to open individual's profile"
+                        >
+                          {member.Individual_text}
+                        </span>
                         :{" "}
                         {member.job_titles_id
                           .map((jt) => jt.job_title)
@@ -1346,16 +1410,15 @@ const InvestorDetailPage = () => {
                   <div className="info-grid">
                     {Investment_Team_Roles_past.map((member, index) => (
                       <div key={index} className="info-value">
-                        {member.current_employer_url ? (
-                          createClickableElement(
-                            member.current_employer_url,
-                            member.Individual_text,
-                            undefined,
-                            { textDecoration: "none" }
-                          )
-                        ) : (
-                          <span>{member.Individual_text}</span>
-                        )}
+                        <span
+                          style={{ color: "#3b82f6", cursor: "pointer" }}
+                          onClick={() =>
+                            handleTeamMemberClick(member.Individual_text)
+                          }
+                          title="Click to open individual's profile"
+                        >
+                          {member.Individual_text}
+                        </span>
                         :{" "}
                         {member.job_titles_id
                           .map((jt) => jt.job_title)
@@ -2080,20 +2143,24 @@ const InvestorDetailPage = () => {
                                               "Other counterparty clicked:",
                                               companyName
                                             );
-                                            handleCompanyNameClick(companyName);
+                                            if (event.id) {
+                                              router.push(
+                                                `/corporate-event/${event.id}`
+                                              );
+                                            }
                                           }}
                                           onContextMenu={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
-                                            window.open(
-                                              `/companies?search=${encodeURIComponent(
-                                                companyName
-                                              )}`,
-                                              "_blank",
-                                              "noopener,noreferrer"
-                                            );
+                                            if (event.id) {
+                                              window.open(
+                                                `/corporate-event/${event.id}`,
+                                                "_blank",
+                                                "noopener,noreferrer"
+                                              );
+                                            }
                                           }}
-                                          title="Left click to navigate, Right click to open in new tab"
+                                          title="Left click to open event, Right click to open in new tab"
                                         >
                                           {companyName}
                                         </span>
@@ -2115,45 +2182,41 @@ const InvestorDetailPage = () => {
                                 fontSize: "12px",
                               }}
                             >
-                              {event.advisors !== "—"
-                                ? event.advisors
-                                    .split(", ")
-                                    .map((companyName, index) => (
-                                      <span key={index}>
-                                        <span
-                                          style={{
-                                            color: "#3b82f6",
-                                            textDecoration: "none",
-                                            fontWeight: "500",
-                                            cursor: "pointer",
-                                          }}
-                                          onClick={() => {
-                                            console.log(
-                                              "Advisor company clicked:",
-                                              companyName
+                              {Array.isArray(event.advisors)
+                                ? event.advisors.map((advisor, index) => (
+                                    <span
+                                      key={
+                                        advisor.id ?? `${advisor.name}-${index}`
+                                      }
+                                    >
+                                      <span
+                                        style={{
+                                          color: "#3b82f6",
+                                          textDecoration: "none",
+                                          fontWeight: "500",
+                                          cursor: "pointer",
+                                        }}
+                                        onClick={() => {
+                                          if (advisor.id) {
+                                            router.push(
+                                              `/advisor/${advisor.id}`
                                             );
-                                            handleCompanyNameClick(companyName);
-                                          }}
-                                          onContextMenu={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            window.open(
-                                              `/companies?search=${encodeURIComponent(
-                                                companyName
-                                              )}`,
-                                              "_blank",
-                                              "noopener,noreferrer"
-                                            );
-                                          }}
-                                          title="Left click to navigate, Right click to open in new tab"
-                                        >
-                                          {companyName}
-                                        </span>
-                                        {index <
-                                          event.advisors.split(", ").length -
-                                            1 && ", "}
+                                          } else if (advisor.name) {
+                                            handleAdvisorClick(advisor.name);
+                                          }
+                                        }}
+                                        onContextMenu={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                        }}
+                                        title="Click to navigate to advisor page"
+                                      >
+                                        {advisor.name}
                                       </span>
-                                    ))
+                                      {index < event.advisors.length - 1 &&
+                                        ", "}
+                                    </span>
+                                  ))
                                 : "—"}
                             </td>
                           </tr>

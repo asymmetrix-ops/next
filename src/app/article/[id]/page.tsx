@@ -234,8 +234,112 @@ const ArticleDetailPage = () => {
     router.push(`/company/${companyId}`);
   };
 
+  // Robust sector id extraction in case backend changes keys
+  const getSectorId = (sector: unknown): number | undefined => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const s = sector as any;
+    const candidate = s?.id ?? s?.sector_id ?? s?.Sector_id;
+    if (typeof candidate === "number") return candidate;
+    if (typeof candidate === "string") {
+      const parsed = parseInt(candidate, 10);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    return undefined;
+  };
+
+  const handleSectorClick = (sector: { id: number } | unknown) => {
+    const sectorId = getSectorId(sector);
+    if (sectorId) router.push(`/sector/${sectorId}`);
+  };
+
   const handleBackClick = () => {
     router.push("/insights-analysis");
+  };
+
+  // Utilities to embed image attachments within the body content
+  const escapeHtml = (str: string) =>
+    str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const buildFigureHtml = (url: string, name: string) =>
+    `<figure class="article-inline-image"><img src="${escapeHtml(
+      url
+    )}" alt="${escapeHtml(name)}" /><figcaption>${escapeHtml(
+      name
+    )}</figcaption></figure>`;
+
+  const injectImagesIntoBody = (
+    bodyHtml: string,
+    attachments: Array<{
+      url: string;
+      name: string;
+      mime?: string;
+      type?: string;
+    }>
+  ): { html: string; injected: boolean } => {
+    if (!bodyHtml) return { html: "", injected: false };
+    const imageDocs = (attachments || []).filter(isImageDoc);
+    if (imageDocs.length === 0) return { html: bodyHtml, injected: false };
+
+    // Split by paragraph closing tags to place images between paragraphs
+    const parts = bodyHtml.split(/<\/p>/i);
+    const paragraphCount = Math.max(parts.length - 1, 0);
+
+    if (paragraphCount <= 0) {
+      // No clear paragraphs; append all images at the end of the body
+      const figures = imageDocs
+        .map((doc) => buildFigureHtml(doc.url, doc.name || ""))
+        .join("");
+      return { html: `${bodyHtml}${figures}`, injected: true };
+    }
+
+    // Distribute images as evenly as possible across paragraphs
+    const insertionMap = new Map<number, number>(); // paragraphIndex -> imageIndex
+    let lastPos = -1;
+    for (let i = 0; i < imageDocs.length; i++) {
+      let pos =
+        Math.floor(((i + 1) * paragraphCount) / (imageDocs.length + 1)) - 1;
+      pos = Math.max(0, Math.min(paragraphCount - 1, pos));
+      if (pos <= lastPos) pos = Math.min(paragraphCount - 1, lastPos + 1);
+      insertionMap.set(pos, i);
+      lastPos = pos;
+      if (lastPos >= paragraphCount - 1 && i < imageDocs.length - 1) break;
+    }
+
+    let result = "";
+    for (let p = 0; p < parts.length; p++) {
+      const segment = parts[p];
+      if (p < paragraphCount) {
+        result += `${segment}</p>`;
+        if (insertionMap.has(p)) {
+          const imgIdx = insertionMap.get(p)!;
+          const doc = imageDocs[imgIdx];
+          result += buildFigureHtml(doc.url, doc.name || "");
+        }
+      } else {
+        // Remainder (after the last </p>)
+        result += segment;
+      }
+    }
+
+    return { html: result, injected: true };
+  };
+
+  const isImageDoc = (doc: {
+    mime?: string;
+    type?: string;
+    url: string;
+    name: string;
+  }) => {
+    if (!doc) return false;
+    if (doc.mime && doc.mime.startsWith("image/")) return true;
+    if (doc.type && doc.type.startsWith("image/")) return true;
+    const nameOrUrl = `${doc.name || ""} ${doc.url || ""}`;
+    return /(\.(png|jpe?g|gif|webp|svg))($|\?)/i.test(nameOrUrl);
   };
 
   if (loading) {
@@ -282,92 +386,174 @@ const ArticleDetailPage = () => {
           ← Back to Insights & Analysis
         </button>
 
-        <div style={styles.card}>
-          {/* Article Header */}
-          <h1 style={styles.heading}>{article.Headline}</h1>
-          <p style={styles.date}>{formatDate(article.Publication_Date)}</p>
-          <p style={styles.strapline}>{article.Strapline}</p>
+        <div className="article-layout">
+          {/* Left: Main body (2/3) */}
+          <div style={styles.card} className="article-main">
+            {/* Article Header */}
+            <h1 style={styles.heading}>{article.Headline}</h1>
+            <p style={styles.strapline}>{article.Strapline}</p>
 
-          {/* Article Body */}
-          <div
-            style={styles.body}
-            dangerouslySetInnerHTML={{ __html: article.Body }}
-          />
+            {/* Article Body with embedded images from attachments */}
+            {(() => {
+              const { html } = injectImagesIntoBody(
+                article.Body,
+                article.Related_Documents || []
+              );
+              return (
+                <div
+                  style={styles.body}
+                  className="article-body"
+                  dangerouslySetInnerHTML={{ __html: html }}
+                />
+              );
+            })()}
 
-          {/* Companies Section */}
-          {article.companies_mentioned &&
-            article.companies_mentioned.length > 0 && (
+            {/* Inline image grid (if additional images remain useful outside body) */}
+            {article.Related_Documents &&
+              article.Related_Documents.some(isImageDoc) && (
+                <div style={styles.section}>
+                  <h2 style={styles.sectionTitle}>Images</h2>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fill, minmax(220px, 1fr))",
+                      gap: 16,
+                    }}
+                  >
+                    {article.Related_Documents.filter(isImageDoc).map(
+                      (doc, idx) => (
+                        <figure key={`${doc.url}-${idx}`} style={{ margin: 0 }}>
+                          <img src={doc.url} alt={doc.name} />
+                          <figcaption>{doc.name}</figcaption>
+                        </figure>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
+            {/* Related Documents (attachments) */}
+            {article.Related_Documents &&
+              article.Related_Documents.filter((d) => !isImageDoc(d)).length >
+                0 && (
+                <div style={styles.section}>
+                  <h2 style={styles.sectionTitle}>Related Documents</h2>
+                  <div style={styles.tagContainer}>
+                    {article.Related_Documents.filter(
+                      (d) => !isImageDoc(d)
+                    ).map((doc, index) => (
+                      <a
+                        key={index}
+                        href={doc.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          ...styles.tag,
+                          textDecoration: "none",
+                        }}
+                      >
+                        {doc.name}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+          </div>
+
+          {/* Right: Metadata (1/3) */}
+          <div style={styles.card} className="article-meta">
+            {/* Publication Date */}
+            <div style={styles.section}>
+              <h2 style={styles.sectionTitle}>Published</h2>
+              <p style={styles.date}>{formatDate(article.Publication_Date)}</p>
+            </div>
+
+            {/* Companies Section */}
+            {article.companies_mentioned &&
+              article.companies_mentioned.length > 0 && (
+                <div style={styles.section}>
+                  <h2 style={styles.sectionTitle}>Companies</h2>
+                  <div style={styles.tagContainer}>
+                    {article.companies_mentioned.map((company) => (
+                      <span
+                        key={company.id}
+                        style={styles.companyTag}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = "#c8e6c9";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = "#e8f5e8";
+                        }}
+                        onClick={() => handleCompanyClick(company.id)}
+                      >
+                        {company.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            {/* Sectors Section */}
+            {article.sectors && article.sectors.length > 0 && (
               <div style={styles.section}>
-                <h2 style={styles.sectionTitle}>Companies</h2>
+                <h2 style={styles.sectionTitle}>Sectors</h2>
                 <div style={styles.tagContainer}>
-                  {article.companies_mentioned.map((company) => (
+                  {article.sectors.map((sector) => (
                     <span
-                      key={company.id}
-                      style={styles.companyTag}
+                      key={sector.id}
+                      style={{ ...styles.sectorTag, cursor: "pointer" }}
+                      onClick={() => handleSectorClick(sector)}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "#c8e6c9";
+                        e.currentTarget.style.backgroundColor = "#e1bee7";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "#e8f5e8";
+                        e.currentTarget.style.backgroundColor = "#f3e5f5";
                       }}
-                      onClick={() => handleCompanyClick(company.id)}
+                      title="Open sector page"
                     >
-                      {company.name}
+                      {sector.sector_name}
+                      {sector.Sector_importance === "Primary" && " (Primary)"}
                     </span>
                   ))}
                 </div>
               </div>
             )}
 
-          {/* Sectors Section */}
-          {article.sectors && article.sectors.length > 0 && (
-            <div style={styles.section}>
-              <h2 style={styles.sectionTitle}>Sectors</h2>
-              <div style={styles.tagContainer}>
-                {article.sectors.map((sector) => (
-                  <span key={sector.id} style={styles.sectorTag}>
-                    {sector.sector_name}
-                    {sector.Sector_importance === "Primary" && " (Primary)"}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Visibility */}
-          {article.Visibility && (
-            <div style={styles.section}>
-              <h2 style={styles.sectionTitle}>Visibility</h2>
-              <span style={styles.visibility}>{article.Visibility}</span>
-            </div>
-          )}
-
-          {/* Related Documents */}
-          {article.Related_Documents &&
-            article.Related_Documents.length > 0 && (
+            {/* Visibility */}
+            {article.Visibility && (
               <div style={styles.section}>
-                <h2 style={styles.sectionTitle}>Related Documents</h2>
-                <div style={styles.tagContainer}>
-                  {article.Related_Documents.map((doc, index) => (
-                    <a
-                      key={index}
-                      href={doc.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        ...styles.tag,
-                        textDecoration: "none",
-                      }}
-                    >
-                      {doc.name}
-                    </a>
-                  ))}
-                </div>
+                <h2 style={styles.sectionTitle}>Visibility</h2>
+                <span style={styles.visibility}>{article.Visibility}</span>
               </div>
             )}
+          </div>
         </div>
       </div>
       <Footer />
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+          .article-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+          @media (max-width: 1024px) { .article-layout { grid-template-columns: 1fr; } }
+          /* Preserve HTML formatting inside article body */
+          .article-body p { margin: 0 0 1rem 0; }
+          .article-body ul { list-style: disc; margin: 0 0 1rem 1.25rem; padding-left: 1.25rem; }
+          .article-body ol { list-style: decimal; margin: 0 0 1rem 1.25rem; padding-left: 1.25rem; }
+          .article-body li { margin-bottom: 0.5rem; }
+          .article-body h1, .article-body h2, .article-body h3, .article-body h4, .article-body h5, .article-body h6 { margin: 1.25rem 0 0.75rem; font-weight: 700; }
+          .article-body a { color: #2563eb; text-decoration: underline; }
+          .article-body blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid #e5e7eb; color: #374151; }
+          .article-body table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+          .article-body th, .article-body td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+          /* Images inside article body */
+          .article-body img { max-width: 100%; height: auto; display: block; margin: 1rem auto; border-radius: 8px; }
+          .article-body figure { margin: 1rem 0; }
+          .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem; }
+          .article-inline-image { margin: 1.25rem 0; }
+        `,
+        }}
+      />
     </div>
   );
 };

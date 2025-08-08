@@ -19,28 +19,9 @@ interface Advisor {
   linkedin_logo?: string;
 }
 
-interface AdvisorsResponse {
-  itemsReceived: number;
-  curPage: number;
-  nextPage: number | null;
-  prevPage: number | null;
-  offset: number;
-  itemsTotal: number;
-  pageTotal: number;
-  items: Advisor[];
-}
+// Response shape varies across environments; handled dynamically at runtime
 
-interface AdvisorsCountsResponse {
-  lambda: {
-    companiesByRole: {
-      financialAdvisors: number;
-      commercialDueDiligence: number;
-      vendorDueDiligence: number;
-      managementTeamAdvisory: number;
-      nomad: number;
-    };
-  };
-}
+// Counts response shape is normalized after fetch; keep types local
 
 interface AdvisorsFilters {
   countries: string[];
@@ -168,7 +149,7 @@ const AdvisorsPage = () => {
   >([]);
 
   // Fetch data from API (same as companies page)
-  const fetchCountries = async () => {
+  const fetchCountries = useCallback(async () => {
     try {
       setLoadingCountries(true);
       const countriesData = await locationsService.getCountries();
@@ -178,9 +159,9 @@ const AdvisorsPage = () => {
     } finally {
       setLoadingCountries(false);
     }
-  };
+  }, []);
 
-  const fetchPrimarySectors = async () => {
+  const fetchPrimarySectors = useCallback(async () => {
     try {
       setLoadingPrimarySectors(true);
       const sectorsData = await locationsService.getPrimarySectors();
@@ -190,9 +171,9 @@ const AdvisorsPage = () => {
     } finally {
       setLoadingPrimarySectors(false);
     }
-  };
+  }, []);
 
-  const fetchSecondarySectors = async () => {
+  const fetchSecondarySectors = useCallback(async () => {
     if (selectedPrimarySectors.length === 0) {
       setSecondarySectors([]);
       setSelectedSecondarySectors([]);
@@ -218,9 +199,9 @@ const AdvisorsPage = () => {
     } finally {
       setLoadingSecondarySectors(false);
     }
-  };
+  }, [primarySectors, selectedPrimarySectors]);
 
-  const fetchProvinces = async () => {
+  const fetchProvinces = useCallback(async () => {
     if (selectedCountries.length === 0) {
       setProvinces([]);
       setSelectedProvinces([]);
@@ -240,9 +221,9 @@ const AdvisorsPage = () => {
     } finally {
       setLoadingProvinces(false);
     }
-  };
+  }, [selectedCountries]);
 
-  const fetchCities = async () => {
+  const fetchCities = useCallback(async () => {
     if (selectedCountries.length === 0) {
       setCities([]);
       setSelectedCities([]);
@@ -263,7 +244,7 @@ const AdvisorsPage = () => {
     } finally {
       setLoadingCities(false);
     }
-  };
+  }, [selectedCountries, selectedProvinces]);
 
   // Fetch advisors data from API
   const fetchAdvisors = useCallback(async (filters: AdvisorsFilters) => {
@@ -276,7 +257,7 @@ const AdvisorsPage = () => {
       // Convert filters to URL parameters for GET request
       const params = new URLSearchParams();
 
-      // Add page and per_page
+      // Add pagination (this endpoint expects lowercase page/per_page)
       if (filters.page > 0) params.append("page", filters.page.toString());
       if (filters.per_page > 0)
         params.append("per_page", filters.per_page.toString());
@@ -319,6 +300,7 @@ const AdvisorsPage = () => {
 
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_list?${params.toString()}`;
 
+      console.log("[Advisors] Fetch list URL:", url);
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -331,16 +313,84 @@ const AdvisorsPage = () => {
         throw new Error(`API request failed: ${response.statusText}`);
       }
 
-      const data: AdvisorsResponse = await response.json();
-      setAdvisors(data.items);
+      const text = await response.text();
+      let rawUnknown: unknown = {};
+      try {
+        rawUnknown = JSON.parse(text) as unknown;
+      } catch (e) {
+        console.error("[Advisors] Failed to parse list response JSON:", text);
+        throw e;
+      }
+      type AnyRecord = Record<string, unknown>;
+      const raw = rawUnknown as AnyRecord;
+      console.log("[Advisors] List response (keys):", Object.keys(raw || {}));
+      if (raw?.result1) {
+        console.log("[Advisors] result1 keys:", Object.keys(raw.result1 || {}));
+      }
+      if (raw?.Advisors_companies) {
+        console.log(
+          "[Advisors] Advisors_companies keys:",
+          Object.keys(raw.Advisors_companies || {})
+        );
+      }
+
+      // Support multiple possible response shapes
+      // Loosely typed alias for flexible backend shapes
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const r = raw as any;
+      const listRoot =
+        r?.items ?? r?.result1?.items ?? r?.Advisors_companies?.items ?? [];
+
+      const itemsReceived =
+        r?.itemsReceived ??
+        r?.result1?.itemsReceived ??
+        r?.Advisors_companies?.itemsReceived ??
+        0;
+      const curPage =
+        r?.curPage ??
+        r?.result1?.curPage ??
+        r?.Advisors_companies?.curPage ??
+        filters.page ??
+        1;
+      const nextPage =
+        r?.nextPage ??
+        r?.result1?.nextPage ??
+        r?.Advisors_companies?.nextPage ??
+        null;
+      const prevPage =
+        r?.prevPage ??
+        r?.result1?.prevPage ??
+        r?.Advisors_companies?.prevPage ??
+        null;
+      const offset =
+        r?.offset ?? r?.result1?.offset ?? r?.Advisors_companies?.offset ?? 0;
+      const itemsTotal =
+        r?.itemsTotal ??
+        r?.result1?.itemsTotal ??
+        r?.Advisors_companies?.itemsTotal ??
+        0;
+      const pageTotal =
+        r?.pageTotal ??
+        r?.result1?.pageTotal ??
+        r?.Advisors_companies?.pageTotal ??
+        0;
+
+      const newItems = (listRoot as Advisor[]) || [];
+      console.log(
+        "[Advisors] curPage:",
+        Number(curPage) || 1,
+        "items:",
+        newItems.length
+      );
+      setAdvisors(newItems);
       setPagination({
-        itemsReceived: data.itemsReceived,
-        curPage: data.curPage,
-        nextPage: data.nextPage,
-        prevPage: data.prevPage,
-        offset: data.offset,
-        itemsTotal: data.itemsTotal,
-        pageTotal: data.pageTotal,
+        itemsReceived: Number(itemsReceived) || 0,
+        curPage: Number(curPage) || 1,
+        nextPage: typeof nextPage === "number" ? nextPage : nextPage ?? null,
+        prevPage: typeof prevPage === "number" ? prevPage : prevPage ?? null,
+        offset: Number(offset) || 0,
+        itemsTotal: Number(itemsTotal) || 0,
+        pageTotal: Number(pageTotal) || 0,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch advisors");
@@ -350,37 +400,79 @@ const AdvisorsPage = () => {
     }
   }, []);
 
-  // Fetch counts data
-  const fetchCounts = useCallback(async () => {
+  // Fetch counts data with same filters as list
+  const fetchCounts = useCallback(async (filtersForCounts: AdvisorsFilters) => {
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
-      const response = await fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/advisors_counts",
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
+
+      const params = new URLSearchParams();
+      if (filtersForCounts.countries.length > 0)
+        params.append("Countries", filtersForCounts.countries.join(","));
+      if (filtersForCounts.provinces.length > 0)
+        params.append("Provinces", filtersForCounts.provinces.join(","));
+      if (filtersForCounts.cities.length > 0)
+        params.append("Cities", filtersForCounts.cities.join(","));
+      if (filtersForCounts.searchQuery)
+        params.append("search_query", filtersForCounts.searchQuery);
+      if (filtersForCounts.primarySectors.length > 0)
+        params.append(
+          "primary_sectors_ids",
+          filtersForCounts.primarySectors.join(",")
+        );
+      if (filtersForCounts.secondarySectors.length > 0)
+        params.append(
+          "Secondary_sectors_ids",
+          filtersForCounts.secondarySectors.join(",")
+        );
+
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_counts?${params.toString()}`;
+      console.log("[Advisors] Fetch counts URL:", url);
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`API request failed: ${response.statusText}`);
       }
 
-      const data: AdvisorsCountsResponse = await response.json();
+      const data = await response.json();
+      console.log("[Advisors] Counts response:", data);
       setCountsData({
-        financialAdvisors: data.lambda.companiesByRole.financialAdvisors,
-        commercialDueDiligence:
-          data.lambda.companiesByRole.commercialDueDiligence,
-        vendorDueDiligence: data.lambda.companiesByRole.vendorDueDiligence,
-        managementTeamAdvisory:
-          data.lambda.companiesByRole.managementTeamAdvisory,
-        nomad: data.lambda.companiesByRole.nomad,
+        financialAdvisors: Number(
+          data.financialAdvisors ??
+            data?.lambda?.companiesByRole?.financialAdvisors ??
+            0
+        ),
+        commercialDueDiligence: Number(
+          data.commercialDueDiligence ??
+            data?.lambda?.companiesByRole?.commercialDueDiligence ??
+            0
+        ),
+        vendorDueDiligence: Number(
+          data.vendorDueDiligence ??
+            data?.lambda?.companiesByRole?.vendorDueDiligence ??
+            0
+        ),
+        managementTeamAdvisory: Number(
+          data.managementTeamAdvisory ??
+            data?.lambda?.companiesByRole?.managementTeamAdvisory ??
+            0
+        ),
+        nomad: Number(data.nomad ?? data?.lambda?.companiesByRole?.nomad ?? 0),
       });
     } catch (err) {
       console.error("Error fetching counts:", err);
+      setCountsData({
+        financialAdvisors: 0,
+        commercialDueDiligence: 0,
+        vendorDueDiligence: 0,
+        managementTeamAdvisory: 0,
+        nomad: 0,
+      });
     }
   }, []);
 
@@ -388,25 +480,29 @@ const AdvisorsPage = () => {
   useEffect(() => {
     fetchCountries();
     fetchPrimarySectors();
-    fetchCounts();
-    // Initial fetch of all advisors
+  }, [fetchCountries, fetchPrimarySectors]);
+
+  useEffect(() => {
+    // React to filters change for both list and counts
+    fetchCounts(filters);
     fetchAdvisors(filters);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
 
   // Fetch provinces when countries are selected
   useEffect(() => {
     fetchProvinces();
-  }, [selectedCountries]);
+  }, [selectedCountries, fetchProvinces]);
 
   // Fetch cities when countries or provinces are selected
   useEffect(() => {
     fetchCities();
-  }, [selectedCountries, selectedProvinces]);
+  }, [selectedCountries, selectedProvinces, fetchCities]);
 
   // Fetch secondary sectors when primary sectors are selected
   useEffect(() => {
     fetchSecondarySectors();
-  }, [selectedPrimarySectors, primarySectors]);
+  }, [selectedPrimarySectors, primarySectors, fetchSecondarySectors]);
 
   // Handle search
   const handleSearch = () => {
@@ -422,6 +518,7 @@ const AdvisorsPage = () => {
     };
     setFilters(updatedFilters);
     fetchAdvisors(updatedFilters);
+    fetchCounts(updatedFilters);
   };
 
   // Handle page change
@@ -429,6 +526,7 @@ const AdvisorsPage = () => {
     const updatedFilters = { ...filters, page };
     setFilters(updatedFilters);
     fetchAdvisors(updatedFilters);
+    fetchCounts(updatedFilters);
   };
 
   const styles = {
@@ -567,7 +665,7 @@ const AdvisorsPage = () => {
     return React.createElement(
       "div",
       {
-        key: index,
+        key: advisor.id ?? index,
         className: "advisor-card",
         style: {
           backgroundColor: "white",
@@ -798,7 +896,7 @@ const AdvisorsPage = () => {
 
     return React.createElement(
       "tr",
-      { key: index },
+      { key: advisor.id ?? index },
       React.createElement(
         "td",
         null,
@@ -908,7 +1006,7 @@ const AdvisorsPage = () => {
     }
     .advisor-stats {
       background: #fff;
-      padding: 20px 24px;
+      padding: 12px 16px;
       box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
       border-radius: 16px;
       margin-bottom: 16px;
@@ -931,9 +1029,10 @@ const AdvisorsPage = () => {
     }
     .stats-item {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-start;
       align-items: center;
-      padding: 8px 0;
+      gap: 8px;
+      padding: 4px 0;
       border-bottom: 1px solid #e2e8f0;
     }
     .stats-item:last-child {
@@ -958,11 +1057,11 @@ const AdvisorsPage = () => {
       border-collapse: collapse;
       table-layout: fixed;
     }
-    .advisor-table th:nth-child(1) { width: 8%; }  /* Logo */
-    .advisor-table th:nth-child(2) { width: 15%; } /* Advisor */
-    .advisor-table th:nth-child(3) { width: 28%; } /* Description - Wider */
-    .advisor-table th:nth-child(4) { width: 12%; } /* Corporate Events Advised */
-    .advisor-table th:nth-child(5) { width: 22%; } /* Advised D&A Sectors */
+    .advisor-table th:nth-child(1) { width: 7%; }  /* Logo */
+    .advisor-table th:nth-child(2) { width: 14%; } /* Advisor */
+    .advisor-table th:nth-child(3) { width: 36%; } /* Description - Wider */
+    .advisor-table th:nth-child(4) { width: 10%; } /* Corporate Events Advised */
+    .advisor-table th:nth-child(5) { width: 18%; } /* Advised D&A Sectors */
     .advisor-table th:nth-child(6) { width: 10%; } /* LinkedIn Members */
     .advisor-table th:nth-child(7) { width: 5%; }  /* Country */
     .advisor-table th,
@@ -1004,7 +1103,7 @@ const AdvisorsPage = () => {
       color: #005bb5;
     }
     .advisor-description {
-      max-width: 450px;
+      max-width: none;
       line-height: 1.4;
     }
     .advisor-description-truncated {
@@ -1026,6 +1125,13 @@ const AdvisorsPage = () => {
       max-width: 250px;
       line-height: 1.3;
     }
+    .search-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .search-row .filters-input { margin: 0; max-width: 340px; }
+    .search-row .filters-button { margin: 0; max-width: 140px; }
     .loading {
       text-align: center;
       padding: 40px;
@@ -1106,7 +1212,7 @@ const AdvisorsPage = () => {
         padding: 12px 8px !important;
       }
       .advisor-stats {
-        padding: 16px 16px !important;
+        padding: 12px 12px !important;
       }
       .stats-title {
         font-size: 18px !important;
@@ -1325,10 +1431,18 @@ const AdvisorsPage = () => {
       {/* Filters Section */}
       <div style={styles.container}>
         <div style={styles.maxWidth}>
-          <div style={styles.card} className="filters-card">
-            <h2 style={styles.heading} className="filters-heading">
-              Filters
-            </h2>
+          <div
+            style={{
+              ...styles.card,
+              ...(showFilters ? {} : { padding: "12px 16px" }),
+            }}
+            className="filters-card"
+          >
+            {showFilters && (
+              <h2 style={styles.heading} className="filters-heading">
+                Filters
+              </h2>
+            )}
 
             {showFilters && (
               <div style={styles.grid} className="filters-grid">
@@ -1720,14 +1834,16 @@ const AdvisorsPage = () => {
             )}
 
             <div style={{ marginTop: showFilters ? "20px" : "0" }}>
-              <h3 style={styles.subHeading}>Search for Advisors</h3>
-              <div style={styles.searchDiv}>
+              {showFilters && (
+                <h3 style={styles.subHeading}>Search for Advisors</h3>
+              )}
+              <div className="search-row">
                 <input
                   type="text"
                   placeholder="Enter name here"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  style={styles.input}
+                  style={{ ...styles.input, marginBottom: 0 }}
                   className="filters-input"
                   onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                 />

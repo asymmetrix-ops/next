@@ -519,30 +519,31 @@ export default function HomeUserPage() {
                           className="p-3 space-y-2 bg-gray-50 rounded-lg"
                         >
                           <div className="flex justify-between items-start">
-                            <span
-                              onClick={() =>
-                                handleCorporateEventClick(event.id)
-                              }
-                              onContextMenu={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                window.open(
-                                  `/corporate-event/${event.id}`,
-                                  "_blank",
-                                  "noopener,noreferrer"
-                                );
-                              }}
-                              className="flex-1 text-sm font-medium text-blue-600 underline break-words cursor-pointer hover:text-blue-800"
+                            <a
+                              href={`/corporate-event/${event.id}`}
+                              className="flex-1 text-sm font-medium text-blue-600 underline break-words hover:text-blue-800"
                               style={{
                                 textDecoration: "underline",
                                 color: "#0075df",
-                                cursor: "pointer",
                                 fontWeight: "500",
                               }}
-                              title="Left click to navigate, Right click to open in new tab"
+                              onClick={(e) => {
+                                if (
+                                  e.defaultPrevented ||
+                                  e.button !== 0 ||
+                                  e.metaKey ||
+                                  e.ctrlKey ||
+                                  e.shiftKey ||
+                                  e.altKey
+                                ) {
+                                  return;
+                                }
+                                e.preventDefault();
+                                handleCorporateEventClick(event.id);
+                              }}
                             >
                               {event.description}
-                            </span>
+                            </a>
                           </div>
                           <div className="space-y-1 text-xs text-gray-500">
                             <div>
@@ -787,21 +788,26 @@ export default function HomeUserPage() {
                         article.companies_mentioned.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">
                             {article.companies_mentioned.map(
-                              (company, index) => (
-                                <span key={company.id}>
-                                  {createClickableElement(
-                                    `/company/${company.id}`,
-                                    company.name,
-                                    "text-xs text-blue-600 cursor-pointer hover:text-blue-800",
-                                    {
-                                      fontWeight: "500",
-                                    }
-                                  )}
-                                  {index <
-                                    article.companies_mentioned!.length - 1 &&
-                                    ", "}
-                                </span>
-                              )
+                              (company, index) => {
+                                const href = company._is_that_investor
+                                  ? `/investors/${company.id}`
+                                  : `/company/${company.id}`;
+                                return (
+                                  <span key={company.id}>
+                                    {createClickableElement(
+                                      href,
+                                      company.name,
+                                      "text-xs text-blue-600 cursor-pointer hover:text-blue-800",
+                                      {
+                                        fontWeight: "500",
+                                      }
+                                    )}
+                                    {index <
+                                      article.companies_mentioned!.length - 1 &&
+                                      ", "}
+                                  </span>
+                                );
+                              }
                             )}
                           </div>
                         )}
