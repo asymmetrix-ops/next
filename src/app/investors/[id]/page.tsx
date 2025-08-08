@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useRightClick } from "@/hooks/useRightClick";
 import {
   LineChart,
   Line,
@@ -82,6 +83,10 @@ interface PortfolioCompany {
     linkedin_employee: number;
     linkedin_logo: string;
   };
+  related_to_investor_individuals?: Array<{
+    id: number;
+    advisor_individuals: string;
+  }>;
 }
 
 interface PortfolioResponse {
@@ -311,6 +316,7 @@ const CompanyDescription = ({ description }: { description: string }) => {
 const InvestorDetailPage = () => {
   const params = useParams();
   const router = useRouter();
+  const { createClickableElement } = useRightClick();
   const investorId = params.id as string;
 
   const [investorData, setInvestorData] = useState<InvestorData | null>(null);
@@ -345,9 +351,7 @@ const InvestorDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [pastPortfolioLoading, setPastPortfolioLoading] = useState(false);
-  const [activePortfolioTab, setActivePortfolioTab] = useState<
-    "current" | "past" | "corporate"
-  >("current");
+
   const [error, setError] = useState<string | null>(null);
 
   // Fetch investor data
@@ -601,12 +605,68 @@ const InvestorDetailPage = () => {
     console.log("Report incorrect data clicked");
   };
 
-  const handleCompanyClick = (companyId: number) => {
-    console.log("Company clicked:", companyId);
+  const handleAdvisorClick = async (advisorName: string) => {
+    console.log("Advisor clicked:", advisorName);
     try {
-      router.push(`/company/${companyId}`);
+      // Search for the advisor using the individuals API
+      const token = localStorage.getItem("asymmetrix_auth_token");
+
+      const params = new URLSearchParams();
+      params.append("search_query", advisorName);
+      params.append("Offset", "1");
+      params.append("Per_page", "10");
+
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Advisor search results:", data);
+
+        // Find the matching individual by name (try exact match first, then partial match)
+        let matchingIndividual = data.Individuals_list?.items?.find(
+          (individual: { Individual_text: string; id: number }) =>
+            individual.Individual_text === advisorName
+        );
+
+        // If no exact match, try partial match
+        if (!matchingIndividual) {
+          matchingIndividual = data.Individuals_list?.items?.find(
+            (individual: { Individual_text: string; id: number }) =>
+              individual.Individual_text?.toLowerCase().includes(
+                advisorName.toLowerCase()
+              ) ||
+              advisorName
+                .toLowerCase()
+                .includes(individual.Individual_text?.toLowerCase())
+          );
+        }
+
+        if (matchingIndividual && matchingIndividual.id) {
+          console.log("Found matching advisor with ID:", matchingIndividual.id);
+          router.push(`/individual/${matchingIndividual.id}`);
+        } else {
+          console.log("No matching advisor found with ID");
+          // Fallback: navigate to individuals page with search
+          router.push(`/individuals?search=${encodeURIComponent(advisorName)}`);
+        }
+      } else {
+        console.error("Failed to search for advisor:", response.statusText);
+        // Fallback: navigate to individuals page with search
+        router.push(`/individuals?search=${encodeURIComponent(advisorName)}`);
+      }
     } catch (error) {
-      console.error("Navigation error:", error);
+      console.error("Error handling advisor click:", error);
+      // Fallback: navigate to individuals page with search
+      router.push(`/individuals?search=${encodeURIComponent(advisorName)}`);
     }
   };
 
@@ -737,53 +797,6 @@ const InvestorDetailPage = () => {
       router.push(
         `/corporate-events?search=${encodeURIComponent(eventDescription)}`
       );
-    }
-  };
-
-  const handleAdvisorClick = async (advisorName: string) => {
-    console.log("Advisor clicked:", advisorName);
-    try {
-      // Search for the advisor using the individuals API
-      const token = localStorage.getItem("asymmetrix_auth_token");
-
-      const params = new URLSearchParams();
-      params.append("search_query", advisorName);
-      params.append("Page", "0");
-      params.append("Per_page", "10");
-
-      const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Advisor search results:", data);
-
-        // Find the matching individual by name
-        const matchingIndividual = data.Individuals_list?.items?.find(
-          (individual: { advisor_individuals: string; id: number }) =>
-            individual.advisor_individuals === advisorName
-        );
-
-        if (matchingIndividual && matchingIndividual.id) {
-          console.log("Found matching advisor with ID:", matchingIndividual.id);
-          router.push(`/individual/${matchingIndividual.id}`);
-        } else {
-          console.log("No matching advisor found with ID");
-          // Fallback: just log the name for now
-        }
-      } else {
-        console.error("Failed to search for advisor:", response.statusText);
-      }
-    } catch (error) {
-      console.error("Error handling advisor click:", error);
     }
   };
 
@@ -1012,27 +1025,7 @@ const InvestorDetailPage = () => {
     .info-value {
       color: #6b7280;
     }
-    .portfolio-tabs {
-      display: flex;
-      gap: 8px;
-      border-bottom: 1px solid #e2e8f0;
-      margin-bottom: 16px;
-    }
-    .portfolio-tab {
-      padding: 12px 16px;
-      border: none;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 500;
-      background: transparent;
-      color: #64748b;
-      border-bottom: 2px solid transparent;
-    }
-    .portfolio-tab.active {
-      background-color: #3b82f6;
-      color: white;
-      border-bottom: 2px solid #3b82f6;
-    }
+
     .portfolio-table-container {
       overflow-x: auto;
       border: 1px solid #e2e8f0;
@@ -1223,17 +1216,7 @@ const InvestorDetailPage = () => {
         font-size: 18px !important;
         margin-bottom: 12px !important;
       }
-      .portfolio-tabs {
-        flex-wrap: wrap !important;
-        gap: 4px !important;
-      }
-      .portfolio-tab {
-        padding: 8px 12px !important;
-        font-size: 13px !important;
-        flex: 1 !important;
-        min-width: 100px !important;
-        text-align: center !important;
-      }
+
       .portfolio-table-container {
         display: none !important;
       }
@@ -1316,18 +1299,14 @@ const InvestorDetailPage = () => {
                 <div className="info-item">
                   <span className="info-label">Website:</span>
                   <span className="info-value">
-                    {Investor.url ? (
-                      <a
-                        href={Investor.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: "#3b82f6", textDecoration: "none" }}
-                      >
-                        {Investor.url}
-                      </a>
-                    ) : (
-                      "Not available"
-                    )}
+                    {Investor.url
+                      ? createClickableElement(
+                          Investor.url,
+                          Investor.url,
+                          undefined,
+                          { textDecoration: "none" }
+                        )
+                      : "Not available"}
                   </span>
                 </div>
                 <div className="info-item">
@@ -1370,12 +1349,12 @@ const InvestorDetailPage = () => {
                 {Invested_DA_sectors.length > 0
                   ? Invested_DA_sectors.map((sector, index) => (
                       <span key={sector.id}>
-                        <a
-                          href={`/sector/${sector.id}`}
-                          style={{ color: "#3b82f6", textDecoration: "none" }}
-                        >
-                          {sector.sector_name}
-                        </a>
+                        {createClickableElement(
+                          `/sector/${sector.id}`,
+                          sector.sector_name,
+                          undefined,
+                          { textDecoration: "none" }
+                        )}
                         {index < Invested_DA_sectors.length - 1 ? ", " : ""}
                       </span>
                     ))
@@ -1403,14 +1382,12 @@ const InvestorDetailPage = () => {
                     {Investment_Team_Roles_current.map((member, index) => (
                       <div key={index} className="info-value">
                         {member.current_employer_url ? (
-                          <a
-                            href={member.current_employer_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ color: "#3b82f6", textDecoration: "none" }}
-                          >
-                            {member.Individual_text}
-                          </a>
+                          createClickableElement(
+                            member.current_employer_url,
+                            member.Individual_text,
+                            undefined,
+                            { textDecoration: "none" }
+                          )
                         ) : (
                           <span>{member.Individual_text}</span>
                         )}
@@ -1434,14 +1411,12 @@ const InvestorDetailPage = () => {
                     {Investment_Team_Roles_past.map((member, index) => (
                       <div key={index} className="info-value">
                         {member.current_employer_url ? (
-                          <a
-                            href={member.current_employer_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ color: "#3b82f6", textDecoration: "none" }}
-                          >
-                            {member.Individual_text}
-                          </a>
+                          createClickableElement(
+                            member.current_employer_url,
+                            member.Individual_text,
+                            undefined,
+                            { textDecoration: "none" }
+                          )
                         ) : (
                           <span>{member.Individual_text}</span>
                         )}
@@ -1461,482 +1436,279 @@ const InvestorDetailPage = () => {
 
           {/* Right Column - Portfolio and Corporate Events */}
           <div className="investor-right-column">
-            {/* Portfolio Section */}
+            {/* Current Portfolio Section */}
             <div className="investor-section">
-              <div style={{ marginBottom: "16px" }}>
-                <div className="portfolio-tabs">
-                  <button
-                    onClick={() => setActivePortfolioTab("current")}
-                    className={`portfolio-tab ${
-                      activePortfolioTab === "current" ? "active" : ""
-                    }`}
-                  >
-                    Current Portfolio
-                  </button>
-                  <button
-                    onClick={() => setActivePortfolioTab("past")}
-                    className={`portfolio-tab ${
-                      activePortfolioTab === "past" ? "active" : ""
-                    }`}
-                  >
-                    Past Portfolio
-                  </button>
-                  <button
-                    onClick={() => setActivePortfolioTab("corporate")}
-                    className={`portfolio-tab ${
-                      activePortfolioTab === "corporate" ? "active" : ""
-                    }`}
-                  >
-                    Corporate Events
-                  </button>
+              <h2 className="section-title">Current Portfolio</h2>
+              {portfolioLoading ? (
+                <div className="loading">
+                  Loading current portfolio companies...
                 </div>
-              </div>
-
-              {activePortfolioTab === "current" &&
-                (portfolioLoading ? (
-                  <div className="loading">
-                    Loading current portfolio companies...
-                  </div>
-                ) : (
-                  <>
-                    {/* Desktop Table View */}
-                    <div className="portfolio-table-container">
-                      <table className="portfolio-table">
-                        <thead>
-                          <tr>
-                            <th>Logo</th>
-                            <th>Name</th>
-                            <th>Sectors</th>
-                            <th>Description</th>
-                            <th>Related Individuals</th>
-                            <th>LinkedIn Members</th>
-                            <th>Country</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {portfolioCompanies.length > 0 ? (
-                            portfolioCompanies.map((company) => (
-                              <tr key={company.id}>
-                                <td>
-                                  <CompanyLogo
-                                    logo={
-                                      company._linkedin_data_of_new_company
-                                        ?.linkedin_logo || ""
-                                    }
-                                    name={company.name}
-                                  />
-                                </td>
-                                <td>
-                                  <span
-                                    className="company-name"
-                                    onClick={() =>
-                                      handleCompanyClick(company.id)
-                                    }
-                                  >
-                                    {company.name}
-                                  </span>
-                                </td>
-                                <td>
-                                  <div style={{ fontSize: "12px" }}>
-                                    {company.sectors_id
-                                      .slice(0, 3)
-                                      .map((s) => s.sector_name)
-                                      .join(", ")}
-                                    {company.sectors_id.length > 3 && "..."}
-                                  </div>
-                                </td>
-                                <td style={{ maxWidth: "200px" }}>
-                                  <CompanyDescription
-                                    description={company.description}
-                                  />
-                                </td>
-                                <td>
-                                  <span style={{ color: "#64748b" }}>
-                                    Not available
-                                  </span>
-                                </td>
-                                <td>
-                                  {formatNumber(
+              ) : (
+                <>
+                  {/* Desktop Table View */}
+                  <div className="portfolio-table-container">
+                    <table className="portfolio-table">
+                      <thead>
+                        <tr>
+                          <th>Logo</th>
+                          <th>Name</th>
+                          <th>Sectors</th>
+                          <th>Description</th>
+                          <th>Related Individuals</th>
+                          <th>LinkedIn Members</th>
+                          <th>Country</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {portfolioCompanies.length > 0 ? (
+                          portfolioCompanies.map((company) => (
+                            <tr key={company.id}>
+                              <td>
+                                <CompanyLogo
+                                  logo={
                                     company._linkedin_data_of_new_company
-                                      ?.linkedin_employee
-                                  )}
-                                </td>
-                                <td>
-                                  {company._locations?.Country ||
-                                    "Not available"}
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan={7} className="no-data">
-                                No portfolio companies found
+                                      ?.linkedin_logo || ""
+                                  }
+                                  name={company.name}
+                                />
                               </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Mobile Cards View */}
-                    <div className="portfolio-cards">
-                      {portfolioCompanies.length > 0 ? (
-                        portfolioCompanies.map((company) => (
-                          <div key={company.id} className="portfolio-card">
-                            <div className="portfolio-card-header">
-                              <CompanyLogo
-                                logo={
-                                  company._linkedin_data_of_new_company
-                                    ?.linkedin_logo || ""
-                                }
-                                name={company.name}
-                              />
-                              <div
-                                className="portfolio-card-name"
-                                onClick={() => handleCompanyClick(company.id)}
-                              >
-                                {company.name}
-                              </div>
-                            </div>
-                            <div className="portfolio-card-info">
-                              <div className="portfolio-card-info-item">
-                                <span className="portfolio-card-info-label">
-                                  Sectors:
-                                </span>
-                                <span className="portfolio-card-info-value">
+                              <td>
+                                {createClickableElement(
+                                  `/company/${company.id}`,
+                                  company.name,
+                                  "company-name"
+                                )}
+                              </td>
+                              <td>
+                                <div style={{ fontSize: "12px" }}>
                                   {company.sectors_id
                                     .slice(0, 3)
                                     .map((s) => s.sector_name)
                                     .join(", ")}
                                   {company.sectors_id.length > 3 && "..."}
-                                </span>
-                              </div>
-                              <div className="portfolio-card-info-item">
-                                <span className="portfolio-card-info-label">
-                                  LinkedIn:
-                                </span>
-                                <span className="portfolio-card-info-value">
-                                  {formatNumber(
-                                    company._linkedin_data_of_new_company
-                                      ?.linkedin_employee
-                                  )}
-                                </span>
-                              </div>
-                              <div className="portfolio-card-info-item">
-                                <span className="portfolio-card-info-label">
-                                  Country:
-                                </span>
-                                <span className="portfolio-card-info-value">
-                                  {company._locations?.Country ||
-                                    "Not available"}
-                                </span>
-                              </div>
-                              <div className="portfolio-card-info-item">
-                                <span className="portfolio-card-info-label">
-                                  Individuals:
-                                </span>
-                                <span className="portfolio-card-info-value">
-                                  Not available
-                                </span>
-                              </div>
-                            </div>
-                            <div style={{ marginTop: "12px" }}>
-                              <CompanyDescription
-                                description={company.description}
-                              />
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="no-data">
-                          No portfolio companies found
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Pagination */}
-                    {portfolioPagination.pageTotal > 1 && (
-                      <div className="pagination">
-                        <span className="pagination-info">
-                          Page {portfolioPagination.curPage} of{" "}
-                          {portfolioPagination.pageTotal}
-                        </span>
-                        <button
-                          onClick={() =>
-                            handlePortfolioPageChange(
-                              portfolioPagination.curPage - 1
-                            )
-                          }
-                          disabled={!portfolioPagination.prevPage}
-                          className="pagination-button"
-                        >
-                          Previous
-                        </button>
-                        <button
-                          onClick={() =>
-                            handlePortfolioPageChange(
-                              portfolioPagination.curPage + 1
-                            )
-                          }
-                          disabled={!portfolioPagination.nextPage}
-                          className="pagination-button"
-                        >
-                          Next
-                        </button>
-                      </div>
-                    )}
-                  </>
-                ))}
-
-              {activePortfolioTab === "past" &&
-                (pastPortfolioLoading ? (
-                  <div style={{ textAlign: "center", padding: "24px" }}>
-                    Loading past portfolio companies...
-                  </div>
-                ) : (
-                  <>
-                    <div
-                      style={{
-                        overflowX: "auto",
-                        border: "1px solid #e2e8f0",
-                        borderRadius: "8px",
-                      }}
-                    >
-                      <table
-                        style={{
-                          width: "100%",
-                          borderCollapse: "collapse",
-                          fontSize: "14px",
-                        }}
-                      >
-                        <thead>
-                          <tr style={{ backgroundColor: "#f8fafc" }}>
-                            <th
-                              style={{
-                                padding: "12px",
-                                textAlign: "left",
-                                borderBottom: "1px solid #e2e8f0",
-                              }}
-                            >
-                              Logo
-                            </th>
-                            <th
-                              style={{
-                                padding: "12px",
-                                textAlign: "left",
-                                borderBottom: "1px solid #e2e8f0",
-                              }}
-                            >
-                              Name
-                            </th>
-                            <th
-                              style={{
-                                padding: "12px",
-                                textAlign: "left",
-                                borderBottom: "1px solid #e2e8f0",
-                              }}
-                            >
-                              Sectors
-                            </th>
-                            <th
-                              style={{
-                                padding: "12px",
-                                textAlign: "left",
-                                borderBottom: "1px solid #e2e8f0",
-                              }}
-                            >
-                              Description
-                            </th>
-                            <th
-                              style={{
-                                padding: "12px",
-                                textAlign: "left",
-                                borderBottom: "1px solid #e2e8f0",
-                              }}
-                            >
-                              Related Individuals
-                            </th>
-                            <th
-                              style={{
-                                padding: "12px",
-                                textAlign: "left",
-                                borderBottom: "1px solid #e2e8f0",
-                              }}
-                            >
-                              LinkedIn Members
-                            </th>
-                            <th
-                              style={{
-                                padding: "12px",
-                                textAlign: "left",
-                                borderBottom: "1px solid #e2e8f0",
-                              }}
-                            >
-                              Country
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {pastPortfolioCompanies.length > 0 ? (
-                            pastPortfolioCompanies.map((company) => (
-                              <tr
-                                key={company.id}
-                                style={{ borderBottom: "1px solid #e2e8f0" }}
-                              >
-                                <td style={{ padding: "12px" }}>
-                                  <CompanyLogo
-                                    logo={
-                                      company._linkedin_data_of_new_company
-                                        ?.linkedin_logo || ""
-                                    }
-                                    name={company.name}
-                                  />
-                                </td>
-                                <td style={{ padding: "12px" }}>
+                                </div>
+                              </td>
+                              <td style={{ maxWidth: "350px" }}>
+                                <CompanyDescription
+                                  description={company.description}
+                                />
+                              </td>
+                              <td>
+                                {company.related_to_investor_individuals &&
+                                company.related_to_investor_individuals.length >
+                                  0 ? (
+                                  <div style={{ fontSize: "12px" }}>
+                                    {company.related_to_investor_individuals
+                                      .slice(0, 3)
+                                      .map((individual, index) => (
+                                        <span key={individual.id}>
+                                          {createClickableElement(
+                                            `/individual/${individual.id}`,
+                                            individual.advisor_individuals,
+                                            undefined,
+                                            {
+                                              textDecoration: "none",
+                                              fontSize: "12px",
+                                            }
+                                          )}
+                                          {index <
+                                          Math.min(
+                                            company.related_to_investor_individuals!
+                                              .length,
+                                            3
+                                          ) -
+                                            1
+                                            ? ", "
+                                            : ""}
+                                        </span>
+                                      ))}
+                                    {company.related_to_investor_individuals
+                                      .length > 3 && "..."}
+                                  </div>
+                                ) : (
                                   <span
                                     style={{
-                                      color: "#3b82f6",
-                                      textDecoration: "none",
-                                      fontWeight: "500",
-                                      cursor: "pointer",
+                                      color: "#64748b",
+                                      fontSize: "12px",
                                     }}
-                                    onClick={() =>
-                                      handleCompanyClick(company.id)
-                                    }
                                   >
-                                    {company.name}
-                                  </span>
-                                </td>
-                                <td style={{ padding: "12px" }}>
-                                  <div style={{ fontSize: "12px" }}>
-                                    {company.sectors_id
-                                      .slice(0, 3)
-                                      .map((s) => s.sector_name)
-                                      .join(", ")}
-                                    {company.sectors_id.length > 3 && "..."}
-                                  </div>
-                                </td>
-                                <td
-                                  style={{ padding: "12px", maxWidth: "200px" }}
-                                >
-                                  <CompanyDescription
-                                    description={company.description}
-                                  />
-                                </td>
-                                <td style={{ padding: "12px" }}>
-                                  <span style={{ color: "#64748b" }}>
                                     Not available
                                   </span>
-                                </td>
-                                <td style={{ padding: "12px" }}>
-                                  {formatNumber(
-                                    company._linkedin_data_of_new_company
-                                      ?.linkedin_employee
-                                  )}
-                                </td>
-                                <td style={{ padding: "12px" }}>
-                                  {company._locations?.Country ||
-                                    "Not available"}
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td
-                                colSpan={7}
-                                style={{
-                                  padding: "24px",
-                                  textAlign: "center",
-                                  color: "#64748b",
-                                }}
-                              >
-                                No past portfolio companies found
+                                )}
+                              </td>
+                              <td>
+                                {formatNumber(
+                                  company._linkedin_data_of_new_company
+                                    ?.linkedin_employee
+                                )}
+                              </td>
+                              <td>
+                                {company._locations?.Country || "Not available"}
                               </td>
                             </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={7} className="no-data">
+                              No portfolio companies found
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
 
-                    {/* Pagination */}
-                    {pastPortfolioPagination.pageTotal > 1 && (
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          gap: "8px",
-                          marginTop: "16px",
-                          padding: "16px",
-                        }}
-                      >
-                        <button
-                          onClick={() =>
-                            handlePastPortfolioPageChange(
-                              pastPortfolioPagination.curPage - 1
-                            )
-                          }
-                          disabled={!pastPortfolioPagination.prevPage}
-                          style={{
-                            padding: "8px 12px",
-                            backgroundColor: pastPortfolioPagination.prevPage
-                              ? "#3b82f6"
-                              : "#e2e8f0",
-                            color: pastPortfolioPagination.prevPage
-                              ? "white"
-                              : "#64748b",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: pastPortfolioPagination.prevPage
-                              ? "pointer"
-                              : "not-allowed",
-                            fontSize: "14px",
-                          }}
-                        >
-                          Previous
-                        </button>
-
-                        <span style={{ fontSize: "14px", color: "#64748b" }}>
-                          Page {pastPortfolioPagination.curPage} of{" "}
-                          {pastPortfolioPagination.pageTotal}
-                        </span>
-
-                        <button
-                          onClick={() =>
-                            handlePastPortfolioPageChange(
-                              pastPortfolioPagination.curPage + 1
-                            )
-                          }
-                          disabled={!pastPortfolioPagination.nextPage}
-                          style={{
-                            padding: "8px 12px",
-                            backgroundColor: pastPortfolioPagination.nextPage
-                              ? "#3b82f6"
-                              : "#e2e8f0",
-                            color: pastPortfolioPagination.nextPage
-                              ? "white"
-                              : "#64748b",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: pastPortfolioPagination.nextPage
-                              ? "pointer"
-                              : "not-allowed",
-                            fontSize: "14px",
-                          }}
-                        >
-                          Next
-                        </button>
+                  {/* Mobile Cards View */}
+                  <div className="portfolio-cards">
+                    {portfolioCompanies.length > 0 ? (
+                      portfolioCompanies.map((company) => (
+                        <div key={company.id} className="portfolio-card">
+                          <div className="portfolio-card-header">
+                            <CompanyLogo
+                              logo={
+                                company._linkedin_data_of_new_company
+                                  ?.linkedin_logo || ""
+                              }
+                              name={company.name}
+                            />
+                            {createClickableElement(
+                              `/company/${company.id}`,
+                              company.name,
+                              "portfolio-card-name"
+                            )}
+                          </div>
+                          <div className="portfolio-card-info">
+                            <div className="portfolio-card-info-item">
+                              <span className="portfolio-card-info-label">
+                                Sectors:
+                              </span>
+                              <span className="portfolio-card-info-value">
+                                {company.sectors_id
+                                  .slice(0, 3)
+                                  .map((s) => s.sector_name)
+                                  .join(", ")}
+                                {company.sectors_id.length > 3 && "..."}
+                              </span>
+                            </div>
+                            <div className="portfolio-card-info-item">
+                              <span className="portfolio-card-info-label">
+                                LinkedIn:
+                              </span>
+                              <span className="portfolio-card-info-value">
+                                {formatNumber(
+                                  company._linkedin_data_of_new_company
+                                    ?.linkedin_employee
+                                )}
+                              </span>
+                            </div>
+                            <div className="portfolio-card-info-item">
+                              <span className="portfolio-card-info-label">
+                                Country:
+                              </span>
+                              <span className="portfolio-card-info-value">
+                                {company._locations?.Country || "Not available"}
+                              </span>
+                            </div>
+                            <div className="portfolio-card-info-item">
+                              <span className="portfolio-card-info-label">
+                                Individuals:
+                              </span>
+                              <span className="portfolio-card-info-value">
+                                {company.related_to_investor_individuals &&
+                                company.related_to_investor_individuals.length >
+                                  0 ? (
+                                  <>
+                                    {company.related_to_investor_individuals
+                                      .slice(0, 2)
+                                      .map((individual, index) => (
+                                        <span key={individual.id}>
+                                          {createClickableElement(
+                                            `/individual/${individual.id}`,
+                                            individual.advisor_individuals,
+                                            undefined,
+                                            {
+                                              textDecoration: "none",
+                                              fontSize: "12px",
+                                            }
+                                          )}
+                                          {index <
+                                          Math.min(
+                                            company.related_to_investor_individuals!
+                                              .length,
+                                            2
+                                          ) -
+                                            1
+                                            ? ", "
+                                            : ""}
+                                        </span>
+                                      ))}
+                                    {company.related_to_investor_individuals
+                                      .length > 2 && "..."}
+                                  </>
+                                ) : (
+                                  "Not available"
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                          <div style={{ marginTop: "12px" }}>
+                            <CompanyDescription
+                              description={company.description}
+                            />
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="no-data">
+                        No portfolio companies found
                       </div>
                     )}
-                  </>
-                ))}
-
-              {activePortfolioTab === "corporate" &&
-                (corporateEventsLoading ? (
-                  <div style={{ textAlign: "center", padding: "24px" }}>
-                    Loading corporate events...
                   </div>
-                ) : (
+
+                  {/* Pagination */}
+                  {portfolioPagination.pageTotal > 1 && (
+                    <div className="pagination">
+                      <span className="pagination-info">
+                        Page {portfolioPagination.curPage} of{" "}
+                        {portfolioPagination.pageTotal}
+                      </span>
+                      <button
+                        onClick={() =>
+                          handlePortfolioPageChange(
+                            portfolioPagination.curPage - 1
+                          )
+                        }
+                        disabled={!portfolioPagination.prevPage}
+                        className="pagination-button"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() =>
+                          handlePortfolioPageChange(
+                            portfolioPagination.curPage + 1
+                          )
+                        }
+                        disabled={!portfolioPagination.nextPage}
+                        className="pagination-button"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Past Portfolio Section */}
+            <div className="investor-section" style={{ marginTop: "32px" }}>
+              <h2 className="section-title">Past Portfolio</h2>
+              {pastPortfolioLoading ? (
+                <div style={{ textAlign: "center", padding: "24px" }}>
+                  Loading past portfolio companies...
+                </div>
+              ) : (
+                <>
                   <div
                     style={{
                       overflowX: "auto",
@@ -1960,6 +1732,33 @@ const InvestorDetailPage = () => {
                               borderBottom: "1px solid #e2e8f0",
                             }}
                           >
+                            Logo
+                          </th>
+                          <th
+                            style={{
+                              padding: "12px",
+                              textAlign: "left",
+                              borderBottom: "1px solid #e2e8f0",
+                            }}
+                          >
+                            Name
+                          </th>
+                          <th
+                            style={{
+                              padding: "12px",
+                              textAlign: "left",
+                              borderBottom: "1px solid #e2e8f0",
+                            }}
+                          >
+                            Sectors
+                          </th>
+                          <th
+                            style={{
+                              padding: "12px",
+                              textAlign: "left",
+                              borderBottom: "1px solid #e2e8f0",
+                            }}
+                          >
                             Description
                           </th>
                           <th
@@ -1969,7 +1768,7 @@ const InvestorDetailPage = () => {
                               borderBottom: "1px solid #e2e8f0",
                             }}
                           >
-                            Date Announced
+                            Related Individuals
                           </th>
                           <th
                             style={{
@@ -1978,7 +1777,7 @@ const InvestorDetailPage = () => {
                               borderBottom: "1px solid #e2e8f0",
                             }}
                           >
-                            Type
+                            LinkedIn Members
                           </th>
                           <th
                             style={{
@@ -1987,158 +1786,104 @@ const InvestorDetailPage = () => {
                               borderBottom: "1px solid #e2e8f0",
                             }}
                           >
-                            Counterparty Status
-                          </th>
-                          <th
-                            style={{
-                              padding: "12px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            Other Counterparties
-                          </th>
-                          <th
-                            style={{
-                              padding: "12px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            Enterprise Value
-                          </th>
-                          <th
-                            style={{
-                              padding: "12px",
-                              textAlign: "left",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            Advisors
+                            Country
                           </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {mappedCorporateEvents.length > 0 ? (
-                          mappedCorporateEvents.map((event, index) => (
+                        {pastPortfolioCompanies.length > 0 ? (
+                          pastPortfolioCompanies.map((company) => (
                             <tr
-                              key={index}
+                              key={company.id}
                               style={{ borderBottom: "1px solid #e2e8f0" }}
                             >
                               <td style={{ padding: "12px" }}>
-                                <div style={{ maxWidth: "200px" }}>
+                                <CompanyLogo
+                                  logo={
+                                    company._linkedin_data_of_new_company
+                                      ?.linkedin_logo || ""
+                                  }
+                                  name={company.name}
+                                />
+                              </td>
+                              <td style={{ padding: "12px" }}>
+                                {createClickableElement(
+                                  `/company/${company.id}`,
+                                  company.name,
+                                  undefined,
+                                  {
+                                    textDecoration: "none",
+                                    fontWeight: "500",
+                                  }
+                                )}
+                              </td>
+                              <td style={{ padding: "12px" }}>
+                                <div style={{ fontSize: "12px" }}>
+                                  {company.sectors_id
+                                    .slice(0, 3)
+                                    .map((s) => s.sector_name)
+                                    .join(", ")}
+                                  {company.sectors_id.length > 3 && "..."}
+                                </div>
+                              </td>
+                              <td
+                                style={{ padding: "12px", maxWidth: "350px" }}
+                              >
+                                <CompanyDescription
+                                  description={company.description}
+                                />
+                              </td>
+                              <td style={{ padding: "12px" }}>
+                                {company.related_to_investor_individuals &&
+                                company.related_to_investor_individuals.length >
+                                  0 ? (
+                                  <div style={{ fontSize: "12px" }}>
+                                    {company.related_to_investor_individuals
+                                      .slice(0, 3)
+                                      .map((individual, index) => (
+                                        <span key={individual.id}>
+                                          {createClickableElement(
+                                            `/individual/${individual.id}`,
+                                            individual.advisor_individuals,
+                                            undefined,
+                                            {
+                                              textDecoration: "none",
+                                              fontSize: "12px",
+                                            }
+                                          )}
+                                          {index <
+                                          Math.min(
+                                            company.related_to_investor_individuals!
+                                              .length,
+                                            3
+                                          ) -
+                                            1
+                                            ? ", "
+                                            : ""}
+                                        </span>
+                                      ))}
+                                    {company.related_to_investor_individuals
+                                      .length > 3 && "..."}
+                                  </div>
+                                ) : (
                                   <span
                                     style={{
-                                      color: "#3b82f6",
-                                      textDecoration: "none",
-                                      fontWeight: "500",
-                                      cursor: "pointer",
+                                      color: "#64748b",
+                                      fontSize: "12px",
                                     }}
-                                    onClick={() =>
-                                      handleCorporateEventDescriptionClick(
-                                        event.id,
-                                        event.description
-                                      )
-                                    }
                                   >
-                                    <CompanyDescription
-                                      description={event.description}
-                                    />
+                                    Not available
                                   </span>
-                                </div>
+                                )}
                               </td>
                               <td style={{ padding: "12px" }}>
-                                {event.announcement_date
-                                  ? formatDate(event.announcement_date)
-                                  : "—"}
+                                {formatNumber(
+                                  company._linkedin_data_of_new_company
+                                    ?.linkedin_employee
+                                )}
                               </td>
                               <td style={{ padding: "12px" }}>
-                                {event.type || "—"}
-                              </td>
-                              <td style={{ padding: "12px" }}>
-                                {event.counterparty_status}
-                              </td>
-                              <td style={{ padding: "12px" }}>
-                                <div
-                                  style={{
-                                    maxWidth: "150px",
-                                    fontSize: "12px",
-                                  }}
-                                >
-                                  {event.other_counterparties !== "—"
-                                    ? event.other_counterparties
-                                        .split(", ")
-                                        .map((companyName, index) => (
-                                          <span key={index}>
-                                            <span
-                                              style={{
-                                                color: "#3b82f6",
-                                                textDecoration: "none",
-                                                fontWeight: "500",
-                                                cursor: "pointer",
-                                              }}
-                                              onClick={() => {
-                                                console.log(
-                                                  "Other counterparty clicked:",
-                                                  companyName
-                                                );
-                                                handleCompanyNameClick(
-                                                  companyName
-                                                );
-                                              }}
-                                            >
-                                              {companyName}
-                                            </span>
-                                            {index <
-                                              event.other_counterparties.split(
-                                                ", "
-                                              ).length -
-                                                1 && ", "}
-                                          </span>
-                                        ))
-                                    : "—"}
-                                </div>
-                              </td>
-                              <td style={{ padding: "12px" }}>
-                                {event.enterprise_value}
-                              </td>
-                              <td style={{ padding: "12px" }}>
-                                <div
-                                  style={{
-                                    maxWidth: "150px",
-                                    fontSize: "12px",
-                                  }}
-                                >
-                                  {event.advisors !== "—"
-                                    ? event.advisors
-                                        .split(", ")
-                                        .map((companyName, index) => (
-                                          <span key={index}>
-                                            <span
-                                              style={{
-                                                color: "#3b82f6",
-                                                textDecoration: "none",
-                                                fontWeight: "500",
-                                                cursor: "pointer",
-                                              }}
-                                              onClick={() => {
-                                                console.log(
-                                                  "Advisor clicked:",
-                                                  companyName
-                                                );
-                                                handleAdvisorClick(companyName);
-                                              }}
-                                            >
-                                              {companyName}
-                                            </span>
-                                            {index <
-                                              event.advisors.split(", ")
-                                                .length -
-                                                1 && ", "}
-                                          </span>
-                                        ))
-                                    : "—"}
-                                </div>
+                                {company._locations?.Country || "Not available"}
                               </td>
                             </tr>
                           ))
@@ -2152,14 +1897,349 @@ const InvestorDetailPage = () => {
                                 color: "#64748b",
                               }}
                             >
-                              No corporate events found
+                              No past portfolio companies found
                             </td>
                           </tr>
                         )}
                       </tbody>
                     </table>
                   </div>
-                ))}
+
+                  {/* Pagination */}
+                  {pastPortfolioPagination.pageTotal > 1 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        gap: "8px",
+                        marginTop: "16px",
+                        padding: "16px",
+                      }}
+                    >
+                      <button
+                        onClick={() =>
+                          handlePastPortfolioPageChange(
+                            pastPortfolioPagination.curPage - 1
+                          )
+                        }
+                        disabled={!pastPortfolioPagination.prevPage}
+                        style={{
+                          padding: "8px 12px",
+                          backgroundColor: pastPortfolioPagination.prevPage
+                            ? "#3b82f6"
+                            : "#e2e8f0",
+                          color: pastPortfolioPagination.prevPage
+                            ? "white"
+                            : "#64748b",
+                          border: "none",
+                          borderRadius: "4px",
+                          cursor: pastPortfolioPagination.prevPage
+                            ? "pointer"
+                            : "not-allowed",
+                          fontSize: "14px",
+                        }}
+                      >
+                        Previous
+                      </button>
+
+                      <span style={{ fontSize: "14px", color: "#64748b" }}>
+                        Page {pastPortfolioPagination.curPage} of{" "}
+                        {pastPortfolioPagination.pageTotal}
+                      </span>
+
+                      <button
+                        onClick={() =>
+                          handlePastPortfolioPageChange(
+                            pastPortfolioPagination.curPage + 1
+                          )
+                        }
+                        disabled={!pastPortfolioPagination.nextPage}
+                        style={{
+                          padding: "8px 12px",
+                          backgroundColor: pastPortfolioPagination.nextPage
+                            ? "#3b82f6"
+                            : "#e2e8f0",
+                          color: pastPortfolioPagination.nextPage
+                            ? "white"
+                            : "#64748b",
+                          border: "none",
+                          borderRadius: "4px",
+                          cursor: pastPortfolioPagination.nextPage
+                            ? "pointer"
+                            : "not-allowed",
+                          fontSize: "14px",
+                        }}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Corporate Events Section */}
+            <div className="investor-section" style={{ marginTop: "32px" }}>
+              <h2 className="section-title">Corporate Events</h2>
+              {corporateEventsLoading ? (
+                <div style={{ textAlign: "center", padding: "24px" }}>
+                  Loading corporate events...
+                </div>
+              ) : (
+                <div
+                  style={{
+                    overflowX: "auto",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      fontSize: "14px",
+                    }}
+                  >
+                    <thead>
+                      <tr style={{ backgroundColor: "#f8fafc" }}>
+                        <th
+                          style={{
+                            padding: "12px",
+                            textAlign: "left",
+                            borderBottom: "1px solid #e2e8f0",
+                          }}
+                        >
+                          Description
+                        </th>
+                        <th
+                          style={{
+                            padding: "12px",
+                            textAlign: "left",
+                            borderBottom: "1px solid #e2e8f0",
+                          }}
+                        >
+                          Date Announced
+                        </th>
+                        <th
+                          style={{
+                            padding: "12px",
+                            textAlign: "left",
+                            borderBottom: "1px solid #e2e8f0",
+                          }}
+                        >
+                          Type
+                        </th>
+                        <th
+                          style={{
+                            padding: "12px",
+                            textAlign: "left",
+                            borderBottom: "1px solid #e2e8f0",
+                          }}
+                        >
+                          Counterparty Status
+                        </th>
+                        <th
+                          style={{
+                            padding: "12px",
+                            textAlign: "left",
+                            borderBottom: "1px solid #e2e8f0",
+                          }}
+                        >
+                          Other Counterparties
+                        </th>
+                        <th
+                          style={{
+                            padding: "12px",
+                            textAlign: "left",
+                            borderBottom: "1px solid #e2e8f0",
+                          }}
+                        >
+                          Enterprise Value
+                        </th>
+                        <th
+                          style={{
+                            padding: "12px",
+                            textAlign: "left",
+                            borderBottom: "1px solid #e2e8f0",
+                          }}
+                        >
+                          Advisors
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {mappedCorporateEvents.length > 0 ? (
+                        mappedCorporateEvents.map((event, index) => (
+                          <tr
+                            key={index}
+                            style={{ borderBottom: "1px solid #e2e8f0" }}
+                          >
+                            <td style={{ padding: "12px" }}>
+                              <div style={{ maxWidth: "350px" }}>
+                                <span
+                                  style={{
+                                    color: "#3b82f6",
+                                    textDecoration: "none",
+                                    fontWeight: "500",
+                                    cursor: "pointer",
+                                  }}
+                                  onClick={() =>
+                                    handleCorporateEventDescriptionClick(
+                                      event.id,
+                                      event.description
+                                    )
+                                  }
+                                  onContextMenu={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (event.id) {
+                                      window.open(
+                                        `/corporate-event/${event.id}`,
+                                        "_blank",
+                                        "noopener,noreferrer"
+                                      );
+                                    }
+                                  }}
+                                  title="Left click to navigate, Right click to open in new tab"
+                                >
+                                  <CompanyDescription
+                                    description={event.description}
+                                  />
+                                </span>
+                              </div>
+                            </td>
+                            <td style={{ padding: "12px" }}>
+                              {event.announcement_date
+                                ? formatDate(event.announcement_date)
+                                : "—"}
+                            </td>
+                            <td style={{ padding: "12px" }}>
+                              {event.type || "—"}
+                            </td>
+                            <td style={{ padding: "12px" }}>
+                              {event.counterparty_status}
+                            </td>
+                            <td
+                              style={{
+                                padding: "12px",
+                                maxWidth: "150px",
+                                fontSize: "12px",
+                              }}
+                            >
+                              {event.other_counterparties !== "—"
+                                ? event.other_counterparties
+                                    .split(", ")
+                                    .map((companyName, index) => (
+                                      <span key={index}>
+                                        <span
+                                          style={{
+                                            color: "#3b82f6",
+                                            textDecoration: "none",
+                                            fontWeight: "500",
+                                            cursor: "pointer",
+                                          }}
+                                          onClick={() => {
+                                            console.log(
+                                              "Other counterparty clicked:",
+                                              companyName
+                                            );
+                                            handleCompanyNameClick(companyName);
+                                          }}
+                                          onContextMenu={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            window.open(
+                                              `/companies?search=${encodeURIComponent(
+                                                companyName
+                                              )}`,
+                                              "_blank",
+                                              "noopener,noreferrer"
+                                            );
+                                          }}
+                                          title="Left click to navigate, Right click to open in new tab"
+                                        >
+                                          {companyName}
+                                        </span>
+                                        {index <
+                                          event.other_counterparties.split(", ")
+                                            .length -
+                                            1 && ", "}
+                                      </span>
+                                    ))
+                                : "—"}
+                            </td>
+                            <td style={{ padding: "12px" }}>
+                              {event.enterprise_value}
+                            </td>
+                            <td
+                              style={{
+                                padding: "12px",
+                                maxWidth: "150px",
+                                fontSize: "12px",
+                              }}
+                            >
+                              {event.advisors !== "—"
+                                ? event.advisors
+                                    .split(", ")
+                                    .map((companyName, index) => (
+                                      <span key={index}>
+                                        <span
+                                          style={{
+                                            color: "#3b82f6",
+                                            textDecoration: "none",
+                                            fontWeight: "500",
+                                            cursor: "pointer",
+                                          }}
+                                          onClick={() => {
+                                            console.log(
+                                              "Advisor clicked:",
+                                              companyName
+                                            );
+                                            handleAdvisorClick(companyName);
+                                          }}
+                                          onContextMenu={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            window.open(
+                                              `/individuals?search=${encodeURIComponent(
+                                                companyName
+                                              )}`,
+                                              "_blank",
+                                              "noopener,noreferrer"
+                                            );
+                                          }}
+                                          title="Left click to navigate, Right click to open in new tab"
+                                        >
+                                          {companyName}
+                                        </span>
+                                        {index <
+                                          event.advisors.split(", ").length -
+                                            1 && ", "}
+                                      </span>
+                                    ))
+                                : "—"}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan={7}
+                            style={{
+                              padding: "24px",
+                              textAlign: "center",
+                              color: "#64748b",
+                            }}
+                          >
+                            No corporate events found
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </div>

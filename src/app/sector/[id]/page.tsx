@@ -988,7 +988,7 @@ const SectorDetailPage = () => {
                   {formatNumber(sectorData.Number_of_private_companies)}
                 </span>
               </div>
-              <div style={styles.statItemLast}>
+              <div style={styles.statItem}>
                 <span style={styles.statLabel}>Subsidiaries:</span>
                 <span style={styles.statValue}>
                   {formatNumber(sectorData.Number_of_subsidiaries)}
