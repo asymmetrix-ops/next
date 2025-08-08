@@ -536,17 +536,14 @@ const InvestorDetailPage = () => {
     }
   }, [investorId]);
 
-  // Fetch LinkedIn history data
+  // Fetch LinkedIn history data using the same API pattern as company page
   const fetchLinkedInHistory = useCallback(async () => {
     setLinkedInHistoryLoading(true);
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
 
-      const params = new URLSearchParams();
-      params.append("new_company_id", investorId);
-
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/companies_employees_count_monthly?${params.toString()}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${investorId}`,
         {
           method: "GET",
           headers: {
@@ -566,8 +563,12 @@ const InvestorDetailPage = () => {
       const data = await response.json();
       console.log("LinkedIn history API response:", data);
 
+      // Extract employee count data from the same field as company page
+      const employeeData =
+        data.Company?._companies_employees_count_monthly || [];
+
       // Transform the data to match our interface - same format as company page
-      const historyData = (data || []).map(
+      const historyData = employeeData.map(
         (item: { date?: string; employees_count?: number }) => ({
           date: item.date || "",
           employees_count: item.employees_count || 0,
@@ -603,71 +604,6 @@ const InvestorDetailPage = () => {
   const handleReportIncorrectData = () => {
     // TODO: Implement report incorrect data functionality
     console.log("Report incorrect data clicked");
-  };
-
-  const handleAdvisorClick = async (advisorName: string) => {
-    console.log("Advisor clicked:", advisorName);
-    try {
-      // Search for the advisor using the individuals API
-      const token = localStorage.getItem("asymmetrix_auth_token");
-
-      const params = new URLSearchParams();
-      params.append("search_query", advisorName);
-      params.append("Offset", "1");
-      params.append("Per_page", "10");
-
-      const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Advisor search results:", data);
-
-        // Find the matching individual by name (try exact match first, then partial match)
-        let matchingIndividual = data.Individuals_list?.items?.find(
-          (individual: { Individual_text: string; id: number }) =>
-            individual.Individual_text === advisorName
-        );
-
-        // If no exact match, try partial match
-        if (!matchingIndividual) {
-          matchingIndividual = data.Individuals_list?.items?.find(
-            (individual: { Individual_text: string; id: number }) =>
-              individual.Individual_text?.toLowerCase().includes(
-                advisorName.toLowerCase()
-              ) ||
-              advisorName
-                .toLowerCase()
-                .includes(individual.Individual_text?.toLowerCase())
-          );
-        }
-
-        if (matchingIndividual && matchingIndividual.id) {
-          console.log("Found matching advisor with ID:", matchingIndividual.id);
-          router.push(`/individual/${matchingIndividual.id}`);
-        } else {
-          console.log("No matching advisor found with ID");
-          // Fallback: navigate to individuals page with search
-          router.push(`/individuals?search=${encodeURIComponent(advisorName)}`);
-        }
-      } else {
-        console.error("Failed to search for advisor:", response.statusText);
-        // Fallback: navigate to individuals page with search
-        router.push(`/individuals?search=${encodeURIComponent(advisorName)}`);
-      }
-    } catch (error) {
-      console.error("Error handling advisor click:", error);
-      // Fallback: navigate to individuals page with search
-      router.push(`/individuals?search=${encodeURIComponent(advisorName)}`);
-    }
   };
 
   const handleCompanyNameClick = async (companyName: string) => {
@@ -2193,16 +2129,16 @@ const InvestorDetailPage = () => {
                                           }}
                                           onClick={() => {
                                             console.log(
-                                              "Advisor clicked:",
+                                              "Advisor company clicked:",
                                               companyName
                                             );
-                                            handleAdvisorClick(companyName);
+                                            handleCompanyNameClick(companyName);
                                           }}
                                           onContextMenu={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
                                             window.open(
-                                              `/individuals?search=${encodeURIComponent(
+                                              `/companies?search=${encodeURIComponent(
                                                 companyName
                                               )}`,
                                               "_blank",

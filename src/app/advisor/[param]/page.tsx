@@ -1,12 +1,101 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAdvisorProfile } from "../../../hooks/useAdvisorProfile";
 import { formatSectorsList, formatDate } from "../../../utils/advisorHelpers";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+
+// Types for LinkedIn History Chart
+interface LinkedInHistory {
+  date: string;
+  employees_count: number;
+}
+
+// Utility function for chart date formatting
+const formatChartDate = (dateString: string): string => {
+  const [year, month] = dateString.split("-");
+  const date = new Date(parseInt(year), parseInt(month) - 1);
+  return date.toLocaleDateString("en-US", { year: "numeric", month: "short" });
+};
+
+// LinkedIn History Chart Component
+const LinkedInHistoryChart = ({ data }: { data: LinkedInHistory[] }) => {
+  const chartData = data.map((item) => ({
+    date: formatChartDate(item.date),
+    count: item.employees_count,
+    fullDate: item.date,
+  }));
+
+  interface TooltipProps {
+    active?: boolean;
+    payload?: Array<{
+      value: number;
+      dataKey: string;
+    }>;
+    label?: string;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
+    if (active && payload && payload.length) {
+      return (
+        <div
+          style={{
+            backgroundColor: "white",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            padding: "10px",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+          }}
+        >
+          <p style={{ margin: 0, fontWeight: "bold" }}>{`${label}`}</p>
+          <p style={{ margin: 0, color: "#0075df" }}>
+            {`Employees: ${formatNumber(payload[0].value)}`}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <div style={{ width: "100%", height: "300px" }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis
+            dataKey="date"
+            tick={{ fontSize: 12 }}
+            angle={-45}
+            textAnchor="end"
+            height={60}
+          />
+          <YAxis tick={{ fontSize: 12 }} />
+          <Tooltip content={<CustomTooltip />} />
+          <Line
+            type="monotone"
+            dataKey="count"
+            stroke="#0075df"
+            strokeWidth={2}
+            dot={{ fill: "#0075df", strokeWidth: 2, r: 4 }}
+            activeDot={{ r: 6, fill: "#0075df" }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
 
 // Company Logo Component
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
@@ -54,6 +143,8 @@ export default function AdvisorProfilePage() {
   const router = useRouter();
   const advisorId = parseInt(params.param as string);
   const [eventsExpanded, setEventsExpanded] = useState(false);
+  const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
+  const [linkedInHistoryLoading, setLinkedInHistoryLoading] = useState(false);
 
   const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
     advisorId,
@@ -91,6 +182,60 @@ export default function AdvisorProfilePage() {
   const handleToggleEvents = () => {
     setEventsExpanded(!eventsExpanded);
   };
+
+  // Fetch LinkedIn history data using the same API pattern as company page
+  const fetchLinkedInHistory = useCallback(async () => {
+    setLinkedInHistoryLoading(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${advisorId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `LinkedIn History API request failed: ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+      console.log("Advisor LinkedIn history API response:", data);
+
+      // Extract employee count data from the same field as company page
+      const employeeData =
+        data.Company?._companies_employees_count_monthly || [];
+
+      // Transform the data to match our interface - same format as company page
+      const historyData = employeeData.map(
+        (item: { date?: string; employees_count?: number }) => ({
+          date: item.date || "",
+          employees_count: item.employees_count || 0,
+        })
+      );
+
+      setLinkedInHistory(historyData);
+    } catch (err) {
+      console.error("Error fetching advisor LinkedIn history:", err);
+      // Don't set main error state for LinkedIn history loading failure
+    } finally {
+      setLinkedInHistoryLoading(false);
+    }
+  }, [advisorId]);
+
+  useEffect(() => {
+    if (advisorId) {
+      fetchLinkedInHistory();
+    }
+  }, [advisorId, fetchLinkedInHistory]);
 
   if (loading) {
     return (
@@ -507,6 +652,26 @@ export default function AdvisorProfilePage() {
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* Historic LinkedIn Data Section */}
+            <div className="advisor-section">
+              <h2 className="section-title">Historic LinkedIn Data</h2>
+              {linkedInHistoryLoading ? (
+                <div className="loading">Loading LinkedIn history...</div>
+              ) : linkedInHistory.length > 0 ? (
+                <LinkedInHistoryChart data={linkedInHistory} />
+              ) : (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "24px",
+                    color: "#6b7280",
+                  }}
+                >
+                  No LinkedIn history data available
+                </div>
+              )}
             </div>
 
             {/* Advisors Section */}
