@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -114,6 +114,7 @@ const InvestorsPage = () => {
     numberOfHedgeFundInvestments: 0,
     sumOfInvestorsActiveDAInvestments: 0,
   });
+  const lastRequestIdRef = useRef(0);
 
   // Filter state
   const [searchTerm, setSearchTerm] = useState("");
@@ -351,10 +352,11 @@ const InvestorsPage = () => {
       // Convert filters to URL parameters for GET request
       const params = new URLSearchParams();
 
-      // Add page and per_page
-      if (filters.page > 0) params.append("page", filters.page.toString());
-      if (filters.per_page > 0)
-        params.append("per_page", filters.per_page.toString());
+      // Static per_page, change only page. Keep existing API param names
+      const page = Math.max(1, filters.page || 1);
+      const perPage = filters.per_page > 0 ? filters.per_page : 50;
+      params.append("page", page.toString());
+      params.append("per_page", perPage.toString());
 
       // Add search query
       if (filters.Search_Query)
@@ -421,6 +423,9 @@ const InvestorsPage = () => {
       }
 
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/investors_with_d_a_list?${params.toString()}`;
+      console.log("[Investors] Fetch URL:", url);
+
+      const requestId = ++lastRequestIdRef.current;
 
       const response = await fetch(url, {
         method: "GET",
@@ -439,44 +444,63 @@ const InvestorsPage = () => {
       }
 
       const data: InvestorsResponse = await response.json();
-      setInvestors(data.investors.items);
-      setPagination({
-        itemsReceived: data.investors.itemsReceived,
-        curPage: data.investors.curPage,
-        nextPage: data.investors.nextPage,
-        prevPage: data.investors.prevPage,
-        offset: data.investors.offset,
-        itemsTotal: data.investors.itemsTotal,
-        pageTotal: data.investors.pageTotal,
-      });
-      setSummaryData({
-        privateEquityCount:
-          data.investors.summary_by_company_focus?.privateEquityCount || 0,
-        ventureCapitalCount:
-          data.investors.summary_by_company_focus?.ventureCapitalCount || 0,
-        familyOfficeCount:
-          data.investors.summary_by_company_focus?.familyOfficeCount || 0,
-        assetManagementCount:
-          data.investors.summary_by_company_focus?.assetManagementCount || 0,
-        hedgeFundCount:
-          data.investors.summary_by_company_focus?.hedgeFundCount || 0,
-        numberOfPEInvestments:
-          data.investors.summary_by_company_focus?.numberOfPEInvestments || 0,
-        numberOfVCInvestments:
-          data.investors.summary_by_company_focus?.numberOfVCInvestments || 0,
-        numberOfFamilyOfficeInvestments:
-          data.investors.summary_by_company_focus
-            ?.numberOfFamilyOfficeInvestments || 0,
-        numberOfAssetManagerInvestments:
-          data.investors.summary_by_company_focus
-            ?.numberOfAssetManagerInvestments || 0,
-        numberOfHedgeFundInvestments:
-          data.investors.summary_by_company_focus
-            ?.numberOfHedgeFundInvestments || 0,
-        sumOfInvestorsActiveDAInvestments:
-          data.investors.summary_by_company_focus
-            ?.sumOfInvestorsActiveDAInvestments || 0,
-      });
+      console.log("[Investors] Response keys:", Object.keys(data || {}));
+      const dataAny = data as unknown as {
+        investors?: Record<string, unknown>;
+      };
+      if (dataAny?.investors) {
+        console.log(
+          "[Investors] investors keys:",
+          Object.keys(dataAny.investors || {})
+        );
+      }
+
+      // Ignore stale responses
+      if (requestId === lastRequestIdRef.current) {
+        setInvestors(data.investors.items);
+        setPagination({
+          itemsReceived: data.investors.itemsReceived,
+          curPage: data.investors.curPage,
+          nextPage: data.investors.nextPage,
+          prevPage: data.investors.prevPage,
+          offset: data.investors.offset,
+          itemsTotal: data.investors.itemsTotal,
+          pageTotal: data.investors.pageTotal,
+        });
+        setSummaryData({
+          privateEquityCount:
+            data.investors.summary_by_company_focus?.privateEquityCount || 0,
+          ventureCapitalCount:
+            data.investors.summary_by_company_focus?.ventureCapitalCount || 0,
+          familyOfficeCount:
+            data.investors.summary_by_company_focus?.familyOfficeCount || 0,
+          assetManagementCount:
+            data.investors.summary_by_company_focus?.assetManagementCount || 0,
+          hedgeFundCount:
+            data.investors.summary_by_company_focus?.hedgeFundCount || 0,
+          numberOfPEInvestments:
+            data.investors.summary_by_company_focus?.numberOfPEInvestments || 0,
+          numberOfVCInvestments:
+            data.investors.summary_by_company_focus?.numberOfVCInvestments || 0,
+          numberOfFamilyOfficeInvestments:
+            data.investors.summary_by_company_focus
+              ?.numberOfFamilyOfficeInvestments || 0,
+          numberOfAssetManagerInvestments:
+            data.investors.summary_by_company_focus
+              ?.numberOfAssetManagerInvestments || 0,
+          numberOfHedgeFundInvestments:
+            data.investors.summary_by_company_focus
+              ?.numberOfHedgeFundInvestments || 0,
+          sumOfInvestorsActiveDAInvestments:
+            data.investors.summary_by_company_focus
+              ?.sumOfInvestorsActiveDAInvestments || 0,
+        });
+      } else {
+        console.log(
+          "[Investors] Ignoring stale response for request",
+          requestId
+        );
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to fetch investors"
@@ -494,21 +518,25 @@ const InvestorsPage = () => {
     fetchInvestorTypes();
     // Initial fetch of all investors
     fetchInvestors(filters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fetch provinces when countries are selected
   useEffect(() => {
     fetchProvinces();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCountries]);
 
   // Fetch cities when countries or provinces are selected
   useEffect(() => {
     fetchCities();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCountries, selectedProvinces]);
 
   // Fetch secondary sectors when primary sectors are selected
   useEffect(() => {
     fetchSecondarySectors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPrimarySectors, primarySectors]);
 
   // Handle search
@@ -938,8 +966,11 @@ const InvestorsPage = () => {
             },
           },
           React.createElement(
-            "div",
+            "a",
             {
+              href: investor.original_new_company_id
+                ? `/investors/${investor.original_new_company_id}`
+                : undefined,
               style: {
                 fontSize: "16px",
                 fontWeight: "600",
@@ -948,10 +979,19 @@ const InvestorsPage = () => {
                 cursor: "pointer",
                 marginBottom: "4px",
               },
-              onClick: () => {
-                if (investor.original_new_company_id) {
-                  router.push(`/investors/${investor.original_new_company_id}`);
-                }
+              onClick: (e: React.MouseEvent<HTMLAnchorElement>) => {
+                if (
+                  !investor.original_new_company_id ||
+                  e.defaultPrevented ||
+                  e.button !== 0 ||
+                  e.metaKey ||
+                  e.ctrlKey ||
+                  e.shiftKey ||
+                  e.altKey
+                )
+                  return;
+                e.preventDefault();
+                router.push(`/investors/${investor.original_new_company_id}`);
               },
             },
             investor.company_name || "N/A"

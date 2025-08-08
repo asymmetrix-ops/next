@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { IndividualsResponse, Individual } from "../../types/individuals";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -622,6 +622,7 @@ const IndividualsPage = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const lastRequestIdRef = useRef(0);
 
   // Convert API data to dropdown options format
   const countryOptions = countries.map((country) => ({
@@ -822,6 +823,7 @@ const IndividualsPage = () => {
 
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`;
 
+      const requestId = ++lastRequestIdRef.current;
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -836,24 +838,26 @@ const IndividualsPage = () => {
 
       const data: IndividualsResponse = await response.json();
 
-      setIndividuals(data.Individuals_list.items);
-      setPagination({
-        itemsReceived: data.Individuals_list.itemsReceived,
-        curPage: data.Individuals_list.curPage,
-        nextPage: data.Individuals_list.nextPage,
-        prevPage: data.Individuals_list.prevPage,
-        offset: data.Individuals_list.offset,
-        perPage: filters.per_page,
-        pageTotal: Math.ceil(data.totalIndividuals / filters.per_page),
-      });
-      setSummaryData({
-        totalIndividuals: data.totalIndividuals,
-        currentRoles: data.currentRoles,
-        pastRoles: data.pastRoles,
-        ceos: data.ceos,
-        chairs: data.chairs,
-        founders: data.founders,
-      });
+      if (requestId === lastRequestIdRef.current) {
+        setIndividuals(data.Individuals_list.items);
+        setPagination({
+          itemsReceived: data.Individuals_list.itemsReceived,
+          curPage: data.Individuals_list.curPage,
+          nextPage: data.Individuals_list.nextPage,
+          prevPage: data.Individuals_list.prevPage,
+          offset: data.Individuals_list.offset,
+          perPage: filters.per_page,
+          pageTotal: Math.ceil(data.totalIndividuals / filters.per_page),
+        });
+        setSummaryData({
+          totalIndividuals: data.totalIndividuals,
+          currentRoles: data.currentRoles,
+          pastRoles: data.pastRoles,
+          ceos: data.ceos,
+          chairs: data.chairs,
+          founders: data.founders,
+        });
+      }
     } catch (error) {
       console.error("Error fetching individuals:", error);
       setError(

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { useRightClick } from "@/hooks/useRightClick";
+// import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for API integration
 interface Sector {
@@ -46,7 +46,7 @@ const SectorCard = ({
   sector: Sector;
   onClick: () => void;
 }) => {
-  const { createClickableElement } = useRightClick();
+  // Right-click handled via native anchors now
   const formatNumber = (num: number | undefined) => {
     if (num === undefined || num === null) return "0";
     return num.toLocaleString();
@@ -77,16 +77,18 @@ const SectorCard = ({
           marginBottom: "12px",
         },
       },
-      createClickableElement(
-        `/sector/${sector.id}`,
-        sector.sector_name || "N/A",
-        undefined,
+      React.createElement(
+        "a",
         {
-          fontSize: "16px",
-          fontWeight: "600",
-          margin: "0",
-          display: "block",
-        }
+          href: `/sector/${sector.id}`,
+          style: {
+            fontSize: "16px",
+            fontWeight: "600",
+            margin: "0",
+            display: "block",
+          },
+        },
+        sector.sector_name || "N/A"
       ),
       React.createElement(
         "span",
@@ -187,7 +189,6 @@ const SectorCard = ({
 
 const SectorsSection = () => {
   const router = useRouter();
-  const { createClickableElement } = useRightClick();
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -291,10 +292,10 @@ const SectorsSection = () => {
       React.createElement(
         "td",
         null,
-        createClickableElement(
-          `/sector/${sector.id}`,
-          sector.sector_name || "N/A",
-          "sector-name"
+        React.createElement(
+          "a",
+          { href: `/sector/${sector.id}`, className: "sector-name" },
+          sector.sector_name || "N/A"
         )
       ),
       React.createElement("td", null, formatNumber(sector.Number_of_Companies)),

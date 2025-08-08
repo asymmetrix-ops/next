@@ -1633,20 +1633,24 @@ const CompanyDetail = () => {
               { style: styles.sectionTitle },
               "Current Subsidiaries"
             ),
-            React.createElement(
-              "button",
-              {
-                style: {
-                  background: "none",
-                  border: "none",
-                  color: "#0075df",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  textDecoration: "underline",
-                },
-              },
-              "See more"
-            )
+            company.have_subsidiaries_companies?.Subsidiaries_companies &&
+              company.have_subsidiaries_companies.Subsidiaries_companies
+                .length > 3
+              ? React.createElement(
+                  "a",
+                  {
+                    href: `/companies?search=${encodeURIComponent(
+                      company.name
+                    )}&filter=subsidiaries`,
+                    style: {
+                      color: "#0075df",
+                      fontSize: "14px",
+                      textDecoration: "underline",
+                    },
+                  },
+                  "See more"
+                )
+              : null
           ),
           company.have_subsidiaries_companies?.have_subsidiaries_companies &&
             company.have_subsidiaries_companies?.Subsidiaries_companies &&

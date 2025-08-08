@@ -18,7 +18,7 @@ import {
   CorporateEvent,
   RelatedIndividual,
 } from "../../../types/individual";
-import { useRightClick } from "../../../hooks/useRightClick";
+// import { useRightClick } from "../../../hooks/useRightClick";
 
 // Company Logo Component
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
@@ -58,7 +58,7 @@ export default function IndividualProfilePage() {
   const router = useRouter();
   const individualId = parseInt(params.param as string);
   const [eventsExpanded, setEventsExpanded] = useState(false);
-  const { createClickableElement } = useRightClick();
+  // Right-click handled via native anchors now
 
   const { profileData, eventsData, individualName, loading, error } =
     useIndividualProfile({
@@ -392,10 +392,15 @@ export default function IndividualProfilePage() {
                             />
                           </td>
                           <td style={{ padding: "8px", fontSize: "12px" }}>
-                            {createClickableElement(
-                              `/company/${role.new_company.id}`,
-                              role.new_company.name
-                            )}
+                            <a
+                              href={`/company/${role.new_company.id}`}
+                              style={{
+                                color: "#3b82f6",
+                                textDecoration: "underline",
+                              }}
+                            >
+                              {role.new_company.name}
+                            </a>
                           </td>
                           <td style={{ padding: "8px", fontSize: "12px" }}>
                             <span
@@ -605,28 +610,28 @@ export default function IndividualProfilePage() {
                             style={{ borderBottom: "1px solid #f1f5f9" }}
                           >
                             <td style={{ padding: "8px", fontSize: "12px" }}>
-                              <span
+                              <a
+                                href={`/corporate-event/${event.id}`}
                                 style={{
                                   color: "#3b82f6",
                                   textDecoration: "none",
-                                  cursor: "pointer",
                                 }}
-                                onClick={() =>
-                                  router.push(`/corporate-event/${event.id}`)
-                                }
-                                onContextMenu={(e) => {
+                                onClick={(e) => {
+                                  if (
+                                    e.defaultPrevented ||
+                                    e.button !== 0 ||
+                                    e.metaKey ||
+                                    e.ctrlKey ||
+                                    e.shiftKey ||
+                                    e.altKey
+                                  )
+                                    return;
                                   e.preventDefault();
-                                  e.stopPropagation();
-                                  window.open(
-                                    `/corporate-event/${event.id}`,
-                                    "_blank",
-                                    "noopener,noreferrer"
-                                  );
+                                  router.push(`/corporate-event/${event.id}`);
                                 }}
-                                title="Left click to navigate, Right click to open in new tab"
                               >
                                 {event.description}
-                              </span>
+                              </a>
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               {formatDate(event.announcement_date)}
@@ -670,19 +675,31 @@ export default function IndividualProfilePage() {
                                 ? event._related_to_corporate_event_individuals.map(
                                     (ind, i) => (
                                       <span key={`${ind.id}-${i}`}>
-                                        <span
+                                        <a
+                                          href={`/individual/${ind.id}`}
                                           style={{
                                             color: "#3b82f6",
                                             textDecoration: "none",
-                                            cursor: "pointer",
                                           }}
-                                          onClick={() =>
-                                            router.push(`/individual/${ind.id}`)
-                                          }
+                                          onClick={(e) => {
+                                            if (
+                                              e.defaultPrevented ||
+                                              e.button !== 0 ||
+                                              e.metaKey ||
+                                              e.ctrlKey ||
+                                              e.shiftKey ||
+                                              e.altKey
+                                            )
+                                              return;
+                                            e.preventDefault();
+                                            router.push(
+                                              `/individual/${ind.id}`
+                                            );
+                                          }}
                                           title="Click to open individual's profile"
                                         >
                                           {ind.advisor_individuals}
-                                        </span>
+                                        </a>
                                         {i <
                                         event
                                           ._related_to_corporate_event_individuals

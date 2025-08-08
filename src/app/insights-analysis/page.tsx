@@ -257,7 +257,6 @@ const InsightsAnalysisCards = ({
   const router = useRouter();
 
   const handleArticleClick = (articleId: number) => {
-    // Navigate to article detail page
     router.push(`/article/${articleId}`);
   };
 
@@ -296,10 +295,23 @@ const InsightsAnalysisCards = ({
   return (
     <div className="insights-analysis-cards">
       {articles.map((article: ContentArticle, index: number) => (
-        <div
+        <a
           key={article.id || index}
+          href={`/article/${article.id}`}
           className="article-card"
-          onClick={() => handleArticleClick(article.id)}
+          onClick={(e) => {
+            if (
+              e.defaultPrevented ||
+              e.button !== 0 ||
+              e.metaKey ||
+              e.ctrlKey ||
+              e.shiftKey ||
+              e.altKey
+            )
+              return;
+            e.preventDefault();
+            handleArticleClick(article.id);
+          }}
         >
           {/* Article Title */}
           <h3 className="article-title">
@@ -329,7 +341,7 @@ const InsightsAnalysisCards = ({
               {formatSectors(article.sectors)}
             </span>
           </div>
-        </div>
+        </a>
       ))}
     </div>
   );

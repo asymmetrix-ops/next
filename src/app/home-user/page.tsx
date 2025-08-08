@@ -6,7 +6,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { useRightClick } from "@/hooks/useRightClick";
+// import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
 interface AsymmetrixData {
@@ -97,7 +97,7 @@ interface NewCompany {
 export default function HomeUserPage() {
   const router = useRouter();
   const { isAuthenticated, logout, loading: authLoading } = useAuth();
-  const { createClickableElement } = useRightClick();
+  // Right-click handled via native anchors now
 
   // Helper function to format dates consistently
   const formatDate = (dateString?: string) => {
@@ -596,30 +596,30 @@ export default function HomeUserPage() {
                           <tr key={event.id} className="hover:bg-gray-50">
                             <td className="px-4 py-4 max-w-xs text-xs text-gray-900">
                               <div className="mb-2">
-                                <span
-                                  onClick={() =>
-                                    handleCorporateEventClick(event.id)
-                                  }
-                                  onContextMenu={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    window.open(
-                                      `/corporate-event/${event.id}`,
-                                      "_blank",
-                                      "noopener,noreferrer"
-                                    );
-                                  }}
-                                  className="font-medium text-blue-600 underline break-words cursor-pointer hover:text-blue-800"
+                                <a
+                                  href={`/corporate-event/${event.id}`}
+                                  className="font-medium text-blue-600 underline break-words hover:text-blue-800"
                                   style={{
                                     textDecoration: "underline",
                                     color: "#0075df",
-                                    cursor: "pointer",
                                     fontWeight: "500",
                                   }}
-                                  title="Left click to navigate, Right click to open in new tab"
+                                  onClick={(e) => {
+                                    if (
+                                      e.defaultPrevented ||
+                                      e.button !== 0 ||
+                                      e.metaKey ||
+                                      e.ctrlKey ||
+                                      e.shiftKey ||
+                                      e.altKey
+                                    )
+                                      return;
+                                    e.preventDefault();
+                                    handleCorporateEventClick(event.id);
+                                  }}
                                 >
                                   {event.description}
-                                </span>
+                                </a>
                               </div>
                               <div className="mb-1 text-xs text-gray-500">
                                 Date: {formatDate(event.announcement_date)}
@@ -688,16 +688,15 @@ export default function HomeUserPage() {
                                           <span
                                             key={`${event.id}-counterparty-${index}`}
                                           >
-                                            {createClickableElement(
-                                              `/companies?search=${encodeURIComponent(
+                                            <a
+                                              href={`/companies?search=${encodeURIComponent(
                                                 companyName!
-                                              )}`,
-                                              companyName,
-                                              "text-blue-600 underline cursor-pointer hover:text-blue-800",
-                                              {
-                                                fontWeight: "500",
-                                              }
-                                            )}
+                                              )}`}
+                                              className="text-blue-600 underline hover:text-blue-800"
+                                              style={{ fontWeight: "500" }}
+                                            >
+                                              {companyName}
+                                            </a>
                                             {index < array.length - 1 && ", "}
                                           </span>
                                         ))
@@ -755,26 +754,29 @@ export default function HomeUserPage() {
                           className="object-cover mb-2 w-full h-20 rounded"
                         />
                       )}
-                      <h3
-                        onClick={() => router.push(`/article/${article.id}`)}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          window.open(
-                            `/article/${article.id}`,
-                            "_blank",
-                            "noopener,noreferrer"
-                          );
-                        }}
-                        className="mb-1 text-xs font-medium text-gray-900 cursor-pointer hover:text-blue-600"
+                      <a
+                        href={`/article/${article.id}`}
+                        className="mb-1 text-xs font-medium text-gray-900 hover:text-blue-600"
                         style={{
                           textDecoration: "underline",
                           fontWeight: "500",
                         }}
-                        title="Left click to navigate, Right click to open in new tab"
+                        onClick={(e) => {
+                          if (
+                            e.defaultPrevented ||
+                            e.button !== 0 ||
+                            e.metaKey ||
+                            e.ctrlKey ||
+                            e.shiftKey ||
+                            e.altKey
+                          )
+                            return;
+                          e.preventDefault();
+                          router.push(`/article/${article.id}`);
+                        }}
                       >
                         {article.Headline}
-                      </h3>
+                      </a>
                       {article.Strapline && (
                         <p className="mb-1 text-xs text-gray-600">
                           {article.Strapline.substring(0, 150)}
@@ -794,14 +796,13 @@ export default function HomeUserPage() {
                                   : `/company/${company.id}`;
                                 return (
                                   <span key={company.id}>
-                                    {createClickableElement(
-                                      href,
-                                      company.name,
-                                      "text-xs text-blue-600 cursor-pointer hover:text-blue-800",
-                                      {
-                                        fontWeight: "500",
-                                      }
-                                    )}
+                                    <a
+                                      href={href}
+                                      className="text-xs text-blue-600 hover:text-blue-800"
+                                      style={{ fontWeight: "500" }}
+                                    >
+                                      {company.name}
+                                    </a>
                                     {index <
                                       article.companies_mentioned!.length - 1 &&
                                       ", "}
@@ -826,26 +827,29 @@ export default function HomeUserPage() {
                         </div>
                       )}
                       <div className="flex justify-between items-center mt-2">
-                        <span
-                          onClick={() => router.push(`/article/${article.id}`)}
-                          onContextMenu={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            window.open(
-                              `/article/${article.id}`,
-                              "_blank",
-                              "noopener,noreferrer"
-                            );
-                          }}
-                          className="text-xs text-blue-600 cursor-pointer hover:text-blue-800"
+                        <a
+                          href={`/article/${article.id}`}
+                          className="text-xs text-blue-600 hover:text-blue-800"
                           style={{
                             textDecoration: "underline",
                             fontWeight: "500",
                           }}
-                          title="Left click to navigate, Right click to open in new tab"
+                          onClick={(e) => {
+                            if (
+                              e.defaultPrevented ||
+                              e.button !== 0 ||
+                              e.metaKey ||
+                              e.ctrlKey ||
+                              e.shiftKey ||
+                              e.altKey
+                            )
+                              return;
+                            e.preventDefault();
+                            router.push(`/article/${article.id}`);
+                          }}
                         >
                           Read full article →
-                        </span>
+                        </a>
                         {article.related_documents &&
                           article.related_documents.length > 0 && (
                             <a
@@ -916,14 +920,15 @@ export default function HomeUserPage() {
                         {/* Company details */}
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-gray-900">
-                            {createClickableElement(
-                              `/company/${company.id}`,
-                              company.name,
-                              undefined,
-                              {
+                            <a
+                              href={`/company/${company.id}`}
+                              style={{
                                 fontWeight: "500",
-                              }
-                            )}
+                                textDecoration: "underline",
+                              }}
+                            >
+                              {company.name}
+                            </a>
                           </div>
                           <p className="text-xs text-gray-500">
                             {company._locations?.Country}

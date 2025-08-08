@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
-import { useRightClick } from "@/hooks/useRightClick";
+// import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for API integration
 interface Advisor {
@@ -58,7 +58,7 @@ interface SecondarySector {
 }
 
 const AdvisorsPage = () => {
-  const { createClickableElement } = useRightClick();
+  // Right-click handled via native anchors now
 
   // Shared state for advisors data
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
@@ -80,6 +80,7 @@ const AdvisorsPage = () => {
     managementTeamAdvisory: 0,
     nomad: 0,
   });
+  const lastRequestIdRef = useRef(0);
 
   // Filter state
   const [searchTerm, setSearchTerm] = useState("");
@@ -92,7 +93,7 @@ const AdvisorsPage = () => {
     secondarySectors: [],
     searchQuery: "",
     page: 1,
-    per_page: 50,
+    per_page: 25,
   });
 
   // State for API data (same as companies page)
@@ -257,50 +258,44 @@ const AdvisorsPage = () => {
       // Convert filters to URL parameters for GET request
       const params = new URLSearchParams();
 
-      // Add pagination (this endpoint expects lowercase page/per_page)
-      if (filters.page > 0) params.append("page", filters.page.toString());
-      if (filters.per_page > 0)
-        params.append("per_page", filters.per_page.toString());
+      // Add pagination (lowercase page/per_page)
+      const page = Math.max(1, filters.page || 1);
+      const perPage = filters.per_page > 0 ? filters.per_page : 25;
+      params.append("page", page.toString());
+      params.append("per_page", perPage.toString());
 
       // Add search query
       if (filters.searchQuery)
         params.append("search_query", filters.searchQuery);
 
-      // Add location filters as arrays
+      // Add filters (comma-separated, exact keys)
       if (filters.countries.length > 0) {
-        filters.countries.forEach((country) => {
-          params.append("Countries[]", country);
-        });
+        params.append("Countries", filters.countries.join(","));
       }
 
       if (filters.provinces.length > 0) {
-        filters.provinces.forEach((province) => {
-          params.append("Provinces[]", province);
-        });
+        params.append("Provinces", filters.provinces.join(","));
       }
 
       if (filters.cities.length > 0) {
-        filters.cities.forEach((city) => {
-          params.append("Cities[]", city);
-        });
+        params.append("Cities", filters.cities.join(","));
       }
 
-      // Add sector filters as arrays
       if (filters.primarySectors.length > 0) {
-        filters.primarySectors.forEach((sector) => {
-          params.append("primary_sectors_ids[]", sector.toString());
-        });
+        params.append("primary_sectors_ids", filters.primarySectors.join(","));
       }
 
       if (filters.secondarySectors.length > 0) {
-        filters.secondarySectors.forEach((sector) => {
-          params.append("Secondary_sectors_ids[]", sector.toString());
-        });
+        params.append(
+          "Secondary_sectors_ids",
+          filters.secondarySectors.join(",")
+        );
       }
 
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_list?${params.toString()}`;
 
       console.log("[Advisors] Fetch list URL:", url);
+      const requestId = ++lastRequestIdRef.current;
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -382,16 +377,29 @@ const AdvisorsPage = () => {
         "items:",
         newItems.length
       );
-      setAdvisors(newItems);
-      setPagination({
-        itemsReceived: Number(itemsReceived) || 0,
-        curPage: Number(curPage) || 1,
-        nextPage: typeof nextPage === "number" ? nextPage : nextPage ?? null,
-        prevPage: typeof prevPage === "number" ? prevPage : prevPage ?? null,
-        offset: Number(offset) || 0,
-        itemsTotal: Number(itemsTotal) || 0,
-        pageTotal: Number(pageTotal) || 0,
-      });
+      // Ignore stale responses
+      if (requestId === lastRequestIdRef.current) {
+        const computedPageTotal =
+          Number(pageTotal) ||
+          (Number(itemsTotal) && filters.per_page > 0
+            ? Math.ceil(Number(itemsTotal) / filters.per_page)
+            : 0);
+        setAdvisors(newItems);
+        setPagination({
+          itemsReceived: Number(itemsReceived) || 0,
+          curPage: Number(curPage) || filters.page || 1,
+          nextPage: typeof nextPage === "number" ? nextPage : nextPage ?? null,
+          prevPage: typeof prevPage === "number" ? prevPage : prevPage ?? null,
+          offset: Number(offset) || 0,
+          itemsTotal: Number(itemsTotal) || 0,
+          pageTotal: computedPageTotal,
+        });
+      } else {
+        console.log(
+          "[Advisors] Ignoring stale response for request",
+          requestId
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch advisors");
       console.error("Error fetching advisors:", err);
@@ -517,16 +525,14 @@ const AdvisorsPage = () => {
       page: 1, // Reset to first page when searching
     };
     setFilters(updatedFilters);
-    fetchAdvisors(updatedFilters);
-    fetchCounts(updatedFilters);
+    // Fetches will be triggered by the filters effect
   };
 
   // Handle page change
   const handlePageChange = (page: number) => {
     const updatedFilters = { ...filters, page };
     setFilters(updatedFilters);
-    fetchAdvisors(updatedFilters);
-    fetchCounts(updatedFilters);
+    // Fetch will be triggered by the filters effect
   };
 
   const styles = {
@@ -537,6 +543,7 @@ const AdvisorsPage = () => {
     },
     maxWidth: {
       padding: "16px",
+
       display: "flex" as const,
       flexDirection: "column" as const,
       gap: "16px",
@@ -662,10 +669,15 @@ const AdvisorsPage = () => {
     const isDescriptionLong = description.length > 220;
     const truncatedDescription = truncateDescription(description);
 
+    // Use page-specific key to ensure proper re-rendering across pages
+    const cardKey = advisor.id
+      ? `card-${advisor.id}-page-${pagination.curPage}`
+      : `card-${pagination.offset + index}`;
+
     return React.createElement(
       "div",
       {
-        key: advisor.id ?? index,
+        key: cardKey,
         className: "advisor-card",
         style: {
           backgroundColor: "white",
@@ -721,15 +733,17 @@ const AdvisorsPage = () => {
               flex: "1",
             },
           },
-          createClickableElement(
-            `/advisor/${advisor.id}`,
-            advisor.name || "N/A",
-            undefined,
+          React.createElement(
+            "a",
             {
-              fontSize: "16px",
-              fontWeight: "600",
-              marginBottom: "4px",
-            }
+              href: `/advisor/${advisor.id}`,
+              style: {
+                fontSize: "16px",
+                fontWeight: "600",
+                marginBottom: "4px",
+              },
+            },
+            advisor.name || "N/A"
           ),
           React.createElement(
             "div",
@@ -886,118 +900,127 @@ const AdvisorsPage = () => {
     );
   };
 
-  const tableRows = advisors.map((advisor, index) => {
-    // Truncate description for display
-    const description = advisor.description || "N/A";
-    const isDescriptionLong = description.length > 220;
-    const truncatedDescription = isDescriptionLong
-      ? description.substring(0, 220) + "..."
-      : description;
-
-    return React.createElement(
-      "tr",
-      { key: advisor.id ?? index },
-      React.createElement(
-        "td",
-        null,
-        advisor.linkedin_logo
-          ? React.createElement("img", {
-              src: `data:image/jpeg;base64,${advisor.linkedin_logo}`,
-              alt: `${advisor.name} logo`,
-              className: "advisor-logo",
-              loading: "lazy",
-            })
-          : React.createElement(
-              "div",
-              {
-                style: {
-                  width: "60px",
-                  height: "40px",
-                  backgroundColor: "#f7fafc",
-                  borderRadius: "4px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "10px",
-                  color: "#718096",
-                },
-              },
-              "No Logo"
-            )
-      ),
-      React.createElement(
-        "td",
-        null,
-        createClickableElement(
-          `/advisor/${advisor.id}`,
-          advisor.name || "N/A",
-          "advisor-name",
-          {
-            fontWeight: "500",
-          }
-        )
-      ),
-      React.createElement(
-        "td",
-        { className: "advisor-description" },
-        React.createElement(
-          "div",
-          {
-            className: "advisor-description-truncated",
-            id: `description-${index}`,
-            style: { display: isDescriptionLong ? "block" : "none" },
-          },
-          truncatedDescription
-        ),
-        React.createElement(
-          "div",
-          {
-            className: "advisor-description-full",
-            id: `description-full-${index}`,
-            style: { display: isDescriptionLong ? "none" : "block" },
-          },
-          description
-        ),
-        isDescriptionLong &&
-          React.createElement(
-            "span",
-            {
-              className: "expand-description",
-              onClick: () => {
-                const truncatedEl = document.getElementById(
-                  `description-${index}`
-                );
-                const fullEl = document.getElementById(
-                  `description-full-${index}`
-                );
-                const expandEl = document.getElementById(`expand-${index}`);
-                if (truncatedEl && fullEl && expandEl) {
-                  if (truncatedEl.style.display === "block") {
-                    truncatedEl.style.display = "none";
-                    fullEl.style.display = "block";
-                    expandEl.textContent = "Collapse description";
-                  } else {
-                    truncatedEl.style.display = "block";
-                    fullEl.style.display = "none";
-                    expandEl.textContent = "Expand description";
-                  }
-                }
-              },
-              id: `expand-${index}`,
-            },
-            "Expand description"
-          )
-      ),
-      React.createElement("td", null, formatNumber(advisor.events_advised)),
-      React.createElement(
-        "td",
-        { className: "sectors-list" },
-        advisor.sectors || "N/A"
-      ),
-      React.createElement("td", null, formatNumber(advisor.linkedin_members)),
-      React.createElement("td", null, advisor.country || "N/A")
+  // Generate table rows function to ensure fresh rendering
+  const generateTableRows = () => {
+    console.log(
+      "[Advisors] generateTableRows called with",
+      advisors.length,
+      "advisors"
     );
-  });
+    return advisors.map((advisor, index) => {
+      // Truncate description for display
+      const description = advisor.description || "N/A";
+      const isDescriptionLong = description.length > 220;
+      const truncatedDescription = isDescriptionLong
+        ? description.substring(0, 220) + "..."
+        : description;
+
+      return React.createElement(
+        "tr",
+        { key: advisor.id ?? index },
+        React.createElement(
+          "td",
+          null,
+          advisor.linkedin_logo
+            ? React.createElement("img", {
+                src: `data:image/jpeg;base64,${advisor.linkedin_logo}`,
+                alt: `${advisor.name} logo`,
+                className: "advisor-logo",
+                loading: "lazy",
+              })
+            : React.createElement(
+                "div",
+                {
+                  style: {
+                    width: "60px",
+                    height: "40px",
+                    backgroundColor: "#f7fafc",
+                    borderRadius: "4px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "10px",
+                    color: "#718096",
+                  },
+                },
+                "No Logo"
+              )
+        ),
+        React.createElement(
+          "td",
+          null,
+          React.createElement(
+            "a",
+            {
+              href: `/advisor/${advisor.id}`,
+              className: "advisor-name",
+              style: { fontWeight: "500" },
+            },
+            advisor.name || "N/A"
+          )
+        ),
+        React.createElement(
+          "td",
+          { className: "advisor-description" },
+          React.createElement(
+            "div",
+            {
+              className: "advisor-description-truncated",
+              id: `description-${index}`,
+              style: { display: isDescriptionLong ? "block" : "none" },
+            },
+            truncatedDescription
+          ),
+          React.createElement(
+            "div",
+            {
+              className: "advisor-description-full",
+              id: `description-full-${index}`,
+              style: { display: isDescriptionLong ? "none" : "block" },
+            },
+            description
+          ),
+          isDescriptionLong &&
+            React.createElement(
+              "span",
+              {
+                className: "expand-description",
+                onClick: () => {
+                  const truncatedEl = document.getElementById(
+                    `description-${index}`
+                  );
+                  const fullEl = document.getElementById(
+                    `description-full-${index}`
+                  );
+                  const expandEl = document.getElementById(`expand-${index}`);
+                  if (truncatedEl && fullEl && expandEl) {
+                    if (truncatedEl.style.display === "block") {
+                      truncatedEl.style.display = "none";
+                      fullEl.style.display = "block";
+                      expandEl.textContent = "Collapse description";
+                    } else {
+                      truncatedEl.style.display = "block";
+                      fullEl.style.display = "none";
+                      expandEl.textContent = "Expand description";
+                    }
+                  }
+                },
+                id: `expand-${index}`,
+              },
+              "Expand description"
+            )
+        ),
+        React.createElement("td", null, formatNumber(advisor.events_advised)),
+        React.createElement(
+          "td",
+          { className: "sectors-list" },
+          advisor.sectors || "N/A"
+        ),
+        React.createElement("td", null, formatNumber(advisor.linkedin_members)),
+        React.createElement("td", null, advisor.country || "N/A")
+      );
+    });
+  };
 
   const style = `
     .advisor-section {
@@ -1925,25 +1948,34 @@ const AdvisorsPage = () => {
         </div>
 
         {/* Mobile Cards */}
-        <div className="advisor-cards">
-          {advisors.map((advisor, index) => AdvisorCard(advisor, index))}
-        </div>
+        {!loading && (
+          <div className="advisor-cards" key={`cards-${pagination.curPage}`}>
+            {advisors.map((advisor, index) => AdvisorCard(advisor, index))}
+          </div>
+        )}
 
         {/* Desktop Table */}
-        <table className="advisor-table">
-          <thead>
-            <tr>
-              <th>Logo</th>
-              <th>Advisor</th>
-              <th>Description</th>
-              <th># Corporate Events Advised</th>
-              <th>Advised D&A Sectors</th>
-              <th>LinkedIn Members</th>
-              <th>Country</th>
-            </tr>
-          </thead>
-          <tbody>{tableRows}</tbody>
-        </table>
+        {!loading && (
+          <table className="advisor-table" key={`table-${pagination.curPage}`}>
+            <thead>
+              <tr>
+                <th>Logo</th>
+                <th>Advisor</th>
+                <th>Description</th>
+                <th># Corporate Events Advised</th>
+                <th>Advised D&A Sectors</th>
+                <th>LinkedIn Members</th>
+                <th>Country</th>
+              </tr>
+            </thead>
+            <tbody>{generateTableRows()}</tbody>
+          </table>
+        )}
+
+        {/* Loading state for table */}
+        {loading && (
+          <div style={styles.loading}>Loading page {filters.page}...</div>
+        )}
 
         <div className="pagination">{generatePaginationButtons()}</div>
       </div>

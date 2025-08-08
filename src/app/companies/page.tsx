@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
@@ -237,6 +243,10 @@ const useCompaniesAPI = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const lastRequestIdRef = useRef(0);
+  const [currentFilters, setCurrentFilters] = useState<Filters | undefined>(
+    undefined
+  ); // Track current filters
   const [pagination, setPagination] = useState({
     itemsReceived: 0,
     curPage: 1,
@@ -259,69 +269,86 @@ const useCompaniesAPI = () => {
       setLoading(true);
       setError(null);
 
+      // Update current filters if new filters are provided
+      if (filters !== undefined) {
+        setCurrentFilters(filters);
+      }
+
+      // Use current filters if no filters provided (for pagination)
+      const filtersToUse = filters !== undefined ? filters : currentFilters;
+
       try {
         const token = localStorage.getItem("asymmetrix_auth_token");
-        const offset = page === 1 ? 1 : (page - 1) * 25;
+
+        // Companies endpoint: Per_page is static; Offset is literally the page number clicked
+        const perPage = 25;
+        const offset = page; // 1-based page number
 
         const params = new URLSearchParams();
         params.append("Offset", offset.toString());
-        params.append("Per_page", "25");
+        params.append("Per_page", perPage.toString());
 
-        // Add filters to the request
-        if (filters) {
-          if (filters.countries.length > 0) {
-            filters.countries.forEach((country) => {
-              params.append("Countries[]", country);
-            });
+        // Add filters to the request using API's expected param names
+        if (filtersToUse) {
+          if (filtersToUse.countries.length > 0) {
+            params.append("Countries", filtersToUse.countries.join(","));
           }
-          if (filters.provinces.length > 0) {
-            filters.provinces.forEach((province) => {
-              params.append("Provinces[]", province);
-            });
+          if (filtersToUse.provinces.length > 0) {
+            params.append("Provinces", filtersToUse.provinces.join(","));
           }
-          if (filters.cities.length > 0) {
-            filters.cities.forEach((city) => {
-              params.append("Cities[]", city);
-            });
+          if (filtersToUse.cities.length > 0) {
+            params.append("Cities", filtersToUse.cities.join(","));
           }
-          if (filters.primarySectors.length > 0) {
-            filters.primarySectors.forEach((sector) => {
-              params.append("Primary_sectors_ids[]", sector.toString());
-            });
-          }
-          if (filters.secondarySectors.length > 0) {
-            filters.secondarySectors.forEach((sector) => {
-              params.append("Secondary_sectors_ids[]", sector.toString());
-            });
-          }
-          if (filters.ownershipTypes.length > 0) {
-            filters.ownershipTypes.forEach((type) => {
-              params.append("Ownership_types_ids[]", type.toString());
-            });
-          }
-          if (filters.hybridBusinessFocuses.length > 0) {
-            filters.hybridBusinessFocuses.forEach((focus) => {
-              params.append("Hybrid_Data_ids[]", focus.toString());
-            });
-          }
-          if (filters.linkedinMembersMin !== null) {
+          if (filtersToUse.primarySectors.length > 0) {
             params.append(
-              "Min_linkedin_members",
-              filters.linkedinMembersMin.toString()
+              "Primary_sectors_ids",
+              filtersToUse.primarySectors.join(",")
             );
           }
-          if (filters.linkedinMembersMax !== null) {
+          if (filtersToUse.secondarySectors.length > 0) {
             params.append(
-              "Max_linkedin_members",
-              filters.linkedinMembersMax.toString()
+              "Secondary_sectors_ids",
+              filtersToUse.secondarySectors.join(",")
             );
           }
-          if (filters.searchQuery) {
-            params.append("query", filters.searchQuery);
+          if (filtersToUse.ownershipTypes.length > 0) {
+            params.append(
+              "Ownership_types_ids",
+              filtersToUse.ownershipTypes.join(",")
+            );
           }
+          if (filtersToUse.hybridBusinessFocuses.length > 0) {
+            params.append(
+              "Hybrid_Data_ids",
+              filtersToUse.hybridBusinessFocuses.join(",")
+            );
+          }
+          // Optional: Horizontals_ids
+          params.append("Horizontals_ids", "");
+
+          // Always send min/max as numbers (default 0)
+          params.append(
+            "Min_linkedin_members",
+            (filtersToUse.linkedinMembersMin ?? 0).toString()
+          );
+          params.append(
+            "Max_linkedin_members",
+            (filtersToUse.linkedinMembersMax ?? 0).toString()
+          );
+          if (filtersToUse.searchQuery) {
+            params.append("query", filtersToUse.searchQuery);
+          }
+        } else {
+          // Defaults when no filters present
+          params.append("Min_linkedin_members", "0");
+          params.append("Max_linkedin_members", "0");
+          params.append("Horizontals_ids", "");
         }
 
         const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+        console.log("[Companies] Fetch URL:", url);
+
+        const requestId = ++lastRequestIdRef.current;
 
         const response = await fetch(url, {
           method: "GET",
@@ -340,26 +367,44 @@ const useCompaniesAPI = () => {
         }
 
         const data: CompaniesResponse = JSON.parse(await response.text());
+        console.log("[Companies] Response keys:", Object.keys(data || {}));
+        const dataAny = data as unknown as {
+          result1?: Record<string, unknown>;
+        };
+        if (dataAny?.result1) {
+          console.log(
+            "[Companies] result1 keys:",
+            Object.keys(dataAny.result1 || {})
+          );
+        }
 
-        setCompanies(data.result1?.items || []);
-        setPagination({
-          itemsReceived: data.result1?.itemsReceived || 0,
-          curPage: data.result1?.curPage || 1,
-          nextPage: data.result1?.nextPage || null,
-          prevPage: data.result1?.prevPage || null,
-          offset: data.result1?.offset || 0,
-          perPage: data.result1?.perPage || 25,
-          pageTotal: data.result1?.pageTotal || 0,
-        });
+        // Ignore stale responses
+        if (requestId === lastRequestIdRef.current) {
+          setCompanies(data.result1?.items || []);
+          setPagination({
+            itemsReceived: data.result1?.itemsReceived || 0,
+            curPage: data.result1?.curPage || 1,
+            nextPage: data.result1?.nextPage || null,
+            prevPage: data.result1?.prevPage || null,
+            offset: data.result1?.offset || 0,
+            perPage: data.result1?.perPage || 25,
+            pageTotal: data.result1?.pageTotal || 0,
+          });
 
-        const ownershipData = data.result1?.ownershipCounts || {};
-        setOwnershipCounts({
-          publicCompanies: ownershipData.publicCompanies || 0,
-          peOwnedCompanies: ownershipData.peOwnedCompanies || 0,
-          vcOwnedCompanies: ownershipData.vcOwnedCompanies || 0,
-          privateCompanies: ownershipData.privateCompanies || 0,
-          subsidiaryCompanies: ownershipData.subsidiaryCompanies || 0,
-        });
+          const ownershipData = data.result1?.ownershipCounts || {};
+          setOwnershipCounts({
+            publicCompanies: ownershipData.publicCompanies || 0,
+            peOwnedCompanies: ownershipData.peOwnedCompanies || 0,
+            vcOwnedCompanies: ownershipData.vcOwnedCompanies || 0,
+            privateCompanies: ownershipData.privateCompanies || 0,
+            subsidiaryCompanies: ownershipData.subsidiaryCompanies || 0,
+          });
+        } else {
+          console.log(
+            "[Companies] Ignoring stale response for request",
+            requestId
+          );
+        }
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to fetch companies"
@@ -369,7 +414,7 @@ const useCompaniesAPI = () => {
         setLoading(false);
       }
     },
-    []
+    [currentFilters]
   );
 
   return {
@@ -379,6 +424,7 @@ const useCompaniesAPI = () => {
     pagination,
     ownershipCounts,
     fetchCompanies,
+    currentFilters,
   };
 };
 
@@ -1524,6 +1570,7 @@ const CompanySection = ({
   pagination,
   ownershipCounts,
   fetchCompanies,
+  currentFilters,
 }: {
   companies: Company[];
   loading: boolean;
@@ -1545,6 +1592,7 @@ const CompanySection = ({
     subsidiaryCompanies: number;
   };
   fetchCompanies: (page?: number, filters?: Filters) => Promise<void>;
+  currentFilters: Filters | undefined;
 }) => {
   const router = useRouter();
 
@@ -1557,9 +1605,9 @@ const CompanySection = ({
 
   const handlePageChange = useCallback(
     (page: number) => {
-      fetchCompanies(page);
+      fetchCompanies(page, currentFilters);
     },
-    [fetchCompanies]
+    [fetchCompanies, currentFilters]
   );
 
   useEffect(() => {
@@ -2200,6 +2248,7 @@ const CompaniesPage = () => {
     pagination,
     ownershipCounts,
     fetchCompanies,
+    currentFilters,
   } = useCompaniesAPI();
 
   const handleSearch = useCallback(
@@ -2221,6 +2270,7 @@ const CompaniesPage = () => {
         pagination={pagination}
         ownershipCounts={ownershipCounts}
         fetchCompanies={fetchCompanies}
+        currentFilters={currentFilters}
       />
       <Footer />
     </div>

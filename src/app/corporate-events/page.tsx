@@ -10,7 +10,7 @@ import {
   CorporateEventsResponse,
   CorporateEventsFilters,
 } from "../../types/corporateEvents";
-import { useRightClick } from "@/hooks/useRightClick";
+// import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for API integration
 interface Country {
@@ -282,11 +282,11 @@ const CorporateEventsTable = ({
   events: CorporateEvent[];
   loading: boolean;
 }) => {
-  const { createClickableElement } = useRightClick();
+  // Right-click handled via native anchors now
 
   // Corporate Event Card Component for mobile
   const CorporateEventCard = ({ event }: { event: CorporateEvent }) => {
-    const { createClickableElement } = useRightClick();
+    // Right-click handled via native anchors now
     const target = event.target_counterparty?.new_company;
     const targetCounterpartyId =
       event.target_counterparty?.new_company_counterparty;
@@ -312,11 +312,25 @@ const CorporateEventsTable = ({
       <div className="corporate-event-card">
         <div className="corporate-event-card-header">
           <div style={{ flex: "1" }}>
-            {createClickableElement(
-              `/corporate-event/${event.id}`,
-              event.description || "N/A",
-              "corporate-event-card-title"
-            )}
+            <a
+              href={`/corporate-event/${event.id}`}
+              className="corporate-event-card-title"
+              onClick={(e) => {
+                if (
+                  e.defaultPrevented ||
+                  e.button !== 0 ||
+                  e.metaKey ||
+                  e.ctrlKey ||
+                  e.shiftKey ||
+                  e.altKey
+                )
+                  return;
+                e.preventDefault();
+                window.location.href = `/corporate-event/${event.id}`;
+              }}
+            >
+              {event.description || "N/A"}
+            </a>
             <div className="corporate-event-card-date">
               {formatDate(event.announcement_date || "")}
             </div>
@@ -326,11 +340,12 @@ const CorporateEventsTable = ({
           <div className="corporate-event-card-info-item">
             <span className="corporate-event-card-info-label">Target:</span>
             {target && targetCounterpartyId ? (
-              createClickableElement(
-                `/company/${targetCounterpartyId}`,
-                target.name || "N/A",
-                "corporate-event-card-info-value-link"
-              )
+              <a
+                href={`/company/${targetCounterpartyId}`}
+                className="corporate-event-card-info-value-link"
+              >
+                {target.name || "N/A"}
+              </a>
             ) : (
               <span className="corporate-event-card-info-value">
                 Not available
@@ -424,22 +439,32 @@ const CorporateEventsTable = ({
             return (
               <tr key={event.id || index}>
                 <td>
-                  {createClickableElement(
-                    `/corporate-event/${event.id}`,
-                    event.description || "Not Available",
-                    "corporate-event-name",
-                    {
-                      fontWeight: "500",
-                    }
-                  )}
+                  <a
+                    href={`/corporate-event/${event.id}`}
+                    className="corporate-event-name"
+                    onClick={(e) => {
+                      if (
+                        e.defaultPrevented ||
+                        e.button !== 0 ||
+                        e.metaKey ||
+                        e.ctrlKey ||
+                        e.shiftKey ||
+                        e.altKey
+                      )
+                        return;
+                      e.preventDefault();
+                      window.location.href = `/corporate-event/${event.id}`;
+                    }}
+                  >
+                    {event.description || "Not Available"}
+                  </a>
                 </td>
                 <td>{formatDate(event.announcement_date)}</td>
                 <td>
                   {targetCounterpartyId ? (
-                    createClickableElement(
-                      `/company/${targetCounterpartyId}`,
-                      target?.name || "Not Available"
-                    )
+                    <a href={`/company/${targetCounterpartyId}`}>
+                      {target?.name || "Not Available"}
+                    </a>
                   ) : (
                     <span>{target?.name || "Not Available"}</span>
                   )}
@@ -465,10 +490,11 @@ const CorporateEventsTable = ({
                     return (
                       <span key={subIndex}>
                         {counterparty._new_company._is_that_investor ? (
-                          createClickableElement(
-                            `/investors/${counterparty.new_company_counterparty}`,
-                            counterparty._new_company.name
-                          )
+                          <a
+                            href={`/investors/${counterparty.new_company_counterparty}`}
+                          >
+                            {counterparty._new_company.name}
+                          </a>
                         ) : (
                           <span style={{ color: "#000" }}>
                             {counterparty._new_company.name}
@@ -483,10 +509,9 @@ const CorporateEventsTable = ({
                 <td>
                   {event.advisors?.map((advisor, subIndex) => (
                     <span key={subIndex}>
-                      {createClickableElement(
-                        `/company/${advisor._new_company.id}`,
-                        advisor._new_company.name
-                      )}
+                      <a href={`/company/${advisor._new_company.id}`}>
+                        {advisor._new_company.name}
+                      </a>
                       {subIndex < event.advisors.length - 1 && ", "}
                     </span>
                   )) || "Not Available"}

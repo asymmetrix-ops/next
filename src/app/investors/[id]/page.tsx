@@ -1300,14 +1300,17 @@ const InvestorDetailPage = () => {
                 <div className="info-item">
                   <span className="info-label">Website:</span>
                   <span className="info-value">
-                    {Investor.url
-                      ? createClickableElement(
-                          Investor.url,
-                          Investor.url,
-                          undefined,
-                          { textDecoration: "none" }
-                        )
-                      : "Not available"}
+                    {Investor.url ? (
+                      <a
+                        href={Investor.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {Investor.url}
+                      </a>
+                    ) : (
+                      "Not available"
+                    )}
                   </span>
                 </div>
                 <div className="info-item">
@@ -1350,12 +1353,9 @@ const InvestorDetailPage = () => {
                 {Invested_DA_sectors.length > 0
                   ? Invested_DA_sectors.map((sector, index) => (
                       <span key={sector.id}>
-                        {createClickableElement(
-                          `/sector/${sector.id}`,
-                          sector.sector_name,
-                          undefined,
-                          { textDecoration: "none" }
-                        )}
+                        <a href={`/sector/${sector.id}`}>
+                          {sector.sector_name}
+                        </a>
                         {index < Invested_DA_sectors.length - 1 ? ", " : ""}
                       </span>
                     ))
