@@ -80,6 +80,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link
+          rel="icon"
+          href="https://www.asymmetrixintelligence.com/images/logo.svg"
+          type="image/svg+xml"
+        />
+        <link
+          rel="shortcut icon"
+          href="https://www.asymmetrixintelligence.com/images/logo.svg"
+          type="image/svg+xml"
+        />
         {/* Hotjar Tracking Code - Disabled until proper ID is provided */}
         {/* <script
           dangerouslySetInnerHTML={{

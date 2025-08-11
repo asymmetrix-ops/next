@@ -1,18 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 
 const Footer = () => {
-  const [activeTab, setActiveTab] = useState("Dashboard");
-
-  const navItems = ["Terms of Use", "Privacy Policy"];
+  const navItems = [
+    { label: "Terms of Use", href: "#" },
+    { label: "Privacy Policy", href: "#" },
+  ];
 
   const styles = {
     footer: {
-      borderTop: "1px solid #e5e7eb",
-      padding: "32px 24px",
-      position: "relative" as const,
+      background: "#0f172a",
+      color: "#e5e7eb",
+      minHeight: 80,
+      display: "flex",
+      alignItems: "center",
+      padding: "0 24px",
     },
     container: {
       display: "flex",
@@ -21,7 +24,6 @@ const Footer = () => {
       alignItems: "center",
       width: "100%",
       margin: "0 auto",
-      flexWrap: "wrap" as const,
       gap: "20px",
     },
     leftSection: {
@@ -30,49 +32,42 @@ const Footer = () => {
       gap: "12px",
     },
     logoImage: {
-      width: "42px",
-      height: "42px",
+      width: "28px",
+      height: "28px",
+      borderRadius: "50%",
     },
     logoText: {
       fontSize: "14px",
-      color: "#6b7280",
+      color: "#cbd5e1",
     },
     centerSection: {
       display: "flex",
       alignItems: "center",
-      gap: "16px",
+      gap: "24px",
     },
     navLink: {
-      color: "#6b7280",
+      color: "#cbd5e1",
       fontSize: "14px",
       textDecoration: "none",
-      transition: "color 0.2s",
-      "&:hover": {
-        color: "#111827",
-      },
-    },
-    activeLink: {
-      color: "#111827",
-      fontWeight: "600",
     },
     rightSection: {
       display: "flex",
       alignItems: "center",
-      gap: "16px",
+      gap: "12px",
     },
     socialIcon: {
-      color: "#6b7280",
+      color: "#cbd5e1",
       fontSize: "18px",
       textDecoration: "none",
-      transition: "color 0.2s",
     },
-  };
+  } as const;
 
   return (
     <footer style={styles.footer}>
       <div style={styles.container}>
         {/* Left Section: Logo and Text */}
         <div style={styles.leftSection}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="https://www.asymmetrixintelligence.com/images/logo.svg"
             alt="Asymmetrix Logo"
@@ -86,85 +81,69 @@ const Footer = () => {
         {/* Center Section: Navigation Links */}
         <div style={styles.centerSection}>
           {navItems.map((item) => (
-            <Link
-              key={item}
-              href="#"
-              style={{
-                ...styles.navLink,
-                ...(activeTab === item ? styles.activeLink : {}),
-              }}
-              onClick={() => setActiveTab(item)}
-              onMouseOver={(e) => {
-                if (activeTab !== item)
-                  (e.target as HTMLElement).style.color = "#111827";
-              }}
-              onMouseOut={(e) => {
-                if (activeTab !== item)
-                  (e.target as HTMLElement).style.color = "#6b7280";
-              }}
-            >
-              {item}
+            <Link key={item.label} href={item.href} style={styles.navLink}>
+              {item.label}
             </Link>
           ))}
         </div>
 
         {/* Right Section: Social Media Icons */}
         <div style={styles.rightSection}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <a
             href="https://www.youtube.com/"
             target="_blank"
             rel="noopener noreferrer"
             style={styles.socialIcon}
-            onMouseOver={(e) =>
-              ((e.target as HTMLElement).style.color = "#FF0000")
-            }
-            onMouseOut={(e) =>
-              ((e.target as HTMLElement).style.color = "#6b7280")
-            }
           >
-            ▶️
+            <img
+              src="/icons/youtube.svg"
+              alt="YouTube"
+              width={18}
+              height={18}
+            />
           </a>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <a
             href="https://open.spotify.com/"
             target="_blank"
             rel="noopener noreferrer"
             style={styles.socialIcon}
-            onMouseOver={(e) =>
-              ((e.target as HTMLElement).style.color = "#1DB954")
-            }
-            onMouseOut={(e) =>
-              ((e.target as HTMLElement).style.color = "#6b7280")
-            }
           >
-            🎧
+            <img
+              src="/icons/spotify.svg"
+              alt="Spotify"
+              width={18}
+              height={18}
+            />
           </a>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <a
             href="https://podcasts.apple.com/"
             target="_blank"
             rel="noopener noreferrer"
             style={styles.socialIcon}
-            onMouseOver={(e) =>
-              ((e.target as HTMLElement).style.color = "#9146FF")
-            }
-            onMouseOut={(e) =>
-              ((e.target as HTMLElement).style.color = "#6b7280")
-            }
           >
-            🎙️
+            <img
+              src="/icons/podcast.svg"
+              alt="Podcast"
+              width={18}
+              height={18}
+            />
           </a>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <a
-            href="https://www.linkedin.com/company/asymmetrix"
+            href="https://www.linkedin.com/company/asymmetrixintelligence/posts/?feedView=all"
             target="_blank"
             rel="noopener noreferrer"
             style={styles.socialIcon}
-            onMouseOver={(e) =>
-              ((e.target as HTMLElement).style.color = "#0077B5")
-            }
-            onMouseOut={(e) =>
-              ((e.target as HTMLElement).style.color = "#6b7280")
-            }
           >
-            Ⓛ
+            <img
+              src="/icons/linkedin.svg"
+              alt="LinkedIn"
+              width={18}
+              height={18}
+            />
           </a>
         </div>
       </div>
