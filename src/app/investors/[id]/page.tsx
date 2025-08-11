@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
+import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useRightClick } from "@/hooks/useRightClick";
@@ -32,6 +33,7 @@ interface LinkedInData {
   linkedin_employee: number;
   linkedin_emp_date: string;
   linkedin_logo: string;
+  LinkedIn_URL?: string;
 }
 
 interface LinkedInHistory {
@@ -350,6 +352,7 @@ const InvestorDetailPage = () => {
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(false);
   const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
   const [linkedInHistoryLoading, setLinkedInHistoryLoading] = useState(false);
+  const [linkedinUrl, setLinkedinUrl] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [pastPortfolioLoading, setPastPortfolioLoading] = useState(false);
@@ -563,21 +566,23 @@ const InvestorDetailPage = () => {
       }
 
       const data = await response.json();
-      console.log("LinkedIn history API response:", data);
+      console.log("LinkedIn history API response", data);
 
-      // Extract employee count data from the same field as company page
       const employeeData =
         data.Company?._companies_employees_count_monthly || [];
-
-      // Transform the data to match our interface - same format as company page
       const historyData = employeeData.map(
         (item: { date?: string; employees_count?: number }) => ({
           date: item.date || "",
           employees_count: item.employees_count || 0,
         })
       );
-
       setLinkedInHistory(historyData);
+
+      // Prefer URL from Company.linkedin_data if present
+      const historyLinkedinUrl: string | undefined =
+        data.Company?.linkedin_data?.LinkedIn_URL ||
+        data.Company?._linkedin_data_of_new_company?.LinkedIn_URL;
+      if (historyLinkedinUrl) setLinkedinUrl(historyLinkedinUrl);
     } catch (err) {
       console.error("Error fetching LinkedIn history:", err);
       // Don't set main error state for LinkedIn history loading failure
@@ -603,10 +608,22 @@ const InvestorDetailPage = () => {
     investorId,
   ]);
 
-  const handleReportIncorrectData = () => {
-    // TODO: Implement report incorrect data functionality
-    console.log("Report incorrect data clicked");
-  };
+  // Update page title when investor data is loaded
+  useEffect(() => {
+    if (investorData?.Investor?.name && typeof document !== "undefined") {
+      document.title = `Asymmetrix – ${investorData.Investor.name}`;
+    }
+  }, [investorData?.Investor?.name]);
+
+  const reportMailTo = `mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
+    "Report Incorrect Investor Data"
+  )}&body=${encodeURIComponent(
+    `Please describe the issue you found on the investor page.%0D%0A%0D%0AInvestor: ${
+      investorId || ""
+    } - ${investorData?.Investor?.name || ""}%0D%0AURL: ${
+      typeof window !== "undefined" ? window.location.href : ""
+    }`
+  )}`;
 
   // Removed: handleCompanyNameClick - no longer used, navigation goes directly to corporate-event/{event.id}
 
@@ -1254,6 +1271,11 @@ const InvestorDetailPage = () => {
 
   return (
     <div className="investor-detail-page">
+      {Investor?.name && (
+        <Head>
+          <title>{`Asymmetrix – ${Investor.name}`}</title>
+        </Head>
+      )}
       <Header />
 
       <div className="investor-content">
@@ -1265,12 +1287,52 @@ const InvestorDetailPage = () => {
               name={Investor.name}
             />
             <div>
-              <h1 className="investor-title">{Investor.name}</h1>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <h1 className="investor-title" style={{ margin: 0 }}>
+                  {Investor.name}
+                </h1>
+                {(linkedinUrl ||
+                  Investor._linkedin_data_of_new_company?.LinkedIn_URL) && (
+                  <a
+                    href={
+                      linkedinUrl ||
+                      Investor._linkedin_data_of_new_company?.LinkedIn_URL
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Open LinkedIn profile"
+                    style={{ display: "inline-flex", alignItems: "center" }}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 72 72"
+                      width="20"
+                      height="20"
+                      aria-hidden="true"
+                    >
+                      <g fill="none" fillRule="evenodd">
+                        <path
+                          d="M8,72 L64,72 C68.418278,72 72,68.418278 72,64 L72,8 C72,3.581722 68.418278,-8.11624501e-16 64,0 L8,0 C3.581722,8.11624501e-16 -5.41083001e-16,3.581722 0,8 L0,64 C5.41083001e-16,68.418278 3.581722,72 8,72 Z"
+                          fill="#007EBB"
+                        />
+                        <path
+                          d="M62,62 L51.315625,62 L51.315625,43.8021149 C51.315625,38.8127542 49.4197917,36.0245323 45.4707031,36.0245323 C41.1746094,36.0245323 38.9300781,38.9261103 38.9300781,43.8021149 L38.9300781,62 L28.6333333,62 L28.6333333,27.3333333 L38.9300781,27.3333333 L38.9300781,32.0029283 C38.9300781,32.0029283 42.0260417,26.2742151 49.3825521,26.2742151 C56.7356771,26.2742151 62,30.7644705 62,40.051212 L62,62 Z M16.349349,22.7940133 C12.8420573,22.7940133 10,19.9296567 10,16.3970067 C10,12.8643566 12.8420573,10 16.349349,10 C19.8566406,10 22.6970052,12.8643566 22.6970052,16.3970067 C22.6970052,19.9296567 19.8566406,22.7940133 16.349349,22.7940133 Z M11.0325521,62 L21.769401,62 L21.769401,27.3333333 L11.0325521,27.3333333 L11.0325521,62 Z"
+                          fill="#FFF"
+                        />
+                      </g>
+                    </svg>
+                  </a>
+                )}
+              </div>
+              {Investor._linkedin_data_of_new_company &&
+                Investor._linkedin_data_of_new_company.linkedin_emp_date && (
+                  <></>
+                )}
             </div>
           </div>
-          <button onClick={handleReportIncorrectData} className="report-button">
+          <a href={reportMailTo} className="report-button">
             Report Incorrect Data
-          </button>
+          </a>
         </div>
 
         <div className="investor-layout">
@@ -1382,15 +1444,27 @@ const InvestorDetailPage = () => {
                   <div className="info-grid">
                     {Investment_Team_Roles_current.map((member, index) => (
                       <div key={index} className="info-value">
-                        <span
-                          style={{ color: "#3b82f6", cursor: "pointer" }}
-                          onClick={() =>
-                            handleTeamMemberClick(member.Individual_text)
-                          }
-                          title="Click to open individual's profile"
-                        >
-                          {member.Individual_text}
-                        </span>
+                        {member.current_employer_url ? (
+                          <a
+                            href={member.current_employer_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: "#3b82f6", textDecoration: "none" }}
+                            title="Open individual's external profile"
+                          >
+                            {member.Individual_text}
+                          </a>
+                        ) : (
+                          <span
+                            style={{ color: "#3b82f6", cursor: "pointer" }}
+                            onClick={() =>
+                              handleTeamMemberClick(member.Individual_text)
+                            }
+                            title="Click to search individual's profile"
+                          >
+                            {member.Individual_text}
+                          </span>
+                        )}
                         :{" "}
                         {member.job_titles_id
                           .map((jt) => jt.job_title)
@@ -1410,15 +1484,27 @@ const InvestorDetailPage = () => {
                   <div className="info-grid">
                     {Investment_Team_Roles_past.map((member, index) => (
                       <div key={index} className="info-value">
-                        <span
-                          style={{ color: "#3b82f6", cursor: "pointer" }}
-                          onClick={() =>
-                            handleTeamMemberClick(member.Individual_text)
-                          }
-                          title="Click to open individual's profile"
-                        >
-                          {member.Individual_text}
-                        </span>
+                        {member.current_employer_url ? (
+                          <a
+                            href={member.current_employer_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: "#3b82f6", textDecoration: "none" }}
+                            title="Open individual's external profile"
+                          >
+                            {member.Individual_text}
+                          </a>
+                        ) : (
+                          <span
+                            style={{ color: "#3b82f6", cursor: "pointer" }}
+                            onClick={() =>
+                              handleTeamMemberClick(member.Individual_text)
+                            }
+                            title="Click to search individual's profile"
+                          >
+                            {member.Individual_text}
+                          </span>
+                        )}
                         :{" "}
                         {member.job_titles_id
                           .map((jt) => jt.job_title)

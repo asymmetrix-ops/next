@@ -5,6 +5,7 @@ import "./globals.css";
 import { AnalyticsProvider } from "@/components/providers/AnalyticsProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { Toaster } from "react-hot-toast";
+import TitleUpdater from "@/components/TitleUpdater";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -112,6 +113,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <AnalyticsProvider>
+            <TitleUpdater />
             {children}
             <Toaster position="top-right" />
           </AnalyticsProvider>

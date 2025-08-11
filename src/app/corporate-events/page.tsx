@@ -48,27 +48,27 @@ const styles = {
     padding: "16px",
     display: "flex" as const,
     flexDirection: "column" as const,
-    gap: "16px",
+    gap: "12px",
   },
   card: {
     backgroundColor: "white",
-    borderRadius: "12px",
-    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-    padding: "20px 24px",
+    borderRadius: "8px",
+    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+    padding: "16px",
     marginBottom: "0",
   },
   heading: {
-    fontSize: "24px",
+    fontSize: "20px",
     fontWeight: "700",
     color: "#1a202c",
-    marginBottom: "8px",
+    marginBottom: "4px",
     marginTop: "0px",
   },
   subHeading: {
-    fontSize: "20px",
+    fontSize: "16px",
     fontWeight: "600",
     color: "#1a202c",
-    marginBottom: "12px",
+    marginBottom: "8px",
   },
   searchDiv: {
     display: "flex" as const,
@@ -77,13 +77,13 @@ const styles = {
   input: {
     width: "100%",
     maxWidth: "300px",
-    padding: "15px 14px",
+    padding: "8px 12px",
     border: "1px solid #e2e8f0",
     borderRadius: "6px",
     fontSize: "14px",
     color: "#4a5568",
     outline: "none",
-    marginBottom: "12px",
+    marginBottom: "8px",
   },
   button: {
     width: "100%",
@@ -91,11 +91,11 @@ const styles = {
     backgroundColor: "#0075df",
     color: "white",
     fontWeight: "600",
-    padding: "15px 14px",
+    padding: "8px 12px",
     borderRadius: "6px",
     border: "none",
     cursor: "pointer",
-    fontSize: "14px",
+    marginTop: "4px",
   },
   linkButton: {
     color: "#000",
@@ -109,24 +109,35 @@ const styles = {
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(2, 1fr)",
-    gap: "12px 24px",
-    marginBottom: "16px",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: "16px 40px",
+    marginBottom: "20px",
+    alignItems: "start" as const,
   },
   gridItem: {
-    display: "flex",
+    display: "flex" as const,
     flexDirection: "column" as const,
-    gap: "8px",
   },
   label: {
-    fontSize: "14px",
-    fontWeight: "500",
-    color: "#374151",
-    marginBottom: "4px",
+    color: "#00050B",
+    fontWeight: "600",
+    fontSize: "16px",
+    marginBottom: "8px",
+    marginTop: "14px",
   },
   select: {
     width: "100%",
-    maxWidth: "300px",
+    padding: "13px 14px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "6px",
+    fontSize: "16px",
+    color: "#718096",
+    outline: "none",
+    marginBottom: "0px",
+    appearance: "none" as const,
+    background:
+      "white url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%234a5568' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E\") no-repeat right 12px center",
+    cursor: "pointer",
   },
 };
 
@@ -305,7 +316,11 @@ const CorporateEventsTable = ({
       currency: string | undefined
     ) => {
       if (!amount || !currency) return "Not available";
-      return `${currency} ${parseFloat(amount).toLocaleString()}`;
+      const n = Number(amount);
+      if (Number.isNaN(n)) return "Not available";
+      return `${currency}${n.toLocaleString(undefined, {
+        maximumFractionDigits: 3,
+      })}m`;
     };
 
     return (
@@ -397,7 +412,11 @@ const CorporateEventsTable = ({
     currency: string | undefined
   ) => {
     if (!amount || !currency) return "Not available";
-    return `${currency} ${parseFloat(amount).toLocaleString()}`;
+    const n = Number(amount);
+    if (Number.isNaN(n)) return "Not available";
+    return `${currency}${n.toLocaleString(undefined, {
+      maximumFractionDigits: 3,
+    })}m`;
   };
 
   const formatSectors = (sectors: { sector_name: string }[] | undefined) => {
@@ -1173,6 +1192,76 @@ const CorporateEventsPage = () => {
                       ))}
                     </div>
                   )}
+
+                  {/* Deal Status moved up under Type */}
+                  <span style={styles.label}>By Deal Status</span>
+                  <SearchableSelect
+                    options={dealStatusOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedDealStatuses.includes(value)
+                      ) {
+                        setSelectedDealStatuses([
+                          ...selectedDealStatuses,
+                          value,
+                        ]);
+                      }
+                    }}
+                    placeholder="Select Deal Status"
+                    disabled={false}
+                    style={styles.select}
+                  />
+
+                  {selectedDealStatuses.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedDealStatuses.map((dealStatus) => (
+                        <span
+                          key={dealStatus}
+                          style={{
+                            backgroundColor: "#ffebee",
+                            color: "#c62828",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {dealStatus}
+                          <button
+                            onClick={() => {
+                              setSelectedDealStatuses(
+                                selectedDealStatuses.filter(
+                                  (s) => s !== dealStatus
+                                )
+                              );
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#c62828",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div style={styles.gridItem}>
@@ -1561,82 +1650,7 @@ const CorporateEventsPage = () => {
                   )}
                 </div>
 
-                <div style={styles.gridItem}>
-                  <h3 style={styles.subHeading} className="filters-sub-heading">
-                    Deal Status
-                  </h3>
-                  <span style={styles.label}>By Deal Status</span>
-                  <SearchableSelect
-                    options={dealStatusOptions}
-                    value=""
-                    onChange={(value) => {
-                      if (
-                        typeof value === "string" &&
-                        value &&
-                        !selectedDealStatuses.includes(value)
-                      ) {
-                        setSelectedDealStatuses([
-                          ...selectedDealStatuses,
-                          value,
-                        ]);
-                      }
-                    }}
-                    placeholder="Select Deal Status"
-                    disabled={false}
-                    style={styles.select}
-                  />
-
-                  {/* Selected Deal Statuses Tags */}
-                  {selectedDealStatuses.length > 0 && (
-                    <div
-                      style={{
-                        marginTop: "8px",
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: "4px",
-                      }}
-                    >
-                      {selectedDealStatuses.map((dealStatus) => (
-                        <span
-                          key={dealStatus}
-                          style={{
-                            backgroundColor: "#ffebee",
-                            color: "#c62828",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            fontSize: "12px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          {dealStatus}
-                          <button
-                            onClick={() => {
-                              setSelectedDealStatuses(
-                                selectedDealStatuses.filter(
-                                  (s) => s !== dealStatus
-                                )
-                              );
-                            }}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#c62828",
-                              cursor: "pointer",
-                              fontWeight: "bold",
-                              fontSize: "14px",
-                            }}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div style={styles.gridItem}>
+                <div style={{ ...styles.gridItem, gridColumn: "span 2" }}>
                   <h3 style={styles.subHeading} className="filters-sub-heading">
                     Announcement Date
                   </h3>

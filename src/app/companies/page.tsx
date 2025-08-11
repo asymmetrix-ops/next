@@ -699,10 +699,12 @@ const CompanyDescription = ({
 // Filters Component
 const CompanyDashboard = ({
   onSearch,
+  initialSearch,
 }: {
   onSearch?: (filters: Filters) => void;
+  initialSearch?: string;
 }) => {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialSearch || "");
   const [showFilters, setShowFilters] = useState(false);
 
   // Filter data state
@@ -950,6 +952,14 @@ const CompanyDashboard = ({
       onSearch(filters);
     }
   };
+
+  // Auto-run search if initialSearch prop is provided
+  useEffect(() => {
+    if (initialSearch) {
+      setSearchTerm(initialSearch);
+      handleSearch(); // Trigger search with initial term
+    }
+  }, [initialSearch, handleSearch]);
 
   return (
     <div style={styles.container}>
@@ -1783,8 +1793,9 @@ const CompanySection = ({
     }
     .stats-item {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-start;
       align-items: center;
+      gap: 8px;
       padding: 6px 0;
       border-bottom: 1px solid #e2e8f0;
     }
@@ -2126,71 +2137,171 @@ const CompanySection = ({
         { className: "stats-column" },
         React.createElement(
           "div",
-          { className: "stats-item" },
+          {
+            style: {
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "6px 0",
+              borderBottom: "1px solid #e2e8f0",
+            },
+          },
           React.createElement(
             "span",
-            { className: "stats-label" },
+            {
+              style: {
+                fontSize: "14px",
+                color: "#4a5568",
+                fontWeight: "500",
+              },
+            },
             "Companies: "
           ),
           React.createElement(
             "span",
-            { className: "stats-value" },
+            {
+              style: {
+                fontSize: "16px",
+                color: "#000",
+                fontWeight: "600",
+              },
+            },
             pagination.itemsReceived.toLocaleString()
           )
         ),
         React.createElement(
           "div",
-          { className: "stats-item" },
+          {
+            style: {
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "6px 0",
+              borderBottom: "1px solid #e2e8f0",
+            },
+          },
           React.createElement(
             "span",
-            { className: "stats-label" },
+            {
+              style: {
+                fontSize: "14px",
+                color: "#4a5568",
+                fontWeight: "500",
+              },
+            },
             "Public companies: "
           ),
           React.createElement(
             "span",
-            { className: "stats-value" },
+            {
+              style: {
+                fontSize: "16px",
+                color: "#000",
+                fontWeight: "600",
+              },
+            },
             ownershipCounts.publicCompanies.toLocaleString()
           )
         ),
         React.createElement(
           "div",
-          { className: "stats-item" },
+          {
+            style: {
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "6px 0",
+              borderBottom: "1px solid #e2e8f0",
+            },
+          },
           React.createElement(
             "span",
-            { className: "stats-label" },
+            {
+              style: {
+                fontSize: "14px",
+                color: "#4a5568",
+                fontWeight: "500",
+              },
+            },
             "PE-owned companies: "
           ),
           React.createElement(
             "span",
-            { className: "stats-value" },
+            {
+              style: {
+                fontSize: "16px",
+                color: "#000",
+                fontWeight: "600",
+              },
+            },
             ownershipCounts.peOwnedCompanies.toLocaleString()
           )
         ),
         React.createElement(
           "div",
-          { className: "stats-item" },
+          {
+            style: {
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "6px 0",
+              borderBottom: "1px solid #e2e8f0",
+            },
+          },
           React.createElement(
             "span",
-            { className: "stats-label" },
+            {
+              style: {
+                fontSize: "14px",
+                color: "#4a5568",
+                fontWeight: "500",
+              },
+            },
             "VC-owned companies: "
           ),
           React.createElement(
             "span",
-            { className: "stats-value" },
+            {
+              style: {
+                fontSize: "16px",
+                color: "#000",
+                fontWeight: "600",
+              },
+            },
             ownershipCounts.vcOwnedCompanies.toLocaleString()
           )
         ),
         React.createElement(
           "div",
-          { className: "stats-item" },
+          {
+            style: {
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "6px 0",
+              borderBottom: "none",
+            },
+          },
           React.createElement(
             "span",
-            { className: "stats-label" },
+            {
+              style: {
+                fontSize: "14px",
+                color: "#4a5568",
+                fontWeight: "500",
+              },
+            },
             "Private companies: "
           ),
           React.createElement(
             "span",
-            { className: "stats-value" },
+            {
+              style: {
+                fontSize: "16px",
+                color: "#000",
+                fontWeight: "600",
+              },
+            },
             ownershipCounts.privateCompanies.toLocaleString()
           )
         )
@@ -2259,10 +2370,22 @@ const CompaniesPage = () => {
     [fetchCompanies]
   );
 
+  const [initialSearch, setInitialSearch] = useState<string | undefined>(
+    undefined
+  );
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const s = params.get("search") || undefined;
+      setInitialSearch(s);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen">
       <Header />
-      <CompanyDashboard onSearch={handleSearch} />
+      <CompanyDashboard onSearch={handleSearch} initialSearch={initialSearch} />
       <CompanySection
         companies={companies}
         loading={loading}

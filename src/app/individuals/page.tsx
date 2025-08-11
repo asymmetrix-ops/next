@@ -336,13 +336,13 @@ const generatePaginationButtons = (
   return buttons;
 };
 
-// Individual Card Component for mobile
-const IndividualCard = (individual: Individual, index: number) => {
+// Individual Card Component for mobile (proper component)
+const IndividualCard: React.FC<{ individual: Individual }> = ({
+  individual,
+}) => {
   const { createClickableElement } = useRightClick();
-
   return (
     <div
-      key={index}
       className="individual-card"
       style={{
         backgroundColor: "white",
@@ -361,11 +361,7 @@ const IndividualCard = (individual: Individual, index: number) => {
           gap: "12px",
         }}
       >
-        <div
-          style={{
-            flex: "1",
-          }}
-        >
+        <div style={{ flex: "1" }}>
           {createClickableElement(
             `/individual/${individual.id}`,
             individual.advisor_individuals || "N/A",
@@ -377,12 +373,7 @@ const IndividualCard = (individual: Individual, index: number) => {
               display: "block",
             }
           )}
-          <div
-            style={{
-              fontSize: "14px",
-              color: "#4a5568",
-            }}
-          >
+          <div style={{ fontSize: "14px", color: "#4a5568" }}>
             {individual._locations_individual
               ? `${individual._locations_individual.City || ""}, ${
                   individual._locations_individual.State__Province__County || ""
@@ -531,9 +522,9 @@ const IndividualsTable = ({
     <div>
       {/* Mobile Cards */}
       <div className="individual-cards">
-        {individuals.map((individual, index) =>
-          IndividualCard(individual, index)
-        )}
+        {individuals.map((individual, index) => (
+          <IndividualCard key={index} individual={individual} />
+        ))}
       </div>
 
       {/* Desktop Table */}
@@ -778,7 +769,7 @@ const IndividualsPage = () => {
       // Convert filters to URL parameters for GET request
       const params = new URLSearchParams();
 
-      // Add page and per_page
+      // Add page and per_page (Offset is a page number: 1, 2, ...)
       params.append("Offset", filters.page.toString());
       params.append("Per_page", filters.per_page.toString());
 
@@ -839,23 +830,27 @@ const IndividualsPage = () => {
       const data: IndividualsResponse = await response.json();
 
       if (requestId === lastRequestIdRef.current) {
-        setIndividuals(data.Individuals_list.items);
+        const list = data?.Individuals_list;
+        setIndividuals(list?.items || []);
         setPagination({
-          itemsReceived: data.Individuals_list.itemsReceived,
-          curPage: data.Individuals_list.curPage,
-          nextPage: data.Individuals_list.nextPage,
-          prevPage: data.Individuals_list.prevPage,
-          offset: data.Individuals_list.offset,
+          itemsReceived: list?.itemsReceived || 0,
+          curPage: list?.curPage || 1,
+          nextPage: list?.nextPage ?? null,
+          prevPage: list?.prevPage ?? null,
+          offset: list?.offset || 0,
           perPage: filters.per_page,
-          pageTotal: Math.ceil(data.totalIndividuals / filters.per_page),
+          pageTotal: Math.max(
+            1,
+            Math.ceil((data?.totalIndividuals || 0) / filters.per_page)
+          ),
         });
         setSummaryData({
-          totalIndividuals: data.totalIndividuals,
-          currentRoles: data.currentRoles,
-          pastRoles: data.pastRoles,
-          ceos: data.ceos,
-          chairs: data.chairs,
-          founders: data.founders,
+          totalIndividuals: data?.totalIndividuals || 0,
+          currentRoles: data?.currentRoles || 0,
+          pastRoles: data?.pastRoles || 0,
+          ceos: data?.ceos || 0,
+          chairs: data?.chairs || 0,
+          founders: data?.founders || 0,
         });
       }
     } catch (error) {
@@ -1710,6 +1705,26 @@ const IndividualsPage = () => {
               </div>
             )}
 
+            {/* Compact search always visible */}
+            {!showFilters && (
+              <div style={{ marginTop: 8 }}>
+                <input
+                  type="text"
+                  placeholder="Enter name here"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ ...styles.input, maxWidth: 360, marginBottom: 8 }}
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                />
+                <button
+                  onClick={handleSearch}
+                  style={{ ...styles.button, maxWidth: 140 }}
+                >
+                  {loading ? "Searching..." : "Search"}
+                </button>
+              </div>
+            )}
+
             <button
               onClick={() => setShowFilters(!showFilters)}
               style={styles.linkButton}
@@ -1718,12 +1733,10 @@ const IndividualsPage = () => {
             </button>
 
             {/* Error Display */}
-            {showFilters && error && <div className="error">{error}</div>}
+            {error && <div className="error">{error}</div>}
 
             {/* Loading Display */}
-            {showFilters && loading && (
-              <div className="loading">Loading individuals...</div>
-            )}
+            {loading && <div className="loading">Loading individuals...</div>}
           </div>
         </div>
       </div>

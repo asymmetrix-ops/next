@@ -9,6 +9,19 @@ import {
   CorporateEventDetailResponse,
   CorporateEventAdvisor,
 } from "../../../types/corporateEvents";
+import { useRightClick } from "@/hooks/useRightClick";
+
+// Narrow type for optional counterparty shape used in advisors references
+type MaybeCounterparty =
+  | {
+      _new_company?: {
+        id?: number;
+        name?: string;
+        _is_that_investor?: boolean;
+      };
+      new_company_counterparty?: number;
+    }
+  | undefined;
 
 // Company Logo Component
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
@@ -34,7 +47,7 @@ const CorporateEventDetail = ({
 }: {
   data: CorporateEventDetailResponse;
 }) => {
-  const router = useRouter();
+  const { createClickableElement } = useRightClick();
   const event = data.Event[0];
   const counterparties = data.Event_counterparties;
   const subSectors = data["Sub-sectors"];
@@ -51,35 +64,22 @@ const CorporateEventDetail = ({
   };
 
   const formatCurrency = (amount: string, currency: string) => {
-    if (!amount) return "Not available";
-    return `${currency} ${amount}`;
+    if (!amount || !currency) return "Not available";
+    const n = Number(amount);
+    if (Number.isNaN(n)) return "Not available";
+    const formatted = n.toLocaleString(undefined, { maximumFractionDigits: 3 });
+    return `${currency}${formatted}m`;
   };
 
-  // Company click now routed through handleCounterpartyClick; keeping helper removed to avoid unused warnings
+  // Removed navigation helpers in favor of createClickableElement to support right-click
 
-  const handleCounterpartyClick = (
-    isInvestor: boolean | undefined,
-    counterpartyId: number,
-    companyIdFallback: number
-  ) => {
-    try {
-      if (isInvestor) {
-        router.push(`/investors/${counterpartyId}`);
-      } else {
-        router.push(`/company/${companyIdFallback}`);
-      }
-    } catch (error) {
-      console.error("Navigation error:", error);
-    }
-  };
-
-  const handleIndividualClick = (individualId: number) => {
-    try {
-      router.push(`/individual/${individualId}`);
-    } catch (error) {
-      console.error("Navigation error:", error);
-    }
-  };
+  // const handleIndividualClick = (individualId: number) => {
+  //   try {
+  //     router.push(`/individual/${individualId}`);
+  //   } catch (error) {
+  //     console.error("Navigation error:", error);
+  //   }
+  // };
 
   const style = `
     .corporate-event-container {
@@ -428,23 +428,13 @@ const CorporateEventDetail = ({
                       />
                     </td>
                     <td>
-                      <span
-                        className="corporate-event-link"
-                        onClick={(e) => {
-                          e.currentTarget.style.backgroundColor = "#f0f0f0";
-                          setTimeout(() => {
-                            e.currentTarget.style.backgroundColor =
-                              "transparent";
-                          }, 200);
-                          handleCounterpartyClick(
-                            counterparty._new_company?._is_that_investor,
-                            counterparty.new_company_counterparty,
-                            counterparty._new_company.id
-                          );
-                        }}
-                      >
-                        {counterparty._new_company.name}
-                      </span>
+                      {createClickableElement(
+                        counterparty._new_company?._is_that_investor
+                          ? `/investors/${counterparty.new_company_counterparty}`
+                          : `/company/${counterparty._new_company.id}`,
+                        counterparty._new_company.name,
+                        "corporate-event-link"
+                      )}
                     </td>
                     <td>
                       {counterparty._counterpartys_type.counterparty_status}
@@ -468,16 +458,12 @@ const CorporateEventDetail = ({
                         ? counterparty.counterparty_individuals.map(
                             (individual, idx) => (
                               <span key={individual.id}>
-                                <span
+                                <a
+                                  href={`/individual/${individual.individuals_id}`}
                                   className="corporate-event-link"
-                                  onClick={() =>
-                                    handleIndividualClick(
-                                      individual.individuals_id
-                                    )
-                                  }
                                 >
                                   {individual.advisor_individuals}
-                                </span>
+                                </a>
                                 {idx <
                                   counterparty.counterparty_individuals.length -
                                     1 && ", "}
@@ -505,17 +491,13 @@ const CorporateEventDetail = ({
                     }
                     name={counterparty._new_company.name}
                   />
-                  <div
-                    className="counterparty-card-name"
-                    onClick={() =>
-                      handleCounterpartyClick(
-                        counterparty._new_company?._is_that_investor,
-                        counterparty.new_company_counterparty,
-                        counterparty._new_company.id
-                      )
-                    }
-                  >
-                    {counterparty._new_company.name}
+                  <div className="counterparty-card-name">
+                    {createClickableElement(
+                      counterparty._new_company?._is_that_investor
+                        ? `/investors/${counterparty.new_company_counterparty}`
+                        : `/company/${counterparty._new_company.id}`,
+                      counterparty._new_company.name
+                    )}
                   </div>
                 </div>
                 <div className="counterparty-card-info">
@@ -534,16 +516,12 @@ const CorporateEventDetail = ({
                         ? counterparty.counterparty_individuals.map(
                             (individual, idx) => (
                               <span key={individual.id}>
-                                <span
+                                <a
+                                  href={`/individual/${individual.individuals_id}`}
                                   className="corporate-event-link"
-                                  onClick={() =>
-                                    handleIndividualClick(
-                                      individual.individuals_id
-                                    )
-                                  }
                                 >
                                   {individual.advisor_individuals}
-                                </span>
+                                </a>
                                 {idx <
                                   counterparty.counterparty_individuals.length -
                                     1 && ", "}
@@ -593,31 +571,28 @@ const CorporateEventDetail = ({
                 advisors.map((a) => (
                   <tr key={a.id}>
                     <td>
-                      <span
-                        className="corporate-event-link"
-                        onClick={() =>
-                          router.push(`/advisor/${a._new_company.id}`)
-                        }
-                      >
-                        {a._new_company.name}
-                      </span>
+                      {createClickableElement(
+                        `/advisor/${a._new_company.id}`,
+                        a._new_company.name,
+                        "corporate-event-link"
+                      )}
                     </td>
                     <td>{a._advisor_role?.counterparty_status || "N/A"}</td>
                     <td>
-                      <span
-                        className="corporate-event-link"
-                        onClick={() =>
-                          handleCounterpartyClick(
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            (a._counterparties as any)?._new_company
-                              ?._is_that_investor,
-                            a._counterparties?.new_company_counterparty,
-                            Number(a._counterparties?._new_company?.id)
-                          )
-                        }
-                      >
-                        {a._counterparties?._new_company?.name || "N/A"}
-                      </span>
+                      {createClickableElement(
+                        (a._counterparties as MaybeCounterparty)?._new_company
+                          ?._is_that_investor
+                          ? `/investors/${
+                              (a._counterparties as MaybeCounterparty)
+                                ?.new_company_counterparty
+                            }`
+                          : `/company/${Number(
+                              (a._counterparties as MaybeCounterparty)
+                                ?._new_company?.id
+                            )}`,
+                        a._counterparties?._new_company?.name || "N/A",
+                        "corporate-event-link"
+                      )}
                     </td>
                     <td>
                       {a.announcement_url ? (
@@ -652,13 +627,11 @@ const CorporateEventDetail = ({
                     className="counterparty-card-header"
                     style={{ marginBottom: 8 }}
                   >
-                    <div
-                      className="counterparty-card-name"
-                      onClick={() =>
-                        router.push(`/advisor/${a._new_company.id}`)
-                      }
-                    >
-                      {a._new_company.name}
+                    <div className="counterparty-card-name">
+                      {createClickableElement(
+                        `/advisor/${a._new_company.id}`,
+                        a._new_company.name
+                      )}
                     </div>
                   </div>
                   <div className="counterparty-card-info">
@@ -675,20 +648,20 @@ const CorporateEventDetail = ({
                         Advising:
                       </span>
                       <span className="counterparty-card-info-value">
-                        <span
-                          className="corporate-event-link"
-                          onClick={() =>
-                            handleCounterpartyClick(
-                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                              (a._counterparties as any)?._new_company
-                                ?._is_that_investor,
-                              a._counterparties?.new_company_counterparty,
-                              Number(a._counterparties?._new_company?.id)
-                            )
-                          }
-                        >
-                          {a._counterparties?._new_company?.name || "N/A"}
-                        </span>
+                        {createClickableElement(
+                          (a._counterparties as MaybeCounterparty)?._new_company
+                            ?._is_that_investor
+                            ? `/investors/${
+                                (a._counterparties as MaybeCounterparty)
+                                  ?.new_company_counterparty
+                              }`
+                            : `/company/${Number(
+                                (a._counterparties as MaybeCounterparty)
+                                  ?._new_company?.id
+                              )}`,
+                          a._counterparties?._new_company?.name || "N/A",
+                          "corporate-event-link"
+                        )}
                       </span>
                     </div>
                     {a.announcement_url && (

@@ -596,29 +596,36 @@ const SectorDetailPage = () => {
     },
     mainContent: {
       display: "flex",
-      flexDirection: "row" as const,
+      flexDirection: "column" as const,
       gap: "24px",
       flex: "1",
     },
-    sidebar: {
-      height: "fit-content",
-      flex: "0 0 33.33%",
-      display: "flex",
-      flexDirection: "column" as const,
+    topRow: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1.5fr",
       gap: "24px",
+      alignItems: "start",
+      width: "100%",
     },
     companiesSection: {
       backgroundColor: "white",
       borderRadius: "12px",
       padding: "32px 24px",
       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-      flex: "0 0 66.67%",
+      width: "100%",
+    },
+    sidebar: {
+      height: "fit-content",
+      flex: "0 0 20%",
+      display: "flex",
+      flexDirection: "column" as const,
+      gap: "12px",
     },
     sidebarTitle: {
-      fontSize: "20px",
+      fontSize: "14px",
       fontWeight: "600",
       color: "#1a202c",
-      marginBottom: "24px",
+      marginBottom: "10px",
       marginTop: "0",
     },
     companiesTitle: {
@@ -632,30 +639,30 @@ const SectorDetailPage = () => {
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
-      padding: "12px 0",
+      padding: "6px 0",
       borderBottom: "1px solid #e2e8f0",
     },
     statItemLast: {
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
-      padding: "12px 0",
+      padding: "6px 0",
       borderBottom: "none",
     },
     statLabel: {
-      fontSize: "14px",
+      fontSize: "12px",
       color: "#4a5568",
       fontWeight: "500",
     },
     statValue: {
-      fontSize: "16px",
+      fontSize: "13px",
       color: "#1a202c",
       fontWeight: "600",
     },
     sectorBox: {
       backgroundColor: "white",
       borderRadius: "12px",
-      padding: "24px",
+      padding: "14px",
       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
     },
     thesis: {
@@ -759,22 +766,24 @@ const SectorDetailPage = () => {
     return null;
   }
 
+  // Update page title when sector data is loaded
+  if (typeof document !== "undefined" && sectorData?.Sector?.sector_name) {
+    document.title = `Asymmetrix – ${sectorData.Sector.sector_name}`;
+  }
+
   const tableRows = companies.map((company, index) => (
     <tr key={company.id || index}>
       <td>
         <CompanyLogo logo={company.linkedin_logo} name={company.name} />
       </td>
       <td>
-        <span
+        <a
+          href={`/company/${company.id}`}
           className="company-name"
-          style={{
-            textDecoration: "none",
-            cursor: "pointer",
-          }}
-          onClick={() => handleCompanyClick(company.id)}
+          style={{ textDecoration: "none" }}
         >
           {company.name || "N/A"}
-        </span>
+        </a>
       </td>
       <td>
         <CompanyDescription
@@ -810,9 +819,21 @@ const SectorDetailPage = () => {
       border-collapse: collapse;
       table-layout: fixed;
     }
+    /* Rebalanced column widths */
+    .company-table th:nth-child(1), .company-table td:nth-child(1) { width: 6%; }   /* Logo */
+    .company-table th:nth-child(2), .company-table td:nth-child(2) { width: 8%; }   /* Name (Companies) */
+    .company-table th:nth-child(3), .company-table td:nth-child(3) { width: 25%; }  /* Description */
+    .company-table th:nth-child(4), .company-table td:nth-child(4) { width: 14%; }  /* Sectors */
+    .company-table th:nth-child(5), .company-table td:nth-child(5) { width: 14%; }  /* Primary Sectors */
+    .company-table th:nth-child(6), .company-table td:nth-child(6) { width: 7%; }   /* Ownership */
+    .company-table th:nth-child(7), .company-table td:nth-child(7) { width: 9%; }   /* Investors */
+    /* LinkedIn Members */
+    .company-table th:nth-child(8) { width: 6%; white-space: normal; }
+    .company-table td:nth-child(8) { width: 6%; white-space: nowrap; text-align: right; }
+    .company-table th:nth-child(9), .company-table td:nth-child(9) { width: 11%; white-space: nowrap; }   /* Country */
     .company-table th,
     .company-table td {
-      padding: 16px;
+      padding: 12px 14px;
       text-align: left;
       vertical-align: top;
       border-bottom: 1px solid #e2e8f0;
@@ -845,7 +866,7 @@ const SectorDetailPage = () => {
       font-weight: 500;
     }
     .company-description {
-      max-width: 300px;
+      max-width: 100%;
       line-height: 1.4;
     }
     .company-description-truncated {
@@ -915,53 +936,17 @@ const SectorDetailPage = () => {
         flex-direction: column !important;
         gap: 8px !important;
       }
-      .sidebar {
-        flex: none !important;
-        width: 100% !important;
-        order: 1 !important;
-        flex-direction: column !important;
-        gap: 16px !important;
-      }
-      .companies-section {
-        flex: none !important;
-        width: 100% !important;
-        order: 2 !important;
-      }
-      .companies-header {
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        gap: 12px !important;
-      }
-      .companies-controls {
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        gap: 8px !important;
-      }
-      .company-table {
-        display: none;
-      }
-      .company-cards {
-        display: block;
-      }
-      .company-logo {
-        width: 40px;
-        height: 30px;
-      }
-      .company-description {
-        max-width: 200px;
-      }
-      .sectors-list {
-        max-width: 150px;
-      }
+      .top-row { display: grid !important; grid-template-columns: 1fr !important; gap: 12px !important; }
+      .companies-section { flex: none !important; width: 100% !important; order: 2 !important; }
+      .companies-header { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
+      .companies-controls { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+      .company-table { display: none; }
+      .company-cards { display: block; }
+      .company-logo { width: 40px; height: 30px; }
+      .company-description { max-width: 100%; }
+      .sectors-list { max-width: 150px; }
     }
-    @media (min-width: 769px) {
-      .company-cards {
-        display: none;
-      }
-      .company-table {
-        display: table;
-      }
-    }
+    @media (min-width: 769px) { .company-cards { display: none; } .company-table { display: table; } }
   `;
 
   return (
@@ -986,8 +971,8 @@ const SectorDetailPage = () => {
 
         {/* Main Content */}
         <div className="main-content" style={styles.mainContent}>
-          {/* Left Sidebar - Statistics and Thesis */}
-          <div className="sidebar" style={styles.sidebar}>
+          {/* Top Row: Statistics + Thesis (full width row, two columns inside) */}
+          <div className="top-row" style={styles.topRow}>
             {/* Sector Statistics Box */}
             <div className="statistics-box" style={styles.sectorBox}>
               <h2 className="sidebar-title" style={styles.sidebarTitle}>
@@ -1058,7 +1043,7 @@ const SectorDetailPage = () => {
             </div>
           </div>
 
-          {/* Right Section - Companies */}
+          {/* Companies Section (full width row) */}
           <div className="companies-section" style={styles.companiesSection}>
             <div
               className="companies-header"

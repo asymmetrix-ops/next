@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAdvisorProfile } from "../../../hooks/useAdvisorProfile";
@@ -16,6 +17,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useRightClick } from "../../../hooks/useRightClick";
 
 // Types for LinkedIn History Chart
 interface LinkedInHistory {
@@ -145,16 +147,13 @@ export default function AdvisorProfilePage() {
   const [eventsExpanded, setEventsExpanded] = useState(false);
   const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
   const [linkedInHistoryLoading, setLinkedInHistoryLoading] = useState(false);
+  const { createClickableElement } = useRightClick();
 
   const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
     advisorId,
   });
 
-  const handleAdvisorClick = (individualId: number) => {
-    console.log("Advisor clicked:", individualId);
-    // Directly redirect to the individual page using the individualId
-    router.push(`/individual/${individualId}`);
-  };
+  // Removed: handleAdvisorClick (replaced with createClickableElement in list)
 
   const handleOtherAdvisorClick = (advisorId: number) => {
     console.log("Other advisor clicked:", advisorId);
@@ -236,6 +235,13 @@ export default function AdvisorProfilePage() {
       fetchLinkedInHistory();
     }
   }, [advisorId, fetchLinkedInHistory]);
+
+  // Update page title when advisor data is loaded
+  useEffect(() => {
+    if (advisorData?.Advisor?.name && typeof document !== "undefined") {
+      document.title = `Asymmetrix – ${advisorData.Advisor.name}`;
+    }
+  }, [advisorData?.Advisor?.name]);
 
   if (loading) {
     return (
@@ -562,6 +568,11 @@ export default function AdvisorProfilePage() {
 
   return (
     <div className="advisor-detail-page">
+      {Advisor?.name && (
+        <Head>
+          <title>{`Asymmetrix – ${Advisor.name}`}</title>
+        </Head>
+      )}
       <Header />
 
       <div className="advisor-content">
@@ -671,23 +682,22 @@ export default function AdvisorProfilePage() {
             {/* Advisors Section */}
             <div className="advisor-section">
               <h2 className="section-title">Advisors</h2>
-              <div className="info-value">
-                {Advisors_individuals.length > 0
-                  ? Advisors_individuals.map((individual, index) => (
-                      <span key={individual.id}>
-                        <span
-                          onClick={() =>
-                            handleAdvisorClick(individual.individuals_id)
-                          }
-                          className="advisor-link"
-                        >
-                          {individual.advisor_individuals}
-                        </span>
-                        {index < Advisors_individuals.length - 1 ? ", " : ""}
-                      </span>
-                    ))
-                  : "Not available"}
-              </div>
+              {Advisors_individuals && Advisors_individuals.length > 0 ? (
+                <div className="info-grid">
+                  {Advisors_individuals.map((individual) => (
+                    <div key={individual.id} className="info-value">
+                      {createClickableElement(
+                        `/individual/${individual.individuals_id}`,
+                        individual.advisor_individuals,
+                        undefined,
+                        { textDecoration: "none" }
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="info-value">Not available</div>
+              )}
             </div>
 
             {/* Description Section */}

@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import Image from "next/image";
+import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useIndividualProfile } from "../../../hooks/useIndividualProfile";
@@ -64,6 +65,14 @@ export default function IndividualProfilePage() {
     useIndividualProfile({
       individualId,
     });
+
+  // Update page title when individual data is loaded
+  if (
+    typeof document !== "undefined" &&
+    (profileData?.Individual?.advisor_individuals || "")
+  ) {
+    document.title = `Asymmetrix – ${profileData?.Individual?.advisor_individuals}`;
+  }
 
   const handleReportIncorrectData = () => {
     // Handle report incorrect data functionality
@@ -160,6 +169,11 @@ export default function IndividualProfilePage() {
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
     >
+      {Individual?.advisor_individuals && (
+        <Head>
+          <title>{`Asymmetrix – ${Individual.advisor_individuals}`}</title>
+        </Head>
+      )}
       <Header />
       <div style={{ flex: "1", padding: "32px", width: "100%" }}>
         {/* Page Header */}
@@ -614,20 +628,7 @@ export default function IndividualProfilePage() {
                                 href={`/corporate-event/${event.id}`}
                                 style={{
                                   color: "#3b82f6",
-                                  textDecoration: "none",
-                                }}
-                                onClick={(e) => {
-                                  if (
-                                    e.defaultPrevented ||
-                                    e.button !== 0 ||
-                                    e.metaKey ||
-                                    e.ctrlKey ||
-                                    e.shiftKey ||
-                                    e.altKey
-                                  )
-                                    return;
-                                  e.preventDefault();
-                                  router.push(`/corporate-event/${event.id}`);
+                                  textDecoration: "underline",
                                 }}
                               >
                                 {event.description}
@@ -838,41 +839,31 @@ export default function IndividualProfilePage() {
                               />
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
-                              <span
+                              <a
+                                href={`/company/${relatedIndividual._new_company.id}`}
                                 style={{
                                   color: "#3b82f6",
-                                  textDecoration: "none",
-                                  cursor: "pointer",
+                                  textDecoration: "underline",
                                 }}
-                                onClick={() =>
-                                  router.push(
-                                    `/company/${relatedIndividual._new_company.id}`
-                                  )
-                                }
-                                title="Click to open company page"
+                                title="Open company page"
                               >
                                 {relatedIndividual._new_company.name}
-                              </span>
+                              </a>
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
-                              <span
+                              <a
+                                href={`/individual/${relatedIndividual._individuals.id}`}
                                 style={{
                                   color: "#3b82f6",
-                                  textDecoration: "none",
-                                  cursor: "pointer",
+                                  textDecoration: "underline",
                                 }}
-                                onClick={() =>
-                                  router.push(
-                                    `/individual/${relatedIndividual._individuals.id}`
-                                  )
-                                }
-                                title="Click to open individual's profile"
+                                title="Open individual's profile"
                               >
                                 {
                                   relatedIndividual._individuals
                                     .advisor_individuals
                                 }
-                              </span>
+                              </a>
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               <span
