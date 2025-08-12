@@ -697,16 +697,16 @@ const InvestorDetailPage = () => {
     }
   };
 
-  // Navigate to individual profile by resolving ID from Individuals API
-  const handleTeamMemberClick = async (individualName: string) => {
+  // Resolve individual id by name via API
+  const resolveIndividualIdByName = async (
+    individualName: string
+  ): Promise<number | null> => {
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
-
       const params = new URLSearchParams();
       params.append("search_query", individualName);
       params.append("Offset", "1");
       params.append("Per_page", "10");
-
       const response = await fetch(
         `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`,
         {
@@ -717,24 +717,26 @@ const InvestorDetailPage = () => {
           },
         }
       );
-
-      if (response.ok) {
-        const data = await response.json();
-        const match = data.Individuals_list?.items?.find(
-          (ind: { advisor_individuals: string; id: number }) =>
-            ind.advisor_individuals === individualName
-        );
-
-        if (match?.id) {
-          router.push(`/individual/${match.id}`);
-        } else {
-          console.error("No matching individual found");
-        }
-      } else {
-        console.error("Failed to search for individual:", response.statusText);
-      }
+      if (!response.ok) return null;
+      const data = await response.json();
+      const match = data.Individuals_list?.items?.find(
+        (ind: { advisor_individuals: string; id: number }) =>
+          ind.advisor_individuals === individualName
+      );
+      return match?.id ?? null;
     } catch (error) {
-      console.error("Error handling team member click:", error);
+      console.error("Error resolving individual by name:", error);
+      return null;
+    }
+  };
+
+  // Navigate to individual profile by resolving ID from Individuals API
+  const handleTeamMemberClick = async (individualName: string) => {
+    const id = await resolveIndividualIdByName(individualName);
+    if (id) {
+      router.push(`/individual/${id}`);
+    } else {
+      console.error("No matching individual found");
     }
   };
 
@@ -1431,27 +1433,29 @@ const InvestorDetailPage = () => {
                   <div className="info-grid">
                     {Investment_Team_Roles_current.map((member, index) => (
                       <div key={index} className="info-value">
-                        {member.current_employer_url ? (
-                          <a
-                            href={member.current_employer_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ color: "#3b82f6", textDecoration: "none" }}
-                            title="Open individual's external profile"
-                          >
-                            {member.Individual_text}
-                          </a>
-                        ) : (
-                          <span
-                            style={{ color: "#3b82f6", cursor: "pointer" }}
-                            onClick={() =>
-                              handleTeamMemberClick(member.Individual_text)
+                        <span
+                          style={{ color: "#3b82f6", cursor: "pointer" }}
+                          onClick={() =>
+                            handleTeamMemberClick(member.Individual_text)
+                          }
+                          onContextMenu={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const id = await resolveIndividualIdByName(
+                              member.Individual_text
+                            );
+                            if (id) {
+                              window.open(
+                                `/individual/${id}`,
+                                "_blank",
+                                "noopener,noreferrer"
+                              );
                             }
-                            title="Click to search individual's profile"
-                          >
-                            {member.Individual_text}
-                          </span>
-                        )}
+                          }}
+                          title="Left click to open profile, Right click to open in new tab"
+                        >
+                          {member.Individual_text}
+                        </span>
                         :{" "}
                         {member.job_titles_id
                           .map((jt) => jt.job_title)
@@ -1471,27 +1475,29 @@ const InvestorDetailPage = () => {
                   <div className="info-grid">
                     {Investment_Team_Roles_past.map((member, index) => (
                       <div key={index} className="info-value">
-                        {member.current_employer_url ? (
-                          <a
-                            href={member.current_employer_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ color: "#3b82f6", textDecoration: "none" }}
-                            title="Open individual's external profile"
-                          >
-                            {member.Individual_text}
-                          </a>
-                        ) : (
-                          <span
-                            style={{ color: "#3b82f6", cursor: "pointer" }}
-                            onClick={() =>
-                              handleTeamMemberClick(member.Individual_text)
+                        <span
+                          style={{ color: "#3b82f6", cursor: "pointer" }}
+                          onClick={() =>
+                            handleTeamMemberClick(member.Individual_text)
+                          }
+                          onContextMenu={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const id = await resolveIndividualIdByName(
+                              member.Individual_text
+                            );
+                            if (id) {
+                              window.open(
+                                `/individual/${id}`,
+                                "_blank",
+                                "noopener,noreferrer"
+                              );
                             }
-                            title="Click to search individual's profile"
-                          >
-                            {member.Individual_text}
-                          </span>
-                        )}
+                          }}
+                          title="Left click to open profile, Right click to open in new tab"
+                        >
+                          {member.Individual_text}
+                        </span>
                         :{" "}
                         {member.job_titles_id
                           .map((jt) => jt.job_title)
