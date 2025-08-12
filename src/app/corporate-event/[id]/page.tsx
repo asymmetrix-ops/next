@@ -826,3 +826,5 @@ const CorporateEventDetailPage = () => {
 };
 
 export default CorporateEventDetailPage;
+
+//
