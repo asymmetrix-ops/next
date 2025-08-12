@@ -318,7 +318,16 @@ const CorporateEventDetail = ({
         <div className="corporate-event-card">
           <div className="corporate-event-header">
             <h1 className="corporate-event-title">{event.description}</h1>
-            <button className="report-button">Report Incorrect Data</button>
+            <a
+              className="report-button"
+              href={`mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
+                `Report Incorrect Corporate Event Data – ${event.description} (ID ${event.id})`
+              )}&body=${encodeURIComponent(
+                "Please describe the issue you found for this corporate event page."
+              )}`}
+            >
+              Report Incorrect Data
+            </a>
           </div>
 
           <div className="info-grid">

@@ -4,6 +4,9 @@ export interface AdvisorResponse {
   Advised_DA_sectors: AdvisedSector[];
   Portfolio_companies_count: number;
   Advisors_individuals: AdvisorIndividual[];
+  // Optional split lists if backend provides them
+  Advisors_individuals_current?: AdvisorIndividual[];
+  Advisors_individuals_past?: AdvisorIndividual[];
 }
 
 // Advisor Main Entity
@@ -64,6 +67,8 @@ export interface AdvisorIndividual {
   id: number;
   individuals_id: number;
   advisor_individuals: string;
+  // Optional job titles array if provided by backend
+  job_titles_id?: Array<{ id?: number; job_title: string }>;
 }
 
 // Corporate Events Response Interface

@@ -90,29 +90,6 @@ export const AdvisorOverview: React.FC<AdvisorOverviewProps> = ({
             </div>
           </div>
 
-          <div>
-            <h3 className="font-medium text-gray-700">LinkedIn Members:</h3>
-            <p className="text-sm">
-              {Advisor._linkedin_data_of_new_company.linkedin_employee?.toLocaleString() ||
-                "Not available"}
-            </p>
-          </div>
-
-          <div>
-            <h3 className="font-medium text-gray-700">
-              LinkedIn Members Date:
-            </h3>
-            <p className="text-sm">
-              {new Date(
-                Advisor._linkedin_data_of_new_company.linkedin_emp_date
-              ).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              }) || "Not available"}
-            </p>
-          </div>
-
           {/* LinkedIn Logo */}
           <div className="mt-4">
             <a

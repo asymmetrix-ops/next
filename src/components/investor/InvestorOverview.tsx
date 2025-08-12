@@ -1,10 +1,6 @@
 import React from "react";
 import type { InvestorData } from "@/types/investor";
-import {
-  formatNumber,
-  formatDate,
-  formatLocation,
-} from "@/utils/investorHelpers";
+import { formatLocation } from "@/utils/investorHelpers";
 
 interface InvestorOverviewProps {
   investorData: InvestorData;
@@ -68,18 +64,6 @@ const InvestorOverview: React.FC<InvestorOverviewProps> = ({
               </a>
             ) : (
               "Not available"
-            )}
-          </div>
-          <div>
-            <strong>LinkedIn Members:</strong>{" "}
-            {formatNumber(
-              Investor._linkedin_data_of_new_company?.linkedin_employee
-            )}
-          </div>
-          <div>
-            <strong>LinkedIn Members Date:</strong>{" "}
-            {formatDate(
-              Investor._linkedin_data_of_new_company?.linkedin_emp_date
             )}
           </div>
         </div>

@@ -74,10 +74,7 @@ export default function IndividualProfilePage() {
     document.title = `Asymmetrix – ${profileData?.Individual?.advisor_individuals}`;
   }
 
-  const handleReportIncorrectData = () => {
-    // Handle report incorrect data functionality
-    console.log("Report incorrect data clicked");
-  };
+  // mailto link used instead of handler
 
   const handleToggleEvents = () => {
     setEventsExpanded(!eventsExpanded);
@@ -201,8 +198,14 @@ export default function IndividualProfilePage() {
               </h1>
             </div>
           </div>
-          <button
-            onClick={handleReportIncorrectData}
+          <a
+            href={`mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
+              `Report Incorrect Individual Data – ${
+                individualName || Individual.advisor_individuals
+              } (ID ${individualId})`
+            )}&body=${encodeURIComponent(
+              "Please describe the issue you found for this individual page."
+            )}`}
             style={{
               padding: "8px 16px",
               backgroundColor: "#dc2626",
@@ -211,10 +214,11 @@ export default function IndividualProfilePage() {
               borderRadius: "4px",
               cursor: "pointer",
               fontSize: "14px",
+              textDecoration: "none",
             }}
           >
             Report Incorrect Data
-          </button>
+          </a>
         </div>
 
         <div style={{ display: "flex", gap: "32px", flexWrap: "wrap" }}>
@@ -670,48 +674,41 @@ export default function IndividualProfilePage() {
                                 : "—"}
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
-                              {event._related_to_corporate_event_individuals &&
-                              event._related_to_corporate_event_individuals
-                                .length > 0
-                                ? event._related_to_corporate_event_individuals.map(
-                                    (ind, i) => (
-                                      <span key={`${ind.id}-${i}`}>
-                                        <a
-                                          href={`/individual/${ind.id}`}
-                                          style={{
-                                            color: "#3b82f6",
-                                            textDecoration: "none",
-                                          }}
-                                          onClick={(e) => {
-                                            if (
-                                              e.defaultPrevented ||
-                                              e.button !== 0 ||
-                                              e.metaKey ||
-                                              e.ctrlKey ||
-                                              e.shiftKey ||
-                                              e.altKey
-                                            )
-                                              return;
-                                            e.preventDefault();
-                                            router.push(
-                                              `/individual/${ind.id}`
-                                            );
-                                          }}
-                                          title="Click to open individual's profile"
-                                        >
-                                          {ind.advisor_individuals}
-                                        </a>
-                                        {i <
-                                        event
-                                          ._related_to_corporate_event_individuals
-                                          .length -
-                                          1
-                                          ? ", "
-                                          : ""}
-                                      </span>
-                                    )
-                                  )
-                                : "—"}
+                              {(() => {
+                                const others =
+                                  event._related_to_corporate_event_individuals?.filter(
+                                    (ind) => ind.id !== individualId
+                                  ) || [];
+                                if (others.length === 0) return "—";
+                                return others.map((ind, i) => (
+                                  <span key={`${ind.id}-${i}`}>
+                                    <a
+                                      href={`/individual/${ind.id}`}
+                                      style={{
+                                        color: "#3b82f6",
+                                        textDecoration: "none",
+                                      }}
+                                      onClick={(e) => {
+                                        if (
+                                          e.defaultPrevented ||
+                                          e.button !== 0 ||
+                                          e.metaKey ||
+                                          e.ctrlKey ||
+                                          e.shiftKey ||
+                                          e.altKey
+                                        )
+                                          return;
+                                        e.preventDefault();
+                                        router.push(`/individual/${ind.id}`);
+                                      }}
+                                      title="Click to open individual's profile"
+                                    >
+                                      {ind.advisor_individuals}
+                                    </a>
+                                    {i < others.length - 1 ? ", " : ""}
+                                  </span>
+                                ));
+                              })()}
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               {formatAdvisorsList(

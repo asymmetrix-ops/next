@@ -146,6 +146,16 @@ export default function AdvisorProfilePage() {
   const advisorId = parseInt(params.param as string);
   const [eventsExpanded, setEventsExpanded] = useState(false);
   const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
+  // Roles fetched from the LinkedIn/company endpoint (includes job titles)
+  interface RoleItem {
+    id: number;
+    individuals_id: number;
+    Individual_text?: string;
+    advisor_individuals?: string;
+    job_titles_id?: Array<{ id?: number; job_title: string }>;
+  }
+  const [rolesCurrent, setRolesCurrent] = useState<RoleItem[]>([]);
+  const [rolesPast, setRolesPast] = useState<RoleItem[]>([]);
   const [linkedInHistoryLoading, setLinkedInHistoryLoading] = useState(false);
   const { createClickableElement } = useRightClick();
 
@@ -173,10 +183,7 @@ export default function AdvisorProfilePage() {
     }
   };
 
-  const handleReportIncorrectData = () => {
-    // Handle report incorrect data functionality
-    console.log("Report incorrect data clicked");
-  };
+  // Removed unused handler; replaced by mailto link button
 
   const handleToggleEvents = () => {
     setEventsExpanded(!eventsExpanded);
@@ -222,6 +229,18 @@ export default function AdvisorProfilePage() {
       );
 
       setLinkedInHistory(historyData);
+
+      // Capture roles (with job titles) if provided by this endpoint
+      const currentRoles: RoleItem[] = Array.isArray(
+        data.Managmant_Roles_current
+      )
+        ? data.Managmant_Roles_current
+        : [];
+      const pastRoles: RoleItem[] = Array.isArray(data.Managmant_Roles_past)
+        ? data.Managmant_Roles_past
+        : [];
+      setRolesCurrent(currentRoles);
+      setRolesPast(pastRoles);
     } catch (err) {
       console.error("Error fetching advisor LinkedIn history:", err);
       // Don't set main error state for LinkedIn history loading failure
@@ -587,9 +606,16 @@ export default function AdvisorProfilePage() {
               <h1 className="advisor-title">{Advisor.name}</h1>
             </div>
           </div>
-          <button onClick={handleReportIncorrectData} className="report-button">
+          <a
+            className="report-button"
+            href={`mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
+              `Report Incorrect Advisor Data – ${Advisor.name} (ID ${Advisor.id})`
+            )}&body=${encodeURIComponent(
+              "Please describe the issue you found for this advisor page."
+            )}`}
+          >
             Report Incorrect Data
-          </button>
+          </a>
         </div>
 
         <div className="advisor-layout">
@@ -640,22 +666,6 @@ export default function AdvisorProfilePage() {
                     {Portfolio_companies_count}
                   </span>
                 </div>
-                <div className="info-item">
-                  <span className="info-label">LinkedIn Members:</span>
-                  <span className="info-value">
-                    {formatNumber(
-                      Advisor._linkedin_data_of_new_company?.linkedin_employee
-                    )}
-                  </span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">LinkedIn Members Date:</span>
-                  <span className="info-value">
-                    {formatDate(
-                      Advisor._linkedin_data_of_new_company?.linkedin_emp_date
-                    )}
-                  </span>
-                </div>
               </div>
             </div>
 
@@ -682,22 +692,139 @@ export default function AdvisorProfilePage() {
             {/* Advisors Section */}
             <div className="advisor-section">
               <h2 className="section-title">Advisors</h2>
-              {Advisors_individuals && Advisors_individuals.length > 0 ? (
-                <div className="info-grid">
-                  {Advisors_individuals.map((individual) => (
-                    <div key={individual.id} className="info-value">
-                      {createClickableElement(
-                        `/individual/${individual.individuals_id}`,
-                        individual.advisor_individuals,
-                        undefined,
-                        { textDecoration: "none" }
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="info-value">Not available</div>
-              )}
+              {/* Current */}
+              <div style={{ marginBottom: "16px" }}>
+                <h3 className="section-title" style={{ fontSize: 16 }}>
+                  Current:
+                </h3>
+                {rolesCurrent.length > 0 ? (
+                  <div className="info-grid">
+                    {rolesCurrent.map((role) => (
+                      <div
+                        key={`current-role-${role.id}`}
+                        className="info-value"
+                      >
+                        {createClickableElement(
+                          `/individual/${role.individuals_id}`,
+                          role.advisor_individuals ||
+                            role.Individual_text ||
+                            "Unknown",
+                          undefined,
+                          { textDecoration: "none" }
+                        )}
+                        {": "}
+                        {role.job_titles_id && role.job_titles_id.length > 0
+                          ? role.job_titles_id
+                              .map((jt) => jt.job_title)
+                              .join(", ")
+                          : "Not available"}
+                      </div>
+                    ))}
+                  </div>
+                ) : advisorData.Advisors_individuals_current &&
+                  advisorData.Advisors_individuals_current.length > 0 ? (
+                  <div className="info-grid">
+                    {advisorData.Advisors_individuals_current.map(
+                      (individual) => (
+                        <div
+                          key={`current-${individual.id}`}
+                          className="info-value"
+                        >
+                          {createClickableElement(
+                            `/individual/${individual.individuals_id}`,
+                            individual.advisor_individuals,
+                            undefined,
+                            { textDecoration: "none" }
+                          )}
+                          {": "}
+                          {individual.job_titles_id &&
+                          individual.job_titles_id.length > 0
+                            ? individual.job_titles_id
+                                .map((jt) => jt.job_title)
+                                .join(", ")
+                            : "Not available"}
+                        </div>
+                      )
+                    )}
+                  </div>
+                ) : Advisors_individuals && Advisors_individuals.length > 0 ? (
+                  <div className="info-grid">
+                    {Advisors_individuals.map((individual) => (
+                      <div
+                        key={`fallback-${individual.id}`}
+                        className="info-value"
+                      >
+                        {createClickableElement(
+                          `/individual/${individual.individuals_id}`,
+                          individual.advisor_individuals,
+                          undefined,
+                          { textDecoration: "none" }
+                        )}
+                        {": "}
+                        {individual.job_titles_id &&
+                        individual.job_titles_id.length > 0
+                          ? individual.job_titles_id
+                              .map((jt) => jt.job_title)
+                              .join(", ")
+                          : "Not available"}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="info-value">Not available</div>
+                )}
+              </div>
+              {/* Past */}
+              <div>
+                <h3 className="section-title" style={{ fontSize: 16 }}>
+                  Past:
+                </h3>
+                {rolesPast.length > 0 ? (
+                  <div className="info-grid">
+                    {rolesPast.map((role) => (
+                      <div key={`past-role-${role.id}`} className="info-value">
+                        {createClickableElement(
+                          `/individual/${role.individuals_id}`,
+                          role.advisor_individuals ||
+                            role.Individual_text ||
+                            "Unknown",
+                          undefined,
+                          { textDecoration: "none" }
+                        )}
+                        {": "}
+                        {role.job_titles_id && role.job_titles_id.length > 0
+                          ? role.job_titles_id
+                              .map((jt) => jt.job_title)
+                              .join(", ")
+                          : "Not available"}
+                      </div>
+                    ))}
+                  </div>
+                ) : advisorData.Advisors_individuals_past &&
+                  advisorData.Advisors_individuals_past.length > 0 ? (
+                  <div className="info-grid">
+                    {advisorData.Advisors_individuals_past.map((individual) => (
+                      <div key={`past-${individual.id}`} className="info-value">
+                        {createClickableElement(
+                          `/individual/${individual.individuals_id}`,
+                          individual.advisor_individuals,
+                          undefined,
+                          { textDecoration: "none" }
+                        )}
+                        {": "}
+                        {individual.job_titles_id &&
+                        individual.job_titles_id.length > 0
+                          ? individual.job_titles_id
+                              .map((jt) => jt.job_title)
+                              .join(", ")
+                          : "Not available"}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="info-value">Not available</div>
+                )}
+              </div>
             </div>
 
             {/* Description Section */}

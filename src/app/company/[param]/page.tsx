@@ -241,22 +241,50 @@ const formatDate = (dateString: string): string => {
 };
 
 const formatFinancialValue = (value: string, currency?: string): string => {
-  if (!value || value === "nan" || value === "null") return "Not available";
+  // Guard invalids
+  if (
+    !value ||
+    value.toLowerCase?.() === "nan" ||
+    value.toLowerCase?.() === "null"
+  ) {
+    return "Not available";
+  }
 
+  // Strip existing grouping separators and whitespace, keep minus and decimal point
+  const sanitized = value.replace(/,/g, "").trim();
+  const numeric = Number(sanitized);
+
+  // Fallback: if not a finite number, return as-is with currency prefix when valid
   const normalizedCurrency = (currency || "").toString().trim();
   const isDigitsOnly = /^\d+$/.test(normalizedCurrency);
 
-  // If currency is available and not a numeric id, prepend it to the value
+  if (!Number.isFinite(numeric)) {
+    if (
+      normalizedCurrency &&
+      !isDigitsOnly &&
+      normalizedCurrency.toLowerCase() !== "nan" &&
+      normalizedCurrency.toLowerCase() !== "null"
+    ) {
+      return `${normalizedCurrency}${value}`;
+    }
+    return value;
+  }
+
+  // Format with thousand separators (commas) and no decimals
+  const formattedNumber = new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+  }).format(numeric);
+
   if (
     normalizedCurrency &&
     !isDigitsOnly &&
     normalizedCurrency.toLowerCase() !== "nan" &&
     normalizedCurrency.toLowerCase() !== "null"
   ) {
-    return `${normalizedCurrency}${value}`;
+    return `${normalizedCurrency}${formattedNumber}`;
   }
 
-  return value;
+  return formattedNumber;
 };
 
 // Normalize various currency representations to a displayable 3-letter code
@@ -566,38 +594,44 @@ const CompanyDetail = () => {
     }
   }, [companyId]);
 
-  // Fetch Asymmetrix content articles related to this company (by name search)
-  const fetchCompanyArticles = useCallback(async (companyName: string) => {
-    if (!companyName) return;
-    setArticlesLoading(true);
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) return;
+  // Fetch Asymmetrix content articles related to this company (by company id)
+  const fetchCompanyArticles = useCallback(
+    async (companyIdForContent: string | number) => {
+      if (companyIdForContent === undefined || companyIdForContent === null)
+        return;
+      setArticlesLoading(true);
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) {
+          throw new Error("Missing auth token for content fetch");
+        }
 
-      const params = new URLSearchParams();
-      params.append("Offset", "1");
-      params.append("Per_page", "5");
-      params.append("search_query", companyName);
-
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (!response.ok)
-        throw new Error(`Articles fetch failed: ${response.status}`);
-      const data = await response.json();
-      setCompanyArticles((data?.items as ContentArticle[]) || []);
-    } catch (err) {
-      console.error("Error fetching company articles:", err);
-      setCompanyArticles([]);
-    } finally {
-      setArticlesLoading(false);
-    }
-  }, []);
+        const params = new URLSearchParams();
+        // API expects the misspelled key 'conpany_id'
+        params.append("conpany_id", String(companyIdForContent));
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_Content_Articles?${params.toString()}`;
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        if (!response.ok)
+          throw new Error(`Articles fetch failed: ${response.status}`);
+        const data = await response.json();
+        setCompanyArticles(
+          Array.isArray(data) ? (data as ContentArticle[]) : []
+        );
+      } catch (err) {
+        console.error("Error fetching company articles:", err);
+        setCompanyArticles([]);
+      } finally {
+        setArticlesLoading(false);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     const fetchCompanyData = async () => {
@@ -641,9 +675,9 @@ const CompanyDetail = () => {
         // Removed verbose logging of enriched object
 
         setCompany(enrichedCompany);
-        // Trigger fetching related articles using company name
-        if (enrichedCompany?.name) {
-          fetchCompanyArticles(enrichedCompany.name);
+        // Trigger fetching related articles using company id (requires auth)
+        if (enrichedCompany?.id) {
+          fetchCompanyArticles(enrichedCompany.id);
         }
       } catch (err) {
         const message =
@@ -810,7 +844,7 @@ const CompanyDetail = () => {
   );
 
   // Determine if there are articles to display
-  const hasArticles = Boolean(!articlesLoading && companyArticles.length > 0);
+  const hasArticles = companyArticles.length > 0;
 
   const styles = {
     container: {
@@ -1057,642 +1091,433 @@ const CompanyDetail = () => {
     },
   };
 
-  return React.createElement(
-    "div",
-    { className: "company-detail-page" },
-    React.createElement(Header, null),
-    React.createElement(
-      "div",
-      { style: styles.maxWidth },
-      React.createElement(
-        "div",
-        { style: styles.header },
-        React.createElement(
-          "div",
-          { style: styles.headerLeft },
-          React.createElement(CompanyLogo, {
-            logo: company._linkedin_data_of_new_company?.linkedin_logo,
-            name: company.name,
-          }),
-          React.createElement("h1", { style: styles.companyName }, company.name)
-        ),
-        React.createElement(
-          "div",
-          { style: styles.headerRight },
-          React.createElement(
-            "div",
-            { style: styles.scoreBadge },
-            "Asymmetrix Score: Coming Soon"
-          ),
-          React.createElement(
-            "a",
-            {
-              style: {
-                ...styles.reportButton,
-                display: "inline-flex",
-                alignItems: "center",
-              },
-              href: "mailto:a.boden@asymmetrixintelligence.com?subject=Report%20Incorrect%20Company%20Data&body=Please%20describe%20the%20issue%20you%20found.",
-            },
-            "Report Incorrect Data"
-          )
-        )
-      ),
-      React.createElement(
-        "div",
-        { style: styles.responsiveGrid, className: "responsiveGrid" },
-        React.createElement(
-          "div",
-          { style: styles.card, className: "card" },
-          React.createElement("h2", { style: styles.sectionTitle }, "Overview"),
-          React.createElement(
-            "div",
-            { style: styles.infoRow },
-            React.createElement(
-              "span",
-              { style: styles.label },
-              "Primary Sector:"
-            ),
-            React.createElement(
-              "div",
-              { style: styles.value },
-              primarySectors.length > 0
-                ? primarySectors.map((sector, index) => {
-                    const id = getSectorId(sector);
-                    return React.createElement(
-                      "span",
-                      { key: `${sector.sector_name}-${index}` },
-                      [
-                        id
-                          ? createClickableElement(
-                              `/sector/${id}`,
-                              sector.sector_name
-                            )
-                          : React.createElement(
-                              "span",
-                              { style: { color: "#000" } },
-                              sector.sector_name
-                            ),
-                        index < primarySectors.length - 1 && ", ",
-                      ]
-                    );
-                  })
-                : "Not available"
-            )
-          ),
-          React.createElement(
-            "div",
-            { style: styles.infoRow },
-            React.createElement(
-              "span",
-              { style: styles.label },
-              "Secondary Sector(s):"
-            ),
-            React.createElement(
-              "div",
-              { style: styles.value },
-              secondarySectors.length > 0
-                ? secondarySectors.map((sector, index) => {
-                    const id = getSectorId(sector);
-                    return React.createElement(
-                      "span",
-                      { key: `${sector.sector_name}-${index}` },
-                      [
-                        id
-                          ? createClickableElement(
-                              `/sector/${id}`,
-                              sector.sector_name
-                            )
-                          : React.createElement(
-                              "span",
-                              { style: { color: "#000" } },
-                              sector.sector_name
-                            ),
-                        index < secondarySectors.length - 1 && ", ",
-                      ]
-                    );
-                  })
-                : "Not available"
-            )
-          ),
-          React.createElement(
-            "div",
-            { style: styles.infoRow },
-            React.createElement(
-              "span",
-              { style: styles.label },
-              "Year Founded:"
-            ),
-            React.createElement(
-              "span",
-              { style: styles.value },
-              getYearFoundedDisplay(company)
-            )
-          ),
-          React.createElement(
-            "div",
-            { style: styles.infoRow },
-            React.createElement("span", { style: styles.label }, "Website:"),
-            React.createElement(
-              "span",
-              { style: styles.value },
-              company.url
-                ? React.createElement(
-                    "a",
-                    {
-                      href: company.url,
-                      target: "_blank",
-                      rel: "noopener noreferrer",
-                      style: styles.link,
-                    },
-                    company.url
-                  )
-                : "Not available"
-            )
-          ),
-          React.createElement(
-            "div",
-            { style: styles.infoRow },
-            React.createElement("span", { style: styles.label }, "Ownership:"),
-            React.createElement(
-              "span",
-              { style: styles.value },
-              company._ownership_type?.ownership || "Not available"
-            )
-          ),
-          React.createElement(
-            "div",
-            { style: styles.infoRow },
-            React.createElement("span", { style: styles.label }, "HQ:"),
-            React.createElement(
-              "span",
-              { style: styles.value },
-              fullAddress || "Not available"
-            )
-          ),
-          React.createElement(
-            "div",
-            { style: styles.infoRow },
-            React.createElement(
-              "span",
-              { style: styles.label },
-              "Lifecycle stage:"
-            ),
-            React.createElement(
-              "span",
-              { style: styles.value },
-              company.Lifecycle_stage?.Lifecycle_Stage || "Not available"
-            )
-          ),
-          React.createElement(
-            "div",
-            { style: styles.infoRow },
-            React.createElement("span", { style: styles.label }, "Investors:"),
-            React.createElement(
-              "span",
-              { style: styles.value },
-              company.investors && company.investors.length > 0
-                ? company.investors.map((investor, index) =>
-                    React.createElement("span", { key: investor.id }, [
-                      createClickableElement(
-                        `/investors/${investor.id}`,
-                        investor.name
-                      ),
-                      index < company.investors!.length - 1 && ", ",
-                    ])
-                  )
-                : "Not available"
-            )
-          ),
-          React.createElement(
-            "div",
-            { style: styles.infoRowLast },
-            React.createElement("span", { style: styles.label }, "Description:")
-          ),
-          React.createElement(
-            "div",
-            { style: styles.description },
-            company.description || "No description available"
-          )
-        ),
-        // Desktop Financial Metrics (stays in grid for desktop)
-        React.createElement(
-          "div",
-          { style: styles.card, className: "card desktop-financial-metrics" },
-          React.createElement(
-            "h2",
-            { style: styles.sectionTitle },
-            "Financial Metrics"
-          ),
-          React.createElement(
-            "div",
-            { style: styles.infoRow },
-            React.createElement(
-              "span",
-              { style: styles.label },
-              "Revenue (m):"
-            ),
-            React.createElement("span", { style: styles.value }, revenue)
-          ),
-          React.createElement(
-            "div",
-            { style: styles.infoRow },
-            React.createElement("span", { style: styles.label }, "EBITDA (m):"),
-            React.createElement("span", { style: styles.value }, ebitda)
-          ),
-          React.createElement(
-            "div",
-            { style: styles.infoRow },
-            React.createElement(
-              "span",
-              { style: styles.label },
-              "Enterprise Value:"
-            ),
-            React.createElement(
-              "span",
-              { style: styles.value },
-              enterpriseValue
-            )
-          ),
-          React.createElement(
-            "div",
-            { style: styles.chartContainer, className: "chartContainer" },
-            React.createElement(
-              "div",
-              { style: styles.chartTitle },
-              "LinkedIn Employee Count"
-            ),
-            React.createElement(
-              "div",
-              { style: styles.currentCount },
-              `${formatNumber(currentEmployeeCount)} employees`
-            ),
-            employeeData.length > 0
-              ? React.createElement(EmployeeChart, { data: employeeData })
-              : React.createElement(
-                  "div",
-                  {
-                    style: {
+  return (
+    <div className="company-detail-page" style={styles.container}>
+      <Header />
+      <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <div style={styles.maxWidth}>
+          {/* Header */}
+          <div style={styles.header}>
+            <div style={styles.headerLeft}>
+              <CompanyLogo
+                logo={company._linkedin_data_of_new_company?.linkedin_logo}
+                name={company.name}
+              />
+              <h1 style={styles.companyName}>{company.name}</h1>
+            </div>
+            <div style={styles.headerRight}>
+              <div style={styles.scoreBadge}>Asymmetrix Score: Coming Soon</div>
+              <a
+                style={{
+                  ...styles.reportButton,
+                  display: "inline-flex",
+                  alignItems: "center",
+                }}
+                href="mailto:a.boden@asymmetrixintelligence.com?subject=Report%20Incorrect%20Company%20Data&body=Please%20describe%20the%20issue%20you%20found."
+              >
+                Report Incorrect Data
+              </a>
+            </div>
+          </div>
+
+          {/* Desktop grid */}
+          <div style={styles.responsiveGrid} className="responsiveGrid">
+            {/* Overview card */}
+            <div style={styles.card} className="card">
+              <h2 style={styles.sectionTitle}>Overview</h2>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Primary Sector:</span>
+                <div style={styles.value}>
+                  {primarySectors.length > 0
+                    ? primarySectors.map((sector, index) => {
+                        const id = getSectorId(sector);
+                        return (
+                          <span key={`${sector.sector_name}-${index}`}>
+                            {id ? (
+                              createClickableElement(
+                                `/sector/${id}`,
+                                sector.sector_name
+                              )
+                            ) : (
+                              <span style={{ color: "#000" }}>
+                                {sector.sector_name}
+                              </span>
+                            )}
+                            {index < primarySectors.length - 1 && ", "}
+                          </span>
+                        );
+                      })
+                    : "Not available"}
+                </div>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Secondary Sector(s):</span>
+                <div style={styles.value}>
+                  {secondarySectors.length > 0
+                    ? secondarySectors.map((sector, index) => {
+                        const id = getSectorId(sector);
+                        return (
+                          <span key={`${sector.sector_name}-${index}`}>
+                            {id ? (
+                              createClickableElement(
+                                `/sector/${id}`,
+                                sector.sector_name
+                              )
+                            ) : (
+                              <span style={{ color: "#000" }}>
+                                {sector.sector_name}
+                              </span>
+                            )}
+                            {index < secondarySectors.length - 1 && ", "}
+                          </span>
+                        );
+                      })
+                    : "Not available"}
+                </div>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Year Founded:</span>
+                <span style={styles.value}>
+                  {getYearFoundedDisplay(company)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Website:</span>
+                <span style={styles.value}>
+                  {company.url ? (
+                    <a
+                      href={company.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={styles.link}
+                    >
+                      {company.url}
+                    </a>
+                  ) : (
+                    "Not available"
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Ownership:</span>
+                <span style={styles.value}>
+                  {company._ownership_type?.ownership || "Not available"}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>HQ:</span>
+                <span style={styles.value}>
+                  {fullAddress || "Not available"}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Lifecycle stage:</span>
+                <span style={styles.value}>
+                  {company.Lifecycle_stage?.Lifecycle_Stage || "Not available"}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Investors:</span>
+                <span style={styles.value}>
+                  {company.investors && company.investors.length > 0
+                    ? company.investors.map((investor, index) => (
+                        <span key={investor.id}>
+                          {createClickableElement(
+                            `/investors/${investor.id}`,
+                            investor.name
+                          )}
+                          {index < company.investors!.length - 1 && ", "}
+                        </span>
+                      ))
+                    : "Not available"}
+                </span>
+              </div>
+              <div style={styles.infoRowLast}>
+                <span style={styles.label}>Description:</span>
+              </div>
+              <div style={styles.description}>
+                {company.description || "No description available"}
+              </div>
+            </div>
+
+            {/* Desktop Financial Metrics */}
+            <div style={styles.card} className="card desktop-financial-metrics">
+              <h2 style={styles.sectionTitle}>Financial Metrics</h2>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue (m):</span>
+                <span style={styles.value}>{revenue}</span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>EBITDA (m):</span>
+                <span style={styles.value}>{ebitda}</span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Enterprise Value:</span>
+                <span style={styles.value}>{enterpriseValue}</span>
+              </div>
+              <div style={styles.chartContainer} className="chartContainer">
+                <div style={styles.chartTitle}>LinkedIn Employee Count</div>
+                <div style={styles.currentCount}>
+                  {formatNumber(currentEmployeeCount)} employees
+                </div>
+                {employeeData.length > 0 ? (
+                  <EmployeeChart data={employeeData} />
+                ) : (
+                  <div
+                    style={{
                       textAlign: "center",
                       padding: "40px",
                       color: "#666",
                       fontSize: "14px",
-                    },
-                  },
-                  "No employee data available"
-                )
-          )
-        )
-      ),
-      // Mobile Financial Metrics (shown on mobile)
-      React.createElement(
-        "div",
-        {
-          style: { display: "none", marginTop: "8px" },
-          className: "mobile-financial-metrics",
-        },
-        React.createElement(
-          "div",
-          {
-            style: {
-              ...styles.card,
-              width: "100%",
-              padding: "20px 16px", // Ensure consistent mobile padding
-            },
-          },
-          React.createElement(
-            "h2",
-            { style: styles.sectionTitle },
-            "Financial Metrics"
-          ),
-          React.createElement(
-            "div",
-            { style: styles.infoRow },
-            React.createElement(
-              "span",
-              { style: styles.label },
-              "Revenue (m):"
-            ),
-            React.createElement("span", { style: styles.value }, revenue)
-          ),
-          React.createElement(
-            "div",
-            { style: styles.infoRow },
-            React.createElement("span", { style: styles.label }, "EBITDA (m):"),
-            React.createElement("span", { style: styles.value }, ebitda)
-          ),
-          React.createElement(
-            "div",
-            { style: styles.infoRow },
-            React.createElement(
-              "span",
-              { style: styles.label },
-              "Enterprise Value:"
-            ),
-            React.createElement(
-              "span",
-              { style: styles.value },
-              enterpriseValue
-            )
-          ),
-          React.createElement(
-            "div",
-            { style: styles.chartContainer },
-            React.createElement(
-              "div",
-              { style: styles.chartTitle },
-              "LinkedIn Employee Count"
-            ),
-            React.createElement(
-              "div",
-              { style: styles.currentCount },
-              `${formatNumber(currentEmployeeCount)} employees`
-            ),
-            employeeData.length > 0
-              ? React.createElement(EmployeeChart, { data: employeeData })
-              : React.createElement(
-                  "div",
-                  {
-                    style: {
+                    }}
+                  >
+                    No employee data available
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile Financial Metrics */}
+          <div
+            style={{ display: "none", marginTop: "8px" }}
+            className="mobile-financial-metrics"
+          >
+            <div
+              style={{
+                ...styles.card,
+                width: "100%",
+                padding: "20px 16px",
+              }}
+            >
+              <h2 style={styles.sectionTitle}>Financial Metrics</h2>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue (m):</span>
+                <span style={styles.value}>{revenue}</span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>EBITDA (m):</span>
+                <span style={styles.value}>{ebitda}</span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Enterprise Value:</span>
+                <span style={styles.value}>{enterpriseValue}</span>
+              </div>
+              <div style={styles.chartContainer}>
+                <div style={styles.chartTitle}>LinkedIn Employee Count</div>
+                <div style={styles.currentCount}>
+                  {formatNumber(currentEmployeeCount)} employees
+                </div>
+                {employeeData.length > 0 ? (
+                  <EmployeeChart data={employeeData} />
+                ) : (
+                  <div
+                    style={{
                       textAlign: "center",
                       padding: "40px",
                       color: "#666",
                       fontSize: "14px",
-                    },
-                  },
-                  "No employee data available"
-                )
-          )
-        )
-      ),
-      // LinkedIn section (desktop only) - only render if LinkedIn URL exists
-      company._linkedin_data_of_new_company?.LinkedIn_URL &&
-        React.createElement(
-          "div",
-          { style: styles.card, className: "desktop-linkedin-section" },
-          React.createElement(
-            "div",
-            { style: { display: "flex", justifyContent: "center" } },
-            React.createElement(
-              "a",
-              {
-                href: company._linkedin_data_of_new_company.LinkedIn_URL,
-                target: "_blank",
-                rel: "noopener noreferrer",
-                style: styles.linkedinLink,
-              },
-              [
-                React.createElement(
-                  "svg",
-                  {
-                    key: "svg",
-                    width: "20",
-                    height: "20",
-                    viewBox: "0 0 24 24",
-                    fill: "currentColor",
-                  },
-                  React.createElement("path", {
-                    d: "M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z",
-                  })
-                ),
-                "View on LinkedIn",
-              ]
-            )
-          )
-        ),
-      // Management section
-      hasManagement &&
-        React.createElement(
-          "div",
-          { style: { ...styles.card, marginTop: "32px" } },
-          React.createElement(
-            "h2",
-            { style: { ...styles.sectionTitle, marginBottom: "32px" } },
-            "Management"
-          ),
-          React.createElement(
-            "div",
-            {
-              style: {
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "24px",
-              },
-              className: "management-grid",
-            },
-            React.createElement(
-              "div",
-              null,
-              React.createElement(
-                "h3",
-                {
-                  style: {
-                    ...styles.label,
-                    fontSize: "16px",
-                    marginBottom: "16px",
-                    fontWeight: "600",
-                  },
-                },
-                "Current:"
-              ),
-              (() => {
-                console.log("=== MANAGEMENT RENDERING CHECK ===");
-                console.log(
-                  "company.Managmant_Roles_current:",
-                  company.Managmant_Roles_current
-                );
-                console.log(
-                  "Is array?",
-                  Array.isArray(company.Managmant_Roles_current)
-                );
-                console.log("Length:", company.Managmant_Roles_current?.length);
-                console.log(
-                  "Condition result:",
-                  company.Managmant_Roles_current &&
-                    company.Managmant_Roles_current.length > 0
-                );
-                console.log("===================================");
-                return company.Managmant_Roles_current &&
-                  company.Managmant_Roles_current.length > 0
-                  ? company.Managmant_Roles_current.map((person) => {
-                      console.log(
-                        "Rendering current management person:",
-                        person
-                      );
-                      return React.createElement(
-                        "div",
-                        {
-                          key: person.id,
-                          style: { marginBottom: "12px", fontSize: "14px" },
-                        },
-                        createClickableElement(
+                    }}
+                  >
+                    No employee data available
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* LinkedIn section (desktop only) */}
+          {company._linkedin_data_of_new_company?.LinkedIn_URL && (
+            <div style={styles.card} className="desktop-linkedin-section">
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <a
+                  href={company._linkedin_data_of_new_company.LinkedIn_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={styles.linkedinLink}
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                  </svg>
+                  View on LinkedIn
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* Management section */}
+          {hasManagement && (
+            <div style={{ ...styles.card, marginTop: "32px" }}>
+              <h2 style={{ ...styles.sectionTitle, marginBottom: "32px" }}>
+                Management
+              </h2>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "24px",
+                }}
+                className="management-grid"
+              >
+                <div>
+                  <h3
+                    style={{
+                      ...styles.label,
+                      fontSize: "16px",
+                      marginBottom: "16px",
+                      fontWeight: "600",
+                    }}
+                  >
+                    Current:
+                  </h3>
+                  {company.Managmant_Roles_current &&
+                  company.Managmant_Roles_current.length > 0 ? (
+                    company.Managmant_Roles_current.map((person) => (
+                      <div
+                        key={person.id}
+                        style={{ marginBottom: "12px", fontSize: "14px" }}
+                      >
+                        {createClickableElement(
                           `/individual/${person.individuals_id}`,
                           `${person.Individual_text}: ${person.job_titles_id
                             .map((job) => job.job_title)
                             .join(", ")}`
-                        )
-                      );
-                    })
-                  : React.createElement(
-                      "div",
-                      { style: { color: "#6b7280", fontSize: "14px" } },
-                      "Not available"
-                    );
-              })()
-            ),
-            React.createElement(
-              "div",
-              null,
-              React.createElement(
-                "h3",
-                {
-                  style: {
-                    ...styles.label,
-                    fontSize: "16px",
-                    marginBottom: "16px",
-                    fontWeight: "600",
-                  },
-                },
-                "Past:"
-              ),
-              company.Managmant_Roles_past &&
-                company.Managmant_Roles_past.length > 0
-                ? company.Managmant_Roles_past.map((person) => {
-                    console.log("Rendering past management person:", person);
-                    return React.createElement(
-                      "div",
-                      {
-                        key: person.id,
-                        style: { marginBottom: "12px", fontSize: "14px" },
-                      },
-                      createClickableElement(
-                        `/individual/${person.individuals_id}`,
-                        `${person.Individual_text}: ${person.job_titles_id
-                          .map((job) => job.job_title)
-                          .join(", ")}`
-                      )
-                    );
-                  })
-                : React.createElement(
-                    "div",
-                    { style: { color: "#6b7280", fontSize: "14px" } },
-                    "Not available"
-                  )
-            )
-          )
-        ),
-      // Current Subsidiaries section
-      hasSubsidiaries &&
-        React.createElement(
-          "div",
-          { style: { ...styles.card, marginTop: "32px" } },
-          React.createElement(
-            "div",
-            {
-              style: {
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "24px",
-              },
-            },
-            React.createElement(
-              "h2",
-              { style: styles.sectionTitle },
-              "Current Subsidiaries"
-            ),
-            company.have_subsidiaries_companies?.Subsidiaries_companies &&
-              company.have_subsidiaries_companies.Subsidiaries_companies
-                .length > 3
-              ? React.createElement(
-                  "button",
-                  {
-                    onClick: () => setShowAllSubsidiaries((prev) => !prev),
-                    style: {
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ color: "#6b7280", fontSize: "14px" }}>
+                      Not available
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h3
+                    style={{
+                      ...styles.label,
+                      fontSize: "16px",
+                      marginBottom: "16px",
+                      fontWeight: "600",
+                    }}
+                  >
+                    Past:
+                  </h3>
+                  {company.Managmant_Roles_past &&
+                  company.Managmant_Roles_past.length > 0 ? (
+                    company.Managmant_Roles_past.map((person) => (
+                      <div
+                        key={person.id}
+                        style={{ marginBottom: "12px", fontSize: "14px" }}
+                      >
+                        {createClickableElement(
+                          `/individual/${person.individuals_id}`,
+                          `${person.Individual_text}: ${person.job_titles_id
+                            .map((job) => job.job_title)
+                            .join(", ")}`
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ color: "#6b7280", fontSize: "14px" }}>
+                      Not available
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Current Subsidiaries section */}
+          {hasSubsidiaries && (
+            <div style={{ ...styles.card, marginTop: "32px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "24px",
+                }}
+              >
+                <h2 style={styles.sectionTitle}>Current Subsidiaries</h2>
+                {company.have_subsidiaries_companies?.Subsidiaries_companies &&
+                company.have_subsidiaries_companies.Subsidiaries_companies
+                  .length > 3 ? (
+                  <button
+                    onClick={() => setShowAllSubsidiaries((prev) => !prev)}
+                    style={{
                       background: "none",
                       border: "none",
                       color: "#0075df",
                       fontSize: "14px",
                       textDecoration: "underline",
                       cursor: "pointer",
-                    },
-                  },
-                  showAllSubsidiaries ? "Show less" : "See more"
-                )
-              : null
-          ),
-          React.createElement(
-            "div",
-            { style: { overflowX: "auto" } },
-            React.createElement(
-              "table",
-              { style: { width: "100%", borderCollapse: "collapse" } },
-              React.createElement(
-                "thead",
-                null,
-                React.createElement(
-                  "tr",
-                  null,
-                  [
-                    "Logo",
-                    "Name",
-                    "Description",
-                    "Sectors",
-                    "LinkedIn Members",
-                    "Country",
-                  ].map((header) =>
-                    React.createElement(
-                      "th",
-                      {
-                        key: header,
-                        style: {
-                          textAlign: "left",
-                          padding: "12px 8px",
-                          borderBottom: "1px solid #e2e8f0",
-                          fontSize: "14px",
-                          fontWeight: "600",
-                          color: "#4a5568",
-                        },
-                      },
-                      header
-                    )
-                  )
-                )
-              ),
-              React.createElement(
-                "tbody",
-                null,
-                (
-                  company.have_subsidiaries_companies?.Subsidiaries_companies ??
-                  []
-                )
-                  .slice(0, showAllSubsidiaries ? undefined : 3)
-                  .map((subsidiary) =>
-                    React.createElement(
-                      "tr",
-                      { key: subsidiary.id },
-                      React.createElement(
-                        "td",
-                        {
-                          style: {
+                    }}
+                  >
+                    {showAllSubsidiaries ? "Show less" : "See more"}
+                  </button>
+                ) : null}
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      {[
+                        "Logo",
+                        "Name",
+                        "Description",
+                        "Sectors",
+                        "LinkedIn Members",
+                        "Country",
+                      ].map((header) => (
+                        <th
+                          key={header}
+                          style={{
+                            textAlign: "left",
                             padding: "12px 8px",
                             borderBottom: "1px solid #e2e8f0",
-                          },
-                        },
-                        subsidiary._linkedin_data_of_new_company?.linkedin_logo
-                          ? React.createElement("img", {
-                              src: `data:image/jpeg;base64,${subsidiary._linkedin_data_of_new_company.linkedin_logo}`,
-                              alt: `${subsidiary.name} logo`,
-                              style: {
-                                width: "40px",
-                                height: "30px",
-                                objectFit: "contain",
-                              },
-                            })
-                          : React.createElement(
-                              "div",
-                              {
-                                style: {
+                            fontSize: "14px",
+                            fontWeight: "600",
+                            color: "#4a5568",
+                          }}
+                        >
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(
+                      company.have_subsidiaries_companies
+                        ?.Subsidiaries_companies ?? []
+                    )
+                      .slice(0, showAllSubsidiaries ? undefined : 3)
+                      .map((subsidiary) => (
+                        <tr key={subsidiary.id}>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                            }}
+                          >
+                            {subsidiary._linkedin_data_of_new_company
+                              ?.linkedin_logo ? (
+                              <img
+                                src={`data:image/jpeg;base64,${subsidiary._linkedin_data_of_new_company.linkedin_logo}`}
+                                alt={`${subsidiary.name} logo`}
+                                style={{
+                                  width: "40px",
+                                  height: "30px",
+                                  objectFit: "contain",
+                                }}
+                              />
+                            ) : (
+                              <div
+                                style={{
                                   width: "40px",
                                   height: "30px",
                                   backgroundColor: "#f7fafc",
@@ -1702,52 +1527,46 @@ const CompanyDetail = () => {
                                   justifyContent: "center",
                                   fontSize: "10px",
                                   color: "#718096",
-                                },
-                              },
-                              "N/A"
-                            )
-                      ),
-                      React.createElement(
-                        "td",
-                        {
-                          style: {
-                            padding: "12px 8px",
-                            borderBottom: "1px solid #e2e8f0",
-                          },
-                        },
-                        createClickableElement(
-                          `/company/${subsidiary.id}`,
-                          subsidiary.name
-                        )
-                      ),
-                      React.createElement(
-                        "td",
-                        {
-                          style: {
-                            padding: "12px 8px",
-                            borderBottom: "1px solid #e2e8f0",
-                            fontSize: "14px",
-                            maxWidth: "300px",
-                          },
-                        },
-                        subsidiary.description
-                          ? React.createElement(
-                              "div",
-                              null,
-                              expandedDescriptions.has(subsidiary.id) ||
+                                }}
+                              >
+                                N/A
+                              </div>
+                            )}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                            }}
+                          >
+                            {createClickableElement(
+                              `/company/${subsidiary.id}`,
+                              subsidiary.name
+                            )}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                              maxWidth: "300px",
+                            }}
+                          >
+                            {subsidiary.description ? (
+                              <div>
+                                {expandedDescriptions.has(subsidiary.id) ||
                                 subsidiary.description.length <= 100
-                                ? subsidiary.description
-                                : `${subsidiary.description.substring(
-                                    0,
-                                    100
-                                  )}...`,
-                              subsidiary.description.length > 100 &&
-                                React.createElement(
-                                  "button",
-                                  {
-                                    onClick: () =>
-                                      toggleDescription(subsidiary.id),
-                                    style: {
+                                  ? subsidiary.description
+                                  : `${subsidiary.description.substring(
+                                      0,
+                                      100
+                                    )}...`}
+                                {subsidiary.description.length > 100 && (
+                                  <button
+                                    onClick={() =>
+                                      toggleDescription(subsidiary.id)
+                                    }
+                                    style={{
                                       background: "none",
                                       border: "none",
                                       color: "#0075df",
@@ -1756,378 +1575,368 @@ const CompanyDetail = () => {
                                       textDecoration: "underline",
                                       marginLeft: "4px",
                                       padding: "0",
-                                    },
-                                  },
-                                  expandedDescriptions.has(subsidiary.id)
-                                    ? "Show less"
-                                    : "Expand description"
-                                )
-                            )
-                          : "N/A"
-                      ),
-                      React.createElement(
-                        "td",
-                        {
-                          style: {
-                            padding: "12px 8px",
-                            borderBottom: "1px solid #e2e8f0",
-                            fontSize: "14px",
-                          },
-                        },
-                        subsidiary.sectors_id
-                          ?.map((sector) => sector.sector_name)
-                          .join(", ") || "N/A"
-                      ),
-                      React.createElement(
-                        "td",
-                        {
-                          style: {
-                            padding: "12px 8px",
-                            borderBottom: "1px solid #e2e8f0",
-                            fontSize: "14px",
-                            textAlign: "center",
-                          },
-                        },
-                        subsidiary._linkedin_data_of_new_company
-                          ?.linkedin_employee || "N/A"
-                      ),
-                      React.createElement(
-                        "td",
-                        {
-                          style: {
-                            padding: "12px 8px",
-                            borderBottom: "1px solid #e2e8f0",
-                            fontSize: "14px",
-                          },
-                        },
-                        subsidiary._locations?.Country || "N/A"
-                      )
-                    )
-                  )
-              )
-            ),
-            // Corporate Events section
-            (corporateEventsLoading || corporateEvents.length > 0) &&
-              React.createElement(
-                "div",
-                { style: { ...styles.card, marginTop: "32px" } },
-                React.createElement(
-                  "div",
-                  {
-                    style: {
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "24px",
-                    },
-                  },
-                  React.createElement(
-                    "h2",
-                    { style: styles.sectionTitle },
-                    "Corporate Events"
-                  )
-                ),
-                corporateEventsLoading
-                  ? React.createElement(
-                      "div",
-                      {
-                        style: {
-                          textAlign: "center",
-                          padding: "40px",
-                          color: "#666",
-                          fontSize: "14px",
-                        },
-                      },
-                      "Loading corporate events..."
-                    )
-                  : React.createElement(
-                      "div",
-                      { style: { overflowX: "auto" } },
-                      React.createElement(
-                        "table",
-                        {
-                          style: { width: "100%", borderCollapse: "collapse" },
-                        },
-                        React.createElement(
-                          "thead",
-                          null,
-                          React.createElement(
-                            "tr",
-                            null,
-                            [
-                              "Description",
-                              "Date Announced",
-                              "Type",
-                              "Counterparty status",
-                              "Other counterparties",
-                              "Enterprise value",
-                              "Advisors",
-                            ].map((header) =>
-                              React.createElement(
-                                "th",
-                                {
-                                  key: header,
-                                  style: {
-                                    textAlign: "left",
-                                    padding: "12px 8px",
-                                    borderBottom: "1px solid #e2e8f0",
-                                    fontSize: "14px",
-                                    fontWeight: "600",
-                                    color: "#4a5568",
-                                  },
-                                },
-                                header
-                              )
-                            )
-                          )
-                        ),
-                        React.createElement(
-                          "tbody",
-                          null,
-                          (showAllCorporateEvents
-                            ? corporateEvents
-                            : corporateEvents.slice(0, 3)
-                          ).map((event, index) =>
-                            React.createElement(
-                              "tr",
-                              { key: event.id || index },
-                              React.createElement(
-                                "td",
-                                {
-                                  style: {
-                                    padding: "12px 8px",
-                                    borderBottom: "1px solid #e2e8f0",
-                                  },
-                                },
-                                createClickableElement(
-                                  `/corporate-event/${event.id}`,
-                                  event.description
-                                )
-                              ),
-                              React.createElement(
-                                "td",
-                                {
-                                  style: {
-                                    padding: "12px 8px",
-                                    borderBottom: "1px solid #e2e8f0",
-                                    fontSize: "14px",
-                                  },
-                                },
-                                new Date(
-                                  event.announcement_date
-                                ).toLocaleDateString()
-                              ),
-                              React.createElement(
-                                "td",
-                                {
-                                  style: {
-                                    padding: "12px 8px",
-                                    borderBottom: "1px solid #e2e8f0",
-                                    fontSize: "14px",
-                                  },
-                                },
-                                event.deal_type || "N/A"
-                              ),
-                              React.createElement(
-                                "td",
-                                {
-                                  style: {
-                                    padding: "12px 8px",
-                                    borderBottom: "1px solid #e2e8f0",
-                                    fontSize: "14px",
-                                  },
-                                },
-                                event.counterparty_status?.counterparty_syayus
-                                  ?.counterparty_status || "N/A"
-                              ),
-                              React.createElement(
-                                "td",
-                                {
-                                  style: {
-                                    padding: "12px 8px",
-                                    borderBottom: "1px solid #e2e8f0",
-                                    fontSize: "14px",
-                                  },
-                                },
-                                [
-                                  ...(event["0"] || []).map(
-                                    (item) => item._new_company?.name
-                                  ),
-                                  ...(event["1"] || []).map(
-                                    (item) => item._new_company?.name
-                                  ),
-                                ]
-                                  .filter(Boolean)
-                                  .join(", ") || "N/A"
-                              ),
-                              React.createElement(
-                                "td",
-                                {
-                                  style: {
-                                    padding: "12px 8px",
-                                    borderBottom: "1px solid #e2e8f0",
-                                    fontSize: "14px",
-                                  },
-                                },
-                                event.ev_data?.enterprise_value_m
-                                  ? `$${event.ev_data.enterprise_value_m}M`
-                                  : event.ev_data?.ev_band || "Not available"
-                              ),
-                              React.createElement(
-                                "td",
-                                {
-                                  style: {
-                                    padding: "12px 8px",
-                                    borderBottom: "1px solid #e2e8f0",
-                                    fontSize: "14px",
-                                  },
-                                },
-                                "N/A"
-                              )
-                            )
-                          )
-                        )
-                      ),
-                      // Show "See More" button if there are more than 3 events
-                      corporateEvents.length > 3 &&
-                        React.createElement(
-                          "div",
-                          {
-                            style: {
+                                    }}
+                                  >
+                                    {expandedDescriptions.has(subsidiary.id)
+                                      ? "Show less"
+                                      : "Expand description"}
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              "N/A"
+                            )}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            }}
+                          >
+                            {subsidiary.sectors_id
+                              ?.map((sector) => sector.sector_name)
+                              .join(", ") || "N/A"}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
                               textAlign: "center",
-                              marginTop: "16px",
-                            },
-                          },
-                          React.createElement(
-                            "button",
-                            {
-                              onClick: () =>
-                                setShowAllCorporateEvents(
-                                  !showAllCorporateEvents
-                                ),
-                              style: {
-                                background: "none",
-                                border: "none",
-                                color: "#0075df",
-                                textDecoration: "underline",
-                                cursor: "pointer",
-                                fontSize: "14px",
-                                padding: "8px 0",
-                              },
-                            },
-                            showAllCorporateEvents ? "Show Less" : "See More"
-                          )
-                        )
-                    )
-              ),
-            // Asymmetrix Content (Insights & Analysis) related to this company
-            hasArticles &&
-              React.createElement(
-                "div",
-                { style: { ...styles.card, marginTop: "32px" } },
-                React.createElement(
-                  "div",
-                  {
-                    style: {
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "24px",
-                    },
-                  },
-                  React.createElement(
-                    "h2",
-                    { style: styles.sectionTitle },
-                    "Asymmetrix Insights & Analysis"
-                  )
-                ),
-                articlesLoading
-                  ? React.createElement(
-                      "div",
-                      {
-                        style: {
-                          textAlign: "center",
-                          padding: "40px",
-                          color: "#666",
+                            }}
+                          >
+                            {subsidiary._linkedin_data_of_new_company
+                              ?.linkedin_employee || "N/A"}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            }}
+                          >
+                            {subsidiary._locations?.Country || "N/A"}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Corporate Events section */}
+          {(corporateEventsLoading || corporateEvents.length > 0) && (
+            <div style={{ ...styles.card, marginTop: "32px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "24px",
+                }}
+              >
+                <h2 style={styles.sectionTitle}>Corporate Events</h2>
+              </div>
+              {corporateEventsLoading ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "40px",
+                    color: "#666",
+                    fontSize: "14px",
+                  }}
+                >
+                  Loading corporate events...
+                </div>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr>
+                        {[
+                          "Description",
+                          "Date Announced",
+                          "Type",
+                          "Counterparty status",
+                          "Other counterparties",
+                          "Investment",
+                          "Enterprise value",
+                          "Advisors",
+                        ].map((header) => (
+                          <th
+                            key={header}
+                            style={{
+                              textAlign: "left",
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                              fontWeight: "600",
+                              color: "#4a5568",
+                            }}
+                          >
+                            {header}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(showAllCorporateEvents
+                        ? corporateEvents
+                        : corporateEvents.slice(0, 3)
+                      ).map((event, index) => (
+                        <tr key={event.id || index}>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                            }}
+                          >
+                            {createClickableElement(
+                              `/corporate-event/${event.id}`,
+                              event.description
+                            )}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            }}
+                          >
+                            {new Date(
+                              event.announcement_date
+                            ).toLocaleDateString()}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            }}
+                          >
+                            {event.deal_type || "N/A"}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            }}
+                          >
+                            {event.counterparty_status?.counterparty_syayus
+                              ?.counterparty_status || "N/A"}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            }}
+                          >
+                            {[
+                              ...(event["0"] || []).map(
+                                (item) => item._new_company?.name
+                              ),
+                              ...(event["1"] || []).map(
+                                (item) => item._new_company?.name
+                              ),
+                            ]
+                              .filter(Boolean)
+                              .join(", ") || "N/A"}
+                          </td>
+                          {/* Investment */}
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            }}
+                          >
+                            {(() => {
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                              const anyEvent: any = event as any;
+                              const amount = anyEvent?.investment_data
+                                ?.investment_amount_m as
+                                | number
+                                | string
+                                | undefined;
+                              const currency: string | undefined =
+                                anyEvent?.investment_data?.currency?.Currency;
+                              if (amount != null && currency) {
+                                const n = Number(amount);
+                                if (!Number.isNaN(n)) {
+                                  return `${currency}${n.toLocaleString()}m`;
+                                }
+                              }
+                              return "Not available";
+                            })()}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            }}
+                          >
+                            {(() => {
+                              const amount = event.ev_data
+                                ?.enterprise_value_m as
+                                | number
+                                | string
+                                | undefined;
+                              // Support either ev_data.currency.Currency or ev_data._currency.Currency
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                              const anyEv: any = event.ev_data as any;
+                              const currency: string | undefined =
+                                anyEv?.currency?.Currency ||
+                                anyEv?._currency?.Currency;
+                              if (amount != null && currency) {
+                                const n = Number(amount);
+                                if (!Number.isNaN(n)) {
+                                  return `${currency}${n.toLocaleString()}m`;
+                                }
+                              }
+                              return event.ev_data?.ev_band || "Not available";
+                            })()}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: "14px",
+                            }}
+                          >
+                            N/A
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {/* Show "See More" button if there are more than 3 events */}
+                  {corporateEvents.length > 3 && (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        marginTop: "16px",
+                      }}
+                    >
+                      <button
+                        onClick={() =>
+                          setShowAllCorporateEvents(!showAllCorporateEvents)
+                        }
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#0075df",
+                          textDecoration: "underline",
+                          cursor: "pointer",
                           fontSize: "14px",
-                        },
-                      },
-                      "Loading content..."
-                    )
-                  : companyArticles.length > 0
-                  ? React.createElement(
-                      "div",
-                      {
-                        style: {
-                          display: "grid",
-                          gridTemplateColumns: "1fr 1fr",
-                          gap: "16px",
-                        },
-                      },
-                      companyArticles.slice(0, 4).map((article) =>
-                        React.createElement(
-                          "div",
-                          {
-                            key: article.id,
-                            style: {
-                              border: "1px solid #e2e8f0",
-                              borderRadius: "8px",
-                              padding: "12px 12px",
-                              cursor: "pointer",
-                              background: "#fff",
-                            },
-                            onClick: () =>
-                              (window.location.href = `/article/${article.id}`),
-                          },
-                          React.createElement(
-                            "div",
-                            {
-                              style: {
-                                fontWeight: 700,
-                                marginBottom: 6,
-                                color: "#1a202c",
-                              },
-                            },
-                            article.Headline || "Untitled"
-                          ),
-                          React.createElement(
-                            "div",
-                            {
-                              style: {
-                                fontSize: 12,
-                                color: "#6b7280",
-                                marginBottom: 8,
-                              },
-                            },
-                            new Date(
-                              article.Publication_Date
-                            ).toLocaleDateString()
-                          ),
-                          React.createElement(
-                            "div",
-                            { style: { fontSize: 14, color: "#374151" } },
-                            article.Strapline || ""
-                          )
-                        )
-                      )
-                    )
-                  : React.createElement(
-                      "div",
-                      {
-                        style: {
-                          textAlign: "center",
-                          padding: "40px",
-                          color: "#666",
-                          fontSize: "14px",
-                        },
-                      },
-                      "No related content found"
-                    )
-              ),
-            React.createElement(Footer, null)
-          )
-        )
-    )
+                          padding: "8px 0",
+                        }}
+                      >
+                        {showAllCorporateEvents ? "Show Less" : "See More"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Asymmetrix Content (Insights & Analysis) related to this company */}
+          {hasArticles && (
+            <div style={{ ...styles.card, marginTop: "32px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "24px",
+                }}
+              >
+                <h2 style={styles.sectionTitle}>
+                  Asymmetrix Insights & Analysis
+                </h2>
+              </div>
+              {articlesLoading ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "40px",
+                    color: "#666",
+                    fontSize: "14px",
+                  }}
+                >
+                  Loading content...
+                </div>
+              ) : companyArticles.length > 0 ? (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "16px",
+                  }}
+                >
+                  {companyArticles.slice(0, 4).map((article) => (
+                    <div
+                      key={article.id}
+                      style={{
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "8px",
+                        padding: "12px 12px",
+                        cursor: "pointer",
+                        background: "#fff",
+                      }}
+                      onClick={() =>
+                        (window.location.href = `/article/${article.id}`)
+                      }
+                    >
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          marginBottom: 6,
+                          color: "#1a202c",
+                        }}
+                      >
+                        {article.Headline || "Untitled"}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "#6b7280",
+                          marginBottom: 8,
+                        }}
+                      >
+                        {new Date(
+                          article.Publication_Date
+                        ).toLocaleDateString()}
+                      </div>
+                      <div style={{ fontSize: 14, color: "#374151" }}>
+                        {article.Strapline || ""}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "40px",
+                    color: "#666",
+                    fontSize: "14px",
+                  }}
+                >
+                  No related content found
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
+      <Footer />
+    </div>
   );
 };
 
