@@ -216,6 +216,8 @@ export default function IndividualProfilePage() {
               fontSize: "14px",
               textDecoration: "none",
             }}
+            target="_blank"
+            rel="noopener noreferrer"
           >
             Report Incorrect Data
           </a>

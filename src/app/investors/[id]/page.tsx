@@ -120,6 +120,7 @@ interface CorporateEvent {
     _new_company?: {
       id?: number;
       name: string;
+      _is_that_investor?: boolean;
     };
   }>;
   "1"?: Array<{
@@ -926,12 +927,15 @@ const InvestorDetailPage = () => {
   const mappedCorporateEvents = corporateEvents.map((event, index) => {
     const counterparties = event["0"] || [];
 
-    // Get other counterparties (filter out new_company_counterparty === 6662 if needed)
+    // Build other counterparties with id and investor flag for proper routing
     const otherCounterparties = counterparties
       .filter((c) => c._new_company?.name)
-      .map((c) => c._new_company?.name || "")
-      .filter(Boolean)
-      .join(", ");
+      .map((c) => ({
+        id: c._new_company?.id as number | undefined,
+        name: c._new_company?.name || "",
+        isInvestor: Boolean(c._new_company?._is_that_investor),
+      }))
+      .filter((c) => Boolean(c.name));
 
     // Get advisors if present in index "1"
     const advisorEntries = event["1"] || [];
@@ -951,7 +955,8 @@ const InvestorDetailPage = () => {
       counterparty_status:
         event.counterparty_status?.counterparty_syayus?.counterparty_status ||
         "—",
-      other_counterparties: otherCounterparties || "—",
+      other_counterparties:
+        otherCounterparties.length > 0 ? otherCounterparties : "—",
       enterprise_value: event.ev_data?.enterprise_value_m
         ? `$${Number(event.ev_data.enterprise_value_m).toLocaleString()}m`
         : event.ev_data?.ev_band || "—",
@@ -1296,7 +1301,12 @@ const InvestorDetailPage = () => {
               </div>
             </div>
           </div>
-          <a href={reportMailTo} className="report-button">
+          <a
+            href={reportMailTo}
+            className="report-button"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             Report Incorrect Data
           </a>
         </div>
@@ -2205,50 +2215,27 @@ const InvestorDetailPage = () => {
                                 fontSize: "12px",
                               }}
                             >
-                              {event.other_counterparties !== "—"
-                                ? event.other_counterparties
-                                    .split(", ")
-                                    .map((companyName, index) => (
-                                      <span key={index}>
-                                        <span
-                                          style={{
-                                            color: "#3b82f6",
-                                            textDecoration: "none",
-                                            fontWeight: "500",
-                                            cursor: "pointer",
-                                          }}
-                                          onClick={() => {
-                                            console.log(
-                                              "Other counterparty clicked:",
-                                              companyName
-                                            );
-                                            if (event.id) {
-                                              router.push(
-                                                `/corporate-event/${event.id}`
-                                              );
-                                            }
-                                          }}
-                                          onContextMenu={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            if (event.id) {
-                                              window.open(
-                                                `/corporate-event/${event.id}`,
-                                                "_blank",
-                                                "noopener,noreferrer"
-                                              );
-                                            }
-                                          }}
-                                          title="Left click to open event, Right click to open in new tab"
-                                        >
-                                          {companyName}
-                                        </span>
-                                        {index <
-                                          event.other_counterparties.split(", ")
-                                            .length -
-                                            1 && ", "}
-                                      </span>
-                                    ))
+                              {Array.isArray(event.other_counterparties)
+                                ? event.other_counterparties.map((cp, idx) => (
+                                    <span key={`${cp.id ?? cp.name}-${idx}`}>
+                                      {createClickableElement(
+                                        cp?.isInvestor && cp.id
+                                          ? `/investors/${cp.id}`
+                                          : cp.id
+                                          ? `/company/${cp.id}`
+                                          : `/companies?search=${encodeURIComponent(
+                                              cp.name || ""
+                                            )}`,
+                                        cp.name || "Unknown",
+                                        undefined,
+                                        { fontSize: "12px" }
+                                      )}
+                                      {idx <
+                                      event.other_counterparties.length - 1
+                                        ? ", "
+                                        : ""}
+                                    </span>
+                                  ))
                                 : "—"}
                             </td>
                             <td style={{ padding: "12px" }}>

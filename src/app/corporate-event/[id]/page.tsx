@@ -325,6 +325,8 @@ const CorporateEventDetail = ({
               )}&body=${encodeURIComponent(
                 "Please describe the issue you found for this corporate event page."
               )}`}
+              target="_blank"
+              rel="noopener noreferrer"
             >
               Report Incorrect Data
             </a>

@@ -170,18 +170,7 @@ export default function AdvisorProfilePage() {
     router.push(`/advisor/${advisorId}`);
   };
 
-  const handleCorporateEventClick = (eventId: number) => {
-    console.log("Corporate event clicked:", eventId);
-    if (!eventId) {
-      console.error("Event ID is missing:", eventId);
-      return;
-    }
-    try {
-      router.push(`/corporate-event/${eventId}`);
-    } catch (error) {
-      console.error("Error navigating to corporate event:", error);
-    }
-  };
+  // Replaced corporate event navigation with right-clickable links via createClickableElement
 
   // Removed unused handler; replaced by mailto link button
 
@@ -613,6 +602,8 @@ export default function AdvisorProfilePage() {
             )}&body=${encodeURIComponent(
               "Please describe the issue you found for this advisor page."
             )}`}
+            target="_blank"
+            rel="noopener noreferrer"
           >
             Report Incorrect Data
           </a>
@@ -963,16 +954,11 @@ export default function AdvisorProfilePage() {
                           return (
                             <tr key={index}>
                               <td>
-                                <span
-                                  onClick={() => {
-                                    console.log("Event object:", event);
-                                    console.log("Event ID:", event.id);
-                                    handleCorporateEventClick(event.id);
-                                  }}
-                                  className="event-link"
-                                >
-                                  {event.description}
-                                </span>
+                                {createClickableElement(
+                                  `/corporate-event/${event.id}`,
+                                  event.description,
+                                  "event-link"
+                                )}
                               </td>
                               <td>{formatDate(event.announcement_date)}</td>
                               <td>{event.deal_type || "—"}</td>
@@ -1074,16 +1060,11 @@ export default function AdvisorProfilePage() {
 
                       return (
                         <div key={index} className="event-card">
-                          <div
-                            className="event-card-title"
-                            onClick={() => {
-                              console.log("Event object:", event);
-                              console.log("Event ID:", event.id);
-                              handleCorporateEventClick(event.id);
-                            }}
-                          >
-                            {event.description}
-                          </div>
+                          {createClickableElement(
+                            `/corporate-event/${event.id}`,
+                            event.description,
+                            "event-card-title"
+                          )}
                           <div className="event-card-info">
                             <div className="event-card-info-item">
                               <span className="event-card-info-label">

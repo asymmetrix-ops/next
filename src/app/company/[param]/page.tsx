@@ -1114,6 +1114,8 @@ const CompanyDetail = () => {
                   alignItems: "center",
                 }}
                 href="mailto:a.boden@asymmetrixintelligence.com?subject=Report%20Incorrect%20Company%20Data&body=Please%20describe%20the%20issue%20you%20found."
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 Report Incorrect Data
               </a>
@@ -1606,8 +1608,16 @@ const CompanyDetail = () => {
                               textAlign: "center",
                             }}
                           >
-                            {subsidiary._linkedin_data_of_new_company
-                              ?.linkedin_employee || "N/A"}
+                            {subsidiary._linkedin_data_of_new_company &&
+                            subsidiary._linkedin_data_of_new_company
+                              .linkedin_employee !== undefined &&
+                            subsidiary._linkedin_data_of_new_company
+                              .linkedin_employee !== null
+                              ? formatNumber(
+                                  subsidiary._linkedin_data_of_new_company
+                                    .linkedin_employee
+                                )
+                              : "N/A"}
                           </td>
                           <td
                             style={{
@@ -1707,7 +1717,11 @@ const CompanyDetail = () => {
                           >
                             {new Date(
                               event.announcement_date
-                            ).toLocaleDateString()}
+                            ).toLocaleDateString("en-US", {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            })}
                           </td>
                           <td
                             style={{

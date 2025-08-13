@@ -272,6 +272,31 @@ const ArticleDetailPage = () => {
       name
     )}</figcaption></figure>`;
 
+  // Replace placeholders like <image_1>, <image_2> with corresponding image attachments
+  const replaceImagePlaceholders = (
+    bodyHtml: string,
+    imageDocs: Array<{ url: string; name: string }>
+  ): { html: string; usedIndices: Set<number> } => {
+    const used = new Set<number>();
+    if (!bodyHtml) return { html: "", usedIndices: used };
+    if (!imageDocs || imageDocs.length === 0)
+      return { html: bodyHtml, usedIndices: used };
+
+    const placeholderRegex = /<image_(\d+)>/gi; // 1-based index
+    const replaced = bodyHtml.replace(placeholderRegex, (_match, p1) => {
+      const idx = parseInt(p1, 10) - 1;
+      if (Number.isNaN(idx) || idx < 0 || idx >= imageDocs.length) {
+        // Leave placeholder unchanged if out of range
+        return _match;
+      }
+      used.add(idx);
+      const doc = imageDocs[idx];
+      return buildFigureHtml(doc.url, doc.name || "");
+    });
+
+    return { html: replaced, usedIndices: used };
+  };
+
   const injectImagesIntoBody = (
     bodyHtml: string,
     attachments: Array<{
@@ -395,9 +420,17 @@ const ArticleDetailPage = () => {
 
             {/* Article Body with embedded images from attachments */}
             {(() => {
+              const allImageDocs = (article.Related_Documents || []).filter(
+                isImageDoc
+              );
+              const { html: withPlaceholders, usedIndices } =
+                replaceImagePlaceholders(article.Body, allImageDocs);
+              const remainingImages = allImageDocs.filter(
+                (_, idx) => !usedIndices.has(idx)
+              );
               const { html } = injectImagesIntoBody(
-                article.Body,
-                article.Related_Documents || []
+                withPlaceholders,
+                remainingImages
               );
               return (
                 <div
