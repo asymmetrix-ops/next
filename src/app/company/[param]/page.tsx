@@ -465,8 +465,7 @@ const CompanyDetail = () => {
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(
     new Set()
   );
-  const [isCompanyDescriptionExpanded, setIsCompanyDescriptionExpanded] =
-    useState(false);
+
   const [isMobile, setIsMobile] = useState(false);
   const [showAllPrimarySectors, setShowAllPrimarySectors] = useState(false);
   const [showAllSecondarySectors, setShowAllSecondarySectors] = useState(false);
@@ -575,8 +574,8 @@ const CompanyDetail = () => {
         {
           method: "GET",
           headers: {
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
           },
           credentials: "include",
         }
@@ -947,6 +946,11 @@ const CompanyDetail = () => {
       borderBottom: "1px solid #e2e8f0",
     },
     infoRowLast: {
+      display: "grid",
+      gridTemplateColumns: "220px 1fr",
+      columnGap: "4px",
+      alignItems: "flex-start",
+      padding: "10px 0",
       borderBottom: "none",
     },
     label: {
@@ -1342,33 +1346,9 @@ const CompanyDetail = () => {
                 <span style={styles.label} className="info-label">
                   Description:
                 </span>
-              </div>
-              <div style={styles.description}>
-                {(() => {
-                  const text =
-                    company.description || "No description available";
-                  if (isCompanyDescriptionExpanded || text.length <= 220) {
-                    return text;
-                  }
-                  return `${text.slice(0, 220)}...`;
-                })()}
-                {company.description && company.description.length > 220 && (
-                  <button
-                    onClick={() => setIsCompanyDescriptionExpanded((v) => !v)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#0075df",
-                      cursor: "pointer",
-                      fontSize: "12px",
-                      textDecoration: "underline",
-                      marginLeft: 6,
-                      padding: 0,
-                    }}
-                  >
-                    {isCompanyDescriptionExpanded ? "Show less" : "Read more"}
-                  </button>
-                )}
+                <div style={styles.value} className="info-value">
+                  {company.description || "No description available"}
+                </div>
               </div>
             </div>
 
@@ -1407,6 +1387,57 @@ const CompanyDetail = () => {
                   </div>
                 )}
               </div>
+              {/* LinkedIn Logo - Redirects to company LinkedIn */}
+              {(company._linkedin_data_of_new_company?.LinkedIn_URL ||
+                company._linkedin_data_of_new_company?.linkedin_logo) && (
+                <div
+                  style={{
+                    textAlign: "left",
+                    marginTop: "16px",
+                    paddingTop: "16px",
+                    borderTop: "1px solid #e2e8f0",
+                  }}
+                >
+                  <a
+                    href={
+                      company._linkedin_data_of_new_company?.LinkedIn_URL ||
+                      `https://www.linkedin.com/company/${company.name
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]/g, "")}` ||
+                      "#"
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "30px",
+                      height: "30px",
+                      backgroundColor: "#0077b5",
+                      borderRadius: "6px",
+                      color: "white",
+                      textDecoration: "none",
+                      transition: "background-color 0.2s ease",
+                    }}
+                    onMouseOver={(e) =>
+                      (e.currentTarget.style.backgroundColor = "#005582")
+                    }
+                    onMouseOut={(e) =>
+                      (e.currentTarget.style.backgroundColor = "#0077b5")
+                    }
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                    </svg>
+                  </a>
+                </div>
+              )}
             </div>
           </div>
 

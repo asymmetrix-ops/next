@@ -452,6 +452,11 @@ export default function AdvisorProfilePage() {
       white-space: normal;
       line-break: anywhere;
     }
+    .events-table td:nth-child(3) {
+      word-break: keep-all;
+      overflow-wrap: normal;
+      white-space: nowrap;
+    }
     .event-link {
       color: #3b82f6;
       text-decoration: none;
@@ -517,6 +522,12 @@ export default function AdvisorProfilePage() {
     .event-card-info-label {
       font-weight: 600;
       color: #374151;
+    }
+    .event-card-info-item:nth-child(2) .event-card-info-value {
+      word-break: keep-all;
+      overflow-wrap: normal;
+      white-space: nowrap;
+    }
       font-size: 12px;
     }
     .event-card-info-value {
