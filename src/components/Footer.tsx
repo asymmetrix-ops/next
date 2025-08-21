@@ -16,6 +16,7 @@ const Footer = () => {
       display: "flex",
       alignItems: "center",
       padding: "0 24px",
+      position: "relative" as const,
     },
     container: {
       display: "flex",
@@ -25,6 +26,7 @@ const Footer = () => {
       width: "100%",
       margin: "0 auto",
       gap: "20px",
+      maxWidth: 1280,
     },
     leftSection: {
       display: "flex",
@@ -64,9 +66,29 @@ const Footer = () => {
 
   return (
     <footer style={styles.footer}>
-      <div style={styles.container}>
+      <style jsx>{`
+        @media (max-width: 767px) {
+          .footer-container {
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 16px !important;
+            padding: 16px 0 !important;
+            text-align: center !important;
+          }
+          .footer-center {
+            order: 3;
+          }
+          .footer-right {
+            order: 2;
+          }
+          .footer-left {
+            order: 1;
+          }
+        }
+      `}</style>
+      <div style={styles.container} className="footer-container">
         {/* Left Section: Logo and Text */}
-        <div style={styles.leftSection}>
+        <div style={styles.leftSection} className="footer-left">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="https://www.asymmetrixintelligence.com/images/logo.svg"
@@ -79,7 +101,7 @@ const Footer = () => {
         </div>
 
         {/* Center Section: Navigation Links */}
-        <div style={styles.centerSection}>
+        <div style={styles.centerSection} className="footer-center">
           {navItems.map((item) => (
             <Link key={item.label} href={item.href} style={styles.navLink}>
               {item.label}
@@ -88,7 +110,7 @@ const Footer = () => {
         </div>
 
         {/* Right Section: Social Media Icons */}
-        <div style={styles.rightSection}>
+        <div style={styles.rightSection} className="footer-right">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <a
             href="https://www.youtube.com/"
@@ -96,6 +118,7 @@ const Footer = () => {
             rel="noopener noreferrer"
             style={styles.socialIcon}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icons/youtube.svg"
               alt="YouTube"
@@ -110,6 +133,7 @@ const Footer = () => {
             rel="noopener noreferrer"
             style={styles.socialIcon}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icons/spotify.svg"
               alt="Spotify"
@@ -124,6 +148,7 @@ const Footer = () => {
             rel="noopener noreferrer"
             style={styles.socialIcon}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icons/podcast.svg"
               alt="Podcast"
@@ -138,6 +163,7 @@ const Footer = () => {
             rel="noopener noreferrer"
             style={styles.socialIcon}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icons/linkedin.svg"
               alt="LinkedIn"

@@ -156,6 +156,19 @@ const CorporateEventDetail = ({
       color: #2563eb;
       text-decoration: underline;
       cursor: pointer;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: normal;
+      line-break: anywhere;
+      display: inline;
+    }
+    .info-item a.corporate-event-link,
+    .advisors-table td a.corporate-event-link,
+    .counterparties-table td a.corporate-event-link {
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: normal;
+      line-break: anywhere;
     }
     .corporate-event-description {
       font-size: 16px;
@@ -293,6 +306,9 @@ const CorporateEventDetail = ({
       .info-value {
         font-size: 15px !important;
       }
+      .corporate-event-link {
+        font-size: 14px !important;
+      }
       .corporate-event-description {
         font-size: 15px !important;
         margin-top: 16px !important;
@@ -364,7 +380,7 @@ const CorporateEventDetail = ({
                 </span>
               </div>
               <div className="info-item">
-                <span className="info-label">Enterprise source:</span>
+                <span className="info-label">Enterprise Source:</span>
                 <a
                   href={event.ev_data.ev_source}
                   target="_blank"

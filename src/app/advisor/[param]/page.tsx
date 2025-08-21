@@ -447,11 +447,19 @@ export default function AdvisorProfilePage() {
     .events-table td {
       padding: 8px;
       font-size: 12px;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: normal;
+      line-break: anywhere;
     }
     .event-link {
       color: #3b82f6;
       text-decoration: none;
       cursor: pointer;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: normal;
+      line-break: anywhere;
     }
     .event-link:hover {
       text-decoration: underline;
@@ -460,6 +468,10 @@ export default function AdvisorProfilePage() {
       color: #3b82f6;
       text-decoration: none;
       cursor: pointer;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: normal;
+      line-break: anywhere;
     }
     .advisor-link:hover {
       text-decoration: underline;
@@ -486,6 +498,10 @@ export default function AdvisorProfilePage() {
       cursor: pointer;
       margin-bottom: 12px;
       line-height: 1.4;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: normal;
+      line-break: anywhere;
     }
     .event-card-info {
       display: grid;
@@ -506,6 +522,10 @@ export default function AdvisorProfilePage() {
     .event-card-info-value {
       color: #6b7280;
       font-size: 12px;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: normal;
+      line-break: anywhere;
     }
     .loading {
       text-align: center;

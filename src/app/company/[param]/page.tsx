@@ -465,6 +465,11 @@ const CompanyDetail = () => {
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(
     new Set()
   );
+  const [isCompanyDescriptionExpanded, setIsCompanyDescriptionExpanded] =
+    useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showAllPrimarySectors, setShowAllPrimarySectors] = useState(false);
+  const [showAllSecondarySectors, setShowAllSecondarySectors] = useState(false);
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(false);
   const [showAllCorporateEvents, setShowAllCorporateEvents] = useState(false);
@@ -694,6 +699,16 @@ const CompanyDetail = () => {
       fetchCorporateEvents();
     }
   }, [companyId, fetchCorporateEvents, fetchCompanyArticles, requestCompany]);
+
+  // Detect mobile once on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const check = () => setIsMobile(window.innerWidth <= 768);
+      check();
+      window.addEventListener("resize", check);
+      return () => window.removeEventListener("resize", check);
+    }
+  }, []);
 
   // Update page title when company data is loaded
   useEffect(() => {
@@ -992,64 +1007,65 @@ const CompanyDetail = () => {
     "@media (max-width: 768px)": {
       responsiveGrid: {
         gridTemplateColumns: "1fr",
-        gap: "16px",
+        gap: "12px",
       },
       header: {
         flexDirection: "column",
         alignItems: "flex-start",
-        padding: "20px 16px",
-        gap: "12px",
+        padding: "16px 14px",
+        gap: "10px",
       },
       headerLeft: {
         flexDirection: "column",
         alignItems: "flex-start",
-        gap: "12px",
+        gap: "10px",
         width: "100%",
       },
       headerRight: {
         alignSelf: "stretch",
         justifyContent: "space-between",
         flexWrap: "wrap",
-        gap: "8px",
+        gap: "6px",
       },
       maxWidth: {
         padding: "16px",
       },
       card: {
-        padding: "20px 16px",
+        padding: "14px 12px",
       },
       companyName: {
         fontSize: "22px",
         lineHeight: "1.3",
       },
       sectionTitle: {
-        fontSize: "18px",
-        marginBottom: "20px",
+        fontSize: "17px",
+        marginBottom: "12px",
       },
       infoRow: {
+        display: "flex",
         flexDirection: "column",
         alignItems: "flex-start",
-        gap: "4px",
-        padding: "16px 0",
+        gap: "2px",
+        padding: "8px 0",
       },
       label: {
-        fontSize: "13px",
+        fontSize: "12px",
         color: "#718096",
         fontWeight: "600",
         minWidth: "auto",
-        marginBottom: "4px",
+        marginBottom: "2px",
       },
       value: {
-        fontSize: "14px",
+        fontSize: "13px",
         textAlign: "left",
         marginLeft: "0",
-        lineHeight: "1.4",
+        lineHeight: "1.35",
         wordBreak: "break-word",
       },
       description: {
-        fontSize: "14px",
+        fontSize: "13px",
         lineHeight: "1.5",
-        marginTop: "12px",
+        marginTop: "8px",
       },
       chartTitle: {
         fontSize: "15px",
@@ -1091,6 +1107,22 @@ const CompanyDetail = () => {
     },
   };
 
+  const responsiveCss = `
+    .responsiveGrid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+    .card { background: white; border-radius: 12px; }
+    @media (max-width: 768px) {
+      .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; }
+      .desktop-financial-metrics { display: none !important; }
+      .mobile-financial-metrics { display: block !important; }
+      .desktop-linkedin-section { display: none !important; }
+      .management-grid { grid-template-columns: 1fr !important; }
+      .overview-card { padding: 12px 12px !important; }
+      .overview-card .info-row { padding: 8px 0 !important; display: block !important; }
+      .overview-card .info-label { font-size: 12px !important; color: #718096 !important; margin-bottom: 2px !important; }
+      .overview-card .info-value { font-size: 13px !important; line-height: 1.35 !important; display: block !important; margin-left: 0 !important; }
+    }
+  `;
+
   return (
     <div className="company-detail-page" style={styles.container}>
       <Header />
@@ -1125,67 +1157,131 @@ const CompanyDetail = () => {
           {/* Desktop grid */}
           <div style={styles.responsiveGrid} className="responsiveGrid">
             {/* Overview card */}
-            <div style={styles.card} className="card">
+            <div style={styles.card} className="card overview-card">
               <h2 style={styles.sectionTitle}>Overview</h2>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Primary Sector:</span>
-                <div style={styles.value}>
-                  {primarySectors.length > 0
-                    ? primarySectors.map((sector, index) => {
+              <div style={styles.infoRow} className="info-row">
+                <span style={styles.label} className="info-label">
+                  Primary Sector:
+                </span>
+                <div style={styles.value} className="info-value">
+                  {primarySectors.length > 0 ? (
+                    <>
+                      {(isMobile && !showAllPrimarySectors
+                        ? primarySectors.slice(0, 4)
+                        : primarySectors
+                      ).map((sector, index) => {
                         const id = getSectorId(sector);
-                        return (
-                          <span key={`${sector.sector_name}-${index}`}>
-                            {id ? (
-                              createClickableElement(
-                                `/sector/${id}`,
-                                sector.sector_name
-                              )
-                            ) : (
-                              <span style={{ color: "#000" }}>
-                                {sector.sector_name}
-                              </span>
-                            )}
-                            {index < primarySectors.length - 1 && ", "}
+                        const content = id ? (
+                          createClickableElement(
+                            `/sector/${id}`,
+                            sector.sector_name
+                          )
+                        ) : (
+                          <span style={{ color: "#000" }}>
+                            {sector.sector_name}
                           </span>
                         );
-                      })
-                    : "Not available"}
-                </div>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Secondary Sector(s):</span>
-                <div style={styles.value}>
-                  {secondarySectors.length > 0
-                    ? secondarySectors.map((sector, index) => {
-                        const id = getSectorId(sector);
                         return (
                           <span key={`${sector.sector_name}-${index}`}>
-                            {id ? (
-                              createClickableElement(
-                                `/sector/${id}`,
-                                sector.sector_name
-                              )
-                            ) : (
-                              <span style={{ color: "#000" }}>
-                                {sector.sector_name}
-                              </span>
-                            )}
-                            {index < secondarySectors.length - 1 && ", "}
+                            {content}
+                            {index <
+                              (isMobile && !showAllPrimarySectors
+                                ? Math.min(primarySectors.length, 4) - 1
+                                : primarySectors.length - 1) && ", "}
                           </span>
                         );
-                      })
-                    : "Not available"}
+                      })}
+                      {isMobile && primarySectors.length > 4 && (
+                        <button
+                          onClick={() => setShowAllPrimarySectors((v) => !v)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#0075df",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                            textDecoration: "underline",
+                            marginLeft: 6,
+                            padding: 0,
+                          }}
+                        >
+                          {showAllPrimarySectors ? "Show less" : "Show more"}
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    "Not available"
+                  )}
                 </div>
               </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Year Founded:</span>
-                <span style={styles.value}>
+              <div style={styles.infoRow} className="info-row">
+                <span style={styles.label} className="info-label">
+                  Secondary Sector(s):
+                </span>
+                <div style={styles.value} className="info-value">
+                  {secondarySectors.length > 0 ? (
+                    <>
+                      {(isMobile && !showAllSecondarySectors
+                        ? secondarySectors.slice(0, 4)
+                        : secondarySectors
+                      ).map((sector, index) => {
+                        const id = getSectorId(sector);
+                        const content = id ? (
+                          createClickableElement(
+                            `/sector/${id}`,
+                            sector.sector_name
+                          )
+                        ) : (
+                          <span style={{ color: "#000" }}>
+                            {sector.sector_name}
+                          </span>
+                        );
+                        return (
+                          <span key={`${sector.sector_name}-${index}`}>
+                            {content}
+                            {index <
+                              (isMobile && !showAllSecondarySectors
+                                ? Math.min(secondarySectors.length, 4) - 1
+                                : secondarySectors.length - 1) && ", "}
+                          </span>
+                        );
+                      })}
+                      {isMobile && secondarySectors.length > 4 && (
+                        <button
+                          onClick={() => setShowAllSecondarySectors((v) => !v)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#0075df",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                            textDecoration: "underline",
+                            marginLeft: 6,
+                            padding: 0,
+                          }}
+                        >
+                          {showAllSecondarySectors ? "Show less" : "Show more"}
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    "Not available"
+                  )}
+                </div>
+              </div>
+              <div style={styles.infoRow} className="info-row">
+                <span style={styles.label} className="info-label">
+                  Year Founded:
+                </span>
+                <span style={styles.value} className="info-value">
                   {getYearFoundedDisplay(company)}
                 </span>
               </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Website:</span>
-                <span style={styles.value}>
+              <div style={styles.infoRow} className="info-row">
+                <span style={styles.label} className="info-label">
+                  Website:
+                </span>
+                <span style={styles.value} className="info-value">
                   {company.url ? (
                     <a
                       href={company.url}
@@ -1200,27 +1296,35 @@ const CompanyDetail = () => {
                   )}
                 </span>
               </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Ownership:</span>
-                <span style={styles.value}>
+              <div style={styles.infoRow} className="info-row">
+                <span style={styles.label} className="info-label">
+                  Ownership:
+                </span>
+                <span style={styles.value} className="info-value">
                   {company._ownership_type?.ownership || "Not available"}
                 </span>
               </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>HQ:</span>
-                <span style={styles.value}>
+              <div style={styles.infoRow} className="info-row">
+                <span style={styles.label} className="info-label">
+                  HQ:
+                </span>
+                <span style={styles.value} className="info-value">
                   {fullAddress || "Not available"}
                 </span>
               </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Lifecycle stage:</span>
-                <span style={styles.value}>
+              <div style={styles.infoRow} className="info-row">
+                <span style={styles.label} className="info-label">
+                  Lifecycle stage:
+                </span>
+                <span style={styles.value} className="info-value">
                   {company.Lifecycle_stage?.Lifecycle_Stage || "Not available"}
                 </span>
               </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Investors:</span>
-                <span style={styles.value}>
+              <div style={styles.infoRow} className="info-row">
+                <span style={styles.label} className="info-label">
+                  Investors:
+                </span>
+                <span style={styles.value} className="info-value">
                   {company.investors && company.investors.length > 0
                     ? company.investors.map((investor, index) => (
                         <span key={investor.id}>
@@ -1234,11 +1338,37 @@ const CompanyDetail = () => {
                     : "Not available"}
                 </span>
               </div>
-              <div style={styles.infoRowLast}>
-                <span style={styles.label}>Description:</span>
+              <div style={styles.infoRowLast} className="info-row">
+                <span style={styles.label} className="info-label">
+                  Description:
+                </span>
               </div>
               <div style={styles.description}>
-                {company.description || "No description available"}
+                {(() => {
+                  const text =
+                    company.description || "No description available";
+                  if (isCompanyDescriptionExpanded || text.length <= 220) {
+                    return text;
+                  }
+                  return `${text.slice(0, 220)}...`;
+                })()}
+                {company.description && company.description.length > 220 && (
+                  <button
+                    onClick={() => setIsCompanyDescriptionExpanded((v) => !v)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#0075df",
+                      cursor: "pointer",
+                      fontSize: "12px",
+                      textDecoration: "underline",
+                      marginLeft: 6,
+                      padding: 0,
+                    }}
+                  >
+                    {isCompanyDescriptionExpanded ? "Show less" : "Read more"}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1508,6 +1638,7 @@ const CompanyDetail = () => {
                           >
                             {subsidiary._linkedin_data_of_new_company
                               ?.linkedin_logo ? (
+                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={`data:image/jpeg;base64,${subsidiary._linkedin_data_of_new_company.linkedin_logo}`}
                                 alt={`${subsidiary.name} logo`}
@@ -1948,6 +2079,7 @@ const CompanyDetail = () => {
             </div>
           )}
         </div>
+        <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />
       </main>
       <Footer />
     </div>
