@@ -871,10 +871,12 @@ const CompanyDetail = () => {
     },
     maxWidth: {
       width: "100%",
+      maxWidth: "100%",
       padding: "32px",
       flex: "1",
       display: "flex",
       flexDirection: "column" as const,
+      overflow: "hidden",
     },
     header: {
       backgroundColor: "white",
@@ -939,7 +941,7 @@ const CompanyDetail = () => {
     },
     infoRow: {
       display: "grid",
-      gridTemplateColumns: "220px 1fr",
+      gridTemplateColumns: "minmax(180px, 220px) 1fr",
       columnGap: "4px",
       alignItems: "center",
       padding: "10px 0",
@@ -947,7 +949,7 @@ const CompanyDetail = () => {
     },
     infoRowLast: {
       display: "grid",
-      gridTemplateColumns: "220px 1fr",
+      gridTemplateColumns: "minmax(180px, 220px) 1fr",
       columnGap: "4px",
       alignItems: "flex-start",
       padding: "10px 0",
@@ -965,6 +967,8 @@ const CompanyDetail = () => {
       fontWeight: "400",
       textAlign: "left" as const,
       marginLeft: "0",
+      wordBreak: "break-word" as const,
+      overflowWrap: "break-word" as const,
     },
     link: {
       color: "#0075df",
@@ -1007,11 +1011,15 @@ const CompanyDetail = () => {
       gridTemplateColumns: "2fr 1fr",
       gap: "24px",
       flex: "1",
+      maxWidth: "100%",
+      overflow: "hidden",
     },
     "@media (max-width: 768px)": {
       responsiveGrid: {
         gridTemplateColumns: "1fr",
         gap: "12px",
+        maxWidth: "100%",
+        overflow: "hidden",
       },
       header: {
         flexDirection: "column",
@@ -1051,6 +1059,7 @@ const CompanyDetail = () => {
         alignItems: "flex-start",
         gap: "2px",
         padding: "8px 0",
+        width: "100%",
       },
       label: {
         fontSize: "12px",
@@ -1064,7 +1073,9 @@ const CompanyDetail = () => {
         textAlign: "left",
         marginLeft: "0",
         lineHeight: "1.35",
-        wordBreak: "break-word",
+        wordBreak: "break-word" as const,
+        overflowWrap: "break-word" as const,
+        width: "100%",
       },
       description: {
         fontSize: "13px",
@@ -1112,10 +1123,11 @@ const CompanyDetail = () => {
   };
 
   const responsiveCss = `
-    .responsiveGrid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+    .company-detail-page { overflow-x: hidden; }
+    .responsiveGrid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; max-width: 100%; }
     .card { background: white; border-radius: 12px; }
     @media (max-width: 768px) {
-      .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; }
+      .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
       .desktop-financial-metrics { display: none !important; }
       .mobile-financial-metrics { display: block !important; }
       .desktop-linkedin-section { display: none !important; }
@@ -1123,7 +1135,7 @@ const CompanyDetail = () => {
       .overview-card { padding: 12px 12px !important; }
       .overview-card .info-row { padding: 8px 0 !important; display: block !important; }
       .overview-card .info-label { font-size: 12px !important; color: #718096 !important; margin-bottom: 2px !important; }
-      .overview-card .info-value { font-size: 13px !important; line-height: 1.35 !important; display: block !important; margin-left: 0 !important; }
+      .overview-card .info-value { font-size: 13px !important; line-height: 1.35 !important; display: block !important; margin-left: 0 !important; word-break: break-word !important; overflow-wrap: break-word !important; }
     }
   `;
 
@@ -1625,8 +1637,14 @@ const CompanyDetail = () => {
                   </button>
                 ) : null}
               </div>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    minWidth: "800px",
+                  }}
+                >
                   <thead>
                     <tr>
                       {[
@@ -1713,7 +1731,9 @@ const CompanyDetail = () => {
                               padding: "12px 8px",
                               borderBottom: "1px solid #e2e8f0",
                               fontSize: "14px",
-                              maxWidth: "300px",
+                              maxWidth: "250px",
+                              wordBreak: "break-word" as const,
+                              overflowWrap: "break-word" as const,
                             }}
                           >
                             {subsidiary.description ? (
@@ -1823,8 +1843,14 @@ const CompanyDetail = () => {
                   Loading corporate events...
                 </div>
               ) : (
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      minWidth: "1000px",
+                    }}
+                  >
                     <thead>
                       <tr>
                         {[
