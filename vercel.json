@@ -1,24 +1,16 @@
 {
   "name": "asymmetrix-nextjs",
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  },
   "git": {
     "deploymentEnabled": {
       "main": true,
+      "master": true,
       "develop": true,
       "staging": true
     }
   },
   "functions": {
-    "src/app/api/**/*.ts": {
+    "api/**": {
       "maxDuration": 30
     }
   }
