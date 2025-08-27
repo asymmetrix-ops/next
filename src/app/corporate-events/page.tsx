@@ -10,6 +10,7 @@ import {
   CorporateEventsResponse,
   CorporateEventsFilters,
 } from "../../types/corporateEvents";
+import { CSVExporter } from "../../utils/csvExport";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for API integration
@@ -916,6 +917,32 @@ const CorporateEventsPage = () => {
     fetchCorporateEvents(updatedFilters);
   };
 
+  // Check if any filters are applied
+  const hasActiveFilters = () => {
+    return (
+      selectedCountries.length > 0 ||
+      selectedProvinces.length > 0 ||
+      selectedCities.length > 0 ||
+      selectedPrimarySectors.length > 0 ||
+      selectedSecondarySectors.length > 0 ||
+      selectedEventTypes.length > 0 ||
+      selectedDealStatuses.length > 0 ||
+      searchTerm.trim() !== "" ||
+      dateStart !== "" ||
+      dateEnd !== ""
+    );
+  };
+
+  // Handle CSV export
+  const handleExportCSV = () => {
+    if (corporateEvents.length > 0) {
+      CSVExporter.exportCorporateEvents(
+        corporateEvents,
+        "corporate_events_filtered"
+      );
+    }
+  };
+
   const style = `
     .corporate-event-section { padding: 16px 24px; border-radius: 8px; }
     .corporate-event-stats { background: #fff; padding: 12px 16px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; margin-bottom: 16px; }
@@ -1006,6 +1033,25 @@ const CorporateEventsPage = () => {
     .search-row { display: flex; align-items: center; gap: 12px; }
     .search-row .filters-input { margin: 0; max-width: 340px; }
     .search-row .filters-button { margin: 0; max-width: 140px; }
+    .export-button { 
+      background-color: #22c55e; 
+      color: white; 
+      font-weight: 600; 
+      padding: 12px 24px; 
+      border-radius: 8px; 
+      border: none; 
+      cursor: pointer; 
+      margin: 16px 0; 
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    .export-button:hover { 
+      background-color: #16a34a; 
+    }
+    .export-button:disabled {
+      background-color: #9ca3af;
+      cursor: not-allowed;
+    }
     @media (max-width: 768px) {
       .corporate-event-table {
         display: none !important;
@@ -1756,6 +1802,25 @@ const CorporateEventsPage = () => {
                 </span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Export Button - Show only when filters are applied */}
+        {hasActiveFilters() && corporateEvents.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginBottom: "16px",
+            }}
+          >
+            <button
+              onClick={handleExportCSV}
+              className="export-button"
+              disabled={loading}
+            >
+              {loading ? "Exporting..." : "Export CSV"}
+            </button>
           </div>
         )}
 
