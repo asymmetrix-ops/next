@@ -27,24 +27,6 @@ export default function HomeHeader() {
         position: "relative",
       }}
     >
-      <style jsx>{`
-        @media (min-width: 768px) {
-          .desktop-only {
-            display: flex;
-          }
-          .mobile-only {
-            display: none;
-          }
-        }
-        @media (max-width: 767px) {
-          .desktop-only {
-            display: none;
-          }
-          .mobile-only {
-            display: flex;
-          }
-        }
-      `}</style>
       <div
         style={{
           maxWidth: 1280,
@@ -69,9 +51,9 @@ export default function HomeHeader() {
           </span>
         </div>
 
-        <nav className="desktop-only" style={{ alignItems: "center", gap: 24 }}>
+        <nav className="hidden gap-6 items-center md:flex">
           <a
-            href="https://asymmetrix.substack.com/"
+            href="https://asymmetrixintelligence.substack.com/"
             target="_blank"
             rel="noopener noreferrer"
             style={{ color: "#fff", textDecoration: "none" }}
@@ -94,19 +76,13 @@ export default function HomeHeader() {
 
         <button
           aria-label="Open menu"
-          className="mobile-only"
+          className="flex justify-center items-center w-9 h-9 rounded-lg md:hidden"
           onClick={() => setIsMenuOpen((v) => !v)}
           style={{
             appearance: "none",
             background: "transparent",
             border: 0,
             color: "#fff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 36,
-            height: 36,
-            borderRadius: 8,
           }}
         >
           <span
@@ -143,24 +119,9 @@ export default function HomeHeader() {
       </div>
 
       {isMenuOpen && (
-        <div
-          className="mobile-only"
-          style={{
-            position: "absolute",
-            top: 64,
-            left: 0,
-            right: 0,
-            background: "#0b1a3c",
-            borderTop: "1px solid rgba(255,255,255,0.1)",
-            display: "flex",
-            flexDirection: "column",
-            padding: "12px 16px",
-            gap: 8,
-            zIndex: 50,
-          }}
-        >
+        <div className="md:hidden absolute top-16 left-0 right-0 bg-[#0b1a3c] border-t border-white/10 flex flex-col p-3 gap-2 z-50">
           <a
-            href="https://asymmetrix.substack.com/"
+            href="https://asymmetrixintelligence.substack.com/"
             target="_blank"
             rel="noopener noreferrer"
             style={{

@@ -268,28 +268,35 @@ const AdvisorsPage = () => {
       if (filters.searchQuery)
         params.append("search_query", filters.searchQuery);
 
-      // Add filters (comma-separated, exact keys)
+      // Add filters using array format
       if (filters.countries.length > 0) {
-        params.append("Countries", filters.countries.join(","));
+        filters.countries.forEach((country) => {
+          params.append("Countries[]", country);
+        });
       }
 
       if (filters.provinces.length > 0) {
-        params.append("Provinces", filters.provinces.join(","));
+        filters.provinces.forEach((province) => {
+          params.append("Provinces[]", province);
+        });
       }
 
       if (filters.cities.length > 0) {
-        params.append("Cities", filters.cities.join(","));
+        filters.cities.forEach((city) => {
+          params.append("Cities[]", city);
+        });
       }
 
       if (filters.primarySectors.length > 0) {
-        params.append("primary_sectors_ids", filters.primarySectors.join(","));
+        filters.primarySectors.forEach((sectorId) => {
+          params.append("primary_sectors_ids[]", sectorId.toString());
+        });
       }
 
       if (filters.secondarySectors.length > 0) {
-        params.append(
-          "Secondary_sectors_ids",
-          filters.secondarySectors.join(",")
-        );
+        filters.secondarySectors.forEach((sectorId) => {
+          params.append("Secondary_sectors_ids[]", sectorId.toString());
+        });
       }
 
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_list?${params.toString()}`;

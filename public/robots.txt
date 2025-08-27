@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+# Block access to admin or private areas (add as needed)
+# Disallow: /admin
+# Disallow: /private
+
+# Sitemap location
+Sitemap: https://asymmetrix.com/sitemap.xml
+
+# Crawl delay (optional)
+Crawl-delay: 1

@@ -292,37 +292,42 @@ const useCompaniesAPI = () => {
         // Add filters to the request using API's expected param names
         if (filtersToUse) {
           if (filtersToUse.countries.length > 0) {
-            params.append("Countries", filtersToUse.countries.join(","));
+            filtersToUse.countries.forEach((country) => {
+              params.append("Countries[]", country);
+            });
           }
           if (filtersToUse.provinces.length > 0) {
-            params.append("Provinces", filtersToUse.provinces.join(","));
+            filtersToUse.provinces.forEach((province) => {
+              params.append("Provinces[]", province);
+            });
           }
           if (filtersToUse.cities.length > 0) {
-            params.append("Cities", filtersToUse.cities.join(","));
+            filtersToUse.cities.forEach((city) => {
+              params.append("Cities[]", city);
+            });
           }
           if (filtersToUse.primarySectors.length > 0) {
-            params.append(
-              "Primary_sectors_ids",
-              filtersToUse.primarySectors.join(",")
-            );
+            filtersToUse.primarySectors.forEach((sectorId) => {
+              params.append("Primary_sectors_ids[]", sectorId.toString());
+            });
           }
           if (filtersToUse.secondarySectors.length > 0) {
-            params.append(
-              "Secondary_sectors_ids",
-              filtersToUse.secondarySectors.join(",")
-            );
+            filtersToUse.secondarySectors.forEach((sectorId) => {
+              params.append("Secondary_sectors_ids[]", sectorId.toString());
+            });
           }
           if (filtersToUse.ownershipTypes.length > 0) {
-            params.append(
-              "Ownership_types_ids",
-              filtersToUse.ownershipTypes.join(",")
-            );
+            filtersToUse.ownershipTypes.forEach((ownershipTypeId) => {
+              params.append(
+                "Ownership_types_ids[]",
+                ownershipTypeId.toString()
+              );
+            });
           }
           if (filtersToUse.hybridBusinessFocuses.length > 0) {
-            params.append(
-              "Hybrid_Data_ids",
-              filtersToUse.hybridBusinessFocuses.join(",")
-            );
+            filtersToUse.hybridBusinessFocuses.forEach((focusId) => {
+              params.append("Hybrid_Data_ids[]", focusId.toString());
+            });
           }
           // Optional: Horizontals_ids
           params.append("Horizontals_ids", "");
