@@ -72,7 +72,7 @@ export default function RegisterPage() {
         <div className="flex justify-center">
           <Link href="/" className="flex items-center">
             <Image
-              src="https://www.asymmetrixintelligence.com/images/logo.svg?_wwcv=682"
+              src="/icons/logo.svg"
               alt="Asymmetrix"
               width={120}
               height={32}

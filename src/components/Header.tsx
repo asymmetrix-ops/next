@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authService } from "@/lib/auth";
@@ -48,7 +49,6 @@ const Header = () => {
     logo: {
       width: "48px",
       height: "48px",
-      borderRadius: "50%",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
@@ -185,11 +185,14 @@ const Header = () => {
           <div style={styles.leftSection} className="left-section">
             {/* Logo */}
             <div style={styles.logo}>
-              <img
-                src="https://www.asymmetrixintelligence.com/images/logo.svg"
+              <Image
+                src="/icons/logo.svg"
                 alt="Logo"
-                width="48"
-                height="48"
+                width={48}
+                height={48}
+                style={{
+                  objectFit: "contain",
+                }}
               />
             </div>
 

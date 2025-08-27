@@ -58,10 +58,10 @@ export default function HomeHeader() {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <img
-            src="https://www.asymmetrixintelligence.com/images/logo.svg"
-            alt="Asymmetrix Logo"
-            width={28}
-            height={28}
+            src="/icons/logo.svg"
+            alt="Logo"
+            width={48}
+            height={48}
             style={{ borderRadius: "50%" }}
           />
           <span style={{ fontWeight: 700, letterSpacing: 0.5 }}>

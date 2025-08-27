@@ -91,7 +91,7 @@ const Footer = () => {
         <div style={styles.leftSection} className="footer-left">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="https://www.asymmetrixintelligence.com/images/logo.svg"
+            src="/icons/logo.svg"
             alt="Asymmetrix Logo"
             style={styles.logoImage}
           />
