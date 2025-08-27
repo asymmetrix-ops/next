@@ -92,6 +92,12 @@ interface NewCompany {
     linkedin_employee: number;
     linkedin_logo: string;
   };
+  _sectors_primary?: Array<{
+    sector_name: string;
+  }>;
+  _sectors_secondary?: Array<{
+    sector_name: string;
+  }>;
 }
 
 export default function HomeUserPage() {
@@ -111,6 +117,52 @@ export default function HomeUserPage() {
     } catch {
       return "Invalid date";
     }
+  };
+
+  // Helper function to get related primary sector from secondary sectors
+  const getRelatedPrimarySectors = (
+    secondarySectors: { sector_name: string }[] | undefined
+  ) => {
+    if (!secondarySectors || secondarySectors.length === 0)
+      return "Not available";
+
+    // Mapping based on known relationships between secondary and primary sectors
+    const sectorMapping: { [key: string]: string } = {
+      Crypto: "Web 3",
+      Blockchain: "Web 3",
+      DeFi: "Web 3",
+      NFT: "Web 3",
+      Web3: "Web 3",
+      "Business Intelligence": "Data Analytics",
+      "Data Science": "Data Analytics",
+      "Machine Learning": "Data Analytics",
+      AI: "Data Analytics",
+      Analytics: "Data Analytics",
+      "Big Data": "Data Analytics",
+      "Cloud Computing": "Infrastructure",
+      SaaS: "Software",
+      Cybersecurity: "Security",
+      FinTech: "Financial Services",
+      InsurTech: "Financial Services",
+      PropTech: "Real Estate",
+      HealthTech: "Healthcare",
+      EdTech: "Education",
+      LegalTech: "Legal",
+      HRTech: "Human Resources",
+      MarTech: "Marketing",
+      AdTech: "Advertising",
+      Gaming: "Entertainment",
+      "E-commerce": "Retail",
+      Logistics: "Supply Chain",
+      IoT: "Internet of Things",
+      Robotics: "Automation",
+    };
+
+    const relatedPrimary = secondarySectors
+      .map((s) => sectorMapping[s.sector_name] || s.sector_name)
+      .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
+
+    return relatedPrimary.join(", ");
   };
 
   // Corporate Event navigation handler
@@ -932,6 +984,12 @@ export default function HomeUserPage() {
                           </div>
                           <p className="text-xs text-gray-500">
                             {company._locations?.Country}
+                          </p>
+                          {/* Display related primary sector based on secondary sectors (e.g., Crypto -> Web 3) */}
+                          <p className="text-xs font-medium text-blue-600">
+                            {getRelatedPrimarySectors(
+                              company._sectors_secondary
+                            )}
                           </p>
                           {company._linkedin_data_of_new_company
                             ?.linkedin_employee && (

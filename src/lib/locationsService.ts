@@ -181,6 +181,32 @@ class LocationsService {
     return await response.json();
   }
 
+  // Get all secondary sectors with their related primary sector information
+  async getAllSecondarySectorsWithPrimary(): Promise<
+    Array<SecondarySector & { related_primary_sector?: PrimarySector }>
+  > {
+    const url = `${BASE_URL}/Get_Secondary_Sectors`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch all secondary sectors: ${response.status} ${response.statusText}`
+      );
+    }
+
+    return await response.json();
+  }
+
   async getHybridBusinessFocuses(): Promise<HybridBusinessFocus[]> {
     const url = `${BASE_URL}/get_hybrid_data_and_analytics_bussines_focuses`;
 

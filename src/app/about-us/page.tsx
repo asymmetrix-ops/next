@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Head from "next/head";
+import HomeHeader from "@/components/HomeHeader";
 
 export default function AboutUs() {
   return (
@@ -82,6 +83,7 @@ export default function AboutUs() {
       </Head>
 
       <div className="min-h-screen bg-white">
+        <HomeHeader />
         {/* Hero Section - Our Vision */}
         <section
           className="relative px-4 py-20"

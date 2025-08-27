@@ -691,6 +691,14 @@ export default function AdvisorProfilePage() {
               </div>
             </div>
 
+            {/* Description Section */}
+            <div className="advisor-section">
+              <h2 className="section-title">Description</h2>
+              <div className="info-value" style={{ whiteSpace: "pre-wrap" }}>
+                {Advisor.description || "Not available"}
+              </div>
+            </div>
+
             {/* Historic LinkedIn Data Section */}
             <div className="advisor-section">
               <h2 className="section-title">Historic LinkedIn Data</h2>
@@ -846,14 +854,6 @@ export default function AdvisorProfilePage() {
                 ) : (
                   <div className="info-value">Not available</div>
                 )}
-              </div>
-            </div>
-
-            {/* Description Section */}
-            <div className="advisor-section">
-              <h2 className="section-title">Description</h2>
-              <div className="info-value" style={{ whiteSpace: "pre-wrap" }}>
-                {Advisor.description || "Not available"}
               </div>
             </div>
           </div>

@@ -127,15 +127,7 @@ const styles = {
     fontSize: "14px",
     fontWeight: "500",
   },
-  visibility: {
-    backgroundColor: "#fff3e0",
-    color: "#f57c00",
-    padding: "8px 12px",
-    borderRadius: "6px",
-    fontSize: "14px",
-    fontWeight: "500",
-    display: "inline-block",
-  },
+
   loading: {
     textAlign: "center" as const,
     padding: "40px",
@@ -550,14 +542,6 @@ const ArticleDetailPage = () => {
                     </span>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* Visibility */}
-            {article.Visibility && (
-              <div style={styles.section}>
-                <h2 style={styles.sectionTitle}>Visibility</h2>
-                <span style={styles.visibility}>{article.Visibility}</span>
               </div>
             )}
           </div>

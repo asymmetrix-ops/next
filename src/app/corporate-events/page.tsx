@@ -425,6 +425,53 @@ const CorporateEventsTable = ({
     return sectors.map((s) => s.sector_name).join(", ");
   };
 
+  // Helper function to get related primary sector from secondary sectors
+  const getRelatedPrimarySectors = (
+    secondarySectors: { sector_name: string }[] | undefined
+  ) => {
+    if (!secondarySectors || secondarySectors.length === 0)
+      return "Not available";
+
+    // For now, we'll create a mapping based on known relationships
+    // In the future, this could be fetched from the API
+    const sectorMapping: { [key: string]: string } = {
+      Crypto: "Web 3",
+      Blockchain: "Web 3",
+      DeFi: "Web 3",
+      NFT: "Web 3",
+      Web3: "Web 3",
+      "Business Intelligence": "Data Analytics",
+      "Data Science": "Data Analytics",
+      "Machine Learning": "Data Analytics",
+      AI: "Data Analytics",
+      Analytics: "Data Analytics",
+      "Big Data": "Data Analytics",
+      "Cloud Computing": "Infrastructure",
+      SaaS: "Software",
+      Cybersecurity: "Security",
+      FinTech: "Financial Services",
+      InsurTech: "Financial Services",
+      PropTech: "Real Estate",
+      HealthTech: "Healthcare",
+      EdTech: "Education",
+      LegalTech: "Legal",
+      HRTech: "Human Resources",
+      MarTech: "Marketing",
+      AdTech: "Advertising",
+      Gaming: "Entertainment",
+      "E-commerce": "Retail",
+      Logistics: "Supply Chain",
+      IoT: "Internet of Things",
+      Robotics: "Automation",
+    };
+
+    const relatedPrimary = secondarySectors
+      .map((s) => sectorMapping[s.sector_name] || s.sector_name)
+      .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
+
+    return relatedPrimary.join(", ");
+  };
+
   return (
     <div>
       {/* Mobile Cards */}
@@ -490,7 +537,8 @@ const CorporateEventsTable = ({
                   )}
                 </td>
                 <td>{target?.country || "Not Available"}</td>
-                <td>{formatSectors(target?._sectors_primary)}</td>
+                {/* Display related primary sector based on secondary sectors (e.g., Crypto -> Web 3) */}
+                <td>{getRelatedPrimarySectors(target?._sectors_secondary)}</td>
                 <td>{formatSectors(target?._sectors_secondary)}</td>
                 <td>{event.deal_type || "Not Available"}</td>
                 <td>
