@@ -49,14 +49,14 @@ export class CSVExporter {
       // Format other counterparties
       const otherCounterparties =
         event.other_counterparties
-          ?.map((counterparty) => counterparty._new_company.name)
+          ?.map((counterparty) => counterparty._new_company?.name)
           .filter(Boolean)
           .join(", ") || "Not Available";
 
       // Format advisors
       const advisors =
         event.advisors
-          ?.map((advisor) => advisor._new_company.name)
+          ?.map((advisor) => advisor._new_company?.name)
           .filter(Boolean)
           .join(", ") || "Not Available";
 

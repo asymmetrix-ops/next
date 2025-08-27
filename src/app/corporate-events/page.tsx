@@ -507,6 +507,16 @@ const CorporateEventsTable = ({
                 </td>
                 <td>
                   {event.other_counterparties?.map((counterparty, subIndex) => {
+                    // Add null check for _new_company
+                    if (!counterparty._new_company) {
+                      return (
+                        <span key={subIndex}>
+                          Not Available
+                          {subIndex < event.other_counterparties.length - 1 &&
+                            ", "}
+                        </span>
+                      );
+                    }
                     return (
                       <span key={subIndex}>
                         {counterparty._new_company._is_that_investor ? (
@@ -527,14 +537,25 @@ const CorporateEventsTable = ({
                   }) || "Not Available"}
                 </td>
                 <td>
-                  {event.advisors?.map((advisor, subIndex) => (
-                    <span key={subIndex}>
-                      <a href={`/company/${advisor._new_company.id}`}>
-                        {advisor._new_company.name}
-                      </a>
-                      {subIndex < event.advisors.length - 1 && ", "}
-                    </span>
-                  )) || "Not Available"}
+                  {event.advisors?.map((advisor, subIndex) => {
+                    // Add null check for _new_company
+                    if (!advisor._new_company) {
+                      return (
+                        <span key={subIndex}>
+                          Not Available
+                          {subIndex < event.advisors.length - 1 && ", "}
+                        </span>
+                      );
+                    }
+                    return (
+                      <span key={subIndex}>
+                        <a href={`/company/${advisor._new_company.id}`}>
+                          {advisor._new_company.name}
+                        </a>
+                        {subIndex < event.advisors.length - 1 && ", "}
+                      </span>
+                    );
+                  }) || "Not Available"}
                 </td>
               </tr>
             );
