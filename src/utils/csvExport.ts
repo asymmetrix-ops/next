@@ -1,4 +1,4 @@
-import { CorporateEvent } from "../types/corporateEvents";
+import { CorporateEvent } from "@/types/corporateEvents";
 
 export interface CorporateEventCSVRow {
   Description: string;
@@ -61,7 +61,10 @@ export class CSVExporter {
           .join(", ") || "Not Available";
 
       // Generate the corporate event link
-      const corporateEventLink = `${window.location.origin}/corporate-event/${event.id}`;
+      const corporateEventLink =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/corporate-event/${event.id}`
+          : `/corporate-event/${event.id}`;
 
       return {
         Description: event.description || "Not Available",

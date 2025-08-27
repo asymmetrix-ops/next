@@ -9,8 +9,8 @@ import {
   CorporateEvent,
   CorporateEventsResponse,
   CorporateEventsFilters,
-} from "../../types/corporateEvents";
-import { CSVExporter } from "../../utils/csvExport";
+} from "@/types/corporateEvents";
+import { CSVExporter } from "@/utils/csvExport";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for API integration
