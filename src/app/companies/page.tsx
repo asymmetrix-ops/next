@@ -13,6 +13,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { locationsService } from "@/lib/locationsService";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import { CompaniesCSVExporter } from "@/utils/companiesCSVExport";
 
 // Types for API integration
 interface Company {
@@ -1606,6 +1607,30 @@ const CompanySection = ({
 }) => {
   const router = useRouter();
 
+  // Check if any filters are applied
+  const hasActiveFilters = () => {
+    if (!currentFilters) return false;
+    return (
+      currentFilters.countries.length > 0 ||
+      currentFilters.provinces.length > 0 ||
+      currentFilters.cities.length > 0 ||
+      currentFilters.primarySectors.length > 0 ||
+      currentFilters.secondarySectors.length > 0 ||
+      currentFilters.hybridBusinessFocuses.length > 0 ||
+      currentFilters.ownershipTypes.length > 0 ||
+      currentFilters.linkedinMembersMin !== null ||
+      currentFilters.linkedinMembersMax !== null ||
+      currentFilters.searchQuery.trim() !== ""
+    );
+  };
+
+  // Handle CSV export
+  const handleExportCSV = () => {
+    if (companies.length > 0) {
+      CompaniesCSVExporter.exportCompanies(companies, "companies_filtered");
+    }
+  };
+
   const handleCompanyClick = useCallback(
     (companyId: number) => {
       router.push(`/company/${companyId}`);
@@ -1959,6 +1984,25 @@ const CompanySection = ({
       color: #000;
       font-size: 14px;
     }
+    .export-button { 
+      background-color: #22c55e; 
+      color: white; 
+      font-weight: 600; 
+      padding: 12px 24px; 
+      border-radius: 8px; 
+      border: none; 
+      cursor: pointer; 
+      margin: 16px 0; 
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    .export-button:hover { 
+      background-color: #16a34a; 
+    }
+    .export-button:disabled {
+      background-color: #9ca3af;
+      cursor: not-allowed;
+    }
     
     /* Mobile Card Layout */
     .company-cards {
@@ -2307,6 +2351,28 @@ const CompanySection = ({
         )
       )
     ),
+    // Export Button - Show only when filters are applied
+    hasActiveFilters() &&
+      companies.length > 0 &&
+      React.createElement(
+        "div",
+        {
+          style: {
+            display: "flex",
+            justifyContent: "flex-end",
+            marginBottom: "16px",
+          },
+        },
+        React.createElement(
+          "button",
+          {
+            onClick: handleExportCSV,
+            className: "export-button",
+            disabled: loading,
+          },
+          loading ? "Exporting..." : "Export CSV"
+        )
+      ),
     React.createElement(
       "div",
       { className: "company-cards" },
