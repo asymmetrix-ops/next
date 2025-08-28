@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { locationsService } from "@/lib/locationsService";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for API integration
@@ -187,6 +188,10 @@ const SectorCard = ({
   );
 };
 
+// Helpers
+const normalizeSectorName = (name: string | undefined | null): string =>
+  (name || "").trim().toLowerCase();
+
 const SectorsSection = () => {
   const router = useRouter();
   const [sectors, setSectors] = useState<Sector[]>([]);
@@ -194,6 +199,8 @@ const SectorsSection = () => {
   const [error, setError] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>("Number_of_Companies");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  // Preload mapping for potential downstream use; currently not used directly on this page
+  const [, setSecondaryToPrimaryMap] = useState<Record<string, string>>({});
 
   const handleSectorClick = (sectorId: number) => {
     router.push(`/sector/${sectorId}`);
@@ -276,6 +283,30 @@ const SectorsSection = () => {
   };
 
   useEffect(() => {
+    // Load mapping in background (used for counts enrichment if needed later)
+    (async () => {
+      try {
+        const allSecondary =
+          await locationsService.getAllSecondarySectorsWithPrimary();
+        const map: Record<string, string> = {};
+        if (Array.isArray(allSecondary)) {
+          for (const sec of allSecondary) {
+            const secName = (sec as { sector_name?: string }).sector_name;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const primary = (sec as any)?.related_primary_sector as
+              | { sector_name?: string }
+              | undefined;
+            const primaryName = primary?.sector_name;
+            if (secName && primaryName) {
+              map[normalizeSectorName(secName)] = primaryName;
+            }
+          }
+        }
+        setSecondaryToPrimaryMap(map);
+      } catch {
+        // best-effort; ignore mapping load errors here
+      }
+    })();
     fetchSectors();
   }, []);
 

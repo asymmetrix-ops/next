@@ -23,6 +23,15 @@ type MaybeCounterparty =
     }
   | undefined;
 
+// Type-safe check for Data & Analytics company flag
+const isDataAnalyticsCompany = (candidate: unknown): boolean => {
+  if (!candidate || typeof candidate !== "object") return false;
+  const obj = candidate as { _is_that_data_analytic_company?: unknown };
+  return typeof obj._is_that_data_analytic_company === "boolean"
+    ? obj._is_that_data_analytic_company
+    : false;
+};
+
 // Company Logo Component
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
   if (logo) {
@@ -69,6 +78,22 @@ const CorporateEventDetail = ({
     if (Number.isNaN(n)) return "Not available";
     const formatted = n.toLocaleString(undefined, { maximumFractionDigits: 3 });
     return `${currency}${formatted}m`;
+  };
+
+  // Prefer investment currency if present; otherwise fall back to EV currency
+  const getInvestmentCurrency = (): string | undefined => {
+    const inv = event?.investment_data as
+      | { _currency?: { Currency?: string }; currency?: { Currency?: string } }
+      | undefined;
+    const fromInvestment = inv?.currency?.Currency || inv?._currency?.Currency;
+    return fromInvestment || event?.ev_data?._currency?.Currency || undefined;
+  };
+
+  const formatInvestmentAmount = (): string => {
+    const amount = event?.investment_data?.investment_amount_m;
+    if (!amount) return "Not available";
+    const currency = getInvestmentCurrency();
+    return currency ? formatCurrency(amount, currency) : "Not available";
   };
 
   // Removed navigation helpers in favor of createClickableElement to support right-click
@@ -369,6 +394,10 @@ const CorporateEventDetail = ({
             </div>
             <div className="info-column">
               <div className="info-item">
+                <span className="info-label">Investment Amount:</span>
+                <span className="info-value">{formatInvestmentAmount()}</span>
+              </div>
+              <div className="info-item">
                 <span className="info-label">Enterprise Value:</span>
                 <span className="info-value">
                   {event.ev_data._currency?.Currency
@@ -406,9 +435,31 @@ const CorporateEventDetail = ({
               <div className="info-item">
                 <span className="info-label">Primary Sectors:</span>
                 <span className="info-value">
-                  {data.Primary_sectors.length > 0
-                    ? data.Primary_sectors.map((s) => s.sector_name).join(", ")
-                    : "Not available"}
+                  {(() => {
+                    // Derive primary sectors from sub-sectors mapping when needed
+                    const existing = Array.isArray(data.Primary_sectors)
+                      ? data.Primary_sectors.map((s) => s.sector_name)
+                      : [];
+                    // Build a lightweight mapping from the detail payload if present
+                    // Fall back to existing only when we cannot derive
+                    const derived = Array.isArray(subSectors)
+                      ? subSectors
+                          .map(
+                            (s) =>
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                              ((s as any)?.related_primary_sector
+                                ?.sector_name as string | undefined) ||
+                              s.sector_name
+                          )
+                          .filter((v): v is string => Boolean(v))
+                      : [];
+                    const combined = Array.from(
+                      new Set([...existing, ...derived])
+                    );
+                    return combined.length > 0
+                      ? combined.join(", ")
+                      : "Not available";
+                  })()}
                 </span>
               </div>
             </div>
@@ -455,13 +506,29 @@ const CorporateEventDetail = ({
                       />
                     </td>
                     <td>
-                      {createClickableElement(
-                        counterparty._new_company?._is_that_investor
+                      {(() => {
+                        const nc = counterparty._new_company;
+                        const isInvestor = Boolean(nc?._is_that_investor);
+                        // Treat as Data & Analytics company only if backend flag is present
+                        const isDA = isDataAnalyticsCompany(nc);
+                        const href = isInvestor
                           ? `/investors/${counterparty.new_company_counterparty}`
-                          : `/company/${counterparty._new_company.id}`,
-                        counterparty._new_company.name,
-                        "corporate-event-link"
-                      )}
+                          : isDA
+                          ? `/company/${Number(nc?.id)}`
+                          : undefined;
+                        if (href) {
+                          return createClickableElement(
+                            href,
+                            nc?.name ?? "N/A",
+                            "corporate-event-link"
+                          );
+                        }
+                        return (
+                          <span style={{ color: "#000" }}>
+                            {nc?.name ?? "N/A"}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td>
                       {counterparty._counterpartys_type.counterparty_status}
@@ -519,12 +586,26 @@ const CorporateEventDetail = ({
                     name={counterparty._new_company.name}
                   />
                   <div className="counterparty-card-name">
-                    {createClickableElement(
-                      counterparty._new_company?._is_that_investor
+                    {(() => {
+                      const nc = counterparty._new_company;
+                      const isInvestor = Boolean(nc?._is_that_investor);
+                      const isDA = isDataAnalyticsCompany(nc);
+                      const href = isInvestor
                         ? `/investors/${counterparty.new_company_counterparty}`
-                        : `/company/${counterparty._new_company.id}`,
-                      counterparty._new_company.name
-                    )}
+                        : isDA
+                        ? `/company/${Number(nc?.id)}`
+                        : undefined;
+                      if (href) {
+                        return createClickableElement(href, nc?.name ?? "N/A");
+                      }
+                      return (
+                        <span
+                          style={{ color: "#2563eb", textDecoration: "none" }}
+                        >
+                          {nc?.name ?? "N/A"}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div className="counterparty-card-info">
@@ -606,20 +687,29 @@ const CorporateEventDetail = ({
                     </td>
                     <td>{a._advisor_role?.counterparty_status || "N/A"}</td>
                     <td>
-                      {createClickableElement(
-                        (a._counterparties as MaybeCounterparty)?._new_company
-                          ?._is_that_investor
-                          ? `/investors/${
-                              (a._counterparties as MaybeCounterparty)
-                                ?.new_company_counterparty
-                            }`
-                          : `/company/${Number(
-                              (a._counterparties as MaybeCounterparty)
-                                ?._new_company?.id
-                            )}`,
-                        a._counterparties?._new_company?.name || "N/A",
-                        "corporate-event-link"
-                      )}
+                      {(() => {
+                        const cp = a._counterparties as MaybeCounterparty;
+                        const nc = cp?._new_company;
+                        const isInvestor = Boolean(nc?._is_that_investor);
+                        const isDA = isDataAnalyticsCompany(nc);
+                        const href = isInvestor
+                          ? `/investors/${cp?.new_company_counterparty}`
+                          : isDA
+                          ? `/company/${Number(nc?.id)}`
+                          : undefined;
+                        if (href) {
+                          return createClickableElement(
+                            href,
+                            nc?.name || "N/A",
+                            "corporate-event-link"
+                          );
+                        }
+                        return (
+                          <span style={{ color: "#000" }}>
+                            {nc?.name || "N/A"}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td>
                       {a.announcement_url ? (
@@ -675,20 +765,29 @@ const CorporateEventDetail = ({
                         Advising:
                       </span>
                       <span className="counterparty-card-info-value">
-                        {createClickableElement(
-                          (a._counterparties as MaybeCounterparty)?._new_company
-                            ?._is_that_investor
-                            ? `/investors/${
-                                (a._counterparties as MaybeCounterparty)
-                                  ?.new_company_counterparty
-                              }`
-                            : `/company/${Number(
-                                (a._counterparties as MaybeCounterparty)
-                                  ?._new_company?.id
-                              )}`,
-                          a._counterparties?._new_company?.name || "N/A",
-                          "corporate-event-link"
-                        )}
+                        {(() => {
+                          const cp = a._counterparties as MaybeCounterparty;
+                          const nc = cp?._new_company;
+                          const isInvestor = Boolean(nc?._is_that_investor);
+                          const isDA = isDataAnalyticsCompany(nc);
+                          const href = isInvestor
+                            ? `/investors/${cp?.new_company_counterparty}`
+                            : isDA
+                            ? `/company/${Number(nc?.id)}`
+                            : undefined;
+                          if (href) {
+                            return createClickableElement(
+                              href,
+                              nc?.name || "N/A",
+                              "corporate-event-link"
+                            );
+                          }
+                          return (
+                            <span style={{ color: "#000" }}>
+                              {nc?.name || "N/A"}
+                            </span>
+                          );
+                        })()}
                       </span>
                     </div>
                     {a.announcement_url && (

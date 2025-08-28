@@ -291,6 +291,26 @@ const useCompaniesAPI = () => {
 
         // Add filters to the request using API's expected param names
         if (filtersToUse) {
+          // If primary sectors are selected, include their linked secondary sectors automatically
+          let derivedSecondaryIds: number[] = [];
+          if (filtersToUse.primarySectors.length > 0) {
+            try {
+              const secondaryFromPrimary =
+                await locationsService.getSecondarySectors(
+                  filtersToUse.primarySectors
+                );
+              derivedSecondaryIds = Array.isArray(secondaryFromPrimary)
+                ? secondaryFromPrimary
+                    .map((s) => s.id)
+                    .filter((id): id is number => typeof id === "number")
+                : [];
+            } catch (e) {
+              console.warn(
+                "[Companies] Failed to derive secondary sectors from primaries",
+                e
+              );
+            }
+          }
           if (filtersToUse.countries.length > 0) {
             filtersToUse.countries.forEach((country) => {
               params.append("Countries[]", country);
@@ -311,10 +331,18 @@ const useCompaniesAPI = () => {
               params.append("Primary_sectors_ids[]", sectorId.toString());
             });
           }
-          if (filtersToUse.secondarySectors.length > 0) {
-            filtersToUse.secondarySectors.forEach((sectorId) => {
-              params.append("Secondary_sectors_ids[]", sectorId.toString());
-            });
+          {
+            const combinedSecondary = Array.from(
+              new Set([
+                ...derivedSecondaryIds,
+                ...(filtersToUse.secondarySectors || []),
+              ])
+            );
+            if (combinedSecondary.length > 0) {
+              combinedSecondary.forEach((sectorId) => {
+                params.append("Secondary_sectors_ids[]", sectorId.toString());
+              });
+            }
           }
           if (filtersToUse.ownershipTypes.length > 0) {
             filtersToUse.ownershipTypes.forEach((ownershipTypeId) => {
@@ -468,13 +496,63 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
   );
 };
 
+// Helpers for sector mapping fallbacks and normalization
+const normalizeSectorName = (name: string | undefined | null): string => {
+  return (name || "").trim().toLowerCase();
+};
+
+const FALLBACK_SECONDARY_TO_PRIMARY: Record<string, string> = {
+  [normalizeSectorName("Crypto")]: "Web 3",
+  [normalizeSectorName("Blockchain")]: "Web 3",
+  [normalizeSectorName("DeFi")]: "Web 3",
+  [normalizeSectorName("NFT")]: "Web 3",
+  [normalizeSectorName("Web3")]: "Web 3",
+  [normalizeSectorName("Business Intelligence")]: "Data Analytics",
+  [normalizeSectorName("Data Science")]: "Data Analytics",
+  [normalizeSectorName("Machine Learning")]: "Data Analytics",
+  [normalizeSectorName("AI")]: "Data Analytics",
+  [normalizeSectorName("Analytics")]: "Data Analytics",
+  [normalizeSectorName("Big Data")]: "Data Analytics",
+  [normalizeSectorName("Cloud Computing")]: "Infrastructure",
+  [normalizeSectorName("SaaS")]: "Software",
+  [normalizeSectorName("Cybersecurity")]: "Security",
+  [normalizeSectorName("FinTech")]: "Financial Services",
+  [normalizeSectorName("InsurTech")]: "Financial Services",
+  [normalizeSectorName("PropTech")]: "Real Estate",
+  [normalizeSectorName("HealthTech")]: "Healthcare",
+  [normalizeSectorName("EdTech")]: "Education",
+  [normalizeSectorName("LegalTech")]: "Legal",
+  [normalizeSectorName("HRTech")]: "Human Resources",
+  [normalizeSectorName("MarTech")]: "Marketing",
+  [normalizeSectorName("AdTech")]: "Advertising",
+  [normalizeSectorName("Gaming")]: "Entertainment",
+  [normalizeSectorName("E-commerce")]: "Retail",
+  [normalizeSectorName("Logistics")]: "Supply Chain",
+  [normalizeSectorName("IoT")]: "Internet of Things",
+  [normalizeSectorName("Robotics")]: "Automation",
+};
+
+const mapSecondaryToPrimary = (
+  secondaryName: string,
+  apiMap: Record<string, string>
+): string | undefined => {
+  const key = normalizeSectorName(secondaryName);
+  // Prefer API-driven map first (with normalized lookup)
+  const apiValue = apiMap[key] || apiMap[secondaryName];
+  if (apiValue) return apiValue;
+  // Fallback static map
+  return FALLBACK_SECONDARY_TO_PRIMARY[key];
+};
+
 // Company Card Component for Mobile
 const CompanyCard = ({
   company,
   index,
+  secondaryToPrimaryMap,
 }: {
   company: Company;
   index: number;
+  secondaryToPrimaryMap: Record<string, string>;
 }) => {
   const router = useRouter();
 
@@ -503,6 +581,23 @@ const CompanyCard = ({
   const { text: truncatedText, isLong } = truncateDescription(
     company.description || "N/A"
   );
+
+  // Compute primary sectors by combining existing primaries with primaries derived from secondaries
+  const computedPrimarySectors = React.useMemo(() => {
+    const existing = Array.isArray(company.primary_sectors)
+      ? company.primary_sectors
+      : [];
+    const derived = Array.isArray(company.secondary_sectors)
+      ? company.secondary_sectors
+          .map((name) => mapSecondaryToPrimary(name, secondaryToPrimaryMap))
+          .filter((v): v is string => Boolean(v))
+      : [];
+    return Array.from(new Set([...existing, ...derived]));
+  }, [
+    company.primary_sectors,
+    company.secondary_sectors,
+    secondaryToPrimaryMap,
+  ]);
 
   return React.createElement(
     "div",
@@ -547,8 +642,8 @@ const CompanyCard = ({
         React.createElement(
           "span",
           { className: "company-card-value" },
-          company.primary_sectors?.length > 0
-            ? company.primary_sectors.join(", ")
+          computedPrimarySectors.length > 0
+            ? computedPrimarySectors.join(", ")
             : "N/A"
         )
       ),
@@ -1611,6 +1706,41 @@ const CompanySection = ({
   currentFilters: Filters | undefined;
 }) => {
   const router = useRouter();
+  const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<
+    Record<string, string>
+  >({});
+
+  // Build a mapping of Secondary sector name -> Primary sector name from API
+  useEffect(() => {
+    let cancelled = false;
+    const loadMap = async () => {
+      try {
+        const allSecondary =
+          await locationsService.getAllSecondarySectorsWithPrimary();
+        if (!cancelled && Array.isArray(allSecondary)) {
+          const map: Record<string, string> = {};
+          for (const sec of allSecondary) {
+            const secName = (sec as { sector_name?: string }).sector_name;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const primary = (sec as any)?.related_primary_sector as
+              | { sector_name?: string }
+              | undefined;
+            const primaryName = primary?.sector_name;
+            if (secName && primaryName) {
+              map[normalizeSectorName(secName)] = primaryName;
+            }
+          }
+          setSecondaryToPrimaryMap(map);
+        }
+      } catch (e) {
+        console.warn("[Companies] Failed to load secondary->primary map", e);
+      }
+    };
+    loadMap();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Check if any filters are applied
   const hasActiveFilters = () => {
@@ -1656,59 +1786,70 @@ const CompanySection = ({
 
   const tableRows = useMemo(
     () =>
-      companies.map((company, index) => (
-        <tr key={company.id || index}>
-          <td>
-            <CompanyLogo logo={company.linkedin_logo} name={company.name} />
-          </td>
-          <td>
-            <a
-              href={`/company/${company.id}`}
-              className="company-name"
-              style={{
-                textDecoration: "none",
-                color: "#3b82f6",
-              }}
-              onClick={(e) => {
-                if (
-                  e.defaultPrevented ||
-                  e.button !== 0 ||
-                  e.metaKey ||
-                  e.ctrlKey ||
-                  e.shiftKey ||
-                  e.altKey
-                ) {
-                  return;
-                }
-                e.preventDefault();
-                handleCompanyClick(company.id);
-              }}
-            >
-              {company.name || "N/A"}
-            </a>
-          </td>
-          <td>
-            <CompanyDescription
-              description={company.description || "N/A"}
-              index={index}
-            />
-          </td>
-          <td className="sectors-list">
-            {company.primary_sectors?.length > 0
-              ? company.primary_sectors.join(", ")
-              : "N/A"}
-          </td>
-          <td className="sectors-list">
-            {company.secondary_sectors?.length > 0
-              ? company.secondary_sectors.join(", ")
-              : "N/A"}
-          </td>
-          <td>{company.ownership || "N/A"}</td>
-          <td>{formatNumber(company.linkedin_members)}</td>
-          <td>{company.country || "N/A"}</td>
-        </tr>
-      )),
-    [companies, handleCompanyClick]
+      companies.map((company, index) => {
+        const primarySet = new Set(
+          Array.isArray(company.primary_sectors) ? company.primary_sectors : []
+        );
+        const derivedFromSecondary = Array.isArray(company.secondary_sectors)
+          ? company.secondary_sectors
+              .map((s) => mapSecondaryToPrimary(s, secondaryToPrimaryMap))
+              .filter((v): v is string => Boolean(v))
+          : [];
+        derivedFromSecondary.forEach((p) => primarySet.add(p));
+        const primaryDisplay = Array.from(primarySet);
+
+        return (
+          <tr key={company.id || index}>
+            <td>
+              <CompanyLogo logo={company.linkedin_logo} name={company.name} />
+            </td>
+            <td>
+              <a
+                href={`/company/${company.id}`}
+                className="company-name"
+                style={{
+                  textDecoration: "none",
+                  color: "#3b82f6",
+                }}
+                onClick={(e) => {
+                  if (
+                    e.defaultPrevented ||
+                    e.button !== 0 ||
+                    e.metaKey ||
+                    e.ctrlKey ||
+                    e.shiftKey ||
+                    e.altKey
+                  ) {
+                    return;
+                  }
+                  e.preventDefault();
+                  handleCompanyClick(company.id);
+                }}
+              >
+                {company.name || "N/A"}
+              </a>
+            </td>
+            <td>
+              <CompanyDescription
+                description={company.description || "N/A"}
+                index={index}
+              />
+            </td>
+            <td className="sectors-list">
+              {primaryDisplay.length > 0 ? primaryDisplay.join(", ") : "N/A"}
+            </td>
+            <td className="sectors-list">
+              {company.secondary_sectors?.length > 0
+                ? company.secondary_sectors.join(", ")
+                : "N/A"}
+            </td>
+            <td>{company.ownership || "N/A"}</td>
+            <td>{formatNumber(company.linkedin_members)}</td>
+            <td>{company.country || "N/A"}</td>
+          </tr>
+        );
+      }),
+    [companies, handleCompanyClick, secondaryToPrimaryMap]
   );
 
   const generatePaginationButtons = () => {
@@ -2386,6 +2527,7 @@ const CompanySection = ({
           key: company.id || index,
           company: company,
           index: index,
+          secondaryToPrimaryMap: secondaryToPrimaryMap,
         })
       )
     ),

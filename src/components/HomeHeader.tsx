@@ -38,7 +38,16 @@ export default function HomeHeader() {
           gap: 12,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <Link
+          href="/"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            color: "#fff",
+            textDecoration: "none",
+          }}
+        >
           <img
             src="/icons/logo.svg"
             alt="Logo"
@@ -49,7 +58,7 @@ export default function HomeHeader() {
           <span style={{ fontWeight: 700, letterSpacing: 0.5 }}>
             ASYMMETRIX
           </span>
-        </div>
+        </Link>
 
         <nav className="hidden gap-6 items-center md:flex">
           <a

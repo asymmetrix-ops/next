@@ -391,6 +391,40 @@ const CorporateEventsTable = ({
     );
   };
 
+  // Build a mapping once from API for secondary->primary names
+  const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<
+    Record<string, string>
+  >({});
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const allSecondary =
+          await locationsService.getAllSecondarySectorsWithPrimary();
+        if (!cancelled && Array.isArray(allSecondary)) {
+          const map: Record<string, string> = {};
+          for (const sec of allSecondary) {
+            const secName = (sec as { sector_name?: string }).sector_name;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const primary = (sec as any)?.related_primary_sector as
+              | { sector_name?: string }
+              | undefined;
+            const primaryName = primary?.sector_name;
+            if (secName && primaryName)
+              map[normalizeSectorName(secName)] = primaryName;
+          }
+          setSecondaryToPrimaryMap(map);
+        }
+      } catch (e) {
+        console.warn("[Corporate Events] Failed to load sectors mapping", e);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   if (loading) {
     return <div className="loading">Loading corporate events...</div>;
   }
@@ -425,51 +459,32 @@ const CorporateEventsTable = ({
     return sectors.map((s) => s.sector_name).join(", ");
   };
 
-  // Helper function to get related primary sector from secondary sectors
-  const getRelatedPrimarySectors = (
+  // Sector name normalization and fallback map for reliability (e.g., Crypto -> Web 3)
+  const normalizeSectorName = (name: string | undefined | null): string =>
+    (name || "").trim().toLowerCase();
+  const FALLBACK_SECONDARY_TO_PRIMARY: Record<string, string> = {
+    [normalizeSectorName("Crypto")]: "Web 3",
+    [normalizeSectorName("Blockchain")]: "Web 3",
+    [normalizeSectorName("DeFi")]: "Web 3",
+    [normalizeSectorName("NFT")]: "Web 3",
+    [normalizeSectorName("Web3")]: "Web 3",
+    [normalizeSectorName("PropTech")]: "Real Estate",
+  };
+
+  const computeRelatedPrimary = (
     secondarySectors: { sector_name: string }[] | undefined
-  ) => {
+  ): string => {
     if (!secondarySectors || secondarySectors.length === 0)
       return "Not available";
-
-    // For now, we'll create a mapping based on known relationships
-    // In the future, this could be fetched from the API
-    const sectorMapping: { [key: string]: string } = {
-      Crypto: "Web 3",
-      Blockchain: "Web 3",
-      DeFi: "Web 3",
-      NFT: "Web 3",
-      Web3: "Web 3",
-      "Business Intelligence": "Data Analytics",
-      "Data Science": "Data Analytics",
-      "Machine Learning": "Data Analytics",
-      AI: "Data Analytics",
-      Analytics: "Data Analytics",
-      "Big Data": "Data Analytics",
-      "Cloud Computing": "Infrastructure",
-      SaaS: "Software",
-      Cybersecurity: "Security",
-      FinTech: "Financial Services",
-      InsurTech: "Financial Services",
-      PropTech: "Real Estate",
-      HealthTech: "Healthcare",
-      EdTech: "Education",
-      LegalTech: "Legal",
-      HRTech: "Human Resources",
-      MarTech: "Marketing",
-      AdTech: "Advertising",
-      Gaming: "Entertainment",
-      "E-commerce": "Retail",
-      Logistics: "Supply Chain",
-      IoT: "Internet of Things",
-      Robotics: "Automation",
-    };
-
-    const relatedPrimary = secondarySectors
-      .map((s) => sectorMapping[s.sector_name] || s.sector_name)
-      .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
-
-    return relatedPrimary.join(", ");
+    const related = secondarySectors
+      .map(
+        (s) =>
+          secondaryToPrimaryMap[normalizeSectorName(s.sector_name)] ||
+          FALLBACK_SECONDARY_TO_PRIMARY[normalizeSectorName(s.sector_name)] ||
+          s.sector_name
+      )
+      .filter((v, i, a) => a.indexOf(v) === i);
+    return related.length > 0 ? related.join(", ") : "Not available";
   };
 
   return (
@@ -537,8 +552,8 @@ const CorporateEventsTable = ({
                   )}
                 </td>
                 <td>{target?.country || "Not Available"}</td>
-                {/* Display related primary sector based on secondary sectors (e.g., Crypto -> Web 3) */}
-                <td>{getRelatedPrimarySectors(target?._sectors_secondary)}</td>
+                {/* Display related primary sector based on secondary sectors (API-driven mapping) */}
+                <td>{computeRelatedPrimary(target?._sectors_secondary)}</td>
                 <td>{formatSectors(target?._sectors_secondary)}</td>
                 <td>{event.deal_type || "Not Available"}</td>
                 <td>

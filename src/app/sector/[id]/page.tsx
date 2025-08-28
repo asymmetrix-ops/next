@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { locationsService } from "@/lib/locationsService";
 
 // Types for API integration
 interface SectorData {
@@ -49,16 +50,32 @@ interface SectorCompany {
   }>;
 }
 
-interface SectorCompaniesResponse {
-  result1: {
-    items: SectorCompany[];
-    itemsReceived: number;
-    curPage: number;
-    nextPage: number | null;
-    prevPage: number | null;
-    offset: number;
-    perPage: number;
-    pageTotal: number;
+// Response shape for the new companies endpoint used on sector page
+interface NewCompanyItem {
+  id: number;
+  name: string;
+  url?: string;
+  secondary_sectors?: string[];
+  primary_sectors?: string[];
+  description?: string;
+  linkedin_members?: number;
+  linkedin_members_old?: number;
+  linkedin_logo?: string;
+  country?: string;
+  ownership_type_id?: number;
+  ownership?: string;
+}
+
+interface NewCompaniesAPIResult {
+  result1?: {
+    items?: Array<NewCompanyItem>;
+    itemsReceived?: number;
+    curPage?: number;
+    nextPage?: number | null;
+    prevPage?: number | null;
+    offset?: number;
+    perPage?: number;
+    pageTotal?: number;
   };
 }
 
@@ -66,6 +83,26 @@ interface SectorCompaniesResponse {
 const formatNumber = (num: number | undefined): string => {
   if (num === undefined || num === null) return "0";
   return num.toLocaleString();
+};
+// Sector name normalization and fallback map for reliability (e.g., Crypto -> Web 3)
+const normalizeSectorName = (name: string | undefined | null): string =>
+  (name || "").trim().toLowerCase();
+
+const FALLBACK_SECONDARY_TO_PRIMARY: Record<string, string> = {
+  [normalizeSectorName("Crypto")]: "Web 3",
+  [normalizeSectorName("Blockchain")]: "Web 3",
+  [normalizeSectorName("DeFi")]: "Web 3",
+  [normalizeSectorName("NFT")]: "Web 3",
+  [normalizeSectorName("Web3")]: "Web 3",
+  [normalizeSectorName("PropTech")]: "Real Estate",
+};
+
+const mapSecondaryToPrimary = (
+  secondaryName: string,
+  apiMap: Record<string, string>
+): string | undefined => {
+  const key = normalizeSectorName(secondaryName);
+  return apiMap[key] || FALLBACK_SECONDARY_TO_PRIMARY[key];
 };
 
 const truncateDescription = (
@@ -325,6 +362,41 @@ const SectorDetailPage = () => {
     pageTotal: 0,
   });
   const [selectedPerPage, setSelectedPerPage] = useState(50);
+  const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<
+    Record<string, string>
+  >({});
+
+  // Load secondary->primary mapping once
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const allSecondary =
+          await locationsService.getAllSecondarySectorsWithPrimary();
+        if (!cancelled && Array.isArray(allSecondary)) {
+          const map: Record<string, string> = {};
+          for (const sec of allSecondary) {
+            const secName = (sec as { sector_name?: string }).sector_name;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const primary = (sec as any)?.related_primary_sector as
+              | { sector_name?: string }
+              | undefined;
+            const primaryName = primary?.sector_name;
+            if (secName && primaryName) {
+              map[normalizeSectorName(secName)] = primaryName;
+            }
+          }
+          setSecondaryToPrimaryMap(map);
+        }
+      } catch (e) {
+        console.warn("[Sector] Failed to load secondary->primary map", e);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Fetch sector data
   const fetchSectorData = useCallback(async () => {
@@ -376,7 +448,7 @@ const SectorDetailPage = () => {
     }
   }, [sectorId]);
 
-  // Fetch companies data
+  // Fetch companies data (include companies whose secondary sectors map to this primary sector)
   const fetchCompanies = useCallback(
     async (page: number = 1, perPageOverride?: number) => {
       setCompaniesLoading(true);
@@ -389,24 +461,48 @@ const SectorDetailPage = () => {
           setCompaniesLoading(false);
           return;
         }
-        const offset = (page - 1) * perPageToUse;
 
-        const params = new URLSearchParams();
-        params.append("Offset", offset.toString());
-        params.append("Per_page", perPageToUse.toString());
-        params.append("Sector_id", sectorId);
-
-        const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Get_Sector_s_new_companies?${params.toString()}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            credentials: "include",
+        // Derive secondary sectors linked to this primary sector id
+        const sectorIdNum = Number(sectorId);
+        let derivedSecondaryIds: number[] = [];
+        if (!Number.isNaN(sectorIdNum)) {
+          try {
+            const secondaries = await locationsService.getSecondarySectors([
+              sectorIdNum,
+            ]);
+            derivedSecondaryIds = Array.isArray(secondaries)
+              ? secondaries
+                  .map((s) => s.id)
+                  .filter((id): id is number => typeof id === "number")
+              : [];
+          } catch (e) {
+            console.warn("[Sector] Failed to fetch secondary sectors", e);
           }
+        }
+
+        // Companies endpoint (same as Companies page) with both filters
+        const params = new URLSearchParams();
+        params.append("Offset", String(page)); // this API treats Offset as page number
+        params.append("Per_page", String(perPageToUse));
+        if (!Number.isNaN(sectorIdNum)) {
+          params.append("Primary_sectors_ids[]", String(sectorIdNum));
+        }
+        derivedSecondaryIds.forEach((id) =>
+          params.append("Secondary_sectors_ids[]", String(id))
         );
+        params.append("Horizontals_ids", "");
+        params.append("Min_linkedin_members", "0");
+        params.append("Max_linkedin_members", "0");
+
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+        });
 
         if (!response.ok) {
           if (response.status === 401) {
@@ -415,16 +511,44 @@ const SectorDetailPage = () => {
           throw new Error(`API request failed: ${response.statusText}`);
         }
 
-        const data: SectorCompaniesResponse = await response.json();
-        setCompanies(data.result1?.items || []);
+        // Adapt response items to SectorCompany shape used by this page
+        const raw = (await response.json()) as NewCompaniesAPIResult;
+
+        const items: NewCompanyItem[] = Array.isArray(raw.result1?.items)
+          ? (raw.result1!.items as NewCompanyItem[])
+          : [];
+        const adapted: SectorCompany[] = items.map((c) => ({
+          id: c.id,
+          name: c.name,
+          locations_id: 0,
+          url: c.url || "",
+          sectors: Array.isArray(c.secondary_sectors)
+            ? c.secondary_sectors
+            : [],
+          primary_sectors: Array.isArray(c.primary_sectors)
+            ? c.primary_sectors
+            : [],
+          description: c.description || "",
+          linkedin_employee: c.linkedin_members || 0,
+          linkedin_employee_latest: c.linkedin_members || 0,
+          linkedin_employee_old: c.linkedin_members_old || 0,
+          linkedin_logo: c.linkedin_logo || "",
+          country: c.country || "",
+          ownership_type_id: c.ownership_type_id || 0,
+          ownership: c.ownership || "",
+          is_that_investor: false,
+          companies_investors: [],
+        }));
+
+        setCompanies(adapted);
         setPagination({
-          itemsReceived: data.result1?.itemsReceived || 0,
-          curPage: data.result1?.curPage || 1,
-          nextPage: data.result1?.nextPage || null,
-          prevPage: data.result1?.prevPage || null,
-          offset: data.result1?.offset || 0,
-          perPage: data.result1?.perPage || 50,
-          pageTotal: data.result1?.pageTotal || 0,
+          itemsReceived: raw.result1?.itemsReceived || adapted.length,
+          curPage: raw.result1?.curPage || page,
+          nextPage: raw.result1?.nextPage ?? null,
+          prevPage: raw.result1?.prevPage ?? null,
+          offset: raw.result1?.offset || 0,
+          perPage: raw.result1?.perPage || perPageToUse,
+          pageTotal: raw.result1?.pageTotal || 0,
         });
       } catch (err) {
         console.error("Error fetching companies:", err);
@@ -771,46 +895,58 @@ const SectorDetailPage = () => {
     document.title = `Asymmetrix – ${sectorData.Sector.sector_name}`;
   }
 
-  const tableRows = companies.map((company, index) => (
-    <tr key={company.id || index}>
-      <td>
-        <CompanyLogo logo={company.linkedin_logo} name={company.name} />
-      </td>
-      <td>
-        <a
-          href={`/company/${company.id}`}
-          className="company-name"
-          style={{ textDecoration: "none" }}
-        >
-          {company.name || "N/A"}
-        </a>
-      </td>
-      <td>
-        <CompanyDescription
-          description={company.description || "N/A"}
-          index={index}
-        />
-      </td>
-      <td className="sectors-list">
-        {company.sectors?.length > 0 ? company.sectors.join(", ") : "N/A"}
-      </td>
-      <td className="sectors-list">
-        {company.primary_sectors?.length > 0
-          ? company.primary_sectors.join(", ")
-          : "N/A"}
-      </td>
-      <td>{company.ownership || "N/A"}</td>
-      <td>
-        {company.companies_investors?.length > 0
-          ? company.companies_investors
-              .map((investor) => investor.company_name)
-              .join(", ")
-          : "N/A"}
-      </td>
-      <td>{formatNumber(company.linkedin_employee_latest)}</td>
-      <td>{company.country || "N/A"}</td>
-    </tr>
-  ));
+  const tableRows = companies.map((company, index) => {
+    const existingPrimary = Array.isArray(company.primary_sectors)
+      ? company.primary_sectors
+      : [];
+    const derivedFromSectors = Array.isArray(company.sectors)
+      ? company.sectors
+          .map((s) => mapSecondaryToPrimary(s, secondaryToPrimaryMap))
+          .filter((v): v is string => Boolean(v))
+      : [];
+    const primaryDisplay = Array.from(
+      new Set([...existingPrimary, ...derivedFromSectors])
+    );
+
+    return (
+      <tr key={company.id || index}>
+        <td>
+          <CompanyLogo logo={company.linkedin_logo} name={company.name} />
+        </td>
+        <td>
+          <a
+            href={`/company/${company.id}`}
+            className="company-name"
+            style={{ textDecoration: "none" }}
+          >
+            {company.name || "N/A"}
+          </a>
+        </td>
+        <td>
+          <CompanyDescription
+            description={company.description || "N/A"}
+            index={index}
+          />
+        </td>
+        <td className="sectors-list">
+          {company.sectors?.length > 0 ? company.sectors.join(", ") : "N/A"}
+        </td>
+        <td className="sectors-list">
+          {primaryDisplay.length > 0 ? primaryDisplay.join(", ") : "N/A"}
+        </td>
+        <td>{company.ownership || "N/A"}</td>
+        <td>
+          {company.companies_investors?.length > 0
+            ? company.companies_investors
+                .map((investor) => investor.company_name)
+                .join(", ")
+            : "N/A"}
+        </td>
+        <td>{formatNumber(company.linkedin_employee_latest)}</td>
+        <td>{company.country || "N/A"}</td>
+      </tr>
+    );
+  });
 
   const style = `
     .company-table {

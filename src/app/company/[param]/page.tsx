@@ -16,6 +16,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ContentArticle } from "@/types/insightsAnalysis";
+import { locationsService } from "@/lib/locationsService";
 
 // Types for API integration
 interface CompanyLocation {
@@ -476,6 +477,52 @@ const CompanyDetail = () => {
   const [companyArticles, setCompanyArticles] = useState<ContentArticle[]>([]);
   const [articlesLoading, setArticlesLoading] = useState(false);
 
+  // Sector mapping helpers
+  const normalizeSectorName = (name: string | undefined | null): string =>
+    (name || "").trim().toLowerCase();
+  const FALLBACK_SECONDARY_TO_PRIMARY: Record<string, string> = {
+    [normalizeSectorName("Crypto")]: "Web 3",
+    [normalizeSectorName("Blockchain")]: "Web 3",
+    [normalizeSectorName("DeFi")]: "Web 3",
+    [normalizeSectorName("NFT")]: "Web 3",
+    [normalizeSectorName("Web3")]: "Web 3",
+    [normalizeSectorName("PropTech")]: "Real Estate",
+  };
+  const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<
+    Record<string, string>
+  >({});
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadMap = async () => {
+      try {
+        const allSecondary =
+          await locationsService.getAllSecondarySectorsWithPrimary();
+        if (!cancelled && Array.isArray(allSecondary)) {
+          const map: Record<string, string> = {};
+          for (const sec of allSecondary) {
+            const secName = (sec as { sector_name?: string }).sector_name;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const primary = (sec as any)?.related_primary_sector as
+              | { sector_name?: string }
+              | undefined;
+            const primaryName = primary?.sector_name;
+            if (secName && primaryName) {
+              map[normalizeSectorName(secName)] = primaryName;
+            }
+          }
+          setSecondaryToPrimaryMap(map);
+        }
+      } catch (e) {
+        console.warn("[Company] Failed to load secondary->primary map", e);
+      }
+    };
+    loadMap();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Safely extract a sector id from various backend shapes
   const getSectorId = (sector: unknown): number | undefined => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -799,6 +846,32 @@ const CompanyDetail = () => {
     company.sectors_id?.filter(
       (sector) => sector.Sector_importance !== "Primary"
     ) || [];
+
+  // Augment primaries with derived primaries from secondaries (unique by name)
+  const derivedPrimaryNames = secondarySectors
+    .map(
+      (s) =>
+        secondaryToPrimaryMap[normalizeSectorName(s.sector_name)] ||
+        FALLBACK_SECONDARY_TO_PRIMARY[normalizeSectorName(s.sector_name)] ||
+        undefined
+    )
+    .filter((v): v is string => Boolean(v));
+  const existingPrimaryNames = new Set(
+    primarySectors.map((p) => (p?.sector_name || "").trim())
+  );
+  const augmentedPrimarySectors = [
+    ...primarySectors,
+    ...derivedPrimaryNames
+      .filter((name) => !existingPrimaryNames.has(name))
+      .map(
+        (name) =>
+          ({
+            sector_name: name,
+            Sector_importance: "Primary",
+            sector_id: 0,
+          } as CompanySector)
+      ),
+  ];
 
   // Process location
   const location = company._locations;
@@ -1180,11 +1253,11 @@ const CompanyDetail = () => {
                   Primary Sector:
                 </span>
                 <div style={styles.value} className="info-value">
-                  {primarySectors.length > 0 ? (
+                  {augmentedPrimarySectors.length > 0 ? (
                     <>
                       {(isMobile && !showAllPrimarySectors
-                        ? primarySectors.slice(0, 4)
-                        : primarySectors
+                        ? augmentedPrimarySectors.slice(0, 4)
+                        : augmentedPrimarySectors
                       ).map((sector, index) => {
                         const id = getSectorId(sector);
                         const content = id ? (
@@ -1202,12 +1275,13 @@ const CompanyDetail = () => {
                             {content}
                             {index <
                               (isMobile && !showAllPrimarySectors
-                                ? Math.min(primarySectors.length, 4) - 1
-                                : primarySectors.length - 1) && ", "}
+                                ? Math.min(augmentedPrimarySectors.length, 4) -
+                                  1
+                                : augmentedPrimarySectors.length - 1) && ", "}
                           </span>
                         );
                       })}
-                      {isMobile && primarySectors.length > 4 && (
+                      {isMobile && augmentedPrimarySectors.length > 4 && (
                         <button
                           onClick={() => setShowAllPrimarySectors((v) => !v)}
                           style={{
@@ -1964,8 +2038,13 @@ const CompanyDetail = () => {
                                 | number
                                 | string
                                 | undefined;
-                              const currency: string | undefined =
-                                anyEvent?.investment_data?.currency?.Currency;
+                              const investmentCurrency: string | undefined =
+                                anyEvent?.investment_data?.currency?.Currency ||
+                                anyEvent?.investment_data?._currency?.Currency;
+                              const evCurrency: string | undefined =
+                                anyEvent?.ev_data?._currency?.Currency ||
+                                anyEvent?.ev_data?.currency?.Currency;
+                              const currency = investmentCurrency || evCurrency;
                               if (amount != null && currency) {
                                 const n = Number(amount);
                                 if (!Number.isNaN(n)) {
