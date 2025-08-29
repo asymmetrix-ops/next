@@ -291,26 +291,6 @@ const useCompaniesAPI = () => {
 
         // Add filters to the request using API's expected param names
         if (filtersToUse) {
-          // If primary sectors are selected, include their linked secondary sectors automatically
-          let derivedSecondaryIds: number[] = [];
-          if (filtersToUse.primarySectors.length > 0) {
-            try {
-              const secondaryFromPrimary =
-                await locationsService.getSecondarySectors(
-                  filtersToUse.primarySectors
-                );
-              derivedSecondaryIds = Array.isArray(secondaryFromPrimary)
-                ? secondaryFromPrimary
-                    .map((s) => s.id)
-                    .filter((id): id is number => typeof id === "number")
-                : [];
-            } catch (e) {
-              console.warn(
-                "[Companies] Failed to derive secondary sectors from primaries",
-                e
-              );
-            }
-          }
           if (filtersToUse.countries.length > 0) {
             filtersToUse.countries.forEach((country) => {
               params.append("Countries[]", country);
@@ -331,18 +311,10 @@ const useCompaniesAPI = () => {
               params.append("Primary_sectors_ids[]", sectorId.toString());
             });
           }
-          {
-            const combinedSecondary = Array.from(
-              new Set([
-                ...derivedSecondaryIds,
-                ...(filtersToUse.secondarySectors || []),
-              ])
-            );
-            if (combinedSecondary.length > 0) {
-              combinedSecondary.forEach((sectorId) => {
-                params.append("Secondary_sectors_ids[]", sectorId.toString());
-              });
-            }
+          if ((filtersToUse.secondarySectors || []).length > 0) {
+            (filtersToUse.secondarySectors || []).forEach((sectorId) => {
+              params.append("Secondary_sectors_ids[]", sectorId.toString());
+            });
           }
           if (filtersToUse.ownershipTypes.length > 0) {
             filtersToUse.ownershipTypes.forEach((ownershipTypeId) => {

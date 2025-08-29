@@ -2033,14 +2033,19 @@ const CompanyDetail = () => {
                             {(() => {
                               // eslint-disable-next-line @typescript-eslint/no-explicit-any
                               const anyEvent: any = event as any;
-                              const amount = anyEvent?.investment_data
-                                ?.investment_amount_m as
+                              const amount = (anyEvent?.investment_data
+                                ?.investment_amount_m ??
+                                anyEvent?.investment_data?.investment_amount ??
+                                anyEvent?.investment_amount_m ??
+                                anyEvent?.investment_amount) as
                                 | number
                                 | string
                                 | undefined;
                               const investmentCurrency: string | undefined =
                                 anyEvent?.investment_data?.currency?.Currency ||
-                                anyEvent?.investment_data?._currency?.Currency;
+                                anyEvent?.investment_data?._currency
+                                  ?.Currency ||
+                                anyEvent?.investment_data?.currrency?.Currency;
                               const evCurrency: string | undefined =
                                 anyEvent?.ev_data?._currency?.Currency ||
                                 anyEvent?.ev_data?.currency?.Currency;
