@@ -454,10 +454,7 @@ const CorporateEventsTable = ({
     })}m`;
   };
 
-  const formatSectors = (sectors: { sector_name: string }[] | undefined) => {
-    if (!sectors || sectors.length === 0) return "Not available";
-    return sectors.map((s) => s.sector_name).join(", ");
-  };
+  // legacy helper retained for clarity; currently superseded by deriveSecondaryFromCompany
 
   // Sector name normalization and fallback map for reliability (e.g., Crypto -> Web 3)
   const normalizeSectorName = (name: string | undefined | null): string =>
@@ -485,6 +482,31 @@ const CorporateEventsTable = ({
       )
       .filter((v, i, a) => a.indexOf(v) === i);
     return related.length > 0 ? related.join(", ") : "Not available";
+  };
+
+  // Derive Primary sectors: prefer explicit `_sectors_primary` from API,
+  // otherwise map from secondary sectors to their related primaries.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const derivePrimaryFromCompany = (company: any | undefined): string => {
+    const primaryList = company?._sectors_primary as
+      | { sector_name: string }[]
+      | undefined;
+    if (Array.isArray(primaryList) && primaryList.length > 0) {
+      return primaryList.map((s) => s.sector_name).join(", ");
+    }
+    // Fallback: compute from secondary mapping (e.g., Crypto -> Web 3)
+    return computeRelatedPrimary(company?._sectors_secondary);
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const deriveSecondaryFromCompany = (company: any | undefined): string => {
+    const secondaryList = company?._sectors_secondary as
+      | { sector_name: string }[]
+      | undefined;
+    if (Array.isArray(secondaryList) && secondaryList.length > 0) {
+      return secondaryList.map((s) => s.sector_name).join(", ");
+    }
+    return "Not available";
   };
 
   return (
@@ -552,9 +574,10 @@ const CorporateEventsTable = ({
                   )}
                 </td>
                 <td>{target?.country || "Not Available"}</td>
-                {/* Display related primary sector based on secondary sectors (API-driven mapping) */}
-                <td>{computeRelatedPrimary(target?._sectors_secondary)}</td>
-                <td>{formatSectors(target?._sectors_secondary)}</td>
+                {/* Primary sector: derive from new sectors shape when available, else map from secondary */}
+                <td>{derivePrimaryFromCompany(target)}</td>
+                {/* Secondary sectors: ensure we only display non-primary items when using new shape */}
+                <td>{deriveSecondaryFromCompany(target)}</td>
                 <td>{event.deal_type || "Not Available"}</td>
                 <td>
                   {formatCurrency(

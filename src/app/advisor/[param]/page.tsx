@@ -864,7 +864,7 @@ export default function AdvisorProfilePage() {
               <div className="corporate-events-header">
                 <h2 className="section-title">Corporate Events</h2>
                 {corporateEvents?.New_Events_Wits_Advisors &&
-                  corporateEvents.New_Events_Wits_Advisors.length > 5 && (
+                  corporateEvents.New_Events_Wits_Advisors.length > 10 && (
                     <button
                       onClick={handleToggleEvents}
                       className="toggle-button"
@@ -895,7 +895,7 @@ export default function AdvisorProfilePage() {
                       <tbody>
                         {corporateEvents.New_Events_Wits_Advisors.slice(
                           0,
-                          eventsExpanded ? undefined : 5
+                          eventsExpanded ? undefined : 10
                         ).map((event, index) => {
                           // Helper functions to extract data
                           const getCounterpartyAdvised = () => {
@@ -1027,7 +1027,7 @@ export default function AdvisorProfilePage() {
                   <div className="events-cards">
                     {corporateEvents.New_Events_Wits_Advisors.slice(
                       0,
-                      eventsExpanded ? undefined : 5
+                      eventsExpanded ? undefined : 10
                     ).map((event, index) => {
                       // Same helper functions for mobile cards
                       const getCounterpartyAdvised = () => {
