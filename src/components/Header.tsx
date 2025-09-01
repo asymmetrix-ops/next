@@ -184,7 +184,7 @@ const Header = () => {
         <div style={styles.container}>
           <div style={styles.leftSection} className="left-section">
             {/* Logo */}
-            <div style={styles.logo}>
+            <Link href="/" style={styles.logo}>
               <Image
                 src="/icons/logo.svg"
                 alt="Logo"
@@ -194,7 +194,7 @@ const Header = () => {
                   objectFit: "contain",
                 }}
               />
-            </div>
+            </Link>
 
             {/* Desktop Navigation */}
             <nav style={styles.navDesktop} className="nav-desktop">

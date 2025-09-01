@@ -104,6 +104,19 @@ interface NewCompany {
   _sectors_secondary?: Array<{
     sector_name: string;
   }>;
+  // New endpoint shape for sectors with related primary mapping
+  sectors_id?: Array<{
+    id: number;
+    sector_name: string;
+    Sector_importance: string;
+    Related_to_primary_sectors?: Array<{
+      secondary_sectors?: {
+        id?: number;
+        sector_name?: string;
+        Sector_importance?: string;
+      };
+    }>;
+  }>;
 }
 
 export default function HomeUserPage() {
@@ -125,14 +138,56 @@ export default function HomeUserPage() {
     }
   };
 
-  // Helper function to get related primary sector from secondary sectors
+  // Helper function to normalize primary sector(s) from either old or new shape
   const getRelatedPrimarySectors = (
-    secondarySectors: { sector_name: string }[] | undefined
+    secondarySectorsOrObjects:
+      | { sector_name: string }[]
+      | {
+          sector_name: string;
+          Sector_importance: string;
+          Related_to_primary_sectors?: Array<{
+            secondary_sectors?: { sector_name?: string };
+          }>;
+        }[]
+      | undefined
   ) => {
-    if (!secondarySectors || secondarySectors.length === 0)
+    if (!secondarySectorsOrObjects || secondarySectorsOrObjects.length === 0)
       return "Not available";
 
-    // Mapping based on known relationships between secondary and primary sectors
+    // If new endpoint structure (contains Sector_importance), derive primaries from mapping
+    if (
+      typeof secondarySectorsOrObjects[0] === "object" &&
+      (secondarySectorsOrObjects[0] as { Sector_importance?: string })
+        .Sector_importance !== undefined
+    ) {
+      const sectors = secondarySectorsOrObjects as Array<{
+        sector_name: string;
+        Sector_importance: string;
+        Related_to_primary_sectors?: Array<{
+          secondary_sectors?: { sector_name?: string };
+        }>;
+      }>;
+      const explicitPrimaries = sectors
+        .filter((s) => s.Sector_importance === "Primary")
+        .map((s) => s.sector_name);
+      const relatedFromSecondaries = sectors
+        .filter((s) => s.Sector_importance !== "Primary")
+        .flatMap(
+          (s) =>
+            (s.Related_to_primary_sectors || [])
+              .map((r) => r.secondary_sectors?.sector_name)
+              .filter(Boolean) as string[]
+        );
+      const combined = Array.from(
+        new Set([...(explicitPrimaries as string[]), ...relatedFromSecondaries])
+      );
+      return combined.length > 0 ? combined.join(", ") : "Not available";
+    }
+
+    // Otherwise old shape (array of secondary names) – use fallback mapping
+    const secondarySectors = secondarySectorsOrObjects as {
+      sector_name: string;
+    }[];
     const sectorMapping: { [key: string]: string } = {
       Crypto: "Web 3",
       Blockchain: "Web 3",
@@ -163,11 +218,9 @@ export default function HomeUserPage() {
       IoT: "Internet of Things",
       Robotics: "Automation",
     };
-
     const relatedPrimary = secondarySectors
       .map((s) => sectorMapping[s.sector_name] || s.sector_name)
-      .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
-
+      .filter((value, index, self) => self.indexOf(value) === index);
     return relatedPrimary.join(", ");
   };
 
@@ -1024,10 +1077,20 @@ export default function HomeUserPage() {
                           <p className="text-xs text-gray-500">
                             {company._locations?.Country}
                           </p>
-                          {/* Display related primary sector based on secondary sectors (e.g., Crypto -> Web 3) */}
+                          {/* Display primary sector(s) derived from sectors mapping */}
                           <p className="text-xs font-medium text-blue-600">
                             {getRelatedPrimarySectors(
-                              company._sectors_secondary
+                              company.sectors_id && company.sectors_id.length
+                                ? (company.sectors_id as Array<{
+                                    sector_name: string;
+                                    Sector_importance: string;
+                                    Related_to_primary_sectors?: Array<{
+                                      secondary_sectors?: {
+                                        sector_name?: string;
+                                      };
+                                    }>;
+                                  }>)
+                                : company._sectors_secondary
                             )}
                           </p>
                           {company._linkedin_data_of_new_company
