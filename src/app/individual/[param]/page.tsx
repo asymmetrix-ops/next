@@ -405,22 +405,28 @@ export default function IndividualProfilePage() {
                           <td style={{ padding: "8px", fontSize: "12px" }}>
                             <CompanyLogo
                               logo={
-                                role.new_company._linkedin_data_of_new_company
+                                role.new_company?._linkedin_data_of_new_company
                                   ?.linkedin_logo || ""
                               }
-                              name={role.new_company.name}
+                              name={role.new_company?.name || "—"}
                             />
                           </td>
                           <td style={{ padding: "8px", fontSize: "12px" }}>
-                            <a
-                              href={`/company/${role.new_company.id}`}
-                              style={{
-                                color: "#3b82f6",
-                                textDecoration: "underline",
-                              }}
-                            >
-                              {role.new_company.name}
-                            </a>
+                            {role.new_company?.id ? (
+                              <a
+                                href={`/company/${role.new_company.id}`}
+                                style={{
+                                  color: "#3b82f6",
+                                  textDecoration: "underline",
+                                }}
+                              >
+                                {role.new_company?.name}
+                              </a>
+                            ) : (
+                              <span style={{ color: "#6b7280" }}>
+                                {role.new_company?.name || "—"}
+                              </span>
+                            )}
                           </td>
                           <td style={{ padding: "8px", fontSize: "12px" }}>
                             <span
@@ -831,23 +837,31 @@ export default function IndividualProfilePage() {
                               <CompanyLogo
                                 logo={
                                   relatedIndividual._new_company
-                                    ._linkedin_data_of_new_company
+                                    ?._linkedin_data_of_new_company
                                     ?.linkedin_logo || ""
                                 }
-                                name={relatedIndividual._new_company.name}
+                                name={
+                                  relatedIndividual._new_company?.name || "—"
+                                }
                               />
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
-                              <a
-                                href={`/company/${relatedIndividual._new_company.id}`}
-                                style={{
-                                  color: "#3b82f6",
-                                  textDecoration: "underline",
-                                }}
-                                title="Open company page"
-                              >
-                                {relatedIndividual._new_company.name}
-                              </a>
+                              {relatedIndividual._new_company?.id ? (
+                                <a
+                                  href={`/company/${relatedIndividual._new_company.id}`}
+                                  style={{
+                                    color: "#3b82f6",
+                                    textDecoration: "underline",
+                                  }}
+                                  title="Open company page"
+                                >
+                                  {relatedIndividual._new_company?.name}
+                                </a>
+                              ) : (
+                                <span style={{ color: "#6b7280" }}>
+                                  {relatedIndividual._new_company?.name || "—"}
+                                </span>
+                              )}
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               <a

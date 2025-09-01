@@ -588,6 +588,13 @@ const CorporateEventsTable = ({
                           >
                             {counterparty._new_company.name}
                           </a>
+                        ) : counterparty._new_company
+                            ._is_that_data_analytic_company ? (
+                          <a
+                            href={`/company/${counterparty.new_company_counterparty}`}
+                          >
+                            {counterparty._new_company.name}
+                          </a>
                         ) : (
                           <span style={{ color: "#000" }}>
                             {counterparty._new_company.name}

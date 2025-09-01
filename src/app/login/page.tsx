@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/components/providers/AuthProvider";
+import Image from "next/image";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -13,6 +14,7 @@ export default function LoginPage() {
     password: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -40,23 +42,100 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#F9FAFC]">
-      {/* Header */}
-      <header className="flex justify-between items-center px-6 py-4 bg-white">
-        <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-2">
-            <div className="flex justify-center items-center w-8 h-8 bg-blue-600 rounded">
-              <span className="text-sm font-bold text-white">A</span>
-            </div>
-            <span className="font-medium text-gray-900">About</span>
-          </div>
-          <span className="font-medium text-gray-900">Substack</span>
+      {/* Header (white variant of home header) */}
+      <header className="relative flex justify-between items-center px-4 sm:px-6 py-3 bg-white border-b border-gray-200">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="flex items-center gap-3 text-gray-900 no-underline"
+          >
+            <Image
+              src="/icons/logo.svg"
+              alt="Logo"
+              width={40}
+              height={40}
+              style={{ borderRadius: "50%" }}
+            />
+            <span className="font-bold tracking-wide hidden sm:inline">
+              ASYMMETRIX
+            </span>
+          </Link>
         </div>
-        <Link
-          href="/login"
-          className="font-medium text-blue-600 hover:text-blue-700"
+
+        {/* Desktop nav */}
+        <nav className="hidden md:flex items-center gap-6">
+          <a
+            href="https://asymmetrixintelligence.substack.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-800 hover:text-blue-700 no-underline"
+          >
+            Substack
+          </a>
+          <Link
+            href="/about-us"
+            className="text-gray-800 hover:text-blue-700 no-underline"
+          >
+            About Us
+          </Link>
+          <Link
+            href="/login"
+            className="font-semibold text-blue-600 hover:text-blue-700 no-underline"
+          >
+            Log in
+          </Link>
+        </nav>
+
+        {/* Mobile menu button */}
+        <button
+          aria-label="Open menu"
+          className="flex justify-center items-center w-9 h-9 rounded-lg md:hidden"
+          onClick={() => setIsMenuOpen((v) => !v)}
+          style={{ appearance: "none", background: "transparent", border: 0 }}
         >
-          Login
-        </Link>
+          <span
+            className="inline-block relative"
+            style={{ width: 18, height: 2, background: "#111" }}
+          >
+            <span
+              className="absolute left-0 right-0 -top-1.5"
+              style={{ height: 2, background: "#111" }}
+            />
+            <span
+              className="absolute left-0 right-0 top-1.5"
+              style={{ height: 2, background: "#111" }}
+            />
+          </span>
+        </button>
+
+        {/* Mobile nav */}
+        {isMenuOpen && (
+          <div className="md:hidden absolute top-full left-0 right-0 bg-white border-t border-gray-200 flex flex-col p-3 gap-2 z-50">
+            <a
+              href="https://asymmetrixintelligence.substack.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-800 no-underline py-2"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Substack
+            </a>
+            <Link
+              href="/about-us"
+              className="text-gray-800 no-underline py-2"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              About Us
+            </Link>
+            <Link
+              href="/login"
+              className="text-blue-600 font-semibold no-underline py-2"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Log in
+            </Link>
+          </div>
+        )}
       </header>
 
       {/* Main Content */}

@@ -32,6 +32,12 @@ interface CorporateEvent {
         sectors_id: Array<{
           sector_name: string;
           Sector_importance: string;
+          // When a sector is Secondary, API may include related Primary sectors here
+          Related_to_primary_sectors?: Array<{
+            id: number;
+            sector_name: string;
+            Sector_importance: string;
+          }>;
         }>;
       };
     };
@@ -163,6 +169,42 @@ export default function HomeUserPage() {
       .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
 
     return relatedPrimary.join(", ");
+  };
+
+  // Derive primary sector(s) for an event's target from provided structure
+  const getEventPrimarySectors = (event: CorporateEvent): string => {
+    const sectors =
+      event.Target_Counterparty?.new_company?._sectors_objects?.sectors_id ||
+      [];
+
+    // 1) Any explicitly marked Primary sectors
+    const explicitPrimary = sectors
+      .filter((s) => s.Sector_importance === "Primary")
+      .map((s) => s.sector_name)
+      .filter(Boolean);
+
+    // 2) For Secondary sectors, collect their related primary sectors (from API)
+    const relatedFromSecondaries = sectors
+      .filter((s) => s.Sector_importance !== "Primary")
+      .flatMap((s) =>
+        Array.isArray(s.Related_to_primary_sectors)
+          ? s.Related_to_primary_sectors.map((p) => p.sector_name).filter(
+              Boolean
+            )
+          : []
+      );
+
+    const combined = Array.from(
+      new Set([...explicitPrimary, ...relatedFromSecondaries])
+    );
+    if (combined.length > 0) return combined.join(", ");
+
+    // 3) Fallback: map secondary names via heuristic mapping (e.g., Crypto -> Web 3)
+    const fallbackSecondaries = sectors
+      .filter((s) => s.Sector_importance !== "Primary")
+      .map((s) => ({ sector_name: s.sector_name }));
+    const mapped = getRelatedPrimarySectors(fallbackSecondaries);
+    return mapped || "Not Available";
   };
 
   // Corporate Event navigation handler
@@ -689,10 +731,7 @@ export default function HomeUserPage() {
                               </div>
                               <div className="mb-1 text-xs text-gray-500">
                                 <strong>Primary:</strong>{" "}
-                                {event.Target_Counterparty?.new_company?._sectors_objects?.sectors_id?.find(
-                                  (sector) =>
-                                    sector.Sector_importance === "Primary"
-                                )?.sector_name || "Not Available"}
+                                {getEventPrimarySectors(event)}
                               </div>
                               <div className="text-xs text-gray-500">
                                 <strong>Secondary:</strong>{" "}
