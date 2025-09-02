@@ -33,11 +33,20 @@ interface CorporateEvent {
           sector_name: string;
           Sector_importance: string;
           // When a sector is Secondary, API may include related Primary sectors here
-          Related_to_primary_sectors?: Array<{
-            id: number;
-            sector_name: string;
-            Sector_importance: string;
-          }>;
+          Related_to_primary_sectors?: Array<
+            | {
+                id: number;
+                sector_name: string;
+                Sector_importance: string;
+              }
+            | {
+                secondary_sectors?: {
+                  id?: number;
+                  sector_name?: string;
+                  Sector_importance?: string;
+                };
+              }
+          >;
         }>;
       };
     };
@@ -168,15 +177,22 @@ export default function HomeUserPage() {
         }>;
       }>;
       const explicitPrimaries = sectors
-        .filter((s) => s.Sector_importance === "Primary")
-        .map((s) => s.sector_name);
+        .filter((s) => s && s.Sector_importance === "Primary")
+        .map((s) => s.sector_name)
+        .filter(Boolean);
       const relatedFromSecondaries = sectors
-        .filter((s) => s.Sector_importance !== "Primary")
-        .flatMap(
-          (s) =>
-            (s.Related_to_primary_sectors || [])
-              .map((r) => r.secondary_sectors?.sector_name)
-              .filter(Boolean) as string[]
+        .filter((s) => s && s.Sector_importance !== "Primary")
+        .flatMap((s) =>
+          Array.isArray(s.Related_to_primary_sectors)
+            ? (s.Related_to_primary_sectors.map(
+                (r) =>
+                  // Support both shapes: { sector_name } and { secondary_sectors: { sector_name } }
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (r as any)?.secondary_sectors?.sector_name ??
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (r as any)?.sector_name
+              ).filter(Boolean) as string[])
+            : []
         );
       const combined = Array.from(
         new Set([...(explicitPrimaries as string[]), ...relatedFromSecondaries])
@@ -232,18 +248,23 @@ export default function HomeUserPage() {
 
     // 1) Any explicitly marked Primary sectors
     const explicitPrimary = sectors
-      .filter((s) => s.Sector_importance === "Primary")
+      .filter((s) => s && s.Sector_importance === "Primary")
       .map((s) => s.sector_name)
       .filter(Boolean);
 
     // 2) For Secondary sectors, collect their related primary sectors (from API)
     const relatedFromSecondaries = sectors
-      .filter((s) => s.Sector_importance !== "Primary")
+      .filter((s) => s && s.Sector_importance !== "Primary")
       .flatMap((s) =>
         Array.isArray(s.Related_to_primary_sectors)
-          ? s.Related_to_primary_sectors.map((p) => p.sector_name).filter(
-              Boolean
-            )
+          ? (s.Related_to_primary_sectors.map(
+              (p) =>
+                // Support both shapes: { sector_name } and { secondary_sectors: { sector_name } }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (p as any)?.secondary_sectors?.sector_name ??
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (p as any)?.sector_name
+            ).filter(Boolean) as string[])
           : []
       );
 
@@ -254,7 +275,7 @@ export default function HomeUserPage() {
 
     // 3) Fallback: map secondary names via heuristic mapping (e.g., Crypto -> Web 3)
     const fallbackSecondaries = sectors
-      .filter((s) => s.Sector_importance !== "Primary")
+      .filter((s) => s && s.Sector_importance !== "Primary")
       .map((s) => ({ sector_name: s.sector_name }));
     const mapped = getRelatedPrimarySectors(fallbackSecondaries);
     return mapped || "Not Available";
@@ -788,13 +809,22 @@ export default function HomeUserPage() {
                               </div>
                               <div className="text-xs text-gray-500">
                                 <strong>Secondary:</strong>{" "}
-                                {event.Target_Counterparty?.new_company?._sectors_objects?.sectors_id
-                                  ?.filter(
-                                    (sector) =>
-                                      sector.Sector_importance !== "Primary"
-                                  )
-                                  .map((sector) => sector.sector_name)
-                                  .join(", ") || "Not Available"}
+                                {(() => {
+                                  const list =
+                                    event.Target_Counterparty?.new_company
+                                      ?._sectors_objects?.sectors_id || [];
+                                  const secondary = list
+                                    .filter(
+                                      (sector) =>
+                                        sector &&
+                                        sector.Sector_importance !== "Primary"
+                                    )
+                                    .map((sector) => sector.sector_name)
+                                    .filter(Boolean);
+                                  return secondary.length > 0
+                                    ? secondary.join(", ")
+                                    : "Not Available";
+                                })()}
                               </div>
                             </td>
                             <td className="px-4 py-4 text-xs text-gray-900">

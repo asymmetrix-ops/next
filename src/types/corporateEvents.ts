@@ -37,6 +37,17 @@ export interface Sector {
   sector_name: string;
 }
 
+// Rich sector variants for new API shapes
+export interface PrimarySector extends Sector {
+  Sector_importance?: string;
+}
+
+export interface SubSector extends Sector {
+  Sector_importance?: string;
+  related_primary_sector?: Sector; // legacy
+  related_primary_sectors?: Sector[]; // new
+}
+
 export interface Company {
   id: number;
   name: string;
@@ -147,11 +158,18 @@ export interface CorporateEventCounterparty {
     individuals_id: number;
     advisor_individuals: string;
   }>;
-  _counterpartys_type: {
+  _counterpartys_type?: {
     id: number;
     created_at: number;
     counterparty_status: string;
     notion_id: string;
+  };
+  // New API variant name
+  _counterparty_type?: {
+    id?: number;
+    created_at?: number;
+    counterparty_status?: string;
+    notion_id?: string;
   };
   _new_company: {
     id: number;
@@ -201,8 +219,8 @@ export interface CorporateEventDetailResponse {
   Event: CorporateEventDetail[];
   Event_counterparties: CorporateEventCounterparty[];
   Event_advisors: CorporateEventAdvisor[];
-  Primary_sectors: Sector[];
-  "Sub-sectors": Sector[];
+  Primary_sectors: PrimarySector[];
+  "Sub-sectors": SubSector[];
 }
 
 export interface FilterOptions {

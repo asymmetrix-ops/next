@@ -57,10 +57,19 @@ const CorporateEventDetail = ({
   data: CorporateEventDetailResponse;
 }) => {
   const { createClickableElement } = useRightClick();
-  const event = data.Event[0];
-  const counterparties = data.Event_counterparties;
-  const subSectors = data["Sub-sectors"];
-  const advisors: CorporateEventAdvisor[] = data.Event_advisors || [];
+  const event =
+    Array.isArray(data?.Event) && data.Event.length > 0
+      ? data.Event[0]
+      : undefined;
+  const counterparties = Array.isArray(data?.Event_counterparties)
+    ? data.Event_counterparties
+    : [];
+  const subSectors = Array.isArray(data?.["Sub-sectors"])
+    ? data["Sub-sectors"]
+    : [];
+  const advisors: CorporateEventAdvisor[] = Array.isArray(data?.Event_advisors)
+    ? data.Event_advisors
+    : [];
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "Not available";
@@ -358,11 +367,15 @@ const CorporateEventDetail = ({
         {/* Event Details Card */}
         <div className="corporate-event-card">
           <div className="corporate-event-header">
-            <h1 className="corporate-event-title">{event.description}</h1>
+            <h1 className="corporate-event-title">
+              {event?.description || "Not available"}
+            </h1>
             <a
               className="report-button"
               href={`mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
-                `Report Incorrect Corporate Event Data – ${event.description} (ID ${event.id})`
+                `Report Incorrect Corporate Event Data – ${
+                  event?.description ?? "Unknown"
+                } (ID ${event?.id ?? "Unknown"})`
               )}&body=${encodeURIComponent(
                 "Please describe the issue you found for this corporate event page."
               )}`}
@@ -377,18 +390,24 @@ const CorporateEventDetail = ({
             <div className="info-column">
               <div className="info-item">
                 <span className="info-label">Deal Type:</span>
-                <span className="info-value">{event.deal_type}</span>
+                <span className="info-value">
+                  {event?.deal_type || "Not available"}
+                </span>
               </div>
               <div className="info-item">
                 <span className="info-label">Date Announced:</span>
                 <span className="info-value">
-                  {formatDate(event.announcement_date)}
+                  {event?.announcement_date
+                    ? formatDate(event.announcement_date)
+                    : "Not available"}
                 </span>
               </div>
               <div className="info-item">
                 <span className="info-label">Date Closed:</span>
                 <span className="info-value">
-                  {formatDate(event.closed_date)}
+                  {event?.closed_date
+                    ? formatDate(event.closed_date)
+                    : "Not available"}
                 </span>
               </div>
             </div>
@@ -400,30 +419,34 @@ const CorporateEventDetail = ({
               <div className="info-item">
                 <span className="info-label">Enterprise Value:</span>
                 <span className="info-value">
-                  {event.ev_data._currency?.Currency
+                  {event?.ev_data?._currency?.Currency
                     ? formatCurrency(
-                        event.ev_data.enterprise_value_m,
-                        event.ev_data._currency.Currency
+                        event?.ev_data?.enterprise_value_m || "",
+                        event?.ev_data?._currency?.Currency || ""
                       )
                     : "Not available"}
                 </span>
               </div>
               <div className="info-item">
                 <span className="info-label">Enterprise Source:</span>
-                <a
-                  href={event.ev_data.ev_source}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="corporate-event-link"
-                >
-                  {event.ev_data.ev_source}
-                </a>
+                {event?.ev_data?.ev_source ? (
+                  <a
+                    href={event.ev_data.ev_source}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="corporate-event-link"
+                  >
+                    {event.ev_data.ev_source}
+                  </a>
+                ) : (
+                  <span className="info-value">Not available</span>
+                )}
               </div>
             </div>
           </div>
 
           <p className="corporate-event-description">
-            {event.long_description}
+            {event?.long_description || "Not available"}
           </p>
         </div>
 
@@ -440,17 +463,31 @@ const CorporateEventDetail = ({
                     const existing = Array.isArray(data.Primary_sectors)
                       ? data.Primary_sectors.map((s) => s.sector_name)
                       : [];
-                    // Build a lightweight mapping from the detail payload if present
-                    // Fall back to existing only when we cannot derive
+                    // Support both legacy single object `related_primary_sector`
+                    // and new array `related_primary_sectors` on sub-sectors
                     const derived = Array.isArray(subSectors)
                       ? subSectors
-                          .map(
-                            (s) =>
-                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                              ((s as any)?.related_primary_sector
-                                ?.sector_name as string | undefined) ||
-                              s.sector_name
-                          )
+                          .flatMap((s) => {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const anyS = s as any;
+                            const single = anyS?.related_primary_sector;
+                            const many = anyS?.related_primary_sectors;
+                            if (Array.isArray(many)) {
+                              return many
+                                .map(
+                                  (x: { sector_name?: string }) =>
+                                    x?.sector_name
+                                )
+                                .filter(
+                                  (v: unknown): v is string =>
+                                    typeof v === "string" && v.length > 0
+                                );
+                            }
+                            const name: unknown = single?.sector_name;
+                            return typeof name === "string" && name.length > 0
+                              ? [name]
+                              : [];
+                          })
                           .filter((v): v is string => Boolean(v))
                       : [];
                     const combined = Array.from(
@@ -531,7 +568,9 @@ const CorporateEventDetail = ({
                       })()}
                     </td>
                     <td>
-                      {counterparty._counterpartys_type.counterparty_status}
+                      {counterparty._counterpartys_type?.counterparty_status ||
+                        counterparty._counterparty_type?.counterparty_status ||
+                        "N/A"}
                     </td>
                     <td>
                       {counterparty.counterparty_announcement_url ? (
@@ -612,7 +651,9 @@ const CorporateEventDetail = ({
                   <div className="counterparty-card-info-item">
                     <span className="counterparty-card-info-label">Type:</span>
                     <span className="counterparty-card-info-value">
-                      {counterparty._counterpartys_type.counterparty_status}
+                      {counterparty._counterpartys_type?.counterparty_status ||
+                        counterparty._counterparty_type?.counterparty_status ||
+                        "N/A"}
                     </span>
                   </div>
                   <div className="counterparty-card-info-item">

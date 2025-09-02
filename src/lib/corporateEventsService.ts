@@ -125,7 +125,7 @@ class CorporateEventsService {
   async getCorporateEvent(
     corporateEventId: string
   ): Promise<CorporateEventDetailResponse> {
-    const url = `${BASE_URL}/corporate_event?corporate_event_id=${corporateEventId}`;
+    const url = `${BASE_URL}/corporate_event_v2?corporate_event_id=${corporateEventId}`;
 
     const response = await fetch(url, {
       method: "GET",
@@ -145,7 +145,33 @@ class CorporateEventsService {
     }
 
     const data = await response.json();
-    return data;
+
+    // Normalize v2 response that wraps JSON strings inside result1[0]
+    // and gracefully fallback to already-normalized shapes
+    const safeParse = <T>(value: unknown, fallback: T): T => {
+      if (typeof value !== "string") return (value as T) ?? fallback;
+      try {
+        const parsed = JSON.parse(value as string);
+        return (parsed as T) ?? fallback;
+      } catch {
+        return fallback;
+      }
+    };
+
+    if (data && Array.isArray(data.result1) && data.result1.length > 0) {
+      const first = data.result1[0] as Record<string, unknown>;
+      const normalized: CorporateEventDetailResponse = {
+        Event: safeParse(first.Event, []),
+        Event_counterparties: safeParse(first.Event_counterparties, []),
+        Event_advisors: safeParse(first.Event_advisors, []),
+        Primary_sectors: safeParse(first.Primary_sectors, []),
+        // Note: key contains a hyphen
+        ["Sub-sectors"]: safeParse(first["Sub-sectors"], []),
+      } as CorporateEventDetailResponse;
+      return normalized;
+    }
+
+    return data as CorporateEventDetailResponse;
   }
 }
 
