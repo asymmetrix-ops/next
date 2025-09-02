@@ -775,6 +775,7 @@ const CorporateEventsPage = () => {
     { value: "Closing", label: "Closing" },
     { value: "Grant", label: "Grant" },
     { value: "Debt financing", label: "Debt financing" },
+    { value: "Partnership", label: "Partnership" },
   ];
 
   // Hardcoded options for Deal Status
