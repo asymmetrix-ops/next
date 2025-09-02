@@ -587,7 +587,8 @@ const CorporateEventDetail = ({
                       )}
                     </td>
                     <td>
-                      {counterparty.counterparty_individuals.length > 0
+                      {Array.isArray(counterparty.counterparty_individuals) &&
+                      counterparty.counterparty_individuals.length > 0
                         ? counterparty.counterparty_individuals.map(
                             (individual, idx) => (
                               <span key={individual.id}>
@@ -661,7 +662,8 @@ const CorporateEventDetail = ({
                       Individuals:
                     </span>
                     <span className="counterparty-card-info-value">
-                      {counterparty.counterparty_individuals.length > 0
+                      {Array.isArray(counterparty.counterparty_individuals) &&
+                      counterparty.counterparty_individuals.length > 0
                         ? counterparty.counterparty_individuals.map(
                             (individual, idx) => (
                               <span key={individual.id}>
