@@ -158,8 +158,12 @@ class CorporateEventsService {
       }
     };
 
-    if (data && Array.isArray(data.result1) && data.result1.length > 0) {
-      const first = data.result1[0] as Record<string, unknown>;
+    if (
+      data &&
+      (Array.isArray(data.result1) || typeof data.result1 === "object")
+    ) {
+      const r1 = data.result1 as unknown;
+      const first = (Array.isArray(r1) ? r1[0] : r1) as Record<string, unknown>;
       const normalized: CorporateEventDetailResponse = {
         Event: safeParse(first.Event, []),
         Event_counterparties: safeParse(first.Event_counterparties, []),
