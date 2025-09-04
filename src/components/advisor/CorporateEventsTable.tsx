@@ -31,6 +31,9 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
             <th className="px-4 py-2 text-left border border-gray-300">
               Counterparty Advised
             </th>
+            <th className="px-4 py-2 text-left border border-gray-300">
+              Related Counterparty
+            </th>
             <th className="px-4 py-2 w-64 text-left border border-gray-300">
               Other Counterparties
             </th>
@@ -61,6 +64,21 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
               </td>
               <td className="px-4 py-2 border border-gray-300">
                 {getCounterpartyRole(event)}
+              </td>
+              <td className="px-4 py-2 border border-gray-300">
+                {event.related_to_individual_by_event_id &&
+                event.related_to_individual_by_event_id._counterparties &&
+                event.related_to_individual_by_event_id._counterparties
+                  ._new_company?.name ? (
+                  <a href="#" className="text-blue-600 hover:underline">
+                    {
+                      event.related_to_individual_by_event_id._counterparties
+                        ._new_company.name
+                    }
+                  </a>
+                ) : (
+                  "Not available"
+                )}
               </td>
               <td className="px-4 py-2 w-64 border border-gray-300">
                 {event._other_counterparties_of_corporate_events.length > 0 ? (
@@ -96,11 +114,15 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                   : "Not available"}
               </td>
               <td className="px-4 py-2 border border-gray-300">
-                {event.__related_to_corporate_event_advisors_individuals
-                  .length > 0 ? (
+                {(event.__related_to_corporate_event_advisors_individuals &&
+                  event.__related_to_corporate_event_advisors_individuals
+                    .length > 0) ||
+                (event._related_to_corporate_event_individuals &&
+                  event._related_to_corporate_event_individuals.length > 0) ? (
                   <div className="text-sm">
-                    {event.__related_to_corporate_event_advisors_individuals.map(
-                      (individual, index) => {
+                    {(event.__related_to_corporate_event_advisors_individuals ||
+                      event._related_to_corporate_event_individuals)!.map(
+                      (individual, index, arr) => {
                         const wordCount =
                           individual._individuals.advisor_individuals.split(
                             " "
@@ -115,11 +137,8 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                             >
                               {individual._individuals.advisor_individuals}
                             </a>
-                            {index <
-                              event
-                                .__related_to_corporate_event_advisors_individuals
-                                .length -
-                                1 && (shouldBreakLine ? <br /> : ", ")}
+                            {index < arr.length - 1 &&
+                              (shouldBreakLine ? <br /> : ", ")}
                           </span>
                         );
                       }

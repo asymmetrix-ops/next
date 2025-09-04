@@ -88,6 +88,22 @@ export interface CorporateEvent {
   _other_counterparties_of_corporate_events: OtherCounterparty[];
   _counterparty_advised_of_corporate_events: CounterpartyAdvised[];
   __related_to_corporate_event_advisors_individuals: RelatedIndividual[];
+  // Some API variants return this field name instead of the double-underscore one
+  _related_to_corporate_event_individuals?: RelatedIndividual[];
+  // When we are on an individual page, backend may include a pointer to the
+  // specific counterparty related to that individual for this event
+  related_to_individual_by_event_id?: {
+    counterparty_advised: number;
+    _counterparties: {
+      new_company_counterparty: number;
+      _new_company: {
+        id: number;
+        name: string;
+        _is_that_investor: boolean;
+        _is_that_data_analytic_company: boolean;
+      };
+    };
+  };
 }
 
 // Enterprise Value Data
