@@ -76,6 +76,8 @@ interface CompanyInvestor {
   id: number;
   name: string;
   url?: string;
+  _is_that_investor?: boolean;
+  _is_that_data_analytic_company?: boolean;
 }
 
 interface CompanyManagement {
@@ -1424,7 +1426,9 @@ const CompanyDetail = () => {
                     ? company.investors.map((investor, index) => (
                         <span key={investor.id}>
                           {createClickableElement(
-                            `/investors/${investor.id}`,
+                            investor._is_that_investor
+                              ? `/investors/${investor.id}`
+                              : `/company/${investor.id}`,
                             investor.name
                           )}
                           {index < company.investors!.length - 1 && ", "}
