@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://asymmetrix.com",
+    url: "https://www.asymmetrixintelligence.com",
     title: "Asymmetrix | Data & Analytics Intelligence Platform",
     description:
       "The source of truth for the Data & Analytics universe. Get comprehensive market intelligence and insights for the data analytics sector.",
