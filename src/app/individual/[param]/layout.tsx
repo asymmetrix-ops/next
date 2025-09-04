@@ -1,4 +1,5 @@
 import type { Metadata, ResolvingMetadata } from "next";
+import { cookies } from "next/headers";
 
 type LayoutProps = {
   children: React.ReactNode;
@@ -7,10 +8,17 @@ type LayoutProps = {
 
 async function fetchIndividualName(id: string): Promise<string | undefined> {
   try {
+    const token = cookies().get("asymmetrix_auth_token")?.value;
     const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_individuals_name?individuals_id=${encodeURIComponent(
       id
     )}`;
-    const res = await fetch(url, { next: { revalidate: 300 } });
+    const res = await fetch(url, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        "Content-Type": "application/json",
+      },
+      next: { revalidate: 300 },
+    });
     if (!res.ok) return undefined;
     const data = await res.json();
     const name = data?.advisor_individuals as string | undefined;

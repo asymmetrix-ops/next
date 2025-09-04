@@ -1,4 +1,5 @@
 import type { Metadata, ResolvingMetadata } from "next";
+import { cookies } from "next/headers";
 
 type LayoutProps = {
   children: React.ReactNode;
@@ -9,10 +10,17 @@ async function fetchSectorMeta(
   id: string
 ): Promise<{ name?: string; thesis?: string } | null> {
   try {
+    const token = cookies().get("asymmetrix_auth_token")?.value;
     const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Get_Sector?Sector_id=${encodeURIComponent(
       id
     )}`;
-    const res = await fetch(url, { next: { revalidate: 300 } });
+    const res = await fetch(url, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        "Content-Type": "application/json",
+      },
+      next: { revalidate: 300 },
+    });
     if (!res.ok) return null;
     const data = await res.json();
     const sector = data?.Sector;
