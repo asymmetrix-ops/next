@@ -5,7 +5,6 @@ import Image from "next/image";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import TradingViewSymbolOverview from "@/components/TradingViewSymbolOverview";
 import { useRightClick } from "@/hooks/useRightClick";
 import {
   LineChart,
@@ -937,31 +936,7 @@ const CompanyDetail = () => {
   // Determine if there are articles to display
   const hasArticles = companyArticles.length > 0;
 
-  // Compute TradingView symbols from query override or optional company fields
-  const computeTradingViewSymbols = (): Array<{
-    label?: string;
-    tvSymbol: string;
-  }> => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const override = params.get("symbol");
-      if (override) {
-        return [{ label: company.name, tvSymbol: override }];
-      }
-    }
-    if (company.exchange && company.ticker) {
-      return [
-        {
-          label: company.name,
-          tvSymbol: `${company.exchange}:${company.ticker}`,
-        },
-      ];
-    }
-    if (company.ticker) {
-      return [{ label: company.name, tvSymbol: company.ticker }];
-    }
-    return [];
-  };
+  // Market Overview removed: no TradingView symbols computation
 
   const styles = {
     container: {
@@ -1556,32 +1531,7 @@ const CompanyDetail = () => {
               )}
             </div>
 
-            {/* Market Overview (TradingView) */}
-            <div style={styles.card} className="card">
-              <h2 style={styles.sectionTitle}>Market Overview</h2>
-              {(() => {
-                const symbols = computeTradingViewSymbols();
-                if (symbols.length === 0) {
-                  return (
-                    <div style={{ color: "#6b7280", fontSize: 14 }}>
-                      No symbol available. Append ?symbol=EXCHANGE:TICKER to the
-                      URL or add ticker/exchange to this company to view the
-                      widget.
-                    </div>
-                  );
-                }
-                return (
-                  <TradingViewSymbolOverview
-                    symbols={symbols}
-                    height={300}
-                    colorTheme="dark"
-                    autosize
-                    showMA
-                    showVolume
-                  />
-                );
-              })()}
-            </div>
+            {/* Market Overview removed */}
           </div>
 
           {/* Mobile Financial Metrics */}
