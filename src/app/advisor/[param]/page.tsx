@@ -915,28 +915,39 @@ export default function AdvisorProfilePage() {
                             )
                               return "—";
                             return event._other_counterparties_of_corporate_events.map(
-                              (cp, i) => (
-                                <span key={`${cp.id}-${i}`}>
-                                  <span
-                                    className="advisor-link"
-                                    onClick={() => {
-                                      if (cp._is_that_investor) {
-                                        router.push(`/investors/${cp.id}`);
-                                      } else {
-                                        router.push(`/company/${cp.id}`);
-                                      }
-                                    }}
-                                  >
-                                    {cp.name}
+                              (cp, i) => {
+                                const wordCount = cp.name.split(" ").length;
+                                const shouldBreakLine = wordCount > 2;
+
+                                return (
+                                  <span key={`${cp.id}-${i}`}>
+                                    <span
+                                      className="advisor-link"
+                                      onClick={() => {
+                                        if (cp._is_that_investor) {
+                                          router.push(`/investors/${cp.id}`);
+                                        } else {
+                                          router.push(`/company/${cp.id}`);
+                                        }
+                                      }}
+                                    >
+                                      {cp.name}
+                                    </span>
+                                    {i <
+                                    event._other_counterparties_of_corporate_events!
+                                      .length -
+                                      1 ? (
+                                      shouldBreakLine ? (
+                                        <br />
+                                      ) : (
+                                        ", "
+                                      )
+                                    ) : (
+                                      ""
+                                    )}
                                   </span>
-                                  {i <
-                                  event._other_counterparties_of_corporate_events!
-                                    .length -
-                                    1
-                                    ? ", "
-                                    : ""}
-                                </span>
-                              )
+                                );
+                              }
                             );
                           };
 
