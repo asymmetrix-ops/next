@@ -306,7 +306,11 @@ const CorporateEventsTable = ({
     const formatDate = (dateString: string) => {
       if (!dateString) return "Not available";
       try {
-        return new Date(dateString).toLocaleDateString();
+        return new Date(dateString).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
       } catch {
         return "Invalid date";
       }
@@ -436,7 +440,11 @@ const CorporateEventsTable = ({
   const formatDate = (dateString: string) => {
     if (!dateString) return "Not available";
     try {
-      return new Date(dateString).toLocaleDateString();
+      return new Date(dateString).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
     } catch {
       return "Invalid date";
     }
