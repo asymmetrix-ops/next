@@ -751,6 +751,96 @@ const CompanyDetail = () => {
     }
   }, [companyId, fetchCorporateEvents, fetchCompanyArticles, requestCompany]);
 
+  // Merge investors found in corporate events into the company's investors list
+  useEffect(() => {
+    if (!company) return;
+
+    // Start with existing investors from the company payload
+    const existingInvestors: CompanyInvestor[] = Array.isArray(
+      company.investors
+    )
+      ? (company.investors as CompanyInvestor[])
+      : [];
+
+    const investorMap = new Map<number, CompanyInvestor>();
+    for (const inv of existingInvestors) {
+      if (inv && typeof inv.id === "number") {
+        investorMap.set(inv.id, inv);
+      }
+    }
+
+    // Enrich with investors discovered in corporate events counterparties (index "0")
+    for (const evt of corporateEvents) {
+      type CounterpartyEntry = {
+        _new_company?: {
+          id?: number | string;
+          name?: string;
+          _is_that_investor?: unknown;
+          _is_that_data_analytic_company?: unknown;
+        };
+        new_company_counterparty?: number | string;
+      };
+
+      const counterparties: CounterpartyEntry[] = Array.isArray(
+        // Access dynamic key "0" safely
+        (evt as unknown as Record<string, unknown>)["0"]
+      )
+        ? ((evt as unknown as Record<string, unknown>)[
+            "0"
+          ] as CounterpartyEntry[])
+        : [];
+
+      for (const cp of counterparties) {
+        const nc = cp?._new_company as
+          | {
+              id?: number | string;
+              name?: string;
+              _is_that_investor?: unknown;
+              _is_that_data_analytic_company?: unknown;
+            }
+          | undefined;
+        const isInvestor = Boolean(nc?._is_that_investor);
+        if (!isInvestor) continue;
+
+        const id: number | undefined =
+          typeof nc?.id === "number"
+            ? (nc.id as number)
+            : typeof cp?.new_company_counterparty === "number"
+            ? (cp.new_company_counterparty as number)
+            : undefined;
+        const name: string = (nc?.name ?? "").trim();
+
+        if (!id || !name) continue;
+        if (!investorMap.has(id)) {
+          investorMap.set(id, {
+            id,
+            name,
+            _is_that_investor: true,
+            _is_that_data_analytic_company: Boolean(
+              nc?._is_that_data_analytic_company
+            ),
+          });
+        }
+      }
+    }
+
+    const merged = Array.from(investorMap.values());
+    // If nothing changed, avoid re-render churn
+    const prevIdsArray = (company.investors || [])
+      .map((i) => (i ? (i as CompanyInvestor).id : undefined))
+      .filter((v): v is number => typeof v === "number");
+    const mergedIdsArray = merged.map((i) => i.id);
+    const prevIdsSet = new Set(prevIdsArray);
+    const mergedIdsSet = new Set(mergedIdsArray);
+    const isSame =
+      prevIdsSet.size === mergedIdsSet.size &&
+      Array.from(prevIdsSet).every((id) => mergedIdsSet.has(id));
+
+    if (!isSame) {
+      setCompany((prev) => (prev ? { ...prev, investors: merged } : prev));
+    }
+  }, [company, corporateEvents]);
+
   // Detect mobile once on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
