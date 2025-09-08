@@ -170,4 +170,4 @@ export interface RelatedIndividual {
 }
 
 // API 3: Get Individual Name Response (simple string)
-export type IndividualNameResponse = string; 
+export type IndividualNameResponse = string;

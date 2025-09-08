@@ -1,7 +1,7 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useParams } from "next/navigation";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Head from "next/head";
 import Header from "@/components/Header";
@@ -20,6 +20,7 @@ import {
   RelatedIndividual,
 } from "../../../types/individual";
 // import { useRightClick } from "../../../hooks/useRightClick";
+import { individualService } from "../../../lib/individualService";
 
 // Company Logo Component
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
@@ -56,15 +57,57 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
 
 export default function IndividualProfilePage() {
   const params = useParams();
-  const router = useRouter();
   const individualId = parseInt(params.param as string);
   const [eventsExpanded, setEventsExpanded] = useState(false);
+  const [otherIndividualNames, setOtherIndividualNames] = useState<
+    Record<number, string>
+  >({});
   // Right-click handled via native anchors now
 
   const { profileData, eventsData, individualName, loading, error } =
     useIndividualProfile({
       individualId,
     });
+
+  // Load display names for "Other Individuals" in events table when only IDs are present
+  useEffect(() => {
+    const events = eventsData?.events || [];
+    const ids = new Set<number>();
+    events.forEach((evt) => {
+      (evt._related_to_corporate_event_individuals || []).forEach((ind) => {
+        if (ind?.id && ind.id !== individualId) ids.add(ind.id);
+      });
+    });
+    const missing = Array.from(ids).filter(
+      (id) => otherIndividualNames[id] == null
+    );
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      const pairs = await Promise.all(
+        missing.map(async (id) => {
+          try {
+            const name = await individualService.getIndividualName(id);
+            return [id, String(name)] as const;
+          } catch {
+            return [id, `Individual ${id}`] as const;
+          }
+        })
+      );
+      if (!cancelled) {
+        setOtherIndividualNames((prev) => {
+          const next = { ...prev } as Record<number, string>;
+          pairs.forEach(([id, name]) => (next[id] = name));
+          return next;
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [eventsData?.events, individualId, otherIndividualNames]);
 
   // Update page title when individual data is loaded
   if (
@@ -654,22 +697,21 @@ export default function IndividualProfilePage() {
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               {(() => {
-                                const advised =
-                                  event
-                                    ._counterparty_advised_of_corporate_events?.[0];
-                                return (
-                                  advised?._counterpartys_type
-                                    ?.counterparty_status || "Not available"
-                                );
+                                const target =
+                                  event._target_counterparty_of_corporate_events;
+                                return target?.name || "—";
                               })()}
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
-                              {event._other_counterparties_of_corporate_events
-                                .length > 0
-                                ? event._other_counterparties_of_corporate_events
-                                    .map((cp) => cp.name)
-                                    .join(", ")
-                                : "—"}
+                              {(() => {
+                                const arr =
+                                  event._other_counterparties_of_corporate_events ||
+                                  [];
+                                if (arr.length === 0) return "—";
+                                return arr
+                                  .map((cp) => cp.name || "—")
+                                  .join(", ");
+                              })()}
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               {event.ev_data.enterprise_value_m &&
@@ -694,24 +736,12 @@ export default function IndividualProfilePage() {
                                       href={`/individual/${ind.id}`}
                                       style={{
                                         color: "#3b82f6",
-                                        textDecoration: "none",
+                                        textDecoration: "underline",
                                       }}
-                                      onClick={(e) => {
-                                        if (
-                                          e.defaultPrevented ||
-                                          e.button !== 0 ||
-                                          e.metaKey ||
-                                          e.ctrlKey ||
-                                          e.shiftKey ||
-                                          e.altKey
-                                        )
-                                          return;
-                                        e.preventDefault();
-                                        router.push(`/individual/${ind.id}`);
-                                      }}
-                                      title="Click to open individual's profile"
                                     >
-                                      {ind.advisor_individuals}
+                                      {otherIndividualNames[ind.id] ||
+                                        ind.advisor_individuals ||
+                                        `Individual ${ind.id}`}
                                     </a>
                                     {i < others.length - 1 ? ", " : ""}
                                   </span>
