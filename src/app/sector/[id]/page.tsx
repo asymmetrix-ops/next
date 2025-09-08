@@ -18,13 +18,26 @@ interface SectorData {
   Sector_thesis: string;
 }
 
+interface SectorTotalsRow {
+  id: number;
+  sector_name: string;
+  Number_of_Companies: number;
+  Number_of_PE?: number;
+  Number_of_VC?: number;
+  Number_of_Public?: number;
+  Number_of_Private?: number;
+  Number_of_Subsidiaries_Acquired?: number;
+}
+
 interface SectorStatistics {
-  Total_number_of_companies: number;
-  Number_Of_Public_Companies: number;
-  Number_Of_PE_Companies: number;
-  "Number_of_VC-owned_companies": number;
-  Number_of_private_companies: number;
-  Number_of_subsidiaries: number;
+  // New shape: array with totals row
+  Total_number_of_companies: number | Array<SectorTotalsRow>;
+  // Legacy fields (may still be present)
+  Number_Of_Public_Companies?: number;
+  Number_Of_PE_Companies?: number;
+  "Number_of_VC-owned_companies"?: number;
+  Number_of_private_companies?: number;
+  Number_of_subsidiaries?: number;
   Sector: SectorData;
 }
 
@@ -349,6 +362,7 @@ const SectorDetailPage = () => {
 
   const [sectorData, setSectorData] = useState<SectorStatistics | null>(null);
   const [companies, setCompanies] = useState<SectorCompany[]>([]);
+  const [companiesTotal, setCompaniesTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [companiesLoading, setCompaniesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -462,39 +476,19 @@ const SectorDetailPage = () => {
           return;
         }
 
-        // Derive secondary sectors linked to this primary sector id
+        // Prepare sector id
         const sectorIdNum = Number(sectorId);
-        let derivedSecondaryIds: number[] = [];
-        if (!Number.isNaN(sectorIdNum)) {
-          try {
-            const secondaries = await locationsService.getSecondarySectors([
-              sectorIdNum,
-            ]);
-            derivedSecondaryIds = Array.isArray(secondaries)
-              ? secondaries
-                  .map((s) => s.id)
-                  .filter((id): id is number => typeof id === "number")
-              : [];
-          } catch (e) {
-            console.warn("[Sector] Failed to fetch secondary sectors", e);
-          }
-        }
 
-        // Companies endpoint (same as Companies page) with both filters
+        // Companies endpoint (sector-scoped) - GET with query params (0-based Offset)
+        const offsetForApi = Math.max(0, page - 1);
         const params = new URLSearchParams();
-        params.append("Offset", String(page)); // this API treats Offset as page number
+        params.append("Offset", String(offsetForApi));
         params.append("Per_page", String(perPageToUse));
         if (!Number.isNaN(sectorIdNum)) {
-          params.append("Primary_sectors_ids[]", String(sectorIdNum));
+          params.append("Sector_id", String(sectorIdNum));
         }
-        derivedSecondaryIds.forEach((id) =>
-          params.append("Secondary_sectors_ids[]", String(id))
-        );
-        params.append("Horizontals_ids", "");
-        params.append("Min_linkedin_members", "0");
-        params.append("Max_linkedin_members", "0");
 
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Get_Sector_s_new_companies?${params.toString()}`;
         const response = await fetch(url, {
           method: "GET",
           headers: {
@@ -512,43 +506,112 @@ const SectorDetailPage = () => {
         }
 
         // Adapt response items to SectorCompany shape used by this page
-        const raw = (await response.json()) as NewCompaniesAPIResult;
+        const raw = (await response.json()) as unknown as
+          | NewCompaniesAPIResult
+          // Fallbacks for potential alternative shapes
+          | { items?: NewCompanyItem[] }
+          | (NewCompanyItem[] & { Count?: number })
+          | ({ result1?: { items?: NewCompanyItem[] } } & { Count?: number })
+          | { sql_count?: Array<{ total_companies?: number }> };
 
-        const items: NewCompanyItem[] = Array.isArray(raw.result1?.items)
-          ? (raw.result1!.items as NewCompanyItem[])
-          : [];
+        let items: NewCompanyItem[] = [];
+        if (Array.isArray((raw as NewCompaniesAPIResult)?.result1?.items)) {
+          items = ((raw as NewCompaniesAPIResult).result1!.items ||
+            []) as NewCompanyItem[];
+        } else if (Array.isArray((raw as { items?: NewCompanyItem[] }).items)) {
+          items = ((raw as { items?: NewCompanyItem[] }).items ||
+            []) as NewCompanyItem[];
+        } else if (Array.isArray(raw)) {
+          items = raw as NewCompanyItem[];
+        }
+        const r1 = (raw as NewCompaniesAPIResult)?.result1;
+        const sqlTotal = (
+          raw as { sql_count?: Array<{ total_companies?: number }> }
+        ).sql_count?.[0]?.total_companies;
+        const overallCount: number =
+          // prefer SQL-derived total when provided
+          (typeof sqlTotal === "number" ? sqlTotal : undefined) ??
+          // then explicit Count when available
+          (raw as { Count?: number })?.Count ??
+          // itemsReceived may represent total when pageTotal is 1
+          (typeof r1?.itemsReceived === "number"
+            ? r1!.itemsReceived
+            : undefined) ??
+          items.length;
         const adapted: SectorCompany[] = items.map((c) => ({
           id: c.id,
           name: c.name,
           locations_id: 0,
           url: c.url || "",
-          sectors: Array.isArray(c.secondary_sectors)
-            ? c.secondary_sectors
+          sectors: Array.isArray(
+            (c as unknown as { sectors?: string[] }).sectors
+          )
+            ? ((c as unknown as { sectors?: string[] }).sectors as string[])
+            : Array.isArray(c.secondary_sectors)
+            ? (c.secondary_sectors as string[])
             : [],
           primary_sectors: Array.isArray(c.primary_sectors)
             ? c.primary_sectors
             : [],
           description: c.description || "",
-          linkedin_employee: c.linkedin_members || 0,
-          linkedin_employee_latest: c.linkedin_members || 0,
-          linkedin_employee_old: c.linkedin_members_old || 0,
+          linkedin_employee:
+            // support multiple possible fields
+            (c as unknown as { linkedin_employee?: number })
+              .linkedin_employee ??
+            (c as unknown as { linkedin_members?: number }).linkedin_members ??
+            0,
+          linkedin_employee_latest:
+            (c as unknown as { linkedin_employee_latest?: number })
+              .linkedin_employee_latest ??
+            (c as unknown as { linkedin_employee?: number })
+              .linkedin_employee ??
+            (c as unknown as { linkedin_members?: number }).linkedin_members ??
+            0,
+          linkedin_employee_old:
+            (c as unknown as { linkedin_employee_old?: number })
+              .linkedin_employee_old ??
+            (c as unknown as { linkedin_members_old?: number })
+              .linkedin_members_old ??
+            0,
           linkedin_logo: c.linkedin_logo || "",
           country: c.country || "",
           ownership_type_id: c.ownership_type_id || 0,
           ownership: c.ownership || "",
-          is_that_investor: false,
-          companies_investors: [],
+          is_that_investor:
+            (c as unknown as { is_that_investor?: boolean }).is_that_investor ??
+            false,
+          companies_investors:
+            (
+              c as unknown as {
+                companies_investors?: Array<{
+                  company_name: string;
+                  original_new_company_id: number;
+                }>;
+              }
+            ).companies_investors || [],
         }));
 
         setCompanies(adapted);
+        setCompaniesTotal(
+          typeof overallCount === "number" ? overallCount : adapted.length
+        );
+        const r1b = (raw as NewCompaniesAPIResult)?.result1;
+        const computedCurPage = r1b?.curPage ?? page;
+        const computedPerPage = r1b?.perPage ?? perPageToUse;
+        const computedOffset = r1b?.offset ?? offsetForApi * computedPerPage;
         setPagination({
-          itemsReceived: raw.result1?.itemsReceived || adapted.length,
-          curPage: raw.result1?.curPage || page,
-          nextPage: raw.result1?.nextPage ?? null,
-          prevPage: raw.result1?.prevPage ?? null,
-          offset: raw.result1?.offset || 0,
-          perPage: raw.result1?.perPage || perPageToUse,
-          pageTotal: raw.result1?.pageTotal || 0,
+          itemsReceived: r1b?.itemsReceived || adapted.length,
+          curPage: computedCurPage,
+          nextPage: r1b?.nextPage ?? null,
+          prevPage: r1b?.prevPage ?? null,
+          offset: computedOffset,
+          perPage: computedPerPage,
+          pageTotal:
+            r1b?.pageTotal ||
+            Math.max(
+              1,
+              Math.ceil((overallCount || adapted.length) / computedPerPage)
+            ),
         });
       } catch (err) {
         console.error("Error fetching companies:", err);
@@ -895,6 +958,39 @@ const SectorDetailPage = () => {
     document.title = `Asymmetrix – ${sectorData.Sector.sector_name}`;
   }
 
+  // Normalize statistics to support both new and legacy API shapes
+  const totalsRow: SectorTotalsRow | null = Array.isArray(
+    (sectorData as unknown as { Total_number_of_companies?: unknown })
+      .Total_number_of_companies
+  )
+    ? (
+        sectorData as unknown as {
+          Total_number_of_companies: SectorTotalsRow[];
+        }
+      ).Total_number_of_companies[0] || null
+    : null;
+
+  const totalCompaniesStat =
+    totalsRow?.Number_of_Companies ??
+    (typeof (sectorData as unknown as { Total_number_of_companies?: unknown })
+      .Total_number_of_companies === "number"
+      ? (sectorData as unknown as { Total_number_of_companies: number })
+          .Total_number_of_companies
+      : 0);
+
+  const publicCompaniesStat =
+    sectorData.Number_Of_Public_Companies ?? totalsRow?.Number_of_Public ?? 0;
+  const peCompaniesStat =
+    sectorData.Number_Of_PE_Companies ?? totalsRow?.Number_of_PE ?? 0;
+  const vcOwnedCompaniesStat =
+    sectorData["Number_of_VC-owned_companies"] ?? totalsRow?.Number_of_VC ?? 0;
+  const privateCompaniesStat =
+    sectorData.Number_of_private_companies ?? totalsRow?.Number_of_Private ?? 0;
+  const subsidiariesStat =
+    sectorData.Number_of_subsidiaries ??
+    totalsRow?.Number_of_Subsidiaries_Acquired ??
+    0;
+
   const tableRows = companies.map((company, index) => {
     const existingPrimary = Array.isArray(company.primary_sectors)
       ? company.primary_sectors
@@ -1117,37 +1213,37 @@ const SectorDetailPage = () => {
               <div style={styles.statItem}>
                 <span style={styles.statLabel}>Total companies:</span>
                 <span style={styles.statValue}>
-                  {formatNumber(sectorData.Total_number_of_companies)}
+                  {formatNumber(totalCompaniesStat)}
                 </span>
               </div>
               <div style={styles.statItem}>
                 <span style={styles.statLabel}>Public companies:</span>
                 <span style={styles.statValue}>
-                  {formatNumber(sectorData.Number_Of_Public_Companies)}
+                  {formatNumber(publicCompaniesStat)}
                 </span>
               </div>
               <div style={styles.statItem}>
                 <span style={styles.statLabel}>PE companies:</span>
                 <span style={styles.statValue}>
-                  {formatNumber(sectorData.Number_Of_PE_Companies)}
+                  {formatNumber(peCompaniesStat)}
                 </span>
               </div>
               <div style={styles.statItem}>
                 <span style={styles.statLabel}>VC-owned companies:</span>
                 <span style={styles.statValue}>
-                  {formatNumber(sectorData["Number_of_VC-owned_companies"])}
+                  {formatNumber(vcOwnedCompaniesStat)}
                 </span>
               </div>
               <div style={styles.statItem}>
                 <span style={styles.statLabel}>Private companies:</span>
                 <span style={styles.statValue}>
-                  {formatNumber(sectorData.Number_of_private_companies)}
+                  {formatNumber(privateCompaniesStat)}
                 </span>
               </div>
               <div style={styles.statItem}>
                 <span style={styles.statLabel}>Subsidiaries:</span>
                 <span style={styles.statValue}>
-                  {formatNumber(sectorData.Number_of_subsidiaries)}
+                  {formatNumber(subsidiariesStat)}
                 </span>
               </div>
             </div>
@@ -1202,9 +1298,34 @@ const SectorDetailPage = () => {
                     Showing {pagination.offset + 1} -{" "}
                     {Math.min(
                       pagination.offset + pagination.perPage,
-                      sectorData.Total_number_of_companies
+                      companiesTotal ??
+                        (typeof (
+                          sectorData as unknown as {
+                            Total_number_of_companies?: unknown;
+                          }
+                        ).Total_number_of_companies === "number"
+                          ? (
+                              sectorData as unknown as {
+                                Total_number_of_companies: number;
+                              }
+                            ).Total_number_of_companies
+                          : 0)
                     )}{" "}
-                    of {formatNumber(sectorData.Total_number_of_companies)}{" "}
+                    of{" "}
+                    {formatNumber(
+                      companiesTotal ??
+                        (typeof (
+                          sectorData as unknown as {
+                            Total_number_of_companies?: unknown;
+                          }
+                        ).Total_number_of_companies === "number"
+                          ? (
+                              sectorData as unknown as {
+                                Total_number_of_companies: number;
+                              }
+                            ).Total_number_of_companies
+                          : 0)
+                    )}{" "}
                     companies
                     {pagination.pageTotal > 1 && (
                       <span style={{ marginLeft: "8px" }}>
