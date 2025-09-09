@@ -17,6 +17,17 @@ import {
 } from "recharts";
 import { ContentArticle } from "@/types/insightsAnalysis";
 import { locationsService } from "@/lib/locationsService";
+// Investor classification rule constants (module scope; stable across renders)
+const FINANCIAL_SERVICES_FOCUS_ID = 74;
+const INVESTOR_SECTOR_IDS = new Set<number>([
+  23877, // Venture Capital
+  23699, // Private Equity
+  23253, // Asset Management
+  23463, // Family Office
+  23887, // Wealth Management
+  23563, // Investment Management
+  23226, // Accelerator
+]);
 
 // Types for API integration
 interface CompanyLocation {
@@ -481,6 +492,10 @@ const CompanyDetail = () => {
   const [showAllSubsidiaries, setShowAllSubsidiaries] = useState(false);
   const [companyArticles, setCompanyArticles] = useState<ContentArticle[]>([]);
   const [articlesLoading, setArticlesLoading] = useState(false);
+  // Computed routing targets for investor/company entities referenced in Investors section
+  const [investorRouteTargetById, setInvestorRouteTargetById] = useState<
+    Record<number, string>
+  >({});
 
   // Sector mapping helpers
   const normalizeSectorName = (name: string | undefined | null): string =>
@@ -539,6 +554,97 @@ const CompanyDetail = () => {
       return Number.isFinite(parsed) ? parsed : undefined;
     }
     return undefined;
+  };
+
+  // (constants defined at module scope)
+
+  // Safely read primary business focus ids from arbitrary backend shapes
+  const extractPrimaryBusinessFocusIds = (payload: unknown): number[] => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const p = payload as any;
+    const raw = p?.primary_business_focus_id ?? p?.Primary_Business_Focus_Id;
+    if (Array.isArray(raw)) {
+      return raw
+        .map((v) => (typeof v === "number" ? v : parseInt(String(v), 10)))
+        .filter((v) => Number.isFinite(v));
+    }
+    const single =
+      typeof raw === "number" ? raw : parseInt(String(raw ?? ""), 10);
+    return Number.isFinite(single) ? [single] : [];
+  };
+
+  // Extract numeric sector ids from various shapes (array of objects or ids)
+  const extractSectorIds = (payload: unknown): number[] => {
+    if (!payload) return [];
+    if (Array.isArray(payload)) {
+      return (payload as unknown[])
+        .map((item) => {
+          if (typeof item === "number") return item;
+          if (typeof item === "string") {
+            const n = parseInt(item, 10);
+            return Number.isFinite(n) ? n : undefined;
+          }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const obj = item as any;
+          const candidate = obj?.sector_id ?? obj?.id ?? obj?.Sector_id;
+          if (typeof candidate === "number") return candidate;
+          if (typeof candidate === "string") {
+            const n = parseInt(candidate, 10);
+            return Number.isFinite(n) ? n : undefined;
+          }
+          return undefined;
+        })
+        .filter((v): v is number => typeof v === "number");
+    }
+    return [];
+  };
+
+  // Decide route based on business focus and sectors
+  const decideEntityRoute = useCallback(
+    (meta: unknown, entityId: number): string => {
+      const focusIds = extractPrimaryBusinessFocusIds(meta);
+      const sectors = extractSectorIds(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (meta as any)?.sectors_id ?? (meta as any)?.Sectors_id
+      );
+      const isFinancialServices = focusIds.includes(
+        FINANCIAL_SERVICES_FOCUS_ID
+      );
+      const hasInvestorSector = sectors.some((id) =>
+        INVESTOR_SECTOR_IDS.has(id)
+      );
+      if (isFinancialServices && hasInvestorSector) {
+        return `/investors/${entityId}`;
+      }
+      return `/company/${entityId}`;
+    },
+    []
+  );
+
+  // Probe investor API to confirm if an entity is an investor
+  const verifyIsInvestorViaApi = async (
+    id: number,
+    headers: Record<string, string>,
+    signal?: AbortSignal
+  ): Promise<boolean> => {
+    try {
+      const params = new URLSearchParams();
+      params.append("new_comp_id", String(id));
+      const res = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_the_investor_new_company?${params.toString()}`,
+        { method: "GET", headers, signal, credentials: "include" }
+      );
+      if (!res.ok) return false;
+      const data = await res.json();
+      // Heuristic: presence of Investor object or Focus array indicates investor profile exists
+      const hasInvestor = Boolean(
+        (data &&
+          (data.Investor || data.Focus || data.Invested_DA_sectors)) as unknown
+      );
+      return hasInvestor;
+    } catch {
+      return false;
+    }
   };
 
   const toggleDescription = (subsidiaryId: number) => {
@@ -750,6 +856,64 @@ const CompanyDetail = () => {
       fetchCorporateEvents();
     }
   }, [companyId, fetchCorporateEvents, fetchCompanyArticles, requestCompany]);
+
+  // Fetch minimal metadata for each investor to determine correct routing target
+  useEffect(() => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+    const run = async () => {
+      try {
+        const list = (company?.investors || []).filter(
+          (v): v is CompanyInvestor => Boolean(v && typeof v.id === "number")
+        );
+        if (list.length === 0) return;
+
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        };
+
+        const entries = await Promise.all(
+          list.map(async (inv) => {
+            try {
+              const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${inv.id}`;
+              const res = await fetch(url, { method: "GET", headers, signal });
+              if (!res.ok) throw new Error(String(res.status));
+              const data = await res.json();
+              const meta = data?.Company ?? data;
+              let target = decideEntityRoute(meta, inv.id);
+              // If rule says company, double-check investor API and override when confirmed investor
+              if (target.startsWith("/company/")) {
+                const isInvestor = await verifyIsInvestorViaApi(
+                  inv.id,
+                  headers,
+                  signal
+                );
+                if (isInvestor) target = `/investors/${inv.id}`;
+              }
+              return [inv.id, target] as const;
+            } catch {
+              // Fallback to heuristic using existing flag
+              const target = inv._is_that_investor
+                ? `/investors/${inv.id}`
+                : `/company/${inv.id}`;
+              return [inv.id, target] as const;
+            }
+          })
+        );
+
+        const map: Record<number, string> = {};
+        for (const [id, target] of entries) map[id] = target;
+        setInvestorRouteTargetById(map);
+      } catch {
+        // ignore
+      }
+    };
+    run();
+    return () => controller.abort();
+  }, [company?.investors, decideEntityRoute]);
 
   // Merge investors found in corporate events into the company's investors list
   useEffect(() => {
@@ -1513,17 +1677,19 @@ const CompanyDetail = () => {
                 </span>
                 <span style={styles.value} className="info-value">
                   {company.investors && company.investors.length > 0
-                    ? company.investors.map((investor, index) => (
-                        <span key={investor.id}>
-                          {createClickableElement(
-                            investor._is_that_investor
-                              ? `/investors/${investor.id}`
-                              : `/company/${investor.id}`,
-                            investor.name
-                          )}
-                          {index < company.investors!.length - 1 && ", "}
-                        </span>
-                      ))
+                    ? company.investors.map((investor, index) => {
+                        const href =
+                          investorRouteTargetById[investor.id] ||
+                          (investor._is_that_investor
+                            ? `/investors/${investor.id}`
+                            : `/company/${investor.id}`);
+                        return (
+                          <span key={investor.id}>
+                            {createClickableElement(href, investor.name)}
+                            {index < company.investors!.length - 1 && ", "}
+                          </span>
+                        );
+                      })
                     : "Not available"}
                 </span>
               </div>
