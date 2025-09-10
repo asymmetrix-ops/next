@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 const HeroSection = () => {
   return (
     <section
@@ -18,12 +16,13 @@ const HeroSection = () => {
             <br />
             in the Data & Analytics industry
           </p>
-          <Link
-            href="/demo"
+          {/* Changed to mailto link to avoid 404 */}
+          <a
+            href="mailto:asymmetrix@asymmetrixintelligence.com?subject=Request%20a%20Demo"
             className="inline-block px-8 py-3 text-lg text-white rounded transition-colors bg-asymmetrix-blue-light hover:bg-asymmetrix-blue-dark"
           >
             Request Demo
-          </Link>
+          </a>
         </div>
       </div>
     </section>

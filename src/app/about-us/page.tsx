@@ -211,12 +211,10 @@ export default function AboutUs() {
               Curious to know more?
             </p>
 
-            <a
-              href="#"
-              className="inline-block text-lg font-medium text-blue-600 transition-colors hover:text-blue-800"
-            >
-              View our open positions
-            </a>
+            <div className="inline-block text-lg font-medium text-gray-800">
+              No open positions currently. But we are always interested in
+              talking to great people.
+            </div>
           </div>
         </section>
 

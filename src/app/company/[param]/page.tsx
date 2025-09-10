@@ -65,9 +65,40 @@ interface CompanyEV {
   currency?: { Currency?: string };
 }
 
+// Income statement types (subset for rendering)
+interface IncomeStatementEntry {
+  id: number;
+  period_display_end_date: string;
+  period_end_date?: string;
+  revenue?: number | null;
+  ebit?: number | null;
+  ebitda?: number | null;
+  // some rows include currency fields for costs; use as proxy for currency
+  cost_of_goods_sold_currency?: string;
+}
+
+// Parent company types (subset)
+interface ParentCompanyItem {
+  id: number;
+  name: string;
+  primary_business_focus_id?: unknown;
+  sectors_id?: unknown;
+}
+
+interface HaveParentCompany {
+  have_parent_companies?: boolean;
+  Parant_companies?: ParentCompanyItem[];
+}
+
 interface CompanyLinkedInData {
   linkedin_logo: string;
-  LinkedIn_URL: string;
+}
+
+interface CompanyRootLinkedInData {
+  LinkedIn_URL?: string;
+  LinkedIn_Employee?: number;
+  LinkedIn_Emp__Date?: string | null;
+  linkedin_logo?: string;
 }
 
 interface CompanyOwnershipType {
@@ -149,6 +180,7 @@ interface Company {
   };
   url: string;
   _linkedin_data_of_new_company: CompanyLinkedInData;
+  linkedin_data?: CompanyRootLinkedInData;
   _locations: CompanyLocation;
   _ownership_type: CompanyOwnershipType;
   sectors_id: CompanySector[];
@@ -202,10 +234,18 @@ interface Company {
   // Optional market fields if/when API provides them
   ticker?: string;
   exchange?: string;
+  have_parent_company?: HaveParentCompany;
+  income_statement?: Array<{
+    income_statements?: IncomeStatementEntry[] | string;
+  }>;
 }
 
 interface CompanyResponse {
   Company: Company;
+  have_parent_company?: HaveParentCompany;
+  income_statement?: Array<{
+    income_statements?: IncomeStatementEntry[] | string;
+  }>;
   Managmant_Roles_current?: Array<{
     id: number;
     Individual_text: string;
@@ -565,8 +605,23 @@ const CompanyDetail = () => {
     const raw = p?.primary_business_focus_id ?? p?.Primary_Business_Focus_Id;
     if (Array.isArray(raw)) {
       return raw
-        .map((v) => (typeof v === "number" ? v : parseInt(String(v), 10)))
-        .filter((v) => Number.isFinite(v));
+        .map((v) => {
+          if (typeof v === "number") return v;
+          if (typeof v === "string") {
+            const n = parseInt(v, 10);
+            return Number.isFinite(n) ? n : undefined;
+          }
+          if (v && typeof v === "object") {
+            const idCandidate = (v as { id?: unknown }).id;
+            if (typeof idCandidate === "number") return idCandidate;
+            if (typeof idCandidate === "string") {
+              const n = parseInt(idCandidate, 10);
+              return Number.isFinite(n) ? n : undefined;
+            }
+          }
+          return undefined;
+        })
+        .filter((v): v is number => typeof v === "number");
     }
     const single =
       typeof raw === "number" ? raw : parseInt(String(raw ?? ""), 10);
@@ -832,6 +887,21 @@ const CompanyDetail = () => {
             have_subsidiaries_companies: false,
             Subsidiaries_companies: [],
           },
+          income_statement:
+            data.income_statement || data.Company.income_statement,
+          have_parent_company:
+            (data as { have_parent_company?: HaveParentCompany })
+              .have_parent_company ||
+            (
+              data.Company as unknown as {
+                have_parent_company?: HaveParentCompany;
+              }
+            ).have_parent_company,
+          Lifecycle_stage:
+            data.Company?.Lifecycle_stage ||
+            (data as unknown as { Lifecycle_stage?: LifecycleStage })
+              .Lifecycle_stage ||
+            undefined,
         };
 
         // Removed verbose logging of enriched object
@@ -1096,6 +1166,25 @@ const CompanyDetail = () => {
 
   // Removed render-phase debug logging to avoid noise/perf issues
 
+  // Compute a safe LinkedIn URL from API (only allow linkedin.com domains)
+  const linkedinUrl: string | undefined = (() => {
+    const raw = company.linkedin_data?.LinkedIn_URL;
+    if (!raw) return undefined;
+    const trimmed = String(raw).trim();
+    if (!trimmed) return undefined;
+    const candidate = /^https?:\/\//i.test(trimmed)
+      ? trimmed
+      : `https://${trimmed}`;
+    try {
+      const u = new URL(candidate);
+      const host = u.hostname.toLowerCase();
+      if (!host.endsWith("linkedin.com")) return undefined;
+      return u.toString();
+    } catch {
+      return undefined;
+    }
+  })();
+
   // Process sectors
   const primarySectors =
     company.sectors_id?.filter(
@@ -1167,6 +1256,55 @@ const CompanyDetail = () => {
     company.ev_data?.ev_value,
     evCurrency || displayCurrency
   );
+
+  // Extract last 3 income statement rows (public companies only)
+  const isPublicOwnership = (company._ownership_type?.ownership || "")
+    .toLowerCase()
+    .includes("public");
+  const rawIncomeStatements: IncomeStatementEntry[] = ((
+    company.income_statement || []
+  ).flatMap((block) => {
+    const raw = block?.income_statements as unknown;
+    if (!raw) return [] as IncomeStatementEntry[];
+    if (typeof raw === "string") {
+      try {
+        const decoded = JSON.parse(
+          (raw as string).replace(/\\u0022/g, '"')
+        ) as unknown;
+        return Array.isArray(decoded)
+          ? (decoded as IncomeStatementEntry[])
+          : [];
+      } catch {
+        return [] as IncomeStatementEntry[];
+      }
+    }
+    return (raw as IncomeStatementEntry[]) || [];
+  }) || []) as IncomeStatementEntry[];
+  const normalizedIncomeStatements = rawIncomeStatements
+    .map((row) => ({
+      id: row.id,
+      period_display_end_date: row.period_display_end_date,
+      period_end_date: row.period_end_date,
+      revenue: row.revenue ?? null,
+      ebit: row.ebit ?? null,
+      ebitda: row.ebitda ?? null,
+      cost_of_goods_sold_currency: row.cost_of_goods_sold_currency,
+    }))
+    .sort((a, b) => {
+      // Sort descending by period_end_date; fallback to display string
+      const da = a.period_end_date
+        ? Date.parse(a.period_end_date)
+        : Date.parse(
+            (a.period_display_end_date || "").replace(/[^0-9-]/g, "")
+          ) || 0;
+      const db = b.period_end_date
+        ? Date.parse(b.period_end_date)
+        : Date.parse(
+            (b.period_display_end_date || "").replace(/[^0-9-]/g, "")
+          ) || 0;
+      return db - da;
+    })
+    .slice(0, 3);
 
   // Process employee data
   const employeeData = company._companies_employees_count_monthly || [];
@@ -1673,10 +1811,43 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
-                  Investors:
+                  {company.have_parent_company?.have_parent_companies &&
+                  Array.isArray(
+                    company.have_parent_company?.Parant_companies
+                  ) &&
+                  company.have_parent_company!.Parant_companies!.length > 0 &&
+                  // If first parent company's primary_business_focus_id is NOT Financial Services (74), label as Parent Company
+                  !extractPrimaryBusinessFocusIds(
+                    company.have_parent_company!.Parant_companies![0]
+                      ?.primary_business_focus_id
+                  ).includes(FINANCIAL_SERVICES_FOCUS_ID)
+                    ? "Parent Company:"
+                    : "Current Investors:"}
                 </span>
                 <span style={styles.value} className="info-value">
-                  {company.investors && company.investors.length > 0
+                  {company.have_parent_company?.have_parent_companies &&
+                  Array.isArray(
+                    company.have_parent_company?.Parant_companies
+                  ) &&
+                  company.have_parent_company!.Parant_companies!.length > 0 &&
+                  !extractPrimaryBusinessFocusIds(
+                    company.have_parent_company!.Parant_companies![0]
+                      ?.primary_business_focus_id
+                  ).includes(FINANCIAL_SERVICES_FOCUS_ID)
+                    ? (() => {
+                        const parent =
+                          company.have_parent_company!.Parant_companies![0];
+                        const parentId = parent?.id;
+                        const parentName = (parent?.name || "").trim();
+                        if (parentId && parentName) {
+                          return createClickableElement(
+                            `/company/${parentId}`,
+                            parentName
+                          );
+                        }
+                        return parentName || "Not available";
+                      })()
+                    : company.investors && company.investors.length > 0
                     ? company.investors.map((investor, index) => {
                         const href =
                           investorRouteTargetById[investor.id] ||
@@ -1715,9 +1886,123 @@ const CompanyDetail = () => {
                 <span style={styles.value}>{ebitda}</span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Enterprise Value:</span>
+                <span style={styles.label}>Enterprise Value (m):</span>
                 <span style={styles.value}>{enterpriseValue}</span>
               </div>
+              {isPublicOwnership && normalizedIncomeStatements.length > 0 && (
+                <div style={{ marginTop: "16px" }}>
+                  <div
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: 600,
+                      marginBottom: 8,
+                    }}
+                  >
+                    Income Statement (Last 3 FY)
+                  </div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table
+                      style={{ width: "100%", borderCollapse: "collapse" }}
+                    >
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          <th
+                            style={{
+                              textAlign: "left",
+                              padding: "8px",
+                              borderBottom: "1px solid #e2e8f0",
+                            }}
+                          >
+                            Financial Period
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: "8px",
+                              borderBottom: "1px solid #e2e8f0",
+                            }}
+                          >
+                            Revenue (m)
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: "8px",
+                              borderBottom: "1px solid #e2e8f0",
+                            }}
+                          >
+                            EBIT (m)
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: "8px",
+                              borderBottom: "1px solid #e2e8f0",
+                            }}
+                          >
+                            EBITDA (m)
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {normalizedIncomeStatements.map((row) => {
+                          const period = (
+                            row.period_display_end_date || ""
+                          ).replace(/[,\s]/g, "");
+                          const currency =
+                            row.cost_of_goods_sold_currency ||
+                            evCurrency ||
+                            revenueCurrency ||
+                            "";
+                          const fmt = (v?: number | null) =>
+                            typeof v === "number"
+                              ? `${currency}${(v / 1_000_000).toLocaleString()}`
+                              : "—";
+                          return (
+                            <tr key={row.id}>
+                              <td
+                                style={{
+                                  padding: "8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                }}
+                              >
+                                {period || "—"}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                  textAlign: "right",
+                                }}
+                              >
+                                {fmt(row.revenue)}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                  textAlign: "right",
+                                }}
+                              >
+                                {fmt(row.ebit)}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                  textAlign: "right",
+                                }}
+                              >
+                                {fmt(row.ebitda)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
               <div style={styles.chartContainer} className="chartContainer">
                 <div style={styles.chartTitle}>LinkedIn Employee Count</div>
                 <div style={styles.currentCount}>
@@ -1739,8 +2024,7 @@ const CompanyDetail = () => {
                 )}
               </div>
               {/* LinkedIn Logo - Redirects to company LinkedIn */}
-              {(company._linkedin_data_of_new_company?.LinkedIn_URL ||
-                company._linkedin_data_of_new_company?.linkedin_logo) && (
+              {linkedinUrl && (
                 <div
                   style={{
                     textAlign: "left",
@@ -1750,13 +2034,7 @@ const CompanyDetail = () => {
                   }}
                 >
                   <a
-                    href={
-                      company._linkedin_data_of_new_company?.LinkedIn_URL ||
-                      `https://www.linkedin.com/company/${company.name
-                        .toLowerCase()
-                        .replace(/[^a-z0-9]/g, "")}` ||
-                      "#"
-                    }
+                    href={linkedinUrl || "#"}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
@@ -1816,9 +2094,127 @@ const CompanyDetail = () => {
                 <span style={styles.value}>{ebitda}</span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Enterprise Value:</span>
+                <span style={styles.label}>Enterprise Value (m):</span>
                 <span style={styles.value}>{enterpriseValue}</span>
               </div>
+              {isPublicOwnership && normalizedIncomeStatements.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <div
+                    style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}
+                  >
+                    Income Statement (Last 3 FY)
+                  </div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table
+                      style={{ width: "100%", borderCollapse: "collapse" }}
+                    >
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          <th
+                            style={{
+                              textAlign: "left",
+                              padding: 6,
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: 12,
+                            }}
+                          >
+                            Financial Period
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: 6,
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: 12,
+                            }}
+                          >
+                            Revenue (m)
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: 6,
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: 12,
+                            }}
+                          >
+                            EBIT (m)
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: 6,
+                              borderBottom: "1px solid #e2e8f0",
+                              fontSize: 12,
+                            }}
+                          >
+                            EBITDA (m)
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {normalizedIncomeStatements.map((row) => {
+                          const period = (
+                            row.period_display_end_date || ""
+                          ).replace(/[,\s]/g, "");
+                          const currency =
+                            row.cost_of_goods_sold_currency ||
+                            evCurrency ||
+                            revenueCurrency ||
+                            "";
+                          const fmt = (v?: number | null) =>
+                            typeof v === "number"
+                              ? `${currency}${(v / 1_000_000).toLocaleString()}`
+                              : "—";
+                          return (
+                            <tr key={row.id}>
+                              <td
+                                style={{
+                                  padding: 6,
+                                  borderBottom: "1px solid #e2e8f0",
+                                  fontSize: 12,
+                                }}
+                              >
+                                {period || "—"}
+                              </td>
+                              <td
+                                style={{
+                                  padding: 6,
+                                  borderBottom: "1px solid #e2e8f0",
+                                  textAlign: "right",
+                                  fontSize: 12,
+                                }}
+                              >
+                                {fmt(row.revenue)}
+                              </td>
+                              <td
+                                style={{
+                                  padding: 6,
+                                  borderBottom: "1px solid #e2e8f0",
+                                  textAlign: "right",
+                                  fontSize: 12,
+                                }}
+                              >
+                                {fmt(row.ebit)}
+                              </td>
+                              <td
+                                style={{
+                                  padding: 6,
+                                  borderBottom: "1px solid #e2e8f0",
+                                  textAlign: "right",
+                                  fontSize: 12,
+                                }}
+                              >
+                                {fmt(row.ebitda)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
               <div style={styles.chartContainer}>
                 <div style={styles.chartTitle}>LinkedIn Employee Count</div>
                 <div style={styles.currentCount}>
@@ -1843,11 +2239,11 @@ const CompanyDetail = () => {
           </div>
 
           {/* LinkedIn section (desktop only) */}
-          {company._linkedin_data_of_new_company?.LinkedIn_URL && (
+          {linkedinUrl && (
             <div style={styles.card} className="desktop-linkedin-section">
               <div style={{ display: "flex", justifyContent: "center" }}>
                 <a
-                  href={company._linkedin_data_of_new_company.LinkedIn_URL}
+                  href={linkedinUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={styles.linkedinLink}

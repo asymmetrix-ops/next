@@ -33,21 +33,47 @@ const isDataAnalyticsCompany = (candidate: unknown): boolean => {
 };
 
 // Company Logo Component
-const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
-  if (logo) {
+const CompanyLogo = ({ logo, name }: { logo?: string; name: string }) => {
+  const buildLogoSrc = (raw?: string): string | undefined => {
+    if (!raw) return undefined;
+    const value = String(raw).trim();
+    if (!value) return undefined;
+    if (/^data:/i.test(value)) return value;
+    if (/^https?:\/\//i.test(value)) {
+      try {
+        const u = new URL(value);
+        const host = u.hostname.toLowerCase();
+        // Skip LinkedIn CDN/hosts to avoid frequent 403s; prefer base64 for those
+        if (host.endsWith("licdn.com") || host.endsWith("linkedin.com")) {
+          return undefined;
+        }
+        return value;
+      } catch {
+        return undefined;
+      }
+    }
+    // Heuristic: treat as base64 when it does not look like a URL
+    if (/^[A-Za-z0-9+/=]+$/.test(value)) {
+      return `data:image/jpeg;base64,${value}`;
+    }
+    return undefined;
+  };
+
+  const src = buildLogoSrc(logo);
+  if (src) {
     return (
       <>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={`data:image/jpeg;base64,${logo}`}
-          alt={`${name} logo`}
-          className="company-logo"
-        />
+        <img src={src} alt={`${name} logo`} className="company-logo" />
       </>
     );
   }
 
-  return <div className="placeholder-logo">{name.charAt(0).toUpperCase()}</div>;
+  return (
+    <div className="placeholder-logo">
+      {(name || "").charAt(0).toUpperCase()}
+    </div>
+  );
 };
 
 // Corporate Event Detail Component
@@ -537,7 +563,7 @@ const CorporateEventDetail = ({
                         logo={
                           counterparty._new_company
                             ._linkedin_data_of_new_company?.linkedin_logo ||
-                          counterparty._new_company.linkedin_data.linkedin_logo
+                          counterparty._new_company.linkedin_data?.linkedin_logo
                         }
                         name={counterparty._new_company.name}
                       />
@@ -621,7 +647,7 @@ const CorporateEventDetail = ({
                     logo={
                       counterparty._new_company._linkedin_data_of_new_company
                         ?.linkedin_logo ||
-                      counterparty._new_company.linkedin_data.linkedin_logo
+                      counterparty._new_company.linkedin_data?.linkedin_logo
                     }
                     name={counterparty._new_company.name}
                   />
