@@ -2087,6 +2087,7 @@ const InvestorDetailPage = () => {
                       width: "100%",
                       borderCollapse: "collapse",
                       fontSize: "14px",
+                      tableLayout: "fixed",
                     }}
                   >
                     <thead>
@@ -2164,20 +2165,31 @@ const InvestorDetailPage = () => {
                             style={{ borderBottom: "1px solid #e2e8f0" }}
                           >
                             <td style={{ padding: "12px" }}>
-                              <div style={{ maxWidth: "350px" }}>
-                                <span
+                              <div style={{ maxWidth: "520px" }}>
+                                <a
+                                  href={
+                                    event.id
+                                      ? `/corporate-event/${event.id}`
+                                      : "#"
+                                  }
                                   style={{
                                     color: "#3b82f6",
-                                    textDecoration: "none",
+                                    textDecoration: "underline",
                                     fontWeight: "500",
                                     cursor: "pointer",
+                                    wordBreak: "break-word",
+                                    overflowWrap: "anywhere",
+                                    whiteSpace: "normal",
+                                    lineHeight: 1.4,
+                                    display: "inline",
                                   }}
-                                  onClick={() =>
+                                  onClick={(e) => {
+                                    e.preventDefault();
                                     handleCorporateEventDescriptionClick(
                                       event.id,
                                       event.description
-                                    )
-                                  }
+                                    );
+                                  }}
                                   onContextMenu={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
@@ -2189,12 +2201,13 @@ const InvestorDetailPage = () => {
                                       );
                                     }
                                   }}
-                                  title="Left click to navigate, Right click to open in new tab"
+                                  title="Open event"
                                 >
-                                  <CompanyDescription
-                                    description={event.description}
-                                  />
-                                </span>
+                                  {
+                                    truncateDescription(event.description, 220)
+                                      .text
+                                  }
+                                </a>
                               </div>
                             </td>
                             <td style={{ padding: "12px" }}>
