@@ -113,7 +113,7 @@ const Footer = () => {
         <div style={styles.rightSection} className="footer-right">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <a
-            href="https://www.youtube.com/"
+            href="https://www.youtube.com/@AsymmetrixIntelligence"
             target="_blank"
             rel="noopener noreferrer"
             style={styles.socialIcon}
@@ -128,7 +128,7 @@ const Footer = () => {
           </a>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <a
-            href="https://open.spotify.com/"
+            href="https://open.spotify.com/show/1gvtMQL2O38ZhEuYyIoKL0"
             target="_blank"
             rel="noopener noreferrer"
             style={styles.socialIcon}
@@ -143,7 +143,7 @@ const Footer = () => {
           </a>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <a
-            href="https://podcasts.apple.com/"
+            href="https://podcasts.apple.com/gb/podcast/asymmetrix/id1777231528"
             target="_blank"
             rel="noopener noreferrer"
             style={styles.socialIcon}
@@ -158,7 +158,7 @@ const Footer = () => {
           </a>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <a
-            href="https://www.linkedin.com/company/asymmetrixintelligence/posts/?feedView=all"
+            href="https://www.linkedin.com/company/asymmetrixintelligence"
             target="_blank"
             rel="noopener noreferrer"
             style={styles.socialIcon}
