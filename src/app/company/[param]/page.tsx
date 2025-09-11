@@ -1306,6 +1306,16 @@ const CompanyDetail = () => {
     })
     .slice(0, 3);
 
+  // Show Income Statement only if there is at least one numeric value
+  const hasIncomeStatementData =
+    isPublicOwnership &&
+    normalizedIncomeStatements.some(
+      (row) =>
+        typeof row.revenue === "number" ||
+        typeof row.ebit === "number" ||
+        typeof row.ebitda === "number"
+    );
+
   // Process employee data
   const employeeData = company._companies_employees_count_monthly || [];
   const currentEmployeeCount =
@@ -1877,19 +1887,23 @@ const CompanyDetail = () => {
             {/* Desktop Financial Metrics */}
             <div style={styles.card} className="card desktop-financial-metrics">
               <h2 style={styles.sectionTitle}>Financial Metrics</h2>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue (m):</span>
-                <span style={styles.value}>{revenue}</span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>EBITDA (m):</span>
-                <span style={styles.value}>{ebitda}</span>
-              </div>
+              {!hasIncomeStatementData && (
+                <div style={styles.infoRow}>
+                  <span style={styles.label}>Revenue (m):</span>
+                  <span style={styles.value}>{revenue}</span>
+                </div>
+              )}
+              {!hasIncomeStatementData && (
+                <div style={styles.infoRow}>
+                  <span style={styles.label}>EBITDA (m):</span>
+                  <span style={styles.value}>{ebitda}</span>
+                </div>
+              )}
               <div style={styles.infoRow}>
                 <span style={styles.label}>Enterprise Value (m):</span>
                 <span style={styles.value}>{enterpriseValue}</span>
               </div>
-              {isPublicOwnership && normalizedIncomeStatements.length > 0 && (
+              {hasIncomeStatementData && (
                 <div style={{ marginTop: "16px" }}>
                   <div
                     style={{
@@ -1956,7 +1970,14 @@ const CompanyDetail = () => {
                             "";
                           const fmt = (v?: number | null) =>
                             typeof v === "number"
-                              ? `${currency}${(v / 1_000_000).toLocaleString()}`
+                              ? (() => {
+                                  const whole = Math.round(
+                                    v / 1_000_000
+                                  ).toLocaleString();
+                                  const beforeComma =
+                                    whole.split(",")[0] || whole;
+                                  return `${currency}${beforeComma}`;
+                                })()
                               : "—";
                           return (
                             <tr key={row.id}>
@@ -2085,19 +2106,23 @@ const CompanyDetail = () => {
               }}
             >
               <h2 style={styles.sectionTitle}>Financial Metrics</h2>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue (m):</span>
-                <span style={styles.value}>{revenue}</span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>EBITDA (m):</span>
-                <span style={styles.value}>{ebitda}</span>
-              </div>
+              {!hasIncomeStatementData && (
+                <div style={styles.infoRow}>
+                  <span style={styles.label}>Revenue (m):</span>
+                  <span style={styles.value}>{revenue}</span>
+                </div>
+              )}
+              {!hasIncomeStatementData && (
+                <div style={styles.infoRow}>
+                  <span style={styles.label}>EBITDA (m):</span>
+                  <span style={styles.value}>{ebitda}</span>
+                </div>
+              )}
               <div style={styles.infoRow}>
                 <span style={styles.label}>Enterprise Value (m):</span>
                 <span style={styles.value}>{enterpriseValue}</span>
               </div>
-              {isPublicOwnership && normalizedIncomeStatements.length > 0 && (
+              {hasIncomeStatementData && (
                 <div style={{ marginTop: 12 }}>
                   <div
                     style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}
@@ -2164,7 +2189,14 @@ const CompanyDetail = () => {
                             "";
                           const fmt = (v?: number | null) =>
                             typeof v === "number"
-                              ? `${currency}${(v / 1_000_000).toLocaleString()}`
+                              ? (() => {
+                                  const whole = Math.round(
+                                    v / 1_000_000
+                                  ).toLocaleString();
+                                  const beforeComma =
+                                    whole.split(",")[0] || whole;
+                                  return `${currency}${beforeComma}`;
+                                })()
                               : "—";
                           return (
                             <tr key={row.id}>
@@ -2238,29 +2270,7 @@ const CompanyDetail = () => {
             </div>
           </div>
 
-          {/* LinkedIn section (desktop only) */}
-          {linkedinUrl && (
-            <div style={styles.card} className="desktop-linkedin-section">
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <a
-                  href={linkedinUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={styles.linkedinLink}
-                >
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                  </svg>
-                  View on LinkedIn
-                </a>
-              </div>
-            </div>
-          )}
+          {/* LinkedIn section (desktop only) removed per request */}
 
           {/* Management section */}
           {hasManagement && (
