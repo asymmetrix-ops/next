@@ -54,6 +54,9 @@ export interface Company {
   country: string;
   locations_id?: number;
   sectors_id?: number[];
+  // New API fields: arrays of strings or sector objects
+  primary_sectors?: Array<string | Sector>;
+  secondary_sectors?: Array<string | Sector>;
   _sectors_primary: Sector[];
   _sectors_secondary: Sector[];
 }

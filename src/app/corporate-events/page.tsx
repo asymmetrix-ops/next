@@ -477,42 +477,72 @@ const CorporateEventsTable = ({
   };
 
   const computeRelatedPrimary = (
-    secondarySectors: { sector_name: string }[] | undefined
+    secondarySectors: Array<string | { sector_name: string }> | undefined
   ): string => {
     if (!secondarySectors || secondarySectors.length === 0)
       return "Not available";
-    const related = secondarySectors
+    const names = secondarySectors
+      .map((s) => (typeof s === "string" ? s : s.sector_name))
+      .filter(Boolean) as string[];
+    const related = names
       .map(
-        (s) =>
-          secondaryToPrimaryMap[normalizeSectorName(s.sector_name)] ||
-          FALLBACK_SECONDARY_TO_PRIMARY[normalizeSectorName(s.sector_name)] ||
-          s.sector_name
+        (name) =>
+          secondaryToPrimaryMap[normalizeSectorName(name)] ||
+          FALLBACK_SECONDARY_TO_PRIMARY[normalizeSectorName(name)] ||
+          name
       )
       .filter((v, i, a) => a.indexOf(v) === i);
     return related.length > 0 ? related.join(", ") : "Not available";
   };
 
-  // Derive Primary sectors: prefer explicit `_sectors_primary` from API,
-  // otherwise map from secondary sectors to their related primaries.
+  // Derive Primary sectors: prefer new `primary_sectors` (string[] or {sector_name}[]),
+  // fallback to legacy `_sectors_primary`, else compute from `secondary_sectors` / `_sectors_secondary`.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const derivePrimaryFromCompany = (company: any | undefined): string => {
-    const primaryList = company?._sectors_primary as
+    const primaryNew = company?.primary_sectors as
+      | Array<string | { sector_name: string }>
+      | undefined;
+    if (Array.isArray(primaryNew) && primaryNew.length > 0) {
+      const names = primaryNew
+        .map((s) => (typeof s === "string" ? s : s.sector_name))
+        .filter(Boolean) as string[];
+      if (names.length > 0) return names.join(", ");
+    }
+
+    const primaryLegacy = company?._sectors_primary as
       | { sector_name: string }[]
       | undefined;
-    if (Array.isArray(primaryList) && primaryList.length > 0) {
-      return primaryList.map((s) => s.sector_name).join(", ");
+    if (Array.isArray(primaryLegacy) && primaryLegacy.length > 0) {
+      return primaryLegacy.map((s) => s.sector_name).join(", ");
     }
+
     // Fallback: compute from secondary mapping (e.g., Crypto -> Web 3)
+    const secondaryNew = company?.secondary_sectors as
+      | Array<string | { sector_name: string }>
+      | undefined;
+    if (Array.isArray(secondaryNew) && secondaryNew.length > 0) {
+      return computeRelatedPrimary(secondaryNew);
+    }
     return computeRelatedPrimary(company?._sectors_secondary);
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deriveSecondaryFromCompany = (company: any | undefined): string => {
-    const secondaryList = company?._sectors_secondary as
+    const secondaryNew = company?.secondary_sectors as
+      | Array<string | { sector_name: string }>
+      | undefined;
+    if (Array.isArray(secondaryNew) && secondaryNew.length > 0) {
+      const names = secondaryNew
+        .map((s) => (typeof s === "string" ? s : s.sector_name))
+        .filter(Boolean) as string[];
+      if (names.length > 0) return names.join(", ");
+    }
+
+    const secondaryLegacy = company?._sectors_secondary as
       | { sector_name: string }[]
       | undefined;
-    if (Array.isArray(secondaryList) && secondaryList.length > 0) {
-      return secondaryList.map((s) => s.sector_name).join(", ");
+    if (Array.isArray(secondaryLegacy) && secondaryLegacy.length > 0) {
+      return secondaryLegacy.map((s) => s.sector_name).join(", ");
     }
     return "Not available";
   };
