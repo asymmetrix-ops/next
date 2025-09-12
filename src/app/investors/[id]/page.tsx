@@ -2085,9 +2085,9 @@ const InvestorDetailPage = () => {
                   <table
                     style={{
                       width: "100%",
+                      minWidth: "900px",
                       borderCollapse: "collapse",
                       fontSize: "14px",
-                      tableLayout: "fixed",
                     }}
                   >
                     <thead>
@@ -2177,8 +2177,8 @@ const InvestorDetailPage = () => {
                                     textDecoration: "underline",
                                     fontWeight: "500",
                                     cursor: "pointer",
-                                    wordBreak: "break-word",
-                                    overflowWrap: "anywhere",
+                                    wordBreak: "normal",
+                                    overflowWrap: "break-word",
                                     whiteSpace: "normal",
                                     lineHeight: 1.4,
                                     display: "inline",

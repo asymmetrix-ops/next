@@ -648,7 +648,12 @@ const CorporateEventsTable = React.memo<{
       }}
     >
       <table
-        style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}
+        style={{
+          width: "100%",
+          minWidth: "900px",
+          borderCollapse: "collapse",
+          fontSize: "14px",
+        }}
       >
         <thead>
           <tr style={{ backgroundColor: "#f8fafc" }}>

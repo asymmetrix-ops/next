@@ -728,10 +728,10 @@ export default function HomeUserPage() {
                               {event.deal_type || "Not Available"}
                             </div>
                             <div>
-                              <strong>Amount:</strong>{" "}
+                              <strong>Amount (m):</strong>{" "}
                               {event.investment_data?.investment_amount_m &&
                               event.investment_data?.currrency?.Currency
-                                ? `${event.investment_data.investment_amount_m} ${event.investment_data.currrency.Currency}`
+                                ? `${event.investment_data.currrency.Currency}${event.investment_data.investment_amount_m}`
                                 : "Not Available"}
                             </div>
                           </div>
