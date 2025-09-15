@@ -96,37 +96,7 @@ interface InsightArticle {
   }>;
 }
 
-interface NewCompany {
-  id: number;
-  name: string;
-  created_at: number;
-  _locations: {
-    Country: string;
-  };
-  _linkedin_data_of_new_company?: {
-    linkedin_employee: number;
-    linkedin_logo: string;
-  };
-  _sectors_primary?: Array<{
-    sector_name: string;
-  }>;
-  _sectors_secondary?: Array<{
-    sector_name: string;
-  }>;
-  // New endpoint shape for sectors with related primary mapping
-  sectors_id?: Array<{
-    id: number;
-    sector_name: string;
-    Sector_importance: string;
-    Related_to_primary_sectors?: Array<{
-      secondary_sectors?: {
-        id?: number;
-        sector_name?: string;
-        Sector_importance?: string;
-      };
-    }>;
-  }>;
-}
+// Removed NewCompany interface along with the related UI section
 
 export default function HomeUserPage() {
   const router = useRouter();
@@ -295,7 +265,6 @@ export default function HomeUserPage() {
   const [insightsArticles, setInsightsArticles] = useState<InsightArticle[]>(
     []
   );
-  const [newCompanies, setNewCompanies] = useState<NewCompany[]>([]);
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -311,7 +280,6 @@ export default function HomeUserPage() {
         investorsResponse,
         eventsResponse,
         insightsResponse,
-        newCompaniesResponse,
       ] = await Promise.allSettled([
         dashboardApiService.getHeroScreenStatisticCompanies(),
         dashboardApiService.getHeroScreenStatisticEventsCount(),
@@ -321,7 +289,6 @@ export default function HomeUserPage() {
         dashboardApiService.getHeroScreenStatisticInvestors(),
         dashboardApiService.getCorporateEvents(),
         dashboardApiService.getAllContentArticlesHome(),
-        dashboardApiService.getRecentlyAddedCompanies(),
       ]);
 
       // Handle asymmetrix data - build from individual statistics
@@ -519,25 +486,7 @@ export default function HomeUserPage() {
         setInsightsArticles([]);
       }
 
-      // Handle new companies
-      if (newCompaniesResponse.status === "fulfilled") {
-        // Try different possible structures
-        let newCompaniesData: NewCompany[] = [];
-        const responseValue = newCompaniesResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-
-        if (responseValue.data) {
-          newCompaniesData = responseValue.data as NewCompany[];
-        } else if (Array.isArray(responseValue)) {
-          newCompaniesData = responseValue as NewCompany[];
-        }
-
-        setNewCompanies(newCompaniesData || []);
-      } else {
-        setNewCompanies([]);
-      }
+      // Removed New Companies fetch handling
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       // If it's an authentication error, redirect to login
@@ -669,7 +618,7 @@ export default function HomeUserPage() {
           </div>
 
           {/* Corporate Events */}
-          <div className="bg-white rounded-lg shadow">
+          <div className="bg-white rounded-lg shadow xl:col-span-2">
             <div className="p-3 border-b border-gray-200 sm:p-4">
               <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
                 Corporate Events
@@ -742,7 +691,13 @@ export default function HomeUserPage() {
 
                   {/* Desktop view - table */}
                   <div className="hidden lg:block overflow-x-auto max-h-[800px]">
-                    <table className="w-full min-w-max">
+                    <table className="w-full min-w-max table-fixed">
+                      <colgroup>
+                        <col />
+                        <col style={{ width: "22%" }} />
+                        <col />
+                        <col />
+                      </colgroup>
                       <thead className="sticky top-0 bg-gray-50">
                         <tr>
                           <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
@@ -1042,118 +997,6 @@ export default function HomeUserPage() {
               ) : (
                 <div className="py-6 text-center sm:py-8">
                   <p className="text-sm text-gray-500">No insights available</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* New Companies Added */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-3 border-b border-gray-200 sm:p-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-lg text-green-600">+</span>
-                <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
-                  New Companies Added
-                </h2>
-              </div>
-            </div>
-            <div className="p-3 sm:p-4">
-              {newCompanies.length > 0 ? (
-                <div className="relative">
-                  {/* Vertical timeline line */}
-                  <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-green-500"></div>
-
-                  <div className="pl-6 space-y-4 sm:space-y-6">
-                    {newCompanies.map((company) => (
-                      <div
-                        key={company.id}
-                        className="flex items-start space-x-3"
-                      >
-                        {/* Company icon/logo */}
-                        <div className="flex-shrink-0">
-                          {company._linkedin_data_of_new_company
-                            ?.linkedin_logo ? (
-                            <img
-                              src={`data:image/jpeg;base64,${company._linkedin_data_of_new_company.linkedin_logo}`}
-                              alt={company.name}
-                              className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
-                              onError={(e) => {
-                                // Fallback to a placeholder if the image fails to load
-                                e.currentTarget.style.display = "none";
-                              }}
-                            />
-                          ) : (
-                            <div className="flex justify-center items-center w-6 h-6 bg-gray-300 rounded-full border-2 border-white shadow-sm">
-                              <span className="text-xs font-medium text-gray-600">
-                                {company.name.charAt(0)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Company details */}
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-gray-900">
-                            <a
-                              href={`/company/${company.id}`}
-                              style={{
-                                fontWeight: "500",
-                                textDecoration: "underline",
-                              }}
-                            >
-                              {company.name}
-                            </a>
-                          </div>
-                          <p className="text-xs text-gray-500">
-                            {company._locations?.Country}
-                          </p>
-                          {/* Display primary sector(s) derived from sectors mapping */}
-                          <p className="text-xs font-medium text-blue-600">
-                            {getRelatedPrimarySectors(
-                              company.sectors_id && company.sectors_id.length
-                                ? (company.sectors_id as Array<{
-                                    sector_name: string;
-                                    Sector_importance: string;
-                                    Related_to_primary_sectors?: Array<{
-                                      secondary_sectors?: {
-                                        sector_name?: string;
-                                      };
-                                    }>;
-                                  }>)
-                                : company._sectors_secondary
-                            )}
-                          </p>
-                          {company._linkedin_data_of_new_company
-                            ?.linkedin_employee && (
-                            <p className="text-xs text-gray-400">
-                              LinkedIn Members:{" "}
-                              {
-                                company._linkedin_data_of_new_company
-                                  .linkedin_employee
-                              }
-                            </p>
-                          )}
-                          <p className="text-xs text-gray-400">
-                            Date added:{" "}
-                            {new Date(company.created_at).toLocaleDateString(
-                              "en-US",
-                              {
-                                year: "numeric",
-                                month: "long",
-                                day: "numeric",
-                              }
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="py-6 text-center sm:py-8">
-                  <p className="text-sm text-gray-500">
-                    No new companies available
-                  </p>
                 </div>
               )}
             </div>
