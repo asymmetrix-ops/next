@@ -13,11 +13,9 @@ export const formatCurrency = (value: string, currency: string): string => {
 
   const symbol = currencySymbols[currency] || currency;
 
-  if (numValue >= 1000) {
-    return `${symbol}${(numValue / 1000).toFixed(1)}B`;
-  } else {
-    return `${symbol}${numValue}M`;
-  }
+  // Values are in millions; always present as whole millions with 'M'
+  const roundedMillions = Math.round(numValue);
+  return `${symbol}${roundedMillions.toLocaleString()}M`;
 };
 
 export const formatDate = (dateString: string): string => {
