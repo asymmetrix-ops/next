@@ -75,6 +75,7 @@ export interface OtherCounterparty {
     name: string;
     _is_that_investor: boolean;
     _is_that_data_analytic_company: boolean;
+    _url?: string;
   };
   _counterparty_type: {
     counterparty_status: string;
@@ -184,6 +185,7 @@ export interface CorporateEventCounterparty {
     };
     _is_that_investor: boolean;
     _is_that_data_analytic_company: boolean;
+    _url?: string;
     _linkedin_data_of_new_company?: {
       linkedin_logo: string;
     };

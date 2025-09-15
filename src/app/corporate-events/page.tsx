@@ -641,25 +641,26 @@ const CorporateEventsTable = ({
                         </span>
                       );
                     }
+
+                    const nc = counterparty._new_company;
+                    const name = nc.name;
+                    // Prefer backend-provided dynamic URL when available
+                    const url =
+                      nc._url ||
+                      (nc._is_that_investor
+                        ? `/investors/${counterparty.new_company_counterparty}`
+                        : nc._is_that_data_analytic_company
+                        ? `/company/${counterparty.new_company_counterparty}`
+                        : "");
+
                     return (
                       <span key={subIndex}>
-                        {counterparty._new_company._is_that_investor ? (
-                          <a
-                            href={`/investors/${counterparty.new_company_counterparty}`}
-                          >
-                            {counterparty._new_company.name}
-                          </a>
-                        ) : counterparty._new_company
-                            ._is_that_data_analytic_company ? (
-                          <a
-                            href={`/company/${counterparty.new_company_counterparty}`}
-                          >
-                            {counterparty._new_company.name}
+                        {url ? (
+                          <a href={url} className="link-blue">
+                            {name}
                           </a>
                         ) : (
-                          <span style={{ color: "#000" }}>
-                            {counterparty._new_company.name}
-                          </span>
+                          <span style={{ color: "#000" }}>{name}</span>
                         )}
                         {subIndex < event.other_counterparties.length - 1 &&
                           ", "}
@@ -680,7 +681,10 @@ const CorporateEventsTable = ({
                     }
                     return (
                       <span key={subIndex}>
-                        <a href={`/company/${advisor._new_company.id}`}>
+                        <a
+                          href={`/company/${advisor._new_company.id}`}
+                          className="link-blue"
+                        >
                           {advisor._new_company.name}
                         </a>
                         {subIndex < event.advisors.length - 1 && ", "}
@@ -1147,6 +1151,8 @@ const CorporateEventsPage = () => {
       line-height: 1.5;
     }
     .corporate-event-name { color: #0075df; text-decoration: underline; cursor: pointer; font-weight: 500; transition: color 0.2s; }
+    .link-blue { color: #0075df; text-decoration: underline; cursor: pointer; font-weight: 500; }
+    .link-blue:hover { color: #005bb5; }
     .corporate-event-name:hover {
       color: #005bb5;
     }
