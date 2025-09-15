@@ -97,6 +97,75 @@ const CorporateEventDetail = ({
     ? data.Event_advisors
     : [];
 
+  // Fallback logo cache for investor counterparties when logo not present in payload
+  const [logoMap, setLogoMap] = useState<Record<number, string | undefined>>(
+    {}
+  );
+
+  useEffect(() => {
+    // Identify investor counterparties missing logos
+    const ids = (Array.isArray(counterparties) ? counterparties : [])
+      .filter((cp) => {
+        const nc = cp?._new_company;
+        const isInvestor = Boolean(nc?._is_that_investor);
+        const hasLogo = Boolean(
+          nc?._linkedin_data_of_new_company?.linkedin_logo ||
+            nc?.linkedin_data?.linkedin_logo
+        );
+        return isInvestor && !hasLogo && typeof nc?.id === "number";
+      })
+      .map((cp) => cp._new_company.id);
+
+    const uniqueIds = Array.from(new Set(ids)).filter((id) => !(id in logoMap));
+    if (uniqueIds.length === 0) return;
+
+    let cancelled = false;
+    const fetchLogos = async () => {
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("asymmetrix_auth_token")
+            : null;
+        await Promise.all(
+          uniqueIds.map(async (companyId) => {
+            try {
+              const resp = await fetch(
+                `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${companyId}`,
+                {
+                  method: "GET",
+                  headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                  },
+                  credentials: "include",
+                }
+              );
+              if (!resp.ok) return;
+              const data = await resp.json();
+              const b64Logo =
+                data?.Company?._linkedin_data_of_new_company?.linkedin_logo ||
+                data?._linkedin_data_of_new_company?.linkedin_logo ||
+                data?.linkedin_data?.linkedin_logo ||
+                data?.Company?.linkedin_data?.linkedin_logo;
+              if (!cancelled && b64Logo) {
+                setLogoMap((prev) => ({ ...prev, [companyId]: b64Logo }));
+              }
+            } catch {
+              // ignore individual fetch errors
+            }
+          })
+        );
+      } catch {
+        // ignore batch errors
+      }
+    };
+
+    fetchLogos();
+    return () => {
+      cancelled = true;
+    };
+  }, [counterparties, logoMap]);
+
   const formatDate = (dateString: string) => {
     if (!dateString) return "Not available";
     const date = new Date(dateString);
@@ -563,7 +632,9 @@ const CorporateEventDetail = ({
                         logo={
                           counterparty._new_company
                             ._linkedin_data_of_new_company?.linkedin_logo ||
-                          counterparty._new_company.linkedin_data?.linkedin_logo
+                          counterparty._new_company.linkedin_data
+                            ?.linkedin_logo ||
+                          logoMap[counterparty._new_company.id]
                         }
                         name={counterparty._new_company.name}
                       />
@@ -647,7 +718,8 @@ const CorporateEventDetail = ({
                     logo={
                       counterparty._new_company._linkedin_data_of_new_company
                         ?.linkedin_logo ||
-                      counterparty._new_company.linkedin_data?.linkedin_logo
+                      counterparty._new_company.linkedin_data?.linkedin_logo ||
+                      logoMap[counterparty._new_company.id]
                     }
                     name={counterparty._new_company.name}
                   />
