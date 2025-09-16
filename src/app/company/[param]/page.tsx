@@ -1002,61 +1002,9 @@ const CompanyDetail = () => {
         investorMap.set(inv.id, inv);
       }
     }
-
-    // Enrich with investors discovered in corporate events counterparties (index "0")
-    for (const evt of corporateEvents) {
-      type CounterpartyEntry = {
-        _new_company?: {
-          id?: number | string;
-          name?: string;
-          _is_that_investor?: unknown;
-          _is_that_data_analytic_company?: unknown;
-        };
-        new_company_counterparty?: number | string;
-      };
-
-      const counterparties: CounterpartyEntry[] = Array.isArray(
-        // Access dynamic key "0" safely
-        (evt as unknown as Record<string, unknown>)["0"]
-      )
-        ? ((evt as unknown as Record<string, unknown>)[
-            "0"
-          ] as CounterpartyEntry[])
-        : [];
-
-      for (const cp of counterparties) {
-        const nc = cp?._new_company as
-          | {
-              id?: number | string;
-              name?: string;
-              _is_that_investor?: unknown;
-              _is_that_data_analytic_company?: unknown;
-            }
-          | undefined;
-        const isInvestor = Boolean(nc?._is_that_investor);
-        if (!isInvestor) continue;
-
-        const id: number | undefined =
-          typeof nc?.id === "number"
-            ? (nc.id as number)
-            : typeof cp?.new_company_counterparty === "number"
-            ? (cp.new_company_counterparty as number)
-            : undefined;
-        const name: string = (nc?.name ?? "").trim();
-
-        if (!id || !name) continue;
-        if (!investorMap.has(id)) {
-          investorMap.set(id, {
-            id,
-            name,
-            _is_that_investor: true,
-            _is_that_data_analytic_company: Boolean(
-              nc?._is_that_data_analytic_company
-            ),
-          });
-        }
-      }
-    }
+    // Intentionally do not enrich investors from corporate events.
+    // The backend already provides current investors via `investors_new_company`.
+    // Merging from events can incorrectly include past investors (e.g., divestors).
 
     const merged = Array.from(investorMap.values());
     // If nothing changed, avoid re-render churn
@@ -1187,22 +1135,30 @@ const CompanyDetail = () => {
 
   // Process sectors
   const primarySectors =
-    company.sectors_id?.filter(
-      (sector) => sector.Sector_importance === "Primary"
-    ) || [];
+    company.sectors_id
+      ?.filter((sector) => sector?.Sector_importance === "Primary")
+      .filter((s): s is CompanySector =>
+        Boolean(s && typeof s.sector_name === "string")
+      ) || [];
   const secondarySectors =
-    company.sectors_id?.filter(
-      (sector) => sector.Sector_importance !== "Primary"
-    ) || [];
+    company.sectors_id
+      ?.filter((sector) => sector?.Sector_importance !== "Primary")
+      .filter((s): s is CompanySector =>
+        Boolean(s && typeof s.sector_name === "string")
+      ) || [];
 
   // Augment primaries with derived primaries from secondaries (unique by name)
   const derivedPrimaryNames = secondarySectors
-    .map(
-      (s) =>
-        secondaryToPrimaryMap[normalizeSectorName(s.sector_name)] ||
-        FALLBACK_SECONDARY_TO_PRIMARY[normalizeSectorName(s.sector_name)] ||
+    .map((s) => {
+      const name = s?.sector_name;
+      if (!name) return undefined;
+      const key = normalizeSectorName(name);
+      return (
+        secondaryToPrimaryMap[key] ||
+        FALLBACK_SECONDARY_TO_PRIMARY[key] ||
         undefined
-    )
+      );
+    })
     .filter((v): v is string => Boolean(v));
   const existingPrimaryNames = new Set(
     primarySectors.map((p) => (p?.sector_name || "").trim())
@@ -1668,6 +1624,7 @@ const CompanyDetail = () => {
                         ? augmentedPrimarySectors.slice(0, 4)
                         : augmentedPrimarySectors
                       ).map((sector, index) => {
+                        if (!sector || !sector.sector_name) return null;
                         const id = getSectorId(sector);
                         const content = id ? (
                           createClickableElement(
@@ -1724,6 +1681,7 @@ const CompanyDetail = () => {
                         ? secondarySectors.slice(0, 4)
                         : secondarySectors
                       ).map((sector, index) => {
+                        if (!sector || !sector.sector_name) return null;
                         const id = getSectorId(sector);
                         const content = id ? (
                           createClickableElement(
@@ -2526,7 +2484,10 @@ const CompanyDetail = () => {
                             }}
                           >
                             {subsidiary.sectors_id
-                              ?.map((sector) => sector.sector_name)
+                              ?.filter(
+                                (s) => s && typeof s.sector_name === "string"
+                              )
+                              .map((sector) => sector.sector_name)
                               .join(", ") || "N/A"}
                           </td>
                           <td
