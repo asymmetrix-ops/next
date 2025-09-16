@@ -67,7 +67,7 @@ export default function HomeHeader() {
             rel="noopener noreferrer"
             style={{ color: "#fff", textDecoration: "none" }}
           >
-            Substack
+            Newsletter
           </a>
           <Link
             href="/about-us"
@@ -140,7 +140,7 @@ export default function HomeHeader() {
             }}
             onClick={() => setIsMenuOpen(false)}
           >
-            Substack
+            Newsletter
           </a>
           <Link
             href="/about-us"
