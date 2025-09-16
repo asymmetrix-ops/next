@@ -2800,18 +2800,18 @@ const CompanyDetail = () => {
                   }}
                 >
                   {companyArticles.slice(0, 4).map((article) => (
-                    <div
+                    <a
                       key={article.id}
+                      href={`/article/${article.id}`}
                       style={{
                         border: "1px solid #e2e8f0",
                         borderRadius: "8px",
                         padding: "12px 12px",
-                        cursor: "pointer",
                         background: "#fff",
+                        display: "block",
+                        textDecoration: "none",
+                        color: "inherit",
                       }}
-                      onClick={() =>
-                        (window.location.href = `/article/${article.id}`)
-                      }
                     >
                       <div
                         style={{
@@ -2836,7 +2836,7 @@ const CompanyDetail = () => {
                       <div style={{ fontSize: 14, color: "#374151" }}>
                         {article.Strapline || ""}
                       </div>
-                    </div>
+                    </a>
                   ))}
                 </div>
               ) : (
