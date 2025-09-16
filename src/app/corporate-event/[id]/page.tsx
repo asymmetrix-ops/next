@@ -281,7 +281,19 @@ const CorporateEventDetail = ({
       color: #1a202c;
       font-weight: 600;
     }
+    /* Names: keep words intact, no mid-word splits */
     .corporate-event-link {
+      color: #2563eb;
+      text-decoration: underline;
+      cursor: pointer;
+      word-break: keep-all;
+      overflow-wrap: normal;
+      white-space: normal;
+      hyphens: none;
+      display: inline;
+    }
+    /* URLs: allow breaking anywhere to avoid overflow */
+    .corporate-event-link-url {
       color: #2563eb;
       text-decoration: underline;
       cursor: pointer;
@@ -291,9 +303,9 @@ const CorporateEventDetail = ({
       line-break: anywhere;
       display: inline;
     }
-    .info-item a.corporate-event-link,
-    .advisors-table td a.corporate-event-link,
-    .counterparties-table td a.corporate-event-link {
+    .info-item a.corporate-event-link-url,
+    .advisors-table td a.corporate-event-link-url,
+    .counterparties-table td a.corporate-event-link-url {
       word-break: break-word;
       overflow-wrap: anywhere;
       white-space: normal;
@@ -675,7 +687,7 @@ const CorporateEventDetail = ({
                           href={counterparty.counterparty_announcement_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="corporate-event-link"
+                          className="corporate-event-link-url"
                         >
                           {counterparty.counterparty_announcement_url}
                         </a>
