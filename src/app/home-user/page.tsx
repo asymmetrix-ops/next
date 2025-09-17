@@ -704,13 +704,13 @@ export default function HomeUserPage() {
                             Event Details
                           </th>
                           <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                            Target & Sectors
+                            Parties
                           </th>
                           <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                            Financial Data
+                            Deal Details
                           </th>
                           <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
-                            Parties Involved
+                            Sectors
                           </th>
                         </tr>
                       </thead>
@@ -747,106 +747,115 @@ export default function HomeUserPage() {
                               <div className="mb-1 text-xs text-gray-500">
                                 Date: {formatDate(event.announcement_date)}
                               </div>
-                              <div className="text-xs text-gray-500">
-                                Type: {event.deal_type || "Not Available"}
-                              </div>
                             </td>
                             <td className="px-4 py-4 text-xs text-gray-900">
-                              <div className="mb-2">
-                                <span className="font-medium">
-                                  {event.Target_Counterparty?.new_company
-                                    ?.name || "Not Available"}
-                                </span>
-                              </div>
-                              <div className="mb-1 text-xs text-gray-500">
-                                <strong>Primary:</strong>{" "}
-                                {getEventPrimarySectors(event)}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                <strong>Secondary:</strong>{" "}
-                                {(() => {
-                                  const list =
-                                    event.Target_Counterparty?.new_company
-                                      ?._sectors_objects?.sectors_id || [];
-                                  const secondary = list
-                                    .filter(
-                                      (sector) =>
-                                        sector &&
-                                        sector.Sector_importance !== "Primary"
-                                    )
-                                    .map((sector) => sector.sector_name)
-                                    .filter(Boolean);
-                                  return secondary.length > 0
-                                    ? secondary.join(", ")
-                                    : "Not Available";
-                                })()}
-                              </div>
+                              {/* Parties column */}
+                              {(() => {
+                                const targetName =
+                                  event.Target_Counterparty?.new_company?.name;
+                                const buyers = (
+                                  event.Other_Counterparties_of_Corporate_Event ||
+                                  []
+                                )
+                                  .map((cp) => cp._new_company?.name)
+                                  .filter(Boolean);
+                                const advisors = (
+                                  event.Advisors_of_Corporate_Event || []
+                                )
+                                  .map((a) => a._new_company?.name)
+                                  .filter(Boolean);
+
+                                return (
+                                  <div className="space-y-1">
+                                    {targetName && (
+                                      <div className="text-xs text-gray-500">
+                                        <strong>Target:</strong> {targetName}
+                                      </div>
+                                    )}
+                                    {buyers.length > 0 && (
+                                      <div className="text-xs text-gray-500">
+                                        <strong>Buyer(s) / Investor(s):</strong>{" "}
+                                        {buyers.join(", ")}
+                                      </div>
+                                    )}
+                                    {advisors.length > 0 && (
+                                      <div className="text-xs text-gray-500">
+                                        <strong>Advisor(s):</strong>{" "}
+                                        {advisors.join(", ")}
+                                      </div>
+                                    )}
+                                    {/* Seller(s): source not present in current payload; omitted unless provided */}
+                                  </div>
+                                );
+                              })()}
                             </td>
                             <td className="px-4 py-4 text-xs text-gray-900">
-                              <div className="mb-2">
-                                <div className="mb-1 text-xs text-gray-500">
-                                  <strong>Investment:</strong>{" "}
-                                  {event.investment_data?.investment_amount_m &&
+                              {/* Deal Details column */}
+                              {(() => {
+                                const dealType = event.deal_type;
+                                const amount =
+                                  event.investment_data?.investment_amount_m &&
                                   event.investment_data?.currrency?.Currency
                                     ? `${event.investment_data.investment_amount_m} ${event.investment_data.currrency.Currency}`
-                                    : "Not Available"}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  <strong>EV:</strong>{" "}
-                                  {event.ev_data?.enterprise_value_m &&
+                                    : "";
+                                const valuation =
+                                  event.ev_data?.enterprise_value_m &&
                                   event.ev_data?.Currency
                                     ? `${event.ev_data.enterprise_value_m} ${event.ev_data.Currency}`
-                                    : "Not Available"}
-                                </div>
-                              </div>
+                                    : "";
+                                return (
+                                  <div className="space-y-1">
+                                    {dealType && (
+                                      <div className="text-xs text-gray-500">
+                                        <strong>Type:</strong> {dealType}
+                                      </div>
+                                    )}
+                                    {amount && (
+                                      <div className="text-xs text-gray-500">
+                                        <strong>Amount:</strong> {amount}
+                                      </div>
+                                    )}
+                                    {valuation && (
+                                      <div className="text-xs text-gray-500">
+                                        <strong>EV:</strong> {valuation}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </td>
                             <td className="px-4 py-4 text-xs text-gray-900">
-                              <div className="mb-2">
-                                <div className="mb-1 text-xs text-gray-500">
-                                  <strong>Other Parties:</strong>
-                                </div>
-                                <div className="text-xs text-gray-600">
-                                  {event.Other_Counterparties_of_Corporate_Event &&
-                                  event.Other_Counterparties_of_Corporate_Event
-                                    .length > 0
-                                    ? event.Other_Counterparties_of_Corporate_Event.map(
-                                        (cp) => cp._new_company?.name
-                                      )
-                                        .filter(Boolean)
-                                        .map((companyName, index, array) => (
-                                          <span
-                                            key={`${event.id}-counterparty-${index}`}
-                                          >
-                                            <a
-                                              href={`/companies?search=${encodeURIComponent(
-                                                companyName!
-                                              )}`}
-                                              className="text-blue-600 underline hover:text-blue-800"
-                                              style={{ fontWeight: "500" }}
-                                            >
-                                              {companyName}
-                                            </a>
-                                            {index < array.length - 1 && ", "}
-                                          </span>
-                                        ))
-                                    : "Not Available"}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="mb-1 text-xs text-gray-500">
-                                  <strong>Advisors:</strong>
-                                </div>
-                                <div className="text-xs text-gray-600">
-                                  {event.Advisors_of_Corporate_Event &&
-                                  event.Advisors_of_Corporate_Event.length > 0
-                                    ? event.Advisors_of_Corporate_Event.map(
-                                        (advisor) => advisor._new_company?.name
-                                      )
-                                        .filter(Boolean)
-                                        .join(", ")
-                                    : "Not Available"}
-                                </div>
-                              </div>
+                              {/* Sectors column */}
+                              {(() => {
+                                const primary = getEventPrimarySectors(event);
+                                const list =
+                                  event.Target_Counterparty?.new_company
+                                    ?._sectors_objects?.sectors_id || [];
+                                const secondary = list
+                                  .filter(
+                                    (sector) =>
+                                      sector &&
+                                      sector.Sector_importance !== "Primary"
+                                  )
+                                  .map((sector) => sector.sector_name)
+                                  .filter(Boolean)
+                                  .slice(0, 3);
+                                return (
+                                  <div className="space-y-1">
+                                    {primary && primary !== "Not Available" && (
+                                      <div className="text-xs text-gray-500">
+                                        <strong>Primary:</strong> {primary}
+                                      </div>
+                                    )}
+                                    {secondary.length > 0 && (
+                                      <div className="text-xs text-gray-500">
+                                        <strong>Secondary:</strong>{" "}
+                                        {secondary.join(", ")}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </td>
                           </tr>
                         ))}
