@@ -168,7 +168,7 @@ export default function AboutUs() {
                 <div className="p-8 mx-0 max-w-md bg-white rounded-lg shadow-lg">
                   <div className="mb-6">
                     <Image
-                      src="/images/Jared_Bochner_Headshot.jfif"
+                      src="/images/jared_bochner.jpg"
                       alt="Jared Bochner"
                       width={300}
                       height={256}
