@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -162,6 +162,8 @@ const ArticleDetailPage = () => {
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const fromHome = searchParams.get("from") === "home";
 
   const articleId = params.id as string;
 
@@ -376,7 +378,11 @@ const ArticleDetailPage = () => {
       <div style={styles.container}>
         <Header />
         <div style={styles.maxWidth}>
-          <div style={styles.error}>Error: {error}</div>
+          <div style={styles.error}>
+            {fromHome
+              ? "Reach out for access to our research on the Data & Analytics sector"
+              : `Error: ${error}`}
+          </div>
         </div>
         <Footer />
       </div>
@@ -388,7 +394,11 @@ const ArticleDetailPage = () => {
       <div style={styles.container}>
         <Header />
         <div style={styles.maxWidth}>
-          <div style={styles.error}>Article not found</div>
+          <div style={styles.error}>
+            {fromHome
+              ? "Reach out for access to our research on the Data & Analytics sector"
+              : "Article not found"}
+          </div>
         </div>
         <Footer />
       </div>

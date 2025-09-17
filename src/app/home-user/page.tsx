@@ -893,7 +893,7 @@ export default function HomeUserPage() {
                         />
                       )}
                       <a
-                        href={`/article/${article.id}`}
+                        href={`/article/${article.id}?from=home`}
                         className="mb-1 text-xs font-medium text-gray-900 hover:text-blue-600"
                         style={{
                           textDecoration: "underline",
@@ -910,7 +910,7 @@ export default function HomeUserPage() {
                           )
                             return;
                           e.preventDefault();
-                          router.push(`/article/${article.id}`);
+                          router.push(`/article/${article.id}?from=home`);
                         }}
                       >
                         {article.Headline}
@@ -966,7 +966,7 @@ export default function HomeUserPage() {
                       )}
                       <div className="flex justify-between items-center mt-2">
                         <a
-                          href={`/article/${article.id}`}
+                          href={`/article/${article.id}?from=home`}
                           className="text-xs text-blue-600 hover:text-blue-800"
                           style={{
                             textDecoration: "underline",
@@ -983,7 +983,7 @@ export default function HomeUserPage() {
                             )
                               return;
                             e.preventDefault();
-                            router.push(`/article/${article.id}`);
+                            router.push(`/article/${article.id}?from=home`);
                           }}
                         >
                           Read full article →

@@ -47,7 +47,7 @@ const ReportsSection = async () => {
             {list.map((article) => (
               <a
                 key={article.id}
-                href={`/article/${article.id}`}
+                href={`/article/${article.id}?from=home`}
                 className="overflow-hidden bg-white rounded-2xl border-0 shadow-lg block"
               >
                 <div className="px-4 py-2 bg-blue-100 text-asymmetrix-blue">
