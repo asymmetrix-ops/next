@@ -238,6 +238,10 @@ interface Company {
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
   }>;
+  // Optional new sectors data container from API
+  new_sectors_data?: Array<{
+    sectors_payload?: string | unknown;
+  }>;
 }
 
 interface CompanyResponse {
@@ -245,6 +249,10 @@ interface CompanyResponse {
   have_parent_company?: HaveParentCompany;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
+  }>;
+  // Root-level new sectors data (alternate placement used by backend)
+  new_sectors_data?: Array<{
+    sectors_payload?: string | unknown;
   }>;
   Managmant_Roles_current?: Array<{
     id: number;
@@ -887,6 +895,9 @@ const CompanyDetail = () => {
             have_subsidiaries_companies: false,
             Subsidiaries_companies: [],
           },
+          // Prefer root-level new_sectors_data when present; fallback to Company-level
+          new_sectors_data:
+            data.new_sectors_data || data.Company?.new_sectors_data,
           income_statement:
             data.income_statement || data.Company.income_statement,
           have_parent_company:
@@ -1133,19 +1144,88 @@ const CompanyDetail = () => {
     }
   })();
 
-  // Process sectors
+  // Process sectors (prefer new_sectors_data.sectors_payload when present)
+  const parsedNewSectors: {
+    primary: CompanySector[];
+    secondary: CompanySector[];
+  } | null = (() => {
+    try {
+      const rawContainer = company?.new_sectors_data;
+      if (!Array.isArray(rawContainer) || rawContainer.length === 0)
+        return null;
+      const candidate = rawContainer.find(
+        (e) => e && e.sectors_payload != null
+      );
+      if (!candidate) return null;
+      const rawPayload = candidate.sectors_payload;
+
+      let payload: {
+        primary_sectors?: Array<{ id?: number | string; sector_name?: string }>;
+        secondary_sectors?: Array<{
+          id?: number | string;
+          sector_name?: string;
+        }>;
+      } = {};
+
+      if (typeof rawPayload === "string") {
+        const jsonString = rawPayload.replace(/\\u0022/g, '"');
+        payload = JSON.parse(jsonString);
+      } else if (rawPayload && typeof rawPayload === "object") {
+        payload = rawPayload as typeof payload;
+      } else {
+        return null;
+      }
+      const toNumber = (v: unknown): number => {
+        if (typeof v === "number" && Number.isFinite(v)) return v;
+        const n = parseInt(String(v ?? ""), 10);
+        return Number.isFinite(n) ? n : 0;
+      };
+      const toPrimary = (
+        l: Array<{ id?: number | string; sector_name?: string }> = []
+      ): CompanySector[] =>
+        l
+          .map((it) => ({
+            sector_name: String(it?.sector_name || "").trim(),
+            Sector_importance: "Primary",
+            sector_id: toNumber(it?.id),
+          }))
+          .filter((s) => Boolean(s.sector_name));
+      const toSecondary = (
+        l: Array<{ id?: number | string; sector_name?: string }> = []
+      ): CompanySector[] =>
+        l
+          .map((it) => ({
+            sector_name: String(it?.sector_name || "").trim(),
+            Sector_importance: "Secondary",
+            sector_id: toNumber(it?.id),
+          }))
+          .filter((s) => Boolean(s.sector_name));
+      return {
+        primary: toPrimary(payload.primary_sectors || []),
+        secondary: toSecondary(payload.secondary_sectors || []),
+      };
+    } catch {
+      return null;
+    }
+  })();
+
   const primarySectors =
-    company.sectors_id
-      ?.filter((sector) => sector?.Sector_importance === "Primary")
-      .filter((s): s is CompanySector =>
-        Boolean(s && typeof s.sector_name === "string")
-      ) || [];
+    (parsedNewSectors?.primary && parsedNewSectors.primary.length > 0
+      ? parsedNewSectors.primary
+      : company.sectors_id
+          ?.filter((sector) => sector?.Sector_importance === "Primary")
+          .filter((s): s is CompanySector =>
+            Boolean(s && typeof s.sector_name === "string")
+          )) || [];
+
   const secondarySectors =
-    company.sectors_id
-      ?.filter((sector) => sector?.Sector_importance !== "Primary")
-      .filter((s): s is CompanySector =>
-        Boolean(s && typeof s.sector_name === "string")
-      ) || [];
+    (parsedNewSectors?.secondary && parsedNewSectors.secondary.length > 0
+      ? parsedNewSectors.secondary
+      : company.sectors_id
+          ?.filter((sector) => sector?.Sector_importance !== "Primary")
+          .filter((s): s is CompanySector =>
+            Boolean(s && typeof s.sector_name === "string")
+          )) || [];
 
   // Augment primaries with derived primaries from secondaries (unique by name)
   const derivedPrimaryNames = secondarySectors
