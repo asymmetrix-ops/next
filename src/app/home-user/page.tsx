@@ -117,6 +117,31 @@ export default function HomeUserPage() {
     }
   };
 
+  // Parse strings like "{A,\"B\",C}" into ["A","B","C"]
+  const parseBraceList = (value?: unknown): string[] => {
+    if (!value || typeof value !== "string") return [];
+    const trimmed = value.trim();
+    if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return [];
+    const inner = trimmed.slice(1, -1);
+    if (!inner) return [];
+    return inner
+      .split(",")
+      .map((s) => s.trim())
+      .map((s) => (s.startsWith('"') && s.endsWith('"') ? s.slice(1, -1) : s))
+      .filter(Boolean);
+  };
+
+  // Safe JSON.parse for stringified objects like '{"Type":"Investment"}'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const safeParseJson = <T = any,>(value?: unknown): T | null => {
+    if (!value || typeof value !== "string") return null;
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return null;
+    }
+  };
+
   // Helper function to normalize primary sector(s) from either old or new shape
   const getRelatedPrimarySectors = (
     secondarySectorsOrObjects:
@@ -751,9 +776,21 @@ export default function HomeUserPage() {
                             <td className="px-4 py-4 text-xs text-gray-900">
                               {/* Parties column */}
                               {(() => {
+                                // Prefer new flat API fields when present
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
                                 const targetName =
+                                  (typeof ev.target === "string" &&
+                                    ev.target) ||
                                   event.Target_Counterparty?.new_company?.name;
-                                const buyers = (
+
+                                const buyersFromNew = parseBraceList(
+                                  ev.buyers_investors
+                                );
+                                const sellersFromNew = parseBraceList(ev.sales);
+
+                                // Legacy fallbacks
+                                const buyersFromLegacy = (
                                   event.Other_Counterparties_of_Corporate_Event ||
                                   []
                                 )
@@ -764,6 +801,12 @@ export default function HomeUserPage() {
                                 )
                                   .map((a) => a._new_company?.name)
                                   .filter(Boolean);
+
+                                const buyers =
+                                  buyersFromNew.length > 0
+                                    ? buyersFromNew
+                                    : buyersFromLegacy;
+                                const sellers = sellersFromNew;
 
                                 return (
                                   <div className="space-y-1">
@@ -778,13 +821,18 @@ export default function HomeUserPage() {
                                         {buyers.join(", ")}
                                       </div>
                                     )}
+                                    {sellers.length > 0 && (
+                                      <div className="text-xs text-gray-500">
+                                        <strong>Seller(s):</strong>{" "}
+                                        {sellers.join(", ")}
+                                      </div>
+                                    )}
                                     {advisors.length > 0 && (
                                       <div className="text-xs text-gray-500">
                                         <strong>Advisor(s):</strong>{" "}
                                         {advisors.join(", ")}
                                       </div>
                                     )}
-                                    {/* Seller(s): source not present in current payload; omitted unless provided */}
                                   </div>
                                 );
                               })()}
@@ -792,12 +840,21 @@ export default function HomeUserPage() {
                             <td className="px-4 py-4 text-xs text-gray-900">
                               {/* Deal Details column */}
                               {(() => {
-                                const dealType = event.deal_type;
+                                // Prefer new stringified deal_details when available
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
+                                const details = safeParseJson<{
+                                  Type?: string;
+                                  Amount?: string;
+                                }>(ev.deal_details);
+                                const dealType =
+                                  details?.Type || event.deal_type;
                                 const amount =
-                                  event.investment_data?.investment_amount_m &&
+                                  details?.Amount ||
+                                  (event.investment_data?.investment_amount_m &&
                                   event.investment_data?.currrency?.Currency
                                     ? `${event.investment_data.investment_amount_m} ${event.investment_data.currrency.Currency}`
-                                    : "";
+                                    : "");
                                 const valuation =
                                   event.ev_data?.enterprise_value_m &&
                                   event.ev_data?.Currency
@@ -827,11 +884,35 @@ export default function HomeUserPage() {
                             <td className="px-4 py-4 text-xs text-gray-900">
                               {/* Sectors column */}
                               {(() => {
-                                const primary = getEventPrimarySectors(event);
+                                // Prefer new stringified sectors when available
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
+                                const sectors = safeParseJson<{
+                                  Primary?: string[];
+                                  Secondary?: string[];
+                                }>(ev.sectors);
+                                const primaryFromNew = Array.isArray(
+                                  sectors?.Primary
+                                )
+                                  ? (sectors!.Primary as string[])
+                                      .filter(Boolean)
+                                      .join(", ")
+                                  : "";
+                                const secondaryFromNew = Array.isArray(
+                                  sectors?.Secondary
+                                )
+                                  ? (sectors!.Secondary as string[])
+                                      .filter(Boolean)
+                                      .slice(0, 3)
+                                  : [];
+
+                                const primary =
+                                  primaryFromNew ||
+                                  getEventPrimarySectors(event);
                                 const list =
                                   event.Target_Counterparty?.new_company
                                     ?._sectors_objects?.sectors_id || [];
-                                const secondary = list
+                                const secondaryLegacy = list
                                   .filter(
                                     (sector) =>
                                       sector &&
@@ -840,6 +921,10 @@ export default function HomeUserPage() {
                                   .map((sector) => sector.sector_name)
                                   .filter(Boolean)
                                   .slice(0, 3);
+                                const secondary =
+                                  (secondaryFromNew as string[]).length > 0
+                                    ? (secondaryFromNew as string[])
+                                    : secondaryLegacy;
                                 return (
                                   <div className="space-y-1">
                                     {primary && primary !== "Not Available" && (
