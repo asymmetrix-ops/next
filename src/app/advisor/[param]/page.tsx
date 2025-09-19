@@ -457,6 +457,18 @@ export default function AdvisorProfilePage() {
       overflow-wrap: normal;
       white-space: nowrap;
     }
+    /* Prevent splitting individual other-counterparty names */
+    .other-counterparty-name {
+      word-break: keep-all;
+      overflow-wrap: normal;
+      white-space: nowrap;
+      display: inline-block;
+    }
+    .other-counterparty-name .advisor-link {
+      word-break: keep-all !important;
+      overflow-wrap: normal !important;
+      white-space: nowrap !important;
+    }
     .event-link {
       color: #3b82f6;
       text-decoration: none;
@@ -915,39 +927,31 @@ export default function AdvisorProfilePage() {
                             )
                               return "—";
                             return event._other_counterparties_of_corporate_events.map(
-                              (cp, i) => {
-                                const wordCount = cp.name.split(" ").length;
-                                const shouldBreakLine = wordCount > 2;
-
-                                return (
-                                  <span key={`${cp.id}-${i}`}>
-                                    <span
-                                      className="advisor-link"
-                                      onClick={() => {
-                                        if (cp._is_that_investor) {
-                                          router.push(`/investors/${cp.id}`);
-                                        } else {
-                                          router.push(`/company/${cp.id}`);
-                                        }
-                                      }}
-                                    >
-                                      {cp.name}
-                                    </span>
-                                    {i <
-                                    event._other_counterparties_of_corporate_events!
-                                      .length -
-                                      1 ? (
-                                      shouldBreakLine ? (
-                                        <br />
-                                      ) : (
-                                        ", "
-                                      )
-                                    ) : (
-                                      ""
-                                    )}
+                              (cp, i) => (
+                                <span
+                                  key={`${cp.id}-${i}`}
+                                  className="other-counterparty-name"
+                                >
+                                  <span
+                                    className="advisor-link"
+                                    onClick={() => {
+                                      if (cp._is_that_investor) {
+                                        router.push(`/investors/${cp.id}`);
+                                      } else {
+                                        router.push(`/company/${cp.id}`);
+                                      }
+                                    }}
+                                  >
+                                    {cp.name}
                                   </span>
-                                );
-                              }
+                                  {i <
+                                  event._other_counterparties_of_corporate_events!
+                                    .length -
+                                    1
+                                    ? ", "
+                                    : ""}
+                                </span>
+                              )
                             );
                           };
 
