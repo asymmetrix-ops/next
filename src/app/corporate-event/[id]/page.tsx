@@ -36,7 +36,9 @@ const isDataAnalyticsCompany = (candidate: unknown): boolean => {
 const CompanyLogo = ({ logo, name }: { logo?: string; name: string }) => {
   const buildLogoSrc = (raw?: string): string | undefined => {
     if (!raw) return undefined;
+    // Normalize by trimming and removing whitespace/newlines often present in base64 blobs
     const value = String(raw).trim();
+    const compact = value.replace(/\s+/g, "");
     if (!value) return undefined;
     if (/^data:/i.test(value)) return value;
     if (/^https?:\/\//i.test(value)) {
@@ -53,8 +55,8 @@ const CompanyLogo = ({ logo, name }: { logo?: string; name: string }) => {
       }
     }
     // Heuristic: treat as base64 when it does not look like a URL
-    if (/^[A-Za-z0-9+/=]+$/.test(value)) {
-      return `data:image/jpeg;base64,${value}`;
+    if (/^[A-Za-z0-9+/=]+$/.test(compact)) {
+      return `data:image/jpeg;base64,${compact}`;
     }
     return undefined;
   };
