@@ -11,18 +11,6 @@ import {
 } from "../../../types/corporateEvents";
 import { useRightClick } from "@/hooks/useRightClick";
 
-// Narrow type for optional counterparty shape used in advisors references
-type MaybeCounterparty =
-  | {
-      _new_company?: {
-        id?: number;
-        name?: string;
-        _is_that_investor?: boolean;
-      };
-      new_company_counterparty?: number;
-    }
-  | undefined;
-
 // Type-safe check for Data & Analytics company flag
 const isDataAnalyticsCompany = (candidate: unknown): boolean => {
   if (!candidate || typeof candidate !== "object") return false;
@@ -98,6 +86,15 @@ const CorporateEventDetail = ({
   const advisors: CorporateEventAdvisor[] = Array.isArray(data?.Event_advisors)
     ? data.Event_advisors
     : [];
+
+  // Fast lookup for counterparties by id (to map advisor->advised company and announcement URL)
+  const counterpartiesById = React.useMemo(() => {
+    const map = new Map<number, (typeof counterparties)[number]>();
+    for (const cp of counterparties) {
+      if (cp && typeof cp.id === "number") map.set(cp.id, cp);
+    }
+    return map;
+  }, [counterparties]);
 
   // Fallback logo cache for investor counterparties when logo not present in payload
   const [logoMap, setLogoMap] = useState<Record<number, string | undefined>>(
@@ -823,6 +820,7 @@ const CorporateEventDetail = ({
           <table className="advisors-table">
             <thead>
               <tr>
+                <th>Logo</th>
                 <th>Advisor</th>
                 <th>Role</th>
                 <th>Advising</th>
@@ -834,16 +832,41 @@ const CorporateEventDetail = ({
                 advisors.map((a) => (
                   <tr key={a.id}>
                     <td>
+                      <CompanyLogo
+                        logo={
+                          // Prefer nested linkedin logo if present
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          (a as any)?._new_company
+                            ?._linkedin_data_of_new_company?.linkedin_logo ||
+                          // Fallback to direct linkedin_data
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          (a as any)?._new_company?.linkedin_data?.linkedin_logo
+                        }
+                        name={
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          ((a as any)?._new_company?.name as string) ||
+                          "Advisor"
+                        }
+                      />
+                    </td>
+                    <td>
                       {createClickableElement(
                         `/advisor/${a._new_company.id}`,
                         a._new_company.name,
                         "corporate-event-link"
                       )}
                     </td>
-                    <td>{a._advisor_role?.counterparty_status || "N/A"}</td>
+                    <td>{a._advisor_role?.counterparty_status || "Advisor"}</td>
                     <td>
                       {(() => {
-                        const cp = a._counterparties as MaybeCounterparty;
+                        // Prefer using counterparty_advised id to resolve advised entity
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const anyA = a as any;
+                        const advisedId: number | undefined =
+                          anyA?.counterparty_advised;
+                        const cp = advisedId
+                          ? counterpartiesById.get(advisedId)
+                          : undefined;
                         const nc = cp?._new_company;
                         const isInvestor = Boolean(nc?._is_that_investor);
                         const isDA = isDataAnalyticsCompany(nc);
@@ -867,18 +890,33 @@ const CorporateEventDetail = ({
                       })()}
                     </td>
                     <td>
-                      {a.announcement_url ? (
-                        <a
-                          href={a.announcement_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="corporate-event-link"
-                        >
-                          {a.announcement_url}
-                        </a>
-                      ) : (
-                        "Not available"
-                      )}
+                      {(() => {
+                        // Prefer the announcement URL from the advised counterparty when present
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const anyA = a as any;
+                        const advisedId: number | undefined =
+                          anyA?.counterparty_advised;
+                        const cp = advisedId
+                          ? counterpartiesById.get(advisedId)
+                          : undefined;
+                        const url =
+                          cp?.counterparty_announcement_url ||
+                          // fallback to potential advisor-level url if provided by backend
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          (anyA?.announcement_url as string | undefined);
+                        return url ? (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="corporate-event-link-url"
+                          >
+                            {url}
+                          </a>
+                        ) : (
+                          "Not available"
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))
@@ -899,6 +937,16 @@ const CorporateEventDetail = ({
                     className="counterparty-card-header"
                     style={{ marginBottom: 8 }}
                   >
+                    <CompanyLogo
+                      logo={
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        (a as any)?._new_company?._linkedin_data_of_new_company
+                          ?.linkedin_logo ||
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        (a as any)?._new_company?.linkedin_data?.linkedin_logo
+                      }
+                      name={a._new_company.name}
+                    />
                     <div className="counterparty-card-name">
                       {createClickableElement(
                         `/advisor/${a._new_company.id}`,
@@ -912,7 +960,7 @@ const CorporateEventDetail = ({
                         Role:
                       </span>
                       <span className="counterparty-card-info-value">
-                        {a._advisor_role?.counterparty_status || "N/A"}
+                        {a._advisor_role?.counterparty_status || "Advisor"}
                       </span>
                     </div>
                     <div className="counterparty-card-info-item">
@@ -921,7 +969,13 @@ const CorporateEventDetail = ({
                       </span>
                       <span className="counterparty-card-info-value">
                         {(() => {
-                          const cp = a._counterparties as MaybeCounterparty;
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          const anyA = a as any;
+                          const advisedId: number | undefined =
+                            anyA?.counterparty_advised;
+                          const cp = advisedId
+                            ? counterpartiesById.get(advisedId)
+                            : undefined;
                           const nc = cp?._new_company;
                           const isInvestor = Boolean(nc?._is_that_investor);
                           const isDA = isDataAnalyticsCompany(nc);
@@ -945,22 +999,34 @@ const CorporateEventDetail = ({
                         })()}
                       </span>
                     </div>
-                    {a.announcement_url && (
-                      <div className="counterparty-card-info-item counterparty-card-full-width">
-                        <span className="counterparty-card-info-label">
-                          Announcement URL:
-                        </span>
-                        <a
-                          href={a.announcement_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="corporate-event-link"
-                          style={{ fontSize: 12 }}
-                        >
-                          {a.announcement_url}
-                        </a>
-                      </div>
-                    )}
+                    {(() => {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      const anyA = a as any;
+                      const advisedId: number | undefined =
+                        anyA?.counterparty_advised;
+                      const cp = advisedId
+                        ? counterpartiesById.get(advisedId)
+                        : undefined;
+                      const url =
+                        cp?.counterparty_announcement_url ||
+                        anyA?.announcement_url;
+                      return url ? (
+                        <div className="counterparty-card-info-item counterparty-card-full-width">
+                          <span className="counterparty-card-info-label">
+                            Announcement URL:
+                          </span>
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="corporate-event-link"
+                            style={{ fontSize: 12 }}
+                          >
+                            {url}
+                          </a>
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
               ))
