@@ -1915,12 +1915,90 @@ const CompanySection = ({
     );
   };
 
-  // Handle CSV export
-  const handleExportCSV = () => {
-    if (companies.length > 0) {
-      CompaniesCSVExporter.exportCompanies(companies, "companies_filtered");
+  // Handle CSV export using backend endpoint and include active filters
+  const handleExportCSV = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = new URLSearchParams();
+
+      // Apply filters if present
+      const f = currentFilters;
+      if (f) {
+        // Text inputs for new filters
+        if ((f.continentalRegions || []).length > 0)
+          params.append(
+            "Continental_Region",
+            (f.continentalRegions || []).join(",")
+          );
+        if ((f.subRegions || []).length > 0)
+          params.append(
+            "geographical_sub_region",
+            (f.subRegions || []).join(",")
+          );
+
+        (f.countries || []).forEach((v) => params.append("Countries[]", v));
+        (f.provinces || []).forEach((v) => params.append("Provinces[]", v));
+        (f.cities || []).forEach((v) => params.append("Cities[]", v));
+        (f.primarySectors || []).forEach((id) =>
+          params.append("Primary_sectors_ids[]", String(id))
+        );
+        (f.secondarySectors || []).forEach((id) =>
+          params.append("Secondary_sectors_ids[]", String(id))
+        );
+        (f.ownershipTypes || []).forEach((id) =>
+          params.append("Ownership_types_ids[]", String(id))
+        );
+        (f.hybridBusinessFocuses || []).forEach((id) =>
+          params.append("Hybrid_Data_ids[]", String(id))
+        );
+
+        params.append(
+          "Min_linkedin_members",
+          String(f.linkedinMembersMin ?? 0)
+        );
+        params.append(
+          "Max_linkedin_members",
+          String(f.linkedinMembersMax ?? 0)
+        );
+        if (f.searchQuery) params.append("query", f.searchQuery);
+      } else {
+        params.append("Min_linkedin_members", "0");
+        params.append("Max_linkedin_members", "0");
+      }
+
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${params.toString()}`;
+
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(
+          `Export failed: ${resp.status} ${resp.statusText} - ${errText}`
+        );
+      }
+      const blob = await resp.blob();
+      const link = document.createElement("a");
+      const urlObject = URL.createObjectURL(blob);
+      link.href = urlObject;
+      link.download = "companies_filtered.csv";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(urlObject);
+    } catch (e) {
+      console.error("Error exporting CSV:", e);
+      // Fallback to client-side CSV if API export fails
+      if (companies.length > 0) {
+        CompaniesCSVExporter.exportCompanies(companies, "companies_filtered");
+      }
     }
-  };
+  }, [currentFilters, companies]);
 
   const handleCompanyClick = useCallback(
     (companyId: number) => {
