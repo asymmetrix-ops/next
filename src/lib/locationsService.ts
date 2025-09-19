@@ -252,6 +252,74 @@ class LocationsService {
 
     return await response.json();
   }
+
+  // New: Fetch continental regions list (strings)
+  async getContinentalRegions(): Promise<string[]> {
+    const url = `${BASE_URL}/continental_region_filter`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch continental regions: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const data = (await response.json()) as Array<{
+      Locations_Continental_Region1?: string;
+    }>;
+    const list = Array.isArray(data)
+      ? data
+          .map((item) => (item?.Locations_Continental_Region1 || "").trim())
+          .filter((v) => v && v.length > 0)
+      : [];
+    // Deduplicate
+    return Array.from(new Set(list));
+  }
+
+  // New: Fetch geographical sub-regions list (strings)
+  async getSubRegions(): Promise<string[]> {
+    const url = `${BASE_URL}/geographical_sub_region`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch sub-regions: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const data = (await response.json()) as Array<{
+      Locations_geographical_sub_region1?: string;
+    }>;
+    const list = Array.isArray(data)
+      ? data
+          .map((item) =>
+            (item?.Locations_geographical_sub_region1 || "").trim()
+          )
+          .filter((v) => v && v.length > 0)
+      : [];
+    // Deduplicate
+    return Array.from(new Set(list));
+  }
 }
 
 export const locationsService = new LocationsService();
