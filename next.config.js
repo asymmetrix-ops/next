@@ -38,16 +38,43 @@ const nextConfig = {
             key: "Referrer-Policy",
             value: "origin-when-cross-origin",
           },
-          // Performance headers
+          // Do NOT cache HTML/data responses to avoid stale content after deploys
           {
             key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
+            value: "no-store",
           },
         ],
       },
       // Specific headers for static assets
       {
         source: "/_next/static/(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        source: "/_next/image(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        source: "/images/(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        source: "/icons/(.*)",
         headers: [
           {
             key: "Cache-Control",

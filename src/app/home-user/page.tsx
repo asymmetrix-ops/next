@@ -17,7 +17,8 @@ interface AsymmetrixData {
 }
 
 interface CorporateEvent {
-  id: number;
+  id?: number;
+  corporate_event_id?: number;
   description: string;
   announcement_date?: string;
   deal_status?: string;
@@ -115,6 +116,20 @@ export default function HomeUserPage() {
     } catch {
       return "Invalid date";
     }
+  };
+
+  // Resolve corporate event id from inconsistent API shapes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getCorporateEventId = (ev: any): number | undefined => {
+    const possible = (ev?.id ??
+      ev?.event_id ??
+      ev?.events_id ??
+      ev?.corporate_event_id ??
+      ev?.corporate_events_id ??
+      ev?.CorporateEvent_id ??
+      ev?.Corporate_Events_id) as unknown;
+    const n = Number(possible);
+    return Number.isFinite(n) && n > 0 ? n : undefined;
   };
 
   // Parse strings like "{A,\"B\",C}" into ["A","B","C"]
@@ -276,10 +291,18 @@ export default function HomeUserPage() {
     return mapped || "Not Available";
   };
 
-  // Corporate Event navigation handler
+  // Corporate Event navigation handler with graceful fallback to search
   const handleCorporateEventClick = useCallback(
-    (eventId: number) => {
-      router.push(`/corporate-event/${eventId}`);
+    (eventId?: number, description?: string) => {
+      if (eventId) {
+        router.push(`/corporate-event/${eventId}`);
+        return;
+      }
+      if (description) {
+        router.push(
+          `/corporate-events?search=${encodeURIComponent(description)}`
+        );
+      }
     },
     [router]
   );
@@ -655,37 +678,51 @@ export default function HomeUserPage() {
                   {/* Mobile view - cards */}
                   <div className="block lg:hidden">
                     <div className="p-3 space-y-3">
-                      {corporateEvents.slice(0, 10).map((event) => (
+                      {corporateEvents.slice(0, 10).map((event, idx) => (
                         <div
-                          key={event.id}
+                          key={getCorporateEventId(event) ?? `ev-card-${idx}`}
                           className="p-3 space-y-2 bg-gray-50 rounded-lg"
                         >
                           <div className="flex justify-between items-start">
-                            <a
-                              href={`/corporate-event/${event.id}`}
-                              className="flex-1 text-sm font-medium text-blue-600 underline break-words hover:text-blue-800"
-                              style={{
-                                textDecoration: "underline",
-                                color: "#0075df",
-                                fontWeight: "500",
-                              }}
-                              onClick={(e) => {
-                                if (
-                                  e.defaultPrevented ||
-                                  e.button !== 0 ||
-                                  e.metaKey ||
-                                  e.ctrlKey ||
-                                  e.shiftKey ||
-                                  e.altKey
-                                ) {
-                                  return;
-                                }
-                                e.preventDefault();
-                                handleCorporateEventClick(event.id);
-                              }}
-                            >
-                              {event.description}
-                            </a>
+                            {(() => {
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                              const eid = getCorporateEventId(event as any);
+                              const desc = event.description;
+                              const safeHref = eid
+                                ? `/corporate-event/${eid}`
+                                : desc
+                                ? `/corporate-events?search=${encodeURIComponent(
+                                    desc
+                                  )}`
+                                : "#";
+                              return (
+                                <a
+                                  href={safeHref}
+                                  className="flex-1 text-sm font-medium text-blue-600 underline break-words hover:text-blue-800"
+                                  style={{
+                                    textDecoration: "underline",
+                                    color: "#0075df",
+                                    fontWeight: "500",
+                                  }}
+                                  onClick={(e) => {
+                                    if (
+                                      e.defaultPrevented ||
+                                      e.button !== 0 ||
+                                      e.metaKey ||
+                                      e.ctrlKey ||
+                                      e.shiftKey ||
+                                      e.altKey
+                                    ) {
+                                      return;
+                                    }
+                                    e.preventDefault();
+                                    handleCorporateEventClick(eid, desc);
+                                  }}
+                                >
+                                  {event.description}
+                                </a>
+                              );
+                            })()}
                           </div>
                           <div className="space-y-1 text-xs text-gray-500">
                             <div>
@@ -740,34 +777,51 @@ export default function HomeUserPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {corporateEvents.slice(0, 25).map((event) => (
-                          <tr key={event.id} className="hover:bg-gray-50">
+                        {corporateEvents.slice(0, 25).map((event, idx) => (
+                          <tr
+                            key={getCorporateEventId(event) ?? `ev-row-${idx}`}
+                            className="hover:bg-gray-50"
+                          >
                             <td className="px-4 py-4 max-w-xs text-xs text-gray-900">
                               <div className="mb-2">
-                                <a
-                                  href={`/corporate-event/${event.id}`}
-                                  className="font-medium text-blue-600 underline break-words hover:text-blue-800"
-                                  style={{
-                                    textDecoration: "underline",
-                                    color: "#0075df",
-                                    fontWeight: "500",
-                                  }}
-                                  onClick={(e) => {
-                                    if (
-                                      e.defaultPrevented ||
-                                      e.button !== 0 ||
-                                      e.metaKey ||
-                                      e.ctrlKey ||
-                                      e.shiftKey ||
-                                      e.altKey
-                                    )
-                                      return;
-                                    e.preventDefault();
-                                    handleCorporateEventClick(event.id);
-                                  }}
-                                >
-                                  {event.description}
-                                </a>
+                                {(() => {
+                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                  const eid = getCorporateEventId(event as any);
+                                  const desc = event.description;
+                                  const safeHref = eid
+                                    ? `/corporate-event/${eid}`
+                                    : desc
+                                    ? `/corporate-events?search=${encodeURIComponent(
+                                        desc
+                                      )}`
+                                    : "#";
+                                  return (
+                                    <a
+                                      href={safeHref}
+                                      className="font-medium text-blue-600 underline break-words hover:text-blue-800"
+                                      style={{
+                                        textDecoration: "underline",
+                                        color: "#0075df",
+                                        fontWeight: "500",
+                                      }}
+                                      onClick={(e) => {
+                                        if (
+                                          e.defaultPrevented ||
+                                          e.button !== 0 ||
+                                          e.metaKey ||
+                                          e.ctrlKey ||
+                                          e.shiftKey ||
+                                          e.altKey
+                                        )
+                                          return;
+                                        e.preventDefault();
+                                        handleCorporateEventClick(eid, desc);
+                                      }}
+                                    >
+                                      {event.description}
+                                    </a>
+                                  );
+                                })()}
                               </div>
                               <div className="mb-1 text-xs text-gray-500">
                                 Date: {formatDate(event.announcement_date)}
