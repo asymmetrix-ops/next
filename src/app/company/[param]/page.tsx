@@ -46,7 +46,9 @@ interface CompanyRevenue {
   revenues_m: string;
   rev_source: string;
   years_id: number;
-  revenues_currency: string;
+  revenues_currency?: string; // sometimes a 3-letter code, sometimes missing
+  _currency?: { Currency?: string }; // new shape
+  currency?: { Currency?: string }; // alt shape
   _years?: {
     Year?: number | string;
   };
@@ -1268,9 +1270,12 @@ const CompanyDetail = () => {
     .join(", ");
 
   // Process financial data
-  const revenueCurrency = normalizeCurrency(
-    company.revenues?.revenues_currency
-  );
+  const revenueCurrency =
+    normalizeCurrency(
+      company.revenues?.revenues_currency ||
+        company.revenues?._currency?.Currency ||
+        company.revenues?.currency?.Currency
+    ) || undefined;
   const evCurrency =
     normalizeCurrency(
       company.ev_data?._currency?.Currency ||

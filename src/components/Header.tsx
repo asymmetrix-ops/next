@@ -200,7 +200,8 @@ const Header = () => {
             <nav style={styles.navDesktop} className="nav-desktop">
               {navItems.map((item) => {
                 const getHref = (item: string) => {
-                  switch (item) {
+                  const label = item.replace(/\u00A0/g, " ");
+                  switch (label) {
                     case "Dashboard":
                       return "/home-user";
                     case "Companies":
@@ -215,9 +216,10 @@ const Header = () => {
                       return "/individuals";
                     case "Corporate Events":
                       return "/corporate-events";
-                    case "Insights/Analysis":
+                    case "Insights & Analysis":
                       return "/insights-analysis";
                     default:
+                      if (/^insights/i.test(label)) return "/insights-analysis";
                       return "#";
                   }
                 };
@@ -306,7 +308,8 @@ const Header = () => {
         >
           {navItems.map((item) => {
             const getHref = (item: string) => {
-              switch (item) {
+              const label = item.replace(/\u00A0/g, " ");
+              switch (label) {
                 case "Dashboard":
                   return "/home-user";
                 case "Companies":
@@ -322,9 +325,9 @@ const Header = () => {
                 case "Corporate Events":
                   return "/corporate-events";
                 case "Insights & Analysis":
-                case "Insights & Analysis":
                   return "/insights-analysis";
                 default:
+                  if (/^insights/i.test(label)) return "/insights-analysis";
                   return "#";
               }
             };
