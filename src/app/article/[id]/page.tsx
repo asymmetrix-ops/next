@@ -12,6 +12,10 @@ interface ArticleDetail {
   Publication_Date: string;
   Headline: string;
   Strapline: string;
+  Content_Type?: string;
+  content_type?: string;
+  // Some API variants may nest under Content
+  Content?: { Content_type?: string; Content_Type?: string };
   Body: string;
   sectors: Array<{
     id: number;
@@ -126,6 +130,21 @@ const styles = {
     borderRadius: "6px",
     fontSize: "14px",
     fontWeight: "500",
+  },
+  contentTypeRow: {
+    marginTop: "-8px",
+    marginBottom: "24px",
+  },
+  contentTypeBadge: {
+    display: "inline-block",
+    fontSize: "12px",
+    lineHeight: 1,
+    color: "#1e40af",
+    backgroundColor: "#eff6ff",
+    padding: "6px 10px",
+    borderRadius: "9999px",
+    border: "1px solid #bfdbfe",
+    fontWeight: 600,
   },
 
   loading: {
@@ -419,6 +438,20 @@ const ArticleDetailPage = () => {
             {/* Article Header */}
             <h1 style={styles.heading}>{article.Headline}</h1>
             <p style={styles.strapline}>{article.Strapline}</p>
+            {(() => {
+              const ct = (
+                article.Content_Type ||
+                article.content_type ||
+                article.Content?.Content_type ||
+                article.Content?.Content_Type ||
+                ""
+              ).trim();
+              return ct ? (
+                <div style={styles.contentTypeRow}>
+                  <span style={styles.contentTypeBadge}>{ct}</span>
+                </div>
+              ) : null;
+            })()}
 
             {/* Article Body with embedded images from attachments */}
             {(() => {

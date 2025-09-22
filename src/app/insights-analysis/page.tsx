@@ -332,15 +332,16 @@ const InsightsAnalysisCards = ({
             {article.Headline || "Not Available"}
           </h3>
 
-          {/* Date + Content Type inline */}
-          <p className="article-date">
-            <span>{formatDate(article.Publication_Date)}</span>
-            {article.Content_Type && (
+          {/* Date */}
+          <p className="article-date">{formatDate(article.Publication_Date)}</p>
+          {/* Content Type Badge below date */}
+          {article.Content_Type && (
+            <div className="article-badge-row">
               <span className={badgeClassFor(article.Content_Type)}>
                 {article.Content_Type}
               </span>
-            )}
-          </p>
+            </div>
+          )}
 
           {/* Strapline/Summary */}
           <p className="article-summary">
@@ -614,9 +615,10 @@ const InsightsAnalysisPage = () => {
       color: #6b7280;
       margin: 0 0 16px 0;
       font-weight: 500;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    }
+    .article-badge-row {
+      margin: -8px 0 16px 0;
+      display: block;
     }
     .badge {
       display: inline-block;
