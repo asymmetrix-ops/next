@@ -84,9 +84,13 @@ const CorporateEventDetail = ({
     Array.isArray(data?.Event) && data.Event.length > 0
       ? data.Event[0]
       : undefined;
-  const counterparties = Array.isArray(data?.Event_counterparties)
-    ? data.Event_counterparties
-    : [];
+  const counterparties = React.useMemo(
+    () =>
+      Array.isArray(data?.Event_counterparties)
+        ? data.Event_counterparties
+        : [],
+    [data?.Event_counterparties]
+  );
   const subSectors = Array.isArray(data?.["Sub-sectors"])
     ? data["Sub-sectors"]
     : [];
@@ -932,7 +936,7 @@ const CorporateEventDetail = ({
                     </td>
                     <td>
                       {(() => {
-                        // Individuals attached to the advised counterparty
+                        // Prefer advisor-attached individuals; fallback to advised counterparty individuals
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const anyA = a as any;
                         const advisedId: number | undefined =
@@ -940,16 +944,30 @@ const CorporateEventDetail = ({
                         const cp = advisedId
                           ? counterpartiesById.get(advisedId)
                           : undefined;
-                        const list = cp?.counterparty_individuals;
+                        const advisorList = Array.isArray(anyA?.individuals)
+                          ? (anyA.individuals as Array<{
+                              id: number;
+                              individuals_id?: number;
+                              advisor_individuals: string;
+                            }>)
+                          : undefined;
+                        const list =
+                          advisorList && advisorList.length > 0
+                            ? advisorList
+                            : cp?.counterparty_individuals;
                         return Array.isArray(list) && list.length > 0
                           ? list.map((ind, idx) => (
                               <span key={ind.id}>
-                                <a
-                                  href={`/individual/${ind.individuals_id}`}
-                                  className="corporate-event-link"
-                                >
-                                  {ind.advisor_individuals}
-                                </a>
+                                {typeof ind.individuals_id === "number" ? (
+                                  <a
+                                    href={`/individual/${ind.individuals_id}`}
+                                    className="corporate-event-link"
+                                  >
+                                    {ind.advisor_individuals}
+                                  </a>
+                                ) : (
+                                  <span>{ind.advisor_individuals}</span>
+                                )}
                                 {idx < list.length - 1 && ", "}
                               </span>
                             ))
@@ -958,7 +976,7 @@ const CorporateEventDetail = ({
                     </td>
                     <td>
                       {(() => {
-                        // Prefer the announcement URL from the advised counterparty when present
+                        // Prefer advisor-level announcement URL; fallback to advised counterparty URL
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const anyA = a as any;
                         const advisedId: number | undefined =
@@ -967,10 +985,8 @@ const CorporateEventDetail = ({
                           ? counterpartiesById.get(advisedId)
                           : undefined;
                         const url =
-                          cp?.counterparty_announcement_url ||
-                          // fallback to potential advisor-level url if provided by backend
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          (anyA?.announcement_url as string | undefined);
+                          (anyA?.announcement_url as string | undefined) ||
+                          cp?.counterparty_announcement_url;
                         return url ? (
                           <a
                             href={url}
