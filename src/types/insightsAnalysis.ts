@@ -6,6 +6,7 @@ export interface ContentArticle {
   Publication_Date: string;
   Headline: string;
   Strapline: string;
+  Content_Type?: string;
   Body: string;
   sectors: Array<
     Array<{
@@ -50,6 +51,8 @@ export interface InsightsAnalysisResponse {
 
 export interface InsightsAnalysisFilters {
   search_query: string;
+  Content_Type?: string;
+  content_type?: string;
   primary_sectors_ids: number[];
   Secondary_sectors_ids: number[];
   Countries: string[];

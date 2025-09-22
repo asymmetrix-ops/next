@@ -271,7 +271,11 @@ const InsightsAnalysisCards = ({
   const formatDate = (dateString: string) => {
     if (!dateString) return "Not available";
     try {
-      return new Date(dateString).toLocaleDateString();
+      return new Date(dateString).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
     } catch {
       return "Invalid date";
     }
@@ -290,6 +294,16 @@ const InsightsAnalysisCards = ({
   ) => {
     if (!companies || companies.length === 0) return "Not available";
     return companies.map((c) => c.name).join(", ");
+  };
+
+  const badgeClassFor = (contentType?: string): string => {
+    const t = (contentType || "").toLowerCase();
+    if (t === "company analysis") return "badge badge-company-analysis";
+    if (t === "deal analysis") return "badge badge-deal-analysis";
+    if (t === "sector analysis") return "badge badge-sector-analysis";
+    if (t === "hot take") return "badge badge-hot-take";
+    if (t === "executive interview") return "badge badge-executive-interview";
+    return "badge";
   };
 
   return (
@@ -318,8 +332,15 @@ const InsightsAnalysisCards = ({
             {article.Headline || "Not Available"}
           </h3>
 
-          {/* Publication Date */}
-          <p className="article-date">{formatDate(article.Publication_Date)}</p>
+          {/* Date + Content Type inline */}
+          <p className="article-date">
+            <span>{formatDate(article.Publication_Date)}</span>
+            {article.Content_Type && (
+              <span className={badgeClassFor(article.Content_Type)}>
+                {article.Content_Type}
+              </span>
+            )}
+          </p>
 
           {/* Strapline/Summary */}
           <p className="article-summary">
@@ -362,6 +383,7 @@ const InsightsAnalysisPage = () => {
   });
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [contentTypes, setContentTypes] = useState<string[]>([]);
 
   // State for insights analysis data
   const [articles, setArticles] = useState<ContentArticle[]>([]);
@@ -388,44 +410,30 @@ const InsightsAnalysisPage = () => {
         return;
       }
 
-      // Convert filters to URL parameters for GET request
+      // Build GET query params per API spec
       const params = new URLSearchParams();
-
-      // Add offset and per_page
-      params.append("Offset", filters.Offset.toString());
-      params.append("Per_page", filters.Per_page.toString());
-
-      // Add search query
+      params.append("Offset", String(filters.Offset));
+      params.append("Per_page", String(filters.Per_page));
       if (filters.search_query)
         params.append("search_query", filters.search_query);
-
-      // Add location filters as comma-separated values
-      if (filters.Countries.length > 0) {
+      if (filters.Countries?.length)
         params.append("Countries", filters.Countries.join(","));
-      }
-
-      if (filters.Provinces.length > 0) {
+      if (filters.Provinces?.length)
         params.append("Provinces", filters.Provinces.join(","));
-      }
-
-      if (filters.Cities.length > 0) {
+      if (filters.Cities?.length)
         params.append("Cities", filters.Cities.join(","));
-      }
-
-      // Add sector filters as comma-separated values
-      if (filters.primary_sectors_ids.length > 0) {
+      if (filters.primary_sectors_ids?.length)
         params.append(
           "primary_sectors_ids",
           filters.primary_sectors_ids.join(",")
         );
-      }
-
-      if (filters.Secondary_sectors_ids.length > 0) {
+      if (filters.Secondary_sectors_ids?.length)
         params.append(
           "Secondary_sectors_ids",
           filters.Secondary_sectors_ids.join(",")
         );
-      }
+      const ct = (filters.Content_Type || filters.content_type || "").trim();
+      if (ct) params.append("content_type", ct);
 
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
 
@@ -470,6 +478,41 @@ const InsightsAnalysisPage = () => {
     // Initial fetch of all articles
     fetchInsightsAnalysis(filters);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch content type options
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) return;
+        const resp = await fetch(
+          "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/content_types_for_articles",
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        if (!resp.ok) return;
+        const data = (await resp.json()) as Array<{
+          Content_Content_Type1: string;
+        }>;
+        const values = Array.from(
+          new Set(
+            (Array.isArray(data) ? data : [])
+              .map((d) => (d?.Content_Content_Type1 || "").trim())
+              .filter(Boolean)
+          )
+        );
+        setContentTypes(values);
+      } catch {
+        // ignore
+      }
+    };
+    run();
+  }, []);
 
   // Handle search
   const handleSearch = () => {
@@ -555,11 +598,59 @@ const InsightsAnalysisPage = () => {
       margin: 0 0 8px 0;
       line-height: 1.3;
     }
+    .article-content-type {
+      display: inline-block;
+      font-size: 12px;
+      line-height: 1;
+      color: #374151;
+      background-color: #f3f4f6;
+      padding: 4px 8px;
+      border-radius: 9999px;
+      margin: 0 0 8px 0;
+      font-weight: 600;
+    }
     .article-date {
       font-size: 14px;
       color: #6b7280;
       margin: 0 0 16px 0;
       font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 12px;
+      line-height: 1;
+      padding: 6px 10px;
+      border-radius: 9999px;
+      border: 1px solid transparent;
+      font-weight: 600;
+    }
+    .badge-company-analysis {
+      background: #ecfdf5;
+      color: #065f46;
+      border-color: #a7f3d0;
+    }
+    .badge-deal-analysis {
+      background: #eff6ff;
+      color: #1e40af;
+      border-color: #bfdbfe;
+    }
+    .badge-sector-analysis {
+      background: #f5f3ff;
+      color: #5b21b6;
+      border-color: #ddd6fe;
+    }
+    .badge-hot-take {
+      background: #fff7ed;
+      color: #9a3412;
+      border-color: #fed7aa;
+    }
+    .badge-executive-interview {
+      background: #f0fdf4;
+      color: #166534;
+      border-color: #bbf7d0;
     }
     .article-summary {
       font-size: 14px;
@@ -729,6 +820,31 @@ const InsightsAnalysisPage = () => {
                 className="filters-input"
                 onKeyPress={(e) => e.key === "Enter" && handleSearch()}
               />
+              <select
+                value={filters.Content_Type || ""}
+                onChange={(e) => {
+                  const updated = {
+                    ...filters,
+                    Content_Type: e.target.value || undefined,
+                    content_type: e.target.value || undefined,
+                    Offset: 1,
+                  };
+                  setFilters(updated);
+                  fetchInsightsAnalysis(updated);
+                }}
+                style={{
+                  ...styles.input,
+                  maxWidth: 280,
+                  paddingRight: 8,
+                }}
+              >
+                <option value="">All Content Types</option>
+                {contentTypes.map((ct) => (
+                  <option key={ct} value={ct}>
+                    {ct}
+                  </option>
+                ))}
+              </select>
               <button
                 onClick={handleSearch}
                 style={styles.button}
