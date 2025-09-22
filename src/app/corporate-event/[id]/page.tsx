@@ -976,17 +976,12 @@ const CorporateEventDetail = ({
                     </td>
                     <td>
                       {(() => {
-                        // Prefer advisor-level announcement URL; fallback to advised counterparty URL
+                        // Advisor-only URL; empty string means no link
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const anyA = a as any;
-                        const advisedId: number | undefined =
-                          anyA?.counterparty_advised;
-                        const cp = advisedId
-                          ? counterpartiesById.get(advisedId)
-                          : undefined;
-                        const url =
-                          (anyA?.announcement_url as string | undefined) ||
-                          cp?.counterparty_announcement_url;
+                        const raw =
+                          (anyA?.announcement_url as string | undefined) ?? "";
+                        const url = raw.trim();
                         return url ? (
                           <a
                             href={url}
@@ -1113,16 +1108,12 @@ const CorporateEventDetail = ({
                       </span>
                     </div>
                     {(() => {
+                      // Advisor-only URL on mobile; empty means no section
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       const anyA = a as any;
-                      const advisedId: number | undefined =
-                        anyA?.counterparty_advised;
-                      const cp = advisedId
-                        ? counterpartiesById.get(advisedId)
-                        : undefined;
-                      const url =
-                        cp?.counterparty_announcement_url ||
-                        anyA?.announcement_url;
+                      const raw =
+                        (anyA?.announcement_url as string | undefined) ?? "";
+                      const url = raw.trim();
                       return url ? (
                         <div className="counterparty-card-info-item counterparty-card-full-width">
                           <span className="counterparty-card-info-label">
