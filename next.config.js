@@ -14,9 +14,6 @@ const nextConfig = {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
   // Performance optimizations
-  experimental: {
-    optimizePackageImports: ["@next/font"],
-  },
   // Compression
   compress: true,
   // Power by header
@@ -24,7 +21,8 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: "/(.*)",
+        // All non-asset routes: no-store to avoid stale HTML/data
+        source: "/((?!_next/(?:static|image)|images|icons).*)",
         headers: [
           {
             key: "X-Frame-Options",
@@ -39,6 +37,16 @@ const nextConfig = {
             value: "origin-when-cross-origin",
           },
           // Do NOT cache HTML/data responses to avoid stale content after deploys
+          {
+            key: "Cache-Control",
+            value: "no-store",
+          },
+        ],
+      },
+      {
+        // Explicitly ensure Next data JSON is never cached
+        source: "/_next/data/(.*)",
+        headers: [
           {
             key: "Cache-Control",
             value: "no-store",
