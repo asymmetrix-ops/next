@@ -2014,12 +2014,8 @@ const CompanyDetail = () => {
                           const fmt = (v?: number | null) =>
                             typeof v === "number"
                               ? (() => {
-                                  const whole = Math.round(
-                                    v / 1_000_000
-                                  ).toLocaleString();
-                                  const beforeComma =
-                                    whole.split(",")[0] || whole;
-                                  return `${currency}${beforeComma}`;
+                                  const millions = Math.round(v / 1_000_000);
+                                  return `${currency}${millions.toLocaleString()}`;
                                 })()
                               : "—";
                           return (
@@ -2233,12 +2229,8 @@ const CompanyDetail = () => {
                           const fmt = (v?: number | null) =>
                             typeof v === "number"
                               ? (() => {
-                                  const whole = Math.round(
-                                    v / 1_000_000
-                                  ).toLocaleString();
-                                  const beforeComma =
-                                    whole.split(",")[0] || whole;
-                                  return `${currency}${beforeComma}`;
+                                  const millions = Math.round(v / 1_000_000);
+                                  return `${currency}${millions.toLocaleString()}`;
                                 })()
                               : "—";
                           return (
