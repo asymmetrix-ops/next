@@ -24,7 +24,7 @@ const Header = () => {
     "Advisors",
     "Individuals",
     "Corporate Events",
-    "Insights/Analysis",
+    "Insights & Analysis",
   ];
 
   const styles = {
@@ -321,7 +321,8 @@ const Header = () => {
                   return "/individuals";
                 case "Corporate Events":
                   return "/corporate-events";
-                case "Insights/Analysis":
+                case "Insights & Analysis":
+                case "Insights & Analysis":
                   return "/insights-analysis";
                 default:
                   return "#";

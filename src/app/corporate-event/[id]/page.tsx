@@ -73,6 +73,13 @@ const CorporateEventDetail = ({
   data: CorporateEventDetailResponse;
 }) => {
   const { createClickableElement } = useRightClick();
+  type FlatEventFields = {
+    investment_amount_m?: string | number | null;
+    investment_amount?: string | number | null;
+    investment_currency?: string | null;
+    enterprise_value_m?: string | number | null;
+    enterprise_value_currency?: string | null;
+  };
   const event =
     Array.isArray(data?.Event) && data.Event.length > 0
       ? data.Event[0]
@@ -189,11 +196,32 @@ const CorporateEventDetail = ({
       | { _currency?: { Currency?: string }; currency?: { Currency?: string } }
       | undefined;
     const fromInvestment = inv?.currency?.Currency || inv?._currency?.Currency;
-    return fromInvestment || event?.ev_data?._currency?.Currency || undefined;
+    // Fallbacks: top-level investment/EV currency when backend sends flattened fields
+    const flatEvent = (event ?? {}) as FlatEventFields;
+    const topLevelCurrency =
+      flatEvent.investment_currency || flatEvent.enterprise_value_currency;
+    return (
+      fromInvestment ||
+      topLevelCurrency ||
+      event?.ev_data?._currency?.Currency ||
+      undefined
+    );
+  };
+
+  // Prefer nested investment amount; fallback to top-level fields when present
+  const getInvestmentAmount = (): string | undefined => {
+    const nested = event?.investment_data?.investment_amount_m;
+    if (nested) return nested;
+    const flatEvent = (event ?? {}) as FlatEventFields;
+    const top =
+      flatEvent.investment_amount_m ?? flatEvent.investment_amount ?? undefined;
+    if (typeof top === "number") return String(top);
+    if (typeof top === "string" && top.trim().length > 0) return top.trim();
+    return undefined;
   };
 
   const formatInvestmentAmount = (): string => {
-    const amount = event?.investment_data?.investment_amount_m;
+    const amount = getInvestmentAmount();
     if (!amount) return "Not available";
     const currency = getInvestmentCurrency();
     return currency ? formatCurrency(amount, currency) : "Not available";
@@ -525,12 +553,24 @@ const CorporateEventDetail = ({
               <div className="info-item">
                 <span className="info-label">Enterprise Value:</span>
                 <span className="info-value">
-                  {event?.ev_data?._currency?.Currency
-                    ? formatCurrency(
-                        event?.ev_data?.enterprise_value_m || "",
-                        event?.ev_data?._currency?.Currency || ""
-                      )
-                    : "Not available"}
+                  {(() => {
+                    const flatEvent = (event ?? {}) as FlatEventFields;
+                    const amountRaw =
+                      event?.ev_data?.enterprise_value_m ??
+                      flatEvent.enterprise_value_m ??
+                      "";
+                    const amount =
+                      typeof amountRaw === "number"
+                        ? String(amountRaw)
+                        : amountRaw;
+                    const currency =
+                      event?.ev_data?._currency?.Currency ||
+                      flatEvent.enterprise_value_currency ||
+                      "";
+                    return amount && currency
+                      ? formatCurrency(amount, currency)
+                      : "Not available";
+                  })()}
                 </span>
               </div>
               <div className="info-item">
@@ -824,6 +864,7 @@ const CorporateEventDetail = ({
                 <th>Advisor</th>
                 <th>Role</th>
                 <th>Advising</th>
+                <th>Individuals</th>
                 <th>Announcement URL</th>
               </tr>
             </thead>
@@ -887,6 +928,32 @@ const CorporateEventDetail = ({
                             {nc?.name || "N/A"}
                           </span>
                         );
+                      })()}
+                    </td>
+                    <td>
+                      {(() => {
+                        // Individuals attached to the advised counterparty
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const anyA = a as any;
+                        const advisedId: number | undefined =
+                          anyA?.counterparty_advised;
+                        const cp = advisedId
+                          ? counterpartiesById.get(advisedId)
+                          : undefined;
+                        const list = cp?.counterparty_individuals;
+                        return Array.isArray(list) && list.length > 0
+                          ? list.map((ind, idx) => (
+                              <span key={ind.id}>
+                                <a
+                                  href={`/individual/${ind.individuals_id}`}
+                                  className="corporate-event-link"
+                                >
+                                  {ind.advisor_individuals}
+                                </a>
+                                {idx < list.length - 1 && ", "}
+                              </span>
+                            ))
+                          : "Not available";
                       })()}
                     </td>
                     <td>
@@ -996,6 +1063,36 @@ const CorporateEventDetail = ({
                               {nc?.name || "N/A"}
                             </span>
                           );
+                        })()}
+                      </span>
+                    </div>
+                    <div className="counterparty-card-info-item">
+                      <span className="counterparty-card-info-label">
+                        Individuals:
+                      </span>
+                      <span className="counterparty-card-info-value">
+                        {(() => {
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          const anyA = a as any;
+                          const advisedId: number | undefined =
+                            anyA?.counterparty_advised;
+                          const cp = advisedId
+                            ? counterpartiesById.get(advisedId)
+                            : undefined;
+                          const list = cp?.counterparty_individuals;
+                          return Array.isArray(list) && list.length > 0
+                            ? list.map((ind, idx) => (
+                                <span key={ind.id}>
+                                  <a
+                                    href={`/individual/${ind.individuals_id}`}
+                                    className="corporate-event-link"
+                                  >
+                                    {ind.advisor_individuals}
+                                  </a>
+                                  {idx < list.length - 1 && ", "}
+                                </span>
+                              ))
+                            : "Not available";
                         })()}
                       </span>
                     </div>
