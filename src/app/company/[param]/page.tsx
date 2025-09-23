@@ -142,7 +142,7 @@ interface CompanySubsidiary {
   logo?: string;
 }
 
-interface CorporateEvent {
+interface LegacyCorporateEvent {
   id?: number;
   description: string;
   announcement_date: string;
@@ -153,8 +153,10 @@ interface CorporateEvent {
     };
   };
   ev_data?: {
-    enterprise_value_m?: number;
+    enterprise_value_m?: number | string;
     ev_band?: string;
+    _currency?: { Currency?: string };
+    currency?: { Currency?: string };
   };
   "0"?: Array<{
     _new_company?: {
@@ -168,8 +170,68 @@ interface CorporateEvent {
   }>;
 }
 
-interface CorporateEventsResponse {
-  New_Events_Wits_Advisors: CorporateEvent[];
+// New corporate events event shape (company page)
+interface NewCounterpartyMinimal {
+  id: number;
+  name: string;
+  page_type?: string;
+  counterparty_announcement_url?: string | null;
+}
+
+interface NewAdvisorMinimal {
+  id: number;
+  advisor_company?: { id: number; name: string };
+  announcement_url?: string;
+  new_company_advised?: number;
+  counterparty_advised?: number;
+  _new_company?: { id: number; name: string };
+}
+
+interface NewCorporateEvent {
+  id?: number;
+  advisors?: NewAdvisorMinimal[];
+  advisors_names?: string[];
+  deal_type?: string;
+  ev_display?: string | null;
+  description?: string;
+  announcement_date?: string;
+  investment_display?: string;
+  this_company_status?: string;
+  other_counterparties?: NewCounterpartyMinimal[];
+}
+
+type CompanyCorporateEvent = LegacyCorporateEvent | NewCorporateEvent;
+
+type NewCorporateEventsEnvelope = {
+  new_counterparties: Array<{ items: string | NewCorporateEvent[] }>;
+};
+
+type LegacyCorporateEventsEnvelope = {
+  New_Events_Wits_Advisors: LegacyCorporateEvent[];
+};
+
+function isNewCorporateEventsEnvelope(
+  value: unknown
+): value is NewCorporateEventsEnvelope {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Array.isArray(
+      (value as { new_counterparties?: unknown }).new_counterparties
+    )
+  );
+}
+
+function isLegacyCorporateEventsEnvelope(
+  value: unknown
+): value is LegacyCorporateEventsEnvelope {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Array.isArray(
+      (value as { New_Events_Wits_Advisors?: unknown }).New_Events_Wits_Advisors
+    )
+  );
 }
 
 interface Company {
@@ -536,12 +598,21 @@ const CompanyDetail = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [showAllPrimarySectors, setShowAllPrimarySectors] = useState(false);
   const [showAllSecondarySectors, setShowAllSecondarySectors] = useState(false);
-  const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
+  const [corporateEvents, setCorporateEvents] = useState<
+    CompanyCorporateEvent[]
+  >([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(false);
   const [showAllCorporateEvents, setShowAllCorporateEvents] = useState(false);
   const [showAllSubsidiaries, setShowAllSubsidiaries] = useState(false);
   const [companyArticles, setCompanyArticles] = useState<ContentArticle[]>([]);
   const [articlesLoading, setArticlesLoading] = useState(false);
+  // New investors payload (current/past) parsed from investors_data
+  const [newInvestorsCurrent, setNewInvestorsCurrent] = useState<
+    CompanyInvestor[]
+  >([]);
+  const [newInvestorsPast, setNewInvestorsPast] = useState<CompanyInvestor[]>(
+    []
+  );
   // Computed routing targets for investor/company entities referenced in Investors section
   const [investorRouteTargetById, setInvestorRouteTargetById] = useState<
     Record<number, string>
@@ -810,9 +881,31 @@ const CompanyDetail = () => {
         );
       }
 
-      const data: CorporateEventsResponse = await response.json();
+      const data: unknown = await response.json();
       console.log("Corporate events API response:", data);
-      setCorporateEvents(data.New_Events_Wits_Advisors || []);
+      // Support new API shape: data.new_counterparties: [{ items: "[ ... ]" | [...] }]
+      if (isNewCorporateEventsEnvelope(data)) {
+        const items: NewCorporateEvent[] = [];
+        for (const entry of data.new_counterparties) {
+          const raw = entry?.items;
+          if (typeof raw === "string") {
+            try {
+              const parsed = JSON.parse(raw) as unknown;
+              if (Array.isArray(parsed))
+                items.push(...(parsed as NewCorporateEvent[]));
+            } catch (e) {
+              console.warn("Failed to parse new_counterparties.items JSON", e);
+            }
+          } else if (Array.isArray(raw)) {
+            items.push(...(raw as NewCorporateEvent[]));
+          }
+        }
+        setCorporateEvents(items);
+      } else if (isLegacyCorporateEventsEnvelope(data)) {
+        setCorporateEvents(data.New_Events_Wits_Advisors || []);
+      } else {
+        setCorporateEvents([]);
+      }
     } catch (err) {
       console.error("Error fetching corporate events:", err);
       // Don't set main error state for corporate events loading failure
@@ -917,6 +1010,63 @@ const CompanyDetail = () => {
             undefined,
         };
 
+        // Parse optional investors_data → { current: [], past: [] } (stringified JSON or object)
+        const parsedCurrent: CompanyInvestor[] = [];
+        const parsedPast: CompanyInvestor[] = [];
+        try {
+          const rawInvestors = (
+            data as unknown as {
+              investors_data?: Array<{ items?: unknown }>;
+            }
+          )?.investors_data;
+          if (Array.isArray(rawInvestors)) {
+            for (const entry of rawInvestors) {
+              const rawItems = (entry as { items?: unknown })?.items;
+              let payload: unknown = rawItems;
+              if (typeof rawItems === "string") {
+                try {
+                  payload = JSON.parse(rawItems as string);
+                } catch {
+                  // ignore malformed JSON
+                }
+              }
+              const obj = (payload || {}) as {
+                current?: Array<{
+                  name?: string;
+                  investor_id?: number | null;
+                  new_company_id?: number | null;
+                }>;
+                past?: Array<{
+                  name?: string;
+                  investor_id?: number | null;
+                  new_company_id?: number | null;
+                }>;
+              };
+              const toCompanyInvestor = (
+                list?: Array<{
+                  name?: string;
+                  investor_id?: number | null;
+                  new_company_id?: number | null;
+                }>
+              ): CompanyInvestor[] =>
+                (Array.isArray(list) ? list : [])
+                  .map((v) => ({
+                    id: (typeof v?.new_company_id === "number"
+                      ? v?.new_company_id
+                      : undefined) as number | undefined,
+                    name: (v?.name || "").trim(),
+                  }))
+                  .filter((v) => v.id && v.name) as CompanyInvestor[];
+              parsedCurrent.push(...toCompanyInvestor(obj?.current));
+              parsedPast.push(...toCompanyInvestor(obj?.past));
+            }
+          }
+        } catch {
+          // non-fatal
+        }
+
+        setNewInvestorsCurrent(parsedCurrent);
+        setNewInvestorsPast(parsedPast);
         // Removed verbose logging of enriched object
 
         setCompany(enrichedCompany);
@@ -946,8 +1096,14 @@ const CompanyDetail = () => {
     const signal = controller.signal;
     const run = async () => {
       try {
-        const list = (company?.investors || []).filter(
-          (v): v is CompanyInvestor => Boolean(v && typeof v.id === "number")
+        const list = (
+          [
+            ...(company?.investors || []),
+            ...newInvestorsCurrent,
+            ...newInvestorsPast,
+          ] as CompanyInvestor[]
+        ).filter((v): v is CompanyInvestor =>
+          Boolean(v && typeof v.id === "number")
         );
         if (list.length === 0) return;
 
@@ -996,7 +1152,12 @@ const CompanyDetail = () => {
     };
     run();
     return () => controller.abort();
-  }, [company?.investors, decideEntityRoute]);
+  }, [
+    company?.investors,
+    newInvestorsCurrent,
+    newInvestorsPast,
+    decideEntityRoute,
+  ]);
 
   // Merge investors found in corporate events into the company's investors list
   useEffect(() => {
@@ -1875,7 +2036,9 @@ const CompanyDetail = () => {
                       ?.primary_business_focus_id
                   ).includes(FINANCIAL_SERVICES_FOCUS_ID)
                     ? "Parent Company:"
-                    : "Current Investors:"}
+                    : newInvestorsCurrent.length > 0
+                    ? "Current Investors:"
+                    : "Investors:"}
                 </span>
                 <span style={styles.value} className="info-value">
                   {company.have_parent_company?.have_parent_companies &&
@@ -1900,6 +2063,18 @@ const CompanyDetail = () => {
                         }
                         return parentName || "Not available";
                       })()
+                    : newInvestorsCurrent.length > 0
+                    ? newInvestorsCurrent.map((investor, index) => {
+                        const href =
+                          investorRouteTargetById[investor.id] ||
+                          `/investors/${investor.id}`;
+                        return (
+                          <span key={`current-${investor.id}`}>
+                            {createClickableElement(href, investor.name)}
+                            {index < newInvestorsCurrent.length - 1 && ", "}
+                          </span>
+                        );
+                      })
                     : company.investors && company.investors.length > 0
                     ? company.investors.map((investor, index) => {
                         const href =
@@ -1917,6 +2092,26 @@ const CompanyDetail = () => {
                     : "Not available"}
                 </span>
               </div>
+              {newInvestorsPast.length > 0 && (
+                <div style={styles.infoRow} className="info-row">
+                  <span style={styles.label} className="info-label">
+                    Past Investors:
+                  </span>
+                  <span style={styles.value} className="info-value">
+                    {newInvestorsPast.map((investor, index) => {
+                      const href =
+                        investorRouteTargetById[investor.id] ||
+                        `/investors/${investor.id}`;
+                      return (
+                        <span key={`past-${investor.id}`}>
+                          {createClickableElement(href, investor.name)}
+                          {index < newInvestorsPast.length - 1 && ", "}
+                        </span>
+                      );
+                    })}
+                  </span>
+                </div>
+              )}
               <div style={styles.infoRowLast} className="info-row">
                 <span style={styles.label} className="info-label">
                   Description:
@@ -2689,7 +2884,9 @@ const CompanyDetail = () => {
                             }}
                           >
                             {new Date(
-                              event.announcement_date
+                              (event as NewCorporateEvent).announcement_date ||
+                                (event as LegacyCorporateEvent)
+                                  .announcement_date
                             ).toLocaleDateString("en-US", {
                               year: "numeric",
                               month: "long",
@@ -2703,7 +2900,9 @@ const CompanyDetail = () => {
                               fontSize: "14px",
                             }}
                           >
-                            {event.deal_type || "N/A"}
+                            {(event as NewCorporateEvent).deal_type ||
+                              (event as LegacyCorporateEvent).deal_type ||
+                              "N/A"}
                           </td>
                           <td
                             style={{
@@ -2712,8 +2911,16 @@ const CompanyDetail = () => {
                               fontSize: "14px",
                             }}
                           >
-                            {event.counterparty_status?.counterparty_syayus
-                              ?.counterparty_status || "N/A"}
+                            {(() => {
+                              const newStatus = (event as NewCorporateEvent)
+                                .this_company_status;
+                              if (newStatus) return newStatus;
+                              const legacy = event as LegacyCorporateEvent;
+                              return (
+                                legacy.counterparty_status?.counterparty_syayus
+                                  ?.counterparty_status || "N/A"
+                              );
+                            })()}
                           </td>
                           <td
                             style={{
@@ -2722,16 +2929,33 @@ const CompanyDetail = () => {
                               fontSize: "14px",
                             }}
                           >
-                            {[
-                              ...(event["0"] || []).map(
-                                (item) => item._new_company?.name
-                              ),
-                              ...(event["1"] || []).map(
-                                (item) => item._new_company?.name
-                              ),
-                            ]
-                              .filter(Boolean)
-                              .join(", ") || "N/A"}
+                            {(() => {
+                              const newEvent = event as NewCorporateEvent;
+                              const looksNew =
+                                typeof newEvent.this_company_status ===
+                                  "string" ||
+                                Array.isArray(newEvent.advisors_names) ||
+                                Array.isArray(newEvent.other_counterparties);
+                              if (looksNew) {
+                                const list =
+                                  newEvent.other_counterparties || [];
+                                const txt = list
+                                  .map((c) => c?.name)
+                                  .filter(Boolean)
+                                  .join(", ");
+                                return txt || "N/A";
+                              }
+                              const legacy = event as LegacyCorporateEvent;
+                              // Legacy fallback: only include group "0" (counterparties), exclude group "1" (advisors)
+                              const names = (
+                                (legacy["0"] || []).map(
+                                  (item) => item._new_company?.name
+                                ) as Array<string | undefined>
+                              )
+                                .filter(Boolean)
+                                .join(", ");
+                              return names || "N/A";
+                            })()}
                           </td>
                           {/* Investment */}
                           <td
@@ -2742,29 +2966,43 @@ const CompanyDetail = () => {
                             }}
                           >
                             {(() => {
-                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                              const anyEvent: any = event as any;
-                              const amount = (anyEvent?.investment_data
-                                ?.investment_amount_m ??
-                                anyEvent?.investment_data?.investment_amount ??
-                                anyEvent?.investment_amount_m ??
-                                anyEvent?.investment_amount) as
-                                | number
-                                | string
-                                | undefined;
+                              // Prefer new display field when present
+                              const display = (event as NewCorporateEvent)
+                                .investment_display;
+                              if (display && display.trim()) return display;
+                              const legacy = event as LegacyCorporateEvent;
+                              const legacyAny = legacy as unknown as {
+                                investment_data?: {
+                                  investment_amount_m?: number | string;
+                                  investment_amount?: number | string;
+                                  currency?: { Currency?: string };
+                                  _currency?: { Currency?: string };
+                                  currrency?: { Currency?: string };
+                                };
+                                investment_amount_m?: number | string;
+                                investment_amount?: number | string;
+                              };
+                              const amount =
+                                legacyAny?.investment_data
+                                  ?.investment_amount_m ??
+                                legacyAny?.investment_data?.investment_amount ??
+                                legacyAny?.investment_amount_m ??
+                                legacyAny?.investment_amount;
                               const investmentCurrency: string | undefined =
-                                anyEvent?.investment_data?.currency?.Currency ||
-                                anyEvent?.investment_data?._currency
+                                legacyAny?.investment_data?.currency
                                   ?.Currency ||
-                                anyEvent?.investment_data?.currrency?.Currency;
+                                legacyAny?.investment_data?._currency
+                                  ?.Currency ||
+                                legacyAny?.investment_data?.currrency?.Currency;
                               const evCurrency: string | undefined =
-                                anyEvent?.ev_data?._currency?.Currency ||
-                                anyEvent?.ev_data?.currency?.Currency;
-                              const currency = investmentCurrency || evCurrency;
-                              if (amount != null && currency) {
-                                const n = Number(amount);
-                                if (!Number.isNaN(n)) {
-                                  return `${currency}${n.toLocaleString()}m`;
+                                legacy.ev_data?._currency?.Currency ||
+                                legacy.ev_data?.currency?.Currency;
+                              const currencySymbol =
+                                investmentCurrency || evCurrency;
+                              if (amount != null && currencySymbol) {
+                                const numeric = Number(amount);
+                                if (!Number.isNaN(numeric)) {
+                                  return `${currencySymbol}${numeric.toLocaleString()}m`;
                                 }
                               }
                               return "Not available";
@@ -2778,24 +3016,27 @@ const CompanyDetail = () => {
                             }}
                           >
                             {(() => {
-                              const amount = event.ev_data
+                              // Prefer new display field when present
+                              const display = (event as NewCorporateEvent)
+                                .ev_display as string | undefined;
+                              if (display && display.trim()) return display;
+                              const legacy = event as LegacyCorporateEvent;
+                              const amount = legacy.ev_data
                                 ?.enterprise_value_m as
                                 | number
                                 | string
                                 | undefined;
                               // Support either ev_data.currency.Currency or ev_data._currency.Currency
-                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                              const anyEv: any = event.ev_data as any;
                               const currency: string | undefined =
-                                anyEv?.currency?.Currency ||
-                                anyEv?._currency?.Currency;
+                                legacy.ev_data?.currency?.Currency ||
+                                legacy.ev_data?._currency?.Currency;
                               if (amount != null && currency) {
                                 const n = Number(amount);
                                 if (!Number.isNaN(n)) {
                                   return `${currency}${n.toLocaleString()}m`;
                                 }
                               }
-                              return event.ev_data?.ev_band || "Not available";
+                              return legacy.ev_data?.ev_band || "Not available";
                             })()}
                           </td>
                           <td
@@ -2805,7 +3046,68 @@ const CompanyDetail = () => {
                               fontSize: "14px",
                             }}
                           >
-                            N/A
+                            {(() => {
+                              const newEvent = event as NewCorporateEvent;
+                              // Advisors names can be provided as array of strings, string, or derived from advisors list
+                              const namesFromArray = Array.isArray(
+                                newEvent.advisors_names
+                              )
+                                ? newEvent.advisors_names
+                                    .map((n) =>
+                                      typeof n === "string" ? n : ""
+                                    )
+                                    .filter((n) => n && n.trim().length > 0)
+                                : [];
+                              const namesFromString =
+                                typeof (
+                                  newEvent as unknown as {
+                                    advisors_names?: unknown;
+                                  }
+                                ).advisors_names === "string"
+                                  ? [
+                                      String(
+                                        (
+                                          newEvent as unknown as {
+                                            advisors_names?: string;
+                                          }
+                                        ).advisors_names
+                                      ),
+                                    ]
+                                  : [];
+                              const namesFromObjects = Array.isArray(
+                                newEvent.advisors
+                              )
+                                ? newEvent.advisors
+                                    .map(
+                                      (a) =>
+                                        a?.advisor_company?.name ||
+                                        a?._new_company?.name ||
+                                        ""
+                                    )
+                                    .filter((n) => n && n.trim().length > 0)
+                                : [];
+                              let combined = [
+                                ...namesFromArray,
+                                ...namesFromString,
+                                ...namesFromObjects,
+                              ];
+                              if (combined.length === 0) {
+                                // Legacy fallback: advisors provided under group "1"
+                                const legacy = event as LegacyCorporateEvent;
+                                const legacyNames = (
+                                  (legacy["1"] || []).map(
+                                    (item) => item._new_company?.name || ""
+                                  ) as Array<string>
+                                ).filter((n) => n && n.trim().length > 0);
+                                combined = legacyNames;
+                              }
+                              const unique = Array.from(
+                                new Set(combined.map((n) => n.trim()))
+                              );
+                              return unique.length > 0
+                                ? unique.join(", ")
+                                : "N/A";
+                            })()}
                           </td>
                         </tr>
                       ))}
