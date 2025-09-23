@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useRightClick } from "@/hooks/useRightClick";
@@ -160,7 +160,9 @@ interface LegacyCorporateEvent {
   };
   "0"?: Array<{
     _new_company?: {
+      id?: number;
       name: string;
+      _is_that_investor?: boolean;
     };
   }>;
   "1"?: Array<{
@@ -358,6 +360,38 @@ interface CompanyResponse {
 }
 
 // Utility functions
+const isNotAvailable = (v?: string | null): boolean =>
+  !v || v.trim().length === 0 || v.trim().toLowerCase() === "not available";
+
+// Normalize displays like "40 EUR" -> "EUR 40" and allow fallback currency
+const normalizeCurrencyDisplay = (
+  display: string,
+  fallbackCode?: string
+): string => {
+  const trimmed = String(display || "").trim();
+  if (isNotAvailable(trimmed)) return "Not available";
+
+  // EUR 40 or USD 1,000
+  const codeFirst = trimmed.match(/^([A-Z]{3})\s*(\d[\d,\.]*)$/);
+  if (codeFirst) return `${codeFirst[1]} ${codeFirst[2]}`;
+
+  // 40 EUR or 1,000 USD -> reorder
+  const numFirst = trimmed.match(/^(\d[\d,\.]*)\s+([A-Z]{3})$/);
+  if (numFirst) return `${numFirst[2]} ${numFirst[1]}`;
+
+  // Digits only -> use fallback code if present
+  const digitsOnly = trimmed.match(/^(\d[\d,\.]*)$/);
+  if (digitsOnly && fallbackCode && /^[A-Z]{3}$/.test(fallbackCode)) {
+    // Format number with separators
+    const n = Number(digitsOnly[1].replace(/,/g, ""));
+    const formatted = Number.isFinite(n)
+      ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n)
+      : digitsOnly[1];
+    return `${fallbackCode} ${formatted}`;
+  }
+
+  return trimmed;
+};
 const formatNumber = (num: number | undefined): string => {
   if (num === undefined || num === null) return "0";
   return num.toLocaleString();
@@ -587,6 +621,7 @@ const CompanyDetail = () => {
   const params = useParams();
   const companyId = params.param as string;
   const { createClickableElement } = useRightClick();
+  const router = useRouter();
 
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
@@ -606,6 +641,15 @@ const CompanyDetail = () => {
   const [showAllSubsidiaries, setShowAllSubsidiaries] = useState(false);
   const [companyArticles, setCompanyArticles] = useState<ContentArticle[]>([]);
   const [articlesLoading, setArticlesLoading] = useState(false);
+  // Optional preformatted displays from API (ebitda_data)
+  const [metricsDisplay, setMetricsDisplay] = useState<
+    | {
+        revenue?: string;
+        ebitda?: string;
+        ev?: string;
+      }
+    | undefined
+  >();
   // New investors payload (current/past) parsed from investors_data
   const [newInvestorsCurrent, setNewInvestorsCurrent] = useState<
     CompanyInvestor[]
@@ -1009,6 +1053,39 @@ const CompanyDetail = () => {
               .Lifecycle_stage ||
             undefined,
         };
+
+        // Parse optional ebitda_data with display strings
+        try {
+          const rawEbitda = (
+            data as unknown as {
+              ebitda_data?: Array<{ items?: unknown }>;
+            }
+          )?.ebitda_data;
+          if (Array.isArray(rawEbitda)) {
+            for (const entry of rawEbitda) {
+              const raw = (entry as { items?: unknown })?.items;
+              let payload: unknown = raw;
+              if (typeof raw === "string") {
+                try {
+                  payload = JSON.parse(raw as string);
+                } catch {
+                  // ignore
+                }
+              }
+              const obj = (payload || {}) as {
+                EBITDA_display?: string;
+                Revenue_display?: string;
+                Enterprise_Value_display?: string;
+              };
+              setMetricsDisplay({
+                revenue: obj?.Revenue_display,
+                ebitda: obj?.EBITDA_display,
+                ev: obj?.Enterprise_Value_display,
+              });
+              break; // use first block only
+            }
+          }
+        } catch {}
 
         // Parse optional investors_data → { current: [], past: [] } (stringified JSON or object)
         const parsedCurrent: CompanyInvestor[] = [];
@@ -1446,18 +1523,25 @@ const CompanyDetail = () => {
   // Use revenue currency if valid; otherwise fall back to EV currency
   const displayCurrency = revenueCurrency || evCurrency;
 
-  const revenue = formatFinancialValue(
-    company.revenues?.revenues_m,
-    displayCurrency
-  );
-  const ebitda = formatFinancialValue(
-    company.EBITDA?.EBITDA_m,
-    displayCurrency
-  );
-  const enterpriseValue = formatFinancialValue(
-    company.ev_data?.ev_value,
-    evCurrency || displayCurrency
-  );
+  // Prefer preformatted display values when provided by API (ebitda_data)
+  const revenue =
+    metricsDisplay && !isNotAvailable(metricsDisplay.revenue)
+      ? normalizeCurrencyDisplay(metricsDisplay.revenue!, displayCurrency)
+      : formatFinancialValue(company.revenues?.revenues_m, displayCurrency);
+  const ebitda =
+    metricsDisplay && !isNotAvailable(metricsDisplay.ebitda)
+      ? normalizeCurrencyDisplay(metricsDisplay.ebitda!, displayCurrency)
+      : formatFinancialValue(company.EBITDA?.EBITDA_m, displayCurrency);
+  const enterpriseValue =
+    metricsDisplay && !isNotAvailable(metricsDisplay.ev)
+      ? normalizeCurrencyDisplay(
+          metricsDisplay.ev!,
+          evCurrency || displayCurrency
+        )
+      : formatFinancialValue(
+          company.ev_data?.ev_value,
+          evCurrency || displayCurrency
+        );
 
   // Extract last 3 income statement rows (public companies only)
   const isPublicOwnership = (company._ownership_type?.ownership || "")
@@ -2939,22 +3023,85 @@ const CompanyDetail = () => {
                               if (looksNew) {
                                 const list =
                                   newEvent.other_counterparties || [];
-                                const txt = list
-                                  .map((c) => c?.name)
-                                  .filter(Boolean)
-                                  .join(", ");
-                                return txt || "N/A";
+                                if (list.length === 0) return "N/A";
+                                return (
+                                  <>
+                                    {list.map((c, idx) => {
+                                      const target =
+                                        c.page_type === "investor"
+                                          ? `/investors/${c.id}`
+                                          : `/company/${c.id}`;
+                                      return (
+                                        <span key={`${c.id}-${idx}`}>
+                                          <a
+                                            href={target}
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              router.replace(target);
+                                            }}
+                                            style={{
+                                              color: "#0075df",
+                                              textDecoration: "none",
+                                              cursor: "pointer",
+                                            }}
+                                          >
+                                            {c.name}
+                                          </a>
+                                          {idx < list.length - 1 && ", "}
+                                        </span>
+                                      );
+                                    })}
+                                  </>
+                                );
                               }
                               const legacy = event as LegacyCorporateEvent;
-                              // Legacy fallback: only include group "0" (counterparties), exclude group "1" (advisors)
-                              const names = (
-                                (legacy["0"] || []).map(
-                                  (item) => item._new_company?.name
-                                ) as Array<string | undefined>
-                              )
-                                .filter(Boolean)
-                                .join(", ");
-                              return names || "N/A";
+                              const items = (legacy["0"] || []).filter(
+                                (it) =>
+                                  it && it._new_company && it._new_company.name
+                              );
+                              if (items.length === 0) return "N/A";
+                              return (
+                                <>
+                                  {items.map((it, idx) => {
+                                    const id = it._new_company?.id;
+                                    const isInvestor = Boolean(
+                                      it._new_company?._is_that_investor
+                                    );
+                                    const href = isInvestor
+                                      ? `/investors/${id}`
+                                      : `/company/${id}`;
+                                    if (!id) {
+                                      return (
+                                        <span
+                                          key={`${it._new_company?.name}-${idx}`}
+                                        >
+                                          {it._new_company?.name}
+                                          {idx < items.length - 1 && ", "}
+                                        </span>
+                                      );
+                                    }
+                                    return (
+                                      <span key={`${id}-${idx}`}>
+                                        <a
+                                          href={href}
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            router.replace(href);
+                                          }}
+                                          style={{
+                                            color: "#0075df",
+                                            textDecoration: "none",
+                                            cursor: "pointer",
+                                          }}
+                                        >
+                                          {it._new_company!.name}
+                                        </a>
+                                        {idx < items.length - 1 && ", "}
+                                      </span>
+                                    );
+                                  })}
+                                </>
+                              );
                             })()}
                           </td>
                           {/* Investment */}
