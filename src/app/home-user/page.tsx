@@ -81,6 +81,10 @@ interface InsightArticle {
   Strapline?: string;
   Publication_Date?: string;
   created_at?: number;
+  // Content type fields may arrive in different shapes/keys
+  Content_Type?: string;
+  content_type?: string;
+  Content?: { Content_type?: string; Content_Type?: string };
   keywords?: string[];
   related_documents?: Array<{
     url: string;
@@ -1054,6 +1058,22 @@ export default function HomeUserPage() {
                       >
                         {article.Headline}
                       </a>
+                      {(() => {
+                        const ct = (
+                          article.Content_Type ||
+                          article.content_type ||
+                          article.Content?.Content_type ||
+                          article.Content?.Content_Type ||
+                          ""
+                        ).trim();
+                        return ct ? (
+                          <div className="mb-1">
+                            <span className="inline-block px-2 py-0.5 text-[10px] font-medium rounded bg-blue-100 text-blue-800">
+                              {ct}
+                            </span>
+                          </div>
+                        ) : null;
+                      })()}
                       {article.Strapline && (
                         <p className="mb-1 text-xs text-gray-600">
                           {article.Strapline.substring(0, 150)}
