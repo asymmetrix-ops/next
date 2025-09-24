@@ -578,7 +578,7 @@ const CorporateEventDetail = ({
                 </span>
               </div>
               <div className="info-item">
-                <span className="info-label">Enterprise Source:</span>
+                <span className="info-label">EV Source:</span>
                 {event?.ev_data?.ev_source ? (
                   <a
                     href={event.ev_data.ev_source}
