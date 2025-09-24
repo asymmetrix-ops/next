@@ -390,7 +390,40 @@ const InvestorDetailPage = () => {
         throw new Error(`API request failed: ${response.statusText}`);
       }
 
-      const data: InvestorData = await response.json();
+      const raw = await response.json();
+
+      // Normalize Invested_DA_sectors: support both legacy array and new investor_snapshot string
+      let normalizedSectors: FocusSector[] = Array.isArray(
+        raw?.Invested_DA_sectors
+      )
+        ? raw.Invested_DA_sectors
+        : [];
+
+      try {
+        if (
+          (!normalizedSectors || normalizedSectors.length === 0) &&
+          raw?.Invested_DA_sectors?.da_sectors?.length > 0
+        ) {
+          const snapshotStr =
+            raw.Invested_DA_sectors.da_sectors[0]?.investor_snapshot;
+          if (typeof snapshotStr === "string" && snapshotStr.length > 0) {
+            const snapshot = JSON.parse(snapshotStr);
+            if (Array.isArray(snapshot?.Invested_DA_sectors)) {
+              normalizedSectors = snapshot.Invested_DA_sectors;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(
+          "Failed to parse investor_snapshot for Invested_DA_sectors",
+          e
+        );
+      }
+
+      const data: InvestorData = {
+        ...raw,
+        Invested_DA_sectors: normalizedSectors || [],
+      };
       setInvestorData(data);
     } catch (err) {
       setError(
