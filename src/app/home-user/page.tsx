@@ -915,11 +915,39 @@ export default function HomeUserPage() {
                                   /^amount:\s*/i,
                                   ""
                                 );
+                                // Format amount as CURR before number, no space (e.g., USD1900)
+                                const formatAmount = (
+                                  value: string
+                                ): string => {
+                                  const v = (value || "").trim();
+                                  if (!v) return "";
+                                  const m1 = v.match(
+                                    /^(?:Currency:)?\s*([A-Z]{3})\s*([0-9]+(?:[.,][0-9]+)?)/i
+                                  ); // USD 1900
+                                  if (m1)
+                                    return `${m1[1].toUpperCase()}${m1[2]}`;
+                                  const m2 = v.match(
+                                    /^([0-9]+(?:[.,][0-9]+)?)\s*([A-Z]{3})$/i
+                                  ); // 1900 USD
+                                  if (m2)
+                                    return `${m2[2].toUpperCase()}${m2[1]}`;
+                                  const m3 = v.match(/^([A-Z]{3})([0-9].*)$/i); // USD1900
+                                  if (m3)
+                                    return `${m3[1].toUpperCase()}${m3[2]}`;
+                                  return v;
+                                };
+                                const amountFromDetails =
+                                  formatAmount(cleanedAmount);
                                 const amount =
-                                  cleanedAmount ||
+                                  amountFromDetails ||
                                   (event.investment_data?.investment_amount_m &&
                                   event.investment_data?.currrency?.Currency
-                                    ? `${event.investment_data.investment_amount_m} ${event.investment_data.currrency.Currency}`
+                                    ? `${String(
+                                        event.investment_data.currrency.Currency
+                                      )}${String(
+                                        event.investment_data
+                                          .investment_amount_m
+                                      )}`
                                     : "");
                                 const valuation =
                                   event.ev_data?.enterprise_value_m &&
@@ -935,7 +963,7 @@ export default function HomeUserPage() {
                                     )}
                                     {amount && (
                                       <div className="text-xs text-gray-500">
-                                        <strong>Amount:</strong> {amount}
+                                        <strong>Amount (m):</strong> {amount}
                                       </div>
                                     )}
                                     {valuation && (
