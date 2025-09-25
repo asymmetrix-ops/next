@@ -645,13 +645,19 @@ const CorporateEventsTable = ({
                     const nc = counterparty._new_company;
                     const name = nc.name;
                     // Prefer backend-provided dynamic URL when available
-                    const url =
-                      nc._url ||
-                      (nc._is_that_investor
-                        ? `/investors/${counterparty.new_company_counterparty}`
-                        : nc._is_that_data_analytic_company
-                        ? `/company/${counterparty.new_company_counterparty}`
-                        : "");
+                    // Build URL deterministically to avoid wrong paths coming from backend `_url`
+                    let url = "";
+                    const cpId =
+                      (counterparty as { new_company_counterparty?: number })
+                        .new_company_counterparty || nc.id;
+                    if (nc._is_that_investor) {
+                      url = `/investors/${cpId}`; // ensure plural `investors`
+                    } else if (nc._is_that_data_analytic_company) {
+                      url = `/company/${cpId}`;
+                    } else if (typeof nc._url === "string" && nc._url) {
+                      // Fallback: normalize any singular path variants
+                      url = nc._url.replace(/\/(?:investor)\//, "/investors/");
+                    }
 
                     return (
                       <span key={subIndex}>
