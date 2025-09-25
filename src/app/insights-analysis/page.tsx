@@ -121,7 +121,13 @@ const generatePaginationButtons = (
     <button
       key="prev"
       className="pagination-button"
-      onClick={() => handlePageChange(currentPage - 1)}
+      onClick={() =>
+        handlePageChange(
+          typeof pagination.prevPage === "number"
+            ? pagination.prevPage
+            : currentPage - 1
+        )
+      }
       disabled={!pagination.prevPage}
     >
       &lt;
@@ -236,7 +242,13 @@ const generatePaginationButtons = (
     <button
       key="next"
       className="pagination-button"
-      onClick={() => handlePageChange(currentPage + 1)}
+      onClick={() =>
+        handlePageChange(
+          typeof pagination.nextPage === "number"
+            ? pagination.nextPage
+            : currentPage + 1
+        )
+      }
       disabled={!pagination.nextPage}
     >
       &gt;
@@ -380,7 +392,7 @@ const InsightsAnalysisPage = () => {
     Provinces: [],
     Cities: [],
     Offset: 1,
-    Per_page: 50,
+    Per_page: 10,
   });
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -394,7 +406,7 @@ const InsightsAnalysisPage = () => {
     nextPage: null as number | null,
     prevPage: null as number | null,
     offset: 0,
-    perPage: 50,
+    perPage: 10,
     pageTotal: 0,
   });
   const [loading, setLoading] = useState(false);
@@ -875,33 +887,6 @@ const InsightsAnalysisPage = () => {
 
       {/* Insights Analysis Section */}
       <div className="insights-analysis-section">
-        {/* Statistics Block */}
-        {pagination.itemsReceived > 0 && (
-          <div className="insights-analysis-stats">
-            <h2 className="stats-title">Insights & Analysis</h2>
-            <div className="stats-grid">
-              <div className="stats-item">
-                <span className="stats-label">Total Articles:</span>
-                <span className="stats-value">
-                  {pagination.itemsReceived?.toLocaleString() || "0"}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">Current Page:</span>
-                <span className="stats-value">
-                  {pagination.curPage?.toLocaleString() || "0"}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">Total Pages:</span>
-                <span className="stats-value">
-                  {pagination.pageTotal?.toLocaleString() || "0"}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Results Cards */}
         {articles.length > 0 && (
           <InsightsAnalysisCards articles={articles} loading={loading} />
