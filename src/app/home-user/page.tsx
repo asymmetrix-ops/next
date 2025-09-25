@@ -907,8 +907,16 @@ export default function HomeUserPage() {
                                 }>(ev.deal_details);
                                 const dealType =
                                   details?.Type || event.deal_type;
+                                // Normalize amount to avoid duplicated label like "Amount: Amount: 1900 USD"
+                                const rawAmount = (details?.Amount || "")
+                                  .toString()
+                                  .trim();
+                                const cleanedAmount = rawAmount.replace(
+                                  /^amount:\s*/i,
+                                  ""
+                                );
                                 const amount =
-                                  details?.Amount ||
+                                  cleanedAmount ||
                                   (event.investment_data?.investment_amount_m &&
                                   event.investment_data?.currrency?.Currency
                                     ? `${event.investment_data.investment_amount_m} ${event.investment_data.currrency.Currency}`
