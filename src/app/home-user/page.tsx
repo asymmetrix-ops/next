@@ -136,19 +136,7 @@ export default function HomeUserPage() {
     return Number.isFinite(n) && n > 0 ? n : undefined;
   };
 
-  // Parse strings like "{A,\"B\",C}" into ["A","B","C"]
-  const parseBraceList = (value?: unknown): string[] => {
-    if (!value || typeof value !== "string") return [];
-    const trimmed = value.trim();
-    if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return [];
-    const inner = trimmed.slice(1, -1);
-    if (!inner) return [];
-    return inner
-      .split(",")
-      .map((s) => s.trim())
-      .map((s) => (s.startsWith('"') && s.endsWith('"') ? s.slice(1, -1) : s))
-      .filter(Boolean);
-  };
+  // (removed unused parseBraceList helper)
 
   // Safe JSON.parse for stringified objects like '{"Type":"Investment"}'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -159,6 +147,54 @@ export default function HomeUserPage() {
     } catch {
       return null;
     }
+  };
+
+  // Normalize entity link based on new API flags (route/path/entity_type)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const normalizeEntityHref = (entity: any | null | undefined): string => {
+    if (!entity || typeof entity !== "object") return "";
+    // Prefer backend path when it matches our app routes
+    if (typeof entity.path === "string" && entity.path) {
+      let p = entity.path.trim();
+      // Normalize singular to plural for investors
+      p = p.replace(/^\/investor\//, "/investors/");
+      if (/^\/(company|investors)\//.test(p)) return p;
+    }
+    const id = Number(entity.id);
+    const route = String(
+      (entity.route || entity.entity_type || "company") as string
+    )
+      .toLowerCase()
+      .trim();
+    if (Number.isFinite(id) && id > 0) {
+      if (route === "investor" || route === "investors")
+        return `/investors/${id}`;
+      return `/company/${id}`;
+    }
+    return "";
+  };
+
+  type EntityRef = {
+    id?: number;
+    name?: string;
+    path?: string;
+    route?: string;
+    entity_type?: string;
+  };
+
+  // Parse list of entities from new API fields which may be JSON strings or arrays
+  const parseEntityArray = <T = unknown,>(value?: unknown): T[] => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value as unknown[] as T[];
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? (parsed as T[]) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
   };
 
   // Helper function to normalize primary sector(s) from either old or new shape
@@ -735,8 +771,37 @@ export default function HomeUserPage() {
                             </div>
                             <div>
                               <strong>Target:</strong>{" "}
-                              {event.Target_Counterparty?.new_company?.name ||
-                                "Not Available"}
+                              {(() => {
+                                const tgtVal = (
+                                  event as unknown as {
+                                    target?: unknown;
+                                  }
+                                ).target;
+                                const tgtObj =
+                                  (typeof tgtVal === "string"
+                                    ? safeParseJson<EntityRef>(tgtVal)
+                                    : typeof tgtVal === "object"
+                                    ? (tgtVal as EntityRef)
+                                    : null) || null;
+                                const name =
+                                  tgtObj?.name ||
+                                  event.Target_Counterparty?.new_company?.name;
+                                const href = tgtObj
+                                  ? normalizeEntityHref(tgtObj)
+                                  : "";
+                                if (!name) return <span>Not Available</span>;
+                                return href ? (
+                                  <a
+                                    href={href}
+                                    className="text-blue-600 underline hover:text-blue-800"
+                                    style={{ fontWeight: "500" }}
+                                  >
+                                    {name}
+                                  </a>
+                                ) : (
+                                  <span>{name}</span>
+                                );
+                              })()}
                             </div>
                             <div>
                               <strong>Type:</strong>{" "}
@@ -837,54 +902,125 @@ export default function HomeUserPage() {
                                 // Prefer new flat API fields when present
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 const ev: any = event as any;
-                                const targetName =
-                                  (typeof ev.target === "string" &&
-                                    ev.target) ||
-                                  event.Target_Counterparty?.new_company?.name;
 
-                                const buyersFromNew = parseBraceList(
+                                // Target
+                                // `target` may be a JSON string of an object with {id,name,path,route,entity_type}
+                                const targetObj = (safeParseJson<EntityRef>(
+                                  ev.target
+                                ) ||
+                                  (typeof ev.target === "object"
+                                    ? (ev.target as Record<string, unknown>)
+                                    : null)) as EntityRef | null;
+                                const targetLegacyName =
+                                  event.Target_Counterparty?.new_company?.name;
+                                const targetName =
+                                  targetObj?.name || targetLegacyName;
+                                const targetHref = targetObj
+                                  ? normalizeEntityHref(targetObj)
+                                  : "";
+
+                                // Buyers / Investors
+                                const buyersNew = parseEntityArray<EntityRef>(
                                   ev.buyers_investors
                                 );
-                                const sellersFromNew = parseBraceList(ev.sales);
-
-                                // Legacy fallbacks
                                 const buyersFromLegacy = (
                                   event.Other_Counterparties_of_Corporate_Event ||
                                   []
                                 )
                                   .map((cp) => cp._new_company?.name)
                                   .filter(Boolean);
+
+                                // Sellers
+                                const sellersNew = parseEntityArray<EntityRef>(
+                                  ev.sales
+                                );
+
+                                // Advisors (legacy only on dashboard feed)
                                 const advisors = (
                                   event.Advisors_of_Corporate_Event || []
                                 )
                                   .map((a) => a._new_company?.name)
                                   .filter(Boolean);
 
-                                const buyers =
-                                  buyersFromNew.length > 0
-                                    ? buyersFromNew
-                                    : buyersFromLegacy;
-                                const sellers = sellersFromNew;
-
                                 return (
                                   <div className="space-y-1">
                                     {targetName && (
                                       <div className="text-xs text-gray-500">
-                                        <strong>Target:</strong> {targetName}
+                                        <strong>Target:</strong>{" "}
+                                        {targetHref ? (
+                                          <a
+                                            href={targetHref}
+                                            className="text-blue-600 underline hover:text-blue-800"
+                                            style={{ fontWeight: "500" }}
+                                          >
+                                            {targetName}
+                                          </a>
+                                        ) : (
+                                          <span>{targetName}</span>
+                                        )}
                                       </div>
                                     )}
-                                    {buyers.length > 0 && (
+
+                                    {(buyersNew.length > 0 ||
+                                      buyersFromLegacy.length > 0) && (
                                       <div className="text-xs text-gray-500">
                                         <strong>Buyer(s) / Investor(s):</strong>{" "}
-                                        {buyers.join(", ")}
+                                        {buyersNew.length > 0
+                                          ? buyersNew.map((b, i) => {
+                                              const href =
+                                                normalizeEntityHref(b);
+                                              const name = b?.name || "Unknown";
+                                              return (
+                                                <span key={`buyer-${i}`}>
+                                                  {href ? (
+                                                    <a
+                                                      href={href}
+                                                      className="text-blue-600 underline hover:text-blue-800"
+                                                      style={{
+                                                        fontWeight: "500",
+                                                      }}
+                                                    >
+                                                      {name}
+                                                    </a>
+                                                  ) : (
+                                                    <span>{name}</span>
+                                                  )}
+                                                  {i < buyersNew.length - 1 &&
+                                                    ", "}
+                                                </span>
+                                              );
+                                            })
+                                          : buyersFromLegacy.join(", ")}
                                       </div>
                                     )}
-                                    {sellers.length > 0 && (
+
+                                    {sellersNew.length > 0 && (
                                       <div className="text-xs text-gray-500">
                                         <strong>Seller(s):</strong>{" "}
-                                        {sellers.join(", ")}
+                                        {sellersNew.map((s, i) => {
+                                          const href = normalizeEntityHref(s);
+                                          const name = s?.name || "Unknown";
+                                          return (
+                                            <span key={`seller-${i}`}>
+                                              {href ? (
+                                                <a
+                                                  href={href}
+                                                  className="text-blue-600 underline hover:text-blue-800"
+                                                  style={{ fontWeight: "500" }}
+                                                >
+                                                  {name}
+                                                </a>
+                                              ) : (
+                                                <span>{name}</span>
+                                              )}
+                                              {i < sellersNew.length - 1 &&
+                                                ", "}
+                                            </span>
+                                          );
+                                        })}
                                       </div>
                                     )}
+
                                     {advisors.length > 0 && (
                                       <div className="text-xs text-gray-500">
                                         <strong>Advisor(s):</strong>{" "}
