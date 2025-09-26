@@ -150,28 +150,44 @@ export default function HomeUserPage() {
   };
 
   // Normalize entity link based on new API flags (route/path/entity_type)
+  // Prefer ID-based routes; fall back to path when ID or route is missing/unknown
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const normalizeEntityHref = (entity: any | null | undefined): string => {
     if (!entity || typeof entity !== "object") return "";
-    // Prefer backend path when it matches our app routes
-    if (typeof entity.path === "string" && entity.path) {
-      let p = entity.path.trim();
-      // Normalize singular to plural for investors
-      p = p.replace(/^\/investor\//, "/investors/");
-      if (/^\/(company|investors)\//.test(p)) return p;
-    }
-    const id = Number(entity.id);
+    const id = Number((entity as { id?: unknown }).id);
     const route = String(
-      (entity.route || entity.entity_type || "company") as string
+      ((entity as { route?: unknown }).route ||
+        (entity as { entity_type?: unknown }).entity_type ||
+        "company") as string
     )
       .toLowerCase()
       .trim();
     if (Number.isFinite(id) && id > 0) {
+      // Our app uses plural investors route
       if (route === "investor" || route === "investors")
         return `/investors/${id}`;
       return `/company/${id}`;
     }
+    // Fallback to provided path (normalize investor singular to plural)
+    const rawPath = String((entity as { path?: unknown }).path || "").trim();
+    if (rawPath) {
+      return rawPath.replace(/^\/investor\//, "/investors/");
+    }
     return "";
+  };
+
+  const dedupeById = (entities: EntityRef[]): EntityRef[] => {
+    const seenIds = new Set<number>();
+    const result: EntityRef[] = [];
+    for (const e of entities) {
+      const id = Number(e?.id);
+      if (Number.isFinite(id) && id > 0) {
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
+      }
+      result.push(e);
+    }
+    return result;
   };
 
   type EntityRef = {
@@ -966,30 +982,32 @@ export default function HomeUserPage() {
                                       <div className="text-xs text-gray-500">
                                         <strong>Buyer(s) / Investor(s):</strong>{" "}
                                         {buyersNew.length > 0
-                                          ? buyersNew.map((b, i) => {
-                                              const href =
-                                                normalizeEntityHref(b);
-                                              const name = b?.name || "Unknown";
-                                              return (
-                                                <span key={`buyer-${i}`}>
-                                                  {href ? (
-                                                    <a
-                                                      href={href}
-                                                      className="text-blue-600 underline hover:text-blue-800"
-                                                      style={{
-                                                        fontWeight: "500",
-                                                      }}
-                                                    >
-                                                      {name}
-                                                    </a>
-                                                  ) : (
-                                                    <span>{name}</span>
-                                                  )}
-                                                  {i < buyersNew.length - 1 &&
-                                                    ", "}
-                                                </span>
-                                              );
-                                            })
+                                          ? dedupeById(buyersNew).map(
+                                              (b, i, arr) => {
+                                                const href =
+                                                  normalizeEntityHref(b);
+                                                const name =
+                                                  b?.name || "Unknown";
+                                                return (
+                                                  <span key={`buyer-${i}`}>
+                                                    {href ? (
+                                                      <a
+                                                        href={href}
+                                                        className="text-blue-600 underline hover:text-blue-800"
+                                                        style={{
+                                                          fontWeight: "500",
+                                                        }}
+                                                      >
+                                                        {name}
+                                                      </a>
+                                                    ) : (
+                                                      <span>{name}</span>
+                                                    )}
+                                                    {i < arr.length - 1 && ", "}
+                                                  </span>
+                                                );
+                                              }
+                                            )
                                           : buyersFromLegacy.join(", ")}
                                       </div>
                                     )}
@@ -997,27 +1015,30 @@ export default function HomeUserPage() {
                                     {sellersNew.length > 0 && (
                                       <div className="text-xs text-gray-500">
                                         <strong>Seller(s):</strong>{" "}
-                                        {sellersNew.map((s, i) => {
-                                          const href = normalizeEntityHref(s);
-                                          const name = s?.name || "Unknown";
-                                          return (
-                                            <span key={`seller-${i}`}>
-                                              {href ? (
-                                                <a
-                                                  href={href}
-                                                  className="text-blue-600 underline hover:text-blue-800"
-                                                  style={{ fontWeight: "500" }}
-                                                >
-                                                  {name}
-                                                </a>
-                                              ) : (
-                                                <span>{name}</span>
-                                              )}
-                                              {i < sellersNew.length - 1 &&
-                                                ", "}
-                                            </span>
-                                          );
-                                        })}
+                                        {dedupeById(sellersNew).map(
+                                          (s, i, arr) => {
+                                            const href = normalizeEntityHref(s);
+                                            const name = s?.name || "Unknown";
+                                            return (
+                                              <span key={`seller-${i}`}>
+                                                {href ? (
+                                                  <a
+                                                    href={href}
+                                                    className="text-blue-600 underline hover:text-blue-800"
+                                                    style={{
+                                                      fontWeight: "500",
+                                                    }}
+                                                  >
+                                                    {name}
+                                                  </a>
+                                                ) : (
+                                                  <span>{name}</span>
+                                                )}
+                                                {i < arr.length - 1 && ", "}
+                                              </span>
+                                            );
+                                          }
+                                        )}
                                       </div>
                                     )}
 
