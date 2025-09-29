@@ -647,7 +647,10 @@ const CorporateEventsTable = ({
                 <td>{formatDate(event.announcement_date)}</td>
                 <td>
                   {targetCounterpartyId ? (
-                    <a href={`/company/${targetCounterpartyId}`}>
+                    <a
+                      href={`/company/${targetCounterpartyId}`}
+                      className="link-blue"
+                    >
                       {target?.name || "Not Available"}
                     </a>
                   ) : (
