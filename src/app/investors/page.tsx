@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SearchableMultiSelect from "@/components/ui/SearchableMultiSelect";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
 
 // Types for API integration
@@ -60,6 +61,8 @@ interface InvestorsFilters {
   Countries: string[];
   Provinces: string[];
   Cities: string[];
+  Continental_Region?: string[];
+  geographical_sub_region?: string[];
 }
 
 // API data interfaces (same as companies page)
@@ -136,6 +139,8 @@ const InvestorsPage = () => {
 
   // State for API data (same as companies page)
   const [countries, setCountries] = useState<Country[]>([]);
+  const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
+  const [subRegions, setSubRegions] = useState<string[]>([]);
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
@@ -192,6 +197,10 @@ const InvestorsPage = () => {
 
   // State for each filter (arrays for multi-select)
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const [selectedContinentalRegions, setSelectedContinentalRegions] = useState<
+    string[]
+  >([]);
+  const [selectedSubRegions, setSelectedSubRegions] = useState<string[]>([]);
   const [selectedProvinces, setSelectedProvinces] = useState<string[]>([]);
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
   const [selectedPrimarySectors, setSelectedPrimarySectors] = useState<
@@ -216,6 +225,24 @@ const InvestorsPage = () => {
       console.error("Error fetching countries:", error);
     } finally {
       setLoadingCountries(false);
+    }
+  };
+
+  const fetchContinentalRegions = async () => {
+    try {
+      const list = await locationsService.getContinentalRegions();
+      setContinentalRegions(list);
+    } catch (error) {
+      console.error("Error fetching continental regions:", error);
+    }
+  };
+
+  const fetchSubRegions = async () => {
+    try {
+      const list = await locationsService.getSubRegions();
+      setSubRegions(list);
+    } catch (error) {
+      console.error("Error fetching sub-regions:", error);
     }
   };
 
@@ -381,6 +408,20 @@ const InvestorsPage = () => {
         });
       }
 
+      // Add new region text filters (same param names used on companies page export/search)
+      if ((filters.Continental_Region || []).length > 0) {
+        params.append(
+          "Continental_Region",
+          (filters.Continental_Region || []).join(",")
+        );
+      }
+      if ((filters.geographical_sub_region || []).length > 0) {
+        params.append(
+          "geographical_sub_region",
+          (filters.geographical_sub_region || []).join(",")
+        );
+      }
+
       // Add sector filters as arrays
       if (filters.Primary_Sectors.length > 0) {
         filters.Primary_Sectors.forEach((sector) => {
@@ -516,6 +557,8 @@ const InvestorsPage = () => {
     fetchCountries();
     fetchPrimarySectors();
     fetchInvestorTypes();
+    fetchContinentalRegions();
+    fetchSubRegions();
     // Initial fetch of all investors
     fetchInvestors(filters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -544,6 +587,8 @@ const InvestorsPage = () => {
     const updatedFilters = {
       ...filters,
       Search_Query: searchTerm,
+      Continental_Region: selectedContinentalRegions,
+      geographical_sub_region: selectedSubRegions,
       Countries: selectedCountries,
       Provinces: selectedProvinces,
       Cities: selectedCities,
@@ -557,6 +602,17 @@ const InvestorsPage = () => {
     setFilters(updatedFilters);
     fetchInvestors(updatedFilters);
   };
+
+  // Auto-apply new location region filters as on Companies page
+  useEffect(() => {
+    if (
+      selectedContinentalRegions.length > 0 ||
+      selectedSubRegions.length > 0
+    ) {
+      handleSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedContinentalRegions, selectedSubRegions]);
 
   // Auto-refresh results when Investor Types change
   useEffect(() => {
@@ -580,6 +636,8 @@ const InvestorsPage = () => {
   // Handle filter reset
   const handleResetFilters = () => {
     setSelectedCountries([]);
+    setSelectedContinentalRegions([]);
+    setSelectedSubRegions([]);
     setSelectedProvinces([]);
     setSelectedCities([]);
     setSelectedPrimarySectors([]);
@@ -602,6 +660,8 @@ const InvestorsPage = () => {
       Countries: [],
       Provinces: [],
       Cities: [],
+      Continental_Region: [],
+      geographical_sub_region: [],
     };
     setFilters(resetFilters);
     fetchInvestors(resetFilters);
@@ -1616,6 +1676,141 @@ const InvestorsPage = () => {
                   <h3 className="filters-sub-heading" style={styles.subHeading}>
                     HQ of Portfolio companies
                   </h3>
+                  <span className="filters-label" style={styles.label}>
+                    By Continental Region
+                  </span>
+                  <SearchableSelect
+                    options={continentalRegions.map((r) => ({
+                      value: r,
+                      label: r,
+                    }))}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedContinentalRegions.includes(value)
+                      ) {
+                        setSelectedContinentalRegions([
+                          ...selectedContinentalRegions,
+                          value,
+                        ]);
+                      }
+                    }}
+                    placeholder={"Select Continental Region"}
+                    style={styles.select}
+                  />
+                  {selectedContinentalRegions.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedContinentalRegions.map((r) => (
+                        <span
+                          key={r}
+                          style={{
+                            backgroundColor: "#e3f2fd",
+                            color: "#1976d2",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {r}
+                          <button
+                            onClick={() =>
+                              setSelectedContinentalRegions(
+                                selectedContinentalRegions.filter(
+                                  (x) => x !== r
+                                )
+                              )
+                            }
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#1976d2",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <span className="filters-label" style={styles.label}>
+                    By Sub-Region
+                  </span>
+                  <SearchableSelect
+                    options={subRegions.map((r) => ({ value: r, label: r }))}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedSubRegions.includes(value)
+                      ) {
+                        setSelectedSubRegions([...selectedSubRegions, value]);
+                      }
+                    }}
+                    placeholder={"Select Sub-Region"}
+                    style={styles.select}
+                  />
+                  {selectedSubRegions.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedSubRegions.map((r) => (
+                        <span
+                          key={r}
+                          style={{
+                            backgroundColor: "#e3f2fd",
+                            color: "#1976d2",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {r}
+                          <button
+                            onClick={() =>
+                              setSelectedSubRegions(
+                                selectedSubRegions.filter((x) => x !== r)
+                              )
+                            }
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#1976d2",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <span className="filters-label" style={styles.label}>
                     By Country
                   </span>
