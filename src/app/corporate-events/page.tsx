@@ -399,6 +399,12 @@ const CorporateEventsTable = ({
   const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<
     Record<string, string>
   >({});
+  const [primaryNameToId, setPrimaryNameToId] = useState<
+    Record<string, number>
+  >({});
+  const [secondaryNameToId, setSecondaryNameToId] = useState<
+    Record<string, number>
+  >({});
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -407,23 +413,60 @@ const CorporateEventsTable = ({
           await locationsService.getAllSecondarySectorsWithPrimary();
         if (!cancelled && Array.isArray(allSecondary)) {
           const map: Record<string, string> = {};
+          const secIdMap: Record<string, number> = {};
+          const primIdMap: Record<string, number> = {};
           for (const sec of allSecondary) {
             const secName = (sec as { sector_name?: string }).sector_name;
+            const secId = (sec as { id?: number }).id;
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const primary = (sec as any)?.related_primary_sector as
               | { sector_name?: string }
               | undefined;
             const primaryName = primary?.sector_name;
+            const primaryId = (primary as { id?: number } | undefined)?.id;
             if (secName && primaryName)
               map[normalizeSectorName(secName)] = primaryName;
+            if (secName && typeof secId === "number")
+              secIdMap[normalizeSectorName(secName)] = secId;
+            if (primaryName && typeof primaryId === "number")
+              primIdMap[normalizeSectorName(primaryName)] = primaryId;
           }
           setSecondaryToPrimaryMap(map);
+          setSecondaryNameToId(secIdMap);
+          setPrimaryNameToId((prev) => ({ ...prev, ...primIdMap }));
         }
       } catch (e) {
         console.warn("[Corporate Events] Failed to load sectors mapping", e);
       }
     };
     load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Load full list of primary sectors for robust name->id linking
+  useEffect(() => {
+    let cancelled = false;
+    const loadPrimary = async () => {
+      try {
+        const primaries = await locationsService.getPrimarySectors();
+        if (!cancelled && Array.isArray(primaries)) {
+          const map: Record<string, number> = {};
+          for (const p of primaries) {
+            const name = (p as { sector_name?: string }).sector_name;
+            const id = (p as { id?: number }).id;
+            if (name && typeof id === "number") {
+              map[normalizeSectorName(name)] = id;
+            }
+          }
+          setPrimaryNameToId((prev) => ({ ...map, ...prev }));
+        }
+      } catch {
+        // ignore, linking will gracefully degrade
+      }
+    };
+    loadPrimary();
     return () => {
       cancelled = true;
     };
@@ -612,10 +655,79 @@ const CorporateEventsTable = ({
                   )}
                 </td>
                 <td>{target?.country || "Not Available"}</td>
-                {/* Primary sector: derive from new sectors shape when available, else map from secondary */}
-                <td>{derivePrimaryFromCompany(target)}</td>
-                {/* Secondary sectors: ensure we only display non-primary items when using new shape */}
-                <td>{deriveSecondaryFromCompany(target)}</td>
+                {/* Primary sector: link to sector page when id is known */}
+                <td>
+                  {(() => {
+                    const primaryText = derivePrimaryFromCompany(target);
+                    if (!primaryText || /not available/i.test(primaryText)) {
+                      return primaryText || "Not available";
+                    }
+                    const names = primaryText
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+                    if (names.length === 0) return primaryText;
+                    const nodes: React.ReactNode[] = [];
+                    names.forEach((name, idx) => {
+                      const id = primaryNameToId[normalizeSectorName(name)];
+                      if (typeof id === "number") {
+                        nodes.push(
+                          <a
+                            key={`${name}-${id}`}
+                            href={`/sector/${id}`}
+                            className="link-blue"
+                          >
+                            {name}
+                          </a>
+                        );
+                      } else {
+                        nodes.push(<span key={`${name}-na`}>{name}</span>);
+                      }
+                      if (idx < names.length - 1) {
+                        nodes.push(<span key={`sep-${idx}`}>, </span>);
+                      }
+                    });
+                    return nodes;
+                  })()}
+                </td>
+                {/* Secondary sectors: link to sub-sector pages when id is known */}
+                <td>
+                  {(() => {
+                    const secondaryText = deriveSecondaryFromCompany(target);
+                    if (
+                      !secondaryText ||
+                      /not available/i.test(secondaryText)
+                    ) {
+                      return secondaryText || "Not available";
+                    }
+                    const names = secondaryText
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+                    if (names.length === 0) return secondaryText;
+                    const nodes: React.ReactNode[] = [];
+                    names.forEach((name, idx) => {
+                      const id = secondaryNameToId[normalizeSectorName(name)];
+                      if (typeof id === "number") {
+                        nodes.push(
+                          <a
+                            key={`${name}-${id}`}
+                            href={`/sector/${id}`}
+                            className="link-blue"
+                          >
+                            {name}
+                          </a>
+                        );
+                      } else {
+                        nodes.push(<span key={`${name}-na`}>{name}</span>);
+                      }
+                      if (idx < names.length - 1) {
+                        nodes.push(<span key={`sep2-${idx}`}>, </span>);
+                      }
+                    });
+                    return nodes;
+                  })()}
+                </td>
                 <td>{event.deal_type || "Not Available"}</td>
                 <td>
                   {formatCurrency(
