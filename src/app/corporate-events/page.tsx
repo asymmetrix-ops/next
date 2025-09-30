@@ -354,6 +354,9 @@ const CorporateEventsTable = ({
             <div className="corporate-event-card-date">
               {formatDate(event.announcement_date || "")}
             </div>
+            <div className="corporate-event-card-date">
+              Target HQ: {target?.country || "Not available"}
+            </div>
           </div>
         </div>
         <div className="corporate-event-card-info">
@@ -374,9 +377,11 @@ const CorporateEventsTable = ({
           </div>
           <div className="corporate-event-card-info-item">
             <span className="corporate-event-card-info-label">Type:</span>
-            <span className="corporate-event-card-info-value">
-              {event.deal_type || "N/A"}
-            </span>
+            {event.deal_type ? (
+              <span className="pill pill-blue">{event.deal_type}</span>
+            ) : (
+              <span className="corporate-event-card-info-value">N/A</span>
+            )}
           </div>
           <div className="corporate-event-card-info-item corporate-event-card-info-full-width">
             <span className="corporate-event-card-info-label">Investment:</span>
@@ -599,21 +604,15 @@ const CorporateEventsTable = ({
         ))}
       </div>
 
-      {/* Desktop Table */}
+      {/* Desktop Table - mirror Home dashboard layout, with dedicated Advisors column */}
       <table className="corporate-event-table">
         <thead>
           <tr>
-            <th>Description</th>
-            <th>Date Announced</th>
-            <th>Target Name</th>
-            <th>Target Country</th>
-            <th>Primary Sector</th>
-            <th>Secondary Sectors</th>
-            <th>Type</th>
-            <th>Investment</th>
-            <th>Enterprise Value</th>
-            <th>Other Counterparties</th>
+            <th>Event Details</th>
+            <th>Parties</th>
+            <th>Deal Details</th>
             <th>Advisors</th>
+            <th>Sectors</th>
           </tr>
         </thead>
         <tbody>
@@ -621,197 +620,234 @@ const CorporateEventsTable = ({
             const target = event.target_counterparty?.new_company;
             const targetCounterpartyId =
               event.target_counterparty?.new_company_counterparty;
+            const targetName = target?.name || "Not Available";
+            const targetHref = targetCounterpartyId
+              ? `/company/${targetCounterpartyId}`
+              : "";
+            const targetCountry = target?.country || "Not Available";
+            const primaryText = derivePrimaryFromCompany(target);
+            const secondaryText = deriveSecondaryFromCompany(target);
             return (
               <tr key={event.id || index}>
+                {/* Event Details */}
                 <td>
-                  <a
-                    href={`/corporate-event/${event.id}`}
-                    className="corporate-event-name"
-                    onClick={(e) => {
-                      if (
-                        e.defaultPrevented ||
-                        e.button !== 0 ||
-                        e.metaKey ||
-                        e.ctrlKey ||
-                        e.shiftKey ||
-                        e.altKey
-                      )
-                        return;
-                      e.preventDefault();
-                      window.location.href = `/corporate-event/${event.id}`;
-                    }}
-                  >
-                    {event.description || "Not Available"}
-                  </a>
-                </td>
-                <td>{formatDate(event.announcement_date)}</td>
-                <td>
-                  {targetCounterpartyId ? (
+                  <div style={{ marginBottom: "6px" }}>
                     <a
-                      href={`/company/${targetCounterpartyId}`}
-                      className="link-blue"
+                      href={`/corporate-event/${event.id}`}
+                      className="corporate-event-name"
+                      onClick={(e) => {
+                        if (
+                          e.defaultPrevented ||
+                          e.button !== 0 ||
+                          e.metaKey ||
+                          e.ctrlKey ||
+                          e.shiftKey ||
+                          e.altKey
+                        )
+                          return;
+                        e.preventDefault();
+                        window.location.href = `/corporate-event/${event.id}`;
+                      }}
                     >
-                      {target?.name || "Not Available"}
+                      {event.description || "Not Available"}
                     </a>
-                  ) : (
-                    <span>{target?.name || "Not Available"}</span>
-                  )}
+                  </div>
+                  <div className="muted-row">
+                    Date: {formatDate(event.announcement_date)}
+                  </div>
+                  <div className="muted-row">Target HQ: {targetCountry}</div>
                 </td>
-                <td>{target?.country || "Not Available"}</td>
-                {/* Primary sector: link to sector page when id is known */}
+                {/* Parties */}
                 <td>
-                  {(() => {
-                    const primaryText = derivePrimaryFromCompany(target);
-                    if (!primaryText || /not available/i.test(primaryText)) {
-                      return primaryText || "Not available";
-                    }
-                    const names = primaryText
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean);
-                    if (names.length === 0) return primaryText;
-                    const nodes: React.ReactNode[] = [];
-                    names.forEach((name, idx) => {
-                      const id = primaryNameToId[normalizeSectorName(name)];
-                      if (typeof id === "number") {
-                        nodes.push(
-                          <a
-                            key={`${name}-${id}`}
-                            href={`/sector/${id}`}
-                            className="link-blue"
-                          >
-                            {name}
-                          </a>
-                        );
-                      } else {
-                        nodes.push(<span key={`${name}-na`}>{name}</span>);
+                  <div className="muted-row">
+                    <strong>Target:</strong>{" "}
+                    {targetHref ? (
+                      <a href={targetHref} className="link-blue">
+                        {targetName}
+                      </a>
+                    ) : (
+                      <span>{targetName}</span>
+                    )}
+                  </div>
+                </td>
+                {/* Deal Details */}
+                <td>
+                  <div className="muted-row">
+                    <strong>Investment Type:</strong>{" "}
+                    {event.deal_type ? (
+                      <span className="pill pill-blue">{event.deal_type}</span>
+                    ) : (
+                      <span>Not Available</span>
+                    )}
+                  </div>
+                  <div className="muted-row">
+                    <strong>Amount (m):</strong>{" "}
+                    {formatCurrency(
+                      event.investment_data?.investment_amount_m,
+                      event.investment_data?.currency?.Currency
+                    )}
+                  </div>
+                  <div className="muted-row">
+                    <strong>EV (m):</strong>{" "}
+                    {formatCurrency(
+                      event.ev_data?.enterprise_value_m,
+                      event.ev_data?.currency?.Currency
+                    )}
+                  </div>
+                </td>
+                {/* Advisors */}
+                <td>
+                  <div className="muted-row">
+                    <strong>Buy-Side:</strong>{" "}
+                    {Array.isArray(event.other_counterparties) &&
+                    event.other_counterparties.length > 0
+                      ? event.other_counterparties.map(
+                          (counterparty, subIndex) => {
+                            if (!counterparty._new_company) {
+                              return (
+                                <span key={subIndex}>
+                                  Not Available
+                                  {subIndex <
+                                    event.other_counterparties!.length - 1 &&
+                                    ", "}
+                                </span>
+                              );
+                            }
+                            const nc = counterparty._new_company;
+                            const name = nc.name;
+                            let url = "";
+                            const cpId =
+                              (
+                                counterparty as {
+                                  new_company_counterparty?: number;
+                                }
+                              ).new_company_counterparty || nc.id;
+                            if (nc._is_that_investor) {
+                              url = `/investors/${cpId}`;
+                            } else if (nc._is_that_data_analytic_company) {
+                              url = `/company/${cpId}`;
+                            } else if (typeof nc._url === "string" && nc._url) {
+                              url = nc._url.replace(
+                                /\/(?:investor)\//,
+                                "/investors/"
+                              );
+                            }
+                            return (
+                              <span key={subIndex}>
+                                {url ? (
+                                  <a href={url} className="link-blue">
+                                    {name}
+                                  </a>
+                                ) : (
+                                  <span style={{ color: "#000" }}>{name}</span>
+                                )}
+                                {subIndex <
+                                  event.other_counterparties!.length - 1 &&
+                                  ", "}
+                              </span>
+                            );
+                          }
+                        )
+                      : "Not Available"}
+                  </div>
+                  <div className="muted-row">
+                    <strong>Sell-Side:</strong>{" "}
+                    {Array.isArray(event.advisors) && event.advisors.length > 0
+                      ? event.advisors.map((advisor, subIndex) => {
+                          if (!advisor._new_company) {
+                            return (
+                              <span key={subIndex}>
+                                Not Available
+                                {subIndex < event.advisors!.length - 1 && ", "}
+                              </span>
+                            );
+                          }
+                          return (
+                            <span key={subIndex}>
+                              <a
+                                href={`/company/${advisor._new_company.id}`}
+                                className="link-blue"
+                              >
+                                {advisor._new_company.name}
+                              </a>
+                              {subIndex < event.advisors!.length - 1 && ", "}
+                            </span>
+                          );
+                        })
+                      : "Not Available"}
+                  </div>
+                </td>
+                {/* Sectors */}
+                <td>
+                  <div className="muted-row">
+                    <strong>Primary:</strong>{" "}
+                    {(() => {
+                      if (!primaryText || /not available/i.test(primaryText)) {
+                        return primaryText || "Not available";
                       }
-                      if (idx < names.length - 1) {
-                        nodes.push(<span key={`sep-${idx}`}>, </span>);
+                      const names = primaryText
+                        .split(",")
+                        .map((s) => s.trim())
+                        .filter(Boolean);
+                      if (names.length === 0) return primaryText;
+                      const nodes: React.ReactNode[] = [];
+                      names.forEach((name, idx) => {
+                        const id = primaryNameToId[normalizeSectorName(name)];
+                        if (typeof id === "number") {
+                          nodes.push(
+                            <a
+                              key={`${name}-${id}`}
+                              href={`/sector/${id}`}
+                              className="link-blue"
+                            >
+                              {name}
+                            </a>
+                          );
+                        } else {
+                          nodes.push(<span key={`${name}-na`}>{name}</span>);
+                        }
+                        if (idx < names.length - 1)
+                          nodes.push(<span key={`sep-${idx}`}>, </span>);
+                      });
+                      return nodes;
+                    })()}
+                  </div>
+                  <div className="muted-row">
+                    <strong>Secondary:</strong>{" "}
+                    {(() => {
+                      if (
+                        !secondaryText ||
+                        /not available/i.test(secondaryText)
+                      ) {
+                        return secondaryText || "Not available";
                       }
-                    });
-                    return nodes;
-                  })()}
-                </td>
-                {/* Secondary sectors: link to sub-sector pages when id is known */}
-                <td>
-                  {(() => {
-                    const secondaryText = deriveSecondaryFromCompany(target);
-                    if (
-                      !secondaryText ||
-                      /not available/i.test(secondaryText)
-                    ) {
-                      return secondaryText || "Not available";
-                    }
-                    const names = secondaryText
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean);
-                    if (names.length === 0) return secondaryText;
-                    const nodes: React.ReactNode[] = [];
-                    names.forEach((name, idx) => {
-                      const id = secondaryNameToId[normalizeSectorName(name)];
-                      if (typeof id === "number") {
-                        nodes.push(
-                          <a
-                            key={`${name}-${id}`}
-                            href={`/sector/${id}`}
-                            className="link-blue"
-                          >
-                            {name}
-                          </a>
-                        );
-                      } else {
-                        nodes.push(<span key={`${name}-na`}>{name}</span>);
-                      }
-                      if (idx < names.length - 1) {
-                        nodes.push(<span key={`sep2-${idx}`}>, </span>);
-                      }
-                    });
-                    return nodes;
-                  })()}
-                </td>
-                <td>{event.deal_type || "Not Available"}</td>
-                <td>
-                  {formatCurrency(
-                    event.investment_data?.investment_amount_m,
-                    event.investment_data?.currency?.Currency
-                  )}
-                </td>
-                <td>
-                  {formatCurrency(
-                    event.ev_data?.enterprise_value_m,
-                    event.ev_data?.currency?.Currency
-                  )}
-                </td>
-                <td>
-                  {event.other_counterparties?.map((counterparty, subIndex) => {
-                    // Add null check for _new_company
-                    if (!counterparty._new_company) {
-                      return (
-                        <span key={subIndex}>
-                          Not Available
-                          {subIndex < event.other_counterparties.length - 1 &&
-                            ", "}
-                        </span>
-                      );
-                    }
-
-                    const nc = counterparty._new_company;
-                    const name = nc.name;
-                    // Prefer backend-provided dynamic URL when available
-                    // Build URL deterministically to avoid wrong paths coming from backend `_url`
-                    let url = "";
-                    const cpId =
-                      (counterparty as { new_company_counterparty?: number })
-                        .new_company_counterparty || nc.id;
-                    if (nc._is_that_investor) {
-                      url = `/investors/${cpId}`; // ensure plural `investors`
-                    } else if (nc._is_that_data_analytic_company) {
-                      url = `/company/${cpId}`;
-                    } else if (typeof nc._url === "string" && nc._url) {
-                      // Fallback: normalize any singular path variants
-                      url = nc._url.replace(/\/(?:investor)\//, "/investors/");
-                    }
-
-                    return (
-                      <span key={subIndex}>
-                        {url ? (
-                          <a href={url} className="link-blue">
-                            {name}
-                          </a>
-                        ) : (
-                          <span style={{ color: "#000" }}>{name}</span>
-                        )}
-                        {subIndex < event.other_counterparties.length - 1 &&
-                          ", "}
-                      </span>
-                    );
-                  }) || "Not Available"}
-                </td>
-                <td>
-                  {event.advisors?.map((advisor, subIndex) => {
-                    // Add null check for _new_company
-                    if (!advisor._new_company) {
-                      return (
-                        <span key={subIndex}>
-                          Not Available
-                          {subIndex < event.advisors.length - 1 && ", "}
-                        </span>
-                      );
-                    }
-                    return (
-                      <span key={subIndex}>
-                        <a
-                          href={`/company/${advisor._new_company.id}`}
-                          className="link-blue"
-                        >
-                          {advisor._new_company.name}
-                        </a>
-                        {subIndex < event.advisors.length - 1 && ", "}
-                      </span>
-                    );
-                  }) || "Not Available"}
+                      const names = secondaryText
+                        .split(",")
+                        .map((s) => s.trim())
+                        .filter(Boolean);
+                      if (names.length === 0) return secondaryText;
+                      const nodes: React.ReactNode[] = [];
+                      names.forEach((name, idx) => {
+                        const id = secondaryNameToId[normalizeSectorName(name)];
+                        if (typeof id === "number") {
+                          nodes.push(
+                            <a
+                              key={`${name}-${id}`}
+                              href={`/sector/${id}`}
+                              className="link-blue"
+                            >
+                              {name}
+                            </a>
+                          );
+                        } else {
+                          nodes.push(<span key={`${name}-na`}>{name}</span>);
+                        }
+                        if (idx < names.length - 1)
+                          nodes.push(<span key={`sep2-${idx}`}>, </span>);
+                      });
+                      return nodes;
+                    })()}
+                  </div>
                 </td>
               </tr>
             );
@@ -1248,17 +1284,11 @@ const CorporateEventsPage = () => {
     }
     .corporate-event-table { width: 100%; background: #fff; padding: 20px 24px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
     .corporate-event-table th, .corporate-event-table td { padding: 12px; text-align: left; vertical-align: top; border-bottom: 1px solid #e2e8f0; word-wrap: break-word; overflow-wrap: break-word; }
-    .corporate-event-table th:nth-child(1) { width: 20%; }
-    .corporate-event-table th:nth-child(2) { width: 10%; }
-    .corporate-event-table th:nth-child(3) { width: 12%; }
-    .corporate-event-table th:nth-child(4) { width: 10%; }
-    .corporate-event-table th:nth-child(5) { width: 12%; }
-    .corporate-event-table th:nth-child(6) { width: 12%; }
-    .corporate-event-table th:nth-child(7) { width: 8%; }
-    .corporate-event-table th:nth-child(8) { width: 8%; }
-    .corporate-event-table th:nth-child(9) { width: 8%; }
-    .corporate-event-table th:nth-child(10) { width: 18%; }
-    .corporate-event-table th:nth-child(11) { width: 18%; }
+    .corporate-event-table th:nth-child(1) { width: 24%; }
+    .corporate-event-table th:nth-child(2) { width: 22%; }
+    .corporate-event-table th:nth-child(3) { width: 18%; }
+    .corporate-event-table th:nth-child(4) { width: 18%; }
+    .corporate-event-table th:nth-child(5) { width: 18%; }
     .corporate-event-table th {
       font-weight: 600;
       color: #1a202c;
@@ -1277,6 +1307,9 @@ const CorporateEventsPage = () => {
     .corporate-event-name:hover {
       color: #005bb5;
     }
+    .muted-row { font-size: 12px; color: #4a5568; margin: 4px 0; }
+    .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
+    .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
     .loading { text-align: center; padding: 40px; color: #666; }
     .error { text-align: center; padding: 20px; color: #e53e3e; background-color: #fed7d7; border-radius: 6px; margin-bottom: 16px; }
     .pagination { display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 24px; padding: 16px; }
