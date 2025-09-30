@@ -5,6 +5,9 @@ export interface CorporateEventsFilters {
   Countries: string[];
   Provinces: string[];
   Cities: string[];
+  // Optional geographic grouping filters (match Companies page UI)
+  continentalRegions?: string[];
+  subRegions?: string[];
   Date_start: string | null;
   Date_end: string | null;
   search_query: string;
