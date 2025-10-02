@@ -40,6 +40,8 @@ interface IndividualsFilters {
   Countries: string[];
   Provinces: string[];
   Cities: string[];
+  Continental_Region?: string[];
+  geographical_sub_region?: string[];
   Primary_Sectors: number[];
   Secondary_Sectors: number[];
   Job_Titles: number[];
@@ -561,6 +563,10 @@ const IndividualsPage = () => {
 
   // State for each filter (arrays for multi-select)
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const [selectedContinentalRegions, setSelectedContinentalRegions] = useState<
+    string[]
+  >([]);
+  const [selectedSubRegions, setSelectedSubRegions] = useState<string[]>([]);
   const [selectedProvinces, setSelectedProvinces] = useState<string[]>([]);
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
   const [selectedPrimarySectors, setSelectedPrimarySectors] = useState<
@@ -576,6 +582,8 @@ const IndividualsPage = () => {
 
   // State for API data
   const [countries, setCountries] = useState<Country[]>([]);
+  const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
+  const [subRegions, setSubRegions] = useState<string[]>([]);
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
@@ -673,6 +681,24 @@ const IndividualsPage = () => {
       console.error("Error fetching primary sectors:", error);
     } finally {
       setLoadingPrimarySectors(false);
+    }
+  };
+
+  const fetchContinentalRegions = async () => {
+    try {
+      const list = await locationsService.getContinentalRegions();
+      setContinentalRegions(list);
+    } catch (error) {
+      console.error("Error fetching continental regions:", error);
+    }
+  };
+
+  const fetchSubRegions = async () => {
+    try {
+      const list = await locationsService.getSubRegions();
+      setSubRegions(list);
+    } catch (error) {
+      console.error("Error fetching sub-regions:", error);
     }
   };
 
@@ -790,6 +816,20 @@ const IndividualsPage = () => {
         params.append("Cities", filters.Cities.join(","));
       }
 
+      // Add region text filters
+      if ((filters.Continental_Region || []).length > 0) {
+        params.append(
+          "Continental_Region",
+          (filters.Continental_Region || []).join(",")
+        );
+      }
+      if ((filters.geographical_sub_region || []).length > 0) {
+        params.append(
+          "geographical_sub_region",
+          (filters.geographical_sub_region || []).join(",")
+        );
+      }
+
       // Add sector filters as comma-separated values
       if (filters.Primary_Sectors.length > 0) {
         params.append("primary_sectors_ids", filters.Primary_Sectors.join(","));
@@ -868,6 +908,8 @@ const IndividualsPage = () => {
     fetchCountries();
     fetchPrimarySectors();
     fetchJobTitles();
+    fetchContinentalRegions();
+    fetchSubRegions();
     // Initial fetch of all individuals
     fetchIndividuals(filters);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -892,6 +934,8 @@ const IndividualsPage = () => {
     const updatedFilters = {
       ...filters,
       Search_Query: searchTerm,
+      Continental_Region: selectedContinentalRegions,
+      geographical_sub_region: selectedSubRegions,
       Countries: selectedCountries,
       Provinces: selectedProvinces,
       Cities: selectedCities,
@@ -904,6 +948,17 @@ const IndividualsPage = () => {
     setFilters(updatedFilters);
     fetchIndividuals(updatedFilters);
   };
+
+  // Auto-apply region filters on change (mirror Companies/Advisors behavior)
+  useEffect(() => {
+    if (
+      selectedContinentalRegions.length > 0 ||
+      selectedSubRegions.length > 0
+    ) {
+      handleSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedContinentalRegions, selectedSubRegions]);
 
   // Handle page change
   const handlePageChange = (page: number) => {
@@ -1145,6 +1200,137 @@ const IndividualsPage = () => {
                   <h3 style={styles.subHeading} className="filters-sub-heading">
                     Location
                   </h3>
+                  <span style={styles.label}>By Continental Region</span>
+                  <SearchableSelect
+                    options={continentalRegions.map((r) => ({
+                      value: r,
+                      label: r,
+                    }))}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedContinentalRegions.includes(value)
+                      ) {
+                        setSelectedContinentalRegions([
+                          ...selectedContinentalRegions,
+                          value,
+                        ]);
+                      }
+                    }}
+                    placeholder={"Select Continental Region"}
+                    style={styles.select}
+                  />
+                  {selectedContinentalRegions.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedContinentalRegions.map((r) => (
+                        <span
+                          key={r}
+                          style={{
+                            backgroundColor: "#e3f2fd",
+                            color: "#1976d2",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {r}
+                          <button
+                            onClick={() =>
+                              setSelectedContinentalRegions(
+                                selectedContinentalRegions.filter(
+                                  (x) => x !== r
+                                )
+                              )
+                            }
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#1976d2",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <span style={styles.label}>By Sub-Region</span>
+                  <SearchableSelect
+                    options={subRegions.map((r) => ({ value: r, label: r }))}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedSubRegions.includes(value)
+                      ) {
+                        setSelectedSubRegions([...selectedSubRegions, value]);
+                      }
+                    }}
+                    placeholder={"Select Sub-Region"}
+                    style={styles.select}
+                  />
+                  {selectedSubRegions.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedSubRegions.map((r) => (
+                        <span
+                          key={r}
+                          style={{
+                            backgroundColor: "#e3f2fd",
+                            color: "#1976d2",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {r}
+                          <button
+                            onClick={() =>
+                              setSelectedSubRegions(
+                                selectedSubRegions.filter((x) => x !== r)
+                              )
+                            }
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#1976d2",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <span style={styles.label}>By Country</span>
                   <SearchableSelect
                     options={countryOptions}

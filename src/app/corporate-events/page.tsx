@@ -867,7 +867,7 @@ const CorporateEventsTable = ({
                             <span key={subIndex}>
                               {id ? (
                                 <a
-                                  href={`/company/${id}`}
+                                  href={`/advisor/${id}`}
                                   className="link-blue"
                                 >
                                   {name}
