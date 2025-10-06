@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -243,9 +244,7 @@ const ArticleDetailPage = () => {
     }
   };
 
-  const handleCompanyClick = (companyId: number) => {
-    router.push(`/company/${companyId}`);
-  };
+  // Navigation now handled via <Link> elements to allow right-click/middle-click open in new tabs
 
   // Robust sector id extraction in case backend changes keys
   const getSectorId = (sector: unknown): number | undefined => {
@@ -260,10 +259,7 @@ const ArticleDetailPage = () => {
     return undefined;
   };
 
-  const handleSectorClick = (sector: { id: number } | unknown) => {
-    const sectorId = getSectorId(sector);
-    if (sectorId) router.push(`/sector/${sectorId}`);
-  };
+  // Sector navigation handled via <Link> elements
 
   const handleBackClick = () => {
     router.push("/insights-analysis");
@@ -544,19 +540,28 @@ const ArticleDetailPage = () => {
                   <h2 style={styles.sectionTitle}>Companies</h2>
                   <div style={styles.tagContainer}>
                     {article.companies_mentioned.map((company) => (
-                      <span
+                      <Link
                         key={company.id}
-                        style={styles.companyTag}
+                        href={`/company/${company.id}`}
+                        style={{
+                          ...styles.companyTag,
+                          textDecoration: "none",
+                          display: "inline-block",
+                        }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = "#c8e6c9";
+                          (
+                            e.currentTarget as HTMLAnchorElement
+                          ).style.backgroundColor = "#c8e6c9";
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = "#e8f5e8";
+                          (
+                            e.currentTarget as HTMLAnchorElement
+                          ).style.backgroundColor = "#e8f5e8";
                         }}
-                        onClick={() => handleCompanyClick(company.id)}
+                        prefetch={false}
                       >
                         {company.name}
-                      </span>
+                      </Link>
                     ))}
                   </div>
                 </div>
@@ -567,23 +572,37 @@ const ArticleDetailPage = () => {
               <div style={styles.section}>
                 <h2 style={styles.sectionTitle}>Sectors</h2>
                 <div style={styles.tagContainer}>
-                  {article.sectors.map((sector) => (
-                    <span
-                      key={sector.id}
-                      style={{ ...styles.sectorTag, cursor: "pointer" }}
-                      onClick={() => handleSectorClick(sector)}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "#e1bee7";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "#f3e5f5";
-                      }}
-                      title="Open sector page"
-                    >
-                      {sector.sector_name}
-                      {sector.Sector_importance === "Primary" && " (Primary)"}
-                    </span>
-                  ))}
+                  {article.sectors.map((sector) => {
+                    const sid = getSectorId(sector);
+                    if (!sid) return null;
+                    return (
+                      <Link
+                        key={sid}
+                        href={`/sector/${sid}`}
+                        style={{
+                          ...styles.sectorTag,
+                          cursor: "pointer",
+                          textDecoration: "none",
+                          display: "inline-block",
+                        }}
+                        onMouseEnter={(e) => {
+                          (
+                            e.currentTarget as HTMLAnchorElement
+                          ).style.backgroundColor = "#e1bee7";
+                        }}
+                        onMouseLeave={(e) => {
+                          (
+                            e.currentTarget as HTMLAnchorElement
+                          ).style.backgroundColor = "#f3e5f5";
+                        }}
+                        title="Open sector page"
+                        prefetch={false}
+                      >
+                        {sector.sector_name}
+                        {sector.Sector_importance === "Primary" && " (Primary)"}
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             )}
