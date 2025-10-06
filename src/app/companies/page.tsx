@@ -13,7 +13,10 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { locationsService } from "@/lib/locationsService";
 import SearchableSelect from "@/components/ui/SearchableSelect";
-import { CompaniesCSVExporter } from "@/utils/companiesCSVExport";
+import {
+  CompaniesCSVExporter,
+  CompanyCSVRow,
+} from "@/utils/companiesCSVExport";
 
 // Types for API integration
 interface Company {
@@ -96,6 +99,18 @@ interface CompaniesResponse {
       subsidiaryCompanies: number;
     };
   };
+}
+
+// Shape returned by export API when sending JSON instead of CSV
+interface ExportCompanyJson {
+  name?: string;
+  description?: string;
+  primary_sectors?: string | string[];
+  secondary_sectors?: string | string[];
+  ownership?: string;
+  linkedin_members?: number | string;
+  country?: string;
+  asymmetrix_url?: string;
 }
 
 // Shared styles object
@@ -228,6 +243,18 @@ const styles = {
 const formatNumber = (num: number | undefined): string => {
   if (num === undefined || num === null) return "0";
   return num.toLocaleString();
+};
+
+// Type guard for export JSON items
+const isExportCompanyJson = (value: unknown): value is ExportCompanyJson => {
+  if (!value || typeof value !== "object") return false;
+  const obj = value as Record<string, unknown>;
+  // At minimum require a name or description to exist as a string
+  return (
+    typeof obj.name === "string" ||
+    typeof obj.description === "string" ||
+    typeof obj.country === "string"
+  );
 };
 
 const truncateDescription = (
@@ -1046,7 +1073,7 @@ const CompanyDashboard = ({
     );
   };
 
-  const handleSearch = () => {
+  const handleSearch = useCallback(() => {
     const filters: Filters = {
       countries: selectedCountries,
       continentalRegions: selectedContinentalRegions,
@@ -1067,7 +1094,21 @@ const CompanyDashboard = ({
     if (onSearch) {
       onSearch(filters);
     }
-  };
+  }, [
+    onSearch,
+    selectedCountries,
+    selectedContinentalRegions,
+    selectedSubRegions,
+    selectedProvinces,
+    selectedCities,
+    selectedPrimarySectors,
+    selectedSecondarySectors,
+    selectedHybridBusinessFocuses,
+    selectedOwnershipTypes,
+    linkedinMembersMin,
+    linkedinMembersMax,
+    searchTerm,
+  ]);
 
   // Auto-run search if initialSearch prop is provided
   useEffect(() => {
@@ -1902,6 +1943,8 @@ const CompanySection = ({
   const hasActiveFilters = () => {
     if (!currentFilters) return false;
     return (
+      (currentFilters.continentalRegions || []).length > 0 ||
+      (currentFilters.subRegions || []).length > 0 ||
       currentFilters.countries.length > 0 ||
       currentFilters.provinces.length > 0 ||
       currentFilters.cities.length > 0 ||
@@ -1982,15 +2025,85 @@ const CompanySection = ({
           `Export failed: ${resp.status} ${resp.statusText} - ${errText}`
         );
       }
-      const blob = await resp.blob();
-      const link = document.createElement("a");
-      const urlObject = URL.createObjectURL(blob);
-      link.href = urlObject;
-      link.download = "companies_filtered.csv";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(urlObject);
+      const contentType = resp.headers.get("content-type") || "";
+      if (
+        contentType.includes("application/json") ||
+        contentType.includes("text/json")
+      ) {
+        const text = await resp.text();
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          throw new Error("Export returned invalid JSON");
+        }
+        const itemsUnknown: unknown[] = Array.isArray(parsed)
+          ? (parsed as unknown[])
+          : parsed &&
+            typeof parsed === "object" &&
+            Array.isArray((parsed as { items?: unknown[] }).items)
+          ? ((parsed as { items?: unknown[] }).items as unknown[])
+          : [];
+        const items: ExportCompanyJson[] =
+          itemsUnknown.filter(isExportCompanyJson);
+        if (!Array.isArray(items) || items.length === 0) {
+          throw new Error("Export returned empty JSON data");
+        }
+        const rows: CompanyCSVRow[] = items.map((it: ExportCompanyJson) => {
+          const primaryVal = it.primary_sectors ?? "";
+          const secondaryVal = it.secondary_sectors ?? "";
+          const primaryStr = Array.isArray(primaryVal)
+            ? primaryVal.join(", ")
+            : String(primaryVal);
+          const secondaryStr = Array.isArray(secondaryVal)
+            ? secondaryVal.join(", ")
+            : String(secondaryVal);
+          const primary = primaryStr
+            ? primaryStr
+                .split(",")
+                .map((s: string) => s.trim())
+                .filter(Boolean)
+            : [];
+          const secondary = secondaryStr
+            ? secondaryStr
+                .split(",")
+                .map((s: string) => s.trim())
+                .filter(Boolean)
+            : [];
+          return {
+            Name: it.name ?? "N/A",
+            Description: it.description ?? "N/A",
+            "Primary Sector(s)": CompaniesCSVExporter.formatSectors(primary),
+            Sectors: CompaniesCSVExporter.formatSectors(secondary),
+            Ownership: it.ownership ?? "N/A",
+            "LinkedIn Members": CompaniesCSVExporter.formatLinkedinMembers(
+              typeof it.linkedin_members === "number"
+                ? it.linkedin_members
+                : Number(it.linkedin_members)
+            ),
+            Country: it.country ?? "N/A",
+            "Company Link": it.asymmetrix_url ?? "",
+          };
+        });
+        const csv = CompaniesCSVExporter.convertToCSV(rows);
+        CompaniesCSVExporter.downloadCSV(csv, "companies_filtered");
+      } else {
+        // Normalize server CSV to CRLF with BOM
+        const serverText = await resp.text();
+        const normalized = serverText.replace(/\r?\n/g, "\r\n");
+        const contentWithBOM = "\uFEFF" + normalized;
+        const blob = new Blob([contentWithBOM], {
+          type: "text/csv;charset=utf-8;",
+        });
+        const link = document.createElement("a");
+        const urlObject = URL.createObjectURL(blob);
+        link.href = urlObject;
+        link.download = "companies_filtered.csv";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(urlObject);
+      }
     } catch (e) {
       console.error("Error exporting CSV:", e);
       // Fallback to client-side CSV if API export fails

@@ -1380,13 +1380,6 @@ const CorporateEventsPage = () => {
     fetchCorporateEvents(updatedFilters);
   };
 
-  // Handle page change
-  const handlePageChange = (page: number) => {
-    const updatedFilters = { ...filters, Page: page };
-    setFilters(updatedFilters);
-    fetchCorporateEvents(updatedFilters);
-  };
-
   // Check if any filters are applied
   const hasActiveFilters = () => {
     return (
@@ -1404,6 +1397,15 @@ const CorporateEventsPage = () => {
       dateEnd !== ""
     );
   };
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    const updatedFilters = { ...filters, Page: page };
+    setFilters(updatedFilters);
+    fetchCorporateEvents(updatedFilters);
+  };
+
+  // Removed hasActiveFilters; export button now shows when results exist
 
   // Handle CSV export
   const handleExportCSV = () => {

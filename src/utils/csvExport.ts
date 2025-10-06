@@ -96,7 +96,7 @@ export class CSVExporter {
     const headers = Object.keys(data[0]);
 
     // Create CSV content
-    const csvContent = [
+    const csvBody = [
       // Headers row
       headers.map((header) => `"${header}"`).join(","),
       // Data rows
@@ -109,9 +109,11 @@ export class CSVExporter {
           })
           .join(",")
       ),
-    ].join("\n");
+    ].join("\r\n");
 
-    return csvContent;
+    // Prepend UTF-8 BOM to help Excel/Sheets parse correctly
+    const BOM = "\uFEFF";
+    return BOM + csvBody;
   }
 
   static downloadCSV(
