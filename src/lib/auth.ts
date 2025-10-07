@@ -3,6 +3,10 @@ interface AuthUser {
   email: string;
   name?: string;
   roles?: string[];
+  // Backend-provided role/status fields
+  Status?: string; // e.g., "Admin"
+  status?: string; // lowercase variant just in case
+  role?: string; // some backends use a single role field
 }
 
 interface LoginResponse {

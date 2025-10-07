@@ -8,6 +8,9 @@ interface AuthUser {
   email: string;
   name?: string;
   roles?: string[];
+  Status?: string;
+  status?: string;
+  role?: string;
 }
 
 interface AuthContextType {

@@ -1,0 +1,350 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { useRouter } from "next/navigation";
+
+type SourceIdList = number[];
+
+interface FieldValue<T = unknown> {
+  value: T;
+  source_ids?: SourceIdList;
+  as_of?: string;
+}
+
+type CompanySection = Record<string, FieldValue<unknown>>;
+
+interface MVAStage {
+  stage: string;
+  summary: string;
+}
+
+type FinancialsValue = number | string | undefined;
+
+type FinancialsEntry =
+  | number
+  | {
+      low?: number;
+      mid?: number;
+      high?: number;
+      method?: string;
+      [k: string]: FinancialsValue;
+    };
+
+type FinancialsEst = Record<string, FinancialsEntry>;
+
+interface MetaSection {
+  queries_used?: string[];
+  [k: string]: unknown;
+}
+
+interface ValuationReport {
+  citations?: unknown[];
+  company?: CompanySection;
+  debug?: {
+    company_raw?: CompanySection;
+    mva_stages?: MVAStage[];
+    [k: string]: unknown;
+  };
+  financials_est?: FinancialsEst;
+  meta?: MetaSection;
+  rendered_report_markdown?: string;
+  [k: string]: unknown;
+}
+
+export default function AdminPage() {
+  const router = useRouter();
+  const { user, isAuthenticated, loading } = useAuth();
+
+  const hasAccess = useMemo(() => {
+    if (!user) return false;
+    const normalizedStatus = (
+      user.Status ||
+      user.status ||
+      user.role ||
+      ""
+    ).toString();
+    if (normalizedStatus.toLowerCase() === "admin") return true;
+    const roles = user.roles || [];
+    return roles.map((r) => r.toLowerCase()).includes("admin");
+  }, [user]);
+
+  useEffect(() => {
+    if (!loading) {
+      if (!isAuthenticated) {
+        router.replace("/login");
+      } else if (!hasAccess) {
+        router.replace("/");
+      }
+    }
+  }, [isAuthenticated, hasAccess, loading, router]);
+
+  const [name, setName] = useState("");
+  const [domain, setDomain] = useState("");
+  const [result, setResult] = useState<ValuationReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setResult(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/valuation-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, domain }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "Request failed");
+      }
+      setResult(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Unexpected error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loading || !isAuthenticated || !hasAccess) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div>Loading…</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 py-10 mx-auto max-w-5xl">
+      <h1 className="mb-6 text-2xl font-semibold">Admin: Valuation Report</h1>
+
+      <form onSubmit={onSubmit} className="mb-8 space-y-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className="block mb-1 text-sm font-medium">Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Bloomberg L.P."
+              className="px-3 py-2 w-full rounded border"
+              required
+            />
+          </div>
+          <div>
+            <label className="block mb-1 text-sm font-medium">Domain</label>
+            <input
+              type="text"
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+              placeholder="bloomberg.com"
+              className="px-3 py-2 w-full rounded border"
+              required
+            />
+          </div>
+        </div>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="inline-flex items-center px-4 py-2 text-white bg-black rounded disabled:opacity-50"
+        >
+          {submitting ? "Querying…" : "Query"}
+        </button>
+      </form>
+
+      {error && (
+        <div className="p-3 mb-6 text-red-700 bg-red-50 rounded border border-red-300">
+          {error}
+        </div>
+      )}
+
+      {result && <ResultView data={result} />}
+    </div>
+  );
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-8">
+      <h2 className="mb-3 text-xl font-semibold">{title}</h2>
+      <div className="p-4 bg-white rounded border">{children}</div>
+    </div>
+  );
+}
+
+function KeyValue({ label, value }: { label: string; value: unknown }) {
+  return (
+    <div className="flex gap-2 py-1">
+      <div className="font-medium min-w-48">{label}</div>
+      <div className="flex-1 break-words">
+        {Array.isArray(value) ? value.join(", ") : String(value)}
+      </div>
+    </div>
+  );
+}
+
+function ResultView({ data }: { data: ValuationReport }) {
+  const {
+    company,
+    financials_est,
+    debug,
+    citations,
+    meta,
+    rendered_report_markdown,
+  } = data || {};
+
+  return (
+    <div className="space-y-8">
+      {rendered_report_markdown && (
+        <Section title="Rendered Report">
+          <pre className="text-sm whitespace-pre-wrap break-words">
+            {rendered_report_markdown}
+          </pre>
+        </Section>
+      )}
+
+      {company && (
+        <Section title="Company">
+          <div>
+            {Object.entries(company as CompanySection).map(([k, v]) => (
+              <div
+                key={k}
+                className="py-2 border-b border-gray-100 last:border-b-0"
+              >
+                <div className="text-sm text-gray-500">{k}</div>
+                <KeyValue label="value" value={(v as FieldValue).value} />
+                {(v as FieldValue).as_of && (
+                  <KeyValue label="as_of" value={(v as FieldValue).as_of} />
+                )}
+                {(v as FieldValue).source_ids && (
+                  <KeyValue
+                    label="source_ids"
+                    value={(v as FieldValue).source_ids}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {financials_est && (
+        <Section title="Financials (Estimated)">
+          <div>
+            {Object.entries(financials_est as FinancialsEst).map(([k, v]) => (
+              <div
+                key={k}
+                className="py-2 border-b border-gray-100 last:border-b-0"
+              >
+                <div className="text-sm text-gray-500">{k}</div>
+                {typeof v === "object" && v !== null ? (
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                    {Object.entries(v as Record<string, FinancialsValue>).map(
+                      ([kk, vv]) => (
+                        <KeyValue key={kk} label={kk} value={vv} />
+                      )
+                    )}
+                  </div>
+                ) : (
+                  <KeyValue label={k} value={v} />
+                )}
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {debug?.mva_stages && Array.isArray(debug.mva_stages) && (
+        <Section title="MVA Stages">
+          <ol className="ml-6 space-y-2 list-decimal">
+            {(debug.mva_stages as MVAStage[]).map((s, idx) => (
+              <li key={idx} className="p-3 rounded border">
+                <div className="font-medium">{s.stage}</div>
+                <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {s.summary}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </Section>
+      )}
+
+      {debug?.company_raw && (
+        <Section title="Debug: Company Raw">
+          <div>
+            {Object.entries(debug.company_raw as CompanySection).map(
+              ([k, v]) => (
+                <div
+                  key={k}
+                  className="py-2 border-b border-gray-100 last:border-b-0"
+                >
+                  <div className="text-sm text-gray-500">{k}</div>
+                  <KeyValue label="value" value={(v as FieldValue).value} />
+                  {(v as FieldValue).as_of && (
+                    <KeyValue label="as_of" value={(v as FieldValue).as_of} />
+                  )}
+                  {(v as FieldValue).source_ids && (
+                    <KeyValue
+                      label="source_ids"
+                      value={(v as FieldValue).source_ids}
+                    />
+                  )}
+                </div>
+              )
+            )}
+          </div>
+        </Section>
+      )}
+
+      {(meta?.queries_used || meta) && (
+        <Section title="Meta">
+          {meta?.queries_used && (
+            <div className="mb-4">
+              <div className="mb-2 font-medium">Queries Used</div>
+              <ul className="ml-6 space-y-1 list-disc">
+                {(meta.queries_used as string[]).map((q, i) => (
+                  <li key={i} className="text-sm break-words">
+                    {q}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <pre className="p-3 text-xs whitespace-pre-wrap break-words bg-gray-50 rounded border">
+            {JSON.stringify(meta, null, 2)}
+          </pre>
+        </Section>
+      )}
+
+      {Array.isArray(citations) && (
+        <Section title="Citations">
+          {citations.length === 0 ? (
+            <div className="text-sm text-gray-600">No citations.</div>
+          ) : (
+            <ul className="ml-6 space-y-1 list-disc">
+              {(citations as unknown[]).map((c, i) => (
+                <li key={i} className="text-sm break-words">
+                  {JSON.stringify(c)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+      )}
+
+      <Section title="Raw JSON">
+        <pre className="p-3 text-xs whitespace-pre-wrap break-words bg-gray-50 rounded border">
+          {JSON.stringify(data, null, 2)}
+        </pre>
+      </Section>
+    </div>
+  );
+}
