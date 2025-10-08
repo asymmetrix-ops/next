@@ -35,21 +35,19 @@ class CorporateEventsService {
       queryParams.append("search_query", filters.search_query);
     }
 
-    // Add arrays as comma-separated values
+    // Add arrays as bracketed array params per API expectations
     if (filters.primary_sectors_ids && filters.primary_sectors_ids.length > 0) {
-      queryParams.append(
-        "primary_sectors_ids",
-        filters.primary_sectors_ids.join(",")
-      );
+      for (const id of filters.primary_sectors_ids) {
+        queryParams.append("primary_sectors_ids[]", id.toString());
+      }
     }
     if (
       filters.Secondary_sectors_ids &&
       filters.Secondary_sectors_ids.length > 0
     ) {
-      queryParams.append(
-        "Secondary_sectors_ids",
-        filters.Secondary_sectors_ids.join(",")
-      );
+      for (const id of filters.Secondary_sectors_ids) {
+        queryParams.append("Secondary_sectors_ids[]", id.toString());
+      }
     }
     if (filters.deal_types && filters.deal_types.length > 0) {
       queryParams.append("deal_types", filters.deal_types.join(","));

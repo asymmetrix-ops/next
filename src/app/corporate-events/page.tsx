@@ -1256,19 +1256,17 @@ const CorporateEventsPage = () => {
         );
       }
 
-      // Add sector filters as comma-separated values
+      // Add sector filters as array params (API expects bracketed keys)
       if (filters.primary_sectors_ids.length > 0) {
-        params.append(
-          "primary_sectors_ids",
-          filters.primary_sectors_ids.join(",")
-        );
+        filters.primary_sectors_ids.forEach((id) => {
+          params.append("primary_sectors_ids[]", id.toString());
+        });
       }
 
       if (filters.Secondary_sectors_ids.length > 0) {
-        params.append(
-          "Secondary_sectors_ids",
-          filters.Secondary_sectors_ids.join(",")
-        );
+        filters.Secondary_sectors_ids.forEach((id) => {
+          params.append("Secondary_sectors_ids[]", id.toString());
+        });
       }
 
       // Add event types as comma-separated values
