@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, domain } = body || {};
+    const { name, domain, ai_prompt } = body || {};
 
     if (!name || !domain) {
       return NextResponse.json(
@@ -12,13 +12,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const payload = {
-      name,
-      domain,
-      topn: 60,
-      mva_mode: true,
-      second_pass: false,
-    };
+    const payload: Record<string, unknown> = { name, domain };
+    if (typeof ai_prompt === "string" && ai_prompt.trim().length > 0) {
+      payload.ai_prompt = ai_prompt;
+    }
 
     const response = await fetch(
       "https://searxng-master.fly.dev/valuation/report",

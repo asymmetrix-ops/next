@@ -81,6 +81,28 @@ export default function AdminPage() {
 
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
+  const defaultPrompt = `You are the Multi-Stage Valuation Agent (MVA). Perform a multi-stage valuation analysis of the target company using public sources.
+Output strict JSON with keys: stages (array of {stage, summary}), and company (same schema as below, with source_ids).
+Stages: Stage 0 Company Overview; Stage 1 Revenue Estimation; Stage 2 Recurring Revenue %; Stage 3 GRR; Stage 4 NRR; Stage 5 New Clients Revenue Growth %;
+Stage 6 EBITDA Margin %; Stage 7 Rule of 40; Stage 8 Valuation Estimate; Stage 9 Validation; Stage 10 Update.
+All asserted company.* fields must have >=1 source_ids from the citations. Leave null if not supported.
+Schema: {
+  "stages": [{"stage": string, "summary": string}],
+  "company": {
+    "name": {"value": string|null, "source_ids": [int]},
+    "domain": {"value": string|null, "source_ids": [int]},
+    "one_liner": {"value": string|null, "source_ids": [int]},
+    "founded_year": {"value": int|null, "source_ids": [int]},
+    "ownership": {"value": string|null, "source_ids": [int]},
+    "hq": {"value": string|null, "source_ids": [int]},
+    "ceo": {"value": string|null, "source_ids": [int]},
+    "employees": {"value": int|null, "as_of": string|null, "source_ids": [int]},
+    "clients": {"value": string|null, "source_ids": [int]},
+    "products": {"value": [string], "source_ids": [int]}
+  }
+}
+Target company: {query} ({domain})`;
+  const [prompt, setPrompt] = useState<string>(defaultPrompt);
   const [result, setResult] = useState<ValuationReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -91,10 +113,15 @@ export default function AdminPage() {
     setResult(null);
     setSubmitting(true);
     try {
+      const payload: Record<string, unknown> = { name, domain };
+      if (prompt.trim() !== defaultPrompt.trim()) {
+        (payload as { [k: string]: unknown }).ai_prompt = prompt;
+      }
+
       const res = await fetch("/api/valuation-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, domain }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -144,6 +171,19 @@ export default function AdminPage() {
               required
             />
           </div>
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">
+            Prompt (optional)
+          </label>
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            className="px-3 py-2 w-full rounded border min-h-48 font-mono text-sm"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            If unchanged, the prompt will not be sent.
+          </p>
         </div>
         <button
           type="submit"
