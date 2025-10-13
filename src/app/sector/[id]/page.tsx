@@ -298,9 +298,12 @@ function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
   // Supported shapes:
   // 1) Array of groups: { name/label, companies/items: [{ id, name, linkedin_logo, country, ... }] }
   // 2) Flat array of companies
+  // 3) Wrapped arrays: { items: [...] } / { data: [...] } / { results: [...] } / { list: [...] }
   const result: SectorCompany[] = [];
-  if (Array.isArray(raw)) {
-    const arr = raw as Array<unknown>;
+  const arr = Array.isArray(raw)
+    ? (raw as Array<unknown>)
+    : (extractArray(raw) as Array<unknown>);
+  if (Array.isArray(arr)) {
     if (arr.length > 0 && typeof arr[0] === "object" && arr[0] !== null) {
       const maybeGroup = arr[0] as Record<string, unknown>;
       const hasGroupCompanies =
@@ -682,6 +685,7 @@ const SectorDetailPage = () => {
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [debugResponse, setDebugResponse] = useState<string>("");
   const [debugSectorResponse, setDebugSectorResponse] = useState<string>("");
+  const [companiesApiPayload, setCompaniesApiPayload] = useState<unknown>(null);
 
   // Load secondary->primary mapping once (not required in the new overview layout)
   // useEffect(() => {
@@ -823,6 +827,8 @@ const SectorDetailPage = () => {
 
         // Store response for display on page
         setDebugResponse(JSON.stringify(rawJson, null, 2));
+        // Keep parsed payload for mapping dashboard datasets
+        setCompaniesApiPayload(rawJson);
 
         // Adapt response items to SectorCompany shape used by this page
         const raw = rawJson as unknown as
@@ -960,6 +966,53 @@ const SectorDetailPage = () => {
     [fetchCompanies]
   );
 
+  // Console debug for specific dashboard sections (prefer companies API payload if present)
+  useEffect(() => {
+    const source = companiesApiPayload ?? sectorData;
+    if (!source) return;
+    try {
+      const rawRecent =
+        (source as unknown as { resent_trasnactions?: unknown })
+          .resent_trasnactions ??
+        (source as unknown as { recent_transactions?: unknown })
+          .recent_transactions;
+      const rawStrategic = (
+        source as unknown as {
+          strategic_acquirers?: unknown;
+        }
+      ).strategic_acquirers;
+      const rawPE = (source as unknown as { pe_investors?: unknown })
+        .pe_investors;
+      const rawMarketMap = (source as unknown as { market_map?: unknown })
+        .market_map;
+
+      console.log("[Sector] Raw – recent transactions (preferred):", rawRecent);
+      console.log(
+        "[Sector] Raw – strategic acquirers (preferred):",
+        rawStrategic
+      );
+      console.log("[Sector] Raw – PE investors (preferred):", rawPE);
+      console.log("[Sector] Raw – market map (preferred):", rawMarketMap);
+
+      const mappedRecent = mapRecentTransactions(extractArray(rawRecent ?? []));
+      const mappedStrategic = mapRankedEntities(
+        extractArray(rawStrategic ?? [])
+      );
+      const mappedPE = mapRankedEntities(extractArray(rawPE ?? []));
+      const mappedMarket = mapMarketMapToCompanies(rawMarketMap);
+
+      console.log("[Sector] Mapped – recentTransactions:", mappedRecent);
+      console.log("[Sector] Mapped – strategicAcquirers:", mappedStrategic);
+      console.log("[Sector] Mapped – peInvestors:", mappedPE);
+      console.log("[Sector] Mapped – marketMapCompanies:", {
+        count: mappedMarket.length || companies.length,
+        sample: (mappedMarket.length ? mappedMarket : companies).slice(0, 8),
+      });
+    } catch (e) {
+      console.warn("[Sector] Debug logging failed:", e);
+    }
+  }, [companiesApiPayload, sectorData, companies]);
+
   // Link navigation is handled via anchors in the new layout
 
   // (Removed generatePaginationButtons; simplified pagination in new layout)
@@ -1090,33 +1143,37 @@ const SectorDetailPage = () => {
     totalsRow?.Number_of_Subsidiaries_Acquired ??
     0;
 
-  // Map optional dashboard datasets from the sector data response if present
+  // Map optional dashboard datasets from the preferred source (companies API), fallback to sector API
+  const preferredSource = companiesApiPayload ?? sectorData;
   const recentTransactions: TransactionRecord[] = mapRecentTransactions(
     extractArray(
-      (sectorData as unknown as { resent_trasnactions?: unknown })
-        .resent_trasnactions ??
-        (sectorData as unknown as { recent_transactions?: unknown })
-          .recent_transactions ??
+      (preferredSource as unknown as { resent_trasnactions?: unknown })
+        ?.resent_trasnactions ??
+        (preferredSource as unknown as { recent_transactions?: unknown })
+          ?.recent_transactions ??
         []
     )
   );
   const strategicAcquirers: RankedEntity[] = mapRankedEntities(
     extractArray(
-      (sectorData as unknown as { strategic_acquirers?: unknown })
-        .strategic_acquirers ?? []
+      (preferredSource as unknown as { strategic_acquirers?: unknown })
+        ?.strategic_acquirers ?? []
     )
   );
   const peInvestors: RankedEntity[] = mapRankedEntities(
     extractArray(
-      (sectorData as unknown as { pe_investors?: unknown }).pe_investors ?? []
+      (preferredSource as unknown as { pe_investors?: unknown })
+        ?.pe_investors ?? []
     )
   );
 
   const marketMapCompanies: SectorCompany[] = ((): SectorCompany[] => {
-    const raw = (sectorData as unknown as { market_map?: unknown }).market_map;
+    const raw = (preferredSource as unknown as { market_map?: unknown })
+      ?.market_map;
     const mapped = mapMarketMapToCompanies(raw);
     return mapped.length > 0 ? mapped : companies;
   })();
+
   return (
     <div className="min-h-screen bg-gradient-to-br to-blue-50 from-slate-50">
       <Header />
