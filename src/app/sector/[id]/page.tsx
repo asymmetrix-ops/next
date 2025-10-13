@@ -1,11 +1,15 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { locationsService } from "@/lib/locationsService";
+// import { locationsService } from "@/lib/locationsService";
+import {
+  BuildingOfficeIcon,
+  ArrowTrendingUpIcon,
+} from "@heroicons/react/24/outline";
 
 // Types for API integration
 interface SectorData {
@@ -39,6 +43,12 @@ interface SectorStatistics {
   Number_of_private_companies?: number;
   Number_of_subsidiaries?: number;
   Sector: SectorData;
+  // Optional dashboard fields (new JSON the user provided)
+  resent_trasnactions?: unknown[]; // note: source may have a misspelling
+  recent_transactions?: unknown[]; // normalized alt key just in case
+  strategic_acquirers?: unknown[];
+  pe_investors?: unknown[];
+  market_map?: unknown;
 }
 
 interface SectorCompany {
@@ -97,267 +107,559 @@ const formatNumber = (num: number | undefined): string => {
   if (num === undefined || num === null) return "0";
   return num.toLocaleString();
 };
-// Sector name normalization and fallback map for reliability (e.g., Crypto -> Web 3)
-const normalizeSectorName = (name: string | undefined | null): string =>
-  (name || "").trim().toLowerCase();
 
-const FALLBACK_SECONDARY_TO_PRIMARY: Record<string, string> = {
-  [normalizeSectorName("Crypto")]: "Web 3",
-  [normalizeSectorName("Blockchain")]: "Web 3",
-  [normalizeSectorName("DeFi")]: "Web 3",
-  [normalizeSectorName("NFT")]: "Web 3",
-  [normalizeSectorName("Web3")]: "Web 3",
-  [normalizeSectorName("PropTech")]: "Real Estate",
-};
+// Data mapping helpers for dashboard JSON
+interface TransactionRecord {
+  date: string;
+  buyer: string;
+  seller?: string;
+  target: string;
+  value?: string;
+  type?: string;
+}
 
-const mapSecondaryToPrimary = (
-  secondaryName: string,
-  apiMap: Record<string, string>
-): string | undefined => {
-  const key = normalizeSectorName(secondaryName);
-  return apiMap[key] || FALLBACK_SECONDARY_TO_PRIMARY[key];
-};
+interface RankedEntity {
+  name: string;
+  count: number;
+}
 
-const truncateDescription = (
-  description: string,
-  maxLength: number = 150
-): { text: string; isLong: boolean } => {
-  const isLong = description.length > maxLength;
-  const truncated = isLong
-    ? description.substring(0, maxLength) + "..."
-    : description;
-  return { text: truncated, isLong };
-};
+function toStringSafe(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  if (typeof value === "boolean") return value ? "true" : "false";
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+// Extracts an array from various possible wrapper shapes (e.g., { items: [...] })
+function extractArray(raw: unknown): unknown[] {
+  if (Array.isArray(raw)) return raw;
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    const candidates = [
+      obj.items,
+      (obj as { data?: unknown[] }).data,
+      (obj as { results?: unknown[] }).results,
+      (obj as { list?: unknown[] }).list,
+    ];
+    for (const candidate of candidates) {
+      if (Array.isArray(candidate)) return candidate as unknown[];
+    }
+  }
+  return [];
+}
+
+// Flexible key lookup helpers for mapping varied API shapes
+function normalizeKey(key: string): string {
+  return key.replace(/[^a-z0-9]/gi, "").toLowerCase();
+}
+
+function getFirstMatchingValue(
+  obj: Record<string, unknown>,
+  candidateKeys: string[]
+): unknown {
+  const map: Record<string, string> = {};
+  for (const k of Object.keys(obj)) {
+    map[normalizeKey(k)] = k;
+  }
+  for (const key of candidateKeys) {
+    const exact = obj[key];
+    if (exact !== undefined) return exact;
+    const normalized = normalizeKey(key);
+    const realKey = map[normalized];
+    if (realKey && obj[realKey] !== undefined) return obj[realKey];
+  }
+  return undefined;
+}
+
+function getFirstMatchingNumber(
+  obj: Record<string, unknown>,
+  candidateKeys: string[]
+): number | undefined {
+  const val = getFirstMatchingValue(obj, candidateKeys);
+  return typeof val === "number"
+    ? val
+    : typeof val === "string" && val.trim() !== ""
+    ? Number(val)
+    : undefined;
+}
+
+function mapRecentTransactions(raw: unknown): TransactionRecord[] {
+  const arr = extractArray(raw);
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map((item) => {
+      const obj = (item || {}) as Record<string, unknown>;
+      const date = toStringSafe(
+        getFirstMatchingValue(obj, [
+          "deal_date",
+          "date",
+          "announcement_date",
+          "closed_date",
+          "deal date",
+        ])
+      );
+      const buyer = toStringSafe(
+        getFirstMatchingValue(obj, [
+          "buyer_name",
+          "acquirer",
+          "buyer",
+          "acquirer_name",
+          "buyer company",
+          "acquirer company",
+          "buyer_company",
+          "acquirer_company",
+        ])
+      );
+      const seller = toStringSafe(
+        getFirstMatchingValue(obj, [
+          "seller_name",
+          "seller",
+          "seller company",
+          "seller_company",
+        ]) || ""
+      );
+      const target = toStringSafe(
+        getFirstMatchingValue(obj, [
+          "target_name",
+          "company",
+          "target",
+          "asset",
+          "target company",
+          "target_company",
+          "target_company_name",
+          "company_name",
+          "name",
+        ])
+      );
+      const value = toStringSafe(
+        getFirstMatchingValue(obj, [
+          "value_usd",
+          "value",
+          "deal_value",
+          "amount",
+          "deal size",
+          "deal_value_usd",
+        ])
+      );
+      const type = toStringSafe(
+        getFirstMatchingValue(obj, [
+          "type",
+          "deal_type",
+          "transaction_type",
+          "category",
+          "structure",
+        ])
+      );
+      if (!buyer && !target) return null;
+      return { date, buyer, seller, target, value, type } as TransactionRecord;
+    })
+    .filter(Boolean) as TransactionRecord[];
+}
+
+function mapRankedEntities(raw: unknown): RankedEntity[] {
+  const arr = extractArray(raw);
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map((item) => {
+      const obj = (item || {}) as Record<string, unknown>;
+      const name = toStringSafe(
+        getFirstMatchingValue(obj, [
+          "name",
+          "company",
+          "investor",
+          "acquirer",
+          "label",
+          "entity",
+          "firm",
+        ])
+      );
+      const countRaw = getFirstMatchingNumber(obj, [
+        "count",
+        "deals",
+        "total",
+        "n",
+        "times",
+        "occurrences",
+      ]);
+      const count = typeof countRaw === "number" ? countRaw : 0;
+      if (!name) return null;
+      return { name, count } as RankedEntity;
+    })
+    .filter(Boolean) as RankedEntity[];
+}
+
+function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
+  if (!raw) return [];
+  // Supported shapes:
+  // 1) Array of groups: { name/label, companies/items: [{ id, name, linkedin_logo, country, ... }] }
+  // 2) Flat array of companies
+  const result: SectorCompany[] = [];
+  if (Array.isArray(raw)) {
+    const arr = raw as Array<unknown>;
+    if (arr.length > 0 && typeof arr[0] === "object" && arr[0] !== null) {
+      const maybeGroup = arr[0] as Record<string, unknown>;
+      const hasGroupCompanies =
+        Array.isArray(maybeGroup.companies) || Array.isArray(maybeGroup.items);
+      if (hasGroupCompanies) {
+        for (const group of arr as Array<Record<string, unknown>>) {
+          const companiesArr =
+            (group.companies as Array<unknown> | undefined) ||
+            (group.items as Array<unknown> | undefined) ||
+            [];
+          for (const cRaw of companiesArr) {
+            const c = (cRaw || {}) as Record<string, unknown>;
+            const idVal =
+              (c.id as number | undefined) ??
+              (c as { original_new_company_id?: number })
+                .original_new_company_id ??
+              0;
+            result.push({
+              id: typeof idVal === "number" ? idVal : 0,
+              name: toStringSafe(c.name ?? c.company_name),
+              locations_id: 0,
+              url: toStringSafe(c.url),
+              sectors: Array.isArray((c as { sectors?: string[] }).sectors)
+                ? ((c as { sectors?: string[] }).sectors as string[])
+                : [],
+              primary_sectors: Array.isArray(
+                (c as { primary_sectors?: string[] }).primary_sectors
+              )
+                ? ((c as { primary_sectors?: string[] })
+                    .primary_sectors as string[])
+                : [],
+              description: toStringSafe(c.description),
+              linkedin_employee:
+                (c as { linkedin_employee?: number }).linkedin_employee ??
+                (c as { linkedin_members?: number }).linkedin_members ??
+                0,
+              linkedin_employee_latest:
+                (c as { linkedin_employee_latest?: number })
+                  .linkedin_employee_latest ??
+                (c as { linkedin_employee?: number }).linkedin_employee ??
+                0,
+              linkedin_employee_old:
+                (c as { linkedin_employee_old?: number })
+                  .linkedin_employee_old ??
+                (c as { linkedin_members_old?: number }).linkedin_members_old ??
+                0,
+              linkedin_logo: toStringSafe(c.linkedin_logo),
+              country: toStringSafe(c.country),
+              ownership_type_id:
+                (c as { ownership_type_id?: number }).ownership_type_id ?? 0,
+              ownership: toStringSafe(c.ownership),
+              is_that_investor:
+                (c as { is_that_investor?: boolean }).is_that_investor ?? false,
+              companies_investors: ((
+                c as {
+                  companies_investors?: Array<{
+                    company_name: string;
+                    original_new_company_id: number;
+                  }>;
+                }
+              ).companies_investors ?? []) as Array<{
+                company_name: string;
+                original_new_company_id: number;
+              }>,
+            });
+          }
+        }
+        return result;
+      }
+      // Else treat as flat array of companies
+    }
+    for (const cRaw of arr) {
+      const c = (cRaw || {}) as Record<string, unknown>;
+      const idVal =
+        (c.id as number | undefined) ??
+        (c as { original_new_company_id?: number }).original_new_company_id ??
+        0;
+      result.push({
+        id: typeof idVal === "number" ? idVal : 0,
+        name: toStringSafe(c.name ?? c.company_name),
+        locations_id: 0,
+        url: toStringSafe(c.url),
+        sectors: Array.isArray((c as { sectors?: string[] }).sectors)
+          ? ((c as { sectors?: string[] }).sectors as string[])
+          : [],
+        primary_sectors: Array.isArray(
+          (c as { primary_sectors?: string[] }).primary_sectors
+        )
+          ? ((c as { primary_sectors?: string[] }).primary_sectors as string[])
+          : [],
+        description: toStringSafe(c.description),
+        linkedin_employee:
+          (c as { linkedin_employee?: number }).linkedin_employee ??
+          (c as { linkedin_members?: number }).linkedin_members ??
+          0,
+        linkedin_employee_latest:
+          (c as { linkedin_employee_latest?: number })
+            .linkedin_employee_latest ??
+          (c as { linkedin_employee?: number }).linkedin_employee ??
+          0,
+        linkedin_employee_old:
+          (c as { linkedin_employee_old?: number }).linkedin_employee_old ??
+          (c as { linkedin_members_old?: number }).linkedin_members_old ??
+          0,
+        linkedin_logo: toStringSafe(c.linkedin_logo),
+        country: toStringSafe(c.country),
+        ownership_type_id:
+          (c as { ownership_type_id?: number }).ownership_type_id ?? 0,
+        ownership: toStringSafe(c.ownership),
+        is_that_investor:
+          (c as { is_that_investor?: boolean }).is_that_investor ?? false,
+        companies_investors: ((
+          c as {
+            companies_investors?: Array<{
+              company_name: string;
+              original_new_company_id: number;
+            }>;
+          }
+        ).companies_investors ?? []) as Array<{
+          company_name: string;
+          original_new_company_id: number;
+        }>,
+      });
+    }
+  }
+  return result;
+}
+
+// (Removed truncateDescription helper; no longer used)
 
 // Company Logo Component
-const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
-  if (logo) {
-    return (
-      <Image
-        src={`data:image/jpeg;base64,${logo}`}
-        alt={`${name} logo`}
-        width={60}
-        height={40}
-        className="company-logo"
-        style={{ objectFit: "contain", borderRadius: "8px" }}
-      />
-    );
-  }
+// (Removed CompanyLogo; grid renders inline image directly)
 
+// (Removed unused CompanyDescription for the new layout)
+
+// (Removed unused CompanyCard for the new layout)
+
+// Tabs
+const TABS = [
+  { id: "overview", name: "Overview" },
+  { id: "public", name: "Public Companies" },
+  { id: "subsectors", name: "Sub-Sectors" },
+  { id: "transactions", name: "Transactions" },
+  { id: "funding", name: "Funding" },
+  { id: "insights", name: "Insights & Analysis" },
+  { id: "all", name: "All Companies" },
+] as const;
+
+function TabNavigation({
+  activeTab,
+  setActiveTab,
+}: {
+  activeTab: string;
+  setActiveTab: (id: string) => void;
+}) {
   return (
-    <div
-      style={{
-        width: "60px",
-        height: "40px",
-        backgroundColor: "#f7fafc",
-        borderRadius: "8px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: "10px",
-        color: "#718096",
-      }}
-    >
-      No Logo
+    <div className="mb-8">
+      <div className="border-b border-slate-200">
+        <nav className="flex overflow-x-auto space-x-8">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`relative py-4 px-2 text-sm font-medium transition-colors duration-200 whitespace-nowrap ${
+                activeTab === tab.id
+                  ? "text-blue-600"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              {tab.name}
+              {activeTab === tab.id && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+              )}
+            </button>
+          ))}
+        </nav>
+      </div>
     </div>
   );
-};
+}
 
-// Company Description Component
-const CompanyDescription = ({
-  description,
-  index,
+function SectorThesisCard({
+  sectorData,
 }: {
-  description: string;
-  index: number;
-}) => {
-  const { text: truncatedText, isLong } = truncateDescription(description);
-
-  const toggleDescription = () => {
-    const truncatedEl = document.getElementById(`description-${index}`);
-    const fullEl = document.getElementById(`description-full-${index}`);
-    const expandEl = document.getElementById(`expand-${index}`);
-
-    if (truncatedEl && fullEl && expandEl) {
-      if (truncatedEl.style.display === "block") {
-        truncatedEl.style.display = "none";
-        fullEl.style.display = "block";
-        expandEl.textContent = "Collapse description";
-      } else {
-        truncatedEl.style.display = "block";
-        fullEl.style.display = "none";
-        expandEl.textContent = "Expand description";
-      }
-    }
-  };
+  sectorData: SectorStatistics | null;
+}) {
+  const sectorName = sectorData?.Sector?.sector_name;
+  const thesisHtml = sectorData?.Sector?.Sector_thesis;
 
   return (
-    <div className="company-description">
-      <div
-        className="company-description-truncated"
-        id={`description-${index}`}
-        style={{ display: isLong ? "block" : "none" }}
-      >
-        {truncatedText}
+    <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <div className="flex justify-between items-center">
+          <div className="flex gap-3 items-center">
+            <span className="inline-flex justify-center items-center w-8 h-8 bg-blue-50 rounded-lg">
+              <svg
+                className="w-4 h-4 text-blue-600"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M12 19V6M5 12h14" />
+              </svg>
+            </span>
+            <span className="font-semibold text-slate-900">Sector Thesis</span>
+          </div>
+          {sectorName && (
+            <span className="text-xs px-2.5 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
+              {sectorName}
+            </span>
+          )}
+        </div>
       </div>
-      <div
-        className="company-description-full"
-        id={`description-full-${index}`}
-        style={{ display: isLong ? "none" : "block" }}
-      >
-        {description}
+      <div className="px-5 py-5">
+        {thesisHtml ? (
+          <div
+            className="max-w-none prose prose-sm text-slate-700"
+            dangerouslySetInnerHTML={{ __html: thesisHtml }}
+          />
+        ) : (
+          <div className="text-sm text-slate-500">Not available</div>
+        )}
       </div>
-      {isLong && (
-        <span
-          className="expand-description"
-          onClick={toggleDescription}
-          id={`expand-${index}`}
-        >
-          Expand description
-        </span>
-      )}
     </div>
   );
-};
+}
 
-// Company Card Component for mobile
-const CompanyCard = ({
-  company,
-  onClick,
+function RankedListCard({
+  title,
+  items,
 }: {
-  company: SectorCompany;
-  onClick: () => void;
-}) => {
-  const { text: truncatedDescription, isLong } = truncateDescription(
-    company.description
+  title: string;
+  items: RankedEntity[];
+}) {
+  const hasItems = Array.isArray(items) && items.length > 0;
+  return (
+    <div className="h-full bg-white rounded-xl border shadow-lg border-slate-200/60">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <div className="font-semibold text-slate-900">{title}</div>
+      </div>
+      <div className="px-5 py-4">
+        {!hasItems ? (
+          <div className="text-sm text-slate-500">Not available</div>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {items.slice(0, 10).map((it) => (
+              <li
+                key={`${title}-${it.name}`}
+                className="flex justify-between items-center py-2"
+              >
+                <span className="pr-3 text-sm truncate text-slate-800">
+                  {it.name}
+                </span>
+                <span className="px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded-full border border-blue-200">
+                  {formatNumber(it.count)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   );
-  const [showFullDescription, setShowFullDescription] = useState(false);
+}
 
-  return React.createElement(
-    "div",
-    {
-      className: "company-card",
-      onClick,
-      style: {
-        backgroundColor: "white",
-        borderRadius: "12px",
-        padding: "16px",
-        marginBottom: "12px",
-        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-        cursor: "pointer",
-        border: "1px solid #e2e8f0",
-      },
-    },
-    React.createElement(
-      "div",
-      {
-        style: {
-          display: "flex",
-          alignItems: "flex-start",
-          gap: "12px",
-          marginBottom: "12px",
-        },
-      },
-      React.createElement(CompanyLogo, {
-        logo: company.linkedin_logo,
-        name: company.name,
-      }),
-      React.createElement(
-        "div",
-        {
-          style: {
-            flex: "1",
-            minWidth: "0",
-          },
-        },
-        React.createElement(
-          "h3",
-          {
-            style: {
-              fontSize: "16px",
-              fontWeight: "600",
-              color: "#0075df",
-              margin: "0 0 4px 0",
-              textDecoration: "underline",
-            },
-          },
-          company.name
-        ),
-        React.createElement(
-          "div",
-          {
-            style: {
-              fontSize: "12px",
-              color: "#4a5568",
-              marginBottom: "8px",
-            },
-          },
-          company.country || "N/A"
-        ),
-        React.createElement(
-          "div",
-          {
-            style: {
-              fontSize: "12px",
-              color: "#4a5568",
-              marginBottom: "8px",
-            },
-          },
-          `Employees: ${formatNumber(
-            company.linkedin_employee_latest || company.linkedin_employee
-          )}`
-        ),
-        React.createElement(
-          "div",
-          {
-            style: {
-              fontSize: "12px",
-              color: "#4a5568",
-            },
-          },
-          `Ownership: ${company.ownership || "N/A"}`
-        )
-      )
-    ),
-    React.createElement(
-      "div",
-      {
-        style: {
-          fontSize: "13px",
-          color: "#4a5568",
-          lineHeight: "1.4",
-        },
-      },
-      showFullDescription ? company.description : truncatedDescription,
-      isLong &&
-        React.createElement(
-          "button",
-          {
-            onClick: (e: React.MouseEvent) => {
-              e.stopPropagation();
-              setShowFullDescription(!showFullDescription);
-            },
-            style: {
-              color: "#0075df",
-              background: "none",
-              border: "none",
-              padding: "0",
-              marginLeft: "4px",
-              cursor: "pointer",
-              textDecoration: "underline",
-              fontSize: "12px",
-            },
-          },
-          showFullDescription ? "Show less" : "Show more"
-        )
-    )
+function RecentTransactionsCard({
+  transactions,
+}: {
+  transactions: TransactionRecord[];
+}) {
+  const hasItems = Array.isArray(transactions) && transactions.length > 0;
+  return (
+    <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <div className="font-semibold text-slate-900">Recent Transactions</div>
+      </div>
+      <div className="overflow-x-auto px-5 py-4">
+        {!hasItems ? (
+          <div className="text-sm text-slate-500">Not available</div>
+        ) : (
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500">
+                <th className="py-2 pr-4 font-medium">Date</th>
+                <th className="py-2 pr-4 font-medium">Buyer</th>
+                <th className="py-2 pr-4 font-medium">Target</th>
+                <th className="py-2 pr-4 font-medium">Value</th>
+                <th className="py-2 pr-4 font-medium">Type</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {transactions.slice(0, 10).map((t, idx) => (
+                <tr key={`tx-${idx}`} className="text-slate-800">
+                  <td className="py-2 pr-4 whitespace-nowrap">
+                    {t.date || "-"}
+                  </td>
+                  <td className="py-2 pr-4">{t.buyer || "-"}</td>
+                  <td className="py-2 pr-4">{t.target || "-"}</td>
+                  <td className="py-2 pr-4 whitespace-nowrap">
+                    {t.value || "-"}
+                  </td>
+                  <td className="py-2 pr-4 whitespace-nowrap">
+                    {t.type || "-"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
   );
-};
+}
+
+function MarketMapGrid({ companies }: { companies: SectorCompany[] }) {
+  return (
+    <div className="p-5 bg-white rounded-xl border shadow-lg border-slate-200/60">
+      <div className="mb-4 font-semibold text-slate-900">Market Map</div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {companies.map((c) => (
+          <a
+            key={c.id}
+            href={`/company/${c.id}`}
+            className="p-3 rounded-lg border transition-colors group border-slate-200 hover:border-blue-300"
+          >
+            <div className="flex gap-3 items-center">
+              <div className="flex overflow-hidden justify-center items-center w-12 h-10 rounded bg-slate-100">
+                {c.linkedin_logo ? (
+                  <Image
+                    src={`data:image/jpeg;base64,${c.linkedin_logo}`}
+                    alt={`${c.name} logo`}
+                    width={48}
+                    height={40}
+                    className="object-contain"
+                  />
+                ) : (
+                  <span className="text-[10px] text-slate-400">No Logo</span>
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-blue-700 truncate group-hover:underline">
+                  {c.name}
+                </div>
+                <div className="text-xs truncate text-slate-500">
+                  {c.country || "N/A"}
+                </div>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // Main Sector Detail Component
 const SectorDetailPage = () => {
   const params = useParams();
-  const router = useRouter();
   const sectorId = params.id as string;
 
   const [sectorData, setSectorData] = useState<SectorStatistics | null>(null);
@@ -376,41 +678,41 @@ const SectorDetailPage = () => {
     pageTotal: 0,
   });
   const [selectedPerPage, setSelectedPerPage] = useState(50);
-  const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<
-    Record<string, string>
-  >({});
+  // const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<Record<string, string>>({});
+  const [activeTab, setActiveTab] = useState<string>("overview");
+  const [debugResponse, setDebugResponse] = useState<string>("");
+  const [debugSectorResponse, setDebugSectorResponse] = useState<string>("");
 
-  // Load secondary->primary mapping once
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const allSecondary =
-          await locationsService.getAllSecondarySectorsWithPrimary();
-        if (!cancelled && Array.isArray(allSecondary)) {
-          const map: Record<string, string> = {};
-          for (const sec of allSecondary) {
-            const secName = (sec as { sector_name?: string }).sector_name;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const primary = (sec as any)?.related_primary_sector as
-              | { sector_name?: string }
-              | undefined;
-            const primaryName = primary?.sector_name;
-            if (secName && primaryName) {
-              map[normalizeSectorName(secName)] = primaryName;
-            }
-          }
-          setSecondaryToPrimaryMap(map);
-        }
-      } catch (e) {
-        console.warn("[Sector] Failed to load secondary->primary map", e);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Load secondary->primary mapping once (not required in the new overview layout)
+  // useEffect(() => {
+  //   let cancelled = false;
+  //   const load = async () => {
+  //     try {
+  //       const allSecondary =
+  //         await locationsService.getAllSecondarySectorsWithPrimary();
+  //       if (!cancelled && Array.isArray(allSecondary)) {
+  //         const map: Record<string, string> = {};
+  //         for (const sec of allSecondary) {
+  //           const secName = (sec as { sector_name?: string }).sector_name;
+  //           const primary = (sec as any)?.related_primary_sector as
+  //             | { sector_name?: string }
+  //             | undefined;
+  //           const primaryName = primary?.sector_name;
+  //           if (secName && primaryName) {
+  //             map[(secName || "").trim().toLowerCase()] = primaryName;
+  //           }
+  //         }
+  //         setSecondaryToPrimaryMap(map);
+  //       }
+  //     } catch (e) {
+  //       console.warn("[Sector] Failed to load secondary->primary map", e);
+  //     }
+  //   };
+  //   load();
+  //   return () => {
+  //     cancelled = true;
+  //   };
+  // }, []);
 
   // Fetch sector data
   const fetchSectorData = useCallback(async () => {
@@ -451,6 +753,12 @@ const SectorDetailPage = () => {
       }
 
       const data: SectorStatistics = await response.json();
+      // Store full sector response for on-page debugging
+      try {
+        setDebugSectorResponse(JSON.stringify(data, null, 2));
+      } catch {
+        // ignore stringify errors
+      }
       setSectorData(data);
     } catch (err) {
       setError(
@@ -505,8 +813,19 @@ const SectorDetailPage = () => {
           throw new Error(`API request failed: ${response.statusText}`);
         }
 
+        // Parse and log full response for debugging in browser console
+        const rawJson = await response.json();
+        console.log("[Sector] Get_Sector_s_new_companies response", {
+          url,
+          params: Object.fromEntries(params.entries()),
+          json: rawJson,
+        });
+
+        // Store response for display on page
+        setDebugResponse(JSON.stringify(rawJson, null, 2));
+
         // Adapt response items to SectorCompany shape used by this page
-        const raw = (await response.json()) as unknown as
+        const raw = rawJson as unknown as
           | NewCompaniesAPIResult
           // Fallbacks for potential alternative shapes
           | { items?: NewCompanyItem[] }
@@ -641,229 +960,9 @@ const SectorDetailPage = () => {
     [fetchCompanies]
   );
 
-  const handleCompanyClick = (companyId: number) => {
-    console.log("Company clicked:", companyId);
-    try {
-      router.push(`/company/${companyId}`);
-    } catch (error) {
-      console.error("Navigation error:", error);
-    }
-  };
+  // Link navigation is handled via anchors in the new layout
 
-  const generatePaginationButtons = () => {
-    const buttons = [];
-    const maxVisible = 7;
-
-    if (pagination.pageTotal <= maxVisible) {
-      for (let i = 1; i <= pagination.pageTotal; i++) {
-        buttons.push(
-          <button
-            key={i}
-            className={`pagination-button ${
-              i === pagination.curPage ? "active" : ""
-            }`}
-            onClick={() => handlePageChange(i)}
-          >
-            {i}
-          </button>
-        );
-      }
-    } else {
-      // Always show first page
-      buttons.push(
-        <button
-          key={1}
-          className={`pagination-button ${
-            1 === pagination.curPage ? "active" : ""
-          }`}
-          onClick={() => handlePageChange(1)}
-        >
-          1
-        </button>
-      );
-
-      if (pagination.curPage > 3) {
-        buttons.push(
-          <span key="ellipsis1" className="pagination-ellipsis">
-            ...
-          </span>
-        );
-      }
-
-      // Show pages around current
-      const start = Math.max(2, pagination.curPage - 1);
-      const end = Math.min(pagination.pageTotal - 1, pagination.curPage + 1);
-
-      for (let i = start; i <= end; i++) {
-        if (i > 1 && i < pagination.pageTotal) {
-          buttons.push(
-            <button
-              key={i}
-              className={`pagination-button ${
-                i === pagination.curPage ? "active" : ""
-              }`}
-              onClick={() => handlePageChange(i)}
-            >
-              {i}
-            </button>
-          );
-        }
-      }
-
-      if (pagination.curPage < pagination.pageTotal - 2) {
-        buttons.push(
-          <span key="ellipsis2" className="pagination-ellipsis">
-            ...
-          </span>
-        );
-      }
-
-      // Always show last page
-      if (pagination.pageTotal > 1) {
-        buttons.push(
-          <button
-            key={pagination.pageTotal}
-            className={`pagination-button ${
-              pagination.pageTotal === pagination.curPage ? "active" : ""
-            }`}
-            onClick={() => handlePageChange(pagination.pageTotal)}
-          >
-            {pagination.pageTotal}
-          </button>
-        );
-      }
-    }
-
-    return buttons;
-  };
-
-  const styles = {
-    container: {
-      backgroundColor: "#f9fafb",
-      fontFamily:
-        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column" as const,
-    },
-    maxWidth: {
-      width: "100%",
-      padding: "32px",
-      flex: "1",
-      display: "flex",
-      flexDirection: "column" as const,
-    },
-    header: {
-      backgroundColor: "white",
-      borderRadius: "12px",
-      padding: "32px 24px",
-      marginBottom: "24px",
-      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-    },
-    breadcrumb: {
-      fontSize: "14px",
-      color: "#4a5568",
-      marginBottom: "16px",
-    },
-    breadcrumbLink: {
-      color: "#0075df",
-      textDecoration: "underline",
-      cursor: "pointer",
-    },
-    sectorTitle: {
-      fontSize: "28px",
-      fontWeight: "700",
-      color: "#1a202c",
-      margin: "0 0 8px 0",
-    },
-    sectorImportance: {
-      fontSize: "16px",
-      color: "#4a5568",
-      margin: "0",
-    },
-    mainContent: {
-      display: "flex",
-      flexDirection: "column" as const,
-      gap: "24px",
-      flex: "1",
-    },
-    topRow: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1.5fr",
-      gap: "24px",
-      alignItems: "start",
-      width: "100%",
-    },
-    companiesSection: {
-      backgroundColor: "white",
-      borderRadius: "12px",
-      padding: "32px 24px",
-      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-      width: "100%",
-    },
-    sidebar: {
-      height: "fit-content",
-      flex: "0 0 20%",
-      display: "flex",
-      flexDirection: "column" as const,
-      gap: "12px",
-    },
-    sidebarTitle: {
-      fontSize: "14px",
-      fontWeight: "600",
-      color: "#1a202c",
-      marginBottom: "10px",
-      marginTop: "0",
-    },
-    companiesTitle: {
-      fontSize: "20px",
-      fontWeight: "600",
-      color: "#1a202c",
-      marginBottom: "24px",
-      marginTop: "0",
-    },
-    statItem: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      padding: "6px 0",
-      borderBottom: "1px solid #e2e8f0",
-    },
-    statItemLast: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      padding: "6px 0",
-      borderBottom: "none",
-    },
-    statLabel: {
-      fontSize: "12px",
-      color: "#4a5568",
-      fontWeight: "500",
-    },
-    statValue: {
-      fontSize: "13px",
-      color: "#1a202c",
-      fontWeight: "600",
-    },
-    sectorBox: {
-      backgroundColor: "white",
-      borderRadius: "12px",
-      padding: "14px",
-      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-    },
-    thesis: {
-      fontSize: "14px",
-      color: "#4a5568",
-      lineHeight: "1.6",
-      marginTop: "16px",
-    },
-    thesisContent: {
-      fontSize: "14px",
-      color: "#4a5568",
-      lineHeight: "1.6",
-    },
-  };
+  // (Removed generatePaginationButtons; simplified pagination in new layout)
 
   if (loading) {
     return (
@@ -991,481 +1090,244 @@ const SectorDetailPage = () => {
     totalsRow?.Number_of_Subsidiaries_Acquired ??
     0;
 
-  const tableRows = companies.map((company, index) => {
-    const existingPrimary = Array.isArray(company.primary_sectors)
-      ? company.primary_sectors
-      : [];
-    const derivedFromSectors = Array.isArray(company.sectors)
-      ? company.sectors
-          .map((s) => mapSecondaryToPrimary(s, secondaryToPrimaryMap))
-          .filter((v): v is string => Boolean(v))
-      : [];
-    const primaryDisplay = Array.from(
-      new Set([...existingPrimary, ...derivedFromSectors])
-    );
+  // Map optional dashboard datasets from the sector data response if present
+  const recentTransactions: TransactionRecord[] = mapRecentTransactions(
+    extractArray(
+      (sectorData as unknown as { resent_trasnactions?: unknown })
+        .resent_trasnactions ??
+        (sectorData as unknown as { recent_transactions?: unknown })
+          .recent_transactions ??
+        []
+    )
+  );
+  const strategicAcquirers: RankedEntity[] = mapRankedEntities(
+    extractArray(
+      (sectorData as unknown as { strategic_acquirers?: unknown })
+        .strategic_acquirers ?? []
+    )
+  );
+  const peInvestors: RankedEntity[] = mapRankedEntities(
+    extractArray(
+      (sectorData as unknown as { pe_investors?: unknown }).pe_investors ?? []
+    )
+  );
 
-    return (
-      <tr key={company.id || index}>
-        <td>
-          <CompanyLogo logo={company.linkedin_logo} name={company.name} />
-        </td>
-        <td>
-          <a
-            href={`/company/${company.id}`}
-            className="company-name"
-            style={{ textDecoration: "none" }}
-          >
-            {company.name || "N/A"}
-          </a>
-        </td>
-        <td>
-          <CompanyDescription
-            description={company.description || "N/A"}
-            index={index}
-          />
-        </td>
-        <td className="sectors-list">
-          {company.sectors?.length > 0 ? company.sectors.join(", ") : "N/A"}
-        </td>
-        <td className="sectors-list">
-          {primaryDisplay.length > 0 ? primaryDisplay.join(", ") : "N/A"}
-        </td>
-        <td>{company.ownership || "N/A"}</td>
-        <td>
-          {company.companies_investors?.length > 0
-            ? company.companies_investors
-                .map((investor) => investor.company_name)
-                .join(", ")
-            : "N/A"}
-        </td>
-        <td>{formatNumber(company.linkedin_employee_latest)}</td>
-        <td>{company.country || "N/A"}</td>
-      </tr>
-    );
-  });
-
-  const style = `
-    .company-table {
-      width: 100%;
-      background: #fff;
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
-    /* Rebalanced column widths */
-    .company-table th:nth-child(1), .company-table td:nth-child(1) { width: 6%; }   /* Logo */
-    .company-table th:nth-child(2), .company-table td:nth-child(2) { width: 8%; }   /* Name (Companies) */
-    .company-table th:nth-child(3), .company-table td:nth-child(3) { width: 25%; }  /* Description */
-    .company-table th:nth-child(4), .company-table td:nth-child(4) { width: 14%; }  /* Sectors */
-    .company-table th:nth-child(5), .company-table td:nth-child(5) { width: 14%; }  /* Primary Sectors */
-    .company-table th:nth-child(6), .company-table td:nth-child(6) { width: 7%; }   /* Ownership */
-    .company-table th:nth-child(7), .company-table td:nth-child(7) { width: 9%; }   /* Investors */
-    /* LinkedIn Members */
-    .company-table th:nth-child(8) { width: 6%; white-space: normal; }
-    .company-table td:nth-child(8) { width: 6%; white-space: nowrap; text-align: right; }
-    .company-table th:nth-child(9), .company-table td:nth-child(9) { width: 11%; white-space: nowrap; }   /* Country */
-    .company-table th,
-    .company-table td {
-      padding: 12px 14px;
-      text-align: left;
-      vertical-align: top;
-      border-bottom: 1px solid #e2e8f0;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-    }
-    .company-table th {
-      font-weight: 600;
-      color: #1a202c;
-      font-size: 14px;
-      background: #f9fafb;
-      border-bottom: 2px solid #e2e8f0;
-    }
-    .company-table td {
-      font-size: 14px;
-      color: #000;
-      line-height: 1.5;
-    }
-    .company-logo {
-      width: 60px;
-      height: 40px;
-      object-fit: contain;
-      vertical-align: middle;
-      border-radius: 8px;
-    }
-    .company-name {
-      color: #0075df;
-      text-decoration: underline;
-      cursor: pointer;
-      font-weight: 500;
-    }
-    .company-description {
-      max-width: 100%;
-      line-height: 1.4;
-    }
-    .company-description-truncated {
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .expand-description {
-      color: #0075df;
-      text-decoration: underline;
-      cursor: pointer;
-      font-size: 12px;
-      margin-top: 4px;
-      display: block;
-    }
-    .sectors-list {
-      max-width: 250px;
-      line-height: 1.3;
-    }
-    .loading {
-      text-align: center;
-      padding: 40px;
-      color: #666;
-    }
-    .pagination {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 16px;
-      margin-top: 24px;
-      padding: 16px;
-    }
-    .pagination-button {
-      padding: 8px 12px;
-      border: none;
-      background: none;
-      color: #000;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 400;
-      transition: color 0.2s;
-      text-decoration: none;
-    }
-    .pagination-button:hover {
-      color: #0075df;
-    }
-    .pagination-button.active {
-      color: #0075df;
-      text-decoration: underline;
-      font-weight: 500;
-    }
-    .pagination-button:disabled {
-      opacity: 0.3;
-      cursor: not-allowed;
-      color: #666;
-    }
-    .pagination-ellipsis {
-      padding: 8px 12px;
-      color: #000;
-      font-size: 14px;
-    }
-    @media (max-width: 768px) {
-      .main-content {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 8px !important;
-      }
-      .top-row { display: grid !important; grid-template-columns: 1fr !important; gap: 12px !important; }
-      .companies-section { flex: none !important; width: 100% !important; order: 2 !important; }
-      .companies-header { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
-      .companies-controls { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
-      .company-table { display: none; }
-      .company-cards { display: block; }
-      .company-logo { width: 40px; height: 30px; }
-      .company-description { max-width: 100%; }
-      .sectors-list { max-width: 150px; }
-    }
-    @media (min-width: 769px) { .company-cards { display: none; } .company-table { display: table; } }
-  `;
-
+  const marketMapCompanies: SectorCompany[] = ((): SectorCompany[] => {
+    const raw = (sectorData as unknown as { market_map?: unknown }).market_map;
+    const mapped = mapMarketMapToCompanies(raw);
+    return mapped.length > 0 ? mapped : companies;
+  })();
   return (
-    <div className="min-h-screen" style={styles.container}>
+    <div className="min-h-screen bg-gradient-to-br to-blue-50 from-slate-50">
       <Header />
-      <div className="max-width" style={styles.maxWidth}>
-        {/* Header Section */}
-        <div className="header" style={styles.header}>
-          <div style={styles.breadcrumb}>
-            <a href="/sectors" style={styles.breadcrumbLink}>
-              Sectors
-            </a>{" "}
-            &gt; {sectorData.Sector.sector_name}
+      <header className="bg-white border-b shadow-sm border-slate-200/60">
+        <div className="px-6 py-4 w-full">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <div className="flex justify-center items-center w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl">
+                <BuildingOfficeIcon className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-slate-900">
+                  {sectorData.Sector.sector_name}
+                </h1>
+                <p className="text-sm text-slate-500">
+                  Market Intelligence Dashboard
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-2 text-sm text-slate-600">
+                <ArrowTrendingUpIcon className="w-4 h-4 text-emerald-500" />
+                <span>Market Open</span>
+              </div>
+              <div className="flex justify-center items-center w-8 h-8 rounded-full bg-slate-200">
+                <BuildingOfficeIcon className="w-4 h-4 text-slate-600" />
+              </div>
+            </div>
           </div>
-          <h1 className="sector-title" style={styles.sectorTitle}>
-            {sectorData.Sector.sector_name}
-          </h1>
-          <p style={styles.sectorImportance}>
-            {sectorData.Sector.Sector_importance} Sector
-          </p>
         </div>
+      </header>
 
-        {/* Main Content */}
-        <div className="main-content" style={styles.mainContent}>
-          {/* Top Row: Statistics + Thesis (full width row, two columns inside) */}
-          <div className="top-row" style={styles.topRow}>
-            {/* Sector Statistics Box */}
-            <div className="statistics-box" style={styles.sectorBox}>
-              <h2 className="sidebar-title" style={styles.sidebarTitle}>
-                Sector Statistics
-              </h2>
-              <div style={styles.statItem}>
-                <span style={styles.statLabel}>Total companies:</span>
-                <span style={styles.statValue}>
-                  {formatNumber(totalCompaniesStat)}
-                </span>
-              </div>
-              <div style={styles.statItem}>
-                <span style={styles.statLabel}>Public companies:</span>
-                <span style={styles.statValue}>
-                  {formatNumber(publicCompaniesStat)}
-                </span>
-              </div>
-              <div style={styles.statItem}>
-                <span style={styles.statLabel}>PE companies:</span>
-                <span style={styles.statValue}>
-                  {formatNumber(peCompaniesStat)}
-                </span>
-              </div>
-              <div style={styles.statItem}>
-                <span style={styles.statLabel}>VC-owned companies:</span>
-                <span style={styles.statValue}>
-                  {formatNumber(vcOwnedCompaniesStat)}
-                </span>
-              </div>
-              <div style={styles.statItem}>
-                <span style={styles.statLabel}>Private companies:</span>
-                <span style={styles.statValue}>
-                  {formatNumber(privateCompaniesStat)}
-                </span>
-              </div>
-              <div style={styles.statItem}>
-                <span style={styles.statLabel}>Subsidiaries:</span>
-                <span style={styles.statValue}>
-                  {formatNumber(subsidiariesStat)}
-                </span>
-              </div>
-            </div>
+      <main className="px-6 py-8 w-full">
+        <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
 
-            {/* Sector Thesis Box */}
-            <div className="thesis-box" style={styles.sectorBox}>
-              <h2 className="sidebar-title" style={styles.sidebarTitle}>
-                Sector Thesis
-              </h2>
-              {sectorData.Sector.Sector_thesis ? (
-                <div
-                  style={styles.thesisContent}
-                  className="sector-thesis"
-                  dangerouslySetInnerHTML={{
-                    __html: sectorData.Sector.Sector_thesis,
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    ...styles.thesisContent,
-                    fontStyle: "italic",
-                    color: "#9ca3af",
-                  }}
-                >
-                  Not available
-                </div>
-              )}
+        {activeTab !== "overview" ? (
+          <div className="flex justify-center items-center h-64 bg-white rounded-xl border border-slate-200">
+            <div className="text-center">
+              <h3 className="mb-2 text-xl font-semibold text-slate-900">
+                {activeTab.charAt(0).toUpperCase() +
+                  activeTab.slice(1).replace("_", " ")}{" "}
+                Section
+              </h3>
+              <p className="text-slate-500">This section is coming soon</p>
             </div>
           </div>
-
-          {/* Companies Section (full width row) */}
-          <div className="companies-section" style={styles.companiesSection}>
-            <div
-              className="companies-header"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "24px",
-              }}
-            >
-              <h2 className="companies-title" style={styles.companiesTitle}>
-                Companies in {sectorData.Sector.sector_name} Sector
-              </h2>
-              {pagination.pageTotal > 0 && (
-                <div
-                  className="companies-controls"
-                  style={{ display: "flex", alignItems: "center", gap: "16px" }}
-                >
-                  <div style={{ fontSize: "14px", color: "#666" }}>
-                    Showing {pagination.offset + 1} -{" "}
-                    {Math.min(
-                      pagination.offset + pagination.perPage,
-                      companiesTotal ??
-                        (typeof (
-                          sectorData as unknown as {
-                            Total_number_of_companies?: unknown;
-                          }
-                        ).Total_number_of_companies === "number"
-                          ? (
-                              sectorData as unknown as {
-                                Total_number_of_companies: number;
-                              }
-                            ).Total_number_of_companies
-                          : 0)
-                    )}{" "}
-                    of{" "}
-                    {formatNumber(
-                      companiesTotal ??
-                        (typeof (
-                          sectorData as unknown as {
-                            Total_number_of_companies?: unknown;
-                          }
-                        ).Total_number_of_companies === "number"
-                          ? (
-                              sectorData as unknown as {
-                                Total_number_of_companies: number;
-                              }
-                            ).Total_number_of_companies
-                          : 0)
-                    )}{" "}
-                    companies
-                    {pagination.pageTotal > 1 && (
-                      <span style={{ marginLeft: "8px" }}>
-                        (Page {pagination.curPage} of {pagination.pageTotal})
-                      </span>
-                    )}
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
-                  >
-                    <span style={{ fontSize: "14px", color: "#666" }}>
-                      Show:
-                    </span>
-                    <select
-                      value={selectedPerPage}
-                      onChange={(e) => {
-                        const newPerPage = parseInt(e.target.value);
-                        setSelectedPerPage(newPerPage);
-                        fetchCompanies(1, newPerPage);
-                      }}
-                      style={{
-                        padding: "4px 8px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "4px",
-                        fontSize: "14px",
-                      }}
-                    >
-                      <option value={25}>25</option>
-                      <option value={50}>50</option>
-                      <option value={100}>100</option>
-                      <option value={200}>200</option>
-                      <option value={500}>500</option>
-                    </select>
-                    <span style={{ fontSize: "14px", color: "#666" }}>
-                      per page
-                    </span>
-                  </div>
+        ) : (
+          <div className="space-y-8">
+            {/* Top Row */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {/* Stats card */}
+              <div className="p-5 bg-white rounded-xl border shadow-lg border-slate-200/60">
+                <div className="mb-4 font-semibold text-slate-900">
+                  Sector Statistics
                 </div>
-              )}
-            </div>
-
-            {companiesLoading ? (
-              <div style={{ textAlign: "center", padding: "40px" }}>
-                <div style={{ fontSize: "18px", color: "#666" }}>
-                  Loading companies...
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Total companies</span>
+                    <span className="font-semibold text-slate-900">
+                      {formatNumber(totalCompaniesStat)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Public companies</span>
+                    <span className="font-semibold text-slate-900">
+                      {formatNumber(publicCompaniesStat)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">PE companies</span>
+                    <span className="font-semibold text-slate-900">
+                      {formatNumber(peCompaniesStat)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">VC-owned companies</span>
+                    <span className="font-semibold text-slate-900">
+                      {formatNumber(vcOwnedCompaniesStat)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Private companies</span>
+                    <span className="font-semibold text-slate-900">
+                      {formatNumber(privateCompaniesStat)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Subsidiaries</span>
+                    <span className="font-semibold text-slate-900">
+                      {formatNumber(subsidiariesStat)}
+                    </span>
+                  </div>
                 </div>
               </div>
-            ) : companies.length > 0 ? (
-              <>
-                {/* Desktop Table */}
-                <table className="company-table">
-                  <thead>
-                    <tr>
-                      <th>Logo</th>
-                      <th>Name</th>
-                      <th>Description</th>
-                      <th>Sectors</th>
-                      <th>Primary Sectors</th>
-                      <th>Ownership</th>
-                      <th>Investors</th>
-                      <th>LinkedIn Members</th>
-                      <th>Country</th>
-                    </tr>
-                  </thead>
-                  <tbody>{tableRows}</tbody>
-                </table>
 
-                {/* Mobile Cards */}
-                <div className="company-cards">
-                  {companies.map((company) => (
-                    <CompanyCard
-                      key={company.id}
-                      company={company}
-                      onClick={() => handleCompanyClick(company.id)}
-                    />
-                  ))}
+              <SectorThesisCard sectorData={sectorData} />
+            </div>
+
+            {/* Middle Row */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <RankedListCard
+                title="Most Active Strategic Acquirers"
+                items={strategicAcquirers}
+              />
+              <RankedListCard
+                title="Most Active Private Equity Investors"
+                items={peInvestors}
+              />
+            </div>
+
+            {/* Bottom Row */}
+            <MarketMapGrid companies={marketMapCompanies} />
+
+            {/* Recent Transactions */}
+            <RecentTransactionsCard transactions={recentTransactions} />
+
+            {/* Debug Response Display */}
+            {debugResponse && (
+              <div className="p-5 bg-white rounded-xl border shadow-lg border-slate-200/60">
+                <div className="mb-4 font-semibold text-slate-900">
+                  API Response Debug (Get_Sector_s_new_companies)
                 </div>
+                <pre className="overflow-x-auto overflow-y-auto p-4 max-h-96 text-xs rounded-lg bg-slate-50">
+                  {debugResponse}
+                </pre>
+              </div>
+            )}
 
-                {pagination.pageTotal > 1 && (
-                  <div className="pagination">
+            {/* Debug Sector Response Display */}
+            {debugSectorResponse && (
+              <div className="p-5 bg-white rounded-xl border shadow-lg border-slate-200/60">
+                <div className="mb-4 font-semibold text-slate-900">
+                  API Response Debug (Get_Sector)
+                </div>
+                <pre className="overflow-x-auto overflow-y-auto p-4 max-h-96 text-xs rounded-lg bg-slate-50">
+                  {debugSectorResponse}
+                </pre>
+              </div>
+            )}
+
+            {/* Pagination controls */}
+            {pagination.pageTotal > 1 && (
+              <div className="flex gap-3 justify-between items-center">
+                <div className="text-sm text-slate-600">
+                  Showing {pagination.offset + 1} -{" "}
+                  {Math.min(
+                    pagination.offset + pagination.perPage,
+                    companiesTotal ?? totalCompaniesStat
+                  )}{" "}
+                  of {formatNumber(companiesTotal ?? totalCompaniesStat)}{" "}
+                  companies
+                  {pagination.pageTotal > 1 && (
+                    <span className="ml-2">
+                      (Page {pagination.curPage} of {pagination.pageTotal})
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2 items-center">
+                  <label className="text-sm text-slate-600">Show</label>
+                  <select
+                    value={selectedPerPage}
+                    onChange={(e) => {
+                      const newPerPage = parseInt(e.target.value);
+                      setSelectedPerPage(newPerPage);
+                      fetchCompanies(1, newPerPage);
+                    }}
+                    className="px-2 py-1 text-sm bg-white rounded-md border border-slate-300"
+                  >
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                    <option value={200}>200</option>
+                    <option value={500}>500</option>
+                  </select>
+                  <span className="text-sm text-slate-600">per page</span>
+                  <div className="flex gap-2 items-center ml-4">
                     {pagination.prevPage && (
                       <button
-                        className="pagination-button"
+                        className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 hover:bg-blue-50"
                         onClick={() => handlePageChange(pagination.prevPage!)}
-                        style={{
-                          padding: "8px 16px",
-                          marginRight: "8px",
-                          border: "1px solid #0075df",
-                          background: "white",
-                          color: "#0075df",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                        }}
                       >
                         ← Previous
                       </button>
                     )}
-                    {generatePaginationButtons()}
                     {pagination.nextPage && (
                       <button
-                        className="pagination-button"
+                        className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 hover:bg-blue-50"
                         onClick={() => handlePageChange(pagination.nextPage!)}
-                        style={{
-                          padding: "8px 16px",
-                          marginLeft: "8px",
-                          border: "1px solid #0075df",
-                          background: "white",
-                          color: "#0075df",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                        }}
                       >
                         Next →
                       </button>
                     )}
                   </div>
-                )}
-              </>
-            ) : (
-              <div style={{ textAlign: "center", padding: "40px" }}>
-                <div style={{ fontSize: "18px", color: "#666" }}>
-                  No companies found in this sector.
                 </div>
               </div>
             )}
+
+            {companiesLoading && (
+              <div className="text-center text-slate-500">
+                Loading companies...
+              </div>
+            )}
+            {!companiesLoading && companies.length === 0 && (
+              <div className="text-center text-slate-500">
+                No companies found in this sector.
+              </div>
+            )}
           </div>
-        </div>
-      </div>
+        )}
+      </main>
       <Footer />
-      <style
-        dangerouslySetInnerHTML={{
-          __html:
-            style +
-            `\n.sector-thesis ul{list-style:disc;margin:0 0 1rem 1.25rem;padding-left:1.25rem;}\n.sector-thesis ol{list-style:decimal;margin:0 0 1rem 1.25rem;padding-left:1.25rem;}\n.sector-thesis li{margin-bottom:.5rem;}\n.sector-thesis h1,.sector-thesis h2,.sector-thesis h3{margin:1rem 0 .5rem;font-weight:700;}\n.sector-thesis a{color:#2563eb;text-decoration:underline;}`,
-        }}
-      />
     </div>
   );
 };
