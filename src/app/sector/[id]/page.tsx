@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
-import Image from "next/image";
+// import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 // import { locationsService } from "@/lib/locationsService";
@@ -135,6 +135,21 @@ function toStringSafe(value: unknown): string {
   }
 }
 
+// Cleans strings like "{\"Investor A\",InvestorB}" into "Investor A, InvestorB"
+function cleanInvestorSetString(raw: string): string {
+  if (!raw) return raw;
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    const inner = trimmed.slice(1, -1);
+    return inner
+      .split(",")
+      .map((part) => part.trim().replace(/^\"|\"$/g, ""))
+      .filter((s) => s.length > 0)
+      .join(", ");
+  }
+  return raw;
+}
+
 // Extracts an array from various possible wrapper shapes (e.g., { items: [...] })
 function extractArray(raw: unknown): unknown[] {
   if (Array.isArray(raw)) return raw;
@@ -203,7 +218,7 @@ function mapRecentTransactions(raw: unknown): TransactionRecord[] {
           "deal date",
         ])
       );
-      const buyer = toStringSafe(
+      const buyerRaw = toStringSafe(
         getFirstMatchingValue(obj, [
           "buyer_name",
           "acquirer",
@@ -213,8 +228,10 @@ function mapRecentTransactions(raw: unknown): TransactionRecord[] {
           "acquirer company",
           "buyer_company",
           "acquirer_company",
+          "buyer_investor", // e.g., Buyer_Investor from recent transactions endpoint
         ])
       );
+      const buyer = cleanInvestorSetString(buyerRaw);
       const seller = toStringSafe(
         getFirstMatchingValue(obj, [
           "seller_name",
@@ -244,6 +261,7 @@ function mapRecentTransactions(raw: unknown): TransactionRecord[] {
           "amount",
           "deal size",
           "deal_value_usd",
+          "investment_amount_m", // from recent transactions endpoint
         ])
       );
       const type = toStringSafe(
@@ -295,141 +313,143 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
 
 function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
   if (!raw) return [];
-  // Supported shapes:
-  // 1) Array of groups: { name/label, companies/items: [{ id, name, linkedin_logo, country, ... }] }
-  // 2) Flat array of companies
-  // 3) Wrapped arrays: { items: [...] } / { data: [...] } / { results: [...] } / { list: [...] }
-  const result: SectorCompany[] = [];
+  const toTypeFromBucket = (bucket: string): string => {
+    const b = (bucket || "").toLowerCase();
+    if (b.includes("public")) return "public";
+    if (b.includes("private equity") || b.includes("pe"))
+      return "private_equity_owned";
+    if (b.includes("venture") || b.includes("vc"))
+      return "venture_capital_backed";
+    return "private";
+  };
+  const toTypeFromOwnership = (ownership: string): string => {
+    const o = (ownership || "").toLowerCase();
+    if (o.includes("public")) return "public";
+    if (o.includes("private equity")) return "private_equity_owned";
+    if (o.includes("venture")) return "venture_capital_backed";
+    return "private";
+  };
+
+  const adaptCompany = (
+    c: Record<string, unknown>,
+    bucketHint?: string
+  ): SectorCompany => {
+    const idVal =
+      (c.id as number | undefined) ||
+      (c as { original_new_company_id?: number }).original_new_company_id ||
+      0;
+    const ownership = toStringSafe(c.ownership);
+    const primarySectors = Array.isArray(
+      (c as { primary_sectors?: string[] }).primary_sectors
+    )
+      ? ((c as { primary_sectors?: string[] }).primary_sectors as string[])
+      : [];
+    const company = {
+      id: typeof idVal === "number" ? idVal : 0,
+      name: toStringSafe(c.name ?? c.company_name),
+      locations_id: 0,
+      url: toStringSafe(c.url),
+      sectors: Array.isArray((c as { sectors?: string[] }).sectors)
+        ? ((c as { sectors?: string[] }).sectors as string[])
+        : [],
+      primary_sectors: primarySectors,
+      description: toStringSafe(c.description),
+      linkedin_employee:
+        (c as { linkedin_employee?: number }).linkedin_employee ??
+        (c as { linkedin_members?: number }).linkedin_members ??
+        0,
+      linkedin_employee_latest:
+        (c as { linkedin_employee_latest?: number }).linkedin_employee_latest ??
+        (c as { linkedin_employee?: number }).linkedin_employee ??
+        0,
+      linkedin_employee_old:
+        (c as { linkedin_employee_old?: number }).linkedin_employee_old ??
+        (c as { linkedin_members_old?: number }).linkedin_members_old ??
+        0,
+      linkedin_logo: toStringSafe(c.linkedin_logo),
+      country: toStringSafe(c.country),
+      ownership_type_id:
+        (c as { ownership_type_id?: number }).ownership_type_id ?? 0,
+      ownership,
+      is_that_investor:
+        (c as { is_that_investor?: boolean }).is_that_investor ?? false,
+      companies_investors: ((
+        c as {
+          companies_investors?: Array<{
+            company_name: string;
+            original_new_company_id: number;
+          }>;
+        }
+      ).companies_investors ?? []) as Array<{
+        company_name: string;
+        original_new_company_id: number;
+      }>,
+    } as SectorCompany & { bucket?: string; company_type?: string };
+
+    // Attach hints for downstream categorization
+    (company as unknown as { bucket?: string }).bucket = toStringSafe(
+      (c as { bucket?: string }).bucket ?? bucketHint ?? ""
+    );
+    (company as unknown as { company_type?: string }).company_type =
+      toTypeFromBucket(
+        toStringSafe((c as { bucket?: string }).bucket ?? bucketHint ?? "")
+      ) || toTypeFromOwnership(ownership);
+
+    return company;
+  };
+
+  const out: SectorCompany[] = [];
+
+  // If raw is a non-array object whose values are arrays (bucket -> items)
+  if (raw && !Array.isArray(raw) && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    let treated = false;
+    for (const [key, value] of Object.entries(obj)) {
+      if (Array.isArray(value)) {
+        treated = true;
+        for (const cRaw of value as Array<unknown>) {
+          const c = (cRaw || {}) as Record<string, unknown>;
+          out.push(adaptCompany(c, key));
+        }
+      }
+    }
+    if (treated) return out;
+  }
+
+  // Otherwise, treat as array (possibly wrapped)
   const arr = Array.isArray(raw)
     ? (raw as Array<unknown>)
     : (extractArray(raw) as Array<unknown>);
-  if (Array.isArray(arr)) {
-    if (arr.length > 0 && typeof arr[0] === "object" && arr[0] !== null) {
-      const maybeGroup = arr[0] as Record<string, unknown>;
-      const hasGroupCompanies =
-        Array.isArray(maybeGroup.companies) || Array.isArray(maybeGroup.items);
-      if (hasGroupCompanies) {
-        for (const group of arr as Array<Record<string, unknown>>) {
-          const companiesArr =
-            (group.companies as Array<unknown> | undefined) ||
-            (group.items as Array<unknown> | undefined) ||
-            [];
-          for (const cRaw of companiesArr) {
-            const c = (cRaw || {}) as Record<string, unknown>;
-            const idVal =
-              (c.id as number | undefined) ??
-              (c as { original_new_company_id?: number })
-                .original_new_company_id ??
-              0;
-            result.push({
-              id: typeof idVal === "number" ? idVal : 0,
-              name: toStringSafe(c.name ?? c.company_name),
-              locations_id: 0,
-              url: toStringSafe(c.url),
-              sectors: Array.isArray((c as { sectors?: string[] }).sectors)
-                ? ((c as { sectors?: string[] }).sectors as string[])
-                : [],
-              primary_sectors: Array.isArray(
-                (c as { primary_sectors?: string[] }).primary_sectors
-              )
-                ? ((c as { primary_sectors?: string[] })
-                    .primary_sectors as string[])
-                : [],
-              description: toStringSafe(c.description),
-              linkedin_employee:
-                (c as { linkedin_employee?: number }).linkedin_employee ??
-                (c as { linkedin_members?: number }).linkedin_members ??
-                0,
-              linkedin_employee_latest:
-                (c as { linkedin_employee_latest?: number })
-                  .linkedin_employee_latest ??
-                (c as { linkedin_employee?: number }).linkedin_employee ??
-                0,
-              linkedin_employee_old:
-                (c as { linkedin_employee_old?: number })
-                  .linkedin_employee_old ??
-                (c as { linkedin_members_old?: number }).linkedin_members_old ??
-                0,
-              linkedin_logo: toStringSafe(c.linkedin_logo),
-              country: toStringSafe(c.country),
-              ownership_type_id:
-                (c as { ownership_type_id?: number }).ownership_type_id ?? 0,
-              ownership: toStringSafe(c.ownership),
-              is_that_investor:
-                (c as { is_that_investor?: boolean }).is_that_investor ?? false,
-              companies_investors: ((
-                c as {
-                  companies_investors?: Array<{
-                    company_name: string;
-                    original_new_company_id: number;
-                  }>;
-                }
-              ).companies_investors ?? []) as Array<{
-                company_name: string;
-                original_new_company_id: number;
-              }>,
-            });
-          }
+  if (!Array.isArray(arr)) return out;
+
+  if (arr.length > 0 && typeof arr[0] === "object" && arr[0] !== null) {
+    const first = arr[0] as Record<string, unknown>;
+    const hasGrouped =
+      Array.isArray(first.companies) ||
+      Array.isArray(first.items) ||
+      (first.bucket &&
+        (Array.isArray(first["companies"]) || Array.isArray(first["items"])));
+    if (hasGrouped) {
+      for (const group of arr as Array<Record<string, unknown>>) {
+        const bucket = toStringSafe((group as { bucket?: string }).bucket);
+        const companiesArr =
+          (group.companies as Array<unknown> | undefined) ||
+          (group.items as Array<unknown> | undefined) ||
+          [];
+        for (const cRaw of companiesArr) {
+          const c = (cRaw || {}) as Record<string, unknown>;
+          out.push(adaptCompany(c, bucket));
         }
-        return result;
       }
-      // Else treat as flat array of companies
-    }
-    for (const cRaw of arr) {
-      const c = (cRaw || {}) as Record<string, unknown>;
-      const idVal =
-        (c.id as number | undefined) ??
-        (c as { original_new_company_id?: number }).original_new_company_id ??
-        0;
-      result.push({
-        id: typeof idVal === "number" ? idVal : 0,
-        name: toStringSafe(c.name ?? c.company_name),
-        locations_id: 0,
-        url: toStringSafe(c.url),
-        sectors: Array.isArray((c as { sectors?: string[] }).sectors)
-          ? ((c as { sectors?: string[] }).sectors as string[])
-          : [],
-        primary_sectors: Array.isArray(
-          (c as { primary_sectors?: string[] }).primary_sectors
-        )
-          ? ((c as { primary_sectors?: string[] }).primary_sectors as string[])
-          : [],
-        description: toStringSafe(c.description),
-        linkedin_employee:
-          (c as { linkedin_employee?: number }).linkedin_employee ??
-          (c as { linkedin_members?: number }).linkedin_members ??
-          0,
-        linkedin_employee_latest:
-          (c as { linkedin_employee_latest?: number })
-            .linkedin_employee_latest ??
-          (c as { linkedin_employee?: number }).linkedin_employee ??
-          0,
-        linkedin_employee_old:
-          (c as { linkedin_employee_old?: number }).linkedin_employee_old ??
-          (c as { linkedin_members_old?: number }).linkedin_members_old ??
-          0,
-        linkedin_logo: toStringSafe(c.linkedin_logo),
-        country: toStringSafe(c.country),
-        ownership_type_id:
-          (c as { ownership_type_id?: number }).ownership_type_id ?? 0,
-        ownership: toStringSafe(c.ownership),
-        is_that_investor:
-          (c as { is_that_investor?: boolean }).is_that_investor ?? false,
-        companies_investors: ((
-          c as {
-            companies_investors?: Array<{
-              company_name: string;
-              original_new_company_id: number;
-            }>;
-          }
-        ).companies_investors ?? []) as Array<{
-          company_name: string;
-          original_new_company_id: number;
-        }>,
-      });
+      return out;
     }
   }
-  return result;
+
+  for (const cRaw of arr) {
+    const c = (cRaw || {}) as Record<string, unknown>;
+    out.push(adaptCompany(c, toStringSafe((c as { bucket?: string }).bucket)));
+  }
+  return out;
 }
 
 // (Removed truncateDescription helper; no longer used)
@@ -532,39 +552,121 @@ function SectorThesisCard({
   );
 }
 
-function RankedListCard({
+function MostActiveTableCard({
   title,
   items,
+  accent,
+  badgeLabel,
 }: {
   title: string;
   items: RankedEntity[];
+  accent: "blue" | "purple";
+  badgeLabel: string;
 }) {
   const hasItems = Array.isArray(items) && items.length > 0;
+  const accentClasses =
+    accent === "purple"
+      ? {
+          gradient: "from-purple-500 to-pink-500",
+          badge: "bg-purple-50 text-purple-700 border-purple-200",
+          countBg: "bg-blue-50 text-blue-600",
+        }
+      : {
+          gradient: "from-blue-500 to-indigo-500",
+          badge: "bg-blue-50 text-blue-700 border-blue-200",
+          countBg: "bg-indigo-50 text-indigo-600",
+        };
+
   return (
     <div className="h-full bg-white rounded-xl border shadow-lg border-slate-200/60">
       <div className="px-5 py-4 border-b border-slate-100">
-        <div className="font-semibold text-slate-900">{title}</div>
+        <div className="flex gap-3 items-center text-xl">
+          <span className="inline-flex justify-center items-center w-8 h-8 rounded-lg bg-slate-50">
+            <BuildingOfficeIcon
+              className={`w-4 h-4 text-${
+                accent === "purple" ? "purple" : "blue"
+              }-600`}
+            />
+          </span>
+          <span className="text-base font-semibold text-slate-900 sm:text-lg">
+            {title}
+          </span>
+        </div>
       </div>
-      <div className="px-5 py-4">
-        {!hasItems ? (
-          <div className="text-sm text-slate-500">Not available</div>
-        ) : (
-          <ul className="divide-y divide-slate-100">
-            {items.slice(0, 10).map((it) => (
-              <li
-                key={`${title}-${it.name}`}
-                className="flex justify-between items-center py-2"
-              >
-                <span className="pr-3 text-sm truncate text-slate-800">
-                  {it.name}
-                </span>
-                <span className="px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded-full border border-blue-200">
-                  {formatNumber(it.count)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+      <div className="px-5 pb-5">
+        <div className="overflow-auto" style={{ maxHeight: "28rem" }}>
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50/80">
+              <tr className="hover:bg-slate-50/80">
+                <th className="py-3 font-semibold text-left text-slate-700">
+                  {badgeLabel.includes("Equity") ? "Investor" : "Acquirer"}
+                </th>
+                <th className="py-3 font-semibold text-center text-slate-700">
+                  Deals
+                </th>
+                <th className="py-3 font-semibold text-left text-slate-700">
+                  Most Recent
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {!hasItems ? (
+                <tr>
+                  <td
+                    colSpan={3}
+                    className="py-6 text-sm text-center text-slate-500"
+                  >
+                    Not available
+                  </td>
+                </tr>
+              ) : (
+                items.slice(0, 25).map((it) => (
+                  <tr
+                    key={`${title}-${it.name}`}
+                    className="transition-colors duration-150 hover:bg-slate-50/50"
+                  >
+                    <td className="py-3 pr-4">
+                      <div className="flex gap-3 items-center">
+                        <div
+                          className={`flex justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${accentClasses.gradient}`}
+                        >
+                          <BuildingOfficeIcon className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-900">
+                            {it.name}
+                          </p>
+                          <span
+                            className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
+                          >
+                            {badgeLabel}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 text-center">
+                      <div
+                        className={`inline-flex justify-center items-center w-8 h-8 rounded-full ${accentClasses.countBg}`}
+                      >
+                        <span className="text-sm font-bold">
+                          {formatNumber(it.count)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">
+                          N/A
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">N/A</p>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -576,85 +678,389 @@ function RecentTransactionsCard({
   transactions: TransactionRecord[];
 }) {
   const hasItems = Array.isArray(transactions) && transactions.length > 0;
+
+  const getDealTypeBadge = (dealType?: string) => {
+    const colors: Record<string, string> = {
+      acquisition: "bg-red-50 text-red-700 border-red-200",
+      merger: "bg-blue-50 text-blue-700 border-blue-200",
+      ipo: "bg-green-50 text-green-700 border-green-200",
+      funding_round: "bg-purple-50 text-purple-700 border-purple-200",
+      lbo: "bg-orange-50 text-orange-700 border-orange-200",
+      recapitalization: "bg-pink-50 text-pink-700 border-pink-200",
+    };
+    return (
+      colors[(dealType || "").toLowerCase().replace(/\s+/g, "_")] ||
+      "bg-gray-50 text-gray-700 border-gray-200"
+    );
+  };
+
+  const getStatusBadge = (status?: string) => {
+    const colors: Record<string, string> = {
+      completed: "bg-green-50 text-green-700 border-green-200",
+      announced: "bg-blue-50 text-blue-700 border-blue-200",
+      pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
+      terminated: "bg-red-50 text-red-700 border-red-200",
+    };
+    return (
+      colors[(status || "").toLowerCase()] ||
+      "bg-gray-50 text-gray-700 border-gray-200"
+    );
+  };
+
   return (
     <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
       <div className="px-5 py-4 border-b border-slate-100">
-        <div className="font-semibold text-slate-900">Recent Transactions</div>
+        <div className="flex gap-3 items-center text-xl">
+          <span className="inline-flex justify-center items-center w-8 h-8 bg-orange-50 rounded-lg">
+            <svg
+              className="w-4 h-4 text-orange-600"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M3 12h18M12 3v18" />
+            </svg>
+          </span>
+          <span className="text-slate-900">Recent Transactions</span>
+        </div>
       </div>
-      <div className="overflow-x-auto px-5 py-4">
-        {!hasItems ? (
-          <div className="text-sm text-slate-500">Not available</div>
-        ) : (
+      <div className="px-5 pb-5">
+        <div className="overflow-auto" style={{ maxHeight: "28rem" }}>
           <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left text-slate-500">
-                <th className="py-2 pr-4 font-medium">Date</th>
-                <th className="py-2 pr-4 font-medium">Buyer</th>
-                <th className="py-2 pr-4 font-medium">Target</th>
-                <th className="py-2 pr-4 font-medium">Value</th>
-                <th className="py-2 pr-4 font-medium">Type</th>
+            <thead className="bg-slate-50/80">
+              <tr className="hover:bg-slate-50/80">
+                <th className="py-3 font-semibold text-left text-slate-700">
+                  Target
+                </th>
+                <th className="py-3 font-semibold text-left text-slate-700">
+                  Buyer/Investor
+                </th>
+                <th className="py-3 font-semibold text-left text-slate-700">
+                  Deal Type
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {transactions.slice(0, 10).map((t, idx) => (
-                <tr key={`tx-${idx}`} className="text-slate-800">
-                  <td className="py-2 pr-4 whitespace-nowrap">
-                    {t.date || "-"}
-                  </td>
-                  <td className="py-2 pr-4">{t.buyer || "-"}</td>
-                  <td className="py-2 pr-4">{t.target || "-"}</td>
-                  <td className="py-2 pr-4 whitespace-nowrap">
-                    {t.value || "-"}
-                  </td>
-                  <td className="py-2 pr-4 whitespace-nowrap">
-                    {t.type || "-"}
+            <tbody>
+              {hasItems ? (
+                transactions.slice(0, 25).map((t, idx) => {
+                  const announcementDate = t.date ? new Date(t.date) : null;
+                  const valueDisplay = t.value ? `$${t.value}M` : null;
+                  return (
+                    <tr
+                      key={`tx-${idx}`}
+                      className="transition-colors duration-150 hover:bg-slate-50/50"
+                    >
+                      <td className="py-3 pr-4">
+                        <div className="flex gap-3 items-center">
+                          <div className="flex justify-center items-center w-8 h-8 text-xs font-semibold text-white bg-gradient-to-br from-orange-500 to-red-500 rounded-lg">
+                            {(t.target || "?").charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-900">
+                              {t.target || "-"}
+                            </p>
+                            {announcementDate &&
+                              !Number.isNaN(announcementDate.getTime()) && (
+                                <div className="flex gap-1 items-center mt-1">
+                                  <svg
+                                    className="w-3 h-3 text-slate-400"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                  >
+                                    <rect
+                                      x="3"
+                                      y="4"
+                                      width="18"
+                                      height="18"
+                                      rx="2"
+                                    />
+                                    <path d="M16 2v4M8 2v4M3 10h18" />
+                                  </svg>
+                                  <p className="text-xs text-slate-500">
+                                    {announcementDate.toLocaleDateString(
+                                      undefined,
+                                      {
+                                        month: "short",
+                                        day: "2-digit",
+                                        year: "numeric",
+                                      }
+                                    )}
+                                  </p>
+                                </div>
+                              )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <div>
+                          <p className="font-medium text-slate-900">
+                            {t.buyer || "-"}
+                          </p>
+                          {valueDisplay && (
+                            <p className="mt-1 text-xs text-slate-500">
+                              {valueDisplay}
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3">
+                        <div className="space-y-1">
+                          {t.type && (
+                            <span
+                              className={`inline-block px-2 py-1 border rounded text-xs ${getDealTypeBadge(
+                                t.type
+                              )}`}
+                            >
+                              {t.type.replace(/_/g, " ")}
+                            </span>
+                          )}
+                          {t.seller && (
+                            <span
+                              className={`inline-block px-2 py-1 border rounded text-xs ${getStatusBadge(
+                                t.seller
+                              )} ml-1`}
+                            >
+                              {t.seller}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td
+                    colSpan={3}
+                    className="py-6 text-sm text-center text-slate-500"
+                  >
+                    Not available
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
-        )}
+        </div>
       </div>
     </div>
   );
 }
 
 function MarketMapGrid({ companies }: { companies: SectorCompany[] }) {
+  const labelFor = (type: string) =>
+    type === "public"
+      ? "Public"
+      : type === "private_equity_owned"
+      ? "Private Equity Owned"
+      : type === "venture_capital_backed"
+      ? "Venture Capital Backed"
+      : "Private";
+
+  const enhanced = companies.map((c) => {
+    const computedType =
+      (c as unknown as { company_type?: string }).company_type ||
+      (typeof c.ownership === "string" &&
+      c.ownership.toLowerCase().includes("public")
+        ? "public"
+        : (c as unknown as { is_that_investor?: boolean }).is_that_investor
+        ? "private_equity_owned"
+        : "private");
+    const ownershipText =
+      (c.ownership && c.ownership.trim()) || labelFor(computedType);
+    return {
+      id: c.id,
+      name: c.name,
+      logo_url: c.linkedin_logo
+        ? `data:image/jpeg;base64,${c.linkedin_logo}`
+        : "",
+      sub_sector:
+        Array.isArray(c.primary_sectors) && c.primary_sectors.length > 0
+          ? c.primary_sectors[0]
+          : "",
+      company_type: computedType,
+      ownership_text: ownershipText,
+    };
+  });
+
+  const categorized = {
+    public: enhanced.filter((x) => x.company_type === "public"),
+    private_equity_owned: enhanced.filter(
+      (x) => x.company_type === "private_equity_owned"
+    ),
+    venture_capital_backed: enhanced.filter(
+      (x) => x.company_type === "venture_capital_backed"
+    ),
+    private: enhanced.filter((x) => x.company_type === "private"),
+  } as Record<
+    string,
+    Array<{
+      id: number;
+      name: string;
+      logo_url: string;
+      sub_sector: string;
+      ownership_text?: string;
+    }>
+  >;
+
+  const getIcon = (type: string) => {
+    if (type === "public")
+      return (
+        <svg
+          className="w-4 h-4 text-blue-600"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M3 12h18M3 6h18M3 18h18" />
+        </svg>
+      );
+    if (type === "private_equity_owned")
+      return (
+        <svg
+          className="w-4 h-4 text-purple-600"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M12 1v22M3 8h18M3 16h18" />
+        </svg>
+      );
+    if (type === "venture_capital_backed")
+      return (
+        <svg
+          className="w-4 h-4 text-green-600"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      );
+    return (
+      <svg
+        className="w-4 h-4 text-gray-600"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <path d="M3 12h18M3 6h18M3 18h18" />
+      </svg>
+    );
+  };
+
+  const titleFor = (type: string) =>
+    type === "public"
+      ? "Public Companies"
+      : type === "private_equity_owned"
+      ? "Private Equity Owned"
+      : type === "venture_capital_backed"
+      ? "Venture Capital Backed"
+      : "Private Companies";
+
+  const colorFor = (type: string) =>
+    type === "public"
+      ? "from-blue-500 to-blue-600"
+      : type === "private_equity_owned"
+      ? "from-purple-500 to-purple-600"
+      : type === "venture_capital_backed"
+      ? "from-green-500 to-green-600"
+      : "from-gray-500 to-gray-600";
+
   return (
-    <div className="p-5 bg-white rounded-xl border shadow-lg border-slate-200/60">
-      <div className="mb-4 font-semibold text-slate-900">Market Map</div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {companies.map((c) => (
-          <a
-            key={c.id}
-            href={`/company/${c.id}`}
-            className="p-3 rounded-lg border transition-colors group border-slate-200 hover:border-blue-300"
-          >
-            <div className="flex gap-3 items-center">
-              <div className="flex overflow-hidden justify-center items-center w-12 h-10 rounded bg-slate-100">
-                {c.linkedin_logo ? (
-                  <Image
-                    src={`data:image/jpeg;base64,${c.linkedin_logo}`}
-                    alt={`${c.name} logo`}
-                    width={48}
-                    height={40}
-                    className="object-contain"
-                  />
-                ) : (
-                  <span className="text-[10px] text-slate-400">No Logo</span>
+    <div className="bg-gradient-to-br from-white rounded-xl border-0 shadow-lg to-slate-50/50">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <div className="flex gap-3 items-center text-xl">
+          <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
+            <svg
+              className="w-5 h-5 text-indigo-600"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M3 12h18M3 6h18M3 18h18" />
+            </svg>
+          </span>
+          <span className="text-slate-900">Market Map</span>
+        </div>
+      </div>
+      <div className="px-5 pt-6 pb-5">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {Object.entries(categorized).map(([type, list]) => (
+            <div key={type} className="space-y-4">
+              <div className="flex gap-3 items-center mb-4">
+                {getIcon(type)}
+                <h3 className="font-semibold text-slate-900">
+                  {titleFor(type)}
+                </h3>
+                <span className="inline-flex px-2 py-0.5 text-xs rounded bg-slate-100 text-slate-700 border border-slate-200">
+                  {list.length}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {list.slice(0, 6).map((company) => (
+                  <a
+                    key={company.id}
+                    href={`/company/${company.id}`}
+                    className="relative p-4 bg-white rounded-xl border transition-all duration-200 group border-slate-200 hover:border-slate-300 hover:shadow-sm"
+                  >
+                    {company.logo_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={company.logo_url}
+                        alt={company.name}
+                        className="object-contain mb-2 w-8 h-8"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                          const fallback =
+                            target.nextElementSibling as HTMLElement | null;
+                          if (fallback) fallback.style.display = "flex";
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className={`w-8 h-8 bg-gradient-to-r ${colorFor(
+                        type
+                      )} rounded-lg flex items-center justify-center text-white text-xs font-semibold mb-2 ${
+                        company.logo_url ? "hidden" : "flex"
+                      }`}
+                    >
+                      {company.name.charAt(0)}
+                    </div>
+                    <p className="text-sm font-medium leading-tight text-slate-900">
+                      {company.name}
+                    </p>
+                    {company.ownership_text && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        {company.ownership_text}
+                      </p>
+                    )}
+                    {company.sub_sector && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        {company.sub_sector}
+                      </p>
+                    )}
+                  </a>
+                ))}
+                {list.length > 6 && (
+                  <div className="flex relative justify-center items-center p-4 rounded-xl border border-dashed transition-colors duration-200 group border-slate-300 bg-slate-50 hover:bg-slate-100">
+                    <p className="text-sm font-medium text-slate-600">
+                      +{list.length - 6} more
+                    </p>
+                  </div>
                 )}
               </div>
-              <div className="min-w-0">
-                <div className="text-sm font-medium text-blue-700 truncate group-hover:underline">
-                  {c.name}
-                </div>
-                <div className="text-xs truncate text-slate-500">
-                  {c.country || "N/A"}
-                </div>
-              </div>
             </div>
-          </a>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -683,13 +1089,13 @@ const SectorDetailPage = () => {
   const [selectedPerPage, setSelectedPerPage] = useState(50);
   // const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<string>("overview");
-  const [debugResponse, setDebugResponse] = useState<string>("");
-  const [debugSectorResponse, setDebugSectorResponse] = useState<string>("");
+  // Debug states removed
   const [companiesApiPayload, setCompaniesApiPayload] = useState<unknown>(null);
   // Split datasets fetched from dedicated endpoints
   const [splitStrategicRaw, setSplitStrategicRaw] = useState<unknown>(null);
   const [splitPERaw, setSplitPERaw] = useState<unknown>(null);
   const [splitMarketMapRaw, setSplitMarketMapRaw] = useState<unknown>(null);
+  const [splitRecentRaw, setSplitRecentRaw] = useState<unknown>(null);
 
   // Load secondary->primary mapping once (not required in the new overview layout)
   // useEffect(() => {
@@ -761,12 +1167,6 @@ const SectorDetailPage = () => {
       }
 
       const data: SectorStatistics = await response.json();
-      // Store full sector response for on-page debugging
-      try {
-        setDebugSectorResponse(JSON.stringify(data, null, 2));
-      } catch {
-        // ignore stringify errors
-      }
       setSectorData(data);
     } catch (err) {
       setError(
@@ -821,16 +1221,8 @@ const SectorDetailPage = () => {
           throw new Error(`API request failed: ${response.statusText}`);
         }
 
-        // Parse and log full response for debugging in browser console
         const rawJson = await response.json();
-        console.log("[Sector] Get_Sector_s_new_companies response", {
-          url,
-          params: Object.fromEntries(params.entries()),
-          json: rawJson,
-        });
-
-        // Store response for display on page
-        setDebugResponse(JSON.stringify(rawJson, null, 2));
+        // Parsed companies payload
         // Keep parsed payload for mapping dashboard datasets
         setCompaniesApiPayload(rawJson);
 
@@ -966,7 +1358,7 @@ const SectorDetailPage = () => {
       const qs = new URLSearchParams();
       qs.append("Sector_id", String(Sector_id));
 
-      const [mmRes, stratRes, peRes] = await Promise.all([
+      const [mmRes, stratRes, peRes, recentRes] = await Promise.all([
         fetch(
           `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map?${qs.toString()}`,
           { method: "GET", headers, credentials: "include" }
@@ -979,25 +1371,27 @@ const SectorDetailPage = () => {
           `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_pe_investors?${qs.toString()}`,
           { method: "GET", headers, credentials: "include" }
         ),
+        fetch(
+          `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${qs.toString()}`,
+          { method: "GET", headers, credentials: "include" }
+        ),
       ]);
 
-      const [mmJson, stratJson, peJson] = await Promise.all([
+      const [mmJson, stratJson, peJson, recentJson] = await Promise.all([
         mmRes.ok ? mmRes.json() : Promise.resolve(null),
         stratRes.ok ? stratRes.json() : Promise.resolve(null),
         peRes.ok ? peRes.json() : Promise.resolve(null),
+        recentRes.ok ? recentRes.json() : Promise.resolve(null),
       ]);
 
       setSplitMarketMapRaw(mmJson);
       setSplitStrategicRaw(stratJson);
       setSplitPERaw(peJson);
+      setSplitRecentRaw(recentJson);
 
-      console.log("[Sector] Split datasets loaded", {
-        market_map: mmJson,
-        strategic_acquirers: stratJson,
-        pe_investors: peJson,
-      });
-    } catch (e) {
-      console.warn("[Sector] Failed to load split datasets", e);
+      // split datasets loaded (no console)
+    } catch {
+      // ignore
     }
   }, [sectorId]);
 
@@ -1022,10 +1416,10 @@ const SectorDetailPage = () => {
     [fetchCompanies]
   );
 
-  // Console debug for specific dashboard sections (prefer companies API payload if present)
+  // Recompute derived datasets when sources change
   useEffect(() => {
     const source =
-      splitStrategicRaw || splitPERaw || splitMarketMapRaw
+      splitStrategicRaw || splitPERaw || splitMarketMapRaw || splitRecentRaw
         ? {
             ...(splitStrategicRaw
               ? { strategic_acquirers: splitStrategicRaw as unknown }
@@ -1033,6 +1427,9 @@ const SectorDetailPage = () => {
             ...(splitPERaw ? { pe_investors: splitPERaw as unknown } : {}),
             ...(splitMarketMapRaw
               ? { market_map: splitMarketMapRaw as unknown }
+              : {}),
+            ...(splitRecentRaw
+              ? { resent_trasnactions: splitRecentRaw as unknown }
               : {}),
             ...((companiesApiPayload as Record<string, unknown> | null) || {}),
             ...((sectorData as unknown as Record<string, unknown> | null) ||
@@ -1055,31 +1452,13 @@ const SectorDetailPage = () => {
         .pe_investors;
       const rawMarketMap = (source as unknown as { market_map?: unknown })
         .market_map;
-
-      console.log("[Sector] Raw – recent transactions (preferred):", rawRecent);
-      console.log(
-        "[Sector] Raw – strategic acquirers (preferred):",
-        rawStrategic
-      );
-      console.log("[Sector] Raw – PE investors (preferred):", rawPE);
-      console.log("[Sector] Raw – market map (preferred):", rawMarketMap);
-
-      const mappedRecent = mapRecentTransactions(extractArray(rawRecent ?? []));
-      const mappedStrategic = mapRankedEntities(
-        extractArray(rawStrategic ?? [])
-      );
-      const mappedPE = mapRankedEntities(extractArray(rawPE ?? []));
-      const mappedMarket = mapMarketMapToCompanies(rawMarketMap);
-
-      console.log("[Sector] Mapped – recentTransactions:", mappedRecent);
-      console.log("[Sector] Mapped – strategicAcquirers:", mappedStrategic);
-      console.log("[Sector] Mapped – peInvestors:", mappedPE);
-      console.log("[Sector] Mapped – marketMapCompanies:", {
-        count: mappedMarket.length || companies.length,
-        sample: (mappedMarket.length ? mappedMarket : companies).slice(0, 8),
-      });
-    } catch (e) {
-      console.warn("[Sector] Debug logging failed:", e);
+      // Touch variables to avoid unused warnings
+      void rawRecent;
+      void rawStrategic;
+      void rawPE;
+      void rawMarketMap;
+    } catch {
+      // ignore
     }
   }, [
     companiesApiPayload,
@@ -1088,6 +1467,7 @@ const SectorDetailPage = () => {
     splitStrategicRaw,
     splitPERaw,
     splitMarketMapRaw,
+    splitRecentRaw,
   ]);
 
   // Link navigation is handled via anchors in the new layout
@@ -1207,22 +1587,11 @@ const SectorDetailPage = () => {
           .Total_number_of_companies
       : 0);
 
-  const publicCompaniesStat =
-    sectorData.Number_Of_Public_Companies ?? totalsRow?.Number_of_Public ?? 0;
-  const peCompaniesStat =
-    sectorData.Number_Of_PE_Companies ?? totalsRow?.Number_of_PE ?? 0;
-  const vcOwnedCompaniesStat =
-    sectorData["Number_of_VC-owned_companies"] ?? totalsRow?.Number_of_VC ?? 0;
-  const privateCompaniesStat =
-    sectorData.Number_of_private_companies ?? totalsRow?.Number_of_Private ?? 0;
-  const subsidiariesStat =
-    sectorData.Number_of_subsidiaries ??
-    totalsRow?.Number_of_Subsidiaries_Acquired ??
-    0;
+  // Removed statistics card; keep totals only when needed elsewhere
 
   // Map optional dashboard datasets from the preferred source (companies API), fallback to sector API
   const preferredSource =
-    splitStrategicRaw || splitPERaw || splitMarketMapRaw
+    splitStrategicRaw || splitPERaw || splitMarketMapRaw || splitRecentRaw
       ? {
           // Compose a virtual preferred source from split endpoints where available
           ...(splitStrategicRaw
@@ -1231,6 +1600,9 @@ const SectorDetailPage = () => {
           ...(splitPERaw ? { pe_investors: splitPERaw as unknown } : {}),
           ...(splitMarketMapRaw
             ? { market_map: splitMarketMapRaw as unknown }
+            : {}),
+          ...(splitRecentRaw
+            ? { resent_trasnactions: splitRecentRaw as unknown }
             : {}),
           // fallback fields from companies API and sector API
           ...((companiesApiPayload as Record<string, unknown> | null) || {}),
@@ -1315,64 +1687,23 @@ const SectorDetailPage = () => {
         ) : (
           <div className="space-y-8">
             {/* Top Row */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              {/* Stats card */}
-              <div className="p-5 bg-white rounded-xl border shadow-lg border-slate-200/60">
-                <div className="mb-4 font-semibold text-slate-900">
-                  Sector Statistics
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">Total companies</span>
-                    <span className="font-semibold text-slate-900">
-                      {formatNumber(totalCompaniesStat)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">Public companies</span>
-                    <span className="font-semibold text-slate-900">
-                      {formatNumber(publicCompaniesStat)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">PE companies</span>
-                    <span className="font-semibold text-slate-900">
-                      {formatNumber(peCompaniesStat)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">VC-owned companies</span>
-                    <span className="font-semibold text-slate-900">
-                      {formatNumber(vcOwnedCompaniesStat)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">Private companies</span>
-                    <span className="font-semibold text-slate-900">
-                      {formatNumber(privateCompaniesStat)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">Subsidiaries</span>
-                    <span className="font-semibold text-slate-900">
-                      {formatNumber(subsidiariesStat)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
+            <div className="grid grid-cols-1 gap-6">
               <SectorThesisCard sectorData={sectorData} />
             </div>
 
             {/* Middle Row */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <RankedListCard
+              <MostActiveTableCard
                 title="Most Active Strategic Acquirers"
                 items={strategicAcquirers}
+                accent="blue"
+                badgeLabel="Strategic Acquirer"
               />
-              <RankedListCard
+              <MostActiveTableCard
                 title="Most Active Private Equity Investors"
                 items={peInvestors}
+                accent="purple"
+                badgeLabel="Private Equity"
               />
             </div>
 
@@ -1382,29 +1713,7 @@ const SectorDetailPage = () => {
             {/* Recent Transactions */}
             <RecentTransactionsCard transactions={recentTransactions} />
 
-            {/* Debug Response Display */}
-            {debugResponse && (
-              <div className="p-5 bg-white rounded-xl border shadow-lg border-slate-200/60">
-                <div className="mb-4 font-semibold text-slate-900">
-                  API Response Debug (Get_Sector_s_new_companies)
-                </div>
-                <pre className="overflow-x-auto overflow-y-auto p-4 max-h-96 text-xs rounded-lg bg-slate-50">
-                  {debugResponse}
-                </pre>
-              </div>
-            )}
-
-            {/* Debug Sector Response Display */}
-            {debugSectorResponse && (
-              <div className="p-5 bg-white rounded-xl border shadow-lg border-slate-200/60">
-                <div className="mb-4 font-semibold text-slate-900">
-                  API Response Debug (Get_Sector)
-                </div>
-                <pre className="overflow-x-auto overflow-y-auto p-4 max-h-96 text-xs rounded-lg bg-slate-50">
-                  {debugSectorResponse}
-                </pre>
-              </div>
-            )}
+            {/* Debug blocks removed */}
 
             {/* Pagination controls */}
             {pagination.pageTotal > 1 && (
