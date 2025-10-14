@@ -686,6 +686,10 @@ const SectorDetailPage = () => {
   const [debugResponse, setDebugResponse] = useState<string>("");
   const [debugSectorResponse, setDebugSectorResponse] = useState<string>("");
   const [companiesApiPayload, setCompaniesApiPayload] = useState<unknown>(null);
+  // Split datasets fetched from dedicated endpoints
+  const [splitStrategicRaw, setSplitStrategicRaw] = useState<unknown>(null);
+  const [splitPERaw, setSplitPERaw] = useState<unknown>(null);
+  const [splitMarketMapRaw, setSplitMarketMapRaw] = useState<unknown>(null);
 
   // Load secondary->primary mapping once (not required in the new overview layout)
   // useEffect(() => {
@@ -947,6 +951,56 @@ const SectorDetailPage = () => {
     [sectorId, selectedPerPage]
   );
 
+  // Fetch split datasets (market map, strategic acquirers, PE investors)
+  const fetchSplitDatasets = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) return;
+      const Sector_id = Number(sectorId);
+      if (Number.isNaN(Sector_id)) return;
+
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      } as HeadersInit;
+      const qs = new URLSearchParams();
+      qs.append("Sector_id", String(Sector_id));
+
+      const [mmRes, stratRes, peRes] = await Promise.all([
+        fetch(
+          `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map?${qs.toString()}`,
+          { method: "GET", headers, credentials: "include" }
+        ),
+        fetch(
+          `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_strategic_acquirers?${qs.toString()}`,
+          { method: "GET", headers, credentials: "include" }
+        ),
+        fetch(
+          `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_pe_investors?${qs.toString()}`,
+          { method: "GET", headers, credentials: "include" }
+        ),
+      ]);
+
+      const [mmJson, stratJson, peJson] = await Promise.all([
+        mmRes.ok ? mmRes.json() : Promise.resolve(null),
+        stratRes.ok ? stratRes.json() : Promise.resolve(null),
+        peRes.ok ? peRes.json() : Promise.resolve(null),
+      ]);
+
+      setSplitMarketMapRaw(mmJson);
+      setSplitStrategicRaw(stratJson);
+      setSplitPERaw(peJson);
+
+      console.log("[Sector] Split datasets loaded", {
+        market_map: mmJson,
+        strategic_acquirers: stratJson,
+        pe_investors: peJson,
+      });
+    } catch (e) {
+      console.warn("[Sector] Failed to load split datasets", e);
+    }
+  }, [sectorId]);
+
   useEffect(() => {
     if (sectorId) {
       fetchSectorData();
@@ -956,8 +1010,10 @@ const SectorDetailPage = () => {
   useEffect(() => {
     if (sectorData) {
       fetchCompanies(1);
+      // Fire off split dataset fetches in parallel
+      fetchSplitDatasets();
     }
-  }, [sectorData, fetchCompanies]);
+  }, [sectorData, fetchCompanies, fetchSplitDatasets]);
 
   const handlePageChange = useCallback(
     (page: number) => {
@@ -968,7 +1024,21 @@ const SectorDetailPage = () => {
 
   // Console debug for specific dashboard sections (prefer companies API payload if present)
   useEffect(() => {
-    const source = companiesApiPayload ?? sectorData;
+    const source =
+      splitStrategicRaw || splitPERaw || splitMarketMapRaw
+        ? {
+            ...(splitStrategicRaw
+              ? { strategic_acquirers: splitStrategicRaw as unknown }
+              : {}),
+            ...(splitPERaw ? { pe_investors: splitPERaw as unknown } : {}),
+            ...(splitMarketMapRaw
+              ? { market_map: splitMarketMapRaw as unknown }
+              : {}),
+            ...((companiesApiPayload as Record<string, unknown> | null) || {}),
+            ...((sectorData as unknown as Record<string, unknown> | null) ||
+              {}),
+          }
+        : companiesApiPayload ?? sectorData;
     if (!source) return;
     try {
       const rawRecent =
@@ -1011,7 +1081,14 @@ const SectorDetailPage = () => {
     } catch (e) {
       console.warn("[Sector] Debug logging failed:", e);
     }
-  }, [companiesApiPayload, sectorData, companies]);
+  }, [
+    companiesApiPayload,
+    sectorData,
+    companies,
+    splitStrategicRaw,
+    splitPERaw,
+    splitMarketMapRaw,
+  ]);
 
   // Link navigation is handled via anchors in the new layout
 
@@ -1144,7 +1221,22 @@ const SectorDetailPage = () => {
     0;
 
   // Map optional dashboard datasets from the preferred source (companies API), fallback to sector API
-  const preferredSource = companiesApiPayload ?? sectorData;
+  const preferredSource =
+    splitStrategicRaw || splitPERaw || splitMarketMapRaw
+      ? {
+          // Compose a virtual preferred source from split endpoints where available
+          ...(splitStrategicRaw
+            ? { strategic_acquirers: splitStrategicRaw as unknown }
+            : {}),
+          ...(splitPERaw ? { pe_investors: splitPERaw as unknown } : {}),
+          ...(splitMarketMapRaw
+            ? { market_map: splitMarketMapRaw as unknown }
+            : {}),
+          // fallback fields from companies API and sector API
+          ...((companiesApiPayload as Record<string, unknown> | null) || {}),
+          ...((sectorData as unknown as Record<string, unknown> | null) || {}),
+        }
+      : companiesApiPayload ?? sectorData;
   const recentTransactions: TransactionRecord[] = mapRecentTransactions(
     extractArray(
       (preferredSource as unknown as { resent_trasnactions?: unknown })
