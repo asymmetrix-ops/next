@@ -116,6 +116,7 @@ interface TransactionRecord {
   target: string;
   value?: string;
   type?: string;
+  targetLogoUrl?: string;
 }
 
 interface RankedEntity {
@@ -277,8 +278,30 @@ function mapRecentTransactions(raw: unknown): TransactionRecord[] {
           "structure",
         ])
       );
+      // Target logo mapping (supports base64 or full URL)
+      const rawTargetLogo = toStringSafe(
+        getFirstMatchingValue(obj, [
+          "Target_Logo",
+          "target_logo",
+          "targetLogo",
+        ]) || ""
+      );
+      const targetLogoUrl = rawTargetLogo
+        ? rawTargetLogo.startsWith("http") ||
+          rawTargetLogo.startsWith("data:image")
+          ? rawTargetLogo
+          : `data:image/jpeg;base64,${rawTargetLogo}`
+        : "";
       if (!buyer && !target) return null;
-      return { date, buyer, seller, target, value, type } as TransactionRecord;
+      return {
+        date,
+        buyer,
+        seller,
+        target,
+        value,
+        type,
+        targetLogoUrl: targetLogoUrl || undefined,
+      } as TransactionRecord;
     })
     .filter(Boolean) as TransactionRecord[];
 }
@@ -794,7 +817,7 @@ function RecentTransactionsCard({
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50/80">
               <tr className="hover:bg-slate-50/80">
-                <th className="py-3 font-semibold text-left text-slate-700">
+                <th className="py-3 w-1/2 font-semibold text-left text-slate-700">
                   Target
                 </th>
                 <th className="py-3 font-semibold text-left text-slate-700">
@@ -817,7 +840,26 @@ function RecentTransactionsCard({
                     >
                       <td className="py-3 pr-4">
                         <div className="flex gap-3 items-center">
-                          <div className="flex justify-center items-center w-8 h-8 text-xs font-semibold text-white bg-gradient-to-br from-orange-500 to-red-500 rounded-lg">
+                          {t.targetLogoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={t.targetLogoUrl}
+                              alt={t.target}
+                              className="object-contain w-8 h-8 rounded-lg"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = "none";
+                                const fallback =
+                                  target.nextElementSibling as HTMLElement | null;
+                                if (fallback) fallback.style.display = "flex";
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className={`${
+                              t.targetLogoUrl ? "hidden" : "flex"
+                            } justify-center items-center w-8 h-8 text-xs font-semibold text-white bg-gradient-to-br from-orange-500 to-red-500 rounded-lg`}
+                          >
                             {(t.target || "?").charAt(0)}
                           </div>
                           <div>
