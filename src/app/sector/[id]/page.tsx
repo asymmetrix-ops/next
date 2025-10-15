@@ -121,6 +121,10 @@ interface TransactionRecord {
 interface RankedEntity {
   name: string;
   count: number;
+  id?: number;
+  mostRecentTarget?: string;
+  closedDate?: string;
+  logoUrl?: string; // fully qualified (e.g., data:image/jpeg;base64,...)
 }
 
 function toStringSafe(value: unknown): string {
@@ -294,19 +298,58 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
           "label",
           "entity",
           "firm",
+          "Acquirer",
         ])
       );
-      const countRaw = getFirstMatchingNumber(obj, [
-        "count",
-        "deals",
-        "total",
-        "n",
-        "times",
-        "occurrences",
+      const countRaw =
+        getFirstMatchingNumber(obj, [
+          "Deals_5y",
+          "deals_5y",
+          "count",
+          "deals",
+          "total",
+          "n",
+          "times",
+          "occurrences",
+        ]) ?? 0;
+      const mostRecentTarget = toStringSafe(
+        getFirstMatchingValue(obj, [
+          "Most_Recent_Target",
+          "most_recent_target",
+        ]) || ""
+      );
+      const closedDate = toStringSafe(
+        getFirstMatchingValue(obj, ["Closed_Date", "closed_date", "date"]) || ""
+      );
+      const acquirerId = getFirstMatchingNumber(obj, [
+        "acquirer_company_id",
+        "company_id",
+        "id",
       ]);
+      // Build logo URL if available (prefer prefixed, else base64 data)
+      const rawLogo = toStringSafe(
+        getFirstMatchingValue(obj, [
+          "Acquirer_Logo_Url",
+          "logo",
+          "logo_url",
+          "logoUrl",
+        ]) || ""
+      );
+      const logoUrl = rawLogo
+        ? rawLogo.startsWith("http") || rawLogo.startsWith("data:image")
+          ? rawLogo
+          : `data:image/jpeg;base64,${rawLogo}`
+        : "";
       const count = typeof countRaw === "number" ? countRaw : 0;
       if (!name) return null;
-      return { name, count } as RankedEntity;
+      return {
+        name,
+        count,
+        id: typeof acquirerId === "number" ? acquirerId : undefined,
+        mostRecentTarget: mostRecentTarget || undefined,
+        closedDate: closedDate || undefined,
+        logoUrl: logoUrl || undefined,
+      } as RankedEntity;
     })
     .filter(Boolean) as RankedEntity[];
 }
@@ -627,8 +670,25 @@ function MostActiveTableCard({
                   >
                     <td className="py-3 pr-4">
                       <div className="flex gap-3 items-center">
+                        {it.logoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={it.logoUrl}
+                            alt={it.name}
+                            className="object-contain w-8 h-8 rounded-lg"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = "none";
+                              const fallback =
+                                target.nextElementSibling as HTMLElement | null;
+                              if (fallback) fallback.style.display = "flex";
+                            }}
+                          />
+                        ) : null}
                         <div
-                          className={`flex justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${accentClasses.gradient}`}
+                          className={`$${"{"}it.logoUrl ? "hidden" : "flex"{'}'} flex justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
+                            accentClasses.gradient
+                          }`}
                         >
                           <BuildingOfficeIcon className="w-4 h-4" />
                         </div>
@@ -656,9 +716,11 @@ function MostActiveTableCard({
                     <td className="py-3">
                       <div>
                         <p className="text-sm font-medium text-slate-900">
-                          N/A
+                          {it.mostRecentTarget || "N/A"}
                         </p>
-                        <p className="mt-1 text-xs text-slate-500">N/A</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {it.closedDate || "N/A"}
+                        </p>
                       </div>
                     </td>
                   </tr>
