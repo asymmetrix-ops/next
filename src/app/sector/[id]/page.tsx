@@ -1202,6 +1202,48 @@ const SectorDetailPage = () => {
   const [splitPERaw, setSplitPERaw] = useState<unknown>(null);
   const [splitMarketMapRaw, setSplitMarketMapRaw] = useState<unknown>(null);
   const [splitRecentRaw, setSplitRecentRaw] = useState<unknown>(null);
+  // All Companies (reusing companies page logic, filtered by primary sector id)
+  interface AllCompanyItem {
+    id: number;
+    name: string;
+    description: string;
+    primary_sectors: string[];
+    secondary_sectors: string[];
+    ownership: string;
+    country: string;
+    linkedin_logo: string; // base64
+    linkedin_members: number;
+  }
+  const [allCompanies, setAllCompanies] = useState<AllCompanyItem[]>([]);
+  const [allCompaniesLoading, setAllCompaniesLoading] = useState(false);
+  const [allCompaniesError, setAllCompaniesError] = useState<string | null>(
+    null
+  );
+  const [allCompaniesPagination, setAllCompaniesPagination] = useState({
+    itemsReceived: 0,
+    curPage: 1,
+    nextPage: null as number | null,
+    prevPage: null as number | null,
+    offset: 0,
+    perPage: 25,
+    pageTotal: 0,
+  });
+
+  // Public Companies (reuse companies API with primary sector filter and ownership Public)
+  const [publicCompanies, setPublicCompanies] = useState<AllCompanyItem[]>([]);
+  const [publicCompaniesLoading, setPublicCompaniesLoading] = useState(false);
+  const [publicCompaniesError, setPublicCompaniesError] = useState<
+    string | null
+  >(null);
+  const [publicCompaniesPagination, setPublicCompaniesPagination] = useState({
+    itemsReceived: 0,
+    curPage: 1,
+    nextPage: null as number | null,
+    prevPage: null as number | null,
+    offset: 0,
+    perPage: 25,
+    pageTotal: 0,
+  });
 
   // Load secondary->primary mapping once (not required in the new overview layout)
   // useEffect(() => {
@@ -1478,7 +1520,11 @@ const SectorDetailPage = () => {
           { method: "GET", headers, credentials: "include" }
         ),
         fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${qs.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${(() => {
+            const q = new URLSearchParams(qs);
+            q.set("top_15", "true");
+            return q.toString();
+          })()}`,
           { method: "GET", headers, credentials: "include" }
         ),
       ]);
@@ -1501,6 +1547,160 @@ const SectorDetailPage = () => {
     }
   }, [sectorId]);
 
+  // Fetch All Companies via generic companies endpoint filtered by primary sector id
+  const fetchAllCompaniesForSector = useCallback(
+    async (page: number = 1) => {
+      setAllCompaniesLoading(true);
+      setAllCompaniesError(null);
+
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const Sector_id = Number(sectorId);
+        if (Number.isNaN(Sector_id)) {
+          throw new Error("Invalid sector id");
+        }
+
+        const perPage = 25;
+        const offset = page; // companies page uses 1-based Offset
+
+        const params = new URLSearchParams();
+        params.append("Offset", String(offset));
+        params.append("Per_page", String(perPage));
+        params.append("Min_linkedin_members", "0");
+        params.append("Max_linkedin_members", "0");
+        params.append("Horizontals_ids", "");
+        params.append("Primary_sectors_ids[]", String(Sector_id));
+
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `API request failed: ${response.status} ${response.statusText} - ${errorText}`
+          );
+        }
+        const data = JSON.parse(await response.text()) as {
+          result1?: {
+            items?: AllCompanyItem[];
+            itemsReceived?: number;
+            curPage?: number;
+            nextPage?: number | null;
+            prevPage?: number | null;
+            offset?: number;
+            perPage?: number;
+            pageTotal?: number;
+          };
+        };
+        const r1 = data.result1 || {};
+        setAllCompanies(r1.items || []);
+        setAllCompaniesPagination({
+          itemsReceived: r1.itemsReceived || 0,
+          curPage: r1.curPage || 1,
+          nextPage: r1.nextPage || null,
+          prevPage: r1.prevPage || null,
+          offset: r1.offset || 0,
+          perPage: r1.perPage || perPage,
+          pageTotal: r1.pageTotal || 0,
+        });
+      } catch (err) {
+        setAllCompaniesError(
+          err instanceof Error ? err.message : "Failed to fetch companies"
+        );
+      } finally {
+        setAllCompaniesLoading(false);
+      }
+    },
+    [sectorId]
+  );
+
+  // Fetch Public Companies for sector (ownership type Public)
+  const fetchPublicCompaniesForSector = useCallback(
+    async (page: number = 1) => {
+      setPublicCompaniesLoading(true);
+      setPublicCompaniesError(null);
+
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const Sector_id = Number(sectorId);
+        if (Number.isNaN(Sector_id)) {
+          throw new Error("Invalid sector id");
+        }
+
+        const perPage = 25;
+        const offset = page; // API expects 1-based page
+
+        const params = new URLSearchParams();
+        params.append("Offset", String(offset));
+        params.append("Per_page", String(perPage));
+        params.append("Min_linkedin_members", "0");
+        params.append("Max_linkedin_members", "0");
+        params.append("Horizontals_ids", "");
+        params.append("Primary_sectors_ids[]", String(Sector_id));
+        // Assuming ownership type id for Public is 1
+        params.append("Ownership_types_ids[]", String(1));
+
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `API request failed: ${response.status} ${response.statusText} - ${errorText}`
+          );
+        }
+        const data = JSON.parse(await response.text()) as {
+          result1?: {
+            items?: AllCompanyItem[];
+            itemsReceived?: number;
+            curPage?: number;
+            nextPage?: number | null;
+            prevPage?: number | null;
+            offset?: number;
+            perPage?: number;
+            pageTotal?: number;
+          };
+        };
+        const r1 = data.result1 || {};
+        setPublicCompanies(r1.items || []);
+        setPublicCompaniesPagination({
+          itemsReceived: r1.itemsReceived || 0,
+          curPage: r1.curPage || 1,
+          nextPage: r1.nextPage || null,
+          prevPage: r1.prevPage || null,
+          offset: r1.offset || 0,
+          perPage: r1.perPage || perPage,
+          pageTotal: r1.pageTotal || 0,
+        });
+      } catch (err) {
+        setPublicCompaniesError(
+          err instanceof Error ? err.message : "Failed to fetch companies"
+        );
+      } finally {
+        setPublicCompaniesLoading(false);
+      }
+    },
+    [sectorId]
+  );
+
+  useEffect(() => {
+    if (activeTab === "all") {
+      fetchAllCompaniesForSector(1);
+    }
+  }, [activeTab, fetchAllCompaniesForSector]);
+
   useEffect(() => {
     if (sectorId) {
       fetchSectorData();
@@ -1514,6 +1714,12 @@ const SectorDetailPage = () => {
       fetchSplitDatasets();
     }
   }, [sectorData, fetchCompanies, fetchSplitDatasets]);
+
+  useEffect(() => {
+    if (activeTab === "public") {
+      fetchPublicCompaniesForSector(1);
+    }
+  }, [activeTab, fetchPublicCompaniesForSector]);
 
   const handlePageChange = useCallback(
     (page: number) => {
@@ -1737,12 +1943,139 @@ const SectorDetailPage = () => {
     )
   );
 
-  const marketMapCompanies: SectorCompany[] = ((): SectorCompany[] => {
+  const marketMapCompanies: SectorCompany[] = (() => {
     const raw = (preferredSource as unknown as { market_map?: unknown })
       ?.market_map;
     const mapped = mapMarketMapToCompanies(raw);
     return mapped.length > 0 ? mapped : companies;
   })();
+
+  function TransactionsGrid({
+    transactions,
+  }: {
+    transactions: TransactionRecord[];
+  }) {
+    const hasItems = Array.isArray(transactions) && transactions.length > 0;
+    return (
+      <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <div className="flex gap-3 items-center text-xl">
+            <span className="inline-flex justify-center items-center w-8 h-8 bg-orange-50 rounded-lg">
+              <svg
+                className="w-4 h-4 text-orange-600"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M3 12h18M12 3v18" />
+              </svg>
+            </span>
+            <span className="text-slate-900">Transactions</span>
+          </div>
+        </div>
+        <div className="px-5 pt-5 pb-6">
+          {!hasItems ? (
+            <div className="py-10 text-center text-slate-500">
+              Not available
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {transactions.slice(0, 60).map((t, idx) => {
+                const announcementDate = t.date ? new Date(t.date) : null;
+                const valueDisplay = t.value ? `$${t.value}M` : null;
+                return (
+                  <div
+                    key={`tx-card-${idx}`}
+                    className="p-4 bg-white rounded-xl border transition-colors duration-150 hover:border-slate-300 border-slate-200"
+                  >
+                    <div className="flex gap-3 items-center">
+                      {t.targetLogoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={t.targetLogoUrl}
+                          alt={t.target}
+                          className="object-contain w-8 h-8 rounded-lg"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display =
+                              "none";
+                            const fallback = (e.target as HTMLImageElement)
+                              .nextElementSibling as HTMLElement | null;
+                            if (fallback) fallback.style.display = "flex";
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className={`${
+                          t.targetLogoUrl ? "hidden" : "flex"
+                        } justify-center items-center w-8 h-8 text-xs font-semibold text-white bg-gradient-to-br from-orange-500 to-red-500 rounded-lg`}
+                      >
+                        {(t.target || "?").charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-900">
+                          {t.target || "-"}
+                        </p>
+                        {announcementDate &&
+                          !Number.isNaN(announcementDate.getTime()) && (
+                            <p className="mt-1 text-xs text-slate-500">
+                              {announcementDate.toLocaleDateString(undefined, {
+                                month: "short",
+                                day: "2-digit",
+                                year: "numeric",
+                              })}
+                            </p>
+                          )}
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <p className="text-sm font-medium text-slate-900">
+                        {t.buyer || "-"}
+                      </p>
+                      {valueDisplay && (
+                        <p className="mt-1 text-xs text-slate-500">
+                          {valueDisplay}
+                        </p>
+                      )}
+                    </div>
+                    <div className="mt-3 space-x-2">
+                      {t.type && (
+                        <span
+                          className={`inline-block px-2 py-1 border rounded text-xs ${(() => {
+                            const colors: Record<string, string> = {
+                              acquisition:
+                                "bg-red-50 text-red-700 border-red-200",
+                              merger:
+                                "bg-blue-50 text-blue-700 border-blue-200",
+                              ipo: "bg-green-50 text-green-700 border-green-200",
+                              funding_round:
+                                "bg-purple-50 text-purple-700 border-purple-200",
+                              lbo: "bg-orange-50 text-orange-700 border-orange-200",
+                              recapitalization:
+                                "bg-pink-50 text-pink-700 border-pink-200",
+                            };
+                            return (
+                              colors[
+                                (t.type || "")
+                                  .toLowerCase()
+                                  .replace(/\s+/g, "_")
+                              ] || "bg-gray-50 text-gray-700 border-gray-200"
+                            );
+                          })()}`}
+                        >
+                          {t.type.replace(/_/g, " ")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br to-blue-50 from-slate-50">
@@ -1779,18 +2112,7 @@ const SectorDetailPage = () => {
       <main className="px-6 py-8 w-full">
         <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
 
-        {activeTab !== "overview" ? (
-          <div className="flex justify-center items-center h-64 bg-white rounded-xl border border-slate-200">
-            <div className="text-center">
-              <h3 className="mb-2 text-xl font-semibold text-slate-900">
-                {activeTab.charAt(0).toUpperCase() +
-                  activeTab.slice(1).replace("_", " ")}{" "}
-                Section
-              </h3>
-              <p className="text-slate-500">This section is coming soon</p>
-            </div>
-          </div>
-        ) : (
+        {activeTab === "overview" ? (
           <div className="space-y-8">
             {/* Top Row */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -1886,6 +2208,349 @@ const SectorDetailPage = () => {
                 No companies found in this sector.
               </div>
             )}
+          </div>
+        ) : activeTab === "all" ? (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
+              <div className="px-5 py-4 border-b border-slate-100">
+                <div className="flex justify-between items-center">
+                  <div className="flex gap-3 items-center text-xl">
+                    <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
+                      <svg
+                        className="w-4 h-4 text-indigo-600"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M3 12h18M3 6h18M3 18h18" />
+                      </svg>
+                    </span>
+                    <span className="text-slate-900">All Companies</span>
+                  </div>
+                  <div className="text-sm text-slate-600">
+                    {allCompaniesPagination.itemsReceived.toLocaleString()}{" "}
+                    total
+                  </div>
+                </div>
+              </div>
+              <div className="px-5 py-4">
+                {allCompaniesLoading ? (
+                  <div className="py-10 text-center text-slate-500">
+                    Loading companies...
+                  </div>
+                ) : allCompaniesError ? (
+                  <div className="py-4 text-center text-red-600">
+                    {allCompaniesError}
+                  </div>
+                ) : allCompanies.length === 0 ? (
+                  <div className="py-10 text-center text-slate-500">
+                    No companies found for this sector.
+                  </div>
+                ) : (
+                  <div className="overflow-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-slate-50/80">
+                        <tr className="hover:bg-slate-50/80">
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[8%]">
+                            Logo
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
+                            Name
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[36%]">
+                            Description
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[16%]">
+                            Primary Sector(s)
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[12%]">
+                            Sectors
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[7%]">
+                            LinkedIn Members
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[7%]">
+                            Country
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allCompanies.map((c) => {
+                          const primaryDisplay = Array.isArray(
+                            c.primary_sectors
+                          )
+                            ? c.primary_sectors
+                            : [];
+                          return (
+                            <tr key={c.id} className="hover:bg-slate-50/50">
+                              <td className="py-3 pr-4">
+                                {c.linkedin_logo ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={`data:image/jpeg;base64,${c.linkedin_logo}`}
+                                    alt={`${c.name} logo`}
+                                    className="object-contain w-12 h-8 rounded"
+                                    onError={(e) => {
+                                      (
+                                        e.target as HTMLImageElement
+                                      ).style.display = "none";
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="flex justify-center items-center w-12 h-8 text-[10px] text-slate-500 bg-slate-100 rounded">
+                                    No Logo
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-3 pr-4">
+                                <a
+                                  href={`/company/${c.id}`}
+                                  className="font-medium text-blue-600 underline"
+                                >
+                                  {c.name}
+                                </a>
+                              </td>
+                              <td className="py-3 pr-4 text-slate-700">
+                                {c.description || "N/A"}
+                              </td>
+                              <td className="py-3 pr-4 text-slate-700">
+                                {primaryDisplay.length > 0
+                                  ? primaryDisplay.join(", ")
+                                  : "N/A"}
+                              </td>
+                              <td className="py-3 pr-4 text-slate-700">
+                                {Array.isArray(c.secondary_sectors) &&
+                                c.secondary_sectors.length > 0
+                                  ? c.secondary_sectors.join(", ")
+                                  : "N/A"}
+                              </td>
+                              <td className="py-3 pr-4 text-slate-700">
+                                {typeof c.linkedin_members === "number"
+                                  ? c.linkedin_members.toLocaleString()
+                                  : "0"}
+                              </td>
+                              <td className="py-3 pr-4 text-slate-700">
+                                {c.country || "N/A"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+            {allCompaniesPagination.pageTotal > 1 && (
+              <div className="flex gap-2 justify-center items-center">
+                <button
+                  disabled={!allCompaniesPagination.prevPage}
+                  onClick={() =>
+                    allCompaniesPagination.prevPage &&
+                    fetchAllCompaniesForSector(allCompaniesPagination.prevPage)
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  ← Previous
+                </button>
+                <span className="text-sm text-slate-600">
+                  Page {allCompaniesPagination.curPage} of{" "}
+                  {allCompaniesPagination.pageTotal}
+                </span>
+                <button
+                  disabled={!allCompaniesPagination.nextPage}
+                  onClick={() =>
+                    allCompaniesPagination.nextPage &&
+                    fetchAllCompaniesForSector(allCompaniesPagination.nextPage)
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </div>
+        ) : activeTab === "public" ? (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
+              <div className="px-5 py-4 border-b border-slate-100">
+                <div className="flex justify-between items-center">
+                  <div className="flex gap-3 items-center text-xl">
+                    <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
+                      <svg
+                        className="w-4 h-4 text-indigo-600"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M3 12h18M3 6h18M3 18h18" />
+                      </svg>
+                    </span>
+                    <span className="text-slate-900">Public Companies</span>
+                  </div>
+                  <div className="text-sm text-slate-600">
+                    {publicCompaniesPagination.itemsReceived.toLocaleString()}{" "}
+                    total
+                  </div>
+                </div>
+              </div>
+              <div className="px-5 py-4">
+                {publicCompaniesLoading ? (
+                  <div className="py-10 text-center text-slate-500">
+                    Loading companies...
+                  </div>
+                ) : publicCompaniesError ? (
+                  <div className="py-4 text-center text-red-600">
+                    {publicCompaniesError}
+                  </div>
+                ) : publicCompanies.length === 0 ? (
+                  <div className="py-10 text-center text-slate-500">
+                    No companies found for this sector.
+                  </div>
+                ) : (
+                  <div className="overflow-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-slate-50/80">
+                        <tr className="hover:bg-slate-50/80">
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[8%]">
+                            Logo
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
+                            Name
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[36%]">
+                            Description
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[16%]">
+                            Primary Sector(s)
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[12%]">
+                            Sectors
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[7%]">
+                            LinkedIn Members
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[7%]">
+                            Country
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {publicCompanies.map((c) => {
+                          const primaryDisplay = Array.isArray(
+                            c.primary_sectors
+                          )
+                            ? c.primary_sectors
+                            : [];
+                          return (
+                            <tr key={c.id} className="hover:bg-slate-50/50">
+                              <td className="py-3 pr-4">
+                                {c.linkedin_logo ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={`data:image/jpeg;base64,${c.linkedin_logo}`}
+                                    alt={`${c.name} logo`}
+                                    className="object-contain w-12 h-8 rounded"
+                                    onError={(e) => {
+                                      (
+                                        e.target as HTMLImageElement
+                                      ).style.display = "none";
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="flex justify-center items-center w-12 h-8 text-[10px] text-slate-500 bg-slate-100 rounded">
+                                    No Logo
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-3 pr-4">
+                                <a
+                                  href={`/company/${c.id}`}
+                                  className="font-medium text-blue-600 underline"
+                                >
+                                  {c.name}
+                                </a>
+                              </td>
+                              <td className="py-3 pr-4 text-slate-700">
+                                {c.description || "N/A"}
+                              </td>
+                              <td className="py-3 pr-4 text-slate-700">
+                                {primaryDisplay.length > 0
+                                  ? primaryDisplay.join(", ")
+                                  : "N/A"}
+                              </td>
+                              <td className="py-3 pr-4 text-slate-700">
+                                {Array.isArray(c.secondary_sectors) &&
+                                c.secondary_sectors.length > 0
+                                  ? c.secondary_sectors.join(", ")
+                                  : "N/A"}
+                              </td>
+                              <td className="py-3 pr-4 text-slate-700">
+                                {typeof c.linkedin_members === "number"
+                                  ? c.linkedin_members.toLocaleString()
+                                  : "0"}
+                              </td>
+                              <td className="py-3 pr-4 text-slate-700">
+                                {c.country || "N/A"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+            {publicCompaniesPagination.pageTotal > 1 && (
+              <div className="flex gap-2 justify-center items-center">
+                <button
+                  disabled={!publicCompaniesPagination.prevPage}
+                  onClick={() =>
+                    publicCompaniesPagination.prevPage &&
+                    fetchPublicCompaniesForSector(
+                      publicCompaniesPagination.prevPage
+                    )
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  ← Previous
+                </button>
+                <span className="text-sm text-slate-600">
+                  Page {publicCompaniesPagination.curPage} of{" "}
+                  {publicCompaniesPagination.pageTotal}
+                </span>
+                <button
+                  disabled={!publicCompaniesPagination.nextPage}
+                  onClick={() =>
+                    publicCompaniesPagination.nextPage &&
+                    fetchPublicCompaniesForSector(
+                      publicCompaniesPagination.nextPage
+                    )
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </div>
+        ) : activeTab === "transactions" ? (
+          <TransactionsGrid
+            transactions={mapRecentTransactions(splitRecentRaw)}
+          />
+        ) : (
+          <div className="flex justify-center items-center h-64 bg-white rounded-xl border border-slate-200">
+            <div className="text-center">
+              <h3 className="mb-2 text-xl font-semibold text-slate-900">
+                {activeTab.charAt(0).toUpperCase() +
+                  activeTab.slice(1).replace("_", " ")}{" "}
+                Section
+              </h3>
+              <p className="text-slate-500">This section is coming soon</p>
+            </div>
           </div>
         )}
       </main>
