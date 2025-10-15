@@ -686,7 +686,9 @@ function MostActiveTableCard({
                           />
                         ) : null}
                         <div
-                          className={`$${"{"}it.logoUrl ? "hidden" : "flex"{'}'} flex justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
+                          className={`${
+                            it.logoUrl ? "hidden" : "flex"
+                          } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
                             accentClasses.gradient
                           }`}
                         >
