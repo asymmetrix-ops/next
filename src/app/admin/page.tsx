@@ -106,6 +106,9 @@ Target company: {query} ({domain})`;
   const [result, setResult] = useState<ValuationReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<"valuation" | "emails">(
+    "valuation"
+  );
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -145,62 +148,92 @@ Target company: {query} ({domain})`;
 
   return (
     <div className="px-4 py-10 mx-auto max-w-5xl">
-      <h1 className="mb-6 text-2xl font-semibold">Admin: Valuation Report</h1>
+      <h1 className="mb-6 text-2xl font-semibold">Admin</h1>
 
-      <form onSubmit={onSubmit} className="mb-8 space-y-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label className="block mb-1 text-sm font-medium">Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Bloomberg L.P."
-              className="px-3 py-2 w-full rounded border"
-              required
-            />
-          </div>
-          <div>
-            <label className="block mb-1 text-sm font-medium">Domain</label>
-            <input
-              type="text"
-              value={domain}
-              onChange={(e) => setDomain(e.target.value)}
-              placeholder="bloomberg.com"
-              className="px-3 py-2 w-full rounded border"
-              required
-            />
-          </div>
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">
-            Prompt (optional)
-          </label>
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            className="px-3 py-2 w-full rounded border min-h-48 font-mono text-sm"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            If unchanged, the prompt will not be sent.
-          </p>
-        </div>
+      <div className="mb-6 flex gap-4 border-b">
         <button
-          type="submit"
-          disabled={submitting}
-          className="inline-flex items-center px-4 py-2 text-white bg-black rounded disabled:opacity-50"
+          onClick={() => setActiveTab("valuation")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "valuation"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
         >
-          {submitting ? "Querying…" : "Query"}
+          Valuation Report
         </button>
-      </form>
+        <button
+          onClick={() => setActiveTab("emails")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "emails"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Emails
+        </button>
+      </div>
 
-      {error && (
-        <div className="p-3 mb-6 text-red-700 bg-red-50 rounded border border-red-300">
-          {error}
-        </div>
+      {activeTab === "valuation" ? (
+        <>
+          <h2 className="mb-6 text-xl font-semibold">Valuation Report</h2>
+          <form onSubmit={onSubmit} className="mb-8 space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="block mb-1 text-sm font-medium">Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Bloomberg L.P."
+                  className="px-3 py-2 w-full rounded border"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Domain</label>
+                <input
+                  type="text"
+                  value={domain}
+                  onChange={(e) => setDomain(e.target.value)}
+                  placeholder="bloomberg.com"
+                  className="px-3 py-2 w-full rounded border"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium">
+                Prompt (optional)
+              </label>
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                className="px-3 py-2 w-full rounded border min-h-48 font-mono text-sm"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                If unchanged, the prompt will not be sent.
+              </p>
+            </div>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="inline-flex items-center px-4 py-2 text-white bg-black rounded disabled:opacity-50"
+            >
+              {submitting ? "Querying…" : "Query"}
+            </button>
+          </form>
+
+          {error && (
+            <div className="p-3 mb-6 text-red-700 bg-red-50 rounded border border-red-300">
+              {error}
+            </div>
+          )}
+
+          {result && <ResultView data={result} />}
+        </>
+      ) : (
+        <EmailsTab />
       )}
-
-      {result && <ResultView data={result} />}
     </div>
   );
 }
@@ -385,6 +418,117 @@ function ResultView({ data }: { data: ValuationReport }) {
           {JSON.stringify(data, null, 2)}
         </pre>
       </Section>
+    </div>
+  );
+}
+
+function sanitizeHtml(input: string): string {
+  let out = input;
+  // Remove script tags entirely
+  out = out.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "");
+  // Drop on* event handler attributes
+  out = out.replace(/\son\w+=(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+  // Neutralize javascript: URLs
+  out = out.replace(
+    /(href|src)\s*=\s*("javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]+)/gi,
+    '$1="#"'
+  );
+  return out;
+}
+
+function EmailsTab() {
+  const [text, setText] = useState("");
+  const [html, setHtml] = useState("");
+
+  const handleExport = () => {
+    const withBreaks = text.replace(/\n/g, "<br>");
+    const sanitized = sanitizeHtml(withBreaks);
+    setHtml(`<div>${sanitized}</div>`);
+  };
+
+  const handleCopy = async () => {
+    if (!html) return;
+    try {
+      await navigator.clipboard.writeText(html);
+    } catch {}
+  };
+
+  const handleDownload = () => {
+    if (!html) return;
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "email.html";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div>
+      <h2 className="mb-4 text-xl font-semibold">Email Template Builder</h2>
+
+      <textarea
+        className="border p-2 w-full h-48"
+        placeholder="Write your email content here..."
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+
+      <div className="mt-4">
+        <input
+          type="file"
+          accept="image/*"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append("file", file);
+            const res = await fetch("/api/upload", {
+              method: "POST",
+              body: formData,
+            });
+            const data = await res.json();
+            if (res.ok && data?.url) {
+              setText((t) => t + `\n<img src="${data.url}" alt="" />`);
+            }
+          }}
+        />
+      </div>
+
+      <div className="mt-4 flex gap-2">
+        <button
+          className="bg-purple-600 text-white px-4 py-2 rounded"
+          onClick={handleExport}
+        >
+          Export HTML
+        </button>
+        <button
+          className="bg-gray-800 text-white px-4 py-2 rounded disabled:opacity-50"
+          onClick={handleCopy}
+          disabled={!html}
+        >
+          Copy HTML
+        </button>
+        <button
+          className="bg-gray-800 text-white px-4 py-2 rounded disabled:opacity-50"
+          onClick={handleDownload}
+          disabled={!html}
+        >
+          Download .html
+        </button>
+      </div>
+
+      {html && (
+        <div className="mt-6">
+          <h3 className="font-semibold mb-2">Generated HTML</h3>
+          <pre className="bg-gray-100 p-2 rounded text-sm overflow-x-auto">
+            {html}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
