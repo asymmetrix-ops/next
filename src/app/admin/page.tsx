@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import type { ComponentType } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useRouter } from "next/navigation";
 
@@ -436,7 +438,87 @@ function sanitizeHtml(input: string): string {
   return out;
 }
 
+function buildBrandedEmailHtml(params: {
+  bodyHtml: string;
+  subject: string;
+}): string {
+  const { bodyHtml, subject } = params;
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${
+      subject ? subject.replace(/</g, "&lt;").replace(/>/g, "&gt;") : ""
+    }</title>
+    <style>
+      /* Fonts */
+      body { margin:0; padding:0; background:#ffffff; color:#333333; font-family: Arial, sans-serif; }
+      a { color:#1a73e8; text-decoration:none; }
+      h2 { font-size:22px; line-height:1.3; font-weight:600; margin:24px 0 8px; }
+
+      /* Layout */
+      table { border-collapse:collapse; }
+      .full { width:100%; }
+      .container { max-width:720px; margin:0 auto; padding:16px 24px; }
+
+      /* Tables as cards */
+      .card { border:1px solid #e5e7eb; border-radius:6px; }
+      .card table { width:100%; border-collapse:separate; border-spacing:0; }
+      .card th { font:600 14px Arial, sans-serif; text-align:left; padding:12px; background:#f8fafc; border-bottom:1px solid #e5e7eb; color:#111827; }
+      .card td { font-size:14px; line-height:1.5; padding:12px; border-top:1px solid #e5e7eb; color:#333333; }
+      .col-date { width:110px; }
+
+      /* Badges */
+      .badge { font-size:11px; font-weight:700; text-transform:uppercase; display:inline-block; padding:2px 8px; border-radius:9999px; border:1px solid transparent; }
+      .badge.hot-take { background:#FFF7ED; border-color:#F5D6B3; color:#8B5E2B; }
+      .badge.company-analysis { background:#EEF2FF; border-color:#C7D2FE; color:#3E4AC9; }
+      .badge.deal-brief { background:#F0F9FF; border-color:#BAE6FD; color:#0F4C81; }
+      .badge.market-map { background:#F0FDF4; border-color:#BBF7D0; color:#166534; }
+      .badge.default { background:#F3F4F6; border-color:#E5E7EB; color:#374151; }
+
+      /* Stack for mobile */
+      @media (max-width:600px) {
+        .stack thead { display:none !important; }
+        .stack td, .stack th, .stack .stack-col { display:block !important; width:100% !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <table role="presentation" class="full" width="100%">
+      <tr>
+        <td align="center">
+          <table role="presentation" class="container" width="100%">
+            <tr>
+              <td>
+                ${bodyHtml}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+interface RichTextEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  theme?: string;
+  modules?: unknown;
+  formats?: string[];
+}
+
+const ReactQuill = dynamic(() => import("react-quill"), {
+  ssr: false,
+}) as unknown as ComponentType<RichTextEditorProps>;
+
 function EmailsTab() {
+  const editorContainerRef = useRef<HTMLDivElement | null>(null);
+  const [selectedImg, setSelectedImg] = useState<HTMLImageElement | null>(null);
+  const [imgWidthPct, setImgWidthPct] = useState<number>(100);
   const [text, setText] = useState("");
   const [html, setHtml] = useState("");
   const [subject, setSubject] = useState("");
@@ -444,10 +526,47 @@ function EmailsTab() {
   const [recipientEmail, setRecipientEmail] = useState("");
   const [sending, setSending] = useState(false);
 
+  // Attach click handler to detect selected image and show resize control
+  useEffect(() => {
+    const root = editorContainerRef.current?.querySelector(
+      ".ql-editor"
+    ) as HTMLElement | null;
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.tagName === "IMG") {
+        const img = target as HTMLImageElement;
+        setSelectedImg(img);
+        const containerWidth = root?.clientWidth || 1;
+        const attrWidth = img.getAttribute("width");
+        const numericAttr = attrWidth ? parseInt(attrWidth, 10) : undefined;
+        const currentWidth =
+          numericAttr || img.getBoundingClientRect().width || img.width;
+        const pct = Math.min(
+          100,
+          Math.max(10, Math.round((currentWidth / containerWidth) * 100))
+        );
+        setImgWidthPct(pct);
+      } else {
+        setSelectedImg(null);
+      }
+    };
+    if (root) root.addEventListener("click", onClick as EventListener);
+    return () => {
+      if (root) root.removeEventListener("click", onClick as EventListener);
+    };
+  }, [text]);
+
   const handleExport = () => {
-    const withBreaks = text.replace(/\n/g, "<br>");
-    const sanitized = sanitizeHtml(withBreaks);
-    setHtml(`<div>${sanitized}</div>`);
+    const editorEl = editorContainerRef.current?.querySelector(
+      ".ql-editor"
+    ) as HTMLElement | null;
+    const rawHtml = editorEl?.innerHTML ?? text;
+    const sanitized = sanitizeHtml(rawHtml);
+    const branded = buildBrandedEmailHtml({
+      bodyHtml: `<div>${sanitized}</div>`,
+      subject,
+    });
+    setHtml(branded);
   };
 
   const handleCopy = async () => {
@@ -495,12 +614,72 @@ function EmailsTab() {
         />
       </div>
 
-      <textarea
-        className="p-2 w-full h-48 border"
-        placeholder="Write your email content here..."
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-      />
+      <div className="border" ref={editorContainerRef}>
+        {(() => {
+          const modules = {
+            toolbar: [
+              [{ header: [2, 3, false] }],
+              ["bold", "italic", "underline", "strike"],
+              [{ list: "ordered" }, { list: "bullet" }],
+              ["blockquote", "code-block"],
+              ["link", "image"],
+              [{ align: [] }],
+              ["clean"],
+            ],
+          } as const;
+          const formats = [
+            "header",
+            "bold",
+            "italic",
+            "underline",
+            "strike",
+            "list",
+            "bullet",
+            "blockquote",
+            "code-block",
+            "link",
+            "image",
+            "align",
+          ] as const;
+          return (
+            <ReactQuill
+              theme="snow"
+              value={text}
+              onChange={setText}
+              placeholder="Write your email content here..."
+              modules={modules as unknown}
+              formats={formats as unknown as string[]}
+            />
+          );
+        })()}
+      </div>
+
+      {selectedImg && (
+        <div className="flex gap-3 items-center mt-2">
+          <label className="text-sm">Image width</label>
+          <input
+            type="range"
+            min={10}
+            max={100}
+            value={imgWidthPct}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              setImgWidthPct(val);
+              if (selectedImg) {
+                const editorEl = editorContainerRef.current?.querySelector(
+                  ".ql-editor"
+                ) as HTMLElement | null;
+                const containerWidth = editorEl?.clientWidth || 1;
+                const px = Math.round((containerWidth * val) / 100);
+                selectedImg.removeAttribute("style");
+                selectedImg.setAttribute("width", String(px));
+                // Do not setText here to avoid Quill sanitizing styles away; keep DOM mutation
+              }
+            }}
+          />
+          <span className="w-10 text-sm text-right">{imgWidthPct}%</span>
+        </div>
+      )}
 
       <div className="mt-4">
         <input
@@ -559,52 +738,52 @@ function EmailsTab() {
           onClick={async () => {
             if (sending) return;
             const subjectTrimmed = subject.trim();
-            const recipientTrimmed = recipientEmail.trim();
             const textTrimmed = text.trim();
             if (!subjectTrimmed || !textTrimmed) return;
-            if (singleRecipient && !recipientTrimmed) return;
 
-            // Build sanitized HTML body from current text
-            const withBreaks = text.replace(/\n/g, "<br>");
-            const sanitized = sanitizeHtml(withBreaks);
+            // Build sanitized HTML body from current text and wrap with brand template
+            const editorEl = editorContainerRef.current?.querySelector(
+              ".ql-editor"
+            ) as HTMLElement | null;
+            const currentHtml = editorEl?.innerHTML ?? text;
+            const sanitized = sanitizeHtml(currentHtml);
             const bodyHtml = `<div>${sanitized}</div>`;
-            setHtml(bodyHtml);
+            const brandedHtml = buildBrandedEmailHtml({
+              bodyHtml,
+              subject: subjectTrimmed,
+            });
+            setHtml(brandedHtml);
 
             setSending(true);
             try {
               const res = await fetch(
-                "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/send_email",
+                "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content",
                 {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
-                    Email: singleRecipient ? recipientTrimmed || null : null,
-                    body: bodyHtml,
-                    subject: subjectTrimmed,
+                    Publication_Date: null,
+                    Headline: subjectTrimmed,
+                    Body: brandedHtml,
                   }),
                 }
               );
               // Intentionally not enforcing response shape; surface basic failure
               if (!res.ok) {
                 // eslint-disable-next-line no-alert
-                alert("Failed to send email");
+                alert("Failed to submit email content");
               } else {
                 // eslint-disable-next-line no-alert
-                alert("Email submitted");
+                alert("Email content submitted");
               }
             } catch {
               // eslint-disable-next-line no-alert
-              alert("Network error while sending");
+              alert("Network error while submitting content");
             } finally {
               setSending(false);
             }
           }}
-          disabled={
-            sending ||
-            !subject.trim() ||
-            !text.trim() ||
-            (singleRecipient && !recipientEmail.trim())
-          }
+          disabled={sending || !subject.trim() || !text.trim()}
         >
           Submit
         </button>
