@@ -150,7 +150,7 @@ Target company: {query} ({domain})`;
     <div className="px-4 py-10 mx-auto max-w-5xl">
       <h1 className="mb-6 text-2xl font-semibold">Admin</h1>
 
-      <div className="mb-6 flex gap-4 border-b">
+      <div className="flex gap-4 mb-6 border-b">
         <button
           onClick={() => setActiveTab("valuation")}
           className={`px-3 py-2 -mb-px border-b-2 ${
@@ -208,7 +208,7 @@ Target company: {query} ({domain})`;
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                className="px-3 py-2 w-full rounded border min-h-48 font-mono text-sm"
+                className="px-3 py-2 w-full font-mono text-sm rounded border min-h-48"
               />
               <p className="mt-1 text-xs text-gray-500">
                 If unchanged, the prompt will not be sent.
@@ -439,6 +439,10 @@ function sanitizeHtml(input: string): string {
 function EmailsTab() {
   const [text, setText] = useState("");
   const [html, setHtml] = useState("");
+  const [subject, setSubject] = useState("");
+  const [singleRecipient, setSingleRecipient] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [sending, setSending] = useState(false);
 
   const handleExport = () => {
     const withBreaks = text.replace(/\n/g, "<br>");
@@ -453,25 +457,46 @@ function EmailsTab() {
     } catch {}
   };
 
-  const handleDownload = () => {
-    if (!html) return;
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "email.html";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div>
       <h2 className="mb-4 text-xl font-semibold">Email Template Builder</h2>
 
+      <div className="flex gap-3 items-center mb-3">
+        <label className="text-sm font-medium">Single recipient</label>
+        <input
+          type="checkbox"
+          checked={singleRecipient}
+          onChange={(e) => setSingleRecipient(e.target.checked)}
+        />
+      </div>
+      {singleRecipient && (
+        <div className="mb-3">
+          <label className="block mb-1 text-sm font-medium">
+            Recipient email
+          </label>
+          <input
+            type="email"
+            className="p-2 w-full border"
+            placeholder="name@example.com"
+            value={recipientEmail}
+            onChange={(e) => setRecipientEmail(e.target.value)}
+          />
+        </div>
+      )}
+
+      <div className="mb-3">
+        <label className="block mb-1 text-sm font-medium">Subject</label>
+        <input
+          type="text"
+          className="p-2 w-full border"
+          placeholder="Email subject"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+        />
+      </div>
+
       <textarea
-        className="border p-2 w-full h-48"
+        className="p-2 w-full h-48 border"
         placeholder="Write your email content here..."
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -484,47 +509,111 @@ function EmailsTab() {
           onChange={async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
-            const formData = new FormData();
-            formData.append("file", file);
-            const res = await fetch("/api/upload", {
-              method: "POST",
-              body: formData,
-            });
-            const data = await res.json();
-            if (res.ok && data?.url) {
-              setText((t) => t + `\n<img src="${data.url}" alt="" />`);
-            }
+            // Try Xano first (hardcoded endpoint), fallback to local API
+            const xanoUrl =
+              "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/images";
+            try {
+              const fd = new FormData();
+              fd.append("img", file); // field name expected by Xano
+              const res = await fetch(xanoUrl, { method: "POST", body: fd });
+              const data = await res.json();
+              const url = data?.image?.url || data?.url;
+              if (res.ok && url) {
+                setText((t) => t + `\n<img src="${url}" alt="" />`);
+                return;
+              }
+            } catch {}
+
+            try {
+              const formData = new FormData();
+              formData.append("file", file);
+              const res = await fetch("/api/upload", {
+                method: "POST",
+                body: formData,
+              });
+              const data = await res.json();
+              if (res.ok && data?.url) {
+                setText((t) => t + `\n<img src="${data.url}" alt="" />`);
+              }
+            } catch {}
           }}
         />
       </div>
 
-      <div className="mt-4 flex gap-2">
+      <div className="flex gap-2 mt-4">
         <button
-          className="bg-purple-600 text-white px-4 py-2 rounded"
+          className="px-4 py-2 text-white bg-purple-600 rounded"
           onClick={handleExport}
         >
           Export HTML
         </button>
         <button
-          className="bg-gray-800 text-white px-4 py-2 rounded disabled:opacity-50"
+          className="px-4 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
           onClick={handleCopy}
           disabled={!html}
         >
           Copy HTML
         </button>
         <button
-          className="bg-gray-800 text-white px-4 py-2 rounded disabled:opacity-50"
-          onClick={handleDownload}
-          disabled={!html}
+          className="px-4 py-2 text-white bg-blue-600 rounded disabled:opacity-50"
+          onClick={async () => {
+            if (sending) return;
+            const subjectTrimmed = subject.trim();
+            const recipientTrimmed = recipientEmail.trim();
+            const textTrimmed = text.trim();
+            if (!subjectTrimmed || !textTrimmed) return;
+            if (singleRecipient && !recipientTrimmed) return;
+
+            // Build sanitized HTML body from current text
+            const withBreaks = text.replace(/\n/g, "<br>");
+            const sanitized = sanitizeHtml(withBreaks);
+            const bodyHtml = `<div>${sanitized}</div>`;
+            setHtml(bodyHtml);
+
+            setSending(true);
+            try {
+              const res = await fetch(
+                "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/send_email",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    Email: singleRecipient ? recipientTrimmed || null : null,
+                    body: bodyHtml,
+                    subject: subjectTrimmed,
+                  }),
+                }
+              );
+              // Intentionally not enforcing response shape; surface basic failure
+              if (!res.ok) {
+                // eslint-disable-next-line no-alert
+                alert("Failed to send email");
+              } else {
+                // eslint-disable-next-line no-alert
+                alert("Email submitted");
+              }
+            } catch {
+              // eslint-disable-next-line no-alert
+              alert("Network error while sending");
+            } finally {
+              setSending(false);
+            }
+          }}
+          disabled={
+            sending ||
+            !subject.trim() ||
+            !text.trim() ||
+            (singleRecipient && !recipientEmail.trim())
+          }
         >
-          Download .html
+          Submit
         </button>
       </div>
 
       {html && (
         <div className="mt-6">
-          <h3 className="font-semibold mb-2">Generated HTML</h3>
-          <pre className="bg-gray-100 p-2 rounded text-sm overflow-x-auto">
+          <h3 className="mb-2 font-semibold">Generated HTML</h3>
+          <pre className="overflow-x-auto p-2 text-sm bg-gray-100 rounded">
             {html}
           </pre>
         </div>
