@@ -1115,14 +1115,22 @@ function MarketMapGrid({ companies }: { companies: SectorCompany[] }) {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {Object.entries(categorized).map(([type, list]) => (
             <div key={type} className="space-y-4">
-              <div className="flex gap-3 items-center mb-4">
-                {getIcon(type)}
-                <h3 className="font-semibold text-slate-900">
-                  {titleFor(type)}
-                </h3>
-                <span className="inline-flex px-2 py-0.5 text-xs rounded bg-slate-100 text-slate-700 border border-slate-200">
-                  {list.length}
-                </span>
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex gap-3 items-center">
+                  {getIcon(type)}
+                  <h3 className="font-semibold text-slate-900">
+                    {titleFor(type)}
+                  </h3>
+                  <span className="inline-flex px-2 py-0.5 text-xs rounded bg-slate-100 text-slate-700 border border-slate-200">
+                    {list.length}
+                  </span>
+                </div>
+                <a
+                  href={`?tab=all&ownership=${encodeURIComponent(type)}`}
+                  className="px-3 py-1.5 text-sm border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50"
+                >
+                  View All
+                </a>
               </div>
               <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
                 {list.slice(0, 12).map((company) => (
@@ -1155,14 +1163,6 @@ function MarketMapGrid({ companies }: { companies: SectorCompany[] }) {
                     >
                       {company.name.charAt(0)}
                     </div>
-                    {list.length > 12 && (
-                      <a
-                        href={`?tab=all&ownership=${encodeURIComponent(type)}`}
-                        className="flex relative justify-center items-center p-3 font-medium text-blue-700 bg-blue-50 rounded-xl border border-blue-200 transition-colors duration-200 hover:bg-blue-100"
-                      >
-                        View All
-                      </a>
-                    )}
                   </a>
                 ))}
               </div>
