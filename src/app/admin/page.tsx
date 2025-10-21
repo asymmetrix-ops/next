@@ -525,6 +525,42 @@ function EmailsTab() {
   const [singleRecipient, setSingleRecipient] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [sending, setSending] = useState(false);
+  interface EmailTemplate {
+    id: number;
+    Headline?: string | null;
+    Body?: string | null;
+    Publication_Date?: unknown;
+    created_at?: number;
+  }
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | "">("");
+
+  // Load templates on mount
+  useEffect(() => {
+    let cancelled = false;
+    async function loadTemplates() {
+      try {
+        setTemplatesLoading(true);
+        const res = await fetch(
+          "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content",
+          { method: "GET", headers: { "Content-Type": "application/json" } }
+        );
+        const data = await res.json();
+        if (!cancelled && Array.isArray(data)) {
+          setTemplates(data as EmailTemplate[]);
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setTemplatesLoading(false);
+      }
+    }
+    loadTemplates();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Attach click handler to detect selected image and show resize control
   useEffect(() => {
@@ -602,6 +638,37 @@ function EmailsTab() {
           />
         </div>
       )}
+
+      <div className="mb-3">
+        <label className="block mb-1 text-sm font-medium">Template</label>
+        <select
+          className="p-2 w-full border"
+          value={selectedTemplateId}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "") {
+              setSelectedTemplateId("");
+              return;
+            }
+            const idNum = Number(val);
+            setSelectedTemplateId(idNum);
+            const t = templates.find((x) => x.id === idNum);
+            if (t) {
+              setSubject(String(t.Headline ?? ""));
+              setText(String(t.Body ?? ""));
+            }
+          }}
+        >
+          <option value="" disabled={templatesLoading}>
+            {templatesLoading ? "Loading templates..." : "Choose a template"}
+          </option>
+          {templates.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.Headline ? String(t.Headline) : `Template #${t.id}`}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="mb-3">
         <label className="block mb-1 text-sm font-medium">Subject</label>
@@ -733,60 +800,111 @@ function EmailsTab() {
         >
           Copy HTML
         </button>
-        <button
-          className="px-4 py-2 text-white bg-blue-600 rounded disabled:opacity-50"
-          onClick={async () => {
-            if (sending) return;
-            const subjectTrimmed = subject.trim();
-            const textTrimmed = text.trim();
-            if (!subjectTrimmed || !textTrimmed) return;
+        {selectedTemplateId === "" ? (
+          <button
+            className="px-4 py-2 text-white bg-blue-600 rounded disabled:opacity-50"
+            onClick={async () => {
+              if (sending) return;
+              const subjectTrimmed = subject.trim();
+              const textTrimmed = text.trim();
+              if (!subjectTrimmed || !textTrimmed) return;
 
-            // Build sanitized HTML body from current text and wrap with brand template
-            const editorEl = editorContainerRef.current?.querySelector(
-              ".ql-editor"
-            ) as HTMLElement | null;
-            const currentHtml = editorEl?.innerHTML ?? text;
-            const sanitized = sanitizeHtml(currentHtml);
-            const bodyHtml = `<div>${sanitized}</div>`;
-            const brandedHtml = buildBrandedEmailHtml({
-              bodyHtml,
-              subject: subjectTrimmed,
-            });
-            setHtml(brandedHtml);
+              // Build sanitized HTML body from current text and wrap with brand template
+              const editorEl = editorContainerRef.current?.querySelector(
+                ".ql-editor"
+              ) as HTMLElement | null;
+              const currentHtml = editorEl?.innerHTML ?? text;
+              const sanitized = sanitizeHtml(currentHtml);
+              const bodyHtml = `<div>${sanitized}</div>`;
+              const brandedHtml = buildBrandedEmailHtml({
+                bodyHtml,
+                subject: subjectTrimmed,
+              });
+              setHtml(brandedHtml);
 
-            setSending(true);
-            try {
-              const res = await fetch(
-                "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content",
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    Publication_Date: null,
-                    Headline: subjectTrimmed,
-                    Body: brandedHtml,
-                  }),
+              setSending(true);
+              try {
+                const res = await fetch(
+                  "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      Publication_Date: null,
+                      Headline: subjectTrimmed,
+                      Body: brandedHtml,
+                    }),
+                  }
+                );
+                if (!res.ok) {
+                  alert("Failed to submit email content");
+                } else {
+                  alert("Email content submitted");
                 }
-              );
-              // Intentionally not enforcing response shape; surface basic failure
-              if (!res.ok) {
-                // eslint-disable-next-line no-alert
-                alert("Failed to submit email content");
-              } else {
-                // eslint-disable-next-line no-alert
-                alert("Email content submitted");
+              } catch {
+                alert("Network error while submitting content");
+              } finally {
+                setSending(false);
               }
-            } catch {
-              // eslint-disable-next-line no-alert
-              alert("Network error while submitting content");
-            } finally {
-              setSending(false);
-            }
-          }}
-          disabled={sending || !subject.trim() || !text.trim()}
-        >
-          Submit
-        </button>
+            }}
+            disabled={sending || !subject.trim() || !text.trim()}
+          >
+            Submit
+          </button>
+        ) : (
+          <button
+            className="px-4 py-2 text-white bg-blue-600 rounded disabled:opacity-50"
+            onClick={async () => {
+              if (sending) return;
+              const idNum = Number(selectedTemplateId);
+              if (!idNum) return;
+              const subjectTrimmed = subject.trim();
+              const textTrimmed = text.trim();
+              if (!subjectTrimmed || !textTrimmed) return;
+
+              const editorEl = editorContainerRef.current?.querySelector(
+                ".ql-editor"
+              ) as HTMLElement | null;
+              const currentHtml = editorEl?.innerHTML ?? text;
+              const sanitized = sanitizeHtml(currentHtml);
+              const bodyHtml = `<div>${sanitized}</div>`;
+              const brandedHtml = buildBrandedEmailHtml({
+                bodyHtml,
+                subject: subjectTrimmed,
+              });
+              setHtml(brandedHtml);
+
+              setSending(true);
+              try {
+                const res = await fetch(
+                  `https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content/${idNum}`,
+                  {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      email_content_id: idNum,
+                      Publication_Date: null,
+                      Headline: subjectTrimmed,
+                      Body: brandedHtml,
+                    }),
+                  }
+                );
+                if (!res.ok) {
+                  alert("Failed to save template");
+                } else {
+                  alert("Template saved");
+                }
+              } catch {
+                alert("Network error while saving");
+              } finally {
+                setSending(false);
+              }
+            }}
+            disabled={sending || !subject.trim() || !text.trim()}
+          >
+            Save
+          </button>
+        )}
       </div>
 
       {html && (
