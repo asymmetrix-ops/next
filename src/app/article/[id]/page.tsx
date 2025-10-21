@@ -182,10 +182,13 @@ const ArticleDetailPage = () => {
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const searchParams = useSearchParams();
-  const fromHome = searchParams.get("from") === "home";
+  // Guard against rare runtime cases where search params may be unavailable during hydration
+  const searchParams = useSearchParams() as unknown as {
+    get?: (key: string) => string | null;
+  } | null;
+  const fromHome = (searchParams?.get?.("from") ?? "") === "home";
 
-  const articleId = params.id as string;
+  const articleId = String((params as Record<string, unknown>)?.id || "");
 
   const fetchArticle = async () => {
     try {
@@ -299,7 +302,10 @@ const ArticleDetailPage = () => {
         return _match;
       }
       used.add(idx);
-      const doc = imageDocs[idx];
+      const doc = imageDocs[idx] as { url?: string; name?: string } | undefined;
+      if (!doc || !doc.url) {
+        return _match;
+      }
       return buildFigureHtml(doc.url, doc.name || "");
     });
 
@@ -326,7 +332,16 @@ const ArticleDetailPage = () => {
     if (paragraphCount <= 0) {
       // No clear paragraphs; append all images at the end of the body
       const figures = imageDocs
-        .map((doc) => buildFigureHtml(doc.url, doc.name || ""))
+        .filter(Boolean)
+        .map((doc) =>
+          doc && (doc as { url?: string; name?: string }).url
+            ? buildFigureHtml(
+                (doc as { url: string }).url,
+                (doc as { name?: string }).name || ""
+              )
+            : ""
+        )
+        .filter(Boolean)
         .join("");
       return { html: `${bodyHtml}${figures}`, injected: true };
     }
@@ -351,8 +366,12 @@ const ArticleDetailPage = () => {
         result += `${segment}</p>`;
         if (insertionMap.has(p)) {
           const imgIdx = insertionMap.get(p)!;
-          const doc = imageDocs[imgIdx];
-          result += buildFigureHtml(doc.url, doc.name || "");
+          const doc = imageDocs[imgIdx] as
+            | { url?: string; name?: string }
+            | undefined;
+          if (doc && doc.url) {
+            result += buildFigureHtml(doc.url, doc.name || "");
+          }
         }
       } else {
         // Remainder (after the last </p>)
@@ -474,7 +493,7 @@ const ArticleDetailPage = () => {
 
             {/* Inline image grid (if additional images remain useful outside body) */}
             {article.Related_Documents &&
-              article.Related_Documents.some(isImageDoc) && (
+              article.Related_Documents.filter(Boolean).some(isImageDoc) && (
                 <div style={styles.section}>
                   <h2 style={styles.sectionTitle}>Images</h2>
                   <div
@@ -485,41 +504,52 @@ const ArticleDetailPage = () => {
                       gap: 16,
                     }}
                   >
-                    {article.Related_Documents.filter(isImageDoc).map(
-                      (doc, idx) => (
+                    {(article.Related_Documents || [])
+                      .filter(Boolean)
+                      .filter(isImageDoc)
+                      .map((doc, idx) => (
                         <figure key={`${doc.url}-${idx}`} style={{ margin: 0 }}>
-                          <img src={doc.url} alt={doc.name} />
-                          <figcaption>{doc.name}</figcaption>
+                          <img src={doc.url || ""} alt={doc.name || ""} />
+                          <figcaption>{doc.name || ""}</figcaption>
                         </figure>
-                      )
-                    )}
+                      ))}
                   </div>
                 </div>
               )}
 
             {/* Related Documents (attachments) */}
             {article.Related_Documents &&
-              article.Related_Documents.filter((d) => !isImageDoc(d)).length >
-                0 && (
+              (article.Related_Documents || [])
+                .filter(Boolean)
+                .filter((d) => !isImageDoc(d)).length > 0 && (
                 <div style={styles.section}>
                   <h2 style={styles.sectionTitle}>Related Documents</h2>
                   <div style={styles.tagContainer}>
-                    {article.Related_Documents.filter(
-                      (d) => !isImageDoc(d)
-                    ).map((doc, index) => (
-                      <a
-                        key={index}
-                        href={doc.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          ...styles.tag,
-                          textDecoration: "none",
-                        }}
-                      >
-                        {doc.name}
-                      </a>
-                    ))}
+                    {(article.Related_Documents || [])
+                      .filter(Boolean)
+                      .filter((d) => !isImageDoc(d))
+                      .map((doc, index) => {
+                        const url = (doc as unknown as { url?: string })?.url;
+                        const name = (doc as unknown as { name?: string })
+                          ?.name;
+                        if (!url) {
+                          return null;
+                        }
+                        return (
+                          <a
+                            key={index}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              ...styles.tag,
+                              textDecoration: "none",
+                            }}
+                          >
+                            {name || "Document"}
+                          </a>
+                        );
+                      })}
                   </div>
                 </div>
               )}
