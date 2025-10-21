@@ -65,6 +65,7 @@ class AuthService {
 
   // Login with email/password
   async login(email: string, password: string): Promise<LoginResponse> {
+    const normalizedEmail = (email || "").trim().toLowerCase();
     const apiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
       "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
@@ -74,7 +75,7 @@ class AuthService {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email: normalizedEmail, password }),
     });
 
     if (!response.ok) {
