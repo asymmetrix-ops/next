@@ -1138,6 +1138,7 @@ function MarketMapGrid({ companies }: { companies: SectorCompany[] }) {
                     key={company.id}
                     href={`/company/${company.id}`}
                     className="relative p-3 bg-white rounded-xl border transition-all duration-200 group border-slate-200 hover:border-slate-300 hover:shadow-sm"
+                    title={company.name}
                   >
                     {company.logo_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -1163,6 +1164,9 @@ function MarketMapGrid({ companies }: { companies: SectorCompany[] }) {
                     >
                       {company.name.charAt(0)}
                     </div>
+                    <p className="mt-2 text-[11px] leading-tight text-slate-700 truncate">
+                      {company.name}
+                    </p>
                   </a>
                 ))}
               </div>
