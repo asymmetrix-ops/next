@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 // import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -552,7 +552,14 @@ function TabNavigation({
           {TABS.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                if (typeof window !== "undefined") {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("tab", tab.id);
+                  window.history.replaceState({}, "", url.toString());
+                }
+              }}
               className={`relative py-4 px-2 text-sm font-medium transition-colors duration-200 whitespace-nowrap ${
                 activeTab === tab.id
                   ? "text-blue-600"
@@ -623,11 +630,15 @@ function MostActiveTableCard({
   items,
   accent,
   badgeLabel,
+  mostRecentHeader,
+  showBadge = true,
 }: {
   title: string;
   items: RankedEntity[];
   accent: "blue" | "purple";
   badgeLabel: string;
+  mostRecentHeader?: string;
+  showBadge?: boolean;
 }) {
   const hasItems = Array.isArray(items) && items.length > 0;
   const accentClasses =
@@ -642,6 +653,7 @@ function MostActiveTableCard({
           badge: "bg-blue-50 text-blue-700 border-blue-200",
           countBg: "bg-indigo-50 text-indigo-600",
         };
+  const isInvestorTable = title.toLowerCase().includes("private equity");
 
   return (
     <div className="h-full bg-white rounded-xl border shadow-lg border-slate-200/60">
@@ -665,13 +677,13 @@ function MostActiveTableCard({
             <thead className="bg-slate-50/80">
               <tr className="hover:bg-slate-50/80">
                 <th className="py-3 font-semibold text-left text-slate-700">
-                  {badgeLabel.includes("Equity") ? "Investor" : "Acquirer"}
+                  {isInvestorTable ? "Investor" : "Acquirer"}
                 </th>
                 <th className="py-3 font-semibold text-center text-slate-700">
                   Deals
                 </th>
                 <th className="py-3 font-semibold text-left text-slate-700">
-                  Most Recent
+                  {mostRecentHeader ?? "Most Recent"}
                 </th>
               </tr>
             </thead>
@@ -721,11 +733,13 @@ function MostActiveTableCard({
                           <p className="font-medium text-slate-900">
                             {it.name}
                           </p>
-                          <span
-                            className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
-                          >
-                            {badgeLabel}
-                          </span>
+                          {showBadge && badgeLabel && (
+                            <span
+                              className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
+                            >
+                              {badgeLabel}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -1110,19 +1124,19 @@ function MarketMapGrid({ companies }: { companies: SectorCompany[] }) {
                   {list.length}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {list.slice(0, 6).map((company) => (
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+                {list.slice(0, 12).map((company) => (
                   <a
                     key={company.id}
                     href={`/company/${company.id}`}
-                    className="relative p-4 bg-white rounded-xl border transition-all duration-200 group border-slate-200 hover:border-slate-300 hover:shadow-sm"
+                    className="relative p-3 bg-white rounded-xl border transition-all duration-200 group border-slate-200 hover:border-slate-300 hover:shadow-sm"
                   >
                     {company.logo_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={company.logo_url}
                         alt={company.name}
-                        className="object-contain mb-2 w-8 h-8"
+                        className="object-contain w-10 h-10"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           target.style.display = "none";
@@ -1141,28 +1155,16 @@ function MarketMapGrid({ companies }: { companies: SectorCompany[] }) {
                     >
                       {company.name.charAt(0)}
                     </div>
-                    <p className="text-sm font-medium leading-tight text-slate-900">
-                      {company.name}
-                    </p>
-                    {company.ownership_text && (
-                      <p className="mt-1 text-xs text-slate-500">
-                        {company.ownership_text}
-                      </p>
-                    )}
-                    {company.sub_sector && (
-                      <p className="mt-1 text-xs text-slate-500">
-                        {company.sub_sector}
-                      </p>
+                    {list.length > 12 && (
+                      <a
+                        href={`?tab=all&ownership=${encodeURIComponent(type)}`}
+                        className="flex relative justify-center items-center p-3 font-medium text-blue-700 bg-blue-50 rounded-xl border border-blue-200 transition-colors duration-200 hover:bg-blue-100"
+                      >
+                        View All
+                      </a>
                     )}
                   </a>
                 ))}
-                {list.length > 6 && (
-                  <div className="flex relative justify-center items-center p-4 rounded-xl border border-dashed transition-colors duration-200 group border-slate-300 bg-slate-50 hover:bg-slate-100">
-                    <p className="text-sm font-medium text-slate-600">
-                      +{list.length - 6} more
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           ))}
@@ -1194,7 +1196,12 @@ const SectorDetailPage = () => {
   });
   const [selectedPerPage, setSelectedPerPage] = useState(50);
   // const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<Record<string, string>>({});
-  const [activeTab, setActiveTab] = useState<string>("overview");
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams?.get("tab") || "overview").toString();
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
+  const [ownershipFilter] = useState<string | null>(
+    searchParams?.get("ownership") || null
+  );
   // Debug states removed
   const [companiesApiPayload, setCompaniesApiPayload] = useState<unknown>(null);
   // Split datasets fetched from dedicated endpoints
@@ -2127,12 +2134,16 @@ const SectorDetailPage = () => {
                 items={strategicAcquirers}
                 accent="blue"
                 badgeLabel="Strategic Acquirer"
+                mostRecentHeader="Most Recent Acquisition"
+                showBadge={false}
               />
               <MostActiveTableCard
                 title="Most Active Private Equity Investors"
                 items={peInvestors}
                 accent="purple"
                 badgeLabel="Private Equity"
+                mostRecentHeader="Most Recent Investment."
+                showBadge={false}
               />
             </div>
 
@@ -2276,7 +2287,25 @@ const SectorDetailPage = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {allCompanies.map((c) => {
+                        {(ownershipFilter
+                          ? allCompanies.filter((c) => {
+                              const own = (c.ownership || "").toLowerCase();
+                              if (ownershipFilter === "public")
+                                return own.includes("public");
+                              if (ownershipFilter === "private_equity_owned")
+                                return own.includes("private equity");
+                              if (ownershipFilter === "venture_capital_backed")
+                                return own.includes("venture");
+                              if (ownershipFilter === "private")
+                                return (
+                                  !own.includes("public") &&
+                                  !own.includes("private equity") &&
+                                  !own.includes("venture")
+                                );
+                              return true;
+                            })
+                          : allCompanies
+                        ).map((c) => {
                           const primaryDisplay = Array.isArray(
                             c.primary_sectors
                           )
