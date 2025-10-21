@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import dynamic from "next/dynamic";
-import type { ComponentType } from "react";
+import EmailEditor from "react-email-editor";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useRouter } from "next/navigation";
 
@@ -502,29 +501,18 @@ function buildBrandedEmailHtml(params: {
 </html>`;
 }
 
-interface RichTextEditorProps {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  theme?: string;
-  modules?: unknown;
-  formats?: string[];
-}
-
-const ReactQuill = dynamic(() => import("react-quill"), {
-  ssr: false,
-}) as unknown as ComponentType<RichTextEditorProps>;
+// Removed Quill props; using react-email-editor
 
 function EmailsTab() {
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
-  const [selectedImg, setSelectedImg] = useState<HTMLImageElement | null>(null);
-  const [imgWidthPct, setImgWidthPct] = useState<number>(100);
-  const [text, setText] = useState("");
+  const unlayerRef = useRef<unknown>(null);
   const [html, setHtml] = useState("");
   const [subject, setSubject] = useState("");
   const [singleRecipient, setSingleRecipient] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [sending, setSending] = useState(false);
+  const [editorReady, setEditorReady] = useState(false);
+  const [pendingHtml, setPendingHtml] = useState<string | null>(null);
   interface EmailTemplate {
     id: number;
     Headline?: string | null;
@@ -535,6 +523,40 @@ function EmailsTab() {
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | "">("");
+
+  function loadHtmlIntoEditor(rawHtml: string) {
+    const inst = unlayerRef.current as {
+      loadDesign?: (design: unknown) => void;
+    } | null;
+    const design = {
+      body: {
+        rows: [
+          {
+            cells: [1],
+            columns: [
+              {
+                contents: [
+                  {
+                    type: "html",
+                    values: { html: rawHtml },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        values: { backgroundColor: "#ffffff", contentWidth: "600px" },
+      },
+    };
+    inst?.loadDesign?.(design as unknown);
+  }
+
+  useEffect(() => {
+    if (editorReady && pendingHtml) {
+      loadHtmlIntoEditor(pendingHtml);
+      setPendingHtml(null);
+    }
+  }, [editorReady, pendingHtml]);
 
   // Load templates on mount
   useEffect(() => {
@@ -562,41 +584,16 @@ function EmailsTab() {
     };
   }, []);
 
-  // Attach click handler to detect selected image and show resize control
-  useEffect(() => {
-    const root = editorContainerRef.current?.querySelector(
-      ".ql-editor"
-    ) as HTMLElement | null;
-    const onClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && target.tagName === "IMG") {
-        const img = target as HTMLImageElement;
-        setSelectedImg(img);
-        const containerWidth = root?.clientWidth || 1;
-        const attrWidth = img.getAttribute("width");
-        const numericAttr = attrWidth ? parseInt(attrWidth, 10) : undefined;
-        const currentWidth =
-          numericAttr || img.getBoundingClientRect().width || img.width;
-        const pct = Math.min(
-          100,
-          Math.max(10, Math.round((currentWidth / containerWidth) * 100))
-        );
-        setImgWidthPct(pct);
-      } else {
-        setSelectedImg(null);
-      }
-    };
-    if (root) root.addEventListener("click", onClick as EventListener);
-    return () => {
-      if (root) root.removeEventListener("click", onClick as EventListener);
-    };
-  }, [text]);
+  // no image click handler with EmailEditor
 
-  const handleExport = () => {
-    const editorEl = editorContainerRef.current?.querySelector(
-      ".ql-editor"
-    ) as HTMLElement | null;
-    const rawHtml = editorEl?.innerHTML ?? text;
+  const handleExport = async () => {
+    const exported = await new Promise<{ html?: string }>((resolve) => {
+      const inst = unlayerRef.current as {
+        exportHtml?: (cb: (d: { html?: string }) => void) => void;
+      } | null;
+      inst?.exportHtml?.((d) => resolve(d));
+    });
+    const rawHtml = exported?.html || "";
     const sanitized = sanitizeHtml(rawHtml);
     const branded = buildBrandedEmailHtml({
       bodyHtml: `<div>${sanitized}</div>`,
@@ -655,7 +652,14 @@ function EmailsTab() {
             const t = templates.find((x) => x.id === idNum);
             if (t) {
               setSubject(String(t.Headline ?? ""));
-              setText(String(t.Body ?? ""));
+              if (t.Body) {
+                const bodyHtml = String(t.Body);
+                if (editorReady) {
+                  loadHtmlIntoEditor(bodyHtml);
+                } else {
+                  setPendingHtml(bodyHtml);
+                }
+              }
             }
           }}
         >
@@ -682,109 +686,16 @@ function EmailsTab() {
       </div>
 
       <div className="border" ref={editorContainerRef}>
-        {(() => {
-          const modules = {
-            toolbar: [
-              [{ header: [2, 3, false] }],
-              ["bold", "italic", "underline", "strike"],
-              [{ list: "ordered" }, { list: "bullet" }],
-              ["blockquote", "code-block"],
-              ["link", "image"],
-              [{ align: [] }],
-              ["clean"],
-            ],
-          } as const;
-          const formats = [
-            "header",
-            "bold",
-            "italic",
-            "underline",
-            "strike",
-            "list",
-            "bullet",
-            "blockquote",
-            "code-block",
-            "link",
-            "image",
-            "align",
-          ] as const;
-          return (
-            <ReactQuill
-              theme="snow"
-              value={text}
-              onChange={setText}
-              placeholder="Write your email content here..."
-              modules={modules as unknown}
-              formats={formats as unknown as string[]}
-            />
-          );
-        })()}
-      </div>
-
-      {selectedImg && (
-        <div className="flex gap-3 items-center mt-2">
-          <label className="text-sm">Image width</label>
-          <input
-            type="range"
-            min={10}
-            max={100}
-            value={imgWidthPct}
-            onChange={(e) => {
-              const val = Number(e.target.value);
-              setImgWidthPct(val);
-              if (selectedImg) {
-                const editorEl = editorContainerRef.current?.querySelector(
-                  ".ql-editor"
-                ) as HTMLElement | null;
-                const containerWidth = editorEl?.clientWidth || 1;
-                const px = Math.round((containerWidth * val) / 100);
-                selectedImg.removeAttribute("style");
-                selectedImg.setAttribute("width", String(px));
-                // Do not setText here to avoid Quill sanitizing styles away; keep DOM mutation
-              }
-            }}
-          />
-          <span className="w-10 text-sm text-right">{imgWidthPct}%</span>
-        </div>
-      )}
-
-      <div className="mt-4">
-        <input
-          type="file"
-          accept="image/*"
-          onChange={async (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            // Try Xano first (hardcoded endpoint), fallback to local API
-            const xanoUrl =
-              "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/images";
-            try {
-              const fd = new FormData();
-              fd.append("img", file); // field name expected by Xano
-              const res = await fetch(xanoUrl, { method: "POST", body: fd });
-              const data = await res.json();
-              const url = data?.image?.url || data?.url;
-              if (res.ok && url) {
-                setText((t) => t + `\n<img src="${url}" alt="" />`);
-                return;
-              }
-            } catch {}
-
-            try {
-              const formData = new FormData();
-              formData.append("file", file);
-              const res = await fetch("/api/upload", {
-                method: "POST",
-                body: formData,
-              });
-              const data = await res.json();
-              if (res.ok && data?.url) {
-                setText((t) => t + `\n<img src="${data.url}" alt="" />`);
-              }
-            } catch {}
-          }}
+        <EmailEditor
+          ref={unlayerRef as unknown as never}
+          minHeight={500}
+          onReady={() => setEditorReady(true)}
         />
       </div>
+
+      {/* Image resizing handled in EmailEditor UI */}
+
+      {/* Image upload handled by EmailEditor asset manager or URL blocks */}
 
       <div className="flex gap-2 mt-4">
         <button
@@ -806,15 +717,19 @@ function EmailsTab() {
             onClick={async () => {
               if (sending) return;
               const subjectTrimmed = subject.trim();
-              const textTrimmed = text.trim();
-              if (!subjectTrimmed || !textTrimmed) return;
+              if (!subjectTrimmed) return;
 
               // Build sanitized HTML body from current text and wrap with brand template
-              const editorEl = editorContainerRef.current?.querySelector(
-                ".ql-editor"
-              ) as HTMLElement | null;
-              const currentHtml = editorEl?.innerHTML ?? text;
-              const sanitized = sanitizeHtml(currentHtml);
+              const exported = await new Promise<{ html?: string }>(
+                (resolve) => {
+                  const inst = unlayerRef.current as {
+                    exportHtml?: (cb: (d: { html?: string }) => void) => void;
+                  } | null;
+                  inst?.exportHtml?.((d) => resolve(d));
+                }
+              );
+              const rawHtml = exported?.html || "";
+              const sanitized = sanitizeHtml(rawHtml);
               const bodyHtml = `<div>${sanitized}</div>`;
               const brandedHtml = buildBrandedEmailHtml({
                 bodyHtml,
@@ -847,7 +762,7 @@ function EmailsTab() {
                 setSending(false);
               }
             }}
-            disabled={sending || !subject.trim() || !text.trim()}
+            disabled={sending || !subject.trim()}
           >
             Submit
           </button>
@@ -859,14 +774,17 @@ function EmailsTab() {
               const idNum = Number(selectedTemplateId);
               if (!idNum) return;
               const subjectTrimmed = subject.trim();
-              const textTrimmed = text.trim();
-              if (!subjectTrimmed || !textTrimmed) return;
-
-              const editorEl = editorContainerRef.current?.querySelector(
-                ".ql-editor"
-              ) as HTMLElement | null;
-              const currentHtml = editorEl?.innerHTML ?? text;
-              const sanitized = sanitizeHtml(currentHtml);
+              if (!subjectTrimmed) return;
+              const exported = await new Promise<{ html?: string }>(
+                (resolve) => {
+                  const inst = unlayerRef.current as {
+                    exportHtml?: (cb: (d: { html?: string }) => void) => void;
+                  } | null;
+                  inst?.exportHtml?.((d) => resolve(d));
+                }
+              );
+              const rawHtml = exported?.html || "";
+              const sanitized = sanitizeHtml(rawHtml);
               const bodyHtml = `<div>${sanitized}</div>`;
               const brandedHtml = buildBrandedEmailHtml({
                 bodyHtml,
@@ -900,7 +818,7 @@ function EmailsTab() {
                 setSending(false);
               }
             }}
-            disabled={sending || !subject.trim() || !text.trim()}
+            disabled={sending || !subject.trim()}
           >
             Save
           </button>
