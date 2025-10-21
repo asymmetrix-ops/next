@@ -179,7 +179,7 @@ Target company: {query} ({domain})`;
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            className="px-3 py-2 w-full rounded border min-h-48 font-mono text-sm"
+            className="px-3 py-2 w-full font-mono text-sm rounded border min-h-48"
           />
           <p className="mt-1 text-xs text-gray-500">
             If unchanged, the prompt will not be sent.

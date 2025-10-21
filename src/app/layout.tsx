@@ -6,6 +6,7 @@ import { AnalyticsProvider } from "@/components/providers/AnalyticsProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { Toaster } from "react-hot-toast";
 import TitleUpdater from "@/components/TitleUpdater";
+import ChunkErrorRecovery from "@/components/ChunkErrorRecovery";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -121,6 +122,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <AnalyticsProvider>
+            <ChunkErrorRecovery />
             <TitleUpdater />
             {children}
             <Toaster position="top-right" />
