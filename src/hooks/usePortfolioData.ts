@@ -19,33 +19,37 @@ const safeParseJSON = <T>(value: unknown, fallback: T): T => {
   return fallback;
 };
 
-const mapPortfolioItem = (item: any): PortfolioCompany => {
+const asRecord = (v: unknown): Record<string, unknown> =>
+  typeof v === "object" && v !== null ? (v as Record<string, unknown>) : {};
+
+const mapPortfolioItem = (item: unknown): PortfolioCompany => {
+  const obj = asRecord(item);
   const sectors = safeParseJSON<
     Array<{ sector_name: string; Sector_importance: string }>
-  >(item?.sectors_id, []);
+  >(obj["sectors_id"], []);
 
-  const locations = safeParseJSON<{ Country?: string }>(item?._locations, {});
+  const locations = safeParseJSON<{ Country?: string }>(obj["_locations"], {});
 
   const linkedinDataNew = safeParseJSON<{
     linkedin_employee?: number;
     linkedin_logo?: string;
-  }>(item?._linkedin_data_of_new_company, {});
+  }>(obj["_linkedin_data_of_new_company"], {});
 
   const linkedinDataOld = safeParseJSON<{
     LinkedIn_Employee?: number;
     linkedin_logo?: string;
-  }>(item?.linkedin_data, {});
+  }>(obj["linkedin_data"], {});
 
   const relatedIndividuals = safeParseJSON<
     Array<{ id: number; advisor_individuals: string; linkedin_URL?: string }>
-  >(item?.related_to_investor_individuals, []);
+  >(obj["related_to_investor_individuals"], []);
 
-  return {
-    id: Number(item?.id),
-    name: String(item?.name ?? ""),
-    locations_id: Number(item?.locations_id ?? 0),
+  const result = {
+    id: Number(obj["id"]),
+    name: String((obj["name"] as string) ?? ""),
+    locations_id: Number((obj["locations_id"] as number) ?? 0),
     sectors_id: Array.isArray(sectors) ? sectors : [],
-    description: String(item?.description ?? ""),
+    description: String((obj["description"] as string) ?? ""),
     linkedin_data: {
       LinkedIn_Employee: Number(linkedinDataOld?.LinkedIn_Employee ?? 0),
       linkedin_logo: String(linkedinDataOld?.linkedin_logo ?? ""),
@@ -53,13 +57,15 @@ const mapPortfolioItem = (item: any): PortfolioCompany => {
     _locations: {
       Country: String(locations?.Country ?? ""),
     },
-    _is_that_investor: Boolean(item?._is_that_investor ?? false),
+    _is_that_investor: Boolean((obj["_is_that_investor"] as boolean) ?? false),
     _linkedin_data_of_new_company: {
       linkedin_employee: Number(linkedinDataNew?.linkedin_employee ?? 0),
       linkedin_logo: String(linkedinDataNew?.linkedin_logo ?? ""),
     },
     related_to_investor_individuals: relatedIndividuals,
-  };
+  } as Record<string, unknown>;
+
+  return result as unknown as PortfolioCompany;
 };
 
 const initialPaginationState: PaginationState = {
