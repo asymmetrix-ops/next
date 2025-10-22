@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 // import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-// import { locationsService } from "@/lib/locationsService";
+import { locationsService } from "@/lib/locationsService";
 import {
   BuildingOfficeIcon,
   ArrowTrendingUpIcon,
@@ -117,6 +117,8 @@ interface TransactionRecord {
   value?: string;
   type?: string;
   targetLogoUrl?: string;
+  eventId?: number;
+  targetCompanyId?: number;
 }
 
 interface RankedEntity {
@@ -258,6 +260,12 @@ function mapRecentTransactions(raw: unknown): TransactionRecord[] {
           "name",
         ])
       );
+      const targetCompanyId = getFirstMatchingNumber(obj, [
+        "Target_company_id",
+        "target_company_id",
+        "company_id",
+        "target_id",
+      ]);
       const value = toStringSafe(
         getFirstMatchingValue(obj, [
           "value_usd",
@@ -278,6 +286,13 @@ function mapRecentTransactions(raw: unknown): TransactionRecord[] {
           "structure",
         ])
       );
+      const eventId = getFirstMatchingNumber(obj, [
+        "Corporate_event_id",
+        "corporate_event_id",
+        "Event_id",
+        "event_id",
+        "id",
+      ]);
       // Target logo mapping (supports base64 or full URL)
       const rawTargetLogo = toStringSafe(
         getFirstMatchingValue(obj, [
@@ -301,6 +316,9 @@ function mapRecentTransactions(raw: unknown): TransactionRecord[] {
         value,
         type,
         targetLogoUrl: targetLogoUrl || undefined,
+        eventId: typeof eventId === "number" ? eventId : undefined,
+        targetCompanyId:
+          typeof targetCompanyId === "number" ? targetCompanyId : undefined,
       } as TransactionRecord;
     })
     .filter(Boolean) as TransactionRecord[];
@@ -346,6 +364,9 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
       );
       const acquirerId = getFirstMatchingNumber(obj, [
         "acquirer_company_id",
+        "original_new_company_id",
+        "new_company_id",
+        "acquirer_id",
         "company_id",
         "id",
       ]);
@@ -701,47 +722,98 @@ function MostActiveTableCard({
                 items.slice(0, 25).map((it) => (
                   <tr
                     key={`${title}-${it.name}`}
-                    className="transition-colors duration-150 hover:bg-slate-50/50"
+                    className={`transition-colors duration-150 hover:bg-slate-50/50 ${
+                      it.id ? "cursor-pointer" : ""
+                    }`}
+                    onClick={() => {
+                      if (it.id) {
+                        window.location.href = `/company/${it.id}`;
+                      }
+                    }}
                   >
                     <td className="py-3 pr-4">
-                      <div className="flex gap-3 items-center">
-                        {it.logoUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={it.logoUrl}
-                            alt={it.name}
-                            className="object-contain w-8 h-8 rounded-lg"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = "none";
-                              const fallback =
-                                target.nextElementSibling as HTMLElement | null;
-                              if (fallback) fallback.style.display = "flex";
-                            }}
-                          />
-                        ) : null}
-                        <div
-                          className={`${
-                            it.logoUrl ? "hidden" : "flex"
-                          } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
-                            accentClasses.gradient
-                          }`}
+                      {it.id ? (
+                        <a
+                          href={`/company/${it.id}`}
+                          className="flex gap-3 items-center"
                         >
-                          <BuildingOfficeIcon className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-slate-900">
-                            {it.name}
-                          </p>
-                          {showBadge && badgeLabel && (
-                            <span
-                              className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
-                            >
-                              {badgeLabel}
+                          {it.logoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={it.logoUrl}
+                              alt={it.name}
+                              className="object-contain w-8 h-8 rounded-lg"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = "none";
+                                const fallback =
+                                  target.nextElementSibling as HTMLElement | null;
+                                if (fallback) fallback.style.display = "flex";
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className={`${
+                              it.logoUrl ? "hidden" : "flex"
+                            } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
+                              accentClasses.gradient
+                            }`}
+                          >
+                            <BuildingOfficeIcon className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="font-medium text-blue-600 underline">
+                              {it.name}
                             </span>
-                          )}
+                            {showBadge && badgeLabel && (
+                              <span
+                                className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
+                              >
+                                {badgeLabel}
+                              </span>
+                            )}
+                          </div>
+                        </a>
+                      ) : (
+                        <div className="flex gap-3 items-center">
+                          {it.logoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={it.logoUrl}
+                              alt={it.name}
+                              className="object-contain w-8 h-8 rounded-lg"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = "none";
+                                const fallback =
+                                  target.nextElementSibling as HTMLElement | null;
+                                if (fallback) fallback.style.display = "flex";
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className={`${
+                              it.logoUrl ? "hidden" : "flex"
+                            } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
+                              accentClasses.gradient
+                            }`}
+                          >
+                            <BuildingOfficeIcon className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-900">
+                              {it.name}
+                            </p>
+                            {showBadge && badgeLabel && (
+                              <span
+                                className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
+                              >
+                                {badgeLabel}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </td>
                     <td className="py-3 text-center">
                       <div
@@ -847,10 +919,21 @@ function RecentTransactionsCard({
                 transactions.slice(0, 25).map((t, idx) => {
                   const announcementDate = t.date ? new Date(t.date) : null;
                   const valueDisplay = t.value ? `$${t.value}M` : null;
+                  const href = t.eventId
+                    ? `/corporate-event/${t.eventId}`
+                    : t.targetCompanyId
+                    ? `/company/${t.targetCompanyId}`
+                    : undefined;
                   return (
                     <tr
                       key={`tx-${idx}`}
-                      className="transition-colors duration-150 hover:bg-slate-50/50"
+                      className={`transition-colors duration-150 hover:bg-slate-50/50 ${
+                        href ? "cursor-pointer" : ""}`}
+                      onClick={() => {
+                        if (href) {
+                          window.location.href = href;
+                        }
+                      }}
                     >
                       <td className="py-3 pr-4">
                         <div className="flex gap-3 items-center">
@@ -1203,7 +1286,7 @@ const SectorDetailPage = () => {
   const searchParams = useSearchParams();
   const initialTab = (searchParams?.get("tab") || "overview").toString();
   const [activeTab, setActiveTab] = useState<string>(initialTab);
-  const [ownershipFilter] = useState<string | null>(
+  const [ownershipFilter, setOwnershipFilter] = useState<string | null>(
     searchParams?.get("ownership") || null
   );
   // Debug states removed
@@ -1255,6 +1338,37 @@ const SectorDetailPage = () => {
     perPage: 25,
     pageTotal: 0,
   });
+
+  // Ownership type id mapping (from API)
+  const [ownershipTypeIds, setOwnershipTypeIds] = useState<
+    Record<string, number>
+  >({});
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const list = await locationsService.getOwnershipTypes();
+        if (!cancelled && Array.isArray(list)) {
+          const map: Record<string, number> = {};
+          for (const o of list) {
+            const id = (o as { id?: number }).id;
+            const name = (o as { ownership?: string }).ownership || "";
+            if (typeof id === "number" && name) {
+              const key = name.trim().toLowerCase();
+              map[key] = id;
+            }
+          }
+          setOwnershipTypeIds(map);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Load secondary->primary mapping once (not required in the new overview layout)
   // useEffect(() => {
@@ -1581,6 +1695,10 @@ const SectorDetailPage = () => {
         params.append("Max_linkedin_members", "0");
         params.append("Horizontals_ids", "");
         params.append("Primary_sectors_ids[]", String(Sector_id));
+        // If ownershipFilter is 'public', filter on the server to keep page sizes consistent
+        if (ownershipFilter === "public") {
+          params.append("Ownership_types_ids[]", String(1));
+        }
 
         const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
         const response = await fetch(url, {
@@ -1628,7 +1746,7 @@ const SectorDetailPage = () => {
         setAllCompaniesLoading(false);
       }
     },
-    [sectorId]
+    [sectorId, ownershipFilter]
   );
 
   // Fetch Public Companies for sector (ownership type Public)
@@ -1797,6 +1915,16 @@ const SectorDetailPage = () => {
 
   // (Removed generatePaginationButtons; simplified pagination in new layout)
 
+  // Keep tab and ownership in sync with URL query params when they change
+  useEffect(() => {
+    const qpTab = (searchParams?.get("tab") || "overview").toString();
+    if (qpTab !== activeTab) {
+      setActiveTab(qpTab);
+    }
+    const qpOwnership = searchParams?.get("ownership") || null;
+    setOwnershipFilter(qpOwnership);
+  }, [searchParams, activeTab]);
+
   if (loading) {
     return (
       <div className="min-h-screen">
@@ -1886,8 +2014,12 @@ const SectorDetailPage = () => {
   }
 
   // Update page title when sector data is loaded
-  if (typeof document !== "undefined" && sectorData?.Sector?.sector_name) {
-    document.title = `Asymmetrix – ${sectorData.Sector.sector_name}`;
+  if (typeof document !== "undefined") {
+    const titleName = (sectorData as { Sector?: { sector_name?: string } })
+      ?.Sector?.sector_name;
+    if (titleName) {
+      document.title = `Asymmetrix – ${titleName}`;
+    }
   }
 
   // Normalize statistics to support both new and legacy API shapes
@@ -2100,7 +2232,8 @@ const SectorDetailPage = () => {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-slate-900">
-                  {sectorData.Sector.sector_name}
+                  {(sectorData as { Sector?: { sector_name?: string } })?.Sector
+                    ?.sector_name || "Sector"}
                 </h1>
                 <p className="text-sm text-slate-500">
                   Market Intelligence Dashboard
@@ -2291,7 +2424,17 @@ const SectorDetailPage = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {(ownershipFilter
+                        {(ownershipFilter &&
+                        !ownershipTypeIds[
+                          ownershipFilter
+                            .replace(/_/g, " ")
+                            .replace(
+                              "venture capital backed",
+                              "venture capital"
+                            )
+                            .replace("private equity owned", "private equity")
+                            .trim()
+                        ]
                           ? allCompanies.filter((c) => {
                               const own = (c.ownership || "").toLowerCase();
                               if (ownershipFilter === "public")
