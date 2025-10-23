@@ -936,14 +936,9 @@ const CorporateEventDetail = ({
                     </td>
                     <td>
                       {(() => {
-                        // Prefer advisor-attached individuals; fallback to advised counterparty individuals
+                        // Strictly use advisor-attached individuals from Event_advisors; no fallbacks
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const anyA = a as any;
-                        const advisedId: number | undefined =
-                          anyA?.counterparty_advised;
-                        const cp = advisedId
-                          ? counterpartiesById.get(advisedId)
-                          : undefined;
                         const advisorList = Array.isArray(anyA?.individuals)
                           ? (anyA.individuals as Array<{
                               id: number;
@@ -951,10 +946,7 @@ const CorporateEventDetail = ({
                               advisor_individuals: string;
                             }>)
                           : undefined;
-                        const list =
-                          advisorList && advisorList.length > 0
-                            ? advisorList
-                            : cp?.counterparty_individuals;
+                        const list = advisorList;
                         return Array.isArray(list) && list.length > 0
                           ? list.map((ind, idx) => (
                               <span key={ind.id}>
@@ -1083,23 +1075,30 @@ const CorporateEventDetail = ({
                       </span>
                       <span className="counterparty-card-info-value">
                         {(() => {
+                          // Strictly use advisor-attached individuals from Event_advisors; no fallbacks
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any
                           const anyA = a as any;
-                          const advisedId: number | undefined =
-                            anyA?.counterparty_advised;
-                          const cp = advisedId
-                            ? counterpartiesById.get(advisedId)
+                          const advisorList = Array.isArray(anyA?.individuals)
+                            ? (anyA.individuals as Array<{
+                                id: number;
+                                individuals_id?: number;
+                                advisor_individuals: string;
+                              }>)
                             : undefined;
-                          const list = cp?.counterparty_individuals;
+                          const list = advisorList;
                           return Array.isArray(list) && list.length > 0
                             ? list.map((ind, idx) => (
                                 <span key={ind.id}>
-                                  <a
-                                    href={`/individual/${ind.individuals_id}`}
-                                    className="corporate-event-link"
-                                  >
-                                    {ind.advisor_individuals}
-                                  </a>
+                                  {typeof ind.individuals_id === "number" ? (
+                                    <a
+                                      href={`/individual/${ind.individuals_id}`}
+                                      className="corporate-event-link"
+                                    >
+                                      {ind.advisor_individuals}
+                                    </a>
+                                  ) : (
+                                    <span>{ind.advisor_individuals}</span>
+                                  )}
                                   {idx < list.length - 1 && ", "}
                                 </span>
                               ))
