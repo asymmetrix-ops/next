@@ -255,23 +255,15 @@ const CorporateEventDetail = ({
           corporate_event_id: evId,
         });
         setEventArticlesLoading(true);
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : null;
-        const res = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/content`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: JSON.stringify({ corporate_event_id: evId }),
-            credentials: "include",
-          }
-        );
+        const qs = new URLSearchParams({ corporate_event_id: String(evId) });
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/content?${qs.toString()}`;
+        console.log("[Insights & Analysis] GET URL", url);
+        const res = await fetch(url, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+        });
         console.log("[Insights & Analysis] fetch response", {
           status: res.status,
         });
