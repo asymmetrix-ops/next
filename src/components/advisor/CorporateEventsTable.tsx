@@ -56,7 +56,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                   {event.description}
                 </a>
               </td>
-              <td className="px-4 py-2 border border-gray-300">
+              <td className="px-4 py-2 border border-gray-300 whitespace-nowrap">
                 {formatDate(event.announcement_date)}
               </td>
               <td className="px-4 py-2 border border-gray-300">
@@ -123,22 +123,18 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                     {(event.__related_to_corporate_event_advisors_individuals ||
                       event._related_to_corporate_event_individuals)!.map(
                       (individual, index, arr) => {
-                        const wordCount =
-                          individual._individuals.advisor_individuals.split(
-                            " "
-                          ).length;
-                        const shouldBreakLine = wordCount > 2;
-
                         return (
-                          <span key={individual.id}>
+                          <span
+                            key={individual.id}
+                            className="inline-block whitespace-nowrap"
+                          >
                             <a
                               href="#"
                               className="text-blue-600 hover:underline"
                             >
                               {individual._individuals.advisor_individuals}
                             </a>
-                            {index < arr.length - 1 &&
-                              (shouldBreakLine ? <br /> : ", ")}
+                            {index < arr.length - 1 ? ", " : ""}
                           </span>
                         );
                       }
@@ -149,7 +145,21 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                 )}
               </td>
               <td className="px-4 py-2 border border-gray-300">
-                {getOtherAdvisorsText(event._other_advisors_of_corporate_event)}
+                {(() => {
+                  const text = getOtherAdvisorsText(
+                    event._other_advisors_of_corporate_event
+                  );
+                  if (!text || text === "None") return text;
+                  return text.split(/\s*,\s*/).map((name, i, arr) => (
+                    <span
+                      key={`${name}-${i}`}
+                      className="inline-block whitespace-nowrap"
+                    >
+                      {name}
+                      {i < arr.length - 1 ? ", " : ""}
+                    </span>
+                  ));
+                })()}
               </td>
             </tr>
           ))}
