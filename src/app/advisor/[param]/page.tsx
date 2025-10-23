@@ -7,7 +7,11 @@ import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAdvisorProfile } from "../../../hooks/useAdvisorProfile";
-import { formatSectorsList, formatDate } from "../../../utils/advisorHelpers";
+import {
+  formatSectorsList,
+  formatDate,
+  getAdvisorYearFoundedDisplay,
+} from "../../../utils/advisorHelpers";
 import {
   LineChart,
   Line,
@@ -668,7 +672,7 @@ export default function AdvisorProfilePage() {
                 <div className="info-item">
                   <span className="info-label">Year founded:</span>
                   <span className="info-value">
-                    {Advisor.year_founded || "Not available"}
+                    {getAdvisorYearFoundedDisplay(Advisor)}
                   </span>
                 </div>
                 <div className="info-item">
