@@ -14,7 +14,7 @@ const navigation = [
   { name: "Individuals", href: "/individuals" },
   { name: "Investors", href: "/investors" },
   { name: "Sectors", href: "/sectors" },
-  { name: "Insights", href: "/insights-analysis" },
+  { name: "Insights & Analysis", href: "/insights-analysis" },
 ];
 
 export default function NavigationHeader() {

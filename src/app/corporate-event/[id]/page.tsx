@@ -10,6 +10,7 @@ import {
   CorporateEventAdvisor,
 } from "../../../types/corporateEvents";
 import { useRightClick } from "@/hooks/useRightClick";
+import { ContentArticle } from "@/types/insightsAnalysis";
 
 // Type-safe check for Data & Analytics company flag
 const isDataAnalyticsCompany = (candidate: unknown): boolean => {
@@ -240,6 +241,60 @@ const CorporateEventDetail = ({
   //     console.error("Navigation error:", error);
   //   }
   // };
+
+  const [eventArticles, setEventArticles] = useState<ContentArticle[]>([]);
+  const [eventArticlesLoading, setEventArticlesLoading] = useState(false);
+
+  useEffect(() => {
+    const run = async () => {
+      const startedAt = Date.now();
+      try {
+        const evId = event?.id;
+        if (!evId) return;
+        console.log("[Insights & Analysis] fetch start", {
+          corporate_event_id: evId,
+        });
+        setEventArticlesLoading(true);
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("asymmetrix_auth_token")
+            : null;
+        const res = await fetch(
+          `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/content`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ corporate_event_id: evId }),
+            credentials: "include",
+          }
+        );
+        console.log("[Insights & Analysis] fetch response", {
+          status: res.status,
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        const data = await res.json();
+        console.log("[Insights & Analysis] fetch success", {
+          count: Array.isArray(data) ? data.length : undefined,
+          payload: data,
+        });
+        setEventArticles(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("[Insights & Analysis] fetch error", error);
+        setEventArticles([]);
+      } finally {
+        console.log("[Insights & Analysis] fetch finished", {
+          ms: Date.now() - startedAt,
+        });
+        setEventArticlesLoading(false);
+      }
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event?.id]);
 
   const style = `
     .corporate-event-container {
@@ -1140,6 +1195,77 @@ const CorporateEventDetail = ({
             )}
           </div>
         </div>
+
+        {/* Asymmetrix Content (Insights & Analysis) related to this corporate event */}
+        {eventArticles.length > 0 && (
+          <div className="corporate-event-card">
+            <h2 className="corporate-event-subtitle">
+              Asymmetrix Insights & Analysis
+            </h2>
+            {eventArticlesLoading ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "40px",
+                  color: "#666",
+                  fontSize: "14px",
+                }}
+              >
+                Loading content...
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                }}
+              >
+                {eventArticles.slice(0, 4).map((article) => (
+                  <a
+                    key={article.id}
+                    href={`/article/${article.id}`}
+                    style={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      padding: "12px 12px",
+                      background: "#fff",
+                      display: "block",
+                      textDecoration: "none",
+                      color: "inherit",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        marginBottom: 6,
+                        color: "#1a202c",
+                      }}
+                    >
+                      {article.Headline || "Untitled"}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#6b7280",
+                        marginBottom: 8,
+                      }}
+                    >
+                      {article.Publication_Date
+                        ? new Date(
+                            article.Publication_Date
+                          ).toLocaleDateString()
+                        : ""}
+                    </div>
+                    <div style={{ fontSize: 14, color: "#374151" }}>
+                      {article.Strapline || ""}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <style dangerouslySetInnerHTML={{ __html: style }} />
     </div>

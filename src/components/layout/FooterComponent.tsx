@@ -78,7 +78,7 @@ export default function FooterComponent() {
                   href="/insights-analysis"
                   className="text-gray-300 transition-colors hover:text-white"
                 >
-                  Insights
+                  Insights & Analysis
                 </Link>
               </li>
             </ul>
