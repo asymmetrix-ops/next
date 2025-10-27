@@ -299,9 +299,24 @@ const CorporateEventsTable = ({
   // Corporate Event Card Component for mobile
   const CorporateEventCard = ({ event }: { event: CorporateEvent }) => {
     // Right-click handled via native anchors now
-    const target = event.target_counterparty?.new_company;
-    const targetCounterpartyId =
-      event.target_counterparty?.new_company_counterparty;
+    const target =
+      (
+        event.target_counterparty as unknown as {
+          new_company?: unknown;
+          _new_company?: unknown;
+        }
+      )?.new_company ||
+      (
+        event.target_counterparty as unknown as {
+          new_company?: unknown;
+          _new_company?: unknown;
+        }
+      )?._new_company;
+    const targetCounterpartyId = (
+      event.target_counterparty as unknown as {
+        new_company_counterparty?: number;
+      }
+    )?.new_company_counterparty;
 
     const formatDate = (dateString: string) => {
       if (!dateString) return "Not available";
@@ -355,7 +370,11 @@ const CorporateEventsTable = ({
               {formatDate(event.announcement_date || "")}
             </div>
             <div className="corporate-event-card-date">
-              Target HQ: {target?.country || "Not available"}
+              Target HQ:{" "}
+              {(target as unknown as { country?: string })?.country ||
+                (target as unknown as { _location?: { Country?: string } })
+                  ?._location?.Country ||
+                "Not available"}
             </div>
           </div>
         </div>
@@ -367,7 +386,7 @@ const CorporateEventsTable = ({
                 href={`/company/${targetCounterpartyId}`}
                 className="corporate-event-card-info-value-link"
               >
-                {target.name || "N/A"}
+                {(target as unknown as { name?: string })?.name || "N/A"}
               </a>
             ) : (
               <span className="corporate-event-card-info-value">
@@ -617,14 +636,34 @@ const CorporateEventsTable = ({
         </thead>
         <tbody>
           {events.map((event: CorporateEvent, index: number) => {
-            const target = event.target_counterparty?.new_company;
-            const targetCounterpartyId =
-              event.target_counterparty?.new_company_counterparty;
-            const targetName = target?.name || "Not Available";
+            const target =
+              (
+                event.target_counterparty as unknown as {
+                  new_company?: unknown;
+                  _new_company?: unknown;
+                }
+              )?.new_company ||
+              (
+                event.target_counterparty as unknown as {
+                  new_company?: unknown;
+                  _new_company?: unknown;
+                }
+              )?._new_company;
+            const targetCounterpartyId = (
+              event.target_counterparty as unknown as {
+                new_company_counterparty?: number;
+              }
+            )?.new_company_counterparty;
+            const targetName =
+              (target as unknown as { name?: string })?.name || "Not Available";
             const targetHref = targetCounterpartyId
               ? `/company/${targetCounterpartyId}`
               : "";
-            const targetCountry = target?.country || "Not Available";
+            const targetCountry =
+              (target as unknown as { country?: string })?.country ||
+              (target as unknown as { _location?: { Country?: string } })
+                ?._location?.Country ||
+              "Not Available";
             const primaryText = derivePrimaryFromCompany(target);
             const secondaryText = deriveSecondaryFromCompany(target);
             return (
