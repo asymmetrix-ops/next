@@ -11,12 +11,20 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.0.18",
+    "@visx/event": "^3.12.0",
+    "@visx/gradient": "^3.12.0",
+    "@visx/responsive": "^3.12.0",
+    "@visx/scale": "^3.12.0",
+    "@visx/shape": "^3.12.0",
+    "@visx/visx": "^3.12.0",
     "@xano/js-sdk": "^2.0.1",
     "axios": "^1.9.0",
     "chart.js": "^4.4.0",
     "chartjs-adapter-date-fns": "^3.0.0",
     "chartjs-plugin-datalabels": "^2.2.0",
     "clsx": "^2.0.0",
+    "d3-array": "^3.2.4",
+    "d3-scale": "^4.0.2",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.0",
     "framer-motion": "^10.16.0",
@@ -48,6 +56,7 @@
     "tailwindcss-animate": "^1.0.7",
     "tiny-emitter": "^2.1.0",
     "uuid": "^11.1.0",
+    "yahoo-finance2": "^2.13.3",
     "zustand": "^4.4.0"
   },
   "devDependencies": {

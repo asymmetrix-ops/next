@@ -17,6 +17,17 @@ import {
 } from "recharts";
 import { ContentArticle } from "@/types/insightsAnalysis";
 import { locationsService } from "@/lib/locationsService";
+import StockChartClient from "@/components/chart/StockChartClient";
+import FinanceSummaryClient from "@/components/chart/FinanceSummaryClient";
+import CompanySummaryCardClient from "@/components/chart/CompanySummaryCardClient";
+import NewsClient from "@/components/chart/NewsClient";
+import { Card, CardContent } from "@/components/ui/card";
+import { DEFAULT_INTERVAL, DEFAULT_RANGE } from "@/lib/yahoo-finance/constants";
+import {
+  validateInterval,
+  validateRange,
+} from "@/lib/yahoo-finance/fetchChartData";
+import { Interval } from "@/types/yahoo-finance";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
 const INVESTOR_SECTOR_IDS = new Set<number>([
@@ -662,6 +673,10 @@ const CompanyDetail = () => {
     Record<number, string>
   >({});
 
+  // Stock chart parameters - hardcoded for S&P Global (company ID 2142)
+  const [chartRange, setChartRange] = useState<string>(DEFAULT_RANGE);
+  const [chartInterval, setChartInterval] = useState<string>(DEFAULT_INTERVAL);
+
   // Sector mapping helpers
   const normalizeSectorName = (name: string | undefined | null): string =>
     (name || "").trim().toLowerCase();
@@ -706,6 +721,20 @@ const CompanyDetail = () => {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // Parse chart parameters from URL (optional for future enhancement)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const rangeParam = params.get("range");
+    const intervalParam = params.get("interval");
+
+    if (rangeParam) {
+      setChartRange(rangeParam);
+    }
+    if (intervalParam) {
+      setChartInterval(intervalParam);
+    }
   }, []);
 
   // Safely extract a sector id from various backend shapes
@@ -1907,6 +1936,12 @@ const CompanyDetail = () => {
     }
   `;
 
+  const validatedRange = validateRange(chartRange);
+  const validatedInterval = validateInterval(
+    validatedRange,
+    chartInterval as Interval
+  );
+
   return (
     <div className="company-detail-page" style={styles.container}>
       <Header />
@@ -1937,6 +1972,22 @@ const CompanyDetail = () => {
               </a>
             </div>
           </div>
+
+          {/* Stock Chart Section - Only for S&P Global (ID: 2142) */}
+          {company.id === 2142 && (
+            <Card style={{ marginBottom: "24px" }}>
+              <CardContent className="pt-6 space-y-10 lg:px-40 lg:py-14">
+                <StockChartClient
+                  ticker="SPGI"
+                  range={validatedRange}
+                  interval={validatedInterval}
+                />
+                <FinanceSummaryClient ticker="SPGI" />
+                <CompanySummaryCardClient ticker="SPGI" />
+                <NewsClient ticker="SPGI" />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Desktop grid */}
           <div style={styles.responsiveGrid} className="responsiveGrid">
