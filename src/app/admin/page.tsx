@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import EmailEditor from "react-email-editor";
+import SearchableSelect from "@/components/ui/SearchableSelect";
+import { locationsService } from "@/lib/locationsService";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useRouter } from "next/navigation";
 
@@ -107,9 +109,9 @@ Target company: {query} ({domain})`;
   const [result, setResult] = useState<ValuationReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<"valuation" | "emails">(
-    "valuation"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "valuation" | "emails" | "content"
+  >("valuation");
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -172,9 +174,19 @@ Target company: {query} ({domain})`;
         >
           Emails
         </button>
+        <button
+          onClick={() => setActiveTab("content")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "content"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Content
+        </button>
       </div>
 
-      {activeTab === "valuation" ? (
+      {activeTab === "valuation" && (
         <>
           <h2 className="mb-6 text-xl font-semibold">Valuation Report</h2>
           <form onSubmit={onSubmit} className="mb-8 space-y-4">
@@ -232,9 +244,9 @@ Target company: {query} ({domain})`;
 
           {result && <ResultView data={result} />}
         </>
-      ) : (
-        <EmailsTab />
       )}
+      {activeTab === "emails" && <EmailsTab />}
+      {activeTab === "content" && <ContentTab />}
     </div>
   );
 }
@@ -830,6 +842,547 @@ function EmailsTab() {
           <h3 className="mb-2 font-semibold">Generated HTML</h3>
           <pre className="overflow-x-auto p-2 text-sm bg-gray-100 rounded">
             {html}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ContentTab() {
+  // Core fields
+  const [headline, setHeadline] = useState("");
+  const [strapline, setStrapline] = useState("");
+  const [contentType, setContentType] = useState("");
+  const CONTENT_TYPES = [
+    "Company Analysis",
+    "Deal Analysis",
+    "Hot Take",
+    "Executive Interview",
+    "Sector Analysis",
+  ];
+  const [contentTypes] = useState<string[]>(CONTENT_TYPES);
+
+  // Body builder (EmailEditor)
+  const contentUnlayerRef = useRef<unknown>(null);
+
+  // Sectors
+  const [primarySectors, setPrimarySectors] = useState<
+    Array<{ id: number; sector_name: string }>
+  >([]);
+  const [secondarySectors, setSecondarySectors] = useState<
+    Array<{ id: number; sector_name: string }>
+  >([]);
+  const [selectedPrimarySectorIds, setSelectedPrimarySectorIds] = useState<
+    number[]
+  >([]);
+  const [selectedSecondarySectorIds, setSelectedSecondarySectorIds] = useState<
+    number[]
+  >([]);
+
+  // Companies selection
+  interface SimpleCompany {
+    id: number;
+    name: string;
+  }
+  const [companyQuery, setCompanyQuery] = useState("");
+  const [companyResults, setCompanyResults] = useState<SimpleCompany[]>([]);
+  const [selectedCompanies, setSelectedCompanies] = useState<SimpleCompany[]>(
+    []
+  );
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
+
+  // Content types are fixed per product spec
+
+  // Fetch sectors
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const prim = await locationsService.getPrimarySectors();
+        if (!cancelled) setPrimarySectors(prim);
+      } catch {
+        // ignore
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // When primary sector selection changes, refresh secondary sector options
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        if (selectedPrimarySectorIds.length === 0) {
+          setSecondarySectors([]);
+          setSelectedSecondarySectorIds([]);
+          return;
+        }
+        const secs = await locationsService.getSecondarySectors(
+          selectedPrimarySectorIds
+        );
+        if (!cancelled) setSecondarySectors(secs);
+      } catch {
+        // ignore
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPrimarySectorIds]);
+
+  // Company search (same endpoint/shape as Companies list page; filter only by name)
+  const searchCompanies = async () => {
+    if (!companyQuery.trim()) return;
+    try {
+      setLoadingCompanies(true);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = new URLSearchParams();
+      params.append("Offset", "1");
+      params.append("Per_page", "25");
+      params.append("Min_linkedin_members", "0");
+      params.append("Max_linkedin_members", "0");
+      params.append("Horizontals_ids", "");
+      params.append("query", companyQuery.trim());
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+      if (!resp.ok) {
+        setCompanyResults([]);
+        return;
+      }
+      const data = await resp.json().catch(() => null);
+      const items: Array<{ id: number; name: string }> =
+        (data?.result1?.items as Array<{ id: number; name: string }>) ||
+        (data?.companies?.items as Array<{ id: number; name: string }>) ||
+        (data?.items as Array<{ id: number; name: string }>) ||
+        [];
+      setCompanyResults(
+        (Array.isArray(items) ? items : [])
+          .map((c) => ({ id: Number(c.id), name: String(c.name || "") }))
+          .filter((c) => c.id && c.name)
+      );
+    } catch {
+      setCompanyResults([]);
+    } finally {
+      setLoadingCompanies(false);
+    }
+  };
+
+  // Build JSON payload for copy/preview
+  const [generatedJson, setGeneratedJson] = useState<string>("");
+  const generatePayload = async () => {
+    const exported = await new Promise<{ html?: string }>((resolve) => {
+      const inst = contentUnlayerRef.current as {
+        exportHtml?: (cb: (d: { html?: string }) => void) => void;
+      } | null;
+      inst?.exportHtml?.((d) => resolve(d));
+    });
+    const rawHtml = exported?.html || "";
+    const sanitized = sanitizeHtml(rawHtml);
+    const bodyHtml = `<div>${sanitized}</div>`;
+    const payload = {
+      Headline: headline.trim() || null,
+      Strapline: strapline.trim() || null,
+      Content_Type: contentType || null,
+      Body: bodyHtml,
+      primary_sectors_ids: selectedPrimarySectorIds,
+      Secondary_sectors_ids: selectedSecondarySectorIds,
+      companies_mentioned: selectedCompanies.map((c) => ({
+        id: c.id,
+        name: c.name,
+      })),
+    } as const;
+    setGeneratedJson(JSON.stringify(payload, null, 2));
+  };
+
+  // Submit to Xano: create new content. Do NOT set Visibility or Publication_Date
+  const [submittingContent, setSubmittingContent] = useState(false);
+  const submitContent = async () => {
+    if (submittingContent) return;
+    try {
+      setSubmittingContent(true);
+      // export HTML from builder
+      const exported = await new Promise<{ html?: string }>((resolve) => {
+        const inst = contentUnlayerRef.current as {
+          exportHtml?: (cb: (d: { html?: string }) => void) => void;
+        } | null;
+        inst?.exportHtml?.((d) => resolve(d));
+      });
+      const rawHtml = exported?.html || "";
+      const sanitized = sanitizeHtml(rawHtml);
+      const bodyHtml = `<div>${sanitized}</div>`;
+
+      const sectorsCombined = [
+        ...selectedPrimarySectorIds,
+        ...selectedSecondarySectorIds,
+      ];
+      const companiesIds = selectedCompanies.map((c) => c.id);
+
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const resp = await fetch(
+        "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/new_content",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            Headline: headline.trim(),
+            Strapline: strapline.trim(),
+            Content_Type: contentType,
+            Body: bodyHtml,
+            sectors: sectorsCombined,
+            companies_mentioned: companiesIds,
+            Related_Documents: [],
+            Related_Corporate_Event: [],
+          }),
+        }
+      );
+      if (!resp.ok) {
+        const txt = await resp.text();
+        alert(`Failed to create content: ${resp.status} ${txt}`);
+        return;
+      }
+      alert("Content created successfully");
+    } catch {
+      alert("Network error while creating content");
+    } finally {
+      setSubmittingContent(false);
+    }
+  };
+
+  const copyPayload = async () => {
+    if (!generatedJson) return;
+    try {
+      await navigator.clipboard.writeText(generatedJson);
+    } catch {}
+  };
+
+  return (
+    <div>
+      <h2 className="mb-4 text-xl font-semibold">Content Builder</h2>
+
+      <div className="mb-3">
+        <label className="block mb-1 text-sm font-medium">Headline</label>
+        <input
+          type="text"
+          className="p-2 w-full border"
+          placeholder="Enter headline"
+          value={headline}
+          onChange={(e) => setHeadline(e.target.value)}
+        />
+      </div>
+
+      <div className="mb-3">
+        <label className="block mb-1 text-sm font-medium">Strapline</label>
+        <input
+          type="text"
+          className="p-2 w-full border"
+          placeholder="Enter strapline"
+          value={strapline}
+          onChange={(e) => setStrapline(e.target.value)}
+        />
+      </div>
+
+      <div className="mb-3">
+        <label className="block mb-1 text-sm font-medium">Content Type</label>
+        <select
+          className="p-2 w-full border"
+          value={contentType}
+          onChange={(e) => setContentType(e.target.value)}
+        >
+          <option value="">Choose content type</option>
+          {contentTypes.map((ct) => (
+            <option key={ct} value={ct}>
+              {ct}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mt-3 border">
+        <EmailEditor
+          ref={contentUnlayerRef as unknown as never}
+          minHeight={500}
+          onReady={() => {
+            try {
+              const uploadCb = async (
+                file: File,
+                done: (data: { url: string }) => void
+              ) => {
+                try {
+                  const fd = new FormData();
+                  fd.append("img", file);
+                  const token = localStorage.getItem("asymmetrix_auth_token");
+                  const resp = await fetch(
+                    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/images",
+                    {
+                      method: "POST",
+                      headers: {
+                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                      },
+                      body: fd,
+                    }
+                  );
+                  const json = await resp
+                    .json()
+                    .catch(() => ({} as Record<string, unknown>));
+                  const urlCandidate = (
+                    json as {
+                      image?: { url?: string };
+                    }
+                  ).image?.url;
+                  if (
+                    resp.ok &&
+                    typeof urlCandidate === "string" &&
+                    urlCandidate
+                  ) {
+                    done({ url: urlCandidate });
+                  } else {
+                    done({ url: "" });
+                  }
+                } catch {
+                  done({ url: "" });
+                }
+              };
+
+              // Register on global unlayer API if available
+              const g = (globalThis as unknown as { unlayer?: unknown })
+                .unlayer as
+                | {
+                    registerCallback?: (
+                      name: string,
+                      cb: typeof uploadCb
+                    ) => void;
+                  }
+                | undefined;
+              g?.registerCallback?.("image", uploadCb);
+
+              // Also register on the instance as a fallback
+              const inst = contentUnlayerRef.current as {
+                registerCallback?: (name: string, cb: typeof uploadCb) => void;
+              } | null;
+              inst?.registerCallback?.("image", uploadCb);
+            } catch {}
+          }}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <label className="block mb-1 text-sm font-medium">
+            Primary Sectors
+          </label>
+          <SearchableSelect
+            options={primarySectors.map((s) => ({
+              value: s.id,
+              label: s.sector_name,
+            }))}
+            value={""}
+            onChange={(value) => {
+              if (
+                typeof value === "number" &&
+                !selectedPrimarySectorIds.includes(value)
+              ) {
+                setSelectedPrimarySectorIds([
+                  ...selectedPrimarySectorIds,
+                  value,
+                ]);
+              }
+            }}
+            placeholder={"Select Primary Sector"}
+            style={{ width: "100%" }}
+          />
+          {selectedPrimarySectorIds.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {selectedPrimarySectorIds.map((id) => {
+                const s = primarySectors.find((x) => x.id === id);
+                return (
+                  <span
+                    key={id}
+                    className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
+                  >
+                    {s?.sector_name || id}
+                    <button
+                      onClick={() =>
+                        setSelectedPrimarySectorIds(
+                          selectedPrimarySectorIds.filter((x) => x !== id)
+                        )
+                      }
+                      className="font-bold"
+                    >
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="block mb-1 text-sm font-medium">
+            Secondary Sectors
+          </label>
+          <SearchableSelect
+            options={secondarySectors.map((s) => ({
+              value: s.id,
+              label: s.sector_name,
+            }))}
+            value={""}
+            onChange={(value) => {
+              if (
+                typeof value === "number" &&
+                !selectedSecondarySectorIds.includes(value)
+              ) {
+                setSelectedSecondarySectorIds([
+                  ...selectedSecondarySectorIds,
+                  value,
+                ]);
+              }
+            }}
+            placeholder={
+              selectedPrimarySectorIds.length === 0
+                ? "Select primary sector first"
+                : "Select Secondary Sector"
+            }
+            disabled={selectedPrimarySectorIds.length === 0}
+            style={{ width: "100%" }}
+          />
+          {selectedSecondarySectorIds.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {selectedSecondarySectorIds.map((id) => {
+                const s = secondarySectors.find((x) => x.id === id);
+                return (
+                  <span
+                    key={id}
+                    className="inline-flex gap-1 items-center px-2 py-1 text-xs text-green-700 bg-green-50 rounded"
+                  >
+                    {s?.sector_name || id}
+                    <button
+                      onClick={() =>
+                        setSelectedSecondarySectorIds(
+                          selectedSecondarySectorIds.filter((x) => x !== id)
+                        )
+                      }
+                      className="font-bold"
+                    >
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <label className="block mb-1 text-sm font-medium">
+          Companies Mentioned
+        </label>
+        <div className="flex gap-2 mb-2">
+          <input
+            type="text"
+            className="flex-1 p-2 border"
+            placeholder="Search companies by name"
+            value={companyQuery}
+            onChange={(e) => setCompanyQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && searchCompanies()}
+          />
+          <button
+            className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
+            onClick={searchCompanies}
+            disabled={loadingCompanies}
+          >
+            {loadingCompanies ? "Searching…" : "Search"}
+          </button>
+        </div>
+        <SearchableSelect
+          options={companyResults.map((c) => ({ value: c.id, label: c.name }))}
+          value={""}
+          onChange={(value) => {
+            if (typeof value === "number") {
+              const found = companyResults.find((c) => c.id === value);
+              if (found && !selectedCompanies.find((c) => c.id === found.id)) {
+                setSelectedCompanies([...selectedCompanies, found]);
+              }
+            }
+          }}
+          placeholder={
+            loadingCompanies
+              ? "Loading companies..."
+              : companyResults.length === 0
+              ? "Search above to load companies"
+              : "Select company to add"
+          }
+          disabled={loadingCompanies || companyResults.length === 0}
+          style={{ width: "100%" }}
+        />
+        {selectedCompanies.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {selectedCompanies.map((c) => (
+              <span
+                key={c.id}
+                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-purple-700 bg-purple-50 rounded"
+              >
+                {c.name}
+                <button
+                  onClick={() =>
+                    setSelectedCompanies(
+                      selectedCompanies.filter((x) => x.id !== c.id)
+                    )
+                  }
+                  className="font-bold"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-2 mt-4">
+        <button
+          className="px-4 py-2 text-white bg-blue-600 rounded"
+          onClick={generatePayload}
+        >
+          Generate JSON
+        </button>
+        <button
+          className="px-4 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
+          onClick={copyPayload}
+          disabled={!generatedJson}
+        >
+          Copy JSON
+        </button>
+        <button
+          className="px-4 py-2 text-white bg-green-600 rounded disabled:opacity-50"
+          onClick={submitContent}
+          disabled={submittingContent}
+        >
+          {submittingContent ? "Submitting…" : "Submit"}
+        </button>
+      </div>
+
+      {generatedJson && (
+        <div className="mt-6">
+          <h3 className="mb-2 font-semibold">Payload</h3>
+          <pre className="overflow-x-auto p-2 text-sm bg-gray-100 rounded">
+            {generatedJson}
           </pre>
         </div>
       )}
