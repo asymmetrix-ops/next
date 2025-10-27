@@ -197,8 +197,8 @@ const SectorsSection = () => {
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sortField, setSortField] = useState<SortField>("Number_of_Companies");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [sortField, setSortField] = useState<SortField>("sector_name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   // Preload mapping for potential downstream use; currently not used directly on this page
   const [, setSecondaryToPrimaryMap] = useState<Record<string, string>>({});
 
