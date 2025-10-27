@@ -647,6 +647,77 @@ const CorporateEventDetail = ({
           </p>
         </div>
 
+        {/* Asymmetrix Content (Insights & Analysis) related to this corporate event */}
+        {eventArticles.length > 0 && (
+          <div className="corporate-event-card">
+            <h2 className="corporate-event-subtitle">
+              Asymmetrix Insights & Analysis
+            </h2>
+            {eventArticlesLoading ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "40px",
+                  color: "#666",
+                  fontSize: "14px",
+                }}
+              >
+                Loading content...
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                }}
+              >
+                {eventArticles.slice(0, 4).map((article) => (
+                  <a
+                    key={article.id}
+                    href={`/article/${article.id}`}
+                    style={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      padding: "12px 12px",
+                      background: "#fff",
+                      display: "block",
+                      textDecoration: "none",
+                      color: "inherit",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        marginBottom: 6,
+                        color: "#1a202c",
+                      }}
+                    >
+                      {article.Headline || "Untitled"}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#6b7280",
+                        marginBottom: 8,
+                      }}
+                    >
+                      {article.Publication_Date
+                        ? new Date(
+                            article.Publication_Date
+                          ).toLocaleDateString()
+                        : ""}
+                    </div>
+                    <div style={{ fontSize: 14, color: "#374151" }}>
+                      {article.Strapline || ""}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Sectors Card */}
         <div className="corporate-event-card">
           <h2 className="corporate-event-subtitle">Sectors</h2>
@@ -1187,77 +1258,6 @@ const CorporateEventDetail = ({
             )}
           </div>
         </div>
-
-        {/* Asymmetrix Content (Insights & Analysis) related to this corporate event */}
-        {eventArticles.length > 0 && (
-          <div className="corporate-event-card">
-            <h2 className="corporate-event-subtitle">
-              Asymmetrix Insights & Analysis
-            </h2>
-            {eventArticlesLoading ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "40px",
-                  color: "#666",
-                  fontSize: "14px",
-                }}
-              >
-                Loading content...
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                }}
-              >
-                {eventArticles.slice(0, 4).map((article) => (
-                  <a
-                    key={article.id}
-                    href={`/article/${article.id}`}
-                    style={{
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                      padding: "12px 12px",
-                      background: "#fff",
-                      display: "block",
-                      textDecoration: "none",
-                      color: "inherit",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        marginBottom: 6,
-                        color: "#1a202c",
-                      }}
-                    >
-                      {article.Headline || "Untitled"}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "#6b7280",
-                        marginBottom: 8,
-                      }}
-                    >
-                      {article.Publication_Date
-                        ? new Date(
-                            article.Publication_Date
-                          ).toLocaleDateString()
-                        : ""}
-                    </div>
-                    <div style={{ fontSize: 14, color: "#374151" }}>
-                      {article.Strapline || ""}
-                    </div>
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
       <style dangerouslySetInnerHTML={{ __html: style }} />
     </div>
