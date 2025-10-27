@@ -16,7 +16,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ContentArticle } from "@/types/insightsAnalysis";
-import { locationsService } from "@/lib/locationsService";
+// import { locationsService } from "@/lib/locationsService"; // removed: sectors normalization not used anymore
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
 const INVESTOR_SECTOR_IDS = new Set<number>([
@@ -662,51 +662,7 @@ const CompanyDetail = () => {
     Record<number, string>
   >({});
 
-  // Sector mapping helpers
-  const normalizeSectorName = (name: string | undefined | null): string =>
-    (name || "").trim().toLowerCase();
-  const FALLBACK_SECONDARY_TO_PRIMARY: Record<string, string> = {
-    [normalizeSectorName("Crypto")]: "Web 3",
-    [normalizeSectorName("Blockchain")]: "Web 3",
-    [normalizeSectorName("DeFi")]: "Web 3",
-    [normalizeSectorName("NFT")]: "Web 3",
-    [normalizeSectorName("Web3")]: "Web 3",
-    [normalizeSectorName("PropTech")]: "Real Estate",
-  };
-  const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<
-    Record<string, string>
-  >({});
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadMap = async () => {
-      try {
-        const allSecondary =
-          await locationsService.getAllSecondarySectorsWithPrimary();
-        if (!cancelled && Array.isArray(allSecondary)) {
-          const map: Record<string, string> = {};
-          for (const sec of allSecondary) {
-            const secName = (sec as { sector_name?: string }).sector_name;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const primary = (sec as any)?.related_primary_sector as
-              | { sector_name?: string }
-              | undefined;
-            const primaryName = primary?.sector_name;
-            if (secName && primaryName) {
-              map[normalizeSectorName(secName)] = primaryName;
-            }
-          }
-          setSecondaryToPrimaryMap(map);
-        }
-      } catch (e) {
-        console.warn("[Company] Failed to load secondary->primary map", e);
-      }
-    };
-    loadMap();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Removed sectors normalization/mapping; rely solely on API-provided primary sectors
 
   // Safely extract a sector id from various backend shapes
   const getSectorId = (sector: unknown): number | undefined => {
@@ -1467,35 +1423,8 @@ const CompanyDetail = () => {
             Boolean(s && typeof s.sector_name === "string")
           )) || [];
 
-  // Augment primaries with derived primaries from secondaries (unique by name)
-  const derivedPrimaryNames = secondarySectors
-    .map((s) => {
-      const name = s?.sector_name;
-      if (!name) return undefined;
-      const key = normalizeSectorName(name);
-      return (
-        secondaryToPrimaryMap[key] ||
-        FALLBACK_SECONDARY_TO_PRIMARY[key] ||
-        undefined
-      );
-    })
-    .filter((v): v is string => Boolean(v));
-  const existingPrimaryNames = new Set(
-    primarySectors.map((p) => (p?.sector_name || "").trim())
-  );
-  const augmentedPrimarySectors = [
-    ...primarySectors,
-    ...derivedPrimaryNames
-      .filter((name) => !existingPrimaryNames.has(name))
-      .map(
-        (name) =>
-          ({
-            sector_name: name,
-            Sector_importance: "Primary",
-            sector_id: 0,
-          } as CompanySector)
-      ),
-  ];
+  // Use API-provided primary sectors only
+  const augmentedPrimarySectors = primarySectors;
 
   // Process location
   const location = company._locations;
