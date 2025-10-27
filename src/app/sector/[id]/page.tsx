@@ -357,10 +357,18 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
         getFirstMatchingValue(obj, [
           "Most_Recent_Target",
           "most_recent_target",
+          "Most_Recent_Acquisition",
+          "most_recent_acquisition",
         ]) || ""
       );
       const closedDate = toStringSafe(
-        getFirstMatchingValue(obj, ["Closed_Date", "closed_date", "date"]) || ""
+        getFirstMatchingValue(obj, [
+          "Closed_Date",
+          "closed_date",
+          "date",
+          "Announcement_Date",
+          "announcement_date",
+        ]) || ""
       );
       const acquirerId = getFirstMatchingNumber(obj, [
         "acquirer_company_id",
@@ -369,6 +377,7 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
         "acquirer_id",
         "company_id",
         "id",
+        "investor_company_id",
       ]);
       // Build logo URL if available (prefer prefixed, else base64 data)
       const rawLogo = toStringSafe(
@@ -928,7 +937,8 @@ function RecentTransactionsCard({
                     <tr
                       key={`tx-${idx}`}
                       className={`transition-colors duration-150 hover:bg-slate-50/50 ${
-                        href ? "cursor-pointer" : ""}`}
+                        href ? "cursor-pointer" : ""
+                      }`}
                       onClick={() => {
                         if (href) {
                           window.location.href = href;
