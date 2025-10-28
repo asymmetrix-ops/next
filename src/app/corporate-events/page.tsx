@@ -11,6 +11,8 @@ import {
   CorporateEventsFilters,
 } from "@/types/corporateEvents";
 import { CSVExporter } from "@/utils/csvExport";
+import { ExportLimitModal } from "@/components/ExportLimitModal";
+import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for API integration
@@ -1083,6 +1085,8 @@ const CorporateEventsPage = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showExportLimitModal, setShowExportLimitModal] = useState(false);
+  const [exportsLeft, setExportsLeft] = useState(0);
 
   // Convert API data to dropdown options format
   const countryOptions = countries.map((country) => ({
@@ -1445,8 +1449,16 @@ const CorporateEventsPage = () => {
   // Removed hasActiveFilters; export button now shows when results exist
 
   // Handle CSV export
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     if (corporateEvents.length > 0) {
+      // Check export limit first
+      const limitCheck = await checkExportLimit();
+      if (!limitCheck.canExport) {
+        setExportsLeft(limitCheck.exportsLeft);
+        setShowExportLimitModal(true);
+        return;
+      }
+
       CSVExporter.exportCorporateEvents(
         corporateEvents,
         "corporate_events_filtered"
@@ -2479,6 +2491,13 @@ const CorporateEventsPage = () => {
           </div>
         )}
       </div>
+
+      <ExportLimitModal
+        isOpen={showExportLimitModal}
+        onClose={() => setShowExportLimitModal(false)}
+        exportsLeft={exportsLeft}
+        totalExports={EXPORT_LIMIT}
+      />
 
       <Footer />
       <style dangerouslySetInnerHTML={{ __html: style }} />

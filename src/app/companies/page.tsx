@@ -17,6 +17,8 @@ import {
   CompaniesCSVExporter,
   CompanyCSVRow,
 } from "@/utils/companiesCSVExport";
+import { ExportLimitModal } from "@/components/ExportLimitModal";
+import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 
 // Types for API integration
 interface Company {
@@ -1906,6 +1908,8 @@ const CompanySection = ({
   const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<
     Record<string, string>
   >({});
+  const [showExportLimitModal, setShowExportLimitModal] = useState(false);
+  const [exportsLeft, setExportsLeft] = useState(0);
 
   // Build a mapping of Secondary sector name -> Primary sector name from API
   useEffect(() => {
@@ -1961,6 +1965,14 @@ const CompanySection = ({
   // Handle CSV export using backend endpoint and include active filters
   const handleExportCSV = useCallback(async () => {
     try {
+      // Check export limit first
+      const limitCheck = await checkExportLimit();
+      if (!limitCheck.canExport) {
+        setExportsLeft(limitCheck.exportsLeft);
+        setShowExportLimitModal(true);
+        return;
+      }
+
       const token = localStorage.getItem("asymmetrix_auth_token");
       const params = new URLSearchParams();
 
@@ -2020,6 +2032,13 @@ const CompanySection = ({
         credentials: "include",
       });
       if (!resp.ok) {
+        // Check if it's an export limit error
+        if (resp.status === 403 || resp.status === 429) {
+          const limitCheck = await checkExportLimit();
+          setExportsLeft(limitCheck.exportsLeft);
+          setShowExportLimitModal(true);
+          return;
+        }
         const errText = await resp.text();
         throw new Error(
           `Export failed: ${resp.status} ${resp.statusText} - ${errText}`
@@ -2904,6 +2923,12 @@ const CompanySection = ({
       { className: "pagination" },
       generatePaginationButtons()
     ),
+    React.createElement(ExportLimitModal, {
+      isOpen: showExportLimitModal,
+      onClose: () => setShowExportLimitModal(false),
+      exportsLeft: exportsLeft,
+      totalExports: EXPORT_LIMIT,
+    }),
     React.createElement("style", {
       dangerouslySetInnerHTML: { __html: style },
     })
