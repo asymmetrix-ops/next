@@ -1,15 +1,24 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 // import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { locationsService } from "@/lib/locationsService";
+import { BuildingOfficeIcon } from "@heroicons/react/24/outline";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 import {
-  BuildingOfficeIcon,
-  ArrowTrendingUpIcon,
-} from "@heroicons/react/24/outline";
+  CorporateEvent,
+  CorporateEventsResponse,
+  CorporateEventsFilters,
+} from "@/types/corporateEvents";
+import { CSVExporter } from "@/utils/csvExport";
+import {
+  ContentArticle,
+  InsightsAnalysisResponse,
+  InsightsAnalysisFilters,
+} from "@/types/insightsAnalysis";
 
 // Types for API integration
 interface SectorData {
@@ -563,7 +572,6 @@ const TABS = [
   { id: "public", name: "Public Companies" },
   { id: "subsectors", name: "Sub-Sectors" },
   { id: "transactions", name: "Transactions" },
-  { id: "funding", name: "Funding" },
   { id: "insights", name: "Insights & Analysis" },
   { id: "all", name: "All Companies" },
 ] as const;
@@ -728,123 +736,125 @@ function MostActiveTableCard({
                   </td>
                 </tr>
               ) : (
-                items.slice(0, 25).map((it) => (
-                  <tr
-                    key={`${title}-${it.name}`}
-                    className={`transition-colors duration-150 hover:bg-slate-50/50 ${
-                      it.id ? "cursor-pointer" : ""
-                    }`}
-                    onClick={() => {
-                      if (it.id) {
-                        window.location.href = `/company/${it.id}`;
-                      }
-                    }}
-                  >
-                    <td className="py-3 pr-4">
-                      {it.id ? (
-                        <a
-                          href={`/company/${it.id}`}
-                          className="flex gap-3 items-center"
+                items.slice(0, 25).map((it) => {
+                  const linkUrl = isInvestorTable
+                    ? `/investors/${it.id}`
+                    : `/company/${it.id}`;
+                  return (
+                    <tr
+                      key={`${title}-${it.name}`}
+                      className={`transition-colors duration-150 hover:bg-slate-50/50 ${
+                        it.id ? "cursor-pointer" : ""
+                      }`}
+                      onClick={() => {
+                        if (it.id) {
+                          window.location.href = linkUrl;
+                        }
+                      }}
+                    >
+                      <td className="py-3 pr-4">
+                        {it.id ? (
+                          <a href={linkUrl} className="flex gap-3 items-center">
+                            {it.logoUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={it.logoUrl}
+                                alt={it.name}
+                                className="object-contain w-8 h-8 rounded-lg"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = "none";
+                                  const fallback =
+                                    target.nextElementSibling as HTMLElement | null;
+                                  if (fallback) fallback.style.display = "flex";
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className={`${
+                                it.logoUrl ? "hidden" : "flex"
+                              } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
+                                accentClasses.gradient
+                              }`}
+                            >
+                              <BuildingOfficeIcon className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <span className="font-medium text-blue-600 underline">
+                                {it.name}
+                              </span>
+                              {showBadge && badgeLabel && (
+                                <span
+                                  className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
+                                >
+                                  {badgeLabel}
+                                </span>
+                              )}
+                            </div>
+                          </a>
+                        ) : (
+                          <div className="flex gap-3 items-center">
+                            {it.logoUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={it.logoUrl}
+                                alt={it.name}
+                                className="object-contain w-8 h-8 rounded-lg"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = "none";
+                                  const fallback =
+                                    target.nextElementSibling as HTMLElement | null;
+                                  if (fallback) fallback.style.display = "flex";
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className={`${
+                                it.logoUrl ? "hidden" : "flex"
+                              } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
+                                accentClasses.gradient
+                              }`}
+                            >
+                              <BuildingOfficeIcon className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-slate-900">
+                                {it.name}
+                              </p>
+                              {showBadge && badgeLabel && (
+                                <span
+                                  className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
+                                >
+                                  {badgeLabel}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 text-center">
+                        <div
+                          className={`inline-flex justify-center items-center w-8 h-8 rounded-full ${accentClasses.countBg}`}
                         >
-                          {it.logoUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={it.logoUrl}
-                              alt={it.name}
-                              className="object-contain w-8 h-8 rounded-lg"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = "none";
-                                const fallback =
-                                  target.nextElementSibling as HTMLElement | null;
-                                if (fallback) fallback.style.display = "flex";
-                              }}
-                            />
-                          ) : null}
-                          <div
-                            className={`${
-                              it.logoUrl ? "hidden" : "flex"
-                            } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
-                              accentClasses.gradient
-                            }`}
-                          >
-                            <BuildingOfficeIcon className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <span className="font-medium text-blue-600 underline">
-                              {it.name}
-                            </span>
-                            {showBadge && badgeLabel && (
-                              <span
-                                className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
-                              >
-                                {badgeLabel}
-                              </span>
-                            )}
-                          </div>
-                        </a>
-                      ) : (
-                        <div className="flex gap-3 items-center">
-                          {it.logoUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={it.logoUrl}
-                              alt={it.name}
-                              className="object-contain w-8 h-8 rounded-lg"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = "none";
-                                const fallback =
-                                  target.nextElementSibling as HTMLElement | null;
-                                if (fallback) fallback.style.display = "flex";
-                              }}
-                            />
-                          ) : null}
-                          <div
-                            className={`${
-                              it.logoUrl ? "hidden" : "flex"
-                            } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
-                              accentClasses.gradient
-                            }`}
-                          >
-                            <BuildingOfficeIcon className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-slate-900">
-                              {it.name}
-                            </p>
-                            {showBadge && badgeLabel && (
-                              <span
-                                className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
-                              >
-                                {badgeLabel}
-                              </span>
-                            )}
-                          </div>
+                          <span className="text-sm font-bold">
+                            {formatNumber(it.count)}
+                          </span>
                         </div>
-                      )}
-                    </td>
-                    <td className="py-3 text-center">
-                      <div
-                        className={`inline-flex justify-center items-center w-8 h-8 rounded-full ${accentClasses.countBg}`}
-                      >
-                        <span className="text-sm font-bold">
-                          {formatNumber(it.count)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3">
-                      <div>
-                        <p className="text-sm font-medium text-slate-900">
-                          {it.mostRecentTarget || "N/A"}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {it.closedDate || "N/A"}
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="py-3">
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">
+                            {it.mostRecentTarget || "N/A"}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {it.closedDate || "N/A"}
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -2103,129 +2113,1900 @@ const SectorDetailPage = () => {
     return mapped.length > 0 ? mapped : companies;
   })();
 
-  function TransactionsGrid({
-    transactions,
-  }: {
-    transactions: TransactionRecord[];
-  }) {
-    const hasItems = Array.isArray(transactions) && transactions.length > 0;
-    return (
-      <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
-        <div className="px-5 py-4 border-b border-slate-100">
-          <div className="flex gap-3 items-center text-xl">
-            <span className="inline-flex justify-center items-center w-8 h-8 bg-orange-50 rounded-lg">
-              <svg
-                className="w-4 h-4 text-orange-600"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M3 12h18M12 3v18" />
-              </svg>
+  // Comprehensive Transactions Tab Component
+  function SectorTransactionsTab({ sectorId }: { sectorId: string }) {
+    // State for filters
+    const [showFilters, setShowFilters] = useState(false);
+    const [filters, setFilters] = useState<CorporateEventsFilters>({
+      Countries: [],
+      Provinces: [],
+      Cities: [],
+      primary_sectors_ids: [], // Will be auto-populated with current sector
+      Secondary_sectors_ids: [],
+      deal_types: [],
+      Deal_Status: [],
+      Date_start: null,
+      Date_end: null,
+      search_query: "",
+      Page: 1,
+      Per_page: 50,
+    });
+
+    // State for each filter
+    const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+    const [selectedContinentalRegions, setSelectedContinentalRegions] =
+      useState<string[]>([]);
+    const [selectedSubRegions, setSelectedSubRegions] = useState<string[]>([]);
+    const [selectedProvinces, setSelectedProvinces] = useState<string[]>([]);
+    const [selectedCities, setSelectedCities] = useState<string[]>([]);
+    const [selectedSecondarySectors, setSelectedSecondarySectors] = useState<
+      number[]
+    >([]);
+    const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([]);
+    const [selectedDealStatuses, setSelectedDealStatuses] = useState<string[]>(
+      []
+    );
+    const [searchTerm, setSearchTerm] = useState("");
+    const [dateStart, setDateStart] = useState("");
+    const [dateEnd, setDateEnd] = useState("");
+
+    // State for API data
+    const [countries, setCountries] = useState<
+      Array<{ locations_Country: string }>
+    >([]);
+    const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
+    const [subRegions, setSubRegions] = useState<string[]>([]);
+    const [provinces, setProvinces] = useState<
+      Array<{ State__Province__County: string }>
+    >([]);
+    const [cities, setCities] = useState<Array<{ City: string }>>([]);
+    const [secondarySectors, setSecondarySectors] = useState<
+      Array<{ id: number; sector_name: string }>
+    >([]);
+
+    // Loading states
+    const [loadingCountries, setLoadingCountries] = useState(false);
+    const [loadingProvinces, setLoadingProvinces] = useState(false);
+    const [loadingCities, setLoadingCities] = useState(false);
+    const [loadingSecondarySectors, setLoadingSecondarySectors] =
+      useState(false);
+
+    // State for corporate events data
+    const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>(
+      []
+    );
+    const [pagination, setPagination] = useState({
+      itemsReceived: 0,
+      curPage: 1,
+      nextPage: null as number | null,
+      prevPage: null as number | null,
+      offset: 0,
+      perPage: 50,
+      pageTotal: 0,
+    });
+    const [summaryData, setSummaryData] = useState({
+      acquisitions: 0,
+      investments: 0,
+      ipos: 0,
+    });
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    // Convert API data to dropdown options format
+    const countryOptions = countries.map((country) => ({
+      value: country.locations_Country,
+      label: country.locations_Country,
+    }));
+
+    const provinceOptions = provinces.map((province) => ({
+      value: province.State__Province__County,
+      label: province.State__Province__County,
+    }));
+
+    const cityOptions = cities.map((city) => ({
+      value: city.City,
+      label: city.City,
+    }));
+
+    const secondarySectorOptions = secondarySectors.map((sector) => ({
+      value: sector.id,
+      label: sector.sector_name,
+    }));
+
+    // Hardcoded options for Deal Types
+    const eventTypeOptions = [
+      { value: "Acquisition", label: "Acquisition" },
+      { value: "Sale", label: "Sale" },
+      { value: "IPO", label: "IPO" },
+      { value: "MBO", label: "MBO" },
+      { value: "Investment", label: "Investment" },
+      { value: "Strategic Review", label: "Strategic Review" },
+      { value: "Divestment", label: "Divestment" },
+      { value: "Restructuring", label: "Restructuring" },
+      { value: "Dual track", label: "Dual track" },
+      { value: "Closing", label: "Closing" },
+      { value: "Grant", label: "Grant" },
+      { value: "Debt financing", label: "Debt financing" },
+      { value: "Partnership", label: "Partnership" },
+    ];
+
+    // Hardcoded options for Deal Status
+    const dealStatusOptions = [
+      { value: "Completed", label: "Completed" },
+      { value: "In Market", label: "In Market" },
+      { value: "Not yet launched", label: "Not yet launched" },
+      { value: "Strategic Review", label: "Strategic Review" },
+      { value: "Deal Prep", label: "Deal Prep" },
+      { value: "In Exclusivity", label: "In Exclusivity" },
+    ];
+
+    // Fetch functions
+    const fetchCountries = async () => {
+      try {
+        setLoadingCountries(true);
+        const countriesData = await locationsService.getCountries();
+        setCountries(countriesData);
+      } catch (error) {
+        console.error("Error fetching countries:", error);
+      } finally {
+        setLoadingCountries(false);
+      }
+    };
+
+    const fetchContinentalRegions = async () => {
+      try {
+        const list = await locationsService.getContinentalRegions();
+        if (Array.isArray(list)) setContinentalRegions(list);
+      } catch {
+        // silent fail
+      }
+    };
+
+    const fetchSubRegions = async () => {
+      try {
+        const list = await locationsService.getSubRegions();
+        if (Array.isArray(list)) setSubRegions(list);
+      } catch {
+        // silent fail
+      }
+    };
+
+    const fetchProvinces = async () => {
+      if (selectedCountries.length === 0) {
+        setProvinces([]);
+        return;
+      }
+      try {
+        setLoadingProvinces(true);
+        const provincesData = await locationsService.getProvinces(
+          selectedCountries
+        );
+        setProvinces(provincesData);
+      } catch (error) {
+        console.error("Error fetching provinces:", error);
+      } finally {
+        setLoadingProvinces(false);
+      }
+    };
+
+    const fetchCities = async () => {
+      if (selectedCountries.length === 0 || selectedProvinces.length === 0) {
+        setCities([]);
+        return;
+      }
+      try {
+        setLoadingCities(true);
+        const citiesData = await locationsService.getCities(
+          selectedCountries,
+          selectedProvinces
+        );
+        setCities(citiesData);
+      } catch (error) {
+        console.error("Error fetching cities:", error);
+      } finally {
+        setLoadingCities(false);
+      }
+    };
+
+    const fetchSecondarySectors = async () => {
+      try {
+        setLoadingSecondarySectors(true);
+        // Fetch all secondary sectors (not filtered by primary in this case)
+        const sectorsData =
+          await locationsService.getAllSecondarySectorsWithPrimary();
+        setSecondarySectors(
+          sectorsData as Array<{ id: number; sector_name: string }>
+        );
+      } catch (error) {
+        console.error("Error fetching secondary sectors:", error);
+      } finally {
+        setLoadingSecondarySectors(false);
+      }
+    };
+
+    const fetchCorporateEvents = async (filters: CorporateEventsFilters) => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) {
+          setError("Authentication required");
+          return;
+        }
+
+        // Convert filters to URL parameters for GET request
+        const params = new URLSearchParams();
+
+        // Add page and per_page
+        params.append("Page", filters.Page.toString());
+        params.append("Per_page", filters.Per_page.toString());
+
+        // Add search query
+        if (filters.search_query)
+          params.append("search_query", filters.search_query);
+
+        // Add location filters
+        if (filters.Countries.length > 0) {
+          params.append("Countries", filters.Countries.join(","));
+        }
+        if (filters.Provinces.length > 0) {
+          params.append("Provinces", filters.Provinces.join(","));
+        }
+        if (filters.Cities.length > 0) {
+          params.append("Cities", filters.Cities.join(","));
+        }
+
+        // Add region grouping filters
+        if (
+          (filters as Partial<CorporateEventsFilters>).continentalRegions &&
+          (filters as Partial<CorporateEventsFilters>).continentalRegions!
+            .length > 0
+        ) {
+          params.append(
+            "Continental_Region",
+            (
+              filters as Partial<CorporateEventsFilters>
+            ).continentalRegions!.join(",")
+          );
+        }
+        if (
+          (filters as Partial<CorporateEventsFilters>).subRegions &&
+          (filters as Partial<CorporateEventsFilters>).subRegions!.length > 0
+        ) {
+          params.append(
+            "geographical_sub_region",
+            (filters as Partial<CorporateEventsFilters>).subRegions!.join(",")
+          );
+        }
+
+        // Add sector filters - PRIMARY SECTOR IS AUTO-FILTERED BY CURRENT SECTOR
+        if (filters.primary_sectors_ids.length > 0) {
+          filters.primary_sectors_ids.forEach((id) => {
+            params.append("primary_sectors_ids[]", id.toString());
+          });
+        }
+        if (filters.Secondary_sectors_ids.length > 0) {
+          filters.Secondary_sectors_ids.forEach((id) => {
+            params.append("Secondary_sectors_ids[]", id.toString());
+          });
+        }
+
+        // Add event types
+        if (filters.deal_types.length > 0) {
+          params.append("deal_types", filters.deal_types.join(","));
+        }
+
+        // Add deal statuses
+        if (filters.Deal_Status.length > 0) {
+          params.append("Deal_Status", filters.Deal_Status.join(","));
+        }
+
+        // Add date filters
+        if (filters.Date_start) {
+          params.append("Date_start", filters.Date_start);
+        }
+        if (filters.Date_end) {
+          params.append("Date_end", filters.Date_end);
+        }
+
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`;
+
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data: CorporateEventsResponse = await response.json();
+
+        setCorporateEvents(data.items);
+        setPagination({
+          itemsReceived: data.itemsReceived,
+          curPage: data.curPage,
+          nextPage: data.nextPage,
+          prevPage: data.prevPage,
+          offset: data.offset,
+          perPage: filters.Per_page,
+          pageTotal: data.pageTotal,
+        });
+        setSummaryData({
+          acquisitions: data.acquisitions,
+          investments: data.investments,
+          ipos: data.ipos,
+        });
+      } catch (error) {
+        console.error("Error fetching corporate events:", error);
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch corporate events"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Initial data fetch
+    useEffect(() => {
+      fetchCountries();
+      fetchContinentalRegions();
+      fetchSubRegions();
+      fetchSecondarySectors();
+      // Auto-populate primary sector filter with current sector ID
+      const sectorIdNum = parseInt(sectorId);
+      if (!isNaN(sectorIdNum)) {
+        const initialFilters = {
+          ...filters,
+          primary_sectors_ids: [sectorIdNum],
+        };
+        setFilters(initialFilters);
+        fetchCorporateEvents(initialFilters);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sectorId]);
+
+    // Fetch provinces when countries change
+    useEffect(() => {
+      fetchProvinces();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedCountries]);
+
+    // Fetch cities when provinces change
+    useEffect(() => {
+      fetchCities();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedProvinces]);
+
+    // Handle search
+    const handleSearch = () => {
+      const sectorIdNum = parseInt(sectorId);
+      const updatedFilters = {
+        ...filters,
+        search_query: searchTerm,
+        Countries: selectedCountries,
+        continentalRegions: selectedContinentalRegions,
+        subRegions: selectedSubRegions,
+        Provinces: selectedProvinces,
+        Cities: selectedCities,
+        primary_sectors_ids: !isNaN(sectorIdNum) ? [sectorIdNum] : [],
+        Secondary_sectors_ids: selectedSecondarySectors,
+        deal_types: selectedEventTypes,
+        Deal_Status: selectedDealStatuses,
+        Date_start: dateStart || null,
+        Date_end: dateEnd || null,
+        Page: 1,
+      };
+      setFilters(updatedFilters);
+      fetchCorporateEvents(updatedFilters);
+    };
+
+    // Handle page change
+    const handlePageChange = (page: number) => {
+      const updatedFilters = { ...filters, Page: page };
+      setFilters(updatedFilters);
+      fetchCorporateEvents(updatedFilters);
+    };
+
+    // Handle CSV export
+    const handleExportCSV = () => {
+      if (corporateEvents.length > 0) {
+        CSVExporter.exportCorporateEvents(
+          corporateEvents,
+          `sector_${sectorId}_transactions`
+        );
+      }
+    };
+
+    // Generate pagination buttons
+    const generatePaginationButtons = () => {
+      const buttons = [];
+      const currentPage = pagination.curPage;
+      const totalPages = pagination.pageTotal;
+
+      // Previous button
+      buttons.push(
+        <button
+          key="prev"
+          className="pagination-button"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={!pagination.prevPage}
+        >
+          &lt;
+        </button>
+      );
+
+      // Page numbers
+      if (totalPages <= 7) {
+        for (let i = 1; i <= totalPages; i++) {
+          buttons.push(
+            <button
+              key={i}
+              className={`pagination-button ${
+                i === currentPage ? "active" : ""
+              }`}
+              onClick={() => handlePageChange(i)}
+            >
+              {i.toString()}
+            </button>
+          );
+        }
+      } else {
+        // Show first page
+        buttons.push(
+          <button
+            key={1}
+            className={`pagination-button ${currentPage === 1 ? "active" : ""}`}
+            onClick={() => handlePageChange(1)}
+          >
+            1
+          </button>
+        );
+
+        if (currentPage > 3) {
+          buttons.push(
+            <span key="ellipsis1" className="pagination-ellipsis">
+              ...
             </span>
-            <span className="text-slate-900">Transactions</span>
-          </div>
-        </div>
-        <div className="px-5 pt-5 pb-6">
-          {!hasItems ? (
-            <div className="py-10 text-center text-slate-500">
-              Not available
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {transactions.slice(0, 60).map((t, idx) => {
-                const announcementDate = t.date ? new Date(t.date) : null;
-                const valueDisplay = t.value ? `$${t.value}M` : null;
-                return (
-                  <div
-                    key={`tx-card-${idx}`}
-                    className="p-4 bg-white rounded-xl border transition-colors duration-150 hover:border-slate-300 border-slate-200"
-                  >
-                    <div className="flex gap-3 items-center">
-                      {t.targetLogoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={t.targetLogoUrl}
-                          alt={t.target}
-                          className="object-contain w-8 h-8 rounded-lg"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                              "none";
-                            const fallback = (e.target as HTMLImageElement)
-                              .nextElementSibling as HTMLElement | null;
-                            if (fallback) fallback.style.display = "flex";
-                          }}
-                        />
-                      ) : null}
-                      <div
-                        className={`${
-                          t.targetLogoUrl ? "hidden" : "flex"
-                        } justify-center items-center w-8 h-8 text-xs font-semibold text-white bg-gradient-to-br from-orange-500 to-red-500 rounded-lg`}
+          );
+        }
+
+        // Show current page and neighbors
+        for (
+          let i = Math.max(2, currentPage - 1);
+          i <= Math.min(totalPages - 1, currentPage + 1);
+          i++
+        ) {
+          if (i > 1 && i < totalPages) {
+            buttons.push(
+              <button
+                key={i}
+                className={`pagination-button ${
+                  i === currentPage ? "active" : ""
+                }`}
+                onClick={() => handlePageChange(i)}
+              >
+                {i.toString()}
+              </button>
+            );
+          }
+        }
+
+        if (currentPage < totalPages - 2) {
+          buttons.push(
+            <span key="ellipsis2" className="pagination-ellipsis">
+              ...
+            </span>
+          );
+        }
+
+        // Show last page
+        buttons.push(
+          <button
+            key={totalPages}
+            className={`pagination-button ${
+              currentPage === totalPages ? "active" : ""
+            }`}
+            onClick={() => handlePageChange(totalPages)}
+          >
+            {totalPages.toString()}
+          </button>
+        );
+      }
+
+      // Next button
+      buttons.push(
+        <button
+          key="next"
+          className="pagination-button"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={!pagination.nextPage}
+        >
+          &gt;
+        </button>
+      );
+
+      return buttons;
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Filters Section */}
+        <div className="p-6 bg-white rounded-xl border shadow-lg border-slate-200/60">
+          {showFilters && (
+            <h2 className="mb-4 text-xl font-bold text-slate-900">Filters</h2>
+          )}
+
+          {showFilters && (
+            <div className="grid grid-cols-1 gap-6 mb-6 md:grid-cols-3">
+              {/* Corporate Event Type Column */}
+              <div>
+                <h3 className="mb-4 text-lg font-semibold text-slate-900">
+                  Corporate Event Type
+                </h3>
+                <label className="block mb-2 text-sm font-semibold text-slate-900">
+                  By Type
+                </label>
+                <SearchableSelect
+                  options={eventTypeOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedEventTypes.includes(value)
+                    ) {
+                      setSelectedEventTypes([...selectedEventTypes, value]);
+                    }
+                  }}
+                  placeholder="Select Type"
+                  disabled={false}
+                  style={{}}
+                />
+                {selectedEventTypes.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedEventTypes.map((eventType) => (
+                      <span
+                        key={eventType}
+                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
                       >
-                        {(t.target || "?").charAt(0)}
-                      </div>
-                      <div>
-                        <p className="font-medium text-slate-900">
-                          {t.target || "-"}
-                        </p>
-                        {announcementDate &&
-                          !Number.isNaN(announcementDate.getTime()) && (
-                            <p className="mt-1 text-xs text-slate-500">
-                              {announcementDate.toLocaleDateString(undefined, {
-                                month: "short",
-                                day: "2-digit",
-                                year: "numeric",
-                              })}
-                            </p>
-                          )}
-                      </div>
-                    </div>
-                    <div className="mt-3">
-                      <p className="text-sm font-medium text-slate-900">
-                        {t.buyer || "-"}
-                      </p>
-                      {valueDisplay && (
-                        <p className="mt-1 text-xs text-slate-500">
-                          {valueDisplay}
-                        </p>
-                      )}
-                    </div>
-                    <div className="mt-3 space-x-2">
-                      {t.type && (
-                        <span
-                          className={`inline-block px-2 py-1 border rounded text-xs ${(() => {
-                            const colors: Record<string, string> = {
-                              acquisition:
-                                "bg-red-50 text-red-700 border-red-200",
-                              merger:
-                                "bg-blue-50 text-blue-700 border-blue-200",
-                              ipo: "bg-green-50 text-green-700 border-green-200",
-                              funding_round:
-                                "bg-purple-50 text-purple-700 border-purple-200",
-                              lbo: "bg-orange-50 text-orange-700 border-orange-200",
-                              recapitalization:
-                                "bg-pink-50 text-pink-700 border-pink-200",
-                            };
-                            return (
-                              colors[
-                                (t.type || "")
-                                  .toLowerCase()
-                                  .replace(/\s+/g, "_")
-                              ] || "bg-gray-50 text-gray-700 border-gray-200"
-                            );
-                          })()}`}
+                        {eventType}
+                        <button
+                          onClick={() =>
+                            setSelectedEventTypes(
+                              selectedEventTypes.filter((t) => t !== eventType)
+                            )
+                          }
+                          className="font-bold text-blue-700 hover:text-blue-900"
                         >
-                          {t.type.replace(/_/g, " ")}
-                        </span>
-                      )}
-                    </div>
+                          ×
+                        </button>
+                      </span>
+                    ))}
                   </div>
-                );
-              })}
+                )}
+
+                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
+                  By Deal Status
+                </label>
+                <SearchableSelect
+                  options={dealStatusOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedDealStatuses.includes(value)
+                    ) {
+                      setSelectedDealStatuses([...selectedDealStatuses, value]);
+                    }
+                  }}
+                  placeholder="Select Deal Status"
+                  disabled={false}
+                  style={{}}
+                />
+                {selectedDealStatuses.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedDealStatuses.map((status) => (
+                      <span
+                        key={status}
+                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-red-700 bg-red-50 rounded"
+                      >
+                        {status}
+                        <button
+                          onClick={() =>
+                            setSelectedDealStatuses(
+                              selectedDealStatuses.filter((s) => s !== status)
+                            )
+                          }
+                          className="font-bold text-red-700 hover:text-red-900"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Location Column */}
+              <div>
+                <h3 className="mb-4 text-lg font-semibold text-slate-900">
+                  Location
+                </h3>
+
+                <label className="block mb-2 text-sm font-semibold text-slate-900">
+                  By Continental Region
+                </label>
+                <SearchableSelect
+                  options={continentalRegions.map((r) => ({
+                    value: r,
+                    label: r,
+                  }))}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedContinentalRegions.includes(value)
+                    ) {
+                      setSelectedContinentalRegions([
+                        ...selectedContinentalRegions,
+                        value,
+                      ]);
+                    }
+                  }}
+                  placeholder="Select Continental Region"
+                  disabled={false}
+                  style={{}}
+                />
+                {selectedContinentalRegions.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedContinentalRegions.map((r) => (
+                      <span
+                        key={r}
+                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
+                      >
+                        {r}
+                        <button
+                          onClick={() =>
+                            setSelectedContinentalRegions(
+                              selectedContinentalRegions.filter((x) => x !== r)
+                            )
+                          }
+                          className="font-bold text-blue-700 hover:text-blue-900"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
+                  By Sub-Region
+                </label>
+                <SearchableSelect
+                  options={subRegions.map((r) => ({ value: r, label: r }))}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedSubRegions.includes(value)
+                    ) {
+                      setSelectedSubRegions([...selectedSubRegions, value]);
+                    }
+                  }}
+                  placeholder="Select Sub-Region"
+                  disabled={false}
+                  style={{}}
+                />
+                {selectedSubRegions.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedSubRegions.map((r) => (
+                      <span
+                        key={r}
+                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-orange-700 bg-orange-50 rounded"
+                      >
+                        {r}
+                        <button
+                          onClick={() =>
+                            setSelectedSubRegions(
+                              selectedSubRegions.filter((x) => x !== r)
+                            )
+                          }
+                          className="font-bold text-orange-700 hover:text-orange-900"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
+                  By Country
+                </label>
+                <SearchableSelect
+                  options={countryOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedCountries.includes(value)
+                    ) {
+                      setSelectedCountries([...selectedCountries, value]);
+                    }
+                  }}
+                  placeholder={
+                    loadingCountries ? "Loading..." : "Select Country"
+                  }
+                  disabled={loadingCountries}
+                  style={{}}
+                />
+                {selectedCountries.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedCountries.map((country) => (
+                      <span
+                        key={country}
+                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
+                      >
+                        {country}
+                        <button
+                          onClick={() =>
+                            setSelectedCountries(
+                              selectedCountries.filter((c) => c !== country)
+                            )
+                          }
+                          className="font-bold text-blue-700 hover:text-blue-900"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
+                  By Province
+                </label>
+                <SearchableSelect
+                  options={provinceOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedProvinces.includes(value)
+                    ) {
+                      setSelectedProvinces([...selectedProvinces, value]);
+                    }
+                  }}
+                  placeholder={
+                    loadingProvinces
+                      ? "Loading..."
+                      : selectedCountries.length === 0
+                      ? "Select country first"
+                      : "Select Province"
+                  }
+                  disabled={loadingProvinces || selectedCountries.length === 0}
+                  style={{}}
+                />
+                {selectedProvinces.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedProvinces.map((province) => (
+                      <span
+                        key={province}
+                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-green-700 bg-green-50 rounded"
+                      >
+                        {province}
+                        <button
+                          onClick={() =>
+                            setSelectedProvinces(
+                              selectedProvinces.filter((p) => p !== province)
+                            )
+                          }
+                          className="font-bold text-green-700 hover:text-green-900"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
+                  By City
+                </label>
+                <SearchableSelect
+                  options={cityOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedCities.includes(value)
+                    ) {
+                      setSelectedCities([...selectedCities, value]);
+                    }
+                  }}
+                  placeholder={
+                    loadingCities
+                      ? "Loading..."
+                      : selectedCountries.length === 0
+                      ? "Select country first"
+                      : "Select City"
+                  }
+                  disabled={loadingCities || selectedCountries.length === 0}
+                  style={{}}
+                />
+                {selectedCities.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedCities.map((city) => (
+                      <span
+                        key={city}
+                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-orange-700 bg-orange-50 rounded"
+                      >
+                        {city}
+                        <button
+                          onClick={() =>
+                            setSelectedCities(
+                              selectedCities.filter((c) => c !== city)
+                            )
+                          }
+                          className="font-bold text-orange-700 hover:text-orange-900"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Sector Column */}
+              <div>
+                <h3 className="mb-4 text-lg font-semibold text-slate-900">
+                  Sector
+                </h3>
+
+                <div className="p-3 mb-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-900">
+                    <strong>Primary Sector:</strong> Filtered by current sector
+                  </p>
+                </div>
+
+                <label className="block mb-2 text-sm font-semibold text-slate-900">
+                  By Secondary Sectors
+                </label>
+                <SearchableSelect
+                  options={secondarySectorOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "number" &&
+                      value &&
+                      !selectedSecondarySectors.includes(value)
+                    ) {
+                      setSelectedSecondarySectors([
+                        ...selectedSecondarySectors,
+                        value,
+                      ]);
+                    }
+                  }}
+                  placeholder={
+                    loadingSecondarySectors
+                      ? "Loading..."
+                      : "Select Secondary Sector"
+                  }
+                  disabled={loadingSecondarySectors}
+                  style={{}}
+                />
+                {selectedSecondarySectors.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedSecondarySectors.map((sectorId) => {
+                      const sector = secondarySectors.find(
+                        (s) => s.id === sectorId
+                      );
+                      return (
+                        <span
+                          key={sectorId}
+                          className="inline-flex gap-1 items-center px-2 py-1 text-xs text-green-700 bg-green-50 rounded"
+                        >
+                          {sector?.sector_name || `Sector ${sectorId}`}
+                          <button
+                            onClick={() =>
+                              setSelectedSecondarySectors(
+                                selectedSecondarySectors.filter(
+                                  (s) => s !== sectorId
+                                )
+                              )
+                            }
+                            className="font-bold text-green-700 hover:text-green-900"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Date Filters */}
+                <h3 className="mt-6 mb-4 text-lg font-semibold text-slate-900">
+                  Announcement Date
+                </h3>
+                <label className="block mb-2 text-sm font-semibold text-slate-900">
+                  Start
+                </label>
+                <input
+                  type="date"
+                  value={dateStart}
+                  onChange={(e) => setDateStart(e.target.value)}
+                  className="px-3 py-2 w-full rounded-md border border-slate-300"
+                />
+
+                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
+                  End
+                </label>
+                <input
+                  type="date"
+                  value={dateEnd}
+                  onChange={(e) => setDateEnd(e.target.value)}
+                  className="px-3 py-2 w-full rounded-md border border-slate-300"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Search Row */}
+          <div className="mt-4">
+            {showFilters && (
+              <h3 className="mb-2 text-lg font-semibold text-slate-900">
+                Search Corporate Events
+              </h3>
+            )}
+            <div className="flex gap-3 items-center">
+              <input
+                type="text"
+                placeholder="Enter search terms here"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-1 px-3 py-2 max-w-md rounded-md border border-slate-300"
+                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+              />
+              <button
+                onClick={handleSearch}
+                className="px-6 py-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              >
+                {loading ? "Searching..." : "Search"}
+              </button>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="mt-4 text-sm text-blue-600 underline hover:text-blue-800"
+          >
+            {showFilters ? "Hide Filters" : "Show Filters"}
+          </button>
+
+          {error && (
+            <div className="p-3 mt-4 text-red-700 bg-red-50 rounded-md">
+              {error}
             </div>
           )}
         </div>
+
+        {/* Statistics Block */}
+        {summaryData.acquisitions > 0 && (
+          <div className="p-6 bg-white rounded-xl border shadow-lg border-slate-200/60">
+            <h2 className="mb-4 text-xl font-bold text-slate-900">
+              Corporate Events
+            </h2>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              <div>
+                <span className="text-sm text-slate-600">Acquisitions:</span>
+                <p className="text-2xl font-bold text-slate-900">
+                  {summaryData.acquisitions?.toLocaleString() || "0"}
+                </p>
+              </div>
+              <div>
+                <span className="text-sm text-slate-600">Investments:</span>
+                <p className="text-2xl font-bold text-slate-900">
+                  {summaryData.investments?.toLocaleString() || "0"}
+                </p>
+              </div>
+              <div>
+                <span className="text-sm text-slate-600">IPOs:</span>
+                <p className="text-2xl font-bold text-slate-900">
+                  {summaryData.ipos?.toLocaleString() || "0"}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Export Button - Show when there are results */}
+        {corporateEvents.length > 0 && (
+          <div className="flex justify-end">
+            <button
+              onClick={handleExportCSV}
+              className="px-6 py-2 font-semibold text-white bg-green-600 rounded-md hover:bg-green-700"
+              disabled={loading}
+            >
+              {loading ? "Exporting..." : "Export CSV"}
+            </button>
+          </div>
+        )}
+
+        {/* Results Table */}
+        {loading && (
+          <div className="py-10 text-center text-slate-600">
+            Loading corporate events...
+          </div>
+        )}
+
+        {!loading && corporateEvents.length === 0 && (
+          <div className="py-10 text-center text-slate-600">
+            No corporate events found.
+          </div>
+        )}
+
+        {!loading && corporateEvents.length > 0 && (
+          <div className="overflow-x-auto p-6 bg-white rounded-xl border shadow-lg border-slate-200/60">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b-2 border-slate-200">
+                  <th className="p-3 text-sm font-semibold text-left text-slate-900">
+                    Event Details
+                  </th>
+                  <th className="p-3 text-sm font-semibold text-left text-slate-900">
+                    Parties
+                  </th>
+                  <th className="p-3 text-sm font-semibold text-left text-slate-900">
+                    Deal Details
+                  </th>
+                  <th className="p-3 text-sm font-semibold text-left text-slate-900">
+                    Advisors
+                  </th>
+                  <th className="p-3 text-sm font-semibold text-left text-slate-900">
+                    Sectors
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {corporateEvents.map((event: CorporateEvent, index: number) => {
+                  const target = event.target_counterparty?.new_company;
+                  const targetCounterpartyId =
+                    event.target_counterparty?.new_company_counterparty;
+                  const targetName = target?.name || "Not Available";
+                  const targetHref = targetCounterpartyId
+                    ? `/company/${targetCounterpartyId}`
+                    : "";
+                  const targetCountry = target?.country || "Not Available";
+
+                  const formatDate = (dateString: string) => {
+                    if (!dateString) return "Not available";
+                    try {
+                      return new Date(dateString).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      });
+                    } catch {
+                      return "Invalid date";
+                    }
+                  };
+
+                  const formatCurrency = (
+                    amount: string | undefined,
+                    currency: string | undefined
+                  ) => {
+                    if (!amount || !currency) return "Not available";
+                    const n = Number(amount);
+                    if (Number.isNaN(n)) return "Not available";
+                    return `${currency}${n.toLocaleString(undefined, {
+                      maximumFractionDigits: 3,
+                    })}m`;
+                  };
+
+                  return (
+                    <tr
+                      key={event.id || index}
+                      className="border-b border-slate-100"
+                    >
+                      {/* Event Details */}
+                      <td className="p-3 align-top">
+                        <div className="mb-1">
+                          <a
+                            href={`/corporate-event/${event.id}`}
+                            className="font-medium text-blue-600 underline hover:text-blue-800"
+                          >
+                            {event.description || "Not Available"}
+                          </a>
+                        </div>
+                        <div className="text-xs text-slate-600">
+                          Date: {formatDate(event.announcement_date)}
+                        </div>
+                        <div className="text-xs text-slate-600">
+                          Target HQ: {targetCountry}
+                        </div>
+                      </td>
+                      {/* Parties */}
+                      <td className="p-3 align-top">
+                        <div className="mb-1 text-xs text-slate-600">
+                          <strong>Target:</strong>{" "}
+                          {targetHref ? (
+                            <a
+                              href={targetHref}
+                              className="text-blue-600 underline hover:text-blue-800"
+                            >
+                              {targetName}
+                            </a>
+                          ) : (
+                            <span>{targetName}</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-600">
+                          <strong>Buyer(s)/Investor(s):</strong>{" "}
+                          {Array.isArray(event.other_counterparties) &&
+                          event.other_counterparties.length > 0
+                            ? event.other_counterparties
+                                .filter((cp) =>
+                                  /investor|acquirer/i.test(
+                                    cp._counterparty_type
+                                      ?.counterparty_status || ""
+                                  )
+                                )
+                                .map((cp) => cp._new_company?.name || "Unknown")
+                                .join(", ") || "Not Available"
+                            : "Not Available"}
+                        </div>
+                      </td>
+                      {/* Deal Details */}
+                      <td className="p-3 align-top">
+                        <div className="mb-1 text-xs text-slate-600">
+                          <strong>Investment Type:</strong>{" "}
+                          {event.deal_type ? (
+                            <span className="inline-block px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded">
+                              {event.deal_type}
+                            </span>
+                          ) : (
+                            "Not Available"
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-600">
+                          <strong>Amount (m):</strong>{" "}
+                          {formatCurrency(
+                            event.investment_data?.investment_amount_m,
+                            event.investment_data?.currency?.Currency
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-600">
+                          <strong>EV (m):</strong>{" "}
+                          {formatCurrency(
+                            event.ev_data?.enterprise_value_m,
+                            event.ev_data?.currency?.Currency
+                          )}
+                        </div>
+                      </td>
+                      {/* Advisors */}
+                      <td className="p-3 align-top">
+                        <div className="text-xs text-slate-600">
+                          <strong>Advisors:</strong>{" "}
+                          {Array.isArray(event.advisors) &&
+                          event.advisors.length > 0
+                            ? event.advisors.map((advisor, idx) => {
+                                const nc = advisor._new_company;
+                                const name = nc?.name || "Unknown";
+                                const id = nc?.id;
+                                return (
+                                  <span key={id || idx}>
+                                    {id ? (
+                                      <a
+                                        href={`/advisor/${id}`}
+                                        className="text-blue-600 underline hover:text-blue-800"
+                                      >
+                                        {name}
+                                      </a>
+                                    ) : (
+                                      name
+                                    )}
+                                    {idx < event.advisors!.length - 1 && ", "}
+                                  </span>
+                                );
+                              })
+                            : "Not Available"}
+                        </div>
+                      </td>
+                      {/* Sectors */}
+                      <td className="p-3 align-top">
+                        <div className="text-xs text-slate-600">
+                          <strong>Primary:</strong>{" "}
+                          {target?.primary_sectors
+                            ? Array.isArray(target.primary_sectors) &&
+                              target.primary_sectors.length > 0
+                              ? target.primary_sectors
+                                  .map((s) =>
+                                    typeof s === "string"
+                                      ? s
+                                      : (s as { sector_name?: string })
+                                          .sector_name
+                                  )
+                                  .join(", ")
+                              : "Not available"
+                            : target?._sectors_primary &&
+                              Array.isArray(target._sectors_primary) &&
+                              target._sectors_primary.length > 0
+                            ? target._sectors_primary
+                                .map((s) => s.sector_name)
+                                .join(", ")
+                            : "Not available"}
+                        </div>
+                        <div className="text-xs text-slate-600">
+                          <strong>Secondary:</strong>{" "}
+                          {target?.secondary_sectors
+                            ? Array.isArray(target.secondary_sectors) &&
+                              target.secondary_sectors.length > 0
+                              ? target.secondary_sectors
+                                  .map((s) =>
+                                    typeof s === "string"
+                                      ? s
+                                      : (s as { sector_name?: string })
+                                          .sector_name
+                                  )
+                                  .join(", ")
+                              : "Not available"
+                            : target?._sectors_secondary &&
+                              Array.isArray(target._sectors_secondary) &&
+                              target._sectors_secondary.length > 0
+                            ? target._sectors_secondary
+                                .map((s) => s.sector_name)
+                                .join(", ")
+                            : "Not available"}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {pagination.pageTotal > 1 && (
+          <div className="flex gap-2 justify-center items-center mt-6">
+            {generatePaginationButtons()}
+          </div>
+        )}
+
+        {/* CSS for pagination */}
+        <style jsx>{`
+          .pagination-button {
+            padding: 8px 12px;
+            border: none;
+            background: none;
+            color: #000;
+            cursor: pointer;
+            font-size: 14px;
+            transition: color 0.2s;
+          }
+          .pagination-button:hover {
+            color: #0075df;
+          }
+          .pagination-button.active {
+            color: #0075df;
+            text-decoration: underline;
+            font-weight: 500;
+          }
+          .pagination-button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            color: #666;
+          }
+          .pagination-ellipsis {
+            padding: 8px 12px;
+            color: #000;
+            font-size: 14px;
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  // Sector Insights & Analysis Tab Component
+  function SectorInsightsTab({ sectorId }: { sectorId: string }) {
+    const router = useRouter();
+    const [filters, setFilters] = useState<InsightsAnalysisFilters>({
+      search_query: "",
+      primary_sectors_ids: [],
+      Secondary_sectors_ids: [],
+      Countries: [],
+      Provinces: [],
+      Cities: [],
+      Offset: 1,
+      Per_page: 10,
+    });
+
+    const [searchTerm, setSearchTerm] = useState("");
+    const [contentTypes, setContentTypes] = useState<string[]>([]);
+    const [articles, setArticles] = useState<ContentArticle[]>([]);
+    const [pagination, setPagination] = useState({
+      itemsReceived: 0,
+      curPage: 1,
+      nextPage: null as number | null,
+      prevPage: null as number | null,
+      offset: 0,
+      perPage: 10,
+      pageTotal: 0,
+    });
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchInsightsAnalysis = async (filters: InsightsAnalysisFilters) => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) {
+          setError("Authentication required");
+          return;
+        }
+
+        const params = new URLSearchParams();
+        params.append("Offset", String(filters.Offset));
+        params.append("Per_page", String(filters.Per_page));
+        if (filters.search_query)
+          params.append("search_query", filters.search_query);
+        if (filters.Countries?.length)
+          params.append("Countries", filters.Countries.join(","));
+        if (filters.Provinces?.length)
+          params.append("Provinces", filters.Provinces.join(","));
+        if (filters.Cities?.length)
+          params.append("Cities", filters.Cities.join(","));
+        if (filters.primary_sectors_ids?.length)
+          params.append(
+            "primary_sectors_ids",
+            filters.primary_sectors_ids.join(",")
+          );
+        if (filters.Secondary_sectors_ids?.length)
+          params.append(
+            "Secondary_sectors_ids",
+            filters.Secondary_sectors_ids.join(",")
+          );
+        const ct = (filters.Content_Type || filters.content_type || "").trim();
+        if (ct) params.append("content_type", ct);
+
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
+
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data: InsightsAnalysisResponse = await response.json();
+
+        setArticles(data.items);
+        setPagination({
+          itemsReceived: data.itemsReceived,
+          curPage: data.curPage,
+          nextPage: data.nextPage,
+          prevPage: data.prevPage,
+          offset: data.offset,
+          perPage: filters.Per_page,
+          pageTotal: data.pageTotal,
+        });
+      } catch (error) {
+        console.error("Error fetching insights analysis:", error);
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch insights analysis"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Initial data fetch with sector pre-filter
+    useEffect(() => {
+      const sectorIdNum = parseInt(sectorId);
+      if (!isNaN(sectorIdNum)) {
+        const initialFilters = {
+          ...filters,
+          primary_sectors_ids: [sectorIdNum],
+        };
+        setFilters(initialFilters);
+        fetchInsightsAnalysis(initialFilters);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sectorId]);
+
+    // Fetch content types
+    useEffect(() => {
+      const run = async () => {
+        try {
+          const token = localStorage.getItem("asymmetrix_auth_token");
+          if (!token) return;
+          const resp = await fetch(
+            "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/content_types_for_articles",
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          if (!resp.ok) return;
+          const data = (await resp.json()) as Array<{
+            Content_Content_Type1: string;
+          }>;
+          const values = Array.from(
+            new Set(
+              (Array.isArray(data) ? data : [])
+                .map((d) => (d?.Content_Content_Type1 || "").trim())
+                .filter(Boolean)
+            )
+          );
+          setContentTypes(values);
+        } catch {
+          // ignore
+        }
+      };
+      run();
+    }, []);
+
+    const handleSearch = () => {
+      const sectorIdNum = parseInt(sectorId);
+      const updatedFilters = {
+        ...filters,
+        search_query: searchTerm,
+        primary_sectors_ids: !isNaN(sectorIdNum) ? [sectorIdNum] : [],
+        Offset: 1,
+      };
+      setFilters(updatedFilters);
+      fetchInsightsAnalysis(updatedFilters);
+    };
+
+    const handlePageChange = (page: number) => {
+      const updatedFilters = { ...filters, Offset: page };
+      setFilters(updatedFilters);
+      fetchInsightsAnalysis(updatedFilters);
+    };
+
+    const handleArticleClick = (articleId: number) => {
+      router.push(`/article/${articleId}`);
+    };
+
+    const formatDate = (dateString: string) => {
+      if (!dateString) return "Not available";
+      try {
+        return new Date(dateString).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+      } catch {
+        return "Invalid date";
+      }
+    };
+
+    const formatSectors = (
+      sectors: Array<Array<{ sector_name: string }>> | undefined
+    ) => {
+      if (!sectors || sectors.length === 0) return "Not available";
+      const allSectors = sectors.flat().map((s) => s.sector_name);
+      return allSectors.join(", ");
+    };
+
+    const formatCompanies = (
+      companies: ContentArticle["companies_mentioned"] | undefined
+    ) => {
+      if (!companies || companies.length === 0) return "Not available";
+      return companies.map((c) => c.name).join(", ");
+    };
+
+    const badgeClassFor = (contentType?: string): string => {
+      const t = (contentType || "").toLowerCase();
+      if (t === "company analysis") return "badge badge-company-analysis";
+      if (t === "deal analysis") return "badge badge-deal-analysis";
+      if (t === "sector analysis") return "badge badge-sector-analysis";
+      if (t === "hot take") return "badge badge-hot-take";
+      if (t === "executive interview") return "badge badge-executive-interview";
+      return "badge";
+    };
+
+    const generatePaginationButtons = () => {
+      const buttons = [];
+      const currentPage = pagination.curPage;
+      const totalPages = pagination.pageTotal;
+
+      buttons.push(
+        <button
+          key="prev"
+          className="pagination-button"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={!pagination.prevPage}
+        >
+          &lt;
+        </button>
+      );
+
+      if (totalPages <= 7) {
+        for (let i = 1; i <= totalPages; i++) {
+          buttons.push(
+            <button
+              key={i}
+              className={`pagination-button ${
+                i === currentPage ? "active" : ""
+              }`}
+              onClick={() => handlePageChange(i)}
+            >
+              {i.toString()}
+            </button>
+          );
+        }
+      } else {
+        buttons.push(
+          <button
+            key={1}
+            className={`pagination-button ${currentPage === 1 ? "active" : ""}`}
+            onClick={() => handlePageChange(1)}
+          >
+            1
+          </button>
+        );
+
+        if (currentPage > 3) {
+          buttons.push(
+            <span key="ellipsis1" className="pagination-ellipsis">
+              ...
+            </span>
+          );
+        }
+
+        for (
+          let i = Math.max(2, currentPage - 1);
+          i <= Math.min(totalPages - 1, currentPage + 1);
+          i++
+        ) {
+          if (i > 1 && i < totalPages) {
+            buttons.push(
+              <button
+                key={i}
+                className={`pagination-button ${
+                  i === currentPage ? "active" : ""
+                }`}
+                onClick={() => handlePageChange(i)}
+              >
+                {i.toString()}
+              </button>
+            );
+          }
+        }
+
+        if (currentPage < totalPages - 2) {
+          buttons.push(
+            <span key="ellipsis2" className="pagination-ellipsis">
+              ...
+            </span>
+          );
+        }
+
+        buttons.push(
+          <button
+            key={totalPages}
+            className={`pagination-button ${
+              currentPage === totalPages ? "active" : ""
+            }`}
+            onClick={() => handlePageChange(totalPages)}
+          >
+            {totalPages.toString()}
+          </button>
+        );
+      }
+
+      buttons.push(
+        <button
+          key="next"
+          className="pagination-button"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={!pagination.nextPage}
+        >
+          &gt;
+        </button>
+      );
+
+      return buttons;
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Filters Section */}
+        <div className="p-8 bg-white rounded-xl border shadow-lg border-slate-200/60">
+          <div className="p-3 mb-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-sm text-blue-900">
+              <strong>Note:</strong> Results are pre-filtered by the current
+              sector
+            </p>
+          </div>
+
+          <div className="space-y-4 max-w-md">
+            <input
+              type="text"
+              placeholder="Enter search term here"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="px-4 py-3 w-full rounded-md border border-slate-300"
+              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+            />
+            <select
+              value={filters.Content_Type || ""}
+              onChange={(e) => {
+                const updated = {
+                  ...filters,
+                  Content_Type: e.target.value || undefined,
+                  content_type: e.target.value || undefined,
+                  Offset: 1,
+                };
+                setFilters(updated);
+                fetchInsightsAnalysis(updated);
+              }}
+              className="px-4 py-3 w-full rounded-md border border-slate-300"
+            >
+              <option value="">All Content Types</option>
+              {contentTypes.map((ct) => (
+                <option key={ct} value={ct}>
+                  {ct}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={handleSearch}
+              className="px-6 py-3 w-full font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700"
+            >
+              {loading ? "Searching..." : "Search"}
+            </button>
+          </div>
+
+          {error && (
+            <div className="p-3 mt-4 text-red-700 bg-red-50 rounded-md">
+              {error}
+            </div>
+          )}
+        </div>
+
+        {/* Results Section */}
+        {loading && (
+          <div className="py-10 text-center text-slate-600">
+            Loading articles...
+          </div>
+        )}
+
+        {!loading && articles.length === 0 && (
+          <div className="py-10 text-center text-slate-600">
+            No articles found.
+          </div>
+        )}
+
+        {!loading && articles.length > 0 && (
+          <div className="insights-analysis-cards">
+            {articles.map((article: ContentArticle, index: number) => (
+              <a
+                key={article.id || index}
+                href={`/article/${article.id}`}
+                className="article-card"
+                onClick={(e) => {
+                  if (
+                    e.defaultPrevented ||
+                    e.button !== 0 ||
+                    e.metaKey ||
+                    e.ctrlKey ||
+                    e.shiftKey ||
+                    e.altKey
+                  )
+                    return;
+                  e.preventDefault();
+                  handleArticleClick(article.id);
+                }}
+              >
+                <h3 className="article-title">
+                  {article.Headline || "Not Available"}
+                </h3>
+                <p className="article-date">
+                  {formatDate(article.Publication_Date)}
+                </p>
+                {article.Content_Type && (
+                  <div className="article-badge-row">
+                    <span className={badgeClassFor(article.Content_Type)}>
+                      {article.Content_Type}
+                    </span>
+                  </div>
+                )}
+                <p className="article-summary">
+                  {article.Strapline || "No summary available"}
+                </p>
+                <div className="article-meta">
+                  <span className="article-meta-label">Companies:</span>
+                  <span className="article-meta-value">
+                    {formatCompanies(article.companies_mentioned)}
+                  </span>
+                </div>
+                <div className="article-meta">
+                  <span className="article-meta-label">Sectors:</span>
+                  <span className="article-meta-value">
+                    {formatSectors(article.sectors)}
+                  </span>
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {pagination.pageTotal > 1 && (
+          <div className="flex gap-2 justify-center items-center mt-6">
+            {generatePaginationButtons()}
+          </div>
+        )}
+
+        {/* CSS Styles */}
+        <style jsx>{`
+          .insights-analysis-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 24px;
+            padding: 0;
+            margin-bottom: 24px;
+          }
+          .article-card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 16px;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: block;
+            text-decoration: none;
+            color: inherit;
+          }
+          .article-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+          }
+          .article-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1a202c;
+            margin: 0 0 8px 0;
+            line-height: 1.3;
+          }
+          .article-date {
+            font-size: 14px;
+            color: #6b7280;
+            margin: 0 0 16px 0;
+            font-weight: 500;
+          }
+          .article-badge-row {
+            margin: -8px 0 16px 0;
+            display: block;
+          }
+          .badge {
+            display: inline-block;
+            font-size: 12px;
+            line-height: 1;
+            padding: 6px 10px;
+            border-radius: 9999px;
+            border: 1px solid transparent;
+            font-weight: 600;
+          }
+          .badge-company-analysis {
+            background: #ecfdf5;
+            color: #065f46;
+            border-color: #a7f3d0;
+          }
+          .badge-deal-analysis {
+            background: #eff6ff;
+            color: #1e40af;
+            border-color: #bfdbfe;
+          }
+          .badge-sector-analysis {
+            background: #f5f3ff;
+            color: #5b21b6;
+            border-color: #ddd6fe;
+          }
+          .badge-hot-take {
+            background: #fff7ed;
+            color: #9a3412;
+            border-color: #fed7aa;
+          }
+          .badge-executive-interview {
+            background: #f0fdf4;
+            color: #166534;
+            border-color: #bbf7d0;
+          }
+          .article-summary {
+            font-size: 14px;
+            color: #374151;
+            line-height: 1.6;
+            margin: 0 0 16px 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .article-meta {
+            margin-bottom: 12px;
+          }
+          .article-meta:last-child {
+            margin-bottom: 0;
+          }
+          .article-meta-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-right: 8px;
+          }
+          .article-meta-value {
+            font-size: 13px;
+            color: #6b7280;
+            line-height: 1.4;
+          }
+          .pagination-button {
+            padding: 8px 12px;
+            border: none;
+            background: none;
+            color: #000;
+            cursor: pointer;
+            font-size: 14px;
+            transition: color 0.2s;
+          }
+          .pagination-button:hover {
+            color: #0075df;
+          }
+          .pagination-button.active {
+            color: #0075df;
+            text-decoration: underline;
+            font-weight: 500;
+          }
+          .pagination-button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            color: #666;
+          }
+          .pagination-ellipsis {
+            padding: 8px 12px;
+            color: #000;
+            font-size: 14px;
+          }
+          @media (max-width: 768px) {
+            .insights-analysis-cards {
+              grid-template-columns: 1fr !important;
+              gap: 12px !important;
+            }
+          }
+        `}</style>
       </div>
     );
   }
@@ -2245,16 +4026,9 @@ const SectorDetailPage = () => {
                   {(sectorData as { Sector?: { sector_name?: string } })?.Sector
                     ?.sector_name || "Sector"}
                 </h1>
-                <p className="text-sm text-slate-500">
-                  Market Intelligence Dashboard
-                </p>
               </div>
             </div>
             <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-2 text-sm text-slate-600">
-                <ArrowTrendingUpIcon className="w-4 h-4 text-emerald-500" />
-                <span>Market Open</span>
-              </div>
               <div className="flex justify-center items-center w-8 h-8 rounded-full bg-slate-200">
                 <BuildingOfficeIcon className="w-4 h-4 text-slate-600" />
               </div>
@@ -2724,9 +4498,9 @@ const SectorDetailPage = () => {
             )}
           </div>
         ) : activeTab === "transactions" ? (
-          <TransactionsGrid
-            transactions={mapRecentTransactions(splitRecentRaw)}
-          />
+          <SectorTransactionsTab sectorId={sectorId} />
+        ) : activeTab === "insights" ? (
+          <SectorInsightsTab sectorId={sectorId} />
         ) : (
           <div className="flex justify-center items-center h-64 bg-white rounded-xl border border-slate-200">
             <div className="text-center">

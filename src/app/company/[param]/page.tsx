@@ -1973,7 +1973,7 @@ const CompanyDetail = () => {
             </div>
           </div>
 
-          {/* Stock Chart Section - Only for S&P Global (ID: 2142) */}
+          {/* Stock Chart Section - S&P Global (ID: 2142) and Vaisala (ID: 2633) */}
           {company.id === 2142 && (
             <Card style={{ marginBottom: "24px" }}>
               <CardContent className="pt-6 space-y-10 lg:px-40 lg:py-14">
@@ -1985,6 +1985,21 @@ const CompanyDetail = () => {
                 <FinanceSummaryClient ticker="SPGI" />
                 <CompanySummaryCardClient ticker="SPGI" />
                 <NewsClient ticker="SPGI" />
+              </CardContent>
+            </Card>
+          )}
+
+          {company.id === 2633 && (
+            <Card style={{ marginBottom: "24px" }}>
+              <CardContent className="pt-6 space-y-10 lg:px-40 lg:py-14">
+                <StockChartClient
+                  ticker="VAIAS.HE"
+                  range={validatedRange}
+                  interval={validatedInterval}
+                />
+                <FinanceSummaryClient ticker="VAIAS.HE" />
+                <CompanySummaryCardClient ticker="VAIAS.HE" />
+                <NewsClient ticker="VAIAS.HE" />
               </CardContent>
             </Card>
           )}
