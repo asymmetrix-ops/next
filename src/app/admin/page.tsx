@@ -110,7 +110,7 @@ Target company: {query} ({domain})`;
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "valuation" | "emails" | "content"
+    "valuation" | "emails" | "content" | "sectors"
   >("valuation");
 
   async function onSubmit(e: React.FormEvent) {
@@ -184,6 +184,16 @@ Target company: {query} ({domain})`;
         >
           Content
         </button>
+        <button
+          onClick={() => setActiveTab("sectors")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "sectors"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Sectors
+        </button>
       </div>
 
       {activeTab === "valuation" && (
@@ -247,6 +257,7 @@ Target company: {query} ({domain})`;
       )}
       {activeTab === "emails" && <EmailsTab />}
       {activeTab === "content" && <ContentTab />}
+      {activeTab === "sectors" && <SectorsTab />}
     </div>
   );
 }
@@ -1386,6 +1397,294 @@ function ContentTab() {
           </pre>
         </div>
       )}
+    </div>
+  );
+}
+
+function SectorsTab() {
+  // Company selection
+  interface SimpleCompany {
+    id: number;
+    name: string;
+  }
+  const [companyQuery, setCompanyQuery] = useState("");
+  const [companyResults, setCompanyResults] = useState<SimpleCompany[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState<SimpleCompany | null>(
+    null
+  );
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
+
+  // Sectors selection (all sectors, not just primary/secondary split)
+  const [allSectors, setAllSectors] = useState<
+    Array<{ id: number; sector_name: string }>
+  >([]);
+  const [selectedSectorIds, setSelectedSectorIds] = useState<number[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Fetch all sectors (combining primary and their secondary sectors)
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const prim = await locationsService.getPrimarySectors();
+        if (!cancelled) {
+          // Fetch secondary sectors for all primary sectors
+          const allPrimaryIds = prim.map((p) => p.id);
+          const sec = await locationsService.getSecondarySectors(allPrimaryIds);
+          // Combine and deduplicate by id
+          const combined = [...prim, ...sec];
+          const unique = combined.filter(
+            (s, i, arr) => arr.findIndex((x) => x.id === s.id) === i
+          );
+          setAllSectors(unique);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Company search
+  const searchCompanies = async () => {
+    if (!companyQuery.trim()) return;
+    try {
+      setLoadingCompanies(true);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = new URLSearchParams();
+      params.append("Offset", "1");
+      params.append("Per_page", "25");
+      params.append("Min_linkedin_members", "0");
+      params.append("Max_linkedin_members", "0");
+      params.append("Horizontals_ids", "");
+      params.append("query", companyQuery.trim());
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+      if (!resp.ok) {
+        setCompanyResults([]);
+        return;
+      }
+      const data = await resp.json().catch(() => null);
+      const items: Array<{ id: number; name: string }> =
+        (data?.result1?.items as Array<{ id: number; name: string }>) ||
+        (data?.companies?.items as Array<{ id: number; name: string }>) ||
+        (data?.items as Array<{ id: number; name: string }>) ||
+        [];
+      setCompanyResults(
+        (Array.isArray(items) ? items : [])
+          .map((c) => ({ id: Number(c.id), name: String(c.name || "") }))
+          .filter((c) => c.id && c.name)
+      );
+    } catch {
+      setCompanyResults([]);
+    } finally {
+      setLoadingCompanies(false);
+    }
+  };
+
+  // Submit to API
+  const handleSubmit = async () => {
+    if (!selectedCompany || selectedSectorIds.length === 0 || submitting)
+      return;
+
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const payload = {
+        new_company_id: selectedCompany.id,
+        sectors_id: selectedSectorIds,
+      };
+
+      const resp = await fetch(
+        "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/company_with_sectors",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!resp.ok) {
+        const txt = await resp.text();
+        alert(`Failed to tag company: ${resp.status} ${txt}`);
+        return;
+      }
+
+      alert("Company successfully tagged to sectors!");
+      // Reset selections
+      setSelectedCompany(null);
+      setSelectedSectorIds([]);
+      setCompanyResults([]);
+      setCompanyQuery("");
+    } catch {
+      alert("Network error while tagging company");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div>
+      <h2 className="mb-4 text-xl font-semibold">Tag Companies to Sectors</h2>
+
+      <div className="mb-4">
+        <label className="block mb-1 text-sm font-medium">Company</label>
+        <div className="flex gap-2 mb-2">
+          <input
+            type="text"
+            className="flex-1 p-2 border rounded"
+            placeholder="Search companies by name"
+            value={companyQuery}
+            onChange={(e) => setCompanyQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && searchCompanies()}
+          />
+          <button
+            className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
+            onClick={searchCompanies}
+            disabled={loadingCompanies}
+          >
+            {loadingCompanies ? "Searching…" : "Search"}
+          </button>
+        </div>
+        <SearchableSelect
+          options={companyResults.map((c) => ({ value: c.id, label: c.name }))}
+          value={selectedCompany ? selectedCompany.id : ""}
+          onChange={(value) => {
+            if (typeof value === "number") {
+              const found = companyResults.find((c) => c.id === value);
+              if (found) {
+                setSelectedCompany(found);
+              }
+            }
+          }}
+          placeholder={
+            loadingCompanies
+              ? "Loading companies..."
+              : companyResults.length === 0
+              ? "Search above to load companies"
+              : "Select a company"
+          }
+          disabled={loadingCompanies || companyResults.length === 0}
+          style={{ width: "100%" }}
+        />
+        {selectedCompany && (
+          <div className="mt-2">
+            <span className="inline-flex gap-2 items-center px-3 py-2 text-sm text-blue-700 bg-blue-50 rounded">
+              {selectedCompany.name}
+              <button
+                onClick={() => setSelectedCompany(null)}
+                className="font-bold"
+              >
+                ×
+              </button>
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="mb-4">
+        <label className="block mb-1 text-sm font-medium">
+          Sectors (select multiple)
+        </label>
+        <SearchableSelect
+          options={allSectors.map((s) => ({
+            value: s.id,
+            label: s.sector_name,
+          }))}
+          value={""}
+          onChange={(value) => {
+            if (
+              typeof value === "number" &&
+              !selectedSectorIds.includes(value)
+            ) {
+              setSelectedSectorIds([...selectedSectorIds, value]);
+            }
+          }}
+          placeholder={
+            allSectors.length === 0
+              ? "Loading sectors..."
+              : "Select sectors to tag"
+          }
+          disabled={allSectors.length === 0}
+          style={{ width: "100%" }}
+        />
+        {selectedSectorIds.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {selectedSectorIds.map((id) => {
+              const s = allSectors.find((x) => x.id === id);
+              return (
+                <span
+                  key={id}
+                  className="inline-flex gap-2 items-center px-3 py-2 text-sm text-green-700 bg-green-50 rounded"
+                >
+                  {s?.sector_name || id}
+                  <button
+                    onClick={() =>
+                      setSelectedSectorIds(
+                        selectedSectorIds.filter((x) => x !== id)
+                      )
+                    }
+                    className="font-bold"
+                  >
+                    ×
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="p-4 bg-gray-50 rounded border">
+        <h3 className="mb-2 font-semibold text-sm">Preview</h3>
+        <div className="text-sm text-gray-700">
+          {selectedCompany && selectedSectorIds.length > 0 ? (
+            <>
+              <p className="mb-1">
+                <strong>Company:</strong> {selectedCompany.name}
+              </p>
+              <p>
+                <strong>Tagged Sectors:</strong>{" "}
+                {selectedSectorIds
+                  .map((id) => {
+                    const s = allSectors.find((x) => x.id === id);
+                    return s?.sector_name || id;
+                  })
+                  .join(", ")}
+              </p>
+            </>
+          ) : (
+            <p className="text-gray-500">
+              Select a company and at least one sector to preview
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <button
+          onClick={handleSubmit}
+          disabled={
+            !selectedCompany || selectedSectorIds.length === 0 || submitting
+          }
+          className="px-6 py-3 text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {submitting ? "Submitting..." : "Submit"}
+        </button>
+      </div>
     </div>
   );
 }
