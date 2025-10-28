@@ -22,32 +22,18 @@ export const checkExportLimit = async (): Promise<{
       };
     }
 
-    const apiUrl =
-      process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
-    const endpoint = `${apiUrl}/auth/me`;
+    const endpoint = `/api/auth-me`;
 
-    // Call /auth/me to read exported_companies_files; prefer standard Bearer
-    let response = await fetch(endpoint, {
+    // Call internal API route (server-side to Xano) to avoid CORS
+    const response = await fetch(endpoint, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        // pass token in a custom header for SSR route to use if cookie not present
+        "x-asym-token": token,
       },
       credentials: "include",
     });
-
-    // Fallback: some environments might expect the raw token header
-    if (response.status === 401) {
-      response = await fetch(endpoint, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `${token}`,
-        },
-        credentials: "include",
-      });
-    }
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
