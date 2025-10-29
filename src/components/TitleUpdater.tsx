@@ -35,6 +35,19 @@ export default function TitleUpdater() {
   const pathname = usePathname() || "/";
 
   useEffect(() => {
+    // Do not override server-provided metadata titles on dynamic detail routes
+    const dynamicDetailRoutePatterns = [
+      /^\/article\/[^/]+$/, // article detail pages use generateMetadata
+      /^\/sector\/[^/]+$/, // sector detail pages use generateMetadata
+      /^\/company\/[^/]+$/, // company detail pages use generateMetadata
+      /^\/individual\/[^/]+$/, // individual detail pages use generateMetadata
+      /^\/corporate-event\/[^/]+$/, // corporate event detail pages use generateMetadata
+    ];
+
+    if (dynamicDetailRoutePatterns.some((re) => re.test(pathname))) {
+      return; // let Next.js metadata control the document title
+    }
+
     const entry = titleMap.find((e) => pathname.match(e.pattern));
     const computed = entry
       ? entry.title(pathname.match(entry.pattern) as RegExpMatchArray)
