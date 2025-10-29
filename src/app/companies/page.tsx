@@ -19,6 +19,7 @@ import {
 } from "@/utils/companiesCSVExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 // Types for API integration
 interface Company {
@@ -1905,6 +1906,7 @@ const CompanySection = ({
   currentFilters: Filters | undefined;
 }) => {
   const router = useRouter();
+  const { isTrialActive } = useAuth();
   const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<
     Record<string, string>
   >({});
@@ -2880,7 +2882,8 @@ const CompanySection = ({
           {
             onClick: handleExportCSV,
             className: "export-button",
-            disabled: loading,
+            disabled: loading || isTrialActive,
+            title: isTrialActive ? "Export disabled during Trial" : undefined,
           },
           loading ? "Exporting..." : "Export CSV"
         )

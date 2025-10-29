@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useAuth } from "@/components/providers/AuthProvider";
 import {
   ContentArticle,
   InsightsAnalysisResponse,
@@ -383,6 +384,7 @@ const InsightsAnalysisCards = ({
 
 // Main Insights Analysis Page Component
 const InsightsAnalysisPage = () => {
+  const { isTrialActive } = useAuth();
   // State for filters
   const [filters, setFilters] = useState<InsightsAnalysisFilters>({
     search_query: "",
@@ -420,6 +422,57 @@ const InsightsAnalysisPage = () => {
       const token = localStorage.getItem("asymmetrix_auth_token");
       if (!token) {
         setError("Authentication required");
+        return;
+      }
+
+      if (isTrialActive) {
+        // Trial: show all Hot Takes, plus 3 most recent Company Analysis and 3 most recent Deal Analysis
+        const fetchByType = async (contentType: string, perPage = 100) => {
+          const p = new URLSearchParams();
+          p.append("Offset", "1");
+          p.append("Per_page", String(perPage));
+          p.append("content_type", contentType);
+          const u = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${p.toString()}`;
+          const res = await fetch(u, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          });
+          if (!res.ok) throw new Error(String(res.status));
+          const json: InsightsAnalysisResponse = await res.json();
+          return Array.isArray(json.items) ? json.items : [];
+        };
+
+        const [hotTakes, company, deal] = await Promise.all([
+          fetchByType("Hot Take", 100),
+          fetchByType("Company Analysis", 100),
+          fetchByType("Deal Analysis", 100),
+        ]);
+
+        const byDateDesc = (a: ContentArticle, b: ContentArticle) => {
+          const da = new Date(a.Publication_Date || 0).getTime();
+          const db = new Date(b.Publication_Date || 0).getTime();
+          return db - da;
+        };
+
+        const topCompany = [...company].sort(byDateDesc).slice(0, 3);
+        const topDeal = [...deal].sort(byDateDesc).slice(0, 3);
+        const combined = [...hotTakes, ...topCompany, ...topDeal].sort(
+          byDateDesc
+        );
+
+        setArticles(combined);
+        setPagination({
+          itemsReceived: combined.length,
+          curPage: 1,
+          nextPage: null,
+          prevPage: null,
+          offset: 0,
+          perPage: combined.length,
+          pageTotal: 1,
+        });
         return;
       }
 
@@ -817,73 +870,75 @@ const InsightsAnalysisPage = () => {
     <div className="min-h-screen">
       <Header />
 
-      {/* Filters Section */}
-      <div style={styles.container}>
-        <div style={styles.maxWidth}>
-          <div style={styles.card} className="filters-card">
-            <h2 style={styles.heading} className="filters-heading">
-              Insights & Analysis
-            </h2>
-            <div style={styles.searchDiv}>
-              <input
-                type="text"
-                placeholder="Enter search term here"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={styles.input}
-                className="filters-input"
-                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-              />
-              <select
-                value={filters.Content_Type || ""}
-                onChange={(e) => {
-                  const updated = {
-                    ...filters,
-                    Content_Type: e.target.value || undefined,
-                    content_type: e.target.value || undefined,
-                    Offset: 1,
-                  };
-                  setFilters(updated);
-                  fetchInsightsAnalysis(updated);
-                }}
-                style={{
-                  ...styles.input,
-                  maxWidth: 280,
-                  paddingRight: 8,
-                }}
-              >
-                <option value="">All Content Types</option>
-                {contentTypes.map((ct) => (
-                  <option key={ct} value={ct}>
-                    {ct}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={handleSearch}
-                style={styles.button}
-                className="filters-button"
-                onMouseOver={(e) =>
-                  ((e.target as HTMLButtonElement).style.backgroundColor =
-                    "#005bb5")
-                }
-                onMouseOut={(e) =>
-                  ((e.target as HTMLButtonElement).style.backgroundColor =
-                    "#0075df")
-                }
-              >
-                {loading ? "Searching..." : "Search"}
-              </button>
+      {/* Filters Section (hidden for Trial) */}
+      {!isTrialActive && (
+        <div style={styles.container}>
+          <div style={styles.maxWidth}>
+            <div style={styles.card} className="filters-card">
+              <h2 style={styles.heading} className="filters-heading">
+                Insights & Analysis
+              </h2>
+              <div style={styles.searchDiv}>
+                <input
+                  type="text"
+                  placeholder="Enter search term here"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={styles.input}
+                  className="filters-input"
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                />
+                <select
+                  value={filters.Content_Type || ""}
+                  onChange={(e) => {
+                    const updated = {
+                      ...filters,
+                      Content_Type: e.target.value || undefined,
+                      content_type: e.target.value || undefined,
+                      Offset: 1,
+                    };
+                    setFilters(updated);
+                    fetchInsightsAnalysis(updated);
+                  }}
+                  style={{
+                    ...styles.input,
+                    maxWidth: 280,
+                    paddingRight: 8,
+                  }}
+                >
+                  <option value="">All Content Types</option>
+                  {contentTypes.map((ct) => (
+                    <option key={ct} value={ct}>
+                      {ct}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleSearch}
+                  style={styles.button}
+                  className="filters-button"
+                  onMouseOver={(e) =>
+                    ((e.target as HTMLButtonElement).style.backgroundColor =
+                      "#005bb5")
+                  }
+                  onMouseOut={(e) =>
+                    ((e.target as HTMLButtonElement).style.backgroundColor =
+                      "#0075df")
+                  }
+                >
+                  {loading ? "Searching..." : "Search"}
+                </button>
+              </div>
+
+              {/* Error Display */}
+              {error && <div className="error">{error}</div>}
+
+              {/* Loading Display */}
+              {loading && <div className="loading">Loading articles...</div>}
             </div>
-
-            {/* Error Display */}
-            {error && <div className="error">{error}</div>}
-
-            {/* Loading Display */}
-            {loading && <div className="loading">Loading articles...</div>}
           </div>
         </div>
-      </div>
+      )}
 
       {/* Insights Analysis Section */}
       <div className="insights-analysis-section">
@@ -893,7 +948,7 @@ const InsightsAnalysisPage = () => {
         )}
 
         {/* Pagination */}
-        {pagination.pageTotal > 1 && (
+        {!isTrialActive && pagination.pageTotal > 1 && (
           <div className="pagination">
             {generatePaginationButtons(pagination, handlePageChange)}
           </div>

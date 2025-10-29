@@ -7,6 +7,7 @@ import { AuthProvider } from "@/components/providers/AuthProvider";
 import { Toaster } from "react-hot-toast";
 import TitleUpdater from "@/components/TitleUpdater";
 import ChunkErrorRecovery from "@/components/ChunkErrorRecovery";
+import TrialRouteGuard from "@/components/TrialRouteGuard";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -124,6 +125,7 @@ export default function RootLayout({
           <AnalyticsProvider>
             <ChunkErrorRecovery />
             <TitleUpdater />
+            <TrialRouteGuard />
             {children}
             <Toaster position="top-right" />
           </AnalyticsProvider>

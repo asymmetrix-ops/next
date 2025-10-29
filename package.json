@@ -21,6 +21,7 @@
     "dayjs": "^1.11.0",
     "framer-motion": "^10.16.0",
     "html-escaper": "^3.0.3",
+    "jose": "^6.1.0",
     "lodash": "^4.17.21",
     "medium-zoom": "^1.0.6",
     "next": "^14.0.0",

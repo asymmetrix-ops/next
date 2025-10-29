@@ -105,7 +105,13 @@ interface InsightArticle {
 
 export default function HomeUserPage() {
   const router = useRouter();
-  const { isAuthenticated, logout, loading: authLoading } = useAuth();
+  const {
+    isAuthenticated,
+    logout,
+    loading: authLoading,
+    isTrialActive,
+    trialDaysLeft,
+  } = useAuth();
   // Right-click handled via native anchors now
 
   // Helper function to format dates consistently
@@ -666,12 +672,43 @@ export default function HomeUserPage() {
     );
   }
 
+  const handleClickCapture: React.MouseEventHandler<HTMLDivElement> = (e) => {
+    if (!isTrialActive) return;
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+    const anchor = target.closest("a[href]") as HTMLAnchorElement | null;
+    if (
+      anchor &&
+      anchor.getAttribute("href") &&
+      anchor.getAttribute("href") !== "#"
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+
   return (
     <div className="min-h-screen">
       <Header />
 
       {/* Main Content */}
-      <main className="px-2 py-4 mx-auto w-full sm:px-4 sm:py-8">
+      <main
+        className="px-2 py-4 mx-auto w-full sm:px-4 sm:py-8"
+        style={{ position: "relative" }}
+        onClickCapture={handleClickCapture}
+      >
+        {isTrialActive && (
+          <div className="px-4 py-3 mb-4 text-yellow-900 bg-yellow-50 rounded-lg border border-yellow-300 sm:mb-6">
+            <div className="font-semibold">Trial access</div>
+            <div className="text-sm">
+              You have limited navigation.{" "}
+              {typeof trialDaysLeft === "number" && trialDaysLeft >= 0
+                ? `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left`
+                : "Expires soon"}
+              .
+            </div>
+          </div>
+        )}
         {/* Dashboard Subheader */}
         <div className="mb-4 sm:mb-6">
           <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">

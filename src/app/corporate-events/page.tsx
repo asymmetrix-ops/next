@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useAuth } from "@/components/providers/AuthProvider";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
 import {
@@ -1006,6 +1007,7 @@ const CorporateEventsTable = ({
 
 // Main Corporate Events Page Component
 const CorporateEventsPage = () => {
+  const { isTrialActive } = useAuth();
   // State for filter visibility
   const [showFilters, setShowFilters] = useState(false);
 
@@ -2472,7 +2474,8 @@ const CorporateEventsPage = () => {
             <button
               onClick={handleExportCSV}
               className="export-button"
-              disabled={loading}
+              disabled={loading || isTrialActive}
+              title={isTrialActive ? "Export disabled during Trial" : undefined}
             >
               {loading ? "Exporting..." : "Export CSV"}
             </button>

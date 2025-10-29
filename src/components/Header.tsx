@@ -3,13 +3,16 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { authService } from "@/lib/auth";
 
 const Header = () => {
   const [activeTab, setActiveTab] = useState("Dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+  const { isTrialActive } = useAuth();
 
   const handleLogout = () => {
     authService.logout();
@@ -184,7 +187,16 @@ const Header = () => {
         <div style={styles.container}>
           <div style={styles.leftSection} className="left-section">
             {/* Logo */}
-            <Link href="/" style={styles.logo}>
+            <Link
+              href="/"
+              style={styles.logo}
+              onClick={(e) => {
+                if (isTrialActive && pathname === "/home-user") {
+                  e.preventDefault();
+                  router.push("/insights-analysis");
+                }
+              }}
+            >
               <Image
                 src="/icons/logo.svg"
                 alt="Logo"
@@ -235,7 +247,14 @@ const Header = () => {
                         : styles.inactiveLink),
                     }}
                     className="nav-link"
-                    onClick={() => setActiveTab(item)}
+                    onClick={(e) => {
+                      if (isTrialActive && pathname === "/home-user") {
+                        e.preventDefault();
+                        router.push("/insights-analysis");
+                        return;
+                      }
+                      setActiveTab(item);
+                    }}
                     onMouseOver={(e) => {
                       if (activeTab !== item) {
                         (e.target as HTMLElement).style.color = "#111827";
@@ -342,7 +361,12 @@ const Header = () => {
                     ? { color: "#595959", fontWeight: "600" }
                     : { color: "#6b7280" }),
                 }}
-                onClick={() => {
+                onClick={(e) => {
+                  if (isTrialActive && pathname === "/home-user") {
+                    e.preventDefault();
+                    router.push("/insights-analysis");
+                    return;
+                  }
                   setActiveTab(item);
                   setIsMobileMenuOpen(false);
                 }}
