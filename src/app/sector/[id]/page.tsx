@@ -1715,9 +1715,19 @@ const SectorDetailPage = () => {
         params.append("Max_linkedin_members", "0");
         params.append("Horizontals_ids", "");
         params.append("Primary_sectors_ids[]", String(Sector_id));
-        // If ownershipFilter is 'public', filter on the server to keep page sizes consistent
-        if (ownershipFilter === "public") {
-          params.append("Ownership_types_ids[]", String(1));
+        // Apply ownership filter on the server to keep page sizes consistent
+        if (ownershipFilter) {
+          // Explicit mapping per product requirements
+          const ownershipMap: Record<string, number> = {
+            public: 7,
+            private_equity_owned: 1,
+            venture_capital_backed: 3,
+            private: 2,
+          };
+          const mappedId = ownershipMap[ownershipFilter];
+          if (mappedId) {
+            params.append("Ownership_types_ids[]", String(mappedId));
+          }
         }
 
         const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
@@ -1792,8 +1802,8 @@ const SectorDetailPage = () => {
         params.append("Max_linkedin_members", "0");
         params.append("Horizontals_ids", "");
         params.append("Primary_sectors_ids[]", String(Sector_id));
-        // Assuming ownership type id for Public is 1
-        params.append("Ownership_types_ids[]", String(1));
+        // Explicit mapping: Public ownership type id is 7
+        params.append("Ownership_types_ids[]", String(7));
 
         const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
         const response = await fetch(url, {

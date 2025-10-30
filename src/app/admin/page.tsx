@@ -1545,7 +1545,7 @@ function SectorsTab() {
         <div className="flex gap-2 mb-2">
           <input
             type="text"
-            className="flex-1 p-2 border rounded"
+            className="flex-1 p-2 rounded border"
             placeholder="Search companies by name"
             value={companyQuery}
             onChange={(e) => setCompanyQuery(e.target.value)}
@@ -1649,7 +1649,7 @@ function SectorsTab() {
       </div>
 
       <div className="p-4 bg-gray-50 rounded border">
-        <h3 className="mb-2 font-semibold text-sm">Preview</h3>
+        <h3 className="mb-2 text-sm font-semibold">Preview</h3>
         <div className="text-sm text-gray-700">
           {selectedCompany && selectedSectorIds.length > 0 ? (
             <>
