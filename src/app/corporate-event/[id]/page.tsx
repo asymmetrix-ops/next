@@ -1028,7 +1028,7 @@ const CorporateEventDetail = ({
                         const advisedId: number | undefined =
                           anyA?.counterparty_advised;
                         const cp = advisedId
-                          ? counterpartiesById.get(advisedId)
+                          ? counterpartiesById?.get?.(advisedId)
                           : undefined;
                         const nc = cp?._new_company;
                         const isInvestor = Boolean(nc?._is_that_investor);
@@ -1162,7 +1162,7 @@ const CorporateEventDetail = ({
                           const advisedId: number | undefined =
                             anyA?.counterparty_advised;
                           const cp = advisedId
-                            ? counterpartiesById.get(advisedId)
+                            ? counterpartiesById?.get?.(advisedId)
                             : undefined;
                           const nc = cp?._new_company;
                           const isInvestor = Boolean(nc?._is_that_investor);

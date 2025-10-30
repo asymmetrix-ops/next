@@ -2046,7 +2046,7 @@ const CompanySection = ({
           `Export failed: ${resp.status} ${resp.statusText} - ${errText}`
         );
       }
-      const contentType = resp.headers.get("content-type") || "";
+      const contentType = resp.headers?.get?.("content-type") || "";
       if (
         contentType.includes("application/json") ||
         contentType.includes("text/json")
@@ -2965,7 +2965,7 @@ const CompaniesPage = () => {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const s = params.get("search") || undefined;
+      const s = params?.get?.("search") || undefined;
       setInitialSearch(s);
     }
   }, []);
