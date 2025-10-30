@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { authService } from "@/lib/auth";
 
@@ -11,8 +11,9 @@ const Header = () => {
   const [activeTab, setActiveTab] = useState("Dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
-  const pathname = usePathname();
   const { isTrialActive } = useAuth();
+  const isAllowedTrialRoute = (href: string) =>
+    href === "/home-user" || href === "/insights-analysis";
 
   const handleLogout = () => {
     authService.logout();
@@ -191,9 +192,9 @@ const Header = () => {
               href="/"
               style={styles.logo}
               onClick={(e) => {
-                if (isTrialActive && pathname === "/home-user") {
+                if (isTrialActive) {
                   e.preventDefault();
-                  router.push("/insights-analysis");
+                  router.push("/home-user");
                 }
               }}
             >
@@ -236,10 +237,13 @@ const Header = () => {
                   }
                 };
 
+                const href = getHref(item);
+                const isDisabled = isTrialActive && !isAllowedTrialRoute(href);
+
                 return (
                   <Link
                     key={item}
-                    href={getHref(item)}
+                    href={href}
                     style={{
                       ...styles.navLink,
                       ...(activeTab === item
@@ -248,9 +252,8 @@ const Header = () => {
                     }}
                     className="nav-link"
                     onClick={(e) => {
-                      if (isTrialActive && pathname === "/home-user") {
+                      if (isDisabled) {
                         e.preventDefault();
-                        router.push("/insights-analysis");
                         return;
                       }
                       setActiveTab(item);
@@ -351,10 +354,13 @@ const Header = () => {
               }
             };
 
+            const href = getHref(item);
+            const isDisabled = isTrialActive && !isAllowedTrialRoute(href);
+
             return (
               <Link
                 key={item}
-                href={getHref(item)}
+                href={href}
                 style={{
                   ...styles.navLinkMobile,
                   ...(activeTab === item
@@ -362,9 +368,8 @@ const Header = () => {
                     : { color: "#6b7280" }),
                 }}
                 onClick={(e) => {
-                  if (isTrialActive && pathname === "/home-user") {
+                  if (isDisabled) {
                     e.preventDefault();
-                    router.push("/insights-analysis");
                     return;
                   }
                   setActiveTab(item);

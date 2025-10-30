@@ -2666,6 +2666,11 @@ const CompanyDetail = () => {
                       company.have_subsidiaries_companies
                         ?.Subsidiaries_companies ?? []
                     )
+                      .filter(
+                        // Ensure valid objects with numeric ids before rendering
+                        (s): s is { id: number } =>
+                          Boolean(s && typeof (s as any).id === "number")
+                      )
                       .slice(0, showAllSubsidiaries ? undefined : 3)
                       .map((subsidiary) => (
                         <tr key={subsidiary.id}>
