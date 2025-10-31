@@ -3,15 +3,15 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { trackLogout } from "@/lib/tracking";
 
 const Header = () => {
-  const [activeTab, setActiveTab] = useState("Dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
   const { isTrialActive, user, logout } = useAuth();
+  const pathname = usePathname();
   const isAllowedTrialRoute = (href: string) =>
     href === "/home-user" || href === "/insights-analysis";
 
@@ -248,7 +248,7 @@ const Header = () => {
                     href={href}
                     style={{
                       ...styles.navLink,
-                      ...(activeTab === item
+                      ...(pathname === href
                         ? styles.activeLink
                         : styles.inactiveLink),
                     }}
@@ -258,15 +258,14 @@ const Header = () => {
                         e.preventDefault();
                         return;
                       }
-                      setActiveTab(item);
                     }}
                     onMouseOver={(e) => {
-                      if (activeTab !== item) {
+                      if (pathname !== href) {
                         (e.target as HTMLElement).style.color = "#111827";
                       }
                     }}
                     onMouseOut={(e) => {
-                      if (activeTab !== item) {
+                      if (pathname !== href) {
                         (e.target as HTMLElement).style.color = "#6b7280";
                       }
                     }}
@@ -365,7 +364,7 @@ const Header = () => {
                 href={href}
                 style={{
                   ...styles.navLinkMobile,
-                  ...(activeTab === item
+                  ...(pathname === href
                     ? { color: "#595959", fontWeight: "600" }
                     : { color: "#6b7280" }),
                 }}
@@ -374,7 +373,7 @@ const Header = () => {
                     e.preventDefault();
                     return;
                   }
-                  setActiveTab(item);
+
                   setIsMobileMenuOpen(false);
                 }}
               >

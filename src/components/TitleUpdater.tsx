@@ -19,6 +19,10 @@ const titleMap: Array<{
   { pattern: /^\/sectors(\/)?$/, title: () => "Asymmetrix – Sectors" },
   { pattern: /^\/sector\/[^/]+$/, title: () => "Asymmetrix – Sector" },
   {
+    pattern: /^\/insights-analysis(\/)?$/,
+    title: () => "Asymmetrix – Insights & Analysis",
+  },
+  {
     pattern: /^\/corporate-events(\/)?$/,
     title: () => "Asymmetrix – Corporate Events",
   },
