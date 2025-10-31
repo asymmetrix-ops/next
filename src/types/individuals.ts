@@ -54,6 +54,7 @@ export interface CurrentRole {
 
 // Company Interface
 export interface Company {
+  id?: number;
   name: string;
   locations_id: number;
   sectors_id: number[];
