@@ -244,6 +244,26 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
       // ignore
     }
   }
+
+  // If still missing user on page_view, try to refresh from /auth/me once
+  if (isPageView && finalUserId === 0) {
+    try {
+      const token = authService.getToken?.();
+      if (token) {
+        const refreshed = await authService.fetchMe?.();
+        if (refreshed && (refreshed as any).id) {
+          // Persist for subsequent events
+          authService.setUser?.(refreshed as any);
+          const parsed = Number.parseInt((refreshed as any).id as unknown as string, 10);
+          if (Number.isFinite(parsed)) {
+            finalUserId = parsed as number;
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
   if (isPageView) {
     const key = `${input.eventType}|${finalUserId}|${
       input.pageVisit ?? getPageVisit()
