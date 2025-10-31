@@ -98,9 +98,93 @@ async function waitForStableTitle(
   }
 }
 
+async function waitForRenderSettled(
+  maxWaitMs = 3000,
+  quietMs = 500
+): Promise<void> {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+
+  const waitForLoad = async () => {
+    if (document.readyState === "complete") return;
+    await new Promise<void>((resolve) => {
+      const onLoad = () => {
+        window.removeEventListener("load", onLoad);
+        resolve();
+      };
+      window.addEventListener("load", onLoad);
+      // Fallback timeout
+      setTimeout(() => {
+        window.removeEventListener("load", onLoad);
+        resolve();
+      }, Math.min(maxWaitMs, 1500));
+    });
+  };
+
+  const waitForFramesAndIdle = async () => {
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    await new Promise<void>((resolve) => {
+      type RequestIdle = (
+        cb: () => void,
+        opts?: { timeout?: number }
+      ) => number;
+      const w = window as unknown as { requestIdleCallback?: RequestIdle };
+      const ric = w.requestIdleCallback;
+      if (typeof ric === "function") {
+        ric(() => resolve(), { timeout: 1000 });
+      } else {
+        setTimeout(() => resolve(), 200);
+      }
+    });
+  };
+
+  const waitForMutationQuiet = async () => {
+    let lastChange = Date.now();
+    let observer: MutationObserver | null = null;
+    await new Promise<void>((resolve) => {
+      const check = () => {
+        if (Date.now() - lastChange >= quietMs) {
+          observer?.disconnect();
+          clearInterval(intervalId);
+          resolve();
+        }
+      };
+      const target = document.body || document.documentElement;
+      if (target) {
+        observer = new MutationObserver(() => {
+          lastChange = Date.now();
+        });
+        observer.observe(target, {
+          childList: true,
+          subtree: true,
+          attributes: false,
+          characterData: false,
+        });
+      }
+      const intervalId = window.setInterval(check, 50);
+      // Initial check in case things are already quiet
+      check();
+      // Hard stop after maxWaitMs
+      setTimeout(() => {
+        observer?.disconnect();
+        clearInterval(intervalId);
+        resolve();
+      }, maxWaitMs);
+    });
+  };
+
+  await waitForLoad();
+  await waitForFramesAndIdle();
+  await waitForMutationQuiet();
+}
+
 export async function trackEvent(input: TrackingEventInput): Promise<void> {
   if (typeof window === "undefined") return;
   const isPageView = input.eventType === "page_view";
+  if (isPageView) {
+    // Heuristic: wait for render to settle to approximate "whole page rendered"
+    await waitForRenderSettled();
+  }
   const heading =
     input.pageHeading ??
     (isPageView ? await waitForStableTitle() : getPageHeading());
