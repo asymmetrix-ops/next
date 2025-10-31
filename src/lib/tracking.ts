@@ -10,6 +10,8 @@ export interface TrackingEventInput {
 }
 
 const SESSION_KEY = "asym_session_id";
+const RECENT_EVENTS_KEY = "asym_recent_events";
+const recentEvents = new Map<string, number>();
 
 export function getOrCreateSessionId(): string {
   if (typeof window === "undefined") return "";
@@ -23,6 +25,38 @@ export function getOrCreateSessionId(): string {
     return id;
   } catch {
     return "";
+  }
+}
+
+function shouldSendOnce(key: string, windowMs: number): boolean {
+  try {
+    const now = Date.now();
+    const lastInMemory = recentEvents.get(key) ?? 0;
+    if (now - lastInMemory < windowMs) return false;
+
+    // Load persisted recent events
+    const raw = sessionStorage.getItem(RECENT_EVENTS_KEY);
+    const obj: Record<string, number> = raw ? JSON.parse(raw) : {};
+    const lastPersisted = obj[key] ?? 0;
+    if (now - lastPersisted < windowMs) return false;
+
+    // Update caches
+    recentEvents.set(key, now);
+    obj[key] = now;
+    // Keep only recent entries to avoid growth
+    const cutoff = now - 5 * 60 * 1000;
+    for (const k of Object.keys(obj)) {
+      if (obj[k] < cutoff) delete obj[k];
+    }
+    sessionStorage.setItem(RECENT_EVENTS_KEY, JSON.stringify(obj));
+    return true;
+  } catch {
+    // Fallback: only in-memory
+    const now = Date.now();
+    const last = recentEvents.get(key) ?? 0;
+    if (now - last < windowMs) return false;
+    recentEvents.set(key, now);
+    return true;
   }
 }
 
@@ -209,6 +243,12 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
     } catch {
       // ignore
     }
+  }
+  if (isPageView) {
+    const key = `${input.eventType}|${finalUserId}|${
+      input.pageVisit ?? getPageVisit()
+    }`;
+    if (!shouldSendOnce(key, 2000)) return;
   }
   const payload = {
     user_id: finalUserId,
