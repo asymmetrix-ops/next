@@ -43,14 +43,72 @@ export function getPageHeading(): string {
   }
 }
 
+async function waitForStableTitle(
+  maxWaitMs = 2000,
+  stableMs = 300
+): Promise<string> {
+  if (typeof document === "undefined") return "";
+  try {
+    const start = Date.now();
+    let stableSince = Date.now();
+    let resolved = false;
+    let resolveFn: (value: string) => void;
+    const done = new Promise<string>((resolve) => {
+      resolveFn = resolve;
+    });
+
+    const titleEl = document.querySelector("head > title");
+    let lastTitle = document.title || "";
+
+    const checkResolve = () => {
+      if (resolved) return;
+      const now = Date.now();
+      if (now - stableSince >= stableMs || now - start >= maxWaitMs) {
+        resolved = true;
+        observer?.disconnect();
+        clearInterval(intervalId);
+        resolveFn!(document.title || "");
+      }
+    };
+
+    const observer = titleEl
+      ? new MutationObserver(() => {
+          const current = document.title || "";
+          if (current !== lastTitle) {
+            lastTitle = current;
+            stableSince = Date.now();
+          }
+        })
+      : null;
+
+    if (observer && titleEl) {
+      observer.observe(titleEl, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    }
+
+    const intervalId = window.setInterval(checkResolve, 50);
+    checkResolve();
+    return await done;
+  } catch {
+    return document.title || "";
+  }
+}
+
 export async function trackEvent(input: TrackingEventInput): Promise<void> {
   if (typeof window === "undefined") return;
+  const isPageView = input.eventType === "page_view";
+  const heading =
+    input.pageHeading ??
+    (isPageView ? await waitForStableTitle() : getPageHeading());
   const payload = {
     user_id: Number.isFinite(input.userId as number)
       ? (input.userId as number)
       : 0,
     page_visit: input.pageVisit ?? getPageVisit(),
-    page_heading: input.pageHeading ?? getPageHeading(),
+    page_heading: heading,
     session_id: input.sessionId ?? getOrCreateSessionId(),
     event_type: input.eventType,
   } as const;
