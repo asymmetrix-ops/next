@@ -10,13 +10,17 @@ export default function RouteTracker() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const lastKeyRef = useRef<string>("");
+  const lastUserIdRef = useRef<number>(-1);
 
   useEffect(() => {
     const key = `${pathname}?${searchParams?.toString() ?? ""}`;
-    if (key === lastKeyRef.current) return;
-    lastKeyRef.current = key;
     const userId = user?.id ? Number.parseInt(user.id, 10) : 0;
-    trackPageView(Number.isFinite(userId) ? userId : 0);
+    const safeUserId = Number.isFinite(userId) ? userId : 0;
+    if (key === lastKeyRef.current && lastUserIdRef.current === safeUserId)
+      return;
+    lastKeyRef.current = key;
+    lastUserIdRef.current = safeUserId;
+    trackPageView(safeUserId);
   }, [pathname, searchParams, user]);
 
   return null;

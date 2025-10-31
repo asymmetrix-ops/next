@@ -45,7 +45,7 @@ export function getPageHeading(): string {
 
 async function waitForStableTitle(
   maxWaitMs = 2000,
-  stableMs = 300
+  stableMs = 1000
 ): Promise<string> {
   if (typeof document === "undefined") return "";
   try {
@@ -57,7 +57,6 @@ async function waitForStableTitle(
       resolveFn = resolve;
     });
 
-    const titleEl = document.querySelector("head > title");
     let lastTitle = document.title || "";
 
     const checkResolve = () => {
@@ -71,8 +70,10 @@ async function waitForStableTitle(
       }
     };
 
-    const observer = titleEl
+    const headEl = document.head || document.querySelector("head");
+    const observer = headEl
       ? new MutationObserver(() => {
+          // Next.js may replace the <title> node entirely; always read document.title
           const current = document.title || "";
           if (current !== lastTitle) {
             lastTitle = current;
@@ -81,8 +82,8 @@ async function waitForStableTitle(
         })
       : null;
 
-    if (observer && titleEl) {
-      observer.observe(titleEl, {
+    if (observer && headEl) {
+      observer.observe(headEl, {
         childList: true,
         subtree: true,
         characterData: true,
