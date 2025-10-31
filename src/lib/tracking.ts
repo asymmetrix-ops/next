@@ -1,4 +1,5 @@
 export type TrackingEventType = "login" | "page_view" | "logout" | "error";
+import { authService } from "@/lib/auth";
 
 export interface TrackingEventInput {
   userId?: number;
@@ -188,10 +189,29 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
   const heading =
     input.pageHeading ??
     (isPageView ? await waitForStableTitle() : getPageHeading());
+  // Determine the most up-to-date user id at send time
+  let finalUserId: number = 0;
+  if (
+    typeof input.userId === "number" &&
+    Number.isFinite(input.userId) &&
+    input.userId !== 0
+  ) {
+    finalUserId = input.userId;
+  } else {
+    try {
+      const u = authService.getUser();
+      const parsed = u?.id
+        ? Number.parseInt(u.id as unknown as string, 10)
+        : NaN;
+      if (Number.isFinite(parsed)) {
+        finalUserId = parsed as number;
+      }
+    } catch {
+      // ignore
+    }
+  }
   const payload = {
-    user_id: Number.isFinite(input.userId as number)
-      ? (input.userId as number)
-      : 0,
+    user_id: finalUserId,
     page_visit: input.pageVisit ?? getPageVisit(),
     page_heading: heading,
     session_id: input.sessionId ?? getOrCreateSessionId(),
