@@ -343,6 +343,25 @@ const IndividualCard: React.FC<{ individual: Individual }> = ({
   individual,
 }) => {
   const { createClickableElement } = useRightClick();
+  // Resolve current company href using roles when possible
+  const resolveCompanyHref = (ind: Individual): string | null => {
+    try {
+      const currentRoles = Array.isArray(ind.roles)
+        ? ind.roles.filter((r) => String(r.Status).toLowerCase() === "current")
+        : [];
+      // Prefer role whose company name matches current_company
+      const byName = currentRoles.find(
+        (r) => (r as any).new_company?.name && r.new_company.name === ind.current_company
+      );
+      const target = byName || currentRoles[0];
+      const companyId = target?.employee_new_company_id;
+      if (companyId && Number.isFinite(companyId)) return `/company/${companyId}`;
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
   return (
     <div
       className="individual-card"
@@ -403,21 +422,22 @@ const IndividualCard: React.FC<{ individual: Individual }> = ({
         >
           <span style={{ color: "#4a5568" }}>Company:</span>
           {individual.current_company ? (
-            createClickableElement(
-              `/companies?search=${encodeURIComponent(
-                individual.current_company
-              )}`,
-              individual.current_company,
-              undefined,
-              {
-                fontWeight: "600",
-                maxWidth: "60%",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                display: "inline-block",
-              }
-            )
+            (() => {
+              const href = resolveCompanyHref(individual) ?? `/companies?search=${encodeURIComponent(individual.current_company)}`;
+              return createClickableElement(
+                href,
+                individual.current_company,
+                undefined,
+                {
+                  fontWeight: "600",
+                  maxWidth: "60%",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  display: "inline-block",
+                }
+              );
+            })()
           ) : (
             <span
               style={{
@@ -494,12 +514,10 @@ const IndividualsTable = ({
       </td>
       <td>
         {individual.current_company ? (
-          createClickableElement(
-            `/companies?search=${encodeURIComponent(
-              individual.current_company
-            )}`,
-            individual.current_company
-          )
+          (() => {
+            const href = resolveCompanyHref(individual) ?? `/companies?search=${encodeURIComponent(individual.current_company)}`;
+            return createClickableElement(href, individual.current_company);
+          })()
         ) : (
           <span style={{ color: "#6b7280" }}>Not available</span>
         )}
