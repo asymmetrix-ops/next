@@ -5,18 +5,20 @@ import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { authService } from "@/lib/auth";
+import { trackLogout } from "@/lib/tracking";
 
 const Header = () => {
   const [activeTab, setActiveTab] = useState("Dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
-  const { isTrialActive } = useAuth();
+  const { isTrialActive, user, logout } = useAuth();
   const isAllowedTrialRoute = (href: string) =>
     href === "/home-user" || href === "/insights-analysis";
 
   const handleLogout = () => {
-    authService.logout();
+    const userId = user?.id ? Number.parseInt(user.id, 10) : 0;
+    trackLogout(Number.isFinite(userId) ? userId : 0);
+    logout();
     router.push("/login");
   };
 

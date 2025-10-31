@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { authService } from "@/lib/auth";
+import { trackError, trackLogin } from "@/lib/tracking";
 import Image from "next/image";
 
 export default function LoginPage() {
@@ -23,9 +25,12 @@ export default function LoginPage() {
 
     try {
       await login(formData.email, formData.password);
+      const userId = Number(authService.getUser()?.id) || 0;
+      trackLogin(userId);
       toast.success("Login successful!");
       router.push("/home-user");
-    } catch {
+    } catch (err) {
+      trackError(`Login failed: ${(err as Error)?.message || "unknown"}`);
       toast.error("Login failed. Please check your credentials.");
     } finally {
       setIsLoading(false);
@@ -43,11 +48,11 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#F9FAFC]">
       {/* Header (white variant of home header) */}
-      <header className="relative flex justify-between items-center px-4 sm:px-6 py-3 bg-white border-b border-gray-200">
-        <div className="flex items-center gap-3">
+      <header className="flex relative justify-between items-center px-4 py-3 bg-white border-b border-gray-200 sm:px-6">
+        <div className="flex gap-3 items-center">
           <Link
             href="/"
-            className="flex items-center gap-3 text-gray-900 no-underline"
+            className="flex gap-3 items-center text-gray-900 no-underline"
           >
             <Image
               src="/icons/logo.svg"
@@ -56,31 +61,31 @@ export default function LoginPage() {
               height={40}
               style={{ borderRadius: "50%" }}
             />
-            <span className="font-bold tracking-wide hidden sm:inline">
+            <span className="hidden font-bold tracking-wide sm:inline">
               ASYMMETRIX
             </span>
           </Link>
         </div>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-6">
+        <nav className="hidden gap-6 items-center md:flex">
           <a
             href="https://asymmetrixintelligence.substack.com/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-gray-800 hover:text-blue-700 no-underline"
+            className="text-gray-800 no-underline hover:text-blue-700"
           >
             Substack
           </a>
           <Link
             href="/about-us"
-            className="text-gray-800 hover:text-blue-700 no-underline"
+            className="text-gray-800 no-underline hover:text-blue-700"
           >
             About Us
           </Link>
           <Link
             href="/login"
-            className="font-semibold text-blue-600 hover:text-blue-700 no-underline"
+            className="font-semibold text-blue-600 no-underline hover:text-blue-700"
           >
             Log in
           </Link>
@@ -110,26 +115,26 @@ export default function LoginPage() {
 
         {/* Mobile nav */}
         {isMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 right-0 bg-white border-t border-gray-200 flex flex-col p-3 gap-2 z-50">
+          <div className="flex absolute right-0 left-0 top-full z-50 flex-col gap-2 p-3 bg-white border-t border-gray-200 md:hidden">
             <a
               href="https://asymmetrixintelligence.substack.com/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-800 no-underline py-2"
+              className="py-2 text-gray-800 no-underline"
               onClick={() => setIsMenuOpen(false)}
             >
               Substack
             </a>
             <Link
               href="/about-us"
-              className="text-gray-800 no-underline py-2"
+              className="py-2 text-gray-800 no-underline"
               onClick={() => setIsMenuOpen(false)}
             >
               About Us
             </Link>
             <Link
               href="/login"
-              className="text-blue-600 font-semibold no-underline py-2"
+              className="py-2 font-semibold text-blue-600 no-underline"
               onClick={() => setIsMenuOpen(false)}
             >
               Log in
