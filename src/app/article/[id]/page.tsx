@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { openArticlePdfWindow } from "@/utils/exportArticlePdf";
 
 // Types for the article detail page
 interface ArticleDetail {
@@ -23,10 +24,7 @@ interface ArticleDetail {
     sector_name: string;
     Sector_importance: string;
   }>;
-  companies_mentioned: Array<{
-    id: number;
-    name: string;
-  }>;
+  companies_mentioned: Array<{ id: number; name: string }>;
   Visibility: string;
   Related_Corporate_Event?: Array<{
     id: number;
@@ -37,6 +35,10 @@ interface ArticleDetail {
     announcement_date?: string;
     closed_date?: string;
     deal_type?: string;
+    target?: { id?: number; name?: string };
+    advisors?: Array<{ _new_company?: { id?: number; name?: string } }>;
+    primary_sectors?: Array<{ id?: number; sector_name?: string }>;
+    secondary_sectors?: Array<{ id?: number; sector_name?: string }>;
   }>;
   Related_Documents: Array<{
     access: string;
@@ -226,8 +228,75 @@ const ArticleDetailPage = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: ArticleDetail = await response.json();
-      setArticle(data);
+      const json: unknown = await response.json();
+      const raw = (Array.isArray(json) ? (json[0] as unknown) : json) as
+        | ArticleDetail
+        | undefined;
+      if (!raw || typeof raw !== "object") {
+        setError("Article not found");
+        return;
+      }
+      const tryParse = <T,>(val: unknown): T | undefined => {
+        if (Array.isArray(val)) return val as unknown as T;
+        if (typeof val === "string" && val.trim()) {
+          try {
+            return JSON.parse(val) as T;
+          } catch {
+            return undefined;
+          }
+        }
+        return undefined;
+      };
+
+      const normalized = {
+        ...raw,
+        sectors:
+          tryParse<
+            Array<{
+              id: number;
+              sector_name: string;
+              Sector_importance: string;
+            }>
+          >(raw.sectors) || [],
+        companies_mentioned:
+          tryParse<Array<{ id: number; name: string }>>(
+            raw.companies_mentioned
+          ) || [],
+        Related_Corporate_Event:
+          tryParse<
+            Array<{
+              id: number;
+              created_at?: number;
+              description?: string;
+              long_description?: string;
+              deal_status?: string;
+              announcement_date?: string;
+              closed_date?: string;
+              deal_type?: string;
+              target?: { id?: number; name?: string };
+              advisors?: Array<{
+                _new_company?: { id?: number; name?: string };
+              }>;
+              primary_sectors?: Array<{ id?: number; sector_name?: string }>;
+              secondary_sectors?: Array<{ id?: number; sector_name?: string }>;
+            }>
+          >(raw.Related_Corporate_Event) || [],
+        Related_Documents:
+          tryParse<
+            Array<{
+              access: string;
+              path: string;
+              name: string;
+              type: string;
+              size: number;
+              mime: string;
+              meta: { validated: boolean };
+              url: string;
+            }>
+          >(raw.Related_Documents) || [],
+      } as ArticleDetail;
+
+      setArticle(normalized);
     } catch (error) {
       console.error("Error fetching article:", error);
       setError(
@@ -571,6 +640,35 @@ const ArticleDetailPage = () => {
             <div style={styles.section}>
               <h2 style={styles.sectionTitle}>Published</h2>
               <p style={styles.date}>{formatDate(article.Publication_Date)}</p>
+            </div>
+
+            {/* Export PDF Button */}
+            <div style={styles.section}>
+              <button
+                onClick={() => openArticlePdfWindow(article)}
+                style={{
+                  backgroundColor: "#fff",
+                  color: "#000",
+                  fontWeight: 600,
+                  padding: "10px 14px",
+                  borderRadius: 6,
+                  border: "1px solid #cbd5e1",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  width: "100%",
+                  textAlign: "center",
+                }}
+                onMouseOver={(e) =>
+                  ((e.target as HTMLButtonElement).style.backgroundColor =
+                    "#f8fafc")
+                }
+                onMouseOut={(e) =>
+                  ((e.target as HTMLButtonElement).style.backgroundColor =
+                    "#fff")
+                }
+              >
+                Export PDF
+              </button>
             </div>
 
             {/* Companies Section */}
