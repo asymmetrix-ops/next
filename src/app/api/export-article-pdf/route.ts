@@ -177,7 +177,6 @@ export async function POST(req: NextRequest) {
       .join("");
 
     const style = `
-        @page { size: A4; margin: 0; }
         :root { --text:#0b1020; --muted:#5a6272; --brand:#0a66da; --rule:#e7e9ee; }
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; }
@@ -188,21 +187,22 @@ export async function POST(req: NextRequest) {
         }
 
         @page {
-  margin: 25mm 20mm; /* uniform top/bottom/side padding for automatically paginated content */
-}
+          size: A4;
+          margin: 25mm 20mm; /* adds consistent top/bottom + side margins on all pages */
+        }
 
-.pdf-page {
-  width: 210mm;
-  min-height: 297mm;
-  padding: 25mm 20mm;   /* ✅ top & bottom padding inside each page */
-  page-break-after: always;
-  position: relative;
-  background: white;
-}
+        .pdf-page {
+          padding: 0; /* inner padding removed, page margins now handled by @page */
+          width: 210mm;
+          min-height: 297mm;
+          page-break-after: always;
+          position: relative;
+          background: white;
+        }
 
-.pdf-page:last-child {
-  page-break-after: auto;
-}
+        .pdf-page:last-child {
+          page-break-after: auto;
+        }
         .logo-header { 
             display: flex; 
             align-items: center; 
@@ -443,8 +443,8 @@ export async function POST(req: NextRequest) {
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
-      displayHeaderFooter: false, // ✅ no manual header/footer spacing
-      margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" }, // ✅ full-bleed HTML control
+      displayHeaderFooter: false,
+      margin: { top: "25mm", right: "20mm", bottom: "25mm", left: "20mm" },
     });
     await browser.close();
 
