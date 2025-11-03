@@ -7,7 +7,7 @@ export interface CorporateEventCSVRow {
   "Target HQ": string;
   "Primary Sector": string;
   "Secondary Sectors": string;
-  "Investment Type": string;
+  "Deal Type": string;
   "Amount (m)": string;
   "EV (m)": string;
   "Buyer(s)/Investor(s)": string;
@@ -117,7 +117,7 @@ export class CSVExporter {
         "Secondary Sectors":
           formatSectorList(target?.secondary_sectors) ||
           this.formatSectors(target?._sectors_secondary),
-        "Investment Type": event.deal_type || "Not Available",
+        "Deal Type": event.deal_type || "Not Available",
         "Amount (m)": this.formatCurrency(
           event.investment_data?.investment_amount_m,
           event.investment_data?.currency?.Currency

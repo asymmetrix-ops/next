@@ -234,9 +234,7 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
   } else {
     try {
       const u = authService.getUser();
-      const parsed = u?.id
-        ? Number.parseInt(u.id as unknown as string, 10)
-        : NaN;
+      const parsed = u?.id ? Number.parseInt(u.id, 10) : NaN;
       if (Number.isFinite(parsed)) {
         finalUserId = parsed as number;
       }
@@ -251,10 +249,10 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
       const token = authService.getToken?.();
       if (token) {
         const refreshed = await authService.fetchMe?.();
-        if (refreshed && (refreshed as any).id) {
+        if (refreshed && typeof refreshed.id === "string") {
           // Persist for subsequent events
-          authService.setUser?.(refreshed as any);
-          const parsed = Number.parseInt((refreshed as any).id as unknown as string, 10);
+          authService.setUser?.(refreshed);
+          const parsed = Number.parseInt(refreshed.id, 10);
           if (Number.isFinite(parsed)) {
             finalUserId = parsed as number;
           }

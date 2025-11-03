@@ -346,6 +346,8 @@ const CorporateEventsTable = ({
       })}m`;
     };
 
+    const isPartnership = /partnership/i.test(event.deal_type || "");
+
     return (
       <div className="corporate-event-card">
         <div className="corporate-event-card-header">
@@ -405,18 +407,22 @@ const CorporateEventsTable = ({
               <span className="corporate-event-card-info-value">N/A</span>
             )}
           </div>
-          <div className="corporate-event-card-info-item corporate-event-card-info-full-width">
-            <span className="corporate-event-card-info-label">Investment:</span>
-            <span
-              className="corporate-event-card-info-value"
-              style={{ textAlign: "right" }}
-            >
-              {formatCurrency(
-                event.investment_data?.investment_amount_m,
-                event.investment_data?.currency?.Currency
-              )}
-            </span>
-          </div>
+          {!isPartnership && (
+            <div className="corporate-event-card-info-item corporate-event-card-info-full-width">
+              <span className="corporate-event-card-info-label">
+                Investment:
+              </span>
+              <span
+                className="corporate-event-card-info-value"
+                style={{ textAlign: "right" }}
+              >
+                {formatCurrency(
+                  event.investment_data?.investment_amount_m,
+                  event.investment_data?.currency?.Currency
+                )}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -669,6 +675,7 @@ const CorporateEventsTable = ({
               "Not Available";
             const primaryText = derivePrimaryFromCompany(target);
             const secondaryText = deriveSecondaryFromCompany(target);
+            const isPartnership = /partnership/i.test(event.deal_type || "");
             return (
               <tr key={event.id || index}>
                 {/* Event Details */}
@@ -711,187 +718,205 @@ const CorporateEventsTable = ({
                       <span>{targetName}</span>
                     )}
                   </div>
-                  <div className="muted-row">
-                    <strong>Buyer(s) / Investor(s):</strong>{" "}
-                    {Array.isArray(event.other_counterparties) &&
-                    event.other_counterparties.length > 0
-                      ? (() => {
-                          const buyers = event.other_counterparties.filter(
-                            (cp) => {
-                              const status =
-                                cp._counterparty_type?.counterparty_status ||
-                                "";
-                              return /investor|acquirer/i.test(status);
-                            }
-                          );
-                          if (buyers.length === 0)
-                            return <span>Not Available</span>;
-                          return buyers.map((counterparty, subIndex) => {
-                            const nc = counterparty._new_company as
-                              | {
-                                  id?: number;
-                                  name: string;
-                                  _is_that_investor?: boolean;
-                                  _is_that_data_analytic_company?: boolean;
-                                  _url?: string;
-                                  _investor_profile_id?: number;
-                                }
-                              | undefined;
-                            if (!nc) {
+                  {!isPartnership && (
+                    <div className="muted-row">
+                      <strong>Buyer(s) / Investor(s):</strong>{" "}
+                      {Array.isArray(event.other_counterparties) &&
+                      event.other_counterparties.length > 0
+                        ? (() => {
+                            const buyers = event.other_counterparties.filter(
+                              (cp) => {
+                                const status =
+                                  cp._counterparty_type?.counterparty_status ||
+                                  "";
+                                return /investor|acquirer/i.test(status);
+                              }
+                            );
+                            if (buyers.length === 0)
+                              return <span>Not Available</span>;
+                            return buyers.map((counterparty, subIndex) => {
+                              const nc = counterparty._new_company as
+                                | {
+                                    id?: number;
+                                    name: string;
+                                    _is_that_investor?: boolean;
+                                    _is_that_data_analytic_company?: boolean;
+                                    _url?: string;
+                                    _investor_profile_id?: number;
+                                  }
+                                | undefined;
+                              if (!nc) {
+                                return (
+                                  <span key={subIndex}>
+                                    Not Available
+                                    {subIndex < buyers.length - 1 && ", "}
+                                  </span>
+                                );
+                              }
+                              const name = nc.name;
+                              let url = "";
+                              const investorProfileId = nc._investor_profile_id;
+                              const cpId =
+                                (
+                                  counterparty as {
+                                    new_company_counterparty?: number;
+                                  }
+                                ).new_company_counterparty || nc.id;
+                              if (nc._is_that_investor) {
+                                url =
+                                  typeof investorProfileId === "number" &&
+                                  investorProfileId > 0
+                                    ? `/investors/${investorProfileId}`
+                                    : typeof cpId === "number"
+                                    ? `/investors/${cpId}`
+                                    : "";
+                              } else if (nc._is_that_data_analytic_company) {
+                                url =
+                                  typeof cpId === "number"
+                                    ? `/company/${cpId}`
+                                    : "";
+                              } else if (
+                                typeof nc._url === "string" &&
+                                nc._url
+                              ) {
+                                url = nc._url.replace(
+                                  /\/(?:investor)\//,
+                                  "/investors/"
+                                );
+                              }
                               return (
                                 <span key={subIndex}>
-                                  Not Available
+                                  {url ? (
+                                    <a href={url} className="link-blue">
+                                      {name}
+                                    </a>
+                                  ) : (
+                                    <span style={{ color: "#000" }}>
+                                      {name}
+                                    </span>
+                                  )}
                                   {subIndex < buyers.length - 1 && ", "}
                                 </span>
                               );
-                            }
-                            const name = nc.name;
-                            let url = "";
-                            const investorProfileId = nc._investor_profile_id;
-                            const cpId =
-                              (
-                                counterparty as {
-                                  new_company_counterparty?: number;
-                                }
-                              ).new_company_counterparty || nc.id;
-                            if (nc._is_that_investor) {
-                              url =
-                                typeof investorProfileId === "number" &&
-                                investorProfileId > 0
-                                  ? `/investors/${investorProfileId}`
-                                  : typeof cpId === "number"
-                                  ? `/investors/${cpId}`
-                                  : "";
-                            } else if (nc._is_that_data_analytic_company) {
-                              url =
-                                typeof cpId === "number"
-                                  ? `/company/${cpId}`
-                                  : "";
-                            } else if (typeof nc._url === "string" && nc._url) {
-                              url = nc._url.replace(
-                                /\/(?:investor)\//,
-                                "/investors/"
-                              );
-                            }
-                            return (
-                              <span key={subIndex}>
-                                {url ? (
-                                  <a href={url} className="link-blue">
-                                    {name}
-                                  </a>
-                                ) : (
-                                  <span style={{ color: "#000" }}>{name}</span>
-                                )}
-                                {subIndex < buyers.length - 1 && ", "}
-                              </span>
+                            });
+                          })()
+                        : "Not Available"}
+                    </div>
+                  )}
+                  {!isPartnership && (
+                    <div className="muted-row">
+                      <strong>Seller(s):</strong>{" "}
+                      {Array.isArray(event.other_counterparties) &&
+                      event.other_counterparties.length > 0
+                        ? (() => {
+                            const sellers = event.other_counterparties.filter(
+                              (cp) => {
+                                const status =
+                                  cp._counterparty_type?.counterparty_status ||
+                                  "";
+                                return /divestor|seller|vendor/i.test(status);
+                              }
                             );
-                          });
-                        })()
-                      : "Not Available"}
-                  </div>
-                  <div className="muted-row">
-                    <strong>Seller(s):</strong>{" "}
-                    {Array.isArray(event.other_counterparties) &&
-                    event.other_counterparties.length > 0
-                      ? (() => {
-                          const sellers = event.other_counterparties.filter(
-                            (cp) => {
-                              const status =
-                                cp._counterparty_type?.counterparty_status ||
-                                "";
-                              return /divestor|seller|vendor/i.test(status);
-                            }
-                          );
-                          if (sellers.length === 0)
-                            return <span>Not Available</span>;
-                          return sellers.map((counterparty, subIndex) => {
-                            const nc = counterparty._new_company as
-                              | {
-                                  id?: number;
-                                  name: string;
-                                  _is_that_investor?: boolean;
-                                  _is_that_data_analytic_company?: boolean;
-                                  _url?: string;
-                                  _investor_profile_id?: number;
-                                }
-                              | undefined;
-                            if (!nc) {
+                            if (sellers.length === 0)
+                              return <span>Not Available</span>;
+                            return sellers.map((counterparty, subIndex) => {
+                              const nc = counterparty._new_company as
+                                | {
+                                    id?: number;
+                                    name: string;
+                                    _is_that_investor?: boolean;
+                                    _is_that_data_analytic_company?: boolean;
+                                    _url?: string;
+                                    _investor_profile_id?: number;
+                                  }
+                                | undefined;
+                              if (!nc) {
+                                return (
+                                  <span key={subIndex}>
+                                    Not Available
+                                    {subIndex < sellers.length - 1 && ", "}
+                                  </span>
+                                );
+                              }
+                              const name = nc.name;
+                              let url = "";
+                              const investorProfileId = nc._investor_profile_id;
+                              const cpId =
+                                (
+                                  counterparty as {
+                                    new_company_counterparty?: number;
+                                  }
+                                ).new_company_counterparty || nc.id;
+                              if (nc._is_that_investor) {
+                                url =
+                                  typeof investorProfileId === "number" &&
+                                  investorProfileId > 0
+                                    ? `/investors/${investorProfileId}`
+                                    : typeof cpId === "number"
+                                    ? `/investors/${cpId}`
+                                    : "";
+                              } else if (nc._is_that_data_analytic_company) {
+                                url =
+                                  typeof cpId === "number"
+                                    ? `/company/${cpId}`
+                                    : "";
+                              } else if (
+                                typeof nc._url === "string" &&
+                                nc._url
+                              ) {
+                                url = nc._url.replace(
+                                  /\/(?:investor)\//,
+                                  "/investors/"
+                                );
+                              }
                               return (
                                 <span key={subIndex}>
-                                  Not Available
+                                  {url ? (
+                                    <a href={url} className="link-blue">
+                                      {name}
+                                    </a>
+                                  ) : (
+                                    <span style={{ color: "#000" }}>
+                                      {name}
+                                    </span>
+                                  )}
                                   {subIndex < sellers.length - 1 && ", "}
                                 </span>
                               );
-                            }
-                            const name = nc.name;
-                            let url = "";
-                            const investorProfileId = nc._investor_profile_id;
-                            const cpId =
-                              (
-                                counterparty as {
-                                  new_company_counterparty?: number;
-                                }
-                              ).new_company_counterparty || nc.id;
-                            if (nc._is_that_investor) {
-                              url =
-                                typeof investorProfileId === "number" &&
-                                investorProfileId > 0
-                                  ? `/investors/${investorProfileId}`
-                                  : typeof cpId === "number"
-                                  ? `/investors/${cpId}`
-                                  : "";
-                            } else if (nc._is_that_data_analytic_company) {
-                              url =
-                                typeof cpId === "number"
-                                  ? `/company/${cpId}`
-                                  : "";
-                            } else if (typeof nc._url === "string" && nc._url) {
-                              url = nc._url.replace(
-                                /\/(?:investor)\//,
-                                "/investors/"
-                              );
-                            }
-                            return (
-                              <span key={subIndex}>
-                                {url ? (
-                                  <a href={url} className="link-blue">
-                                    {name}
-                                  </a>
-                                ) : (
-                                  <span style={{ color: "#000" }}>{name}</span>
-                                )}
-                                {subIndex < sellers.length - 1 && ", "}
-                              </span>
-                            );
-                          });
-                        })()
-                      : "Not Available"}
-                  </div>
+                            });
+                          })()
+                        : "Not Available"}
+                    </div>
+                  )}
                 </td>
                 {/* Deal Details */}
                 <td>
                   <div className="muted-row">
-                    <strong>Investment Type:</strong>{" "}
+                    <strong>Deal Type:</strong>{" "}
                     {event.deal_type ? (
                       <span className="pill pill-blue">{event.deal_type}</span>
                     ) : (
                       <span>Not Available</span>
                     )}
                   </div>
-                  <div className="muted-row">
-                    <strong>Amount (m):</strong>{" "}
-                    {formatCurrency(
-                      event.investment_data?.investment_amount_m,
-                      event.investment_data?.currency?.Currency
-                    )}
-                  </div>
-                  <div className="muted-row">
-                    <strong>EV (m):</strong>{" "}
-                    {formatCurrency(
-                      event.ev_data?.enterprise_value_m,
-                      event.ev_data?.currency?.Currency
-                    )}
-                  </div>
+                  {!isPartnership && (
+                    <div className="muted-row">
+                      <strong>Amount (m):</strong>{" "}
+                      {formatCurrency(
+                        event.investment_data?.investment_amount_m,
+                        event.investment_data?.currency?.Currency
+                      )}
+                    </div>
+                  )}
+                  {!isPartnership && (
+                    <div className="muted-row">
+                      <strong>EV (m):</strong>{" "}
+                      {formatCurrency(
+                        event.ev_data?.enterprise_value_m,
+                        event.ev_data?.currency?.Currency
+                      )}
+                    </div>
+                  )}
                 </td>
                 {/* Advisors */}
                 <td>
