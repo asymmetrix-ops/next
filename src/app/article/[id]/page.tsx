@@ -28,6 +28,16 @@ interface ArticleDetail {
     name: string;
   }>;
   Visibility: string;
+  Related_Corporate_Event?: Array<{
+    id: number;
+    created_at?: number;
+    description?: string;
+    long_description?: string;
+    deal_status?: string;
+    announcement_date?: string;
+    closed_date?: string;
+    deal_type?: string;
+  }>;
   Related_Documents: Array<{
     access: string;
     path: string;
@@ -636,6 +646,49 @@ const ArticleDetailPage = () => {
                 </div>
               </div>
             )}
+            {(() => {
+              const ct = (
+                article.Content_Type ||
+                article.content_type ||
+                article.Content?.Content_type ||
+                article.Content?.Content_Type ||
+                ""
+              ).trim();
+              const isHotTake = /^(hot\s*take)$/i.test(ct);
+              const events = article.Related_Corporate_Event || [];
+              if (!isHotTake || !Array.isArray(events) || events.length === 0) {
+                return null;
+              }
+              return (
+                <div style={styles.section}>
+                  <h2 style={styles.sectionTitle}>Related Corporate Event</h2>
+                  <div style={styles.tagContainer}>
+                    {events.map((ev, idx) => {
+                      const id = ev?.id;
+                      const label = (ev?.description || "View event").trim();
+                      return typeof id === "number" && id > 0 ? (
+                        <Link
+                          key={id}
+                          href={`/corporate-event/${id}`}
+                          style={{
+                            ...styles.tag,
+                            textDecoration: "none",
+                            display: "inline-block",
+                          }}
+                          prefetch={false}
+                        >
+                          {label}
+                        </Link>
+                      ) : (
+                        <span key={`ev-${idx}`} style={styles.tag}>
+                          {label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
