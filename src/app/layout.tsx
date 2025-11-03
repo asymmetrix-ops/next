@@ -77,6 +77,14 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const branch = (
+    process.env.NEXT_PUBLIC_BRANCH ||
+    process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF ||
+    process.env.VERCEL_GIT_COMMIT_REF ||
+    ""
+  ).toLowerCase();
+  const showTestBanner =
+    branch === "develop" || process.env.NEXT_PUBLIC_TEST_BANNER === "1";
   return (
     <html lang="en">
       <head>
@@ -123,6 +131,14 @@ export default function RootLayout({
           <AnalyticsProvider>
             <TitleUpdater />
             {children}
+            {showTestBanner && (
+              <div className="fixed bottom-3 right-3 z-[9999] pointer-events-none">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-full border shadow-sm bg-amber-100/95 text-amber-900 border-amber-200">
+                  <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
+                  Test Environment{branch ? ` — ${branch}` : ""}
+                </div>
+              </div>
+            )}
             <Toaster position="top-right" />
           </AnalyticsProvider>
         </AuthProvider>
