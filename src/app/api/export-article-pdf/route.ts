@@ -160,270 +160,278 @@ export async function POST(req: NextRequest) {
               .join(", ") || "Not available"
           : "Not available";
         return `
-        <div class="rce-card">
-          <div class="rce-title">${escapeHtml(desc)}</div>
-          <div class="rce-grid">
-            <div><b>Date:</b> ${escapeHtml(date)}</div>
-            <div><b>Deal Type:</b> <span class="pill pill-blue">${escapeHtml(
-              type
-            )}</span></div>
-            <div><b>Target:</b> ${escapeHtml(target)}</div>
-            <div><b>Advisors:</b> ${escapeHtml(advisors)}</div>
-            <div><b>Primary:</b> ${escapeHtml(prim)}</div>
-            <div><b>Secondary:</b> ${escapeHtml(sec)}</div>
-          </div>
-        </div>`;
+            <div class="rce-card">
+            <div class="rce-title">${escapeHtml(desc)}</div>
+            <div class="rce-grid">
+                <div><b>Date:</b> ${escapeHtml(date)}</div>
+                <div><b>Deal Type:</b> <span class="pill pill-blue">${escapeHtml(
+                  type
+                )}</span></div>
+                <div><b>Target:</b> ${escapeHtml(target)}</div>
+                <div><b>Advisors:</b> ${escapeHtml(advisors)}</div>
+                <div><b>Primary:</b> ${escapeHtml(prim)}</div>
+                <div><b>Secondary:</b> ${escapeHtml(sec)}</div>
+            </div>
+            </div>`;
       })
       .join("");
 
     const style = `
-      @page { size: A4; margin: 0; }
-      :root { --text:#0b1020; --muted:#5a6272; --brand:#0a66da; --rule:#e7e9ee; }
-      * { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; }
-      body { 
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
-        color: var(--text);
-        counter-reset: page;
-      }
-      .pdf-page {
-        width: 210mm;
-        min-height: 297mm;
-        padding: 0 20mm 20mm 20mm; /* top spacing via header margin */
-        page-break-after: always;
-        position: relative;
-      }
-      .pdf-page:first-child { margin-top: -14mm; } /* reduce first page top by 14mm */
-      .pdf-page:last-child { page-break-after: auto; }
-      .logo-header { 
-        display: flex; 
-        align-items: center; 
-        gap: 8px; 
-        margin-bottom: 8mm;
-      }
-      .logo { width: 16px; height: 16px; }
-      .brand { 
-        font-weight: 800; 
-        letter-spacing: 0.3px; 
-        font-size: 12px; 
-        color: var(--brand); 
-        text-transform: uppercase; 
-      }
-      .page-header { margin: 0 0 6mm 0; }
-      .title { 
-        font-size: 22px; 
-        font-weight: 800; 
-        margin: 4px 0 8px 0; 
-        line-height: 1.3;
-        page-break-after: avoid;
-      }
-      .badge { 
-        display:inline-block; 
-        font-size:10px; 
-        color:#1e40af; 
-        background:#eff6ff; 
-        border:1px solid #bfdbfe; 
-        border-radius:999px; 
-        padding:4px 8px; 
-        font-weight:700; 
-      }
-      .pub-info { 
-        text-align: right; 
-        font-size: 12px; 
-        color: var(--muted); 
-        margin-bottom: 8px;
-      }
-      .pub-value { 
-        text-align: right; 
-        font-size: 12.5px; 
-        font-weight: 700; 
-      }
-      .strapline { 
-        font-size: 13px; 
-        color: var(--muted); 
-        margin: 0 0 10px 0;
-        page-break-after: avoid;
-      }
-      .rule { 
-        height: 1px; 
-        background: var(--rule); 
-        border: 0; 
-        margin: 12px 0; 
-      }
-      .content { 
-        font-size: 12.5px; 
-        line-height: 1.7; 
-      }
-      .content > *:first-child {
-        margin-top: 0 !important;
-      }
-      .content p { 
-        margin: 0 0 14px 0; 
-        orphans: 3; 
-        widows: 3;
-      }
-      .content strong {
-        font-weight: 700;
-      }
-      .content em {
-        font-style: italic;
-      }
-      .content ul { 
-        margin: 0 0 14px 0; 
-        padding-left: 26px; 
-        list-style-type: disc;
-        list-style-position: outside;
-      }
-      .content ul ul {
-        margin: 6px 0 6px 0;
-        list-style-type: circle;
-      }
-      .content ul ul ul {
-        list-style-type: square;
-      }
-      .content ol { 
-        margin: 0 0 14px 0; 
-        padding-left: 26px;
-        list-style-position: outside;
-      }
-      .content li { 
-        margin: 0 0 8px 0; 
-        line-height: 1.7;
-        padding-left: 6px;
-      }
-      .content li:last-child {
-        margin-bottom: 0;
-      }
-      .content li > p {
-        margin-bottom: 8px;
-      }
-      .content li > p:last-child {
-        margin-bottom: 0;
-      }
-      .content h1, .content h2, .content h3, .content h4 {
-        page-break-after: avoid;
-        margin: 20px 0 12px;
-        font-weight: 700;
-        line-height: 1.3;
-      }
-      .content h1 { font-size: 20px; }
-      .content h2 { font-size: 18px; }
-      .content h3 { font-size: 16px; }
-      .content h4 { font-size: 14px; }
-      .section-title { 
-        font-size: 14px; 
-        font-weight: 800; 
-        margin: 20px 0 10px;
-        page-break-after: avoid;
-      }
-      .section-block {
-        page-break-inside: avoid;
-        margin-bottom: 16px;
-      }
-      .tag-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 8px;
-      }
-      .tag { 
-        display:inline-block; 
-        padding: 6px 10px; 
-        border-radius: 6px; 
-        font-size: 12px; 
-        font-weight: 600; 
-        text-decoration: none; 
-      }
-      .companyTag { background-color: #e8f5e8; color: #2e7d32; }
-      .sectorTag { background-color: #f3e5f5; color: #7b1fa2; }
-      .rce-card { 
-        border: 1px solid #e2e8f0; 
-        border-radius: 10px; 
-        padding: 12px 14px; 
-        margin: 10px 0;
-        page-break-inside: avoid;
-      }
-      .rce-title { font-weight: 700; margin-bottom: 8px; font-size: 13px; }
-      .rce-grid { 
-        display:grid; 
-        grid-template-columns: 1fr 1fr; 
-        gap: 8px 16px; 
-        font-size: 12px; 
-      }
-      .pill { 
-        display: inline-block; 
-        padding: 2px 8px; 
-        font-size: 11px; 
-        border-radius: 999px; 
-        font-weight: 700; 
-      }
-      .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
-    `;
+        @page { size: A4; margin: 0; }
+        :root { --text:#0b1020; --muted:#5a6272; --brand:#0a66da; --rule:#e7e9ee; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+            color: var(--text);
+            counter-reset: page;
+        }
+
+        @page {
+  margin: 25mm 20mm; /* uniform top/bottom/side padding for automatically paginated content */
+}
+
+.pdf-page {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 25mm 20mm;   /* ✅ top & bottom padding inside each page */
+  page-break-after: always;
+  position: relative;
+  background: white;
+}
+
+.pdf-page:last-child {
+  page-break-after: auto;
+}
+        .logo-header { 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            margin-bottom: 8mm;
+        }
+        .logo { width: 16px; height: 16px; }
+        .brand { 
+            font-weight: 800; 
+            letter-spacing: 0.3px; 
+            font-size: 12px; 
+            color: var(--brand); 
+            text-transform: uppercase; 
+        }
+        .page-header { margin: 0 0 6mm 0; }
+        .title { 
+            font-size: 22px; 
+            font-weight: 800; 
+            margin: 4px 0 8px 0; 
+            line-height: 1.3;
+            page-break-after: avoid;
+        }
+        .badge { 
+            display:inline-block; 
+            font-size:10px; 
+            color:#1e40af; 
+            background:#eff6ff; 
+            border:1px solid #bfdbfe; 
+            border-radius:999px; 
+            padding:4px 8px; 
+            font-weight:700; 
+        }
+        .pub-info { 
+            text-align: right; 
+            font-size: 12px; 
+            color: var(--muted); 
+            margin-bottom: 8px;
+        }
+        .pub-value { 
+            text-align: right; 
+            font-size: 12.5px; 
+            font-weight: 700; 
+        }
+        .strapline { 
+            font-size: 13px; 
+            color: var(--muted); 
+            margin: 0 0 10px 0;
+            page-break-after: avoid;
+        }
+        .rule { 
+            height: 1px; 
+            background: var(--rule); 
+            border: 0; 
+            margin: 12px 0; 
+        }
+        .content { 
+            font-size: 12.5px; 
+            line-height: 1.7; 
+        }
+        .content > *:first-child {
+            margin-top: 0 !important;
+        }
+        .content p { 
+            margin: 0 0 14px 0; 
+            orphans: 3; 
+            widows: 3;
+        }
+        .content strong {
+            font-weight: 700;
+        }
+        .content em {
+            font-style: italic;
+        }
+        .content ul { 
+            margin: 0 0 14px 0; 
+            padding-left: 26px; 
+            list-style-type: disc;
+            list-style-position: outside;
+        }
+        .content ul ul {
+            margin: 6px 0 6px 0;
+            list-style-type: circle;
+        }
+        .content ul ul ul {
+            list-style-type: square;
+        }
+        .content ol { 
+            margin: 0 0 14px 0; 
+            padding-left: 26px;
+            list-style-position: outside;
+        }
+        .content li { 
+            margin: 0 0 8px 0; 
+            line-height: 1.7;
+            padding-left: 6px;
+        }
+        .content li:last-child {
+            margin-bottom: 0;
+        }
+        .content li > p {
+            margin-bottom: 8px;
+        }
+        .content li > p:last-child {
+            margin-bottom: 0;
+        }
+        .content h1, .content h2, .content h3, .content h4 {
+            page-break-after: avoid;
+            margin: 20px 0 12px;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+        .content h1 { font-size: 20px; }
+        .content h2 { font-size: 18px; }
+        .content h3 { font-size: 16px; }
+        .content h4 { font-size: 14px; }
+        .section-title { 
+            font-size: 14px; 
+            font-weight: 800; 
+            margin: 20px 0 10px;
+            page-break-after: avoid;
+        }
+        .section-block {
+            page-break-inside: avoid;
+            margin-bottom: 16px;
+        }
+        .tag-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .tag { 
+            display:inline-block; 
+            padding: 6px 10px; 
+            border-radius: 6px; 
+            font-size: 12px; 
+            font-weight: 600; 
+            text-decoration: none; 
+        }
+        .companyTag { background-color: #e8f5e8; color: #2e7d32; }
+        .sectorTag { background-color: #f3e5f5; color: #7b1fa2; }
+        .rce-card { 
+            border: 1px solid #e2e8f0; 
+            border-radius: 10px; 
+            padding: 12px 14px; 
+            margin: 10px 0;
+            page-break-inside: avoid;
+        }
+        .rce-title { font-weight: 700; margin-bottom: 8px; font-size: 13px; }
+        .rce-grid { 
+            display:grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 8px 16px; 
+            font-size: 12px; 
+        }
+        .pill { 
+            display: inline-block; 
+            padding: 2px 8px; 
+            font-size: 11px; 
+            border-radius: 999px; 
+            font-weight: 700; 
+        }
+        .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
+        `;
 
     const html = `<!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>Asymmetrix – ${escapeHtml(
-            article.Headline || "Article"
-          )}</title>
-          <style>${style}</style>
-        </head>
-        <body>
-          <div class="pdf-page">
-            <div class="logo-header">
-              <img class="logo" src="${logoUrl}" alt="Asymmetrix" />
-              <div class="brand">Asymmetrix</div>
-            </div>
-            
-            <div class="page-header">
-              <div class="title">Asymmetrix – ${escapeHtml(
-                ct || "Article"
-              )} – ${escapeHtml(article.Headline || "Untitled")}</div>
-              ${ct ? `<span class="badge">${escapeHtml(ct)}</span>` : ""}
-              <div class="pub-info">Published: <span class="pub-value">${escapeHtml(
-                article.Publication_Date || "Not available"
-              )}</span></div>
-            </div>
-            
-            ${
-              article.Strapline
-                ? `<div class="strapline">${escapeHtml(
-                    article.Strapline
-                  )}</div>`
-                : ""
-            }
-            <hr class="rule" />
+        <html>
+            <head>
+            <meta charset="utf-8" />
+            <title>Asymmetrix – ${escapeHtml(
+              article.Headline || "Article"
+            )}</title>
+            <style>${style}</style>
+            </head>
+            <body>
+            <div class="pdf-page">
+                <div class="logo-header">
+                <img class="logo" src="${logoUrl}" alt="Asymmetrix" />
+                <div class="brand">Asymmetrix</div>
+                </div>
+                
+                <div class="page-header">
+                <div class="title">Asymmetrix – ${escapeHtml(
+                  ct || "Article"
+                )} – ${escapeHtml(article.Headline || "Untitled")}</div>
+                ${ct ? `<span class="badge">${escapeHtml(ct)}</span>` : ""}
+                <div class="pub-info">Published: <span class="pub-value">${escapeHtml(
+                  article.Publication_Date || "Not available"
+                )}</span></div>
+                </div>
+                
+                ${
+                  article.Strapline
+                    ? `<div class="strapline">${escapeHtml(
+                        article.Strapline
+                      )}</div>`
+                    : ""
+                }
+                <hr class="rule" />
 
-            ${
-              relatedHtml
-                ? `<div class="section-block">
-                     <div class="section-title">Related Corporate Event</div>
-                     ${relatedHtml}
-                   </div>`
-                : ""
-            }
+                ${
+                  relatedHtml
+                    ? `<div class="section-block">
+                        <div class="section-title">Related Corporate Event</div>
+                        ${relatedHtml}
+                    </div>`
+                    : ""
+                }
 
-            <div class="content">${bodyContent}</div>
+                <div class="content">${bodyContent}</div>
 
-            <div class="section-block">
-              <div class="section-title">Companies</div>
-              <div class="tag-container">${
-                companiesHtml ||
-                `<span style='color:var(--muted);'>Not available</span>`
-              }</div>
+                <div class="section-block">
+                <div class="section-title">Companies</div>
+                <div class="tag-container">${
+                  companiesHtml ||
+                  `<span style='color:var(--muted);'>Not available</span>`
+                }</div>
+                </div>
+
+                <div class="section-block">
+                <div class="section-title">Sectors</div>
+                <div class="tag-container">${
+                  sectorsHtml ||
+                  `<span style='color:var(--muted);'>Not available</span>`
+                }</div>
+                </div>
             </div>
-
-            <div class="section-block">
-              <div class="section-title">Sectors</div>
-              <div class="tag-container">${
-                sectorsHtml ||
-                `<span style='color:var(--muted);'>Not available</span>`
-              }</div>
-            </div>
-          </div>
-        </body>
-      </html>`;
+            </body>
+        </html>`;
 
     const browser = await puppeteer.launch({
       args: ["--no-sandbox", "--disable-web-security"],
@@ -435,10 +443,8 @@ export async function POST(req: NextRequest) {
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
-      displayHeaderFooter: true,
-      margin: { top: "28mm", right: 0, bottom: "20mm", left: 0 },
-      headerTemplate: `<div style="height:28mm"></div>`,
-      footerTemplate: `<div></div>`,
+      displayHeaderFooter: false, // ✅ no manual header/footer spacing
+      margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" }, // ✅ full-bleed HTML control
     });
     await browser.close();
 
