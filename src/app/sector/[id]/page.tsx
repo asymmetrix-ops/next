@@ -4371,22 +4371,33 @@ const SectorDetailPage = () => {
                   </select>
                   <span className="text-sm text-slate-600">per page</span>
                   <div className="flex gap-2 items-center ml-4">
-                    {pagination.prevPage && (
-                      <button
-                        className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 hover:bg-blue-50"
-                        onClick={() => handlePageChange(pagination.prevPage!)}
-                      >
-                        ← Previous
-                      </button>
-                    )}
-                    {pagination.nextPage && (
-                      <button
-                        className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 hover:bg-blue-50"
-                        onClick={() => handlePageChange(pagination.nextPage!)}
-                      >
-                        Next →
-                      </button>
-                    )}
+                    <button
+                      className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                      onClick={() =>
+                        handlePageChange(
+                          Math.max(1, (pagination.curPage || 1) - 1)
+                        )
+                      }
+                      disabled={(pagination.curPage || 1) <= 1}
+                    >
+                      ← Previous
+                    </button>
+                    <button
+                      className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                      onClick={() =>
+                        handlePageChange(
+                          Math.min(
+                            pagination.pageTotal || 1,
+                            (pagination.curPage || 1) + 1
+                          )
+                        )
+                      }
+                      disabled={
+                        (pagination.curPage || 1) >= (pagination.pageTotal || 1)
+                      }
+                    >
+                      Next →
+                    </button>
                   </div>
                 </div>
               </div>
