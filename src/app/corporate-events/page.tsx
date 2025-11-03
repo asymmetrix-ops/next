@@ -1521,8 +1521,8 @@ const CorporateEventsPage = () => {
     .corporate-event-table { width: 100%; background: #fff; padding: 20px 24px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
     .corporate-event-table th, .corporate-event-table td { padding: 12px; text-align: left; vertical-align: top; border-bottom: 1px solid #e2e8f0; word-wrap: break-word; overflow-wrap: break-word; }
     .corporate-event-table th:nth-child(1) { width: 24%; }
-    .corporate-event-table th:nth-child(2) { width: 22%; }
-    .corporate-event-table th:nth-child(3) { width: 18%; }
+    .corporate-event-table th:nth-child(2) { width: 18%; }
+    .corporate-event-table th:nth-child(3) { width: 22%; }
     .corporate-event-table th:nth-child(4) { width: 18%; }
     .corporate-event-table th:nth-child(5) { width: 18%; }
     .corporate-event-table th {
