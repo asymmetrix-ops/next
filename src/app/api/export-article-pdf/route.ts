@@ -32,12 +32,42 @@ export async function POST(req: NextRequest) {
         | string;
     };
 
-    // Dynamic import to keep edge/webpack happy if module not installed
+    // Dynamic import with fallback to serverless chromium in production
     let puppeteer: any = null;
+    let executablePath: string | undefined;
+    let launchArgs: Array<string> = [
+      "--allow-file-access-from-files",
+      "--disable-gpu",
+      "--disable-dev-shm-usage",
+      "--disable-setuid-sandbox",
+      "--no-sandbox",
+      "--disable-web-security",
+    ];
     try {
-      puppeteer = await (eval("import('puppeteer')") as Promise<any>);
+      // Prefer puppeteer-core + @sparticuz/chromium in serverless
+      const [{ default: puppeteerCore }, chromium] = await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore - evaluated import to avoid bundling issues
+        eval("import('puppeteer-core')") as Promise<any>,
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        eval("import('@sparticuz/chromium')") as Promise<any>,
+      ]);
+      puppeteer = puppeteerCore;
+      executablePath = await chromium.executablePath();
+      if (Array.isArray(chromium.args)) {
+        launchArgs = chromium.args.concat(launchArgs);
+      }
     } catch {
-      return new Response("Puppeteer not installed", { status: 501 });
+      // Fallback to full puppeteer locally (dev) where Chrome is available
+      try {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        const mod = await (eval("import('puppeteer')") as Promise<any>);
+        puppeteer = mod;
+      } catch {
+        return new Response("Puppeteer not available", { status: 501 });
+      }
     }
 
     const escapeHtml = (str: string) =>
@@ -180,19 +210,23 @@ export async function POST(req: NextRequest) {
         :root { --text:#0b1020; --muted:#5a6272; --brand:#0a66da; --rule:#e7e9ee; }
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+        body {
+            /* Ensure consistent default font on serverless chrome */
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             color: var(--text);
             counter-reset: page;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
 
         @page {
           size: A4;
-          margin: 25mm 20mm; /* adds consistent top/bottom + side margins on all pages */
+          /* Keep modest margins; do not duplicate with page.pdf margins */
+          margin: 10mm 12mm;
         }
 
         .pdf-page {
-          padding: 0; /* inner padding removed, page margins now handled by @page */
+          padding: 0;
           width: 210mm;
           min-height: 297mm;
           page-break-after: always;
@@ -200,9 +234,7 @@ export async function POST(req: NextRequest) {
           background: white;
         }
 
-        .pdf-page:last-child {
-          page-break-after: auto;
-        }
+        .pdf-page:last-child { page-break-after: auto; }
         .logo-header { 
             display: flex; 
             align-items: center; 
@@ -434,17 +466,23 @@ export async function POST(req: NextRequest) {
         </html>`;
 
     const browser = await puppeteer.launch({
-      args: ["--no-sandbox", "--disable-web-security"],
+      args: launchArgs,
+      executablePath,
       headless: "new" as any,
+      defaultViewport: { width: 1280, height: 900, deviceScaleFactor: 2 },
     });
     const page = await browser.newPage();
+    try {
+      await page.emulateMediaType("screen");
+    } catch {}
     await page.setContent(html, { waitUntil: "networkidle0" });
 
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
       displayHeaderFooter: false,
-      margin: { top: "25mm", right: "20mm", bottom: "25mm", left: "20mm" },
+      preferCSSPageSize: true,
+      margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
     });
     await browser.close();
 

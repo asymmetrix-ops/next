@@ -11,6 +11,7 @@
     "clean": "node -e \"const fs = require('fs'); const path = require('path'); ['.next', 'out', '.vercel', 'node_modules/.cache'].forEach(dir => { try { fs.rmSync(path.join(process.cwd(), dir), { recursive: true, force: true }); console.log('Removed ' + dir); } catch(e) { if(e.code !== 'ENOENT') console.log('Not found: ' + dir); } });\""
   },
   "dependencies": {
+    "@sparticuz/chromium": "^119.0.0",
     "@heroicons/react": "^2.0.18",
     "@xano/js-sdk": "^2.0.1",
     "axios": "^1.9.0",
@@ -27,6 +28,7 @@
     "medium-zoom": "^1.0.6",
     "next": "^14.0.0",
     "puppeteer": "^24.28.0",
+    "puppeteer-core": "^24.28.0",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
     "react-cookie": "^7.0.1",
