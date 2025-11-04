@@ -1,11 +1,17 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import type { Range, Interval } from "@/types/yahoo-finance";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useRightClick } from "@/hooks/useRightClick";
+import { Card, CardContent } from "@/components/ui/card";
+import StockChartClient from "@/components/chart/StockChartClient";
+import FinanceSummaryClient from "@/components/chart/FinanceSummaryClient";
+import CompanySummaryCardClient from "@/components/chart/CompanySummaryCardClient";
+import NewsClient from "@/components/chart/NewsClient";
 import {
   LineChart,
   Line,
@@ -19,6 +25,51 @@ import { ContentArticle } from "@/types/insightsAnalysis";
 // import { locationsService } from "@/lib/locationsService"; // removed: sectors normalization not used anymore
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
+
+// Stock chart defaults and validators
+const DEFAULT_RANGE: Range = "1y";
+const DEFAULT_INTERVAL: Interval = "1d";
+
+const ALLOWED_RANGES: ReadonlyArray<Range> = ["1d", "1w", "1m", "3m", "1y"];
+const ALLOWED_INTERVALS: ReadonlyArray<Interval> = [
+  "1m",
+  "2m",
+  "5m",
+  "15m",
+  "30m",
+  "60m",
+  "90m",
+  "1h",
+  "1d",
+  "5d",
+  "1wk",
+  "1mo",
+  "3mo",
+];
+
+function validateRange(candidate: unknown): Range {
+  const c = String(candidate) as Range;
+  return (ALLOWED_RANGES as ReadonlyArray<string>).includes(c)
+    ? c
+    : DEFAULT_RANGE;
+}
+
+function validateInterval(range: Range, candidate: unknown): Interval {
+  const c = String(candidate) as Interval;
+  if ((ALLOWED_INTERVALS as ReadonlyArray<string>).includes(c)) return c;
+  // pick a sensible default based on range
+  switch (range) {
+    case "1d":
+      return "5m";
+    case "1w":
+    case "1m":
+    case "3m":
+      return "60m";
+    case "1y":
+    default:
+      return DEFAULT_INTERVAL;
+  }
+}
 const INVESTOR_SECTOR_IDS = new Set<number>([
   23877, // Venture Capital
   23699, // Private Equity
@@ -663,8 +714,8 @@ const CompanyDetail = () => {
   >({});
 
   // Stock chart parameters - hardcoded for S&P Global (company ID 2142)
-  const [chartRange, setChartRange] = useState<string>(DEFAULT_RANGE);
-  const [chartInterval, setChartInterval] = useState<string>(DEFAULT_INTERVAL);
+  const [chartRange] = useState<string>(DEFAULT_RANGE);
+  const [chartInterval] = useState<string>(DEFAULT_INTERVAL);
 
   // Removed sectors normalization/mapping; rely solely on API-provided primary sectors
 
@@ -1849,10 +1900,7 @@ const CompanyDetail = () => {
   `;
 
   const validatedRange = validateRange(chartRange);
-  const validatedInterval = validateInterval(
-    validatedRange,
-    chartInterval as Interval
-  );
+  const validatedInterval = validateInterval(validatedRange, chartInterval);
 
   return (
     <div className="company-detail-page" style={styles.container}>

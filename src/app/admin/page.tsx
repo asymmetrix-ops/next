@@ -1,11 +1,34 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  forwardRef,
+  createElement,
+} from "react";
 import EmailEditor from "react-email-editor";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useRouter } from "next/navigation";
+
+type EmailEditorWrapperProps = Record<string, unknown>;
+
+const EmailEditorWrapper = forwardRef<unknown, EmailEditorWrapperProps>(
+  (props, ref) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const Comp = EmailEditor as unknown as (props: any) => JSX.Element;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return createElement(Comp, {
+      ...(props as EmailEditorWrapperProps),
+      ref,
+    } as any);
+  }
+);
+EmailEditorWrapper.displayName = "EmailEditorWrapper";
 
 type SourceIdList = number[];
 
@@ -109,9 +132,9 @@ Target company: {query} ({domain})`;
   const [result, setResult] = useState<ValuationReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<
-    "valuation" | "emails" | "content" | "sectors"
-  >("valuation");
+  const [activeTab] = useState<"valuation" | "emails" | "content" | "sectors">(
+    "valuation"
+  );
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -153,52 +176,54 @@ Target company: {query} ({domain})`;
     <div className="px-4 py-10 mx-auto max-w-5xl">
       <h1 className="mb-6 text-2xl font-semibold">Admin: Valuation Report</h1>
 
-      <form onSubmit={onSubmit} className="mb-8 space-y-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label className="block mb-1 text-sm font-medium">Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Bloomberg L.P."
-              className="px-3 py-2 w-full rounded border"
-              required
-            />
-          </div>
-          <div>
-            <label className="block mb-1 text-sm font-medium">Domain</label>
-            <input
-              type="text"
-              value={domain}
-              onChange={(e) => setDomain(e.target.value)}
-              placeholder="bloomberg.com"
-              className="px-3 py-2 w-full rounded border"
-              required
-            />
-          </div>
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">
-            Prompt (optional)
-          </label>
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            className="px-3 py-2 w-full font-mono text-sm rounded border min-h-48"
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            If unchanged, the prompt will not be sent.
-          </p>
-        </div>
-        <button
-          type="submit"
-          disabled={submitting}
-          className="inline-flex items-center px-4 py-2 text-white bg-black rounded disabled:opacity-50"
-        >
-          {submitting ? "Querying…" : "Query"}
-        </button>
-      </form>
+      {activeTab === "valuation" && (
+        <>
+          <form onSubmit={onSubmit} className="mb-8 space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="block mb-1 text-sm font-medium">Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Bloomberg L.P."
+                  className="px-3 py-2 w-full rounded border"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Domain</label>
+                <input
+                  type="text"
+                  value={domain}
+                  onChange={(e) => setDomain(e.target.value)}
+                  placeholder="bloomberg.com"
+                  className="px-3 py-2 w-full rounded border"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium">
+                Prompt (optional)
+              </label>
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                className="px-3 py-2 w-full font-mono text-sm rounded border min-h-48"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                If unchanged, the prompt will not be sent.
+              </p>
+            </div>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="inline-flex items-center px-4 py-2 text-white bg-black rounded disabled:opacity-50"
+            >
+              {submitting ? "Querying…" : "Query"}
+            </button>
+          </form>
 
           {error && (
             <div className="p-3 mb-6 text-red-700 bg-red-50 rounded border border-red-300">
@@ -663,8 +688,8 @@ function EmailsTab() {
       </div>
 
       <div className="border" ref={editorContainerRef}>
-        <EmailEditor
-          ref={unlayerRef as unknown as never}
+        <EmailEditorWrapper
+          ref={unlayerRef}
           minHeight={500}
           onReady={() => setEditorReady(true)}
         />
@@ -1078,8 +1103,8 @@ function ContentTab() {
       </div>
 
       <div className="mt-3 border">
-        <EmailEditor
-          ref={contentUnlayerRef as unknown as never}
+        <EmailEditorWrapper
+          ref={contentUnlayerRef}
           minHeight={500}
           onReady={() => {
             try {
