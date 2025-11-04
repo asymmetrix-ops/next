@@ -2,15 +2,16 @@ import { CorporateEvent } from "@/types/corporateEvents";
 
 export interface CorporateEventCSVRow {
   Description: string;
-  "Date Announced": string;
+  Date: string;
   "Target Name": string;
-  "Target Country": string;
+  "Target HQ": string;
   "Primary Sector": string;
   "Secondary Sectors": string;
-  Type: string;
-  Investment: string;
-  "Enterprise Value": string;
-  "Other Counterparties": string;
+  "Deal Type": string;
+  "Amount (m)": string;
+  "EV (m)": string;
+  "Buyer(s)/Investor(s)": string;
+  "Seller(s)": string;
   Advisors: string;
   "Corporate Event Link": string;
 }
@@ -44,14 +45,51 @@ export class CSVExporter {
 
   static convertToCSVData(events: CorporateEvent[]): CorporateEventCSVRow[] {
     return events.map((event) => {
-      const target = event.target_counterparty?.new_company;
+      const target = event.target_counterparty?.new_company as
+        | {
+            name?: string;
+            country?: string;
+            _location?: { Country?: string };
+            // Legacy sector arrays
+            _sectors_primary?: { sector_name: string }[];
+            _sectors_secondary?: { sector_name: string }[];
+            // New API variant: arrays of strings or objects
+            primary_sectors?: Array<string | { sector_name: string }>;
+            secondary_sectors?: Array<string | { sector_name: string }>;
+          }
+        | undefined;
 
-      // Format other counterparties
-      const otherCounterparties =
-        event.other_counterparties
-          ?.map((counterparty) => counterparty._new_company?.name)
-          .filter(Boolean)
-          .join(", ") || "Not Available";
+      const formatSectorList = (
+        list:
+          | Array<string | { sector_name: string }>
+          | { sector_name: string }[]
+          | undefined
+      ): string => {
+        if (!list || list.length === 0) return "Not available";
+        const names = list
+          .map((s) => (typeof s === "string" ? s : s.sector_name))
+          .filter(Boolean) as string[];
+        return names.length > 0 ? names.join(", ") : "Not available";
+      };
+
+      // Split counterparties into buyers/investors and sellers (match dashboard filters)
+      const buyersInvestors = (event.other_counterparties || [])
+        .filter((cp) => {
+          const status = cp._counterparty_type?.counterparty_status || "";
+          return /investor|acquirer/i.test(status);
+        })
+        .map((cp) => cp._new_company?.name)
+        .filter(Boolean)
+        .join(", ");
+
+      const sellers = (event.other_counterparties || [])
+        .filter((cp) => {
+          const status = cp._counterparty_type?.counterparty_status || "";
+          return /divestor|seller|vendor/i.test(status);
+        })
+        .map((cp) => cp._new_company?.name)
+        .filter(Boolean)
+        .join(", ");
 
       // Format advisors
       const advisors =
@@ -68,21 +106,28 @@ export class CSVExporter {
 
       return {
         Description: event.description || "Not Available",
-        "Date Announced": this.formatDate(event.announcement_date),
+        Date: this.formatDate(event.announcement_date),
         "Target Name": target?.name || "Not Available",
-        "Target Country": target?.country || "Not Available",
-        "Primary Sector": this.formatSectors(target?._sectors_primary),
-        "Secondary Sectors": this.formatSectors(target?._sectors_secondary),
-        Type: event.deal_type || "Not Available",
-        Investment: this.formatCurrency(
+        "Target HQ":
+          target?.country || target?._location?.Country || "Not Available",
+        // Prefer new API fields; fallback to legacy
+        "Primary Sector":
+          formatSectorList(target?.primary_sectors) ||
+          this.formatSectors(target?._sectors_primary),
+        "Secondary Sectors":
+          formatSectorList(target?.secondary_sectors) ||
+          this.formatSectors(target?._sectors_secondary),
+        "Deal Type": event.deal_type || "Not Available",
+        "Amount (m)": this.formatCurrency(
           event.investment_data?.investment_amount_m,
           event.investment_data?.currency?.Currency
         ),
-        "Enterprise Value": this.formatCurrency(
+        "EV (m)": this.formatCurrency(
           event.ev_data?.enterprise_value_m,
           event.ev_data?.currency?.Currency
         ),
-        "Other Counterparties": otherCounterparties,
+        "Buyer(s)/Investor(s)": buyersInvestors || "Not Available",
+        "Seller(s)": sellers || "Not Available",
         Advisors: advisors,
         "Corporate Event Link": corporateEventLink,
       };

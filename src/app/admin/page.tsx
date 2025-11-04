@@ -151,100 +151,54 @@ Target company: {query} ({domain})`;
 
   return (
     <div className="px-4 py-10 mx-auto max-w-5xl">
-      <h1 className="mb-6 text-2xl font-semibold">Admin</h1>
+      <h1 className="mb-6 text-2xl font-semibold">Admin: Valuation Report</h1>
 
-      <div className="flex gap-4 mb-6 border-b">
+      <form onSubmit={onSubmit} className="mb-8 space-y-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className="block mb-1 text-sm font-medium">Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Bloomberg L.P."
+              className="px-3 py-2 w-full rounded border"
+              required
+            />
+          </div>
+          <div>
+            <label className="block mb-1 text-sm font-medium">Domain</label>
+            <input
+              type="text"
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+              placeholder="bloomberg.com"
+              className="px-3 py-2 w-full rounded border"
+              required
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">
+            Prompt (optional)
+          </label>
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            className="px-3 py-2 w-full font-mono text-sm rounded border min-h-48"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            If unchanged, the prompt will not be sent.
+          </p>
+        </div>
         <button
-          onClick={() => setActiveTab("valuation")}
-          className={`px-3 py-2 -mb-px border-b-2 ${
-            activeTab === "valuation"
-              ? "border-black font-medium"
-              : "border-transparent text-gray-500"
-          }`}
+          type="submit"
+          disabled={submitting}
+          className="inline-flex items-center px-4 py-2 text-white bg-black rounded disabled:opacity-50"
         >
-          Valuation Report
+          {submitting ? "Querying…" : "Query"}
         </button>
-        <button
-          onClick={() => setActiveTab("emails")}
-          className={`px-3 py-2 -mb-px border-b-2 ${
-            activeTab === "emails"
-              ? "border-black font-medium"
-              : "border-transparent text-gray-500"
-          }`}
-        >
-          Emails
-        </button>
-        <button
-          onClick={() => setActiveTab("content")}
-          className={`px-3 py-2 -mb-px border-b-2 ${
-            activeTab === "content"
-              ? "border-black font-medium"
-              : "border-transparent text-gray-500"
-          }`}
-        >
-          Content
-        </button>
-        <button
-          onClick={() => setActiveTab("sectors")}
-          className={`px-3 py-2 -mb-px border-b-2 ${
-            activeTab === "sectors"
-              ? "border-black font-medium"
-              : "border-transparent text-gray-500"
-          }`}
-        >
-          Sectors
-        </button>
-      </div>
-
-      {activeTab === "valuation" && (
-        <>
-          <h2 className="mb-6 text-xl font-semibold">Valuation Report</h2>
-          <form onSubmit={onSubmit} className="mb-8 space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div>
-                <label className="block mb-1 text-sm font-medium">Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Bloomberg L.P."
-                  className="px-3 py-2 w-full rounded border"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-sm font-medium">Domain</label>
-                <input
-                  type="text"
-                  value={domain}
-                  onChange={(e) => setDomain(e.target.value)}
-                  placeholder="bloomberg.com"
-                  className="px-3 py-2 w-full rounded border"
-                  required
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block mb-1 text-sm font-medium">
-                Prompt (optional)
-              </label>
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="px-3 py-2 w-full font-mono text-sm rounded border min-h-48"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                If unchanged, the prompt will not be sent.
-              </p>
-            </div>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="inline-flex items-center px-4 py-2 text-white bg-black rounded disabled:opacity-50"
-            >
-              {submitting ? "Querying…" : "Query"}
-            </button>
-          </form>
+      </form>
 
           {error && (
             <div className="p-3 mb-6 text-red-700 bg-red-50 rounded border border-red-300">

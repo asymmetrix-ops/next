@@ -947,8 +947,7 @@ function RecentTransactionsCard({
                     <tr
                       key={`tx-${idx}`}
                       className={`transition-colors duration-150 hover:bg-slate-50/50 ${
-                        href ? "cursor-pointer" : ""
-                      }`}
+                        href ? "cursor-pointer" : ""}`}
                       onClick={() => {
                         if (href) {
                           window.location.href = href;
@@ -1564,8 +1563,9 @@ const SectorDetailPage = () => {
         // Prepare sector id
         const sectorIdNum = Number(sectorId);
 
-        // Companies endpoint (sector-scoped) - GET with query params (0-based Offset)
-        const offsetForApi = Math.max(0, page - 1);
+        // Companies endpoint (sector-scoped) - GET with query params
+        // Backend expects Offset as the page number (1-based)
+        const offsetForApi = Math.max(1, page);
         const params = new URLSearchParams();
         params.append("Offset", String(offsetForApi));
         params.append("Per_page", String(perPageToUse));
@@ -1688,7 +1688,11 @@ const SectorDetailPage = () => {
         const r1b = (raw as NewCompaniesAPIResult)?.result1;
         const computedCurPage = r1b?.curPage ?? page;
         const computedPerPage = r1b?.perPage ?? perPageToUse;
-        const computedOffset = r1b?.offset ?? offsetForApi * computedPerPage;
+        // Normalize offset to be a 0-based item start index for internal use
+        const computedOffset =
+          typeof r1b?.offset === "number"
+            ? Math.max(0, (r1b.offset - 1) * computedPerPage)
+            : Math.max(0, (computedCurPage - 1) * computedPerPage);
         setPagination({
           itemsReceived: r1b?.itemsReceived || adapted.length,
           curPage: computedCurPage,

@@ -1,5 +1,8 @@
 import { AdvisorResponse } from "../../types/advisor";
-import { formatSectorsList } from "../../utils/advisorHelpers";
+import {
+  formatSectorsList,
+  getAdvisorYearFoundedDisplay,
+} from "../../utils/advisorHelpers";
 import Image from "next/image";
 
 interface AdvisorOverviewProps {
@@ -34,7 +37,7 @@ export const AdvisorOverview: React.FC<AdvisorOverviewProps> = ({
 
           <div>
             <h3 className="font-medium text-gray-700">Year founded:</h3>
-            <p className="text-sm">{Advisor.year_founded || "Not available"}</p>
+            <p className="text-sm">{getAdvisorYearFoundedDisplay(Advisor)}</p>
           </div>
 
           <div>

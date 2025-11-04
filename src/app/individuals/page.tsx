@@ -194,6 +194,27 @@ const styles = {
   },
 };
 
+// Resolve current company href using roles when possible
+function resolveCompanyHref(ind: Individual): string | null {
+  try {
+    const currentRoles = Array.isArray(ind.roles)
+      ? ind.roles.filter((r) => String(r.Status).toLowerCase() === "current")
+      : [];
+    const byName = currentRoles.find(
+      (r) => r.new_company?.name && r.new_company.name === ind.current_company
+    );
+    const target = byName || currentRoles[0];
+    const companyId =
+      target?.new_company?.id ?? target?.employee_new_company_id;
+    if (typeof companyId === "number" && Number.isFinite(companyId)) {
+      return `/company/${companyId}`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // Generate pagination buttons (similar to advisors page)
 const generatePaginationButtons = (
   pagination: {
@@ -343,6 +364,7 @@ const IndividualCard: React.FC<{ individual: Individual }> = ({
   individual,
 }) => {
   const { createClickableElement } = useRightClick();
+
   return (
     <div
       className="individual-card"
@@ -402,11 +424,9 @@ const IndividualCard: React.FC<{ individual: Individual }> = ({
           }}
         >
           <span style={{ color: "#4a5568" }}>Company:</span>
-          {individual.current_company ? (
+          {individual.current_company && resolveCompanyHref(individual) ? (
             createClickableElement(
-              `/companies?search=${encodeURIComponent(
-                individual.current_company
-              )}`,
+              resolveCompanyHref(individual) as string,
               individual.current_company,
               undefined,
               {
@@ -493,11 +513,9 @@ const IndividualsTable = ({
         )}
       </td>
       <td>
-        {individual.current_company ? (
+        {individual.current_company && resolveCompanyHref(individual) ? (
           createClickableElement(
-            `/companies?search=${encodeURIComponent(
-              individual.current_company
-            )}`,
+            resolveCompanyHref(individual) as string,
             individual.current_company
           )
         ) : (

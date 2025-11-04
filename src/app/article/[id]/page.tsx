@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { openArticlePdfWindow } from "@/utils/exportArticlePdf";
 
 // Types for the article detail page
 interface ArticleDetail {
@@ -23,11 +24,22 @@ interface ArticleDetail {
     sector_name: string;
     Sector_importance: string;
   }>;
-  companies_mentioned: Array<{
-    id: number;
-    name: string;
-  }>;
+  companies_mentioned: Array<{ id: number; name: string }>;
   Visibility: string;
+  Related_Corporate_Event?: Array<{
+    id: number;
+    created_at?: number;
+    description?: string;
+    long_description?: string;
+    deal_status?: string;
+    announcement_date?: string;
+    closed_date?: string;
+    deal_type?: string;
+    target?: { id?: number; name?: string };
+    advisors?: Array<{ _new_company?: { id?: number; name?: string } }>;
+    primary_sectors?: Array<{ id?: number; sector_name?: string }>;
+    secondary_sectors?: Array<{ id?: number; sector_name?: string }>;
+  }>;
   Related_Documents: Array<{
     access: string;
     path: string;
@@ -182,10 +194,14 @@ const ArticleDetailPage = () => {
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const searchParams = useSearchParams();
-  const fromHome = searchParams.get("from") === "home";
+  // Guard against rare runtime cases where search params may be unavailable during hydration
+  const searchParams = useSearchParams() as unknown as {
+    get?: (key: string) => string | null;
+  } | null;
+  const fromHome = (searchParams?.get?.("from") ?? "") === "home";
 
-  const articleId = params.id as string;
+  const articleId = String((params as Record<string, unknown>)?.id || "");
+  const ENABLE_PDF_EXPORT = false;
 
   const fetchArticle = async () => {
     try {
@@ -213,8 +229,75 @@ const ArticleDetailPage = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: ArticleDetail = await response.json();
-      setArticle(data);
+      const json: unknown = await response.json();
+      const raw = (Array.isArray(json) ? (json[0] as unknown) : json) as
+        | ArticleDetail
+        | undefined;
+      if (!raw || typeof raw !== "object") {
+        setError("Article not found");
+        return;
+      }
+      const tryParse = <T,>(val: unknown): T | undefined => {
+        if (Array.isArray(val)) return val as unknown as T;
+        if (typeof val === "string" && val.trim()) {
+          try {
+            return JSON.parse(val) as T;
+          } catch {
+            return undefined;
+          }
+        }
+        return undefined;
+      };
+
+      const normalized = {
+        ...raw,
+        sectors:
+          tryParse<
+            Array<{
+              id: number;
+              sector_name: string;
+              Sector_importance: string;
+            }>
+          >(raw.sectors) || [],
+        companies_mentioned:
+          tryParse<Array<{ id: number; name: string }>>(
+            raw.companies_mentioned
+          ) || [],
+        Related_Corporate_Event:
+          tryParse<
+            Array<{
+              id: number;
+              created_at?: number;
+              description?: string;
+              long_description?: string;
+              deal_status?: string;
+              announcement_date?: string;
+              closed_date?: string;
+              deal_type?: string;
+              target?: { id?: number; name?: string };
+              advisors?: Array<{
+                _new_company?: { id?: number; name?: string };
+              }>;
+              primary_sectors?: Array<{ id?: number; sector_name?: string }>;
+              secondary_sectors?: Array<{ id?: number; sector_name?: string }>;
+            }>
+          >(raw.Related_Corporate_Event) || [],
+        Related_Documents:
+          tryParse<
+            Array<{
+              access: string;
+              path: string;
+              name: string;
+              type: string;
+              size: number;
+              mime: string;
+              meta: { validated: boolean };
+              url: string;
+            }>
+          >(raw.Related_Documents) || [],
+      } as ArticleDetail;
+
+      setArticle(normalized);
     } catch (error) {
       console.error("Error fetching article:", error);
       setError(
@@ -299,7 +382,10 @@ const ArticleDetailPage = () => {
         return _match;
       }
       used.add(idx);
-      const doc = imageDocs[idx];
+      const doc = imageDocs[idx] as { url?: string; name?: string } | undefined;
+      if (!doc || !doc.url) {
+        return _match;
+      }
       return buildFigureHtml(doc.url, doc.name || "");
     });
 
@@ -326,7 +412,16 @@ const ArticleDetailPage = () => {
     if (paragraphCount <= 0) {
       // No clear paragraphs; append all images at the end of the body
       const figures = imageDocs
-        .map((doc) => buildFigureHtml(doc.url, doc.name || ""))
+        .filter(Boolean)
+        .map((doc) =>
+          doc && (doc as { url?: string; name?: string }).url
+            ? buildFigureHtml(
+                (doc as { url: string }).url,
+                (doc as { name?: string }).name || ""
+              )
+            : ""
+        )
+        .filter(Boolean)
         .join("");
       return { html: `${bodyHtml}${figures}`, injected: true };
     }
@@ -351,8 +446,12 @@ const ArticleDetailPage = () => {
         result += `${segment}</p>`;
         if (insertionMap.has(p)) {
           const imgIdx = insertionMap.get(p)!;
-          const doc = imageDocs[imgIdx];
-          result += buildFigureHtml(doc.url, doc.name || "");
+          const doc = imageDocs[imgIdx] as
+            | { url?: string; name?: string }
+            | undefined;
+          if (doc && doc.url) {
+            result += buildFigureHtml(doc.url, doc.name || "");
+          }
         }
       } else {
         // Remainder (after the last </p>)
@@ -474,7 +573,7 @@ const ArticleDetailPage = () => {
 
             {/* Inline image grid (if additional images remain useful outside body) */}
             {article.Related_Documents &&
-              article.Related_Documents.some(isImageDoc) && (
+              article.Related_Documents.filter(Boolean).some(isImageDoc) && (
                 <div style={styles.section}>
                   <h2 style={styles.sectionTitle}>Images</h2>
                   <div
@@ -485,41 +584,52 @@ const ArticleDetailPage = () => {
                       gap: 16,
                     }}
                   >
-                    {article.Related_Documents.filter(isImageDoc).map(
-                      (doc, idx) => (
+                    {(article.Related_Documents || [])
+                      .filter(Boolean)
+                      .filter(isImageDoc)
+                      .map((doc, idx) => (
                         <figure key={`${doc.url}-${idx}`} style={{ margin: 0 }}>
-                          <img src={doc.url} alt={doc.name} />
-                          <figcaption>{doc.name}</figcaption>
+                          <img src={doc.url || ""} alt={doc.name || ""} />
+                          <figcaption>{doc.name || ""}</figcaption>
                         </figure>
-                      )
-                    )}
+                      ))}
                   </div>
                 </div>
               )}
 
             {/* Related Documents (attachments) */}
             {article.Related_Documents &&
-              article.Related_Documents.filter((d) => !isImageDoc(d)).length >
-                0 && (
+              (article.Related_Documents || [])
+                .filter(Boolean)
+                .filter((d) => !isImageDoc(d)).length > 0 && (
                 <div style={styles.section}>
                   <h2 style={styles.sectionTitle}>Related Documents</h2>
                   <div style={styles.tagContainer}>
-                    {article.Related_Documents.filter(
-                      (d) => !isImageDoc(d)
-                    ).map((doc, index) => (
-                      <a
-                        key={index}
-                        href={doc.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          ...styles.tag,
-                          textDecoration: "none",
-                        }}
-                      >
-                        {doc.name}
-                      </a>
-                    ))}
+                    {(article.Related_Documents || [])
+                      .filter(Boolean)
+                      .filter((d) => !isImageDoc(d))
+                      .map((doc, index) => {
+                        const url = (doc as unknown as { url?: string })?.url;
+                        const name = (doc as unknown as { name?: string })
+                          ?.name;
+                        if (!url) {
+                          return null;
+                        }
+                        return (
+                          <a
+                            key={index}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              ...styles.tag,
+                              textDecoration: "none",
+                            }}
+                          >
+                            {name || "Document"}
+                          </a>
+                        );
+                      })}
                   </div>
                 </div>
               )}
@@ -532,6 +642,37 @@ const ArticleDetailPage = () => {
               <h2 style={styles.sectionTitle}>Published</h2>
               <p style={styles.date}>{formatDate(article.Publication_Date)}</p>
             </div>
+
+            {/* Export PDF Button (temporarily hidden) */}
+            {ENABLE_PDF_EXPORT && (
+              <div style={styles.section}>
+                <button
+                  onClick={() => openArticlePdfWindow(article)}
+                  style={{
+                    backgroundColor: "#fff",
+                    color: "#000",
+                    fontWeight: 600,
+                    padding: "10px 14px",
+                    borderRadius: 6,
+                    border: "1px solid #cbd5e1",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    width: "100%",
+                    textAlign: "center",
+                  }}
+                  onMouseOver={(e) =>
+                    ((e.target as HTMLButtonElement).style.backgroundColor =
+                      "#f8fafc")
+                  }
+                  onMouseOut={(e) =>
+                    ((e.target as HTMLButtonElement).style.backgroundColor =
+                      "#fff")
+                  }
+                >
+                  Export PDF
+                </button>
+              </div>
+            )}
 
             {/* Companies Section */}
             {article.companies_mentioned &&
@@ -606,6 +747,49 @@ const ArticleDetailPage = () => {
                 </div>
               </div>
             )}
+            {(() => {
+              const ct = (
+                article.Content_Type ||
+                article.content_type ||
+                article.Content?.Content_type ||
+                article.Content?.Content_Type ||
+                ""
+              ).trim();
+              const isHotTake = /^(hot\s*take)$/i.test(ct);
+              const events = article.Related_Corporate_Event || [];
+              if (!isHotTake || !Array.isArray(events) || events.length === 0) {
+                return null;
+              }
+              return (
+                <div style={styles.section}>
+                  <h2 style={styles.sectionTitle}>Related Corporate Event</h2>
+                  <div style={styles.tagContainer}>
+                    {events.map((ev, idx) => {
+                      const id = ev?.id;
+                      const label = (ev?.description || "View event").trim();
+                      return typeof id === "number" && id > 0 ? (
+                        <Link
+                          key={id}
+                          href={`/corporate-event/${id}`}
+                          style={{
+                            ...styles.tag,
+                            textDecoration: "none",
+                            display: "inline-block",
+                          }}
+                          prefetch={false}
+                        >
+                          {label}
+                        </Link>
+                      ) : (
+                        <span key={`ev-${idx}`} style={styles.tag}>
+                          {label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>

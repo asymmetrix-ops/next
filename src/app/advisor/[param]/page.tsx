@@ -7,7 +7,11 @@ import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAdvisorProfile } from "../../../hooks/useAdvisorProfile";
-import { formatSectorsList, formatDate } from "../../../utils/advisorHelpers";
+import {
+  formatSectorsList,
+  formatDate,
+  getAdvisorYearFoundedDisplay,
+} from "../../../utils/advisorHelpers";
 import {
   LineChart,
   Line,
@@ -452,10 +456,18 @@ export default function AdvisorProfilePage() {
       white-space: normal;
       line-break: anywhere;
     }
-    .events-table td:nth-child(3) {
+    .events-table td:nth-child(2) {
       word-break: keep-all;
       overflow-wrap: normal;
       white-space: nowrap;
+    }
+    .nowrap-token { display: inline-block; white-space: nowrap; }
+    .nowrap-token:not(:last-child)::after { content: ", "; }
+    .nowrap-token .advisor-link {
+      word-break: keep-all !important;
+      overflow-wrap: normal !important;
+      white-space: nowrap !important;
+      line-break: auto !important;
     }
     /* Prevent splitting individual other-counterparty names */
     .other-counterparty-name {
@@ -668,7 +680,7 @@ export default function AdvisorProfilePage() {
                 <div className="info-item">
                   <span className="info-label">Year founded:</span>
                   <span className="info-value">
-                    {Advisor.year_founded || "Not available"}
+                    {getAdvisorYearFoundedDisplay(Advisor)}
                   </span>
                 </div>
                 <div className="info-item">
@@ -1011,13 +1023,32 @@ export default function AdvisorProfilePage() {
                               <td>{getCounterpartyAdvised()}</td>
                               <td>{getOtherCounterparties()}</td>
                               <td>{getEnterpriseValue()}</td>
-                              <td>{getIndividuals()}</td>
+                              <td>
+                                {(() => {
+                                  const list = getIndividuals();
+                                  if (!list || list === "—") return list;
+                                  return String(list)
+                                    .split(/\s*,\s*/)
+                                    .filter(Boolean)
+                                    .map((name, i) => (
+                                      <span
+                                        className="nowrap-token"
+                                        key={`${name}-${i}`}
+                                      >
+                                        {name}
+                                      </span>
+                                    ));
+                                })()}
+                              </td>
                               <td>
                                 {(() => {
                                   const advisors = getOtherAdvisors();
                                   if (advisors === "—") return "—";
-                                  return advisors.map((advisor, index) => (
-                                    <span key={advisor.id}>
+                                  return advisors.map((advisor) => (
+                                    <span
+                                      className="nowrap-token"
+                                      key={advisor.id}
+                                    >
                                       <span
                                         onClick={() =>
                                           handleOtherAdvisorClick(advisor.id)
@@ -1026,7 +1057,6 @@ export default function AdvisorProfilePage() {
                                       >
                                         {advisor.name}
                                       </span>
-                                      {index < advisors.length - 1 ? ", " : ""}
                                     </span>
                                   ));
                                 })()}
@@ -1163,7 +1193,21 @@ export default function AdvisorProfilePage() {
                                 Individuals:
                               </span>
                               <span className="event-card-info-value">
-                                {getIndividuals()}
+                                {(() => {
+                                  const list = getIndividuals();
+                                  if (!list || list === "—") return list;
+                                  return String(list)
+                                    .split(/\s*,\s*/)
+                                    .filter(Boolean)
+                                    .map((name, i) => (
+                                      <span
+                                        className="nowrap-token"
+                                        key={`${name}-${i}`}
+                                      >
+                                        {name}
+                                      </span>
+                                    ));
+                                })()}
                               </span>
                             </div>
                             <div
@@ -1177,8 +1221,11 @@ export default function AdvisorProfilePage() {
                                 {(() => {
                                   const advisors = getOtherAdvisors();
                                   if (advisors === "—") return "—";
-                                  return advisors.map((advisor, index) => (
-                                    <span key={advisor.id}>
+                                  return advisors.map((advisor) => (
+                                    <span
+                                      className="nowrap-token"
+                                      key={advisor.id}
+                                    >
                                       <span
                                         onClick={() =>
                                           handleOtherAdvisorClick(advisor.id)
@@ -1187,7 +1234,6 @@ export default function AdvisorProfilePage() {
                                       >
                                         {advisor.name}
                                       </span>
-                                      {index < advisors.length - 1 ? ", " : ""}
                                     </span>
                                   ));
                                 })()}

@@ -59,6 +59,11 @@ export interface PortfolioCompany {
     linkedin_employee: number;
     linkedin_logo: string;
   };
+  related_to_investor_individuals?: Array<{
+    id: number;
+    advisor_individuals: string;
+    linkedin_URL?: string;
+  }>;
 }
 
 export interface PortfolioResponse {

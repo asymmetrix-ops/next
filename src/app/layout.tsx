@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
@@ -6,6 +7,10 @@ import { AnalyticsProvider } from "@/components/providers/AnalyticsProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { Toaster } from "react-hot-toast";
 import TitleUpdater from "@/components/TitleUpdater";
+import ChunkErrorRecovery from "@/components/ChunkErrorRecovery";
+import TrialRouteGuard from "@/components/TrialRouteGuard";
+import RouteTracker from "@/components/RouteTracker";
+import ErrorTracker from "@/components/ErrorTracker";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -129,7 +134,13 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <AnalyticsProvider>
+            <ChunkErrorRecovery />
             <TitleUpdater />
+            <TrialRouteGuard />
+            <Suspense fallback={null}>
+              <RouteTracker />
+            </Suspense>
+            <ErrorTracker />
             {children}
             {showTestBanner && (
               <div className="fixed bottom-3 right-3 z-[9999] pointer-events-none">

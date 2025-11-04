@@ -79,7 +79,7 @@ Header (src/components/Header.tsx)
 
 - Left: logo linking to home. Desktop nav to major sections. Mobile menu with hamburger.
 - Right: Logout button (clears token via authService and routes to /login).
-  Sections include: Dashboard (/home-user), Companies, Sectors, Investors, Advisors, Individuals, Corporate Events, Insights/Analysis.
+  Sections include: Dashboard (/home-user), Companies, Sectors, Investors, Advisors, Individuals, Corporate Events, Insights & Analysis.
 
 Home (src/app/page.tsx)
 

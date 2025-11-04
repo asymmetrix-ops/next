@@ -25,6 +25,7 @@ export interface Advisor {
   revenues: unknown[];
   _locations: Location;
   _linkedin_data_of_new_company: LinkedInDataNew;
+  _years?: { Year?: number | string };
 }
 
 // Business Focus

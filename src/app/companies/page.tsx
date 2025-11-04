@@ -17,6 +17,9 @@ import {
   CompaniesCSVExporter,
   CompanyCSVRow,
 } from "@/utils/companiesCSVExport";
+import { ExportLimitModal } from "@/components/ExportLimitModal";
+import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 // Types for API integration
 interface Company {
@@ -1903,9 +1906,12 @@ const CompanySection = ({
   currentFilters: Filters | undefined;
 }) => {
   const router = useRouter();
+  const { isTrialActive } = useAuth();
   const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<
     Record<string, string>
   >({});
+  const [showExportLimitModal, setShowExportLimitModal] = useState(false);
+  const [exportsLeft, setExportsLeft] = useState(0);
 
   // Build a mapping of Secondary sector name -> Primary sector name from API
   useEffect(() => {
@@ -1961,6 +1967,14 @@ const CompanySection = ({
   // Handle CSV export using backend endpoint and include active filters
   const handleExportCSV = useCallback(async () => {
     try {
+      // Check export limit first
+      const limitCheck = await checkExportLimit();
+      if (!limitCheck.canExport) {
+        setExportsLeft(limitCheck.exportsLeft);
+        setShowExportLimitModal(true);
+        return;
+      }
+
       const token = localStorage.getItem("asymmetrix_auth_token");
       const params = new URLSearchParams();
 
@@ -2020,12 +2034,19 @@ const CompanySection = ({
         credentials: "include",
       });
       if (!resp.ok) {
+        // Check if it's an export limit error
+        if (resp.status === 403 || resp.status === 429) {
+          const limitCheck = await checkExportLimit();
+          setExportsLeft(limitCheck.exportsLeft);
+          setShowExportLimitModal(true);
+          return;
+        }
         const errText = await resp.text();
         throw new Error(
           `Export failed: ${resp.status} ${resp.statusText} - ${errText}`
         );
       }
-      const contentType = resp.headers.get("content-type") || "";
+      const contentType = resp.headers?.get?.("content-type") || "";
       if (
         contentType.includes("application/json") ||
         contentType.includes("text/json")
@@ -2861,7 +2882,8 @@ const CompanySection = ({
           {
             onClick: handleExportCSV,
             className: "export-button",
-            disabled: loading,
+            disabled: loading || isTrialActive,
+            title: isTrialActive ? "Export disabled during Trial" : undefined,
           },
           loading ? "Exporting..." : "Export CSV"
         )
@@ -2904,6 +2926,12 @@ const CompanySection = ({
       { className: "pagination" },
       generatePaginationButtons()
     ),
+    React.createElement(ExportLimitModal, {
+      isOpen: showExportLimitModal,
+      onClose: () => setShowExportLimitModal(false),
+      exportsLeft: exportsLeft,
+      totalExports: EXPORT_LIMIT,
+    }),
     React.createElement("style", {
       dangerouslySetInnerHTML: { __html: style },
     })
@@ -2937,7 +2965,7 @@ const CompaniesPage = () => {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const s = params.get("search") || undefined;
+      const s = params?.get?.("search") || undefined;
       setInitialSearch(s);
     }
   }, []);

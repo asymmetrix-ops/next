@@ -16,18 +16,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ContentArticle } from "@/types/insightsAnalysis";
-import { locationsService } from "@/lib/locationsService";
-import StockChartClient from "@/components/chart/StockChartClient";
-import FinanceSummaryClient from "@/components/chart/FinanceSummaryClient";
-import CompanySummaryCardClient from "@/components/chart/CompanySummaryCardClient";
-import NewsClient from "@/components/chart/NewsClient";
-import { Card, CardContent } from "@/components/ui/card";
-import { DEFAULT_INTERVAL, DEFAULT_RANGE } from "@/lib/yahoo-finance/constants";
-import {
-  validateInterval,
-  validateRange,
-} from "@/lib/yahoo-finance/fetchChartData";
-import { Interval } from "@/types/yahoo-finance";
+// import { locationsService } from "@/lib/locationsService"; // removed: sectors normalization not used anymore
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
 const INVESTOR_SECTOR_IDS = new Set<number>([
@@ -677,65 +666,7 @@ const CompanyDetail = () => {
   const [chartRange, setChartRange] = useState<string>(DEFAULT_RANGE);
   const [chartInterval, setChartInterval] = useState<string>(DEFAULT_INTERVAL);
 
-  // Sector mapping helpers
-  const normalizeSectorName = (name: string | undefined | null): string =>
-    (name || "").trim().toLowerCase();
-  const FALLBACK_SECONDARY_TO_PRIMARY: Record<string, string> = {
-    [normalizeSectorName("Crypto")]: "Web 3",
-    [normalizeSectorName("Blockchain")]: "Web 3",
-    [normalizeSectorName("DeFi")]: "Web 3",
-    [normalizeSectorName("NFT")]: "Web 3",
-    [normalizeSectorName("Web3")]: "Web 3",
-    [normalizeSectorName("PropTech")]: "Real Estate",
-  };
-  const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<
-    Record<string, string>
-  >({});
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadMap = async () => {
-      try {
-        const allSecondary =
-          await locationsService.getAllSecondarySectorsWithPrimary();
-        if (!cancelled && Array.isArray(allSecondary)) {
-          const map: Record<string, string> = {};
-          for (const sec of allSecondary) {
-            const secName = (sec as { sector_name?: string }).sector_name;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const primary = (sec as any)?.related_primary_sector as
-              | { sector_name?: string }
-              | undefined;
-            const primaryName = primary?.sector_name;
-            if (secName && primaryName) {
-              map[normalizeSectorName(secName)] = primaryName;
-            }
-          }
-          setSecondaryToPrimaryMap(map);
-        }
-      } catch (e) {
-        console.warn("[Company] Failed to load secondary->primary map", e);
-      }
-    };
-    loadMap();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Parse chart parameters from URL (optional for future enhancement)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const rangeParam = params.get("range");
-    const intervalParam = params.get("interval");
-
-    if (rangeParam) {
-      setChartRange(rangeParam);
-    }
-    if (intervalParam) {
-      setChartInterval(intervalParam);
-    }
-  }, []);
+  // Removed sectors normalization/mapping; rely solely on API-provided primary sectors
 
   // Safely extract a sector id from various backend shapes
   const getSectorId = (sector: unknown): number | undefined => {
@@ -1481,50 +1412,31 @@ const CompanyDetail = () => {
   const primarySectors =
     (parsedNewSectors?.primary && parsedNewSectors.primary.length > 0
       ? parsedNewSectors.primary
-      : company.sectors_id
-          ?.filter((sector) => sector?.Sector_importance === "Primary")
+      : (company.sectors_id || [])
+          .filter((sector) => sector && sector?.Sector_importance === "Primary")
           .filter((s): s is CompanySector =>
-            Boolean(s && typeof s.sector_name === "string")
+            Boolean(
+              s &&
+                typeof s.sector_name === "string" &&
+                typeof s.sector_id === "number"
+            )
           )) || [];
 
   const secondarySectors =
     (parsedNewSectors?.secondary && parsedNewSectors.secondary.length > 0
       ? parsedNewSectors.secondary
-      : company.sectors_id
-          ?.filter((sector) => sector?.Sector_importance !== "Primary")
+      : (company.sectors_id || [])
+          .filter((sector) => sector && sector?.Sector_importance !== "Primary")
           .filter((s): s is CompanySector =>
-            Boolean(s && typeof s.sector_name === "string")
+            Boolean(
+              s &&
+                typeof s.sector_name === "string" &&
+                typeof s.sector_id === "number"
+            )
           )) || [];
 
-  // Augment primaries with derived primaries from secondaries (unique by name)
-  const derivedPrimaryNames = secondarySectors
-    .map((s) => {
-      const name = s?.sector_name;
-      if (!name) return undefined;
-      const key = normalizeSectorName(name);
-      return (
-        secondaryToPrimaryMap[key] ||
-        FALLBACK_SECONDARY_TO_PRIMARY[key] ||
-        undefined
-      );
-    })
-    .filter((v): v is string => Boolean(v));
-  const existingPrimaryNames = new Set(
-    primarySectors.map((p) => (p?.sector_name || "").trim())
-  );
-  const augmentedPrimarySectors = [
-    ...primarySectors,
-    ...derivedPrimaryNames
-      .filter((name) => !existingPrimaryNames.has(name))
-      .map(
-        (name) =>
-          ({
-            sector_name: name,
-            Sector_importance: "Primary",
-            sector_id: 0,
-          } as CompanySector)
-      ),
-  ];
+  // Use API-provided primary sectors only
+  const augmentedPrimarySectors = primarySectors;
 
   // Process location
   const location = company._locations;
@@ -2214,31 +2126,45 @@ const CompanyDetail = () => {
                         return parentName || "Not available";
                       })()
                     : newInvestorsCurrent.length > 0
-                    ? newInvestorsCurrent.map((investor, index) => {
-                        const href =
-                          investorRouteTargetById[investor.id] ||
-                          `/investors/${investor.id}`;
-                        return (
-                          <span key={`current-${investor.id}`}>
-                            {createClickableElement(href, investor.name)}
-                            {index < newInvestorsCurrent.length - 1 && ", "}
-                          </span>
-                        );
-                      })
+                    ? newInvestorsCurrent
+                        .filter(
+                          (investor) =>
+                            investor &&
+                            typeof investor.id === "number" &&
+                            investor.name
+                        )
+                        .map((investor, index, arr) => {
+                          const href =
+                            investorRouteTargetById[investor.id] ||
+                            `/investors/${investor.id}`;
+                          return (
+                            <span key={`current-${investor.id}`}>
+                              {createClickableElement(href, investor.name)}
+                              {index < arr.length - 1 && ", "}
+                            </span>
+                          );
+                        })
                     : company.investors && company.investors.length > 0
-                    ? company.investors.map((investor, index) => {
-                        const href =
-                          investorRouteTargetById[investor.id] ||
-                          (investor._is_that_investor
-                            ? `/investors/${investor.id}`
-                            : `/company/${investor.id}`);
-                        return (
-                          <span key={investor.id}>
-                            {createClickableElement(href, investor.name)}
-                            {index < company.investors!.length - 1 && ", "}
-                          </span>
-                        );
-                      })
+                    ? company.investors
+                        .filter(
+                          (investor) =>
+                            investor &&
+                            typeof investor.id === "number" &&
+                            investor.name
+                        )
+                        .map((investor, index, arr) => {
+                          const href =
+                            investorRouteTargetById[investor.id] ||
+                            (investor._is_that_investor
+                              ? `/investors/${investor.id}`
+                              : `/company/${investor.id}`);
+                          return (
+                            <span key={investor.id}>
+                              {createClickableElement(href, investor.name)}
+                              {index < arr.length - 1 && ", "}
+                            </span>
+                          );
+                        })
                     : "Not available"}
                 </span>
               </div>
@@ -2248,17 +2174,24 @@ const CompanyDetail = () => {
                     Past Investors:
                   </span>
                   <span style={styles.value} className="info-value">
-                    {newInvestorsPast.map((investor, index) => {
-                      const href =
-                        investorRouteTargetById[investor.id] ||
-                        `/investors/${investor.id}`;
-                      return (
-                        <span key={`past-${investor.id}`}>
-                          {createClickableElement(href, investor.name)}
-                          {index < newInvestorsPast.length - 1 && ", "}
-                        </span>
-                      );
-                    })}
+                    {newInvestorsPast
+                      .filter(
+                        (investor) =>
+                          investor &&
+                          typeof investor.id === "number" &&
+                          investor.name
+                      )
+                      .map((investor, index, arr) => {
+                        const href =
+                          investorRouteTargetById[investor.id] ||
+                          `/investors/${investor.id}`;
+                        return (
+                          <span key={`past-${investor.id}`}>
+                            {createClickableElement(href, investor.name)}
+                            {index < arr.length - 1 && ", "}
+                          </span>
+                        );
+                      })}
                   </span>
                 </div>
               )}
@@ -2686,8 +2619,11 @@ const CompanyDetail = () => {
                       >
                         {createClickableElement(
                           `/individual/${person.individuals_id}`,
-                          `${person.Individual_text}: ${person.job_titles_id
-                            .map((job) => job.job_title)
+                          `${person.Individual_text}: ${(
+                            person.job_titles_id || []
+                          )
+                            .map((job) => job?.job_title)
+                            .filter(Boolean)
                             .join(", ")}`
                         )}
                       </div>
@@ -2718,8 +2654,11 @@ const CompanyDetail = () => {
                       >
                         {createClickableElement(
                           `/individual/${person.individuals_id}`,
-                          `${person.Individual_text}: ${person.job_titles_id
-                            .map((job) => job.job_title)
+                          `${person.Individual_text}: ${(
+                            person.job_titles_id || []
+                          )
+                            .map((job) => job?.job_title)
+                            .filter(Boolean)
                             .join(", ")}`
                         )}
                       </div>
@@ -2803,6 +2742,13 @@ const CompanyDetail = () => {
                       company.have_subsidiaries_companies
                         ?.Subsidiaries_companies ?? []
                     )
+                      .filter(
+                        // Ensure valid objects with numeric ids before rendering
+                        (s) =>
+                          typeof s === "object" &&
+                          s !== null &&
+                          typeof (s as { id?: unknown }).id === "number"
+                      )
                       .slice(0, showAllSubsidiaries ? undefined : 3)
                       .map((subsidiary) => (
                         <tr key={subsidiary.id}>
@@ -3087,8 +3033,15 @@ const CompanyDetail = () => {
                                 Array.isArray(newEvent.advisors_names) ||
                                 Array.isArray(newEvent.other_counterparties);
                               if (looksNew) {
-                                const list =
-                                  newEvent.other_counterparties || [];
+                                const list = (
+                                  newEvent.other_counterparties || []
+                                ).filter(
+                                  (c) =>
+                                    c &&
+                                    typeof c === "object" &&
+                                    typeof c.id === "number" &&
+                                    c.name
+                                );
                                 if (list.length === 0) return "N/A";
                                 return (
                                   <>

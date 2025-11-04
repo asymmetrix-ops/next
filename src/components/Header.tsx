@@ -3,16 +3,22 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { authService } from "@/lib/auth";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { trackLogout } from "@/lib/tracking";
 
 const Header = () => {
-  const [activeTab, setActiveTab] = useState("Dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
+  const { isTrialActive, user, logout } = useAuth();
+  const pathname = usePathname();
+  const isAllowedTrialRoute = (href: string) =>
+    href === "/home-user" || href === "/insights-analysis";
 
   const handleLogout = () => {
-    authService.logout();
+    const userId = user?.id ? Number.parseInt(user.id, 10) : 0;
+    trackLogout(Number.isFinite(userId) ? userId : 0);
+    logout();
     router.push("/login");
   };
 
@@ -184,7 +190,16 @@ const Header = () => {
         <div style={styles.container}>
           <div style={styles.leftSection} className="left-section">
             {/* Logo */}
-            <Link href="/" style={styles.logo}>
+            <Link
+              href="/"
+              style={styles.logo}
+              onClick={(e) => {
+                if (isTrialActive) {
+                  e.preventDefault();
+                  router.push("/home-user");
+                }
+              }}
+            >
               <Image
                 src="/icons/logo.svg"
                 alt="Logo"
@@ -224,25 +239,33 @@ const Header = () => {
                   }
                 };
 
+                const href = getHref(item);
+                const isDisabled = isTrialActive && !isAllowedTrialRoute(href);
+
                 return (
                   <Link
                     key={item}
-                    href={getHref(item)}
+                    href={href}
                     style={{
                       ...styles.navLink,
-                      ...(activeTab === item
+                      ...(pathname === href
                         ? styles.activeLink
                         : styles.inactiveLink),
                     }}
                     className="nav-link"
-                    onClick={() => setActiveTab(item)}
+                    onClick={(e) => {
+                      if (isDisabled) {
+                        e.preventDefault();
+                        return;
+                      }
+                    }}
                     onMouseOver={(e) => {
-                      if (activeTab !== item) {
+                      if (pathname !== href) {
                         (e.target as HTMLElement).style.color = "#111827";
                       }
                     }}
                     onMouseOut={(e) => {
-                      if (activeTab !== item) {
+                      if (pathname !== href) {
                         (e.target as HTMLElement).style.color = "#6b7280";
                       }
                     }}
@@ -332,18 +355,25 @@ const Header = () => {
               }
             };
 
+            const href = getHref(item);
+            const isDisabled = isTrialActive && !isAllowedTrialRoute(href);
+
             return (
               <Link
                 key={item}
-                href={getHref(item)}
+                href={href}
                 style={{
                   ...styles.navLinkMobile,
-                  ...(activeTab === item
+                  ...(pathname === href
                     ? { color: "#595959", fontWeight: "600" }
                     : { color: "#6b7280" }),
                 }}
-                onClick={() => {
-                  setActiveTab(item);
+                onClick={(e) => {
+                  if (isDisabled) {
+                    e.preventDefault();
+                    return;
+                  }
+
                   setIsMobileMenuOpen(false);
                 }}
               >

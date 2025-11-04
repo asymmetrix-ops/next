@@ -46,6 +46,16 @@ class AuthService {
     }
   }
 
+  // Update only the stored user
+  setUser(user: AuthUser): void {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(this.userKey, JSON.stringify(user));
+    } catch (error) {
+      console.error("Error storing user data:", error);
+    }
+  }
+
   // Get stored user
   getUser(): AuthUser | null {
     if (typeof window === "undefined") return null;
@@ -65,6 +75,7 @@ class AuthService {
 
   // Login with email/password
   async login(email: string, password: string): Promise<LoginResponse> {
+    const normalizedEmail = (email || "").trim().toLowerCase();
     const apiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
       "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
@@ -74,7 +85,7 @@ class AuthService {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email: normalizedEmail, password }),
     });
 
     if (!response.ok) {
@@ -111,6 +122,31 @@ class AuthService {
 
     this.setAuth(token, user);
     return { token, user };
+  }
+
+  // Fetch current user via /auth/me using stored token
+  async fetchMe(): Promise<AuthUser | null> {
+    const token = this.getToken();
+    if (!token) return null;
+    const apiUrl =
+      process.env.NEXT_PUBLIC_XANO_API_URL ||
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+    try {
+      const userResponse = await fetch(`${apiUrl}/auth/me`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!userResponse.ok) return null;
+      const userData = (await userResponse.json()) as AuthUser;
+      this.setUser(userData);
+      return userData;
+    } catch (e) {
+      console.error("AuthService - fetchMe failed", e);
+      return null;
+    }
   }
 
   // Register new user

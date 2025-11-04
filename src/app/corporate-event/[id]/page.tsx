@@ -10,6 +10,7 @@ import {
   CorporateEventAdvisor,
 } from "../../../types/corporateEvents";
 import { useRightClick } from "@/hooks/useRightClick";
+import { ContentArticle } from "@/types/insightsAnalysis";
 
 // Type-safe check for Data & Analytics company flag
 const isDataAnalyticsCompany = (candidate: unknown): boolean => {
@@ -240,6 +241,52 @@ const CorporateEventDetail = ({
   //     console.error("Navigation error:", error);
   //   }
   // };
+
+  const [eventArticles, setEventArticles] = useState<ContentArticle[]>([]);
+  const [eventArticlesLoading, setEventArticlesLoading] = useState(false);
+
+  useEffect(() => {
+    const run = async () => {
+      const startedAt = Date.now();
+      try {
+        const evId = event?.id;
+        if (!evId) return;
+        console.log("[Insights & Analysis] fetch start", {
+          corporate_event_id: evId,
+        });
+        setEventArticlesLoading(true);
+        const qs = new URLSearchParams({ corporate_event_id: String(evId) });
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/content?${qs.toString()}`;
+        console.log("[Insights & Analysis] GET URL", url);
+        const res = await fetch(url, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+        });
+        console.log("[Insights & Analysis] fetch response", {
+          status: res.status,
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        const data = await res.json();
+        console.log("[Insights & Analysis] fetch success", {
+          count: Array.isArray(data) ? data.length : undefined,
+          payload: data,
+        });
+        setEventArticles(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("[Insights & Analysis] fetch error", error);
+        setEventArticles([]);
+      } finally {
+        console.log("[Insights & Analysis] fetch finished", {
+          ms: Date.now() - startedAt,
+        });
+        setEventArticlesLoading(false);
+      }
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event?.id]);
 
   const style = `
     .corporate-event-container {
@@ -600,6 +647,77 @@ const CorporateEventDetail = ({
           </p>
         </div>
 
+        {/* Asymmetrix Content (Insights & Analysis) related to this corporate event */}
+        {eventArticles.length > 0 && (
+          <div className="corporate-event-card">
+            <h2 className="corporate-event-subtitle">
+              Asymmetrix Insights & Analysis
+            </h2>
+            {eventArticlesLoading ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "40px",
+                  color: "#666",
+                  fontSize: "14px",
+                }}
+              >
+                Loading content...
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                }}
+              >
+                {eventArticles.slice(0, 4).map((article) => (
+                  <a
+                    key={article.id}
+                    href={`/article/${article.id}`}
+                    style={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      padding: "12px 12px",
+                      background: "#fff",
+                      display: "block",
+                      textDecoration: "none",
+                      color: "inherit",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        marginBottom: 6,
+                        color: "#1a202c",
+                      }}
+                    >
+                      {article.Headline || "Untitled"}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#6b7280",
+                        marginBottom: 8,
+                      }}
+                    >
+                      {article.Publication_Date
+                        ? new Date(
+                            article.Publication_Date
+                          ).toLocaleDateString()
+                        : ""}
+                    </div>
+                    <div style={{ fontSize: 14, color: "#374151" }}>
+                      {article.Strapline || ""}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Sectors Card */}
         <div className="corporate-event-card">
           <h2 className="corporate-event-subtitle">Sectors</h2>
@@ -910,7 +1028,7 @@ const CorporateEventDetail = ({
                         const advisedId: number | undefined =
                           anyA?.counterparty_advised;
                         const cp = advisedId
-                          ? counterpartiesById.get(advisedId)
+                          ? counterpartiesById?.get?.(advisedId)
                           : undefined;
                         const nc = cp?._new_company;
                         const isInvestor = Boolean(nc?._is_that_investor);
@@ -936,14 +1054,9 @@ const CorporateEventDetail = ({
                     </td>
                     <td>
                       {(() => {
-                        // Prefer advisor-attached individuals; fallback to advised counterparty individuals
+                        // Strictly use advisor-attached individuals from Event_advisors; no fallbacks
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const anyA = a as any;
-                        const advisedId: number | undefined =
-                          anyA?.counterparty_advised;
-                        const cp = advisedId
-                          ? counterpartiesById.get(advisedId)
-                          : undefined;
                         const advisorList = Array.isArray(anyA?.individuals)
                           ? (anyA.individuals as Array<{
                               id: number;
@@ -951,10 +1064,7 @@ const CorporateEventDetail = ({
                               advisor_individuals: string;
                             }>)
                           : undefined;
-                        const list =
-                          advisorList && advisorList.length > 0
-                            ? advisorList
-                            : cp?.counterparty_individuals;
+                        const list = advisorList;
                         return Array.isArray(list) && list.length > 0
                           ? list.map((ind, idx) => (
                               <span key={ind.id}>
@@ -1052,7 +1162,7 @@ const CorporateEventDetail = ({
                           const advisedId: number | undefined =
                             anyA?.counterparty_advised;
                           const cp = advisedId
-                            ? counterpartiesById.get(advisedId)
+                            ? counterpartiesById?.get?.(advisedId)
                             : undefined;
                           const nc = cp?._new_company;
                           const isInvestor = Boolean(nc?._is_that_investor);
@@ -1083,23 +1193,30 @@ const CorporateEventDetail = ({
                       </span>
                       <span className="counterparty-card-info-value">
                         {(() => {
+                          // Strictly use advisor-attached individuals from Event_advisors; no fallbacks
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any
                           const anyA = a as any;
-                          const advisedId: number | undefined =
-                            anyA?.counterparty_advised;
-                          const cp = advisedId
-                            ? counterpartiesById.get(advisedId)
+                          const advisorList = Array.isArray(anyA?.individuals)
+                            ? (anyA.individuals as Array<{
+                                id: number;
+                                individuals_id?: number;
+                                advisor_individuals: string;
+                              }>)
                             : undefined;
-                          const list = cp?.counterparty_individuals;
+                          const list = advisorList;
                           return Array.isArray(list) && list.length > 0
                             ? list.map((ind, idx) => (
                                 <span key={ind.id}>
-                                  <a
-                                    href={`/individual/${ind.individuals_id}`}
-                                    className="corporate-event-link"
-                                  >
-                                    {ind.advisor_individuals}
-                                  </a>
+                                  {typeof ind.individuals_id === "number" ? (
+                                    <a
+                                      href={`/individual/${ind.individuals_id}`}
+                                      className="corporate-event-link"
+                                    >
+                                      {ind.advisor_individuals}
+                                    </a>
+                                  ) : (
+                                    <span>{ind.advisor_individuals}</span>
+                                  )}
                                   {idx < list.length - 1 && ", "}
                                 </span>
                               ))

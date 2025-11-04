@@ -5,6 +5,69 @@ import type {
   PaginationState,
 } from "@/types/investor";
 
+// Safely parse JSON that might already be an object or might be invalid
+const safeParseJSON = <T>(value: unknown, fallback: T): T => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return fallback;
+    }
+  }
+  if (typeof value === "object") return (value as T) ?? fallback;
+  return fallback;
+};
+
+const asRecord = (v: unknown): Record<string, unknown> =>
+  typeof v === "object" && v !== null ? (v as Record<string, unknown>) : {};
+
+const mapPortfolioItem = (item: unknown): PortfolioCompany => {
+  const obj = asRecord(item);
+  const sectors = safeParseJSON<
+    Array<{ sector_name: string; Sector_importance: string }>
+  >(obj["sectors_id"], []);
+
+  const locations = safeParseJSON<{ Country?: string }>(obj["_locations"], {});
+
+  const linkedinDataNew = safeParseJSON<{
+    linkedin_employee?: number;
+    linkedin_logo?: string;
+  }>(obj["_linkedin_data_of_new_company"], {});
+
+  const linkedinDataOld = safeParseJSON<{
+    LinkedIn_Employee?: number;
+    linkedin_logo?: string;
+  }>(obj["linkedin_data"], {});
+
+  const relatedIndividuals = safeParseJSON<
+    Array<{ id: number; advisor_individuals: string; linkedin_URL?: string }>
+  >(obj["related_to_investor_individuals"], []);
+
+  const result = {
+    id: Number(obj["id"]),
+    name: String((obj["name"] as string) ?? ""),
+    locations_id: Number((obj["locations_id"] as number) ?? 0),
+    sectors_id: Array.isArray(sectors) ? sectors : [],
+    description: String((obj["description"] as string) ?? ""),
+    linkedin_data: {
+      LinkedIn_Employee: Number(linkedinDataOld?.LinkedIn_Employee ?? 0),
+      linkedin_logo: String(linkedinDataOld?.linkedin_logo ?? ""),
+    },
+    _locations: {
+      Country: String(locations?.Country ?? ""),
+    },
+    _is_that_investor: Boolean((obj["_is_that_investor"] as boolean) ?? false),
+    _linkedin_data_of_new_company: {
+      linkedin_employee: Number(linkedinDataNew?.linkedin_employee ?? 0),
+      linkedin_logo: String(linkedinDataNew?.linkedin_logo ?? ""),
+    },
+    related_to_investor_individuals: relatedIndividuals,
+  } as Record<string, unknown>;
+
+  return result as unknown as PortfolioCompany;
+};
+
 const initialPaginationState: PaginationState = {
   itemsReceived: 0,
   curPage: 1,
@@ -61,17 +124,42 @@ export const usePortfolioData = (investorId: string) => {
           );
         }
 
-        const data: PortfolioResponse = await response.json();
-        setPortfolioCompanies(data.items || []);
-        setPortfolioPagination({
-          itemsReceived: data.itemsReceived || 0,
-          curPage: data.curPage || 1,
-          nextPage: data.nextPage || null,
-          prevPage: data.prevPage || null,
-          offset: data.offset || 0,
-          perPage: data.perPage || 50,
-          pageTotal: data.pageTotal || 0,
-        });
+        const raw = await response.json();
+
+        // New API returns a flat array of items with pagination fields duplicated per item
+        if (Array.isArray(raw)) {
+          const items = raw.map(mapPortfolioItem);
+          const first = raw[0] ?? {};
+          setPortfolioCompanies(items);
+          setPortfolioPagination({
+            itemsReceived: Number(first?.itemsreceived ?? items.length ?? 0),
+            curPage: Number(first?.curpage ?? page ?? 1),
+            nextPage:
+              first?.nextpage === null || first?.nextpage === undefined
+                ? null
+                : Number(first?.nextpage),
+            prevPage:
+              first?.prevpage === null || first?.prevpage === undefined
+                ? null
+                : Number(first?.prevpage),
+            offset: Number(first?.offset ?? 0),
+            perPage: 50,
+            pageTotal: Number(first?.pagetotal ?? 0),
+          });
+        } else {
+          // Backward compatibility with old shape { items, itemsReceived, ... }
+          const data = raw as PortfolioResponse;
+          setPortfolioCompanies((data.items || []).map(mapPortfolioItem));
+          setPortfolioPagination({
+            itemsReceived: data.itemsReceived || 0,
+            curPage: data.curPage || 1,
+            nextPage: data.nextPage || null,
+            prevPage: data.prevPage || null,
+            offset: data.offset || 0,
+            perPage: data.perPage || 50,
+            pageTotal: data.pageTotal || 0,
+          });
+        }
       } catch (err) {
         console.error("Error fetching portfolio companies:", err);
       } finally {
@@ -110,17 +198,40 @@ export const usePortfolioData = (investorId: string) => {
           );
         }
 
-        const data: PortfolioResponse = await response.json();
-        setPastPortfolioCompanies(data.items || []);
-        setPastPortfolioPagination({
-          itemsReceived: data.itemsReceived || 0,
-          curPage: data.curPage || 1,
-          nextPage: data.nextPage || null,
-          prevPage: data.prevPage || null,
-          offset: data.offset || 0,
-          perPage: data.perPage || 50,
-          pageTotal: data.pageTotal || 0,
-        });
+        const raw = await response.json();
+
+        if (Array.isArray(raw)) {
+          const items = raw.map(mapPortfolioItem);
+          const first = raw[0] ?? {};
+          setPastPortfolioCompanies(items);
+          setPastPortfolioPagination({
+            itemsReceived: Number(first?.itemsreceived ?? items.length ?? 0),
+            curPage: Number(first?.curpage ?? page ?? 1),
+            nextPage:
+              first?.nextpage === null || first?.nextpage === undefined
+                ? null
+                : Number(first?.nextpage),
+            prevPage:
+              first?.prevpage === null || first?.prevpage === undefined
+                ? null
+                : Number(first?.prevpage),
+            offset: Number(first?.offset ?? 0),
+            perPage: 50,
+            pageTotal: Number(first?.pagetotal ?? 0),
+          });
+        } else {
+          const data = raw as PortfolioResponse;
+          setPastPortfolioCompanies((data.items || []).map(mapPortfolioItem));
+          setPastPortfolioPagination({
+            itemsReceived: data.itemsReceived || 0,
+            curPage: data.curPage || 1,
+            nextPage: data.nextPage || null,
+            prevPage: data.prevPage || null,
+            offset: data.offset || 0,
+            perPage: data.perPage || 50,
+            pageTotal: data.pageTotal || 0,
+          });
+        }
       } catch (err) {
         console.error("Error fetching past portfolio companies:", err);
       } finally {
