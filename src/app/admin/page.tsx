@@ -1,11 +1,34 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  forwardRef,
+  createElement,
+} from "react";
 import EmailEditor from "react-email-editor";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useRouter } from "next/navigation";
+
+type EmailEditorWrapperProps = Record<string, unknown>;
+
+const EmailEditorWrapper = forwardRef<unknown, EmailEditorWrapperProps>(
+  (props, ref) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const Comp = EmailEditor as unknown as (props: any) => JSX.Element;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return createElement(Comp, {
+      ...(props as EmailEditorWrapperProps),
+      ref,
+    } as any);
+  }
+);
+EmailEditorWrapper.displayName = "EmailEditorWrapper";
 
 type SourceIdList = number[];
 
@@ -109,9 +132,9 @@ Target company: {query} ({domain})`;
   const [result, setResult] = useState<ValuationReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<
-    "valuation" | "emails" | "content" | "sectors"
-  >("valuation");
+  const [activeTab] = useState<"valuation" | "emails" | "content" | "sectors">(
+    "valuation"
+  );
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -151,54 +174,10 @@ Target company: {query} ({domain})`;
 
   return (
     <div className="px-4 py-10 mx-auto max-w-5xl">
-      <h1 className="mb-6 text-2xl font-semibold">Admin</h1>
-
-      <div className="flex gap-4 mb-6 border-b">
-        <button
-          onClick={() => setActiveTab("valuation")}
-          className={`px-3 py-2 -mb-px border-b-2 ${
-            activeTab === "valuation"
-              ? "border-black font-medium"
-              : "border-transparent text-gray-500"
-          }`}
-        >
-          Valuation Report
-        </button>
-        <button
-          onClick={() => setActiveTab("emails")}
-          className={`px-3 py-2 -mb-px border-b-2 ${
-            activeTab === "emails"
-              ? "border-black font-medium"
-              : "border-transparent text-gray-500"
-          }`}
-        >
-          Emails
-        </button>
-        <button
-          onClick={() => setActiveTab("content")}
-          className={`px-3 py-2 -mb-px border-b-2 ${
-            activeTab === "content"
-              ? "border-black font-medium"
-              : "border-transparent text-gray-500"
-          }`}
-        >
-          Content
-        </button>
-        <button
-          onClick={() => setActiveTab("sectors")}
-          className={`px-3 py-2 -mb-px border-b-2 ${
-            activeTab === "sectors"
-              ? "border-black font-medium"
-              : "border-transparent text-gray-500"
-          }`}
-        >
-          Sectors
-        </button>
-      </div>
+      <h1 className="mb-6 text-2xl font-semibold">Admin: Valuation Report</h1>
 
       {activeTab === "valuation" && (
         <>
-          <h2 className="mb-6 text-xl font-semibold">Valuation Report</h2>
           <form onSubmit={onSubmit} className="mb-8 space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
@@ -709,8 +688,8 @@ function EmailsTab() {
       </div>
 
       <div className="border" ref={editorContainerRef}>
-        <EmailEditor
-          ref={unlayerRef as unknown as never}
+        <EmailEditorWrapper
+          ref={unlayerRef}
           minHeight={500}
           onReady={() => setEditorReady(true)}
         />
@@ -1124,8 +1103,8 @@ function ContentTab() {
       </div>
 
       <div className="mt-3 border">
-        <EmailEditor
-          ref={contentUnlayerRef as unknown as never}
+        <EmailEditorWrapper
+          ref={contentUnlayerRef}
           minHeight={500}
           onReady={() => {
             try {
