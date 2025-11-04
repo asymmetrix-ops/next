@@ -64,6 +64,9 @@ const AdvisorsPage = () => {
 
   // Shared state for advisors data
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
+  const [expandedSectors, setExpandedSectors] = useState<
+    Record<number, boolean>
+  >({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
@@ -992,6 +995,10 @@ const AdvisorsPage = () => {
         ? description.substring(0, 220) + "..."
         : description;
 
+      const sectorsText = advisor.sectors || "N/A";
+      const sectorsIsLong = (sectorsText || "").length > 100;
+      const isSectorsExpanded = !!expandedSectors[index];
+
       return React.createElement(
         "tr",
         { key: advisor.id ?? index },
@@ -1091,7 +1098,32 @@ const AdvisorsPage = () => {
         React.createElement(
           "td",
           { className: "sectors-list" },
-          advisor.sectors || "N/A"
+          React.createElement(
+            React.Fragment,
+            null,
+            React.createElement(
+              "div",
+              {
+                className: isSectorsExpanded
+                  ? "sectors-full"
+                  : "sectors-truncated",
+              },
+              sectorsText
+            ),
+            sectorsIsLong &&
+              React.createElement(
+                "span",
+                {
+                  className: "expand-sectors",
+                  onClick: () =>
+                    setExpandedSectors((prev) => ({
+                      ...prev,
+                      [index]: !prev[index],
+                    })),
+                },
+                isSectorsExpanded ? "Show less" : "Show more"
+              )
+          )
         ),
         React.createElement("td", null, formatNumber(advisor.linkedin_members)),
         React.createElement("td", null, advisor.country || "N/A")
@@ -1208,7 +1240,7 @@ const AdvisorsPage = () => {
     }
     .advisor-description-truncated {
       display: -webkit-box;
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1223,7 +1255,22 @@ const AdvisorsPage = () => {
     }
     .sectors-list {
       max-width: 250px;
-      line-height: 1.3;
+      line-height: 1.4;
+    }
+    .sectors-truncated {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .expand-sectors {
+      color: #0075df;
+      text-decoration: underline;
+      cursor: pointer;
+      font-size: 12px;
+      margin-top: 4px;
+      display: block;
     }
     .search-row {
       display: flex;

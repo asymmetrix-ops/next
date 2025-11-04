@@ -479,8 +479,9 @@ const SectorDetailPage = () => {
         // Prepare sector id
         const sectorIdNum = Number(sectorId);
 
-        // Companies endpoint (sector-scoped) - GET with query params (0-based Offset)
-        const offsetForApi = Math.max(0, page - 1);
+        // Companies endpoint (sector-scoped) - GET with query params
+        // Backend expects Offset as the page number (1-based)
+        const offsetForApi = Math.max(1, page);
         const params = new URLSearchParams();
         params.append("Offset", String(offsetForApi));
         params.append("Per_page", String(perPageToUse));
@@ -598,7 +599,11 @@ const SectorDetailPage = () => {
         const r1b = (raw as NewCompaniesAPIResult)?.result1;
         const computedCurPage = r1b?.curPage ?? page;
         const computedPerPage = r1b?.perPage ?? perPageToUse;
-        const computedOffset = r1b?.offset ?? offsetForApi * computedPerPage;
+        // Normalize offset to be a 0-based item start index for internal use
+        const computedOffset =
+          typeof r1b?.offset === "number"
+            ? Math.max(0, (r1b.offset - 1) * computedPerPage)
+            : Math.max(0, (computedCurPage - 1) * computedPerPage);
         setPagination({
           itemsReceived: r1b?.itemsReceived || adapted.length,
           curPage: computedCurPage,
@@ -640,6 +645,22 @@ const SectorDetailPage = () => {
     },
     [fetchCompanies]
   );
+
+  // Enable keyboard arrow navigation for pagination
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft" && pagination.curPage > 1) {
+        handlePageChange(pagination.curPage - 1);
+      } else if (
+        e.key === "ArrowRight" &&
+        pagination.curPage < pagination.pageTotal
+      ) {
+        handlePageChange(pagination.curPage + 1);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [pagination.curPage, pagination.pageTotal, handlePageChange]);
 
   const handleCompanyClick = (companyId: number) => {
     console.log("Company clicked:", companyId);
@@ -1294,42 +1315,123 @@ const SectorDetailPage = () => {
                   className="companies-controls"
                   style={{ display: "flex", alignItems: "center", gap: "16px" }}
                 >
-                  <div style={{ fontSize: "14px", color: "#666" }}>
-                    Showing {pagination.offset + 1} -{" "}
-                    {Math.min(
-                      pagination.offset + pagination.perPage,
-                      companiesTotal ??
-                        (typeof (
-                          sectorData as unknown as {
-                            Total_number_of_companies?: unknown;
-                          }
-                        ).Total_number_of_companies === "number"
-                          ? (
-                              sectorData as unknown as {
-                                Total_number_of_companies: number;
-                              }
-                            ).Total_number_of_companies
-                          : 0)
-                    )}{" "}
-                    of{" "}
-                    {formatNumber(
-                      companiesTotal ??
-                        (typeof (
-                          sectorData as unknown as {
-                            Total_number_of_companies?: unknown;
-                          }
-                        ).Total_number_of_companies === "number"
-                          ? (
-                              sectorData as unknown as {
-                                Total_number_of_companies: number;
-                              }
-                            ).Total_number_of_companies
-                          : 0)
-                    )}{" "}
-                    companies
+                  <div
+                    style={{
+                      fontSize: "14px",
+                      color: "#666",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <span>
+                      Showing{" "}
+                      {Math.max(
+                        1,
+                        (pagination.curPage - 1) * pagination.perPage + 1
+                      )}{" "}
+                      -{" "}
+                      {Math.min(
+                        (pagination.curPage - 1) * pagination.perPage +
+                          pagination.perPage,
+                        companiesTotal ??
+                          (typeof (
+                            sectorData as unknown as {
+                              Total_number_of_companies?: unknown;
+                            }
+                          ).Total_number_of_companies === "number"
+                            ? (
+                                sectorData as unknown as {
+                                  Total_number_of_companies: number;
+                                }
+                              ).Total_number_of_companies
+                            : 0)
+                      )}{" "}
+                      of{" "}
+                      {formatNumber(
+                        companiesTotal ??
+                          (typeof (
+                            sectorData as unknown as {
+                              Total_number_of_companies?: unknown;
+                            }
+                          ).Total_number_of_companies === "number"
+                            ? (
+                                sectorData as unknown as {
+                                  Total_number_of_companies: number;
+                                }
+                              ).Total_number_of_companies
+                            : 0)
+                      )}{" "}
+                      companies
+                      {pagination.pageTotal > 1 && (
+                        <span style={{ marginLeft: "8px" }}>
+                          (Page {pagination.curPage} of {pagination.pageTotal})
+                        </span>
+                      )}
+                    </span>
+                    {/* Inline pagination arrows near the counters */}
                     {pagination.pageTotal > 1 && (
-                      <span style={{ marginLeft: "8px" }}>
-                        (Page {pagination.curPage} of {pagination.pageTotal})
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          gap: "8px",
+                          alignItems: "center",
+                        }}
+                      >
+                        <button
+                          className="pagination-button"
+                          onClick={() =>
+                            handlePageChange(
+                              Math.max(1, pagination.curPage - 1)
+                            )
+                          }
+                          disabled={pagination.curPage <= 1}
+                          aria-label="Previous page"
+                          style={{
+                            padding: "6px 10px",
+                            border: "1px solid #0075df",
+                            background: "white",
+                            color: "#0075df",
+                            borderRadius: "4px",
+                            cursor:
+                              pagination.curPage <= 1
+                                ? "not-allowed"
+                                : "pointer",
+                            opacity: pagination.curPage <= 1 ? 0.5 : 1,
+                          }}
+                        >
+                          ←
+                        </button>
+                        <button
+                          className="pagination-button"
+                          onClick={() =>
+                            handlePageChange(
+                              Math.min(
+                                pagination.pageTotal,
+                                pagination.curPage + 1
+                              )
+                            )
+                          }
+                          disabled={pagination.curPage >= pagination.pageTotal}
+                          aria-label="Next page"
+                          style={{
+                            padding: "6px 10px",
+                            border: "1px solid #0075df",
+                            background: "white",
+                            color: "#0075df",
+                            borderRadius: "4px",
+                            cursor:
+                              pagination.curPage >= pagination.pageTotal
+                                ? "not-allowed"
+                                : "pointer",
+                            opacity:
+                              pagination.curPage >= pagination.pageTotal
+                                ? 0.5
+                                : 1,
+                          }}
+                        >
+                          →
+                        </button>
                       </span>
                     )}
                   </div>
@@ -1410,41 +1512,54 @@ const SectorDetailPage = () => {
 
                 {pagination.pageTotal > 1 && (
                   <div className="pagination">
-                    {pagination.prevPage && (
-                      <button
-                        className="pagination-button"
-                        onClick={() => handlePageChange(pagination.prevPage!)}
-                        style={{
-                          padding: "8px 16px",
-                          marginRight: "8px",
-                          border: "1px solid #0075df",
-                          background: "white",
-                          color: "#0075df",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        ← Previous
-                      </button>
-                    )}
+                    <button
+                      className="pagination-button"
+                      onClick={() =>
+                        handlePageChange(Math.max(1, pagination.curPage - 1))
+                      }
+                      disabled={pagination.curPage <= 1}
+                      aria-label="Previous page"
+                      style={{
+                        padding: "8px 16px",
+                        marginRight: "8px",
+                        border: "1px solid #0075df",
+                        background: "white",
+                        color: "#0075df",
+                        borderRadius: "4px",
+                        cursor:
+                          pagination.curPage <= 1 ? "not-allowed" : "pointer",
+                        opacity: pagination.curPage <= 1 ? 0.5 : 1,
+                      }}
+                    >
+                      ←
+                    </button>
                     {generatePaginationButtons()}
-                    {pagination.nextPage && (
-                      <button
-                        className="pagination-button"
-                        onClick={() => handlePageChange(pagination.nextPage!)}
-                        style={{
-                          padding: "8px 16px",
-                          marginLeft: "8px",
-                          border: "1px solid #0075df",
-                          background: "white",
-                          color: "#0075df",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Next →
-                      </button>
-                    )}
+                    <button
+                      className="pagination-button"
+                      onClick={() =>
+                        handlePageChange(
+                          Math.min(pagination.pageTotal, pagination.curPage + 1)
+                        )
+                      }
+                      disabled={pagination.curPage >= pagination.pageTotal}
+                      aria-label="Next page"
+                      style={{
+                        padding: "8px 16px",
+                        marginLeft: "8px",
+                        border: "1px solid #0075df",
+                        background: "white",
+                        color: "#0075df",
+                        borderRadius: "4px",
+                        cursor:
+                          pagination.curPage >= pagination.pageTotal
+                            ? "not-allowed"
+                            : "pointer",
+                        opacity:
+                          pagination.curPage >= pagination.pageTotal ? 0.5 : 1,
+                      }}
+                    >
+                      →
+                    </button>
                   </div>
                 )}
               </>
