@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "clean": "node -e \"const fs = require('fs'); const path = require('path'); ['.next', 'out', '.vercel', 'node_modules/.cache'].forEach(dir => { try { fs.rmSync(path.join(process.cwd(), dir), { recursive: true, force: true }); console.log('Removed ' + dir); } catch(e) { if(e.code !== 'ENOENT') console.log('Not found: ' + dir); } });\""
   },
   "dependencies": {
     "@heroicons/react": "^2.0.18",

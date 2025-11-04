@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-// import { openArticlePdfWindow } from "@/utils/exportArticlePdf"; // Hidden for now
+import { openArticlePdfWindow } from "@/utils/exportArticlePdf";
 
 // Types for the article detail page
 interface ArticleDetail {
@@ -641,8 +641,9 @@ const ArticleDetailPage = () => {
               <h2 style={styles.sectionTitle}>Published</h2>
               <p style={styles.date}>{formatDate(article.Publication_Date)}</p>
             </div>
-            {/* Export PDF Button - Hidden for now */}
-            {/* <div style={styles.section}>
+
+            {/* Export PDF Button */}
+            <div style={styles.section}>
               <button
                 onClick={() => openArticlePdfWindow(article)}
                 style={{
@@ -668,7 +669,7 @@ const ArticleDetailPage = () => {
               >
                 Export PDF
               </button>
-            </div> */}
+            </div>
 
             {/* Companies Section */}
             {article.companies_mentioned &&
