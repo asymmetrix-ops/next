@@ -13,6 +13,19 @@ const nextConfig = {
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
+  // Webpack configuration for Puppeteer/Chromium
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Mark these as external to avoid bundling issues
+      config.externals = [
+        ...config.externals,
+        "@sparticuz/chromium",
+        "puppeteer-core",
+        "puppeteer",
+      ];
+    }
+    return config;
+  },
   // Performance optimizations
   // Compression
   compress: true,
