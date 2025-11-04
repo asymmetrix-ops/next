@@ -507,16 +507,37 @@ export async function POST(req: NextRequest) {
             </body>
         </html>`;
 
-    const browser = await puppeteer.launch({
-      args: launchArgs,
-      executablePath,
-      headless: chromiumModule ? chromiumModule.headless : ("new" as any),
-      defaultViewport: (chromiumModule && chromiumModule.defaultViewport) || {
-        width: 1280,
-        height: 900,
-        deviceScaleFactor: 2,
-      },
-    });
+    const hasExecPath =
+      typeof executablePath === "string" && executablePath.length > 0;
+    if (!hasExecPath && !(puppeteer as any)?.executablePath) {
+      const headers = new Headers();
+      headers.set(
+        "X-PDF-Error",
+        "missing-executable-path: no chromium executable found"
+      );
+      return new Response("Puppeteer not available", { status: 501, headers });
+    }
+    let browser: any;
+    try {
+      browser = await puppeteer.launch({
+        args: launchArgs,
+        executablePath,
+        headless: chromiumModule ? chromiumModule.headless : ("new" as any),
+        defaultViewport: (chromiumModule && chromiumModule.defaultViewport) || {
+          width: 1280,
+          height: 900,
+          deviceScaleFactor: 2,
+        },
+        ignoreHTTPSErrors: true,
+      });
+    } catch (e: unknown) {
+      const headers = new Headers();
+      headers.set(
+        "X-PDF-Error",
+        `launch-failed: ${(e as Error)?.message || String(e)}`.slice(0, 512)
+      );
+      return new Response("Failed to generate PDF", { status: 500, headers });
+    }
     const page = await browser.newPage();
     try {
       await page.emulateMediaType("screen");
@@ -540,20 +561,33 @@ export async function POST(req: NextRequest) {
       await page.waitForTimeout(100);
     } catch {}
 
-    const pdf = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      displayHeaderFooter: false,
-      preferCSSPageSize: true,
-      margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
-    });
+    let pdf: Buffer;
+    try {
+      pdf = await page.pdf({
+        format: "A4",
+        printBackground: true,
+        displayHeaderFooter: false,
+        preferCSSPageSize: true,
+        margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
+      });
+    } catch (e: unknown) {
+      try {
+        await browser.close();
+      } catch {}
+      const headers = new Headers();
+      headers.set(
+        "X-PDF-Error",
+        `pdf-failed: ${(e as Error)?.message || String(e)}`.slice(0, 512)
+      );
+      return new Response("Failed to generate PDF", { status: 500, headers });
+    }
     await browser.close();
 
     const filename = `Asymmetrix - ${(article.Headline || "Article")
       .toString()
       .replace(/[\\/:*?"<>|]/g, " ")
       .slice(0, 180)}.pdf`;
-    return new Response(pdf, {
+    return new Response(new Uint8Array(pdf), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
