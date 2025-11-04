@@ -34,7 +34,6 @@ export async function POST(req: NextRequest) {
 
     // Dynamic import with fallback to serverless chromium in production
     let puppeteer: any = null;
-    let chromiumModule: any | null = null;
     let executablePath: string | undefined;
     let launchArgs: Array<string> = [
       "--allow-file-access-from-files",
@@ -44,71 +43,30 @@ export async function POST(req: NextRequest) {
       "--no-sandbox",
       "--disable-web-security",
     ];
-    let importErrorReason = "";
     try {
       // Prefer puppeteer-core + @sparticuz/chromium in serverless
-      try {
-        const [{ default: puppeteerCore }, chromiumNs] = await Promise.all([
-          import("puppeteer-core") as Promise<any>,
-          import("@sparticuz/chromium") as Promise<any>,
-        ]);
-        puppeteer = puppeteerCore;
-        const chromiumResolved =
-          (chromiumNs && chromiumNs.default) || chromiumNs;
-        chromiumModule = chromiumResolved;
-        executablePath = await chromiumResolved.executablePath();
-        if (Array.isArray(chromiumResolved.args)) {
-          launchArgs = chromiumResolved.args.concat(launchArgs);
-        }
-      } catch (e: unknown) {
-        importErrorReason = `serverless-import-failed: ${
-          (e as Error)?.message || String(e)
-        }`;
-        // Fallback: attempt evaluated dynamic imports (some bundlers require this pattern)
-        const [{ default: puppeteerCore }, chromiumNs] = await Promise.all([
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore - evaluated import to avoid bundling issues
-          eval("import('puppeteer-core')") as Promise<any>,
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore
-          eval("import('@sparticuz/chromium')") as Promise<any>,
-        ]);
-        puppeteer = puppeteerCore;
-        const chromiumResolved =
-          (chromiumNs && chromiumNs.default) || chromiumNs;
-        chromiumModule = chromiumResolved;
-        executablePath = await chromiumResolved.executablePath();
-        if (Array.isArray(chromiumResolved.args)) {
-          launchArgs = chromiumResolved.args.concat(launchArgs);
-        }
+      const [{ default: puppeteerCore }, chromium] = await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore - evaluated import to avoid bundling issues
+        eval("import('puppeteer-core')") as Promise<any>,
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        eval("import('@sparticuz/chromium')") as Promise<any>,
+      ]);
+      puppeteer = puppeteerCore;
+      executablePath = await chromium.executablePath();
+      if (Array.isArray(chromium.args)) {
+        launchArgs = chromium.args.concat(launchArgs);
       }
-    } catch (e: unknown) {
-      importErrorReason = importErrorReason
-        ? `${importErrorReason}; fallback-eval-import-failed: ${
-            (e as Error)?.message || String(e)
-          }`
-        : `fallback-eval-import-failed: ${(e as Error)?.message || String(e)}`;
+    } catch {
       // Fallback to full puppeteer locally (dev) where Chrome is available
       try {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         const mod = await (eval("import('puppeteer')") as Promise<any>);
         puppeteer = mod;
-      } catch (e2: unknown) {
-        const msg = `Puppeteer not available`;
-        const headers = new Headers();
-        headers.set(
-          "X-PDF-Error",
-          (importErrorReason
-            ? `${importErrorReason}; puppeteer-fallback-failed: ${
-                (e2 as Error)?.message || String(e2)
-              }`
-            : `puppeteer-fallback-failed: ${
-                (e2 as Error)?.message || String(e2)
-              }`
-          ).slice(0, 512)
-        );
-        return new Response(msg, { status: 501, headers });
+      } catch {
+        return new Response("Puppeteer not available", { status: 501 });
       }
     }
 
@@ -507,87 +465,32 @@ export async function POST(req: NextRequest) {
             </body>
         </html>`;
 
-    const hasExecPath =
-      typeof executablePath === "string" && executablePath.length > 0;
-    if (!hasExecPath && !(puppeteer as any)?.executablePath) {
-      const headers = new Headers();
-      headers.set(
-        "X-PDF-Error",
-        "missing-executable-path: no chromium executable found"
-      );
-      return new Response("Puppeteer not available", { status: 501, headers });
-    }
-    let browser: any;
-    try {
-      browser = await puppeteer.launch({
-        args: launchArgs,
-        executablePath,
-        headless: chromiumModule ? chromiumModule.headless : ("new" as any),
-        defaultViewport: (chromiumModule && chromiumModule.defaultViewport) || {
-          width: 1280,
-          height: 900,
-          deviceScaleFactor: 2,
-        },
-        ignoreHTTPSErrors: true,
-      });
-    } catch (e: unknown) {
-      const headers = new Headers();
-      headers.set(
-        "X-PDF-Error",
-        `launch-failed: ${(e as Error)?.message || String(e)}`.slice(0, 512)
-      );
-      return new Response("Failed to generate PDF", { status: 500, headers });
-    }
+    const browser = await puppeteer.launch({
+      args: launchArgs,
+      executablePath,
+      headless: "new" as any,
+      defaultViewport: { width: 1280, height: 900, deviceScaleFactor: 2 },
+    });
     const page = await browser.newPage();
     try {
       await page.emulateMediaType("screen");
     } catch {}
     await page.setContent(html, { waitUntil: "networkidle0" });
-    // Ensure styles are applied in serverless Chromium before printing
-    try {
-      await page.addStyleTag({ content: style });
-    } catch {}
-    try {
-      await page.evaluate(() => {
-        const docAny = document as unknown as {
-          fonts?: { ready?: Promise<void> };
-        };
-        return docAny.fonts && docAny.fonts.ready
-          ? docAny.fonts.ready
-          : Promise.resolve();
-      });
-    } catch {}
-    try {
-      await page.waitForTimeout(100);
-    } catch {}
 
-    let pdf: Buffer;
-    try {
-      pdf = await page.pdf({
-        format: "A4",
-        printBackground: true,
-        displayHeaderFooter: false,
-        preferCSSPageSize: true,
-        margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
-      });
-    } catch (e: unknown) {
-      try {
-        await browser.close();
-      } catch {}
-      const headers = new Headers();
-      headers.set(
-        "X-PDF-Error",
-        `pdf-failed: ${(e as Error)?.message || String(e)}`.slice(0, 512)
-      );
-      return new Response("Failed to generate PDF", { status: 500, headers });
-    }
+    const pdf = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      displayHeaderFooter: false,
+      preferCSSPageSize: true,
+      margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
+    });
     await browser.close();
 
     const filename = `Asymmetrix - ${(article.Headline || "Article")
       .toString()
       .replace(/[\\/:*?"<>|]/g, " ")
       .slice(0, 180)}.pdf`;
-    return new Response(new Uint8Array(pdf), {
+    return new Response(pdf, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
