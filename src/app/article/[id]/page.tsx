@@ -201,6 +201,7 @@ const ArticleDetailPage = () => {
   const fromHome = (searchParams?.get?.("from") ?? "") === "home";
 
   const articleId = String((params as Record<string, unknown>)?.id || "");
+  const ENABLE_PDF_EXPORT = false;
 
   const fetchArticle = async () => {
     try {
@@ -642,34 +643,36 @@ const ArticleDetailPage = () => {
               <p style={styles.date}>{formatDate(article.Publication_Date)}</p>
             </div>
 
-            {/* Export PDF Button */}
-            <div style={styles.section}>
-              <button
-                onClick={() => openArticlePdfWindow(article)}
-                style={{
-                  backgroundColor: "#fff",
-                  color: "#000",
-                  fontWeight: 600,
-                  padding: "10px 14px",
-                  borderRadius: 6,
-                  border: "1px solid #cbd5e1",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  width: "100%",
-                  textAlign: "center",
-                }}
-                onMouseOver={(e) =>
-                  ((e.target as HTMLButtonElement).style.backgroundColor =
-                    "#f8fafc")
-                }
-                onMouseOut={(e) =>
-                  ((e.target as HTMLButtonElement).style.backgroundColor =
-                    "#fff")
-                }
-              >
-                Export PDF
-              </button>
-            </div>
+            {/* Export PDF Button (temporarily hidden) */}
+            {ENABLE_PDF_EXPORT && (
+              <div style={styles.section}>
+                <button
+                  onClick={() => openArticlePdfWindow(article)}
+                  style={{
+                    backgroundColor: "#fff",
+                    color: "#000",
+                    fontWeight: 600,
+                    padding: "10px 14px",
+                    borderRadius: 6,
+                    border: "1px solid #cbd5e1",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    width: "100%",
+                    textAlign: "center",
+                  }}
+                  onMouseOver={(e) =>
+                    ((e.target as HTMLButtonElement).style.backgroundColor =
+                      "#f8fafc")
+                  }
+                  onMouseOut={(e) =>
+                    ((e.target as HTMLButtonElement).style.backgroundColor =
+                      "#fff")
+                  }
+                >
+                  Export PDF
+                </button>
+              </div>
+            )}
 
             {/* Companies Section */}
             {article.companies_mentioned &&
