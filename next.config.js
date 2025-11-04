@@ -14,9 +14,9 @@ const nextConfig = {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
   // Webpack configuration for Puppeteer/Chromium
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      // Mark these as external to avoid bundling issues
+  webpack: (config, { isServer, dev }) => {
+    if (isServer && !dev) {
+      // Only mark as external in production builds to avoid bundling issues
       config.externals = [
         ...config.externals,
         "@sparticuz/chromium",
