@@ -1,4 +1,5 @@
-﻿commit 5b0d5fac48daf6eea553807ac7fdc5c38aae03eb
+﻿/*
+commit 5b0d5fac48daf6eea553807ac7fdc5c38aae03eb
 Author: ivCloud92 <ivan@meetreal.com>
 Date:   Tue Nov 4 14:48:45 2025 +0500
 
@@ -15,8 +16,9 @@ index 2ba0c37..75efbe1 100644
 -  const ENABLE_PDF_EXPORT = false;
 +  const ENABLE_PDF_EXPORT = true;
  
-   const fetchArticle = async () => {
-     try {
+  const fetchArticle = async () => {
+    try {
+*/
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -186,7 +188,7 @@ Target company: {query} ({domain})`;
   if (loading || !isAuthenticated || !hasAccess) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div>LoadingÔÇª</div>
+        <div>Loading…</div>
       </div>
     );
   }
@@ -240,7 +242,7 @@ Target company: {query} ({domain})`;
               disabled={submitting}
               className="inline-flex items-center px-4 py-2 text-white bg-black rounded disabled:opacity-50"
             >
-              {submitting ? "QueryingÔÇª" : "Query"}
+              {submitting ? "Querying…" : "Query"}
             </button>
           </form>
 
@@ -1232,7 +1234,7 @@ function ContentTab() {
                       }
                       className="font-bold"
                     >
-                      ├ù
+                      ×
                     </button>
                   </span>
                 );
@@ -1288,7 +1290,7 @@ function ContentTab() {
                       }
                       className="font-bold"
                     >
-                      ├ù
+                      ×
                     </button>
                   </span>
                 );
@@ -1316,7 +1318,7 @@ function ContentTab() {
             onClick={searchCompanies}
             disabled={loadingCompanies}
           >
-            {loadingCompanies ? "SearchingÔÇª" : "Search"}
+            {loadingCompanies ? "Searching…" : "Search"}
           </button>
         </div>
         <SearchableSelect
@@ -1356,7 +1358,7 @@ function ContentTab() {
                   }
                   className="font-bold"
                 >
-                  ├ù
+                  ×
                 </button>
               </span>
             ))}
@@ -1383,7 +1385,7 @@ function ContentTab() {
           onClick={submitContent}
           disabled={submittingContent}
         >
-          {submittingContent ? "SubmittingÔÇª" : "Submit"}
+          {submittingContent ? "Submitting…" : "Submit"}
         </button>
       </div>
 
@@ -1554,7 +1556,7 @@ function SectorsTab() {
             onClick={searchCompanies}
             disabled={loadingCompanies}
           >
-            {loadingCompanies ? "SearchingÔÇª" : "Search"}
+            {loadingCompanies ? "Searching…" : "Search"}
           </button>
         </div>
         <SearchableSelect
@@ -1586,7 +1588,7 @@ function SectorsTab() {
                 onClick={() => setSelectedCompany(null)}
                 className="font-bold"
               >
-                ├ù
+                ×
               </button>
             </span>
           </div>
