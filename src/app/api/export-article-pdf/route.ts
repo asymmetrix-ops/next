@@ -36,37 +36,46 @@ export async function POST(req: NextRequest) {
     let puppeteer: any = null;
     let executablePath: string | undefined;
     let launchArgs: Array<string> = [
-      "--allow-file-access-from-files",
       "--disable-gpu",
       "--disable-dev-shm-usage",
       "--disable-setuid-sandbox",
       "--no-sandbox",
       "--disable-web-security",
     ];
+
     try {
-      // Prefer puppeteer-core + @sparticuz/chromium in serverless
-      const [{ default: puppeteerCore }, chromium] = await Promise.all([
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore - evaluated import to avoid bundling issues
-        eval("import('puppeteer-core')") as Promise<any>,
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        eval("import('@sparticuz/chromium')") as Promise<any>,
-      ]);
-      puppeteer = puppeteerCore;
-      executablePath = await chromium.executablePath();
-      if (Array.isArray(chromium.args)) {
-        launchArgs = chromium.args.concat(launchArgs);
-      }
-    } catch {
+      // Try puppeteer-core + @sparticuz/chromium (for serverless/production)
+      const puppeteerCore = await import("puppeteer-core");
+      const chromium = await import("@sparticuz/chromium");
+
+      puppeteer = puppeteerCore.default || puppeteerCore;
+      executablePath = await chromium.default.executablePath();
+
+      // Merge chromium args with our custom args
+      const chromiumArgs = chromium.default.args || [];
+      launchArgs = [...chromiumArgs, ...launchArgs];
+    } catch (chromiumError) {
+      console.warn(
+        "[@sparticuz/chromium] not available, falling back to puppeteer:",
+        chromiumError
+      );
       // Fallback to full puppeteer locally (dev) where Chrome is available
       try {
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        const mod = await (eval("import('puppeteer')") as Promise<any>);
-        puppeteer = mod;
-      } catch {
-        return new Response("Puppeteer not available", { status: 501 });
+        const puppeteerFull = await import("puppeteer");
+        puppeteer = puppeteerFull.default || puppeteerFull;
+      } catch (puppeteerError) {
+        console.error("No puppeteer available:", puppeteerError);
+        return new Response(
+          JSON.stringify({
+            error: "Puppeteer not available",
+            chromiumError: String(chromiumError),
+            puppeteerError: String(puppeteerError),
+          }),
+          {
+            status: 501,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
       }
     }
 
