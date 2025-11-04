@@ -48,22 +48,24 @@ export async function POST(req: NextRequest) {
     try {
       // Prefer puppeteer-core + @sparticuz/chromium in serverless
       try {
-        const [{ default: puppeteerCore }, chromium] = await Promise.all([
+        const [{ default: puppeteerCore }, chromiumNs] = await Promise.all([
           import("puppeteer-core") as Promise<any>,
           import("@sparticuz/chromium") as Promise<any>,
         ]);
         puppeteer = puppeteerCore;
-        executablePath = await chromium.executablePath();
-        chromiumModule = chromium;
-        if (Array.isArray(chromium.args)) {
-          launchArgs = chromium.args.concat(launchArgs);
+        const chromiumResolved =
+          (chromiumNs && chromiumNs.default) || chromiumNs;
+        chromiumModule = chromiumResolved;
+        executablePath = await chromiumResolved.executablePath();
+        if (Array.isArray(chromiumResolved.args)) {
+          launchArgs = chromiumResolved.args.concat(launchArgs);
         }
       } catch (e: unknown) {
         importErrorReason = `serverless-import-failed: ${
           (e as Error)?.message || String(e)
         }`;
         // Fallback: attempt evaluated dynamic imports (some bundlers require this pattern)
-        const [{ default: puppeteerCore }, chromium] = await Promise.all([
+        const [{ default: puppeteerCore }, chromiumNs] = await Promise.all([
           // eslint-disable-next-line @typescript-eslint/ban-ts-comment
           // @ts-ignore - evaluated import to avoid bundling issues
           eval("import('puppeteer-core')") as Promise<any>,
@@ -72,10 +74,12 @@ export async function POST(req: NextRequest) {
           eval("import('@sparticuz/chromium')") as Promise<any>,
         ]);
         puppeteer = puppeteerCore;
-        executablePath = await chromium.executablePath();
-        chromiumModule = chromium;
-        if (Array.isArray(chromium.args)) {
-          launchArgs = chromium.args.concat(launchArgs);
+        const chromiumResolved =
+          (chromiumNs && chromiumNs.default) || chromiumNs;
+        chromiumModule = chromiumResolved;
+        executablePath = await chromiumResolved.executablePath();
+        if (Array.isArray(chromiumResolved.args)) {
+          launchArgs = chromiumResolved.args.concat(launchArgs);
         }
       }
     } catch (e: unknown) {
