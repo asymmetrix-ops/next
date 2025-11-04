@@ -711,7 +711,7 @@ function MostActiveTableCard({
       </div>
       <div className="px-5 pb-5">
         <div className="overflow-auto" style={{ maxHeight: "28rem" }}>
-          <table className="min-w-full text-sm">
+          <table className="min-w-full text-sm table-fixed">
             <thead className="bg-slate-50/80">
               <tr className="hover:bg-slate-50/80">
                 <th className="py-3 font-semibold text-left text-slate-700">
@@ -919,7 +919,7 @@ function RecentTransactionsCard({
       </div>
       <div className="px-5 pb-5">
         <div className="overflow-auto" style={{ maxHeight: "28rem" }}>
-          <table className="min-w-full text-sm">
+          <table className="min-w-full text-sm table-fixed">
             <thead className="bg-slate-50/80">
               <tr className="hover:bg-slate-50/80">
                 <th className="py-3 w-1/2 font-semibold text-left text-slate-700">
@@ -5005,29 +5005,29 @@ const SectorDetailPage = () => {
                     No companies found for this sector.
                   </div>
                 ) : (
-                  <div className="overflow-auto">
-                    <table className="min-w-full text-sm">
+                  <div className="overflow-x-hidden">
+                    <table className="w-full text-sm table-fixed">
                       <thead className="bg-slate-50/80">
                         <tr className="hover:bg-slate-50/80">
                           <th className="py-3 font-semibold text-left text-slate-700 w-[8%]">
                             Logo
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[17%]">
                             Name
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[36%]">
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[20%]">
                             Description
                           </th>
                           <th className="py-3 font-semibold text-left text-slate-700 w-[16%]">
                             Primary Sector(s)
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[12%]">
-                            Sectors
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
+                            Sub-Sector(s)
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[7%]">
+                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[7%]">
                             LinkedIn Members
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[7%]">
+                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[7%]">
                             Country
                           </th>
                         </tr>
@@ -5089,7 +5089,7 @@ const SectorDetailPage = () => {
                                   </div>
                                 )}
                               </td>
-                              <td className="py-3 pr-4">
+                              <td className="py-3 pr-4 align-top whitespace-normal break-words">
                                 <a
                                   href={`/company/${c.id}`}
                                   className="font-medium text-blue-600 underline"
@@ -5097,7 +5097,7 @@ const SectorDetailPage = () => {
                                   {c.name}
                                 </a>
                               </td>
-                              <td className="py-3 pr-4 text-slate-700">
+                              <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
                                 {c.description ? (
                                   <>
                                     <div
@@ -5136,23 +5136,23 @@ const SectorDetailPage = () => {
                                   "N/A"
                                 )}
                               </td>
-                              <td className="py-3 pr-4 text-slate-700">
+                              <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
                                 {primaryDisplay.length > 0
                                   ? primaryDisplay.join(", ")
                                   : "N/A"}
                               </td>
-                              <td className="py-3 pr-4 text-slate-700">
+                              <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
                                 {Array.isArray(c.secondary_sectors) &&
                                 c.secondary_sectors.length > 0
                                   ? c.secondary_sectors.join(", ")
                                   : "N/A"}
                               </td>
-                              <td className="py-3 pr-4 text-slate-700">
+                              <td className="py-3 pr-4 text-center text-slate-700">
                                 {typeof c.linkedin_members === "number"
                                   ? c.linkedin_members.toLocaleString()
                                   : "0"}
                               </td>
-                              <td className="py-3 pr-4 text-slate-700">
+                              <td className="py-3 pr-4 text-center text-slate-700">
                                 {c.country || "N/A"}
                               </td>
                             </tr>
@@ -5768,29 +5768,29 @@ const SectorDetailPage = () => {
                     No companies found for this sector.
                   </div>
                 ) : (
-                  <div className="overflow-auto">
-                    <table className="min-w-full text-sm">
+                  <div className="overflow-x-hidden">
+                    <table className="w-full text-sm table-fixed">
                       <thead className="bg-slate-50/80">
                         <tr className="hover:bg-slate-50/80">
                           <th className="py-3 font-semibold text-left text-slate-700 w-[8%]">
                             Logo
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[17%]">
                             Name
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[36%]">
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[20%]">
                             Description
                           </th>
                           <th className="py-3 font-semibold text-left text-slate-700 w-[16%]">
                             Primary Sector(s)
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[12%]">
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
                             Sectors
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[7%]">
+                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[7%]">
                             LinkedIn Members
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[7%]">
+                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[7%]">
                             Country
                           </th>
                         </tr>
@@ -5824,7 +5824,7 @@ const SectorDetailPage = () => {
                                   </div>
                                 )}
                               </td>
-                              <td className="py-3 pr-4">
+                              <td className="py-3 pr-4 align-top whitespace-normal break-words">
                                 <a
                                   href={`/company/${c.id}`}
                                   className="font-medium text-blue-600 underline"
@@ -5832,7 +5832,7 @@ const SectorDetailPage = () => {
                                   {c.name}
                                 </a>
                               </td>
-                              <td className="py-3 pr-4 text-slate-700">
+                              <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
                                 {c.description ? (
                                   <>
                                     <div
@@ -5871,23 +5871,23 @@ const SectorDetailPage = () => {
                                   "N/A"
                                 )}
                               </td>
-                              <td className="py-3 pr-4 text-slate-700">
+                              <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
                                 {primaryDisplay.length > 0
                                   ? primaryDisplay.join(", ")
                                   : "N/A"}
                               </td>
-                              <td className="py-3 pr-4 text-slate-700">
+                              <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
                                 {Array.isArray(c.secondary_sectors) &&
                                 c.secondary_sectors.length > 0
                                   ? c.secondary_sectors.join(", ")
                                   : "N/A"}
                               </td>
-                              <td className="py-3 pr-4 text-slate-700">
+                              <td className="py-3 pr-4 text-center text-slate-700">
                                 {typeof c.linkedin_members === "number"
                                   ? c.linkedin_members.toLocaleString()
                                   : "0"}
                               </td>
-                              <td className="py-3 pr-4 text-slate-700">
+                              <td className="py-3 pr-4 text-center text-slate-700">
                                 {c.country || "N/A"}
                               </td>
                             </tr>
