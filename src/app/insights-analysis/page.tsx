@@ -297,16 +297,26 @@ const InsightsAnalysisCards = ({
   const formatSectors = (
     sectors: Array<Array<{ sector_name: string }>> | undefined
   ) => {
-    if (!sectors || sectors.length === 0) return "Not available";
-    const allSectors = sectors.flat().map((s) => s.sector_name);
-    return allSectors.join(", ");
+    if (!Array.isArray(sectors) || sectors.length === 0) return "Not available";
+    const allSectors = sectors
+      .filter(Boolean)
+      .flat()
+      .filter(Boolean)
+      .map((s) => s?.sector_name)
+      .filter((name): name is string => Boolean(name && name.trim().length));
+    return allSectors.length ? allSectors.join(", ") : "Not available";
   };
 
   const formatCompanies = (
     companies: ContentArticle["companies_mentioned"] | undefined
   ) => {
-    if (!companies || companies.length === 0) return "Not available";
-    return companies.map((c) => c.name).join(", ");
+    if (!Array.isArray(companies) || companies.length === 0)
+      return "Not available";
+    const names = companies
+      .filter(Boolean)
+      .map((c) => c?.name)
+      .filter((name): name is string => Boolean(name && name.trim().length));
+    return names.length ? names.join(", ") : "Not available";
   };
 
   const badgeClassFor = (contentType?: string): string => {
