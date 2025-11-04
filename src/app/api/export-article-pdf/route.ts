@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
 
     // Dynamic import with fallback to serverless chromium in production
     let puppeteer: any = null;
+    let chromiumModule: any | null = null;
     let executablePath: string | undefined;
     let launchArgs: Array<string> = [
       "--allow-file-access-from-files",
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest) {
       ]);
       puppeteer = puppeteerCore;
       executablePath = await chromium.executablePath();
+      chromiumModule = chromium;
       if (Array.isArray(chromium.args)) {
         launchArgs = chromium.args.concat(launchArgs);
       }
@@ -468,14 +470,35 @@ export async function POST(req: NextRequest) {
     const browser = await puppeteer.launch({
       args: launchArgs,
       executablePath,
-      headless: "new" as any,
-      defaultViewport: { width: 1280, height: 900, deviceScaleFactor: 2 },
+      headless: chromiumModule ? chromiumModule.headless : ("new" as any),
+      defaultViewport: (chromiumModule && chromiumModule.defaultViewport) || {
+        width: 1280,
+        height: 900,
+        deviceScaleFactor: 2,
+      },
     });
     const page = await browser.newPage();
     try {
       await page.emulateMediaType("screen");
     } catch {}
     await page.setContent(html, { waitUntil: "networkidle0" });
+    // Ensure styles are applied in serverless Chromium before printing
+    try {
+      await page.addStyleTag({ content: style });
+    } catch {}
+    try {
+      await page.evaluate(() => {
+        const docAny = document as unknown as {
+          fonts?: { ready?: Promise<void> };
+        };
+        return docAny.fonts && docAny.fonts.ready
+          ? docAny.fonts.ready
+          : Promise.resolve();
+      });
+    } catch {}
+    try {
+      await page.waitForTimeout(100);
+    } catch {}
 
     const pdf = await page.pdf({
       format: "A4",
