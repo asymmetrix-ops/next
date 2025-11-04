@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
       "--no-sandbox",
       "--disable-web-security",
     ];
+    let importErrorReason = "";
     try {
       // Prefer puppeteer-core + @sparticuz/chromium in serverless
       try {
@@ -57,7 +58,10 @@ export async function POST(req: NextRequest) {
         if (Array.isArray(chromium.args)) {
           launchArgs = chromium.args.concat(launchArgs);
         }
-      } catch {
+      } catch (e: unknown) {
+        importErrorReason = `serverless-import-failed: ${
+          (e as Error)?.message || String(e)
+        }`;
         // Fallback: attempt evaluated dynamic imports (some bundlers require this pattern)
         const [{ default: puppeteerCore }, chromium] = await Promise.all([
           // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -74,15 +78,33 @@ export async function POST(req: NextRequest) {
           launchArgs = chromium.args.concat(launchArgs);
         }
       }
-    } catch {
+    } catch (e: unknown) {
+      importErrorReason = importErrorReason
+        ? `${importErrorReason}; fallback-eval-import-failed: ${
+            (e as Error)?.message || String(e)
+          }`
+        : `fallback-eval-import-failed: ${(e as Error)?.message || String(e)}`;
       // Fallback to full puppeteer locally (dev) where Chrome is available
       try {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         const mod = await (eval("import('puppeteer')") as Promise<any>);
         puppeteer = mod;
-      } catch {
-        return new Response("Puppeteer not available", { status: 501 });
+      } catch (e2: unknown) {
+        const msg = `Puppeteer not available`;
+        const headers = new Headers();
+        headers.set(
+          "X-PDF-Error",
+          (importErrorReason
+            ? `${importErrorReason}; puppeteer-fallback-failed: ${
+                (e2 as Error)?.message || String(e2)
+              }`
+            : `puppeteer-fallback-failed: ${
+                (e2 as Error)?.message || String(e2)
+              }`
+          ).slice(0, 512)
+        );
+        return new Response(msg, { status: 501, headers });
       }
     }
 
