@@ -201,7 +201,7 @@ const ArticleDetailPage = () => {
   const fromHome = (searchParams?.get?.("from") ?? "") === "home";
 
   const articleId = String((params as Record<string, unknown>)?.id || "");
-  const ENABLE_PDF_EXPORT = false;
+  const ENABLE_PDF_EXPORT = true;
 
   const fetchArticle = async () => {
     try {
