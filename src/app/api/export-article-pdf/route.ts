@@ -46,19 +46,33 @@ export async function POST(req: NextRequest) {
     ];
     try {
       // Prefer puppeteer-core + @sparticuz/chromium in serverless
-      const [{ default: puppeteerCore }, chromium] = await Promise.all([
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore - evaluated import to avoid bundling issues
-        eval("import('puppeteer-core')") as Promise<any>,
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        eval("import('@sparticuz/chromium')") as Promise<any>,
-      ]);
-      puppeteer = puppeteerCore;
-      executablePath = await chromium.executablePath();
-      chromiumModule = chromium;
-      if (Array.isArray(chromium.args)) {
-        launchArgs = chromium.args.concat(launchArgs);
+      try {
+        const [{ default: puppeteerCore }, chromium] = await Promise.all([
+          import("puppeteer-core") as Promise<any>,
+          import("@sparticuz/chromium") as Promise<any>,
+        ]);
+        puppeteer = puppeteerCore;
+        executablePath = await chromium.executablePath();
+        chromiumModule = chromium;
+        if (Array.isArray(chromium.args)) {
+          launchArgs = chromium.args.concat(launchArgs);
+        }
+      } catch {
+        // Fallback: attempt evaluated dynamic imports (some bundlers require this pattern)
+        const [{ default: puppeteerCore }, chromium] = await Promise.all([
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore - evaluated import to avoid bundling issues
+          eval("import('puppeteer-core')") as Promise<any>,
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore
+          eval("import('@sparticuz/chromium')") as Promise<any>,
+        ]);
+        puppeteer = puppeteerCore;
+        executablePath = await chromium.executablePath();
+        chromiumModule = chromium;
+        if (Array.isArray(chromium.args)) {
+          launchArgs = chromium.args.concat(launchArgs);
+        }
       }
     } catch {
       // Fallback to full puppeteer locally (dev) where Chrome is available
