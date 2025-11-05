@@ -7,14 +7,40 @@ type PublicArticle = {
 
 const ReportsSection = async () => {
   let items: PublicArticle[] = [];
+  // Try authenticated (paginated) endpoint first; fall back to public array endpoint
   try {
-    const res = await fetch(
-      "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/All_Content_Articles_home_public",
-      { next: { revalidate: 1800 } }
+    const { cookies } = await import("next/headers");
+    const token = cookies().get("asymmetrix_auth_token")?.value;
+
+    const authRes = await fetch(
+      "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/All_Content_Articles_home",
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        next: { revalidate: 1800 },
+      }
     );
-    if (res.ok) {
-      const data = (await res.json()) as unknown;
-      items = Array.isArray(data) ? (data as PublicArticle[]) : [];
+
+    if (authRes.ok) {
+      const data = (await authRes.json()) as unknown;
+      // Support both shapes: { items: [...] } and [...]
+      const arr = Array.isArray(data)
+        ? (data as PublicArticle[])
+        : (data as { items?: unknown })?.items;
+      if (Array.isArray(arr)) {
+        items = arr as PublicArticle[];
+      }
+    }
+
+    // If no items from auth route, try public route
+    if (!items.length) {
+      const pubRes = await fetch(
+        "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/All_Content_Articles_home_public",
+        { next: { revalidate: 1800 } }
+      );
+      if (pubRes.ok) {
+        const data = (await pubRes.json()) as unknown;
+        if (Array.isArray(data)) items = data as PublicArticle[];
+      }
     }
   } catch {
     items = [];
@@ -48,7 +74,7 @@ const ReportsSection = async () => {
               <a
                 key={article.id}
                 href={`/article/${article.id}?from=home`}
-                className="overflow-hidden bg-white rounded-2xl border-0 shadow-lg block"
+                className="block overflow-hidden bg-white rounded-2xl border-0 shadow-lg"
               >
                 <div className="px-4 py-2 bg-blue-100 text-asymmetrix-blue">
                   <span className="text-sm font-medium">Article</span>
