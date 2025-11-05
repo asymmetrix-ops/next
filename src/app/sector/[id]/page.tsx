@@ -4009,12 +4009,6 @@ const SectorDetailPage = () => {
       <div className="space-y-6">
         {/* Filters Section */}
         <div className="p-8 bg-white rounded-xl border shadow-lg border-slate-200/60">
-          <div className="p-3 mb-4 bg-blue-50 rounded-lg border border-blue-200">
-            <p className="text-sm text-blue-900">
-              <strong>Note:</strong> Results are pre-filtered by the current
-              sector
-            </p>
-          </div>
 
           <div className="space-y-4 max-w-md">
             <input
