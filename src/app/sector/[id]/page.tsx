@@ -3429,22 +3429,22 @@ const SectorDetailPage = () => {
 
         {!loading && corporateEvents.length > 0 && (
           <div className="overflow-x-auto p-6 bg-white rounded-xl border shadow-lg border-slate-200/60">
-            <table className="w-full">
+            <table className="w-full table-fixed">
               <thead>
                 <tr className="border-b-2 border-slate-200">
-                  <th className="p-3 text-sm font-semibold text-left text-slate-900">
+                  <th className="p-3 text-sm font-semibold text-left text-slate-900 w-2/6">
                     Event Details
                   </th>
-                  <th className="p-3 text-sm font-semibold text-left text-slate-900">
+                  <th className="p-3 text-sm font-semibold text-left text-slate-900 w-1/6">
                     Parties
                   </th>
-                  <th className="p-3 text-sm font-semibold text-left text-slate-900">
+                  <th className="p-3 text-sm font-semibold text-left text-slate-900 w-2/6">
                     Deal Details
                   </th>
-                  <th className="p-3 text-sm font-semibold text-left text-slate-900">
+                  <th className="p-3 text-sm font-semibold text-left text-slate-900 w-1/12">
                     Advisors
                   </th>
-                  <th className="p-3 text-sm font-semibold text-left text-slate-900">
+                  <th className="p-3 text-sm font-semibold text-left text-slate-900 w-1/12">
                     Sectors
                   </th>
                 </tr>
@@ -3491,7 +3491,7 @@ const SectorDetailPage = () => {
                       className="border-b border-slate-100"
                     >
                       {/* Event Details */}
-                      <td className="p-3 align-top">
+                      <td className="p-3 align-top w-2/6">
                         <div className="mb-1">
                           <a
                             href={`/corporate-event/${event.id}`}
@@ -3508,7 +3508,7 @@ const SectorDetailPage = () => {
                         </div>
                       </td>
                       {/* Parties */}
-                      <td className="p-3 align-top">
+                      <td className="p-3 align-top w-1/6">
                         <div className="mb-1 text-xs text-slate-600">
                           <strong>Target:</strong>{" "}
                           {targetHref ? (
@@ -3539,9 +3539,9 @@ const SectorDetailPage = () => {
                         </div>
                       </td>
                       {/* Deal Details */}
-                      <td className="p-3 align-top">
+                      <td className="p-3 align-top w-2/6">
                         <div className="mb-1 text-xs text-slate-600">
-                          <strong>Investment Type:</strong>{" "}
+                          <strong>Deal Type:</strong>{" "}
                           {event.deal_type ? (
                             <span className="inline-block px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded">
                               {event.deal_type}
@@ -3566,7 +3566,7 @@ const SectorDetailPage = () => {
                         </div>
                       </td>
                       {/* Advisors */}
-                      <td className="p-3 align-top">
+                      <td className="p-3 align-top w-1/12">
                         <div className="text-xs text-slate-600">
                           <strong>Advisors:</strong>{" "}
                           {Array.isArray(event.advisors) &&
@@ -3595,7 +3595,7 @@ const SectorDetailPage = () => {
                         </div>
                       </td>
                       {/* Sectors */}
-                      <td className="p-3 align-top">
+                      <td className="p-3 align-top w-1/12">
                         <div className="text-xs text-slate-600">
                           <strong>Primary:</strong>{" "}
                           {target?.primary_sectors
