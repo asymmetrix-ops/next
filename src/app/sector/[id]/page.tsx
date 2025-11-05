@@ -3537,6 +3537,70 @@ const SectorDetailPage = () => {
                                 .join(", ") || "Not Available"
                             : "Not Available"}
                         </div>
+                        <div className="text-xs text-slate-600">
+                          <strong>Seller(s):</strong>{" "}
+                          {Array.isArray(event.other_counterparties) &&
+                          event.other_counterparties.length > 0
+                            ? (() => {
+                                const sellers = event.other_counterparties.filter(
+                                  (cp) => {
+                                    const status =
+                                      cp._counterparty_type?.counterparty_status ||
+                                      "";
+                                    return /divestor|seller|vendor/i.test(status);
+                                  }
+                                );
+                                if (sellers.length === 0)
+                                  return <span>Not Available</span>;
+                                return sellers.map((counterparty, subIndex) => {
+                                  const nc = counterparty._new_company as
+                                    | {
+                                        id?: number;
+                                        name?: string;
+                                        _is_that_investor?: boolean;
+                                        _is_that_data_analytic_company?: boolean;
+                                        _url?: string;
+                                        _investor_profile_id?: number;
+                                      }
+                                    | undefined;
+                                  const name = (nc?.name || "Unknown").trim();
+                                  const investorProfileId = nc?._investor_profile_id;
+                                  const cpId =
+                                    (counterparty as { new_company_counterparty?: number })
+                                      .new_company_counterparty || nc?.id;
+                                  let url = "";
+                                  if (nc?._is_that_investor) {
+                                    url =
+                                      typeof investorProfileId === "number" &&
+                                      investorProfileId > 0
+                                        ? `/investors/${investorProfileId}`
+                                        : typeof cpId === "number"
+                                        ? `/investors/${cpId}`
+                                        : "";
+                                  } else if (nc?._is_that_data_analytic_company) {
+                                    url =
+                                      typeof cpId === "number"
+                                        ? `/company/${cpId}`
+                                        : "";
+                                  } else if (typeof nc?._url === "string" && nc?._url) {
+                                    url = nc!._url.replace(/\/(?:investor)\//, "/investors/");
+                                  }
+                                  return (
+                                    <span key={subIndex}>
+                                      {url ? (
+                                        <a href={url} className="text-blue-600 underline hover:text-blue-800">
+                                          {name}
+                                        </a>
+                                      ) : (
+                                        <span>{name}</span>
+                                      )}
+                                      {subIndex < sellers.length - 1 && ", "}
+                                    </span>
+                                  );
+                                });
+                              })()
+                            : "Not Available"}
+                        </div>
                       </td>
                       {/* Deal Details */}
                       <td className="p-3 align-top w-2/6">
