@@ -10,6 +10,7 @@ import {
   CorporateEvent,
   CorporateEventsResponse,
   CorporateEventsFilters,
+  BuyerInvestorType,
 } from "@/types/corporateEvents";
 import { CSVExporter } from "@/utils/csvExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
@@ -1070,6 +1071,9 @@ const CorporateEventsPage = () => {
   const [selectedDealStatuses, setSelectedDealStatuses] = useState<string[]>(
     []
   );
+  const [selectedBuyerInvestorTypes, setSelectedBuyerInvestorTypes] = useState<
+    BuyerInvestorType[]
+  >([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [dateStart, setDateStart] = useState("");
   const [dateEnd, setDateEnd] = useState("");
@@ -1167,6 +1171,19 @@ const CorporateEventsPage = () => {
     { value: "Deal Prep", label: "Deal Prep" },
     { value: "In Exclusivity", label: "In Exclusivity" },
   ];
+
+  // Buyer / Investor Type options (value matches API contract)
+  const buyerInvestorTypeOptions = [
+    { value: "private_equity", label: "Private Equity" },
+    { value: "venture_capital", label: "Venture Capital" },
+    { value: "da_strategic", label: "DA Strategic" },
+    { value: "other_strategic", label: "Other Strategic" },
+  ];
+
+  const buyerInvestorTypeLabel = (value: string) => {
+    const found = buyerInvestorTypeOptions.find((o) => o.value === value);
+    return found ? found.label : value;
+  };
 
   // Fetch functions
   const fetchCountries = async () => {
@@ -1349,6 +1366,20 @@ const CorporateEventsPage = () => {
         params.append("Deal_Status", filters.Deal_Status.join(","));
       }
 
+      // Add buyer / investor types
+      if (
+        (filters as Partial<CorporateEventsFilters>).Buyer_Investor_Types &&
+        (filters as Partial<CorporateEventsFilters>).Buyer_Investor_Types!
+          .length > 0
+      ) {
+        params.append(
+          "Buyer_Investor_Types",
+          (
+            filters as Partial<CorporateEventsFilters>
+          ).Buyer_Investor_Types!.join(",")
+        );
+      }
+
       // Add date filters
       if (filters.Date_start) {
         params.append("Date_start", filters.Date_start);
@@ -1440,6 +1471,7 @@ const CorporateEventsPage = () => {
       Secondary_sectors_ids: selectedSecondarySectors,
       deal_types: selectedEventTypes,
       Deal_Status: selectedDealStatuses,
+      Buyer_Investor_Types: selectedBuyerInvestorTypes,
       Date_start: dateStart || null,
       Date_end: dateEnd || null,
       Page: 1, // Reset to first page when searching
@@ -1460,6 +1492,7 @@ const CorporateEventsPage = () => {
       selectedSecondarySectors.length > 0 ||
       selectedEventTypes.length > 0 ||
       selectedDealStatuses.length > 0 ||
+      selectedBuyerInvestorTypes.length > 0 ||
       searchTerm.trim() !== "" ||
       dateStart !== "" ||
       dateEnd !== ""
@@ -1846,6 +1879,78 @@ const CorporateEventsPage = () => {
                               background: "none",
                               border: "none",
                               color: "#c62828",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Buyer / Investor Type */}
+                  <span style={styles.label}>By Buyer / Investor Type</span>
+                  <SearchableSelect
+                    options={buyerInvestorTypeOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedBuyerInvestorTypes.includes(
+                          value as BuyerInvestorType
+                        )
+                      ) {
+                        setSelectedBuyerInvestorTypes([
+                          ...selectedBuyerInvestorTypes,
+                          value as BuyerInvestorType,
+                        ]);
+                      }
+                    }}
+                    placeholder="Select Buyer / Investor Type"
+                    disabled={false}
+                    style={styles.select}
+                  />
+
+                  {selectedBuyerInvestorTypes.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedBuyerInvestorTypes.map((t) => (
+                        <span
+                          key={t}
+                          style={{
+                            backgroundColor: "#e0f2fe",
+                            color: "#0369a1",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {buyerInvestorTypeLabel(t)}
+                          <button
+                            onClick={() => {
+                              setSelectedBuyerInvestorTypes(
+                                selectedBuyerInvestorTypes.filter(
+                                  (x) => x !== t
+                                )
+                              );
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#0369a1",
                               cursor: "pointer",
                               fontWeight: "bold",
                               fontSize: "14px",

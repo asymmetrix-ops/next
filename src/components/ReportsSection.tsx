@@ -7,31 +7,21 @@ type PublicArticle = {
 
 const ReportsSection = async () => {
   let items: PublicArticle[] = [];
-  // Try authenticated (paginated) endpoint first; fall back to public array endpoint
+  // Use new landing endpoint first; fall back to prior public endpoint
   try {
-    const { cookies } = await import("next/headers");
-    const token = cookies().get("asymmetrix_auth_token")?.value;
-
-    const authRes = await fetch(
-      "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/All_Content_Articles_home",
-      {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        next: { revalidate: 1800 },
-      }
+    const primaryRes = await fetch(
+      "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/articles_landing_page",
+      { next: { revalidate: 1800 } }
     );
-
-    if (authRes.ok) {
-      const data = (await authRes.json()) as unknown;
-      // Support both shapes: { items: [...] } and [...]
+    if (primaryRes.ok) {
+      const data = (await primaryRes.json()) as unknown;
       const arr = Array.isArray(data)
         ? (data as PublicArticle[])
         : (data as { items?: unknown })?.items;
-      if (Array.isArray(arr)) {
-        items = arr as PublicArticle[];
-      }
+      if (Array.isArray(arr)) items = arr as PublicArticle[];
     }
 
-    // If no items from auth route, try public route
+    // If new endpoint empty/unavailable, try older public route
     if (!items.length) {
       const pubRes = await fetch(
         "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/All_Content_Articles_home_public",

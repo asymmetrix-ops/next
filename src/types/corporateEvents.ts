@@ -1,3 +1,9 @@
+export type BuyerInvestorType =
+  | "private_equity"
+  | "venture_capital"
+  | "da_strategic"
+  | "other_strategic";
+
 export interface CorporateEventsFilters {
   primary_sectors_ids: number[];
   Secondary_sectors_ids: number[];
@@ -8,6 +14,8 @@ export interface CorporateEventsFilters {
   // Optional geographic grouping filters (match Companies page UI)
   continentalRegions?: string[];
   subRegions?: string[];
+  // Buyer / Investor type filter: values sent as strings in query
+  Buyer_Investor_Types?: BuyerInvestorType[];
   Date_start: string | null;
   Date_end: string | null;
   search_query: string;

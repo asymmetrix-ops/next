@@ -52,6 +52,15 @@ class CorporateEventsService {
     if (filters.deal_types && filters.deal_types.length > 0) {
       queryParams.append("deal_types", filters.deal_types.join(","));
     }
+    if (
+      filters.Buyer_Investor_Types &&
+      filters.Buyer_Investor_Types.length > 0
+    ) {
+      queryParams.append(
+        "Buyer_Investor_Types",
+        filters.Buyer_Investor_Types.join(",")
+      );
+    }
     if (filters.Countries && filters.Countries.length > 0) {
       queryParams.append("Countries", filters.Countries.join(","));
     }
