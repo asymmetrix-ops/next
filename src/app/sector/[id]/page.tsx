@@ -3432,10 +3432,10 @@ const SectorDetailPage = () => {
           <div className="overflow-x-auto p-6 bg-white rounded-xl border shadow-lg border-slate-200/60">
             <table className="w-full table-fixed">
               <colgroup>
-                <col style={{ width: "36%" }} />
+                <col style={{ width: "34%" }} />
                 <col style={{ width: "20%" }} />
-                <col style={{ width: "28%" }} />
-                <col style={{ width: "8%" }} />
+                <col style={{ width: "22%" }} />
+                <col style={{ width: "16%" }} />
                 <col style={{ width: "8%" }} />
               </colgroup>
               <thead>
