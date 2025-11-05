@@ -1,21 +1,11 @@
 export interface ExportableArticle {
-  id?: number;
   Headline?: string;
   Strapline?: string;
   Publication_Date?: string;
-  Transaction_status?: string;
   Content_Type?: string;
   content_type?: string;
-  Content?: { 
-    Content_type?: string; 
-    Content_Type?: string;
-    Summary?: string | string[];
-    summary?: string | string[];
-  };
+  Content?: { Content_type?: string; Content_Type?: string };
   Body?: string;
-  Summary?: string | string[];
-  summary?: string | string[];
-  Company_of_Focus?: unknown;
   sectors?:
     | Array<{
         id?: number | string;
@@ -44,44 +34,6 @@ export interface ExportableArticle {
         secondary_sectors?: Array<{ id?: number; sector_name?: string }>;
       }>
     | string;
-}
-
-export function getArticleContentType(article: ExportableArticle): string {
-  return (
-    article.Content_Type ||
-    article.content_type ||
-    article.Content?.Content_type ||
-    article.Content?.Content_Type ||
-    ""
-  ).trim();
-}
-
-/** PDF viewer/download title: Asymmetrix - [Content Type] - [Article Headline] */
-export function getArticlePdfTitle(article: ExportableArticle): string {
-  const ct = getArticleContentType(article);
-  let headline = (article.Headline || "Document").trim();
-
-  // Only strip a leading "Content Type – …" prefix when it matches the article type
-  // (e.g. "Company Analysis – FromCounsel"). Do not split on hyphens inside the title.
-  if (ct) {
-    const prefixRe = new RegExp(
-      `^${ct.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[–—-]\\s*`,
-      "i"
-    );
-    const stripped = headline.replace(prefixRe, "").trim();
-    if (stripped) headline = stripped;
-  }
-
-  return ct ? `Asymmetrix - ${ct} - ${headline}` : `Asymmetrix - ${headline}`;
-}
-
-export function getArticlePdfFilename(article: ExportableArticle): string {
-  const base = getArticlePdfTitle(article)
-    .replace(/[\\/:*?"<>|]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 180);
-  return `${base}.pdf`;
 }
 
 const formatDate = (dateString: string | undefined) => {
@@ -132,13 +84,8 @@ function ensureHtml2Pdf(): Promise<void> {
   return html2pdfLoaded;
 }
 
-/**
- * Generate PDF and return blob URL for embedding (LinkedIn-style viewer).
- * Returns null on failure.
- */
-export async function generateArticlePdfBlobUrl(
-  article: ExportableArticle
-): Promise<string | null> {
+export async function openArticlePdfWindow(article: ExportableArticle) {
+  // Prefer external PDF service; fallback to client-side html2pdf on failure.
   try {
     const ct = (
       article.Content_Type ||
@@ -202,47 +149,11 @@ export async function generateArticlePdfBlobUrl(
       return undefined;
     };
 
-    // Determine if Company_of_Focus is populated (convert to boolean)
-    const hasCompanyOfFocus =
-      article.Company_of_Focus != null && article.Company_of_Focus !== "";
-
-    // Extract and parse summary field
-    const summaryRaw =
-      article.Summary ??
-      article.summary ??
-      article.Content?.Summary ??
-      article.Content?.summary;
-    
-    const parsedSummary = (() => {
-      if (!summaryRaw) return undefined;
-      // If already an array, use it
-      if (Array.isArray(summaryRaw)) {
-        return summaryRaw.filter((item) => String(item || "").trim());
-      }
-      // Try to parse as JSON
-      if (typeof summaryRaw === "string") {
-        try {
-          const parsed = JSON.parse(summaryRaw);
-          if (Array.isArray(parsed)) {
-            return parsed.filter((item) => String(item || "").trim());
-          }
-        } catch {
-          // Not JSON, return as string
-        }
-        return summaryRaw.trim() || undefined;
-      }
-      return undefined;
-    })();
-
     const payload = {
-      id: article.id,
       Headline: article.Headline || "",
       Strapline: article.Strapline || undefined,
       Publication_Date: article.Publication_Date || "",
-      Transaction_status: article.Transaction_status || undefined,
       Content_Type: ct,
-      Company_of_Focus: hasCompanyOfFocus,
-      summary: parsedSummary,
       Body: article.Body || "",
       companies_mentioned: companies
         .map((c) => ({ id: c?.id, name: c?.name }))
@@ -277,6 +188,7 @@ export async function generateArticlePdfBlobUrl(
 
     // Log payload and endpoint to browser console
     try {
+      // Avoid mutating payload; shallow clone for readability
       // eslint-disable-next-line no-console
       console.log("[PDF Export] POST", endpoint, { ...payload });
     } catch {}
@@ -286,31 +198,25 @@ export async function generateArticlePdfBlobUrl(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-
     if (res.ok) {
       const blob = await res.blob();
-      const pdfBlob =
-        blob.type && blob.type !== "application/octet-stream"
-          ? blob
-          : new Blob([await blob.arrayBuffer()], { type: "application/pdf" });
-      return URL.createObjectURL(pdfBlob);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const headline = (article.Headline || "Article")
+        .toString()
+        .replace(/[\\/:*?"<>|]/g, " ")
+        .slice(0, 180);
+      a.download = `Asymmetrix - ${headline}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+      return;
     }
-  } catch (err) {
-    console.error("[PDF Export] Service error:", err);
+  } catch {
+    // ignore and fallback
   }
-  return null;
-}
-
-export async function openArticlePdfWindow(article: ExportableArticle) {
-  // Prefer external PDF service; fallback to client-side html2pdf on failure.
-  const blobUrl = await generateArticlePdfBlobUrl(article);
-  if (blobUrl) {
-    const { downloadPdfFromUrl } = await import("@/utils/downloadPdf");
-    await downloadPdfFromUrl(blobUrl, getArticlePdfFilename(article));
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
-    return;
-  }
-  // Fallback to client-side generation if service failed
   const ct = (
     article.Content_Type ||
     article.content_type ||
@@ -358,10 +264,6 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
           primary_sectors?: Array<{ id?: number; sector_name?: string }>;
           secondary_sectors?: Array<{ id?: number; sector_name?: string }>;
         };
-        investment_data?: {
-          Funding_stage?: string;
-          funding_stage?: string;
-        };
         advisors?: Array<{ _new_company?: { id?: number; name?: string } }>;
         primary_sectors?: Array<{ id?: number; sector_name?: string }>;
         secondary_sectors?: Array<{ id?: number; sector_name?: string }>;
@@ -371,7 +273,16 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
   const title = `Asymmetrix – ${ct || "Article"} – ${
     article.Headline || "Untitled"
   }`;
-  const pdfFilename = getArticlePdfFilename(article);
+  const pdfFilename = (() => {
+    const base = `Asymmetrix - ${(article.Headline || "Article").toString()}`;
+    // Sanitize filename for cross-platform safety
+    const sanitized = base
+      .replace(/[\\/:*?"<>|]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 180);
+    return `${sanitized}.pdf`;
+  })();
 
   const baseUrl =
     (typeof window !== "undefined" && window.location?.origin) || "";
@@ -392,22 +303,6 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
             ? formatDate(e.announcement_date)
             : "Not available";
           const type = (e?.deal_type || "Not available").trim();
-          const fundingStage =
-            (
-              (e as {
-                investment_data?: {
-                  Funding_stage?: string;
-                  funding_stage?: string;
-                };
-              })?.investment_data?.Funding_stage ||
-              (e as {
-                investment_data?: {
-                  Funding_stage?: string;
-                  funding_stage?: string;
-                };
-              })?.investment_data?.funding_stage ||
-              ""
-            ).trim();
           const targetName =
             (e as { target?: { name?: string } })?.target?.name ||
             "Not available";
@@ -464,13 +359,7 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
                 )}</span></div>
                 <div class=\"rce-item\"><span class=\"rce-label\">Deal Type:</span><span class=\"rce-value\"><span class=\"pill pill-blue\">${escapeHtml(
                   type
-                )}</span>${
-                  fundingStage
-                    ? ` <span class=\"pill pill-blue\">${escapeHtml(
-                        fundingStage
-                      )}</span>`
-                    : ""
-                }</span></div>
+                )}</span></span></div>
                 <div class=\"rce-item\"><span class=\"rce-label\">Advisors:</span><span class=\"rce-value\">${escapeHtml(
                   advisorNames
                 )}</span></div>
@@ -540,33 +429,21 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
       .pdf-root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: var(--text); }
       .page { width: 200mm; min-height: 297mm; box-sizing: border-box; padding: 36mm 18mm 36mm 12mm; }
       .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
-      .brand-row { display:flex; align-items:center; gap:14px; margin-bottom: 2px; }
-      .logo { height: 96px !important; width: 96px !important; display:inline-block; }
-      .brand { font-weight: 800; letter-spacing: 0.5px; font-size: 28px; color: var(--brand); text-transform: uppercase; }
-      .title { font-size: 24px; font-weight: 800; margin: 4px 0 8px 0; line-height: 1.25; }
+      .brand-row { display:flex; align-items:center; gap:8px; margin-bottom: 2px; }
+      .logo { height: 16px; width: 16px; }
+      .brand { font-weight: 800; letter-spacing: 0.3px; font-size: 12px; color: var(--brand); text-transform: uppercase; }
+      .title { font-size: 22px; font-weight: 800; margin: 4px 0 8px 0; line-height: 1.25; }
       .strapline { font-size: 13px; color: var(--muted); margin: 0 0 12px 0; }
       .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 10px 0 18px; }
       .meta-block { border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; }
       .meta-title { font-size: 12px; font-weight: 700; margin: 0 0 6px 0; }
       .meta ul { margin: 0; padding-left: 18px; }
-      .section-title { font-size: 16px; font-weight: 800; margin: 22px 0 10px; break-after: avoid; page-break-after: avoid; }
-      .content { font-size: 16px !important; line-height: 1.65; word-break: break-word; overflow-wrap: anywhere; }
-      .content p, .content li { font-size: 16px !important; margin: 0 0 12px 0; page-break-inside: avoid; break-inside: avoid; orphans: 3; widows: 3; }
+      .section-title { font-size: 14px; font-weight: 800; margin: 22px 0 10px; break-after: avoid; page-break-after: avoid; }
+      .content { font-size: 12.5px; line-height: 1.65; word-break: break-word; overflow-wrap: anywhere; }
+      .content p { margin: 0 0 12px 0; page-break-inside: avoid; break-inside: avoid; orphans: 3; widows: 3; }
       .content ul { margin: 0 0 10px 18px; }
       .content ol { margin: 0 0 10px 18px; }
       .content h1,.content h2,.content h3 { margin: 16px 0 10px; break-after: avoid; page-break-after: avoid; }
-      .content .asymmetrix-key-point { background-color:#fff3bf; border-radius:3px; padding:0 2px; box-decoration-break:clone; -webkit-box-decoration-break:clone; }
-      .content .asymmetrix-highlight { background-color:#fff3bf; border-radius:3px; padding:0 2px; box-decoration-break:clone; -webkit-box-decoration-break:clone; }
-      .content .asymmetrix-highlight-section {
-        background-color: #fff3bf;
-        padding: 8px 10px;
-        margin: 10px 0;
-        border-radius: 4px;
-        page-break-inside: avoid;
-        break-inside: avoid;
-      }
-      .content .asymmetrix-highlight-section > :first-child { margin-top: 0 !important; }
-      .content .asymmetrix-highlight-section > :last-child { margin-bottom: 0 !important; }
       .rule { height: 1px; background: var(--rule); border: 0; margin: 14px 0; }
       .footer { margin-top: 22px; font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; }
       .badge { display:inline-block; font-size:10px; color:#1e40af; background:#eff6ff; border:1px solid #bfdbfe; border-radius:999px; padding:4px 8px; font-weight:700; }
@@ -597,7 +474,7 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
           <div class="brand-row">
             <img class="logo" alt="Asymmetrix" src="${escapeHtml(
               logoUrl
-            )}" crossorigin="anonymous" width="96" height="96" style="width:96px;height:96px;display:inline-block;" />
+            )}" crossorigin="anonymous" />
             <div class="brand">Asymmetrix</div>
           </div>
           <div class="title">${escapeHtml(title)}</div>
