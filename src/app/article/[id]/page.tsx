@@ -314,6 +314,16 @@ const ArticleDetailPage = () => {
     }
   }, [articleId]);
 
+  useEffect(() => {
+    if (article?.Headline) {
+      try {
+        document.title = `Asymmetrix – ${article.Headline}`;
+      } catch {
+        // ignore
+      }
+    }
+  }, [article?.Headline]);
+
   const formatDate = (dateString: string) => {
     if (!dateString) return "Not available";
     try {

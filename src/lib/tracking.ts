@@ -72,15 +72,17 @@ export function getPageVisit(): string {
 export function getPageHeading(): string {
   if (typeof document === "undefined") return "";
   try {
-    return document.title || "";
+    const h1 = document.querySelector("h1");
+    const h1Text = (h1?.textContent || h1?.innerHTML || "").trim();
+    return h1Text || document.title || "";
   } catch {
-    return "";
+    return document.title || "";
   }
 }
 
 async function waitForStableTitle(
-  maxWaitMs = 2000,
-  stableMs = 1000
+  maxWaitMs = 6000,
+  stableMs = 1200
 ): Promise<string> {
   if (typeof document === "undefined") return "";
   try {
@@ -92,40 +94,77 @@ async function waitForStableTitle(
       resolveFn = resolve;
     });
 
-    let lastTitle = document.title || "";
+    let lastValue = ((): string => {
+      try {
+        const h1 = document.querySelector("h1");
+        const h1Text = (h1?.textContent || h1?.innerHTML || "").trim();
+        return h1Text || document.title || "";
+      } catch {
+        return document.title || "";
+      }
+    })();
+
+    const computeCurrent = (): string => {
+      try {
+        const h1 = document.querySelector("h1");
+        const h1Text = (h1?.textContent || h1?.innerHTML || "").trim();
+        return h1Text || document.title || "";
+      } catch {
+        return document.title || "";
+      }
+    };
 
     const checkResolve = () => {
       if (resolved) return;
       const now = Date.now();
-      if (now - stableSince >= stableMs || now - start >= maxWaitMs) {
+      const current = computeCurrent();
+      if (current !== lastValue) {
+        lastValue = current;
+        stableSince = now;
+      }
+      if (
+        (current && now - stableSince >= stableMs) ||
+        now - start >= maxWaitMs
+      ) {
         resolved = true;
-        observer?.disconnect();
+        headObserver?.disconnect();
+        bodyObserver?.disconnect();
         clearInterval(intervalId);
-        resolveFn!(document.title || "");
+        resolveFn!(current || lastValue || document.title || "");
       }
     };
 
     const headEl = document.head || document.querySelector("head");
-    const observer = headEl
+    const bodyEl = document.body || document.documentElement;
+
+    const headObserver = headEl
       ? new MutationObserver(() => {
-          // Next.js may replace the <title> node entirely; always read document.title
-          const current = document.title || "";
-          if (current !== lastTitle) {
-            lastTitle = current;
-            stableSince = Date.now();
-          }
+          checkResolve();
+        })
+      : null;
+    const bodyObserver = bodyEl
+      ? new MutationObserver(() => {
+          checkResolve();
         })
       : null;
 
-    if (observer && headEl) {
-      observer.observe(headEl, {
+    if (headObserver && headEl) {
+      headObserver.observe(headEl, {
         childList: true,
         subtree: true,
         characterData: true,
       });
     }
+    if (bodyObserver && bodyEl) {
+      bodyObserver.observe(bodyEl, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: false,
+      });
+    }
 
-    const intervalId = window.setInterval(checkResolve, 50);
+    const intervalId = window.setInterval(checkResolve, 100);
     checkResolve();
     return await done;
   } catch {
