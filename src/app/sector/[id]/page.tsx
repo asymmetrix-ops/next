@@ -947,7 +947,8 @@ function RecentTransactionsCard({
                     <tr
                       key={`tx-${idx}`}
                       className={`transition-colors duration-150 hover:bg-slate-50/50 ${
-                        href ? "cursor-pointer" : ""}`}
+                        href ? "cursor-pointer" : ""
+                      }`}
                       onClick={() => {
                         if (href) {
                           window.location.href = href;
@@ -3430,21 +3431,28 @@ const SectorDetailPage = () => {
         {!loading && corporateEvents.length > 0 && (
           <div className="overflow-x-auto p-6 bg-white rounded-xl border shadow-lg border-slate-200/60">
             <table className="w-full table-fixed">
+              <colgroup>
+                <col style={{ width: "36%" }} />
+                <col style={{ width: "20%" }} />
+                <col style={{ width: "28%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "8%" }} />
+              </colgroup>
               <thead>
                 <tr className="border-b-2 border-slate-200">
-                  <th className="p-3 text-sm font-semibold text-left text-slate-900 w-2/6">
+                  <th className="p-3 text-sm font-semibold text-left text-slate-900">
                     Event Details
                   </th>
-                  <th className="p-3 text-sm font-semibold text-left text-slate-900 w-1/6">
+                  <th className="p-3 text-sm font-semibold text-left text-slate-900">
                     Parties
                   </th>
-                  <th className="p-3 text-sm font-semibold text-left text-slate-900 w-2/6">
+                  <th className="p-3 text-sm font-semibold text-left text-slate-900">
                     Deal Details
                   </th>
-                  <th className="p-3 text-sm font-semibold text-left text-slate-900 w-1/12">
+                  <th className="p-3 text-sm font-semibold text-left text-slate-900">
                     Advisors
                   </th>
-                  <th className="p-3 text-sm font-semibold text-left text-slate-900 w-1/12">
+                  <th className="p-3 text-sm font-semibold text-left text-slate-900">
                     Sectors
                   </th>
                 </tr>
@@ -3491,7 +3499,7 @@ const SectorDetailPage = () => {
                       className="border-b border-slate-100"
                     >
                       {/* Event Details */}
-                      <td className="p-3 align-top w-2/6">
+                      <td className="p-3 align-top break-words">
                         <div className="mb-1">
                           <a
                             href={`/corporate-event/${event.id}`}
@@ -3508,7 +3516,7 @@ const SectorDetailPage = () => {
                         </div>
                       </td>
                       {/* Parties */}
-                      <td className="p-3 align-top w-1/6">
+                      <td className="p-3 align-top break-words">
                         <div className="mb-1 text-xs text-slate-600">
                           <strong>Target:</strong>{" "}
                           {targetHref ? (
@@ -3542,14 +3550,15 @@ const SectorDetailPage = () => {
                           {Array.isArray(event.other_counterparties) &&
                           event.other_counterparties.length > 0
                             ? (() => {
-                                const sellers = event.other_counterparties.filter(
-                                  (cp) => {
+                                const sellers =
+                                  event.other_counterparties.filter((cp) => {
                                     const status =
-                                      cp._counterparty_type?.counterparty_status ||
-                                      "";
-                                    return /divestor|seller|vendor/i.test(status);
-                                  }
-                                );
+                                      cp._counterparty_type
+                                        ?.counterparty_status || "";
+                                    return /divestor|seller|vendor/i.test(
+                                      status
+                                    );
+                                  });
                                 if (sellers.length === 0)
                                   return <span>Not Available</span>;
                                 return sellers.map((counterparty, subIndex) => {
@@ -3564,10 +3573,14 @@ const SectorDetailPage = () => {
                                       }
                                     | undefined;
                                   const name = (nc?.name || "Unknown").trim();
-                                  const investorProfileId = nc?._investor_profile_id;
+                                  const investorProfileId =
+                                    nc?._investor_profile_id;
                                   const cpId =
-                                    (counterparty as { new_company_counterparty?: number })
-                                      .new_company_counterparty || nc?.id;
+                                    (
+                                      counterparty as {
+                                        new_company_counterparty?: number;
+                                      }
+                                    ).new_company_counterparty || nc?.id;
                                   let url = "";
                                   if (nc?._is_that_investor) {
                                     url =
@@ -3577,18 +3590,29 @@ const SectorDetailPage = () => {
                                         : typeof cpId === "number"
                                         ? `/investors/${cpId}`
                                         : "";
-                                  } else if (nc?._is_that_data_analytic_company) {
+                                  } else if (
+                                    nc?._is_that_data_analytic_company
+                                  ) {
                                     url =
                                       typeof cpId === "number"
                                         ? `/company/${cpId}`
                                         : "";
-                                  } else if (typeof nc?._url === "string" && nc?._url) {
-                                    url = nc!._url.replace(/\/(?:investor)\//, "/investors/");
+                                  } else if (
+                                    typeof nc?._url === "string" &&
+                                    nc?._url
+                                  ) {
+                                    url = nc!._url.replace(
+                                      /\/(?:investor)\//,
+                                      "/investors/"
+                                    );
                                   }
                                   return (
                                     <span key={subIndex}>
                                       {url ? (
-                                        <a href={url} className="text-blue-600 underline hover:text-blue-800">
+                                        <a
+                                          href={url}
+                                          className="text-blue-600 underline hover:text-blue-800"
+                                        >
                                           {name}
                                         </a>
                                       ) : (
@@ -3603,7 +3627,7 @@ const SectorDetailPage = () => {
                         </div>
                       </td>
                       {/* Deal Details */}
-                      <td className="p-3 align-top w-2/6">
+                      <td className="p-3 align-top break-words">
                         <div className="mb-1 text-xs text-slate-600">
                           <strong>Deal Type:</strong>{" "}
                           {event.deal_type ? (
@@ -3630,7 +3654,7 @@ const SectorDetailPage = () => {
                         </div>
                       </td>
                       {/* Advisors */}
-                      <td className="p-3 align-top w-1/12">
+                      <td className="p-3 align-top break-words">
                         <div className="text-xs text-slate-600">
                           <strong>Advisors:</strong>{" "}
                           {Array.isArray(event.advisors) &&
@@ -3659,7 +3683,7 @@ const SectorDetailPage = () => {
                         </div>
                       </td>
                       {/* Sectors */}
-                      <td className="p-3 align-top w-1/12">
+                      <td className="p-3 align-top break-words">
                         <div className="text-xs text-slate-600">
                           <strong>Primary:</strong>{" "}
                           {target?.primary_sectors
@@ -4073,7 +4097,6 @@ const SectorDetailPage = () => {
       <div className="space-y-6">
         {/* Filters Section */}
         <div className="p-8 bg-white rounded-xl border shadow-lg border-slate-200/60">
-
           <div className="space-y-4 max-w-md">
             <input
               type="text"
