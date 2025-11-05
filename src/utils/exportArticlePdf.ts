@@ -85,12 +85,118 @@ function ensureHtml2Pdf(): Promise<void> {
 }
 
 export async function openArticlePdfWindow(article: ExportableArticle) {
-  // Try server-side PDF first (Puppeteer). Falls back to client-side html2pdf.
+  // Prefer external PDF service; fallback to client-side html2pdf on failure.
   try {
-    const res = await fetch("/api/export-article-pdf", {
+    const ct = (
+      article.Content_Type ||
+      article.content_type ||
+      article.Content?.Content_type ||
+      article.Content?.Content_Type ||
+      ""
+    ).trim();
+
+    const safeParse = <T>(v: unknown): T | undefined => {
+      if (Array.isArray(v)) return v as unknown as T;
+      if (typeof v === "string" && v.trim()) {
+        try {
+          return JSON.parse(v) as T;
+        } catch {
+          return undefined;
+        }
+      }
+      return undefined;
+    };
+
+    const sectors =
+      safeParse<
+        Array<{
+          id?: number | string;
+          sector_id?: number | string;
+          Sector_id?: number | string;
+          sector_name?: string;
+          Sector_importance?: string;
+        }>
+      >(article.sectors) || [];
+    const companies =
+      safeParse<Array<{ id?: number; name?: string }>>(
+        article.companies_mentioned
+      ) || [];
+    const relatedEvents =
+      safeParse<
+        Array<{
+          id?: number;
+          description?: string;
+          deal_type?: string;
+          deal_status?: string;
+          announcement_date?: string;
+          target?: { id?: number; name?: string };
+          advisors?: Array<{ _new_company?: { id?: number; name?: string } }>;
+          primary_sectors?: Array<{ id?: number; sector_name?: string }>;
+          secondary_sectors?: Array<{ id?: number; sector_name?: string }>;
+        }>
+      >(article.Related_Corporate_Event) || [];
+
+    const getSectorId = (s: unknown): number | undefined => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sectorAny = s as any;
+      const candidate =
+        sectorAny?.id ?? sectorAny?.sector_id ?? sectorAny?.Sector_id;
+      if (typeof candidate === "number") return candidate;
+      if (typeof candidate === "string") {
+        const parsed = parseInt(candidate, 10);
+        return Number.isFinite(parsed) ? parsed : undefined;
+      }
+      return undefined;
+    };
+
+    const payload = {
+      Headline: article.Headline || "",
+      Strapline: article.Strapline || undefined,
+      Publication_Date: article.Publication_Date || "",
+      Content_Type: ct,
+      Body: article.Body || "",
+      companies_mentioned: companies
+        .map((c) => ({ id: c?.id, name: c?.name }))
+        .filter((c) => (c?.name || "").trim()),
+      sectors: sectors
+        .map((s) => ({
+          id: getSectorId(s),
+          sector_name: (s as { sector_name?: string })?.sector_name,
+          Sector_importance: (s as { Sector_importance?: string })
+            ?.Sector_importance,
+        }))
+        .filter((s) => (s.sector_name || "").trim()),
+      Related_Corporate_Event: relatedEvents.map((e) => ({
+        id: e?.id,
+        description: e?.description,
+        announcement_date: e?.announcement_date,
+        deal_type: e?.deal_type,
+        target: e?.target?.name
+          ? { id: e?.target?.id, name: e?.target?.name }
+          : undefined,
+        advisors: e?.advisors,
+        primary_sectors: e?.primary_sectors,
+        secondary_sectors: e?.secondary_sectors,
+      })),
+    };
+
+    const endpoint =
+      (typeof process !== "undefined" &&
+        (process as unknown as { env?: { [k: string]: string | undefined } })
+          .env?.NEXT_PUBLIC_PDF_SERVICE_URL) ||
+      "https://asymmetrix-pdf-service.fly.dev/api/export-article-pdf";
+
+    // Log payload and endpoint to browser console
+    try {
+      // Avoid mutating payload; shallow clone for readability
+      // eslint-disable-next-line no-console
+      console.log("[PDF Export] POST", endpoint, { ...payload });
+    } catch {}
+
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(article),
+      body: JSON.stringify(payload),
     });
     if (res.ok) {
       const blob = await res.blob();
