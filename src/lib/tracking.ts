@@ -14,13 +14,15 @@ const RECENT_EVENTS_KEY = "asym_recent_events";
 const recentEvents = new Map<string, number>();
 
 // Do not track activities for these users
-const BLOCKED_EMAILS = new Set<string>([
-  "a.boden@gmail.com",
-  "j.bochner@asymmetrixintelligence.com",
-  "d.dinsey@asymmetrixintelligence.com",
-  "a.grishko@asymmetrixintelligence.com",
-  "tucha.dev@gmail.com",
-].map((e) => e.toLowerCase()));
+const BLOCKED_EMAILS = new Set<string>(
+  [
+    "a.boden@gmail.com",
+    "j.bochner@asymmetrixintelligence.com",
+    "d.dinsey@asymmetrixintelligence.com",
+    "a.grishko@asymmetrixintelligence.com",
+    "tucha.dev@gmail.com",
+  ].map((e) => e.toLowerCase())
+);
 
 function isBlockedEmail(email: string | undefined): boolean {
   if (!email) return false;
@@ -311,7 +313,9 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
         if (refreshed && typeof refreshed.id === "string") {
           // Persist for subsequent events
           authService.setUser?.(refreshed);
-          currentEmail = (refreshed as any).email as string | undefined;
+          currentEmail = (refreshed as { email?: string }).email as
+            | string
+            | undefined;
           const parsed = Number.parseInt(refreshed.id, 10);
           if (Number.isFinite(parsed)) {
             finalUserId = parsed as number;
