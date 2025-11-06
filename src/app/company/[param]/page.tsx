@@ -2022,6 +2022,17 @@ const CompanyDetail = () => {
     .company-detail-page { overflow-x: hidden; }
     .responsiveGrid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; max-width: 100%; }
     .card { background: white; border-radius: 12px; }
+    /* Corporate Events styles (mirrors corporate-events list page) */
+    .corporate-event-table { width: 100%; background: #fff; padding: 20px 24px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
+    .corporate-event-table th, .corporate-event-table td { padding: 12px; text-align: left; vertical-align: top; border-bottom: 1px solid #e2e8f0; word-wrap: break-word; overflow-wrap: break-word; font-size: 14px; }
+    .corporate-event-table th { font-weight: 600; color: #1a202c; background: #f9fafb; border-bottom: 2px solid #e2e8f0; }
+    .corporate-event-name { color: #0075df; text-decoration: underline; cursor: pointer; font-weight: 500; transition: color 0.2s; }
+    .corporate-event-name:hover { color: #005bb5; }
+    .link-blue { color: #0075df; text-decoration: underline; cursor: pointer; font-weight: 500; }
+    .link-blue:hover { color: #005bb5; }
+    .muted-row { font-size: 12px; color: #4a5568; margin: 4px 0; }
+    .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
+    .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
     @media (max-width: 768px) {
       .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
       .desktop-financial-metrics { display: none !important; }
@@ -3383,168 +3394,115 @@ const CompanyDetail = () => {
                 </div>
               ) : (
                 <div style={{ overflowX: "auto", maxWidth: "100%" }}>
-                  <table
-                    style={{
-                      width: "100%",
-                      borderCollapse: "collapse",
-                      minWidth: "1000px",
-                    }}
-                  >
+                  <table className="corporate-event-table">
                     <thead>
                       <tr>
-                        {[
-                          "Description",
-                          "Date Announced",
-                          "Type",
-                          "Counterparty status",
-                          "Other counterparties",
-                          "Investment",
-                          "Enterprise value",
-                          "Advisors",
-                        ].map((header) => (
-                          <th
-                            key={header}
-                            style={{
-                              textAlign: "left",
-                              padding: "12px 8px",
-                              borderBottom: "1px solid #e2e8f0",
-                              fontSize: "14px",
-                              fontWeight: "600",
-                              color: "#4a5568",
-                            }}
-                          >
-                            {header}
-                          </th>
-                        ))}
+                        <th>Event Details</th>
+                        <th>Parties</th>
+                        <th>Deal Details</th>
+                        <th>Advisors</th>
+                        <th>Sectors</th>
                       </tr>
                     </thead>
                     <tbody>
                       {(showAllCorporateEvents
                         ? corporateEvents
                         : corporateEvents.slice(0, 3)
-                      ).map((event, index) => (
-                        <tr key={event.id || index}>
-                          <td
-                            style={{
-                              padding: "12px 8px",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            {createClickableElement(
-                              `/corporate-event/${event.id}`,
-                              event.description
-                            )}
-                          </td>
-                          <td
-                            style={{
-                              padding: "12px 8px",
-                              borderBottom: "1px solid #e2e8f0",
-                              fontSize: "14px",
-                            }}
-                          >
-                            {new Date(
-                              (event as NewCorporateEvent).announcement_date ||
-                                (event as LegacyCorporateEvent)
-                                  .announcement_date
-                            ).toLocaleDateString("en-US", {
+                      ).map((event, index) => {
+                        const isPartnership = /partnership/i.test(
+                          (event as NewCorporateEvent).deal_type ||
+                            (event as LegacyCorporateEvent).deal_type ||
+                            ""
+                        );
+                        const eventDate = (() => {
+                          const raw =
+                            (event as NewCorporateEvent).announcement_date ||
+                            (event as LegacyCorporateEvent).announcement_date;
+                          try {
+                            return new Date(raw).toLocaleDateString("en-US", {
                               year: "numeric",
                               month: "long",
                               day: "numeric",
-                            })}
-                          </td>
-                          <td
-                            style={{
-                              padding: "12px 8px",
-                              borderBottom: "1px solid #e2e8f0",
-                              fontSize: "14px",
-                            }}
-                          >
-                            {(event as NewCorporateEvent).deal_type ||
-                              (event as LegacyCorporateEvent).deal_type ||
-                              "N/A"}
-                          </td>
-                          <td
-                            style={{
-                              padding: "12px 8px",
-                              borderBottom: "1px solid #e2e8f0",
-                              fontSize: "14px",
-                            }}
-                          >
-                            {(() => {
-                              const newStatus = (event as NewCorporateEvent)
-                                .this_company_status;
-                              if (newStatus) return newStatus;
-                              const legacy = event as LegacyCorporateEvent;
-                              return (
-                                legacy.counterparty_status?.counterparty_syayus
-                                  ?.counterparty_status || "N/A"
-                              );
-                            })()}
-                          </td>
-                          <td
-                            style={{
-                              padding: "12px 8px",
-                              borderBottom: "1px solid #e2e8f0",
-                              fontSize: "14px",
-                            }}
-                          >
-                            {(() => {
-                              const newEvent = event as NewCorporateEvent;
-                              const looksNew =
-                                typeof newEvent.this_company_status ===
-                                  "string" ||
-                                Array.isArray(newEvent.advisors_names) ||
-                                Array.isArray(newEvent.other_counterparties);
-                              if (looksNew) {
-                                const list = (
-                                  newEvent.other_counterparties || []
-                                ).filter(
-                                  (c) =>
-                                    c &&
-                                    typeof c === "object" &&
-                                    typeof c.id === "number" &&
-                                    c.name
-                                );
-                                if (list.length === 0) return "N/A";
-                                return (
-                                  <>
-                                    {list.map((c, idx) => {
-                                      const target =
+                            });
+                          } catch {
+                            return "Not available";
+                          }
+                        })();
+                        return (
+                          <tr key={event.id || index}>
+                            {/* Event Details */}
+                            <td>
+                              <div style={{ marginBottom: "6px" }}>
+                                <a
+                                  href={`/corporate-event/${event.id}`}
+                                  className="corporate-event-name"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    router.replace(
+                                      `/corporate-event/${event.id}`
+                                    );
+                                  }}
+                                >
+                                  {event.description || "Not Available"}
+                                </a>
+                              </div>
+                              <div className="muted-row">Date: {eventDate}</div>
+                              <div className="muted-row">
+                                Target HQ: {fullAddress || "Not available"}
+                              </div>
+                            </td>
+                            {/* Parties */}
+                            <td>
+                              <div className="muted-row">
+                                <strong>Target:</strong>{" "}
+                                <a
+                                  href={`/company/${companyId}`}
+                                  className="link-blue"
+                                >
+                                  {company.name}
+                                </a>
+                              </div>
+                              <div className="muted-row">
+                                <strong>Other counterparties:</strong>{" "}
+                                {(() => {
+                                  const newEvent = event as NewCorporateEvent;
+                                  if (
+                                    Array.isArray(newEvent.other_counterparties)
+                                  ) {
+                                    const list =
+                                      newEvent.other_counterparties.filter(
+                                        (c) =>
+                                          c &&
+                                          typeof c.id === "number" &&
+                                          c.name
+                                      );
+                                    if (list.length === 0)
+                                      return <span>Not Available</span>;
+                                    return list.map((c, idx) => {
+                                      const href =
                                         c.page_type === "investor"
                                           ? `/investors/${c.id}`
                                           : `/company/${c.id}`;
                                       return (
                                         <span key={`${c.id}-${idx}`}>
-                                          <a
-                                            href={target}
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              router.replace(target);
-                                            }}
-                                            style={{
-                                              color: "#0075df",
-                                              textDecoration: "none",
-                                              cursor: "pointer",
-                                            }}
-                                          >
+                                          <a href={href} className="link-blue">
                                             {c.name}
                                           </a>
                                           {idx < list.length - 1 && ", "}
                                         </span>
                                       );
-                                    })}
-                                  </>
-                                );
-                              }
-                              const legacy = event as LegacyCorporateEvent;
-                              const items = (legacy["0"] || []).filter(
-                                (it) =>
-                                  it && it._new_company && it._new_company.name
-                              );
-                              if (items.length === 0) return "N/A";
-                              return (
-                                <>
-                                  {items.map((it, idx) => {
+                                    });
+                                  }
+                                  const legacy = event as LegacyCorporateEvent;
+                                  const items = (legacy["0"] || []).filter(
+                                    (it) =>
+                                      it &&
+                                      it._new_company &&
+                                      it._new_company.name
+                                  );
+                                  if (items.length === 0)
+                                    return <span>Not Available</span>;
+                                  return items.map((it, idx) => {
                                     const id = it._new_company?.id;
                                     const isInvestor = Boolean(
                                       it._new_company?._is_that_investor
@@ -3564,192 +3522,199 @@ const CompanyDetail = () => {
                                     }
                                     return (
                                       <span key={`${id}-${idx}`}>
-                                        <a
-                                          href={href}
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            router.replace(href);
-                                          }}
-                                          style={{
-                                            color: "#0075df",
-                                            textDecoration: "none",
-                                            cursor: "pointer",
-                                          }}
-                                        >
+                                        <a href={href} className="link-blue">
                                           {it._new_company!.name}
                                         </a>
                                         {idx < items.length - 1 && ", "}
                                       </span>
                                     );
-                                  })}
-                                </>
-                              );
-                            })()}
-                          </td>
-                          {/* Investment */}
-                          <td
-                            style={{
-                              padding: "12px 8px",
-                              borderBottom: "1px solid #e2e8f0",
-                              fontSize: "14px",
-                            }}
-                          >
-                            {(() => {
-                              // Prefer new display field when present
-                              const display = (event as NewCorporateEvent)
-                                .investment_display;
-                              if (display && display.trim()) return display;
-                              const legacy = event as LegacyCorporateEvent;
-                              const legacyAny = legacy as unknown as {
-                                investment_data?: {
-                                  investment_amount_m?: number | string;
-                                  investment_amount?: number | string;
-                                  currency?: { Currency?: string };
-                                  _currency?: { Currency?: string };
-                                  currrency?: { Currency?: string };
-                                };
-                                investment_amount_m?: number | string;
-                                investment_amount?: number | string;
-                              };
-                              const amount =
-                                legacyAny?.investment_data
-                                  ?.investment_amount_m ??
-                                legacyAny?.investment_data?.investment_amount ??
-                                legacyAny?.investment_amount_m ??
-                                legacyAny?.investment_amount;
-                              const investmentCurrency: string | undefined =
-                                legacyAny?.investment_data?.currency
-                                  ?.Currency ||
-                                legacyAny?.investment_data?._currency
-                                  ?.Currency ||
-                                legacyAny?.investment_data?.currrency?.Currency;
-                              const evCurrency: string | undefined =
-                                legacy.ev_data?._currency?.Currency ||
-                                legacy.ev_data?.currency?.Currency;
-                              const currencySymbol =
-                                investmentCurrency || evCurrency;
-                              if (amount != null && currencySymbol) {
-                                const numeric = Number(amount);
-                                if (!Number.isNaN(numeric)) {
-                                  return `${currencySymbol}${numeric.toLocaleString()}m`;
-                                }
-                              }
-                              return "Not available";
-                            })()}
-                          </td>
-                          <td
-                            style={{
-                              padding: "12px 8px",
-                              borderBottom: "1px solid #e2e8f0",
-                              fontSize: "14px",
-                            }}
-                          >
-                            {(() => {
-                              // Prefer new display field when present
-                              const display = (event as NewCorporateEvent)
-                                .ev_display as string | undefined;
-                              if (display && display.trim()) return display;
-                              const legacy = event as LegacyCorporateEvent;
-                              const amount = legacy.ev_data
-                                ?.enterprise_value_m as
-                                | number
-                                | string
-                                | undefined;
-                              // Support either ev_data.currency.Currency or ev_data._currency.Currency
-                              const currency: string | undefined =
-                                legacy.ev_data?.currency?.Currency ||
-                                legacy.ev_data?._currency?.Currency;
-                              if (amount != null && currency) {
-                                const n = Number(amount);
-                                if (!Number.isNaN(n)) {
-                                  return `${currency}${n.toLocaleString()}m`;
-                                }
-                              }
-                              return legacy.ev_data?.ev_band || "Not available";
-                            })()}
-                          </td>
-                          <td
-                            style={{
-                              padding: "12px 8px",
-                              borderBottom: "1px solid #e2e8f0",
-                              fontSize: "14px",
-                            }}
-                          >
-                            {(() => {
-                              const newEvent = event as NewCorporateEvent;
-                              // Advisors names can be provided as array of strings, string, or derived from advisors list
-                              const namesFromArray = Array.isArray(
-                                newEvent.advisors_names
-                              )
-                                ? newEvent.advisors_names
-                                    .map((n) =>
-                                      typeof n === "string" ? n : ""
-                                    )
-                                    .filter((n) => n && n.trim().length > 0)
-                                : [];
-                              const namesFromString =
-                                typeof (
-                                  newEvent as unknown as {
-                                    advisors_names?: unknown;
+                                  });
+                                })()}
+                              </div>
+                            </td>
+                            {/* Deal Details */}
+                            <td>
+                              <div className="muted-row">
+                                <strong>Deal Type:</strong>{" "}
+                                {(event as NewCorporateEvent).deal_type ||
+                                (event as LegacyCorporateEvent).deal_type ? (
+                                  <span className="pill pill-blue">
+                                    {(event as NewCorporateEvent).deal_type ||
+                                      (event as LegacyCorporateEvent).deal_type}
+                                  </span>
+                                ) : (
+                                  <span>Not Available</span>
+                                )}
+                              </div>
+                              {!isPartnership && (
+                                <div className="muted-row">
+                                  <strong>Amount (m):</strong>{" "}
+                                  {(() => {
+                                    const display = (event as NewCorporateEvent)
+                                      .investment_display;
+                                    if (display && display.trim())
+                                      return display;
+                                    const legacy =
+                                      event as LegacyCorporateEvent;
+                                    const legacyAny = legacy as unknown as {
+                                      investment_data?: {
+                                        investment_amount_m?: number | string;
+                                        investment_amount?: number | string;
+                                        currency?: { Currency?: string };
+                                        _currency?: { Currency?: string };
+                                        currrency?: { Currency?: string };
+                                      };
+                                      investment_amount_m?: number | string;
+                                      investment_amount?: number | string;
+                                    };
+                                    const amount =
+                                      legacyAny?.investment_data
+                                        ?.investment_amount_m ??
+                                      legacyAny?.investment_data
+                                        ?.investment_amount ??
+                                      legacyAny?.investment_amount_m ??
+                                      legacyAny?.investment_amount;
+                                    const currency: string | undefined =
+                                      legacyAny?.investment_data?.currency
+                                        ?.Currency ||
+                                      legacyAny?.investment_data?._currency
+                                        ?.Currency ||
+                                      legacyAny?.investment_data?.currrency
+                                        ?.Currency;
+                                    if (amount != null && currency) {
+                                      const n = Number(amount);
+                                      if (!Number.isNaN(n))
+                                        return `${currency}${n.toLocaleString()}m`;
+                                    }
+                                    return "Not available";
+                                  })()}
+                                </div>
+                              )}
+                              {!isPartnership && (
+                                <div className="muted-row">
+                                  <strong>EV (m):</strong>{" "}
+                                  {(() => {
+                                    const display = (event as NewCorporateEvent)
+                                      .ev_display as string | undefined;
+                                    if (display && display.trim())
+                                      return display;
+                                    const legacy =
+                                      event as LegacyCorporateEvent;
+                                    const amount = legacy.ev_data
+                                      ?.enterprise_value_m as
+                                      | number
+                                      | string
+                                      | undefined;
+                                    const currency: string | undefined =
+                                      legacy.ev_data?.currency?.Currency ||
+                                      legacy.ev_data?._currency?.Currency;
+                                    if (amount != null && currency) {
+                                      const n = Number(amount);
+                                      if (!Number.isNaN(n))
+                                        return `${currency}${n.toLocaleString()}m`;
+                                    }
+                                    return (
+                                      legacy.ev_data?.ev_band || "Not available"
+                                    );
+                                  })()}
+                                </div>
+                              )}
+                            </td>
+                            {/* Advisors */}
+                            <td>
+                              <div className="muted-row">
+                                <strong>Advisors:</strong>{" "}
+                                {(() => {
+                                  const newEvent = event as NewCorporateEvent;
+                                  const namesFromArray = Array.isArray(
+                                    newEvent.advisors_names
+                                  )
+                                    ? newEvent.advisors_names
+                                        .map((n) =>
+                                          typeof n === "string" ? n : ""
+                                        )
+                                        .filter((n) => n && n.trim().length > 0)
+                                    : [];
+                                  const namesFromString =
+                                    typeof (
+                                      newEvent as unknown as {
+                                        advisors_names?: unknown;
+                                      }
+                                    ).advisors_names === "string"
+                                      ? [
+                                          String(
+                                            (
+                                              newEvent as unknown as {
+                                                advisors_names?: string;
+                                              }
+                                            ).advisors_names
+                                          ),
+                                        ]
+                                      : [];
+                                  const namesFromObjects = Array.isArray(
+                                    newEvent.advisors
+                                  )
+                                    ? newEvent.advisors
+                                        .map(
+                                          (a) =>
+                                            a?.advisor_company?.name ||
+                                            a?._new_company?.name ||
+                                            ""
+                                        )
+                                        .filter((n) => n && n.trim().length > 0)
+                                    : [];
+                                  let combined = [
+                                    ...namesFromArray,
+                                    ...namesFromString,
+                                    ...namesFromObjects,
+                                  ];
+                                  if (combined.length === 0) {
+                                    const legacy =
+                                      event as LegacyCorporateEvent;
+                                    const legacyNames = (
+                                      (legacy["1"] || []).map(
+                                        (item) => item._new_company?.name || ""
+                                      ) as Array<string>
+                                    ).filter((n) => n && n.trim().length > 0);
+                                    combined = legacyNames;
                                   }
-                                ).advisors_names === "string"
-                                  ? [
-                                      String(
-                                        (
-                                          newEvent as unknown as {
-                                            advisors_names?: string;
-                                          }
-                                        ).advisors_names
-                                      ),
-                                    ]
-                                  : [];
-                              const namesFromObjects = Array.isArray(
-                                newEvent.advisors
-                              )
-                                ? newEvent.advisors
-                                    .map(
-                                      (a) =>
-                                        a?.advisor_company?.name ||
-                                        a?._new_company?.name ||
-                                        ""
-                                    )
-                                    .filter((n) => n && n.trim().length > 0)
-                                : [];
-                              let combined = [
-                                ...namesFromArray,
-                                ...namesFromString,
-                                ...namesFromObjects,
-                              ];
-                              if (combined.length === 0) {
-                                // Legacy fallback: advisors provided under group "1"
-                                const legacy = event as LegacyCorporateEvent;
-                                const legacyNames = (
-                                  (legacy["1"] || []).map(
-                                    (item) => item._new_company?.name || ""
-                                  ) as Array<string>
-                                ).filter((n) => n && n.trim().length > 0);
-                                combined = legacyNames;
-                              }
-                              const unique = Array.from(
-                                new Set(combined.map((n) => n.trim()))
-                              );
-                              return unique.length > 0
-                                ? unique.join(", ")
-                                : "N/A";
-                            })()}
-                          </td>
-                        </tr>
-                      ))}
+                                  const unique = Array.from(
+                                    new Set(combined.map((n) => n.trim()))
+                                  );
+                                  return unique.length > 0
+                                    ? unique.join(", ")
+                                    : "N/A";
+                                })()}
+                              </div>
+                            </td>
+                            {/* Sectors */}
+                            <td>
+                              <div className="muted-row">
+                                <strong>Primary:</strong>{" "}
+                                {augmentedPrimarySectors.length > 0
+                                  ? augmentedPrimarySectors
+                                      .map((s) => s?.sector_name)
+                                      .filter(Boolean)
+                                      .join(", ")
+                                  : "Not available"}
+                              </div>
+                              <div className="muted-row">
+                                <strong>Secondary:</strong>{" "}
+                                {secondarySectors.length > 0
+                                  ? secondarySectors
+                                      .map((s) => s?.sector_name)
+                                      .filter(Boolean)
+                                      .join(", ")
+                                  : "Not available"}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
-                  {/* Show "See More" button if there are more than 3 events */}
                   {corporateEvents.length > 3 && (
-                    <div
-                      style={{
-                        textAlign: "center",
-                        marginTop: "16px",
-                      }}
-                    >
+                    <div style={{ textAlign: "center", marginTop: "16px" }}>
                       <button
                         onClick={() =>
                           setShowAllCorporateEvents(!showAllCorporateEvents)
