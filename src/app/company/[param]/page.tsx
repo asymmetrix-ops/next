@@ -67,6 +67,63 @@ interface CompanyEV {
   currency?: { Currency?: string };
 }
 
+// Financial metrics payload from Xano `company_financial_metrics`
+interface CompanyFinancialMetrics {
+  id: number;
+  new_company_id: number;
+  Financial_Year?: number | null;
+  FY_YE_Month_Dec_default?: string | null;
+  Rev_Currency?: unknown;
+  Revenue_m?: number | null;
+  Rev_source?: number | string | null;
+  ARR_pc?: number | null;
+  ARR_currency?: unknown;
+  ARR_m?: number | null;
+  ARR_source?: number | string | null;
+  Churn_pc?: number | null;
+  Churn_Source?: number | string | null;
+  GRR_pc?: number | null;
+  GRR_source?: number | string | null;
+  Upsell_pc?: number | null;
+  Upsell_source?: number | string | null;
+  Cross_sell_pc?: number | null;
+  Cross_sell_source?: number | string | null;
+  Price_increase_pc?: number | null;
+  Price_increase_source?: number | string | null;
+  Rev_expansion_pc?: number | null;
+  Rev_expansion_source?: number | string | null;
+  NRR?: number | null;
+  NRR_source?: number | string | null;
+  New_client_growth_pc?: number | null;
+  New_Client_Growth_Source?: number | string | null;
+  Rev_Growth_PC?: number | null;
+  Rev_Growth_source?: number | string | null;
+  EBITDA_margin?: number | null;
+  EBITDA_margin_source?: number | string | null;
+  EBITDA_currency?: unknown;
+  EBITDA_m?: number | null;
+  EBITDA_source?: number | string | null;
+  Rule_of_40?: number | null;
+  Rule_of_40_source?: number | string | null;
+  Revenue_multiple?: number | null;
+  Rev_x_source?: number | string | null;
+  EV_currency?: unknown;
+  EV?: number | null;
+  EV_source?: number | string | null;
+  EBIT_currency?: unknown;
+  EBIT_m?: number | null;
+  EBIT_source?: number | string | null;
+  No_of_Clients?: number | null;
+  No_Clients_source?: number | string | null;
+  Rev_per_client?: number | null;
+  Rev_per_client_source?: number | string | null;
+  No_Employees?: number | null;
+  No_Employees_source?: number | string | null;
+  Revenue_per_employee?: number | null;
+  Rev_per_employee_source?: number | string | null;
+  Data_entry_notes?: string | null;
+}
+
 // Income statement types (subset for rendering)
 interface IncomeStatementEntry {
   id: number;
@@ -450,6 +507,48 @@ const formatFinancialValue = (value: string, currency?: string): string => {
   return formattedNumber;
 };
 
+// Format helpers for additional financial metrics
+const formatPercent = (value?: number | null): string => {
+  if (typeof value !== "number" || !Number.isFinite(value))
+    return "Not available";
+  return `${Math.round(value)}%`;
+};
+
+const formatMultiple = (value?: number | null): string => {
+  if (typeof value !== "number" || !Number.isFinite(value))
+    return "Not available";
+  const rounded = Math.round(value * 10) / 10;
+  return `${rounded.toLocaleString()}x`;
+};
+
+// Short currency formatting for per-client/employee values (e.g., USD147k)
+const formatCurrencyShort = (
+  value?: number | null,
+  currency?: string
+): string => {
+  if (typeof value !== "number" || !Number.isFinite(value))
+    return "Not available";
+  const normalizedCurrency = (currency || "").toString().trim();
+  const isDigitsOnly = /^\d+$/.test(normalizedCurrency);
+  const prefix =
+    normalizedCurrency &&
+    !isDigitsOnly &&
+    normalizedCurrency.toLowerCase() !== "nan" &&
+    normalizedCurrency.toLowerCase() !== "null"
+      ? normalizedCurrency
+      : "";
+
+  if (Math.abs(value) >= 1_000_000) {
+    const num = Math.round(value / 1_000_000);
+    return `${prefix}${num.toLocaleString()}m`;
+  }
+  if (Math.abs(value) >= 1_000) {
+    const num = Math.round(value / 1_000);
+    return `${prefix}${num.toLocaleString()}k`;
+  }
+  return `${prefix}${Math.round(value).toLocaleString()}`;
+};
+
 // Normalize various currency representations to a displayable 3-letter code
 const normalizeCurrency = (candidate: unknown): string | undefined => {
   if (!candidate) return undefined;
@@ -650,6 +749,9 @@ const CompanyDetail = () => {
       }
     | undefined
   >();
+  // Financial metrics from Xano `company_financial_metrics`
+  const [financialMetrics, setFinancialMetrics] =
+    useState<CompanyFinancialMetrics | null>(null);
   // New investors payload (current/past) parsed from investors_data
   const [newInvestorsCurrent, setNewInvestorsCurrent] = useState<
     CompanyInvestor[]
@@ -953,6 +1055,65 @@ const CompanyDetail = () => {
     []
   );
 
+  // Fetch financial metrics (auth required) with GET + POST fallbacks
+  const fetchFinancialMetrics = useCallback(async (id: string | number) => {
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) {
+        // Keep silent failure; UI will show existing values
+        return;
+      }
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      };
+
+      const base = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics`;
+      // Attempt GET with query param
+      const params = new URLSearchParams();
+      params.append("new_company_id", String(id));
+      let res = await fetch(`${base}?${params.toString()}`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        // Fallback to POST with common id keys
+        const candidateBodies = [
+          { new_company_id: Number(id) },
+          { company_id: Number(id) },
+          { id: Number(id) },
+        ];
+        for (const body of candidateBodies) {
+          const attempt = await fetch(base, {
+            method: "POST",
+            headers,
+            credentials: "include",
+            body: JSON.stringify(body),
+          });
+          if (attempt.ok) {
+            res = attempt;
+            break;
+          }
+        }
+      }
+
+      if (!res.ok) return;
+      const data = await res.json();
+      // API may return a single object or an array
+      const payload: CompanyFinancialMetrics | null = Array.isArray(data)
+        ? (data[0] as CompanyFinancialMetrics | undefined) || null
+        : (data as CompanyFinancialMetrics);
+      if (payload && typeof payload === "object") {
+        setFinancialMetrics(payload);
+      }
+    } catch {
+      // Non-fatal; keep defaults
+    }
+  }, []);
+
   useEffect(() => {
     const fetchCompanyData = async () => {
       setLoading(true);
@@ -1120,8 +1281,15 @@ const CompanyDetail = () => {
     if (companyId) {
       fetchCompanyData();
       fetchCorporateEvents();
+      fetchFinancialMetrics(companyId);
     }
-  }, [companyId, fetchCorporateEvents, fetchCompanyArticles, requestCompany]);
+  }, [
+    companyId,
+    fetchCorporateEvents,
+    fetchCompanyArticles,
+    requestCompany,
+    fetchFinancialMetrics,
+  ]);
 
   // Fetch minimal metadata for each investor to determine correct routing target
   useEffect(() => {
@@ -1479,6 +1647,29 @@ const CompanyDetail = () => {
           company.ev_data?.ev_value,
           evCurrency || displayCurrency
         );
+
+  // Prefer values from `company_financial_metrics` when available for base figures
+  const revenueFromMetrics =
+    typeof financialMetrics?.Revenue_m === "number"
+      ? formatFinancialValue(
+          String(financialMetrics?.Revenue_m),
+          displayCurrency
+        )
+      : undefined;
+  const ebitdaFromMetrics =
+    typeof financialMetrics?.EBITDA_m === "number"
+      ? formatFinancialValue(
+          String(financialMetrics?.EBITDA_m),
+          displayCurrency
+        )
+      : undefined;
+  const evFromMetrics =
+    typeof financialMetrics?.EV === "number"
+      ? formatFinancialValue(
+          String(financialMetrics?.EV),
+          evCurrency || displayCurrency
+        )
+      : undefined;
 
   // Extract last 3 income statement rows (public companies only)
   const isPublicOwnership = (company._ownership_type?.ownership || "")
@@ -2169,18 +2360,50 @@ const CompanyDetail = () => {
               {!hasIncomeStatementData && (
                 <div style={styles.infoRow}>
                   <span style={styles.label}>Revenue (m):</span>
-                  <span style={styles.value}>{revenue}</span>
+                  <span style={styles.value}>
+                    {revenueFromMetrics || revenue}
+                  </span>
                 </div>
               )}
               {!hasIncomeStatementData && (
                 <div style={styles.infoRow}>
                   <span style={styles.label}>EBITDA (m):</span>
-                  <span style={styles.value}>{ebitda}</span>
+                  <span style={styles.value}>
+                    {ebitdaFromMetrics || ebitda}
+                  </span>
                 </div>
               )}
               <div style={styles.infoRow}>
                 <span style={styles.label}>Enterprise Value (m):</span>
-                <span style={styles.value}>{enterpriseValue}</span>
+                <span style={styles.value}>
+                  {evFromMetrics || enterpriseValue}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue multiple:</span>
+                <span style={styles.value}>
+                  {formatMultiple(financialMetrics?.Revenue_multiple)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue Growth:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Rev_Growth_PC)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>EBITDA margin:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.EBITDA_margin)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Rule of 40:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.Rule_of_40 === "number"
+                    ? Math.round(financialMetrics.Rule_of_40).toLocaleString()
+                    : "Not available"}
+                </span>
               </div>
               {hasIncomeStatementData && (
                 <div style={{ marginTop: "16px" }}>
@@ -2299,6 +2522,131 @@ const CompanyDetail = () => {
                   </div>
                 </div>
               )}
+              {/* Subscription Metrics */}
+              <div style={{ ...styles.chartTitle, marginTop: "8px" }}>
+                Subscription Metrics
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Recurring Revenue:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.ARR_pc)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>ARR (m):</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.ARR_m === "number"
+                    ? formatFinancialValue(
+                        String(financialMetrics.ARR_m),
+                        displayCurrency
+                      )
+                    : "Not available"}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Churn:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Churn_pc)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>GRR:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.GRR_pc)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Upsell:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Upsell_pc)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Cross-sell:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Cross_sell_pc)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Price increase:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Price_increase_pc)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue expansion:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Rev_expansion_pc)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>NRR:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.NRR === "number"
+                    ? `${Math.round(financialMetrics.NRR)}%`
+                    : "Not available"}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>New clients revenue growth:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.New_client_growth_pc)}
+                </span>
+              </div>
+
+              {/* Other Metrics */}
+              <div style={{ ...styles.chartTitle, marginTop: "8px" }}>
+                Other Metrics
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>EBIT (m):</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.EBIT_m === "number"
+                    ? formatFinancialValue(
+                        String(financialMetrics.EBIT_m),
+                        displayCurrency
+                      )
+                    : "Not available"}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Number of clients:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.No_of_Clients === "number"
+                    ? financialMetrics.No_of_Clients.toLocaleString()
+                    : "Not available"}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue per client:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.Rev_per_client === "number"
+                    ? formatCurrencyShort(
+                        financialMetrics.Rev_per_client,
+                        displayCurrency
+                      )
+                    : "Not available"}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Number of employees:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.No_Employees === "number"
+                    ? financialMetrics.No_Employees.toLocaleString()
+                    : formatNumber(currentEmployeeCount)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue per employee:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.Revenue_per_employee === "number"
+                    ? formatCurrencyShort(
+                        financialMetrics.Revenue_per_employee,
+                        displayCurrency
+                      )
+                    : "Not available"}
+                </span>
+              </div>
               <div style={styles.chartContainer} className="chartContainer">
                 <div style={styles.chartTitle}>LinkedIn Employee Count</div>
                 <div style={styles.currentCount}>
@@ -2384,18 +2732,50 @@ const CompanyDetail = () => {
               {!hasIncomeStatementData && (
                 <div style={styles.infoRow}>
                   <span style={styles.label}>Revenue (m):</span>
-                  <span style={styles.value}>{revenue}</span>
+                  <span style={styles.value}>
+                    {revenueFromMetrics || revenue}
+                  </span>
                 </div>
               )}
               {!hasIncomeStatementData && (
                 <div style={styles.infoRow}>
                   <span style={styles.label}>EBITDA (m):</span>
-                  <span style={styles.value}>{ebitda}</span>
+                  <span style={styles.value}>
+                    {ebitdaFromMetrics || ebitda}
+                  </span>
                 </div>
               )}
               <div style={styles.infoRow}>
                 <span style={styles.label}>Enterprise Value (m):</span>
-                <span style={styles.value}>{enterpriseValue}</span>
+                <span style={styles.value}>
+                  {evFromMetrics || enterpriseValue}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue multiple:</span>
+                <span style={styles.value}>
+                  {formatMultiple(financialMetrics?.Revenue_multiple)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue Growth:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Rev_Growth_PC)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>EBITDA margin:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.EBITDA_margin)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Rule of 40:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.Rule_of_40 === "number"
+                    ? Math.round(financialMetrics.Rule_of_40).toLocaleString()
+                    : "Not available"}
+                </span>
               </div>
               {hasIncomeStatementData && (
                 <div style={{ marginTop: 12 }}>
@@ -2518,6 +2898,131 @@ const CompanyDetail = () => {
                   </div>
                 </div>
               )}
+              {/* Subscription Metrics */}
+              <div style={{ ...styles.chartTitle, marginTop: 8 }}>
+                Subscription Metrics
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Recurring Revenue:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.ARR_pc)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>ARR (m):</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.ARR_m === "number"
+                    ? formatFinancialValue(
+                        String(financialMetrics.ARR_m),
+                        displayCurrency
+                      )
+                    : "Not available"}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Churn:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Churn_pc)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>GRR:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.GRR_pc)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Upsell:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Upsell_pc)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Cross-sell:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Cross_sell_pc)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Price increase:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Price_increase_pc)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue expansion:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Rev_expansion_pc)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>NRR:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.NRR === "number"
+                    ? `${Math.round(financialMetrics.NRR)}%`
+                    : "Not available"}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>New clients revenue growth:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.New_client_growth_pc)}
+                </span>
+              </div>
+
+              {/* Other Metrics */}
+              <div style={{ ...styles.chartTitle, marginTop: 8 }}>
+                Other Metrics
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>EBIT (m):</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.EBIT_m === "number"
+                    ? formatFinancialValue(
+                        String(financialMetrics.EBIT_m),
+                        displayCurrency
+                      )
+                    : "Not available"}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Number of clients:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.No_of_Clients === "number"
+                    ? financialMetrics.No_of_Clients.toLocaleString()
+                    : "Not available"}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue per client:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.Rev_per_client === "number"
+                    ? formatCurrencyShort(
+                        financialMetrics.Rev_per_client,
+                        displayCurrency
+                      )
+                    : "Not available"}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Number of employees:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.No_Employees === "number"
+                    ? financialMetrics.No_Employees.toLocaleString()
+                    : formatNumber(currentEmployeeCount)}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Revenue per employee:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.Revenue_per_employee === "number"
+                    ? formatCurrencyShort(
+                        financialMetrics.Revenue_per_employee,
+                        displayCurrency
+                      )
+                    : "Not available"}
+                </span>
+              </div>
               <div style={styles.chartContainer}>
                 <div style={styles.chartTitle}>LinkedIn Employee Count</div>
                 <div style={styles.currentCount}>
