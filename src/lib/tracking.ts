@@ -284,7 +284,15 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
     (isPageView ? await waitForStableTitle() : getPageHeading());
   // Determine the most up-to-date user id at send time
   let finalUserId: number = 0;
-  let currentEmail: string | undefined;
+  // Resolve current email early so blocklist applies even if userId is already provided
+  let currentEmail: string | undefined = (() => {
+    try {
+      const u0 = authService.getUser();
+      return (u0?.email as string | undefined) || undefined;
+    } catch {
+      return undefined;
+    }
+  })();
   if (
     typeof input.userId === "number" &&
     Number.isFinite(input.userId) &&
