@@ -9,6 +9,7 @@ import { Toaster } from "react-hot-toast";
 import TitleUpdater from "@/components/TitleUpdater";
 import ChunkErrorRecovery from "@/components/ChunkErrorRecovery";
 import TrialRouteGuard from "@/components/TrialRouteGuard";
+import AuthRouteGuard from "@/components/AuthRouteGuard";
 import RouteTracker from "@/components/RouteTracker";
 import ErrorTracker from "@/components/ErrorTracker";
 
@@ -128,6 +129,7 @@ export default function RootLayout({
           <AnalyticsProvider>
             <ChunkErrorRecovery />
             <TitleUpdater />
+            <AuthRouteGuard />
             <TrialRouteGuard />
             <Suspense fallback={null}>
               <RouteTracker />

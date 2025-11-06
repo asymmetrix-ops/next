@@ -13,6 +13,24 @@ const SESSION_KEY = "asym_session_id";
 const RECENT_EVENTS_KEY = "asym_recent_events";
 const recentEvents = new Map<string, number>();
 
+// Do not track activities for these users
+const BLOCKED_EMAILS = new Set<string>([
+  "a.boden@gmail.com",
+  "j.bochner@asymmetrixintelligence.com",
+  "d.dinsey@asymmetrixintelligence.com",
+  "a.grishko@asymmetrixintelligence.com",
+  "tucha.dev@gmail.com",
+].map((e) => e.toLowerCase()));
+
+function isBlockedEmail(email: string | undefined): boolean {
+  if (!email) return false;
+  try {
+    return BLOCKED_EMAILS.has(email.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 export function getOrCreateSessionId(): string {
   if (typeof window === "undefined") return "";
   try {
@@ -264,6 +282,7 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
     (isPageView ? await waitForStableTitle() : getPageHeading());
   // Determine the most up-to-date user id at send time
   let finalUserId: number = 0;
+  let currentEmail: string | undefined;
   if (
     typeof input.userId === "number" &&
     Number.isFinite(input.userId) &&
@@ -273,6 +292,7 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
   } else {
     try {
       const u = authService.getUser();
+      currentEmail = u?.email as string | undefined;
       const parsed = u?.id ? Number.parseInt(u.id, 10) : NaN;
       if (Number.isFinite(parsed)) {
         finalUserId = parsed as number;
@@ -291,6 +311,7 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
         if (refreshed && typeof refreshed.id === "string") {
           // Persist for subsequent events
           authService.setUser?.(refreshed);
+          currentEmail = (refreshed as any).email as string | undefined;
           const parsed = Number.parseInt(refreshed.id, 10);
           if (Number.isFinite(parsed)) {
             finalUserId = parsed as number;
@@ -300,6 +321,11 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
     } catch {
       // ignore
     }
+  }
+
+  // Respect blocklist: skip tracking if the authenticated user's email is blocked
+  if (isBlockedEmail(currentEmail)) {
+    return;
   }
   if (isPageView) {
     const key = `${input.eventType}|${finalUserId}|${

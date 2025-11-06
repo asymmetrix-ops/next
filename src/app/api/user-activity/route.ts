@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 type EventType = "login" | "page_view" | "logout" | "error";
 
@@ -26,6 +27,20 @@ export async function POST(req: NextRequest) {
       event_type,
     } = body;
 
+    // Drop events when unauthenticated to avoid bot noise
+    const token = cookies().get("asymmetrix_auth_token")?.value;
+    if (!token) {
+      return new NextResponse(null, { status: 204 });
+    }
+
+    // Require a valid user id
+    const normalizedUserId = Number.isFinite(user_id as number)
+      ? (user_id as number)
+      : 0;
+    if (!normalizedUserId) {
+      return new NextResponse(null, { status: 204 });
+    }
+
     if (!event_type || !["login", "page_view", "logout", "error"].includes(event_type)) {
       return NextResponse.json(
         { error: "Invalid or missing event_type" },
@@ -34,7 +49,7 @@ export async function POST(req: NextRequest) {
     }
 
     const payload: UserActivityPayload = {
-      user_id: Number.isFinite(user_id as number) ? (user_id as number) : 0,
+      user_id: normalizedUserId,
       page_visit: String(page_visit || ""),
       page_heading: String(page_heading || ""),
       session_id: String(session_id || ""),
