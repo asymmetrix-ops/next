@@ -1421,6 +1421,18 @@ function SectorsTab() {
   const [selectedSectorIds, setSelectedSectorIds] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
+  // Manage by sector: select sector → view companies → untag
+  const [selectedSectorForView, setSelectedSectorForView] = useState<
+    number | ""
+  >("");
+  const [sectorCompanies, setSectorCompanies] = useState<SimpleCompany[]>([]);
+  const [sectorCompaniesLoading, setSectorCompaniesLoading] = useState(false);
+  const [sectorCompaniesPage, setSectorCompaniesPage] = useState(1);
+  const [sectorCompaniesHasMore, setSectorCompaniesHasMore] = useState(false);
+  const [sectorActionBusyId, setSectorActionBusyId] = useState<number | null>(
+    null
+  );
+
   // Fetch all sectors (combining primary and their secondary sectors)
   useEffect(() => {
     let cancelled = false;
@@ -1533,6 +1545,195 @@ function SectorsTab() {
       alert("Network error while tagging company");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Load companies for a given sector (paginated)
+  const loadSectorCompanies = async (
+    sectorId: number,
+    page: number = 1,
+    append: boolean = false
+  ) => {
+    try {
+      setSectorCompaniesLoading(true);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = new URLSearchParams();
+      params.append("Offset", String(Math.max(1, page)));
+      params.append("Per_page", "50");
+      params.append("Sector_id", String(sectorId));
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Get_Sector_s_new_companies?${params.toString()}`;
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+      if (!resp.ok) {
+        if (!append) setSectorCompanies([]);
+        setSectorCompaniesHasMore(false);
+        return;
+      }
+      const data = await resp.json().catch(() => null);
+      // Try common shapes for items and pagination
+      const items: Array<{ id: number; name?: string; Company_name?: string }> =
+        (data?.result1?.items as Array<{
+          id: number;
+          name?: string;
+          Company_name?: string;
+        }>) ||
+        (data?.companies?.items as Array<{
+          id: number;
+          name?: string;
+          Company_name?: string;
+        }>) ||
+        (data?.items as Array<{
+          id: number;
+          name?: string;
+          Company_name?: string;
+        }>) ||
+        [];
+      const mapped = (Array.isArray(items) ? items : [])
+        .map((c) => ({
+          id: Number(c.id),
+          name: String(c.name || c.Company_name || ""),
+        }))
+        .filter((c) => c.id && c.name);
+      setSectorCompanies((prev) => (append ? [...prev, ...mapped] : mapped));
+      // Heuristic: has more if we received a full page
+      setSectorCompaniesHasMore(mapped.length >= 50);
+      if (!append) setSectorCompaniesPage(1);
+    } catch {
+      if (!append) setSectorCompanies([]);
+      setSectorCompaniesHasMore(false);
+    } finally {
+      setSectorCompaniesLoading(false);
+    }
+  };
+
+  const handleSelectSectorForView = (value: unknown) => {
+    if (typeof value === "number") {
+      setSelectedSectorForView(value);
+      loadSectorCompanies(value, 1, false);
+    }
+  };
+
+  const loadMoreSectorCompanies = async () => {
+    if (typeof selectedSectorForView !== "number") return;
+    const nextPage = sectorCompaniesPage + 1;
+    await loadSectorCompanies(selectedSectorForView, nextPage, true);
+    setSectorCompaniesPage(nextPage);
+  };
+
+  // Helper to extract sector ids from company payload in various shapes
+  const extractSectorIds = (input: unknown): number[] => {
+    if (!input || typeof input !== "object") return [];
+    const obj = input as Record<string, unknown>;
+    const candidates = [
+      obj.sectors_id,
+      obj.Sectors_id,
+      (obj as { Company?: Record<string, unknown> }).Company?.sectors_id,
+      (obj as { Company?: Record<string, unknown> }).Company?.Sectors_id,
+      (obj as { new_sectors_data?: unknown }).new_sectors_data,
+      (obj as { Company?: { new_sectors_data?: unknown } }).Company
+        ?.new_sectors_data,
+    ];
+
+    // Handle arrays of objects with id/sector_id
+    for (const cand of candidates) {
+      if (Array.isArray(cand)) {
+        const ids = (cand as Array<unknown>)
+          .map((v) => {
+            if (typeof v === "number") return v;
+            if (typeof v === "string") {
+              const n = parseInt(v, 10);
+              return Number.isFinite(n) ? n : undefined;
+            }
+            if (v && typeof v === "object") {
+              const o = v as {
+                id?: unknown;
+                sector_id?: unknown;
+                Sector_id?: unknown;
+              };
+              const val = (o.sector_id ?? o.Sector_id ?? o.id) as unknown;
+              if (typeof val === "number") return val;
+              if (typeof val === "string") {
+                const n = parseInt(val, 10);
+                return Number.isFinite(n) ? n : undefined;
+              }
+            }
+            return undefined;
+          })
+          .filter((x): x is number => typeof x === "number");
+        if (ids.length) return ids;
+      }
+      if (typeof cand === "string") {
+        try {
+          const parsed = JSON.parse(cand) as unknown;
+          if (Array.isArray(parsed)) {
+            const ids = parsed
+              .map((v) => (typeof v === "number" ? v : undefined))
+              .filter((x): x is number => typeof x === "number");
+            if (ids.length) return ids;
+          }
+        } catch {}
+      }
+    }
+    return [];
+  };
+
+  // Untag: remove selected sector from a company by overriding its sectors list
+  const handleUntagFromSector = async (company: SimpleCompany) => {
+    if (typeof selectedSectorForView !== "number") return;
+    if (sectorActionBusyId) return;
+    setSectorActionBusyId(company.id);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+      // Fetch current company to get all sector ids
+      const getUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${company.id}`;
+      const getRes = await fetch(getUrl, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      });
+      if (!getRes.ok) {
+        const txt = await getRes.text().catch(() => "");
+        alert(`Failed to load company sectors: ${getRes.status} ${txt}`);
+        return;
+      }
+      const companyPayload = await getRes.json().catch(() => ({} as unknown));
+      const currentSectorIds = extractSectorIds(companyPayload);
+      const updatedSectorIds = currentSectorIds.filter(
+        (id) => id !== selectedSectorForView
+      );
+
+      // PUT strict override
+      const putUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/edit_company_sectors`;
+      const putRes = await fetch(putUrl, {
+        method: "PUT",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({
+          sectors: updatedSectorIds,
+          new_company_id: company.id,
+        }),
+      });
+      if (!putRes.ok) {
+        const txt = await putRes.text().catch(() => "");
+        alert(`Failed to untag company: ${putRes.status} ${txt}`);
+        return;
+      }
+      // Remove company from the visible list after successful untag
+      setSectorCompanies((prev) => prev.filter((c) => c.id !== company.id));
+    } catch {
+      alert("Network error while untagging company");
+    } finally {
+      setSectorActionBusyId(null);
     }
   };
 
@@ -1684,6 +1885,83 @@ function SectorsTab() {
         >
           {submitting ? "Submitting..." : "Submit"}
         </button>
+      </div>
+
+      <div className="pt-8 mt-10 border-t">
+        <h2 className="mb-4 text-xl font-semibold">Manage by Sector</h2>
+        <div className="mb-4">
+          <label className="block mb-1 text-sm font-medium">Sector</label>
+          <SearchableSelect
+            options={allSectors.map((s) => ({
+              value: s.id,
+              label: s.sector_name,
+            }))}
+            value={selectedSectorForView}
+            onChange={handleSelectSectorForView}
+            placeholder={
+              allSectors.length === 0
+                ? "Loading sectors..."
+                : "Select sector to view companies"
+            }
+            disabled={allSectors.length === 0}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        {typeof selectedSectorForView === "number" && (
+          <div className="p-4 bg-white rounded border">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-semibold">
+                Companies in selected sector
+              </h3>
+              <button
+                className="px-3 py-1 text-sm bg-gray-100 rounded border"
+                onClick={() =>
+                  loadSectorCompanies(selectedSectorForView, 1, false)
+                }
+                disabled={sectorCompaniesLoading}
+              >
+                {sectorCompaniesLoading ? "Refreshing…" : "Refresh"}
+              </button>
+            </div>
+            {sectorCompaniesLoading && sectorCompanies.length === 0 ? (
+              <div className="text-sm text-gray-500">Loading companies…</div>
+            ) : sectorCompanies.length === 0 ? (
+              <div className="text-sm text-gray-500">
+                No companies found for this sector.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {sectorCompanies.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex justify-between items-center p-2 rounded border"
+                  >
+                    <div className="text-sm">{c.name}</div>
+                    <button
+                      className="px-3 py-1 text-sm text-white bg-red-600 rounded disabled:opacity-50"
+                      onClick={() => handleUntagFromSector(c)}
+                      disabled={sectorActionBusyId === c.id}
+                    >
+                      {sectorActionBusyId === c.id ? "Untagging…" : "Untag"}
+                    </button>
+                  </div>
+                ))}
+                {sectorCompaniesHasMore && (
+                  <div className="pt-2">
+                    <button
+                      className="px-4 py-2 text-sm bg-gray-100 rounded border disabled:opacity-50"
+                      onClick={loadMoreSectorCompanies}
+                      disabled={sectorCompaniesLoading}
+                    >
+                      {sectorCompaniesLoading ? "Loading…" : "Load more"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
