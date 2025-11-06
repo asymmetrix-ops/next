@@ -1620,7 +1620,7 @@ const CompanyDetail = () => {
       fontWeight: "500",
     },
     reportButton: {
-      backgroundColor: "#e53e3e",
+      backgroundColor: "#38a169",
       color: "white",
       border: "none",
       padding: "8px 16px",
@@ -1859,7 +1859,6 @@ const CompanyDetail = () => {
               <h1 style={styles.companyName}>{company.name}</h1>
             </div>
             <div style={styles.headerRight}>
-              <div style={styles.scoreBadge}>Asymmetrix Score: Coming Soon</div>
               <a
                 style={{
                   ...styles.reportButton,
@@ -1870,7 +1869,7 @@ const CompanyDetail = () => {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Report Incorrect Data
+                Contribute Data
               </a>
             </div>
           </div>
