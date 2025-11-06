@@ -735,7 +735,7 @@ const CompanyDetail = () => {
   const [corporateEvents, setCorporateEvents] = useState<
     CompanyCorporateEvent[]
   >([]);
-  const [corporateEventsLoading, setCorporateEventsLoading] = useState(false);
+  const [corporateEventsLoading, setCorporateEventsLoading] = useState(true);
   const [showAllCorporateEvents, setShowAllCorporateEvents] = useState(false);
   const [showAllSubsidiaries, setShowAllSubsidiaries] = useState(false);
   const [companyArticles, setCompanyArticles] = useState<ContentArticle[]>([]);
@@ -961,6 +961,11 @@ const CompanyDetail = () => {
     setCorporateEventsLoading(true);
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) {
+        // No token → skip calling protected endpoint
+        setCorporateEvents((prev) => prev);
+        return;
+      }
 
       const params = new URLSearchParams();
       params.append("new_company_id", companyId);
@@ -985,7 +990,6 @@ const CompanyDetail = () => {
 
       const data: unknown = await response.json();
       console.log("Corporate events API response:", data);
-      // Support new API shape: data.new_counterparties: [{ items: "[ ... ]" | [...] }]
       if (isNewCorporateEventsEnvelope(data)) {
         const items: NewCorporateEvent[] = [];
         for (const entry of data.new_counterparties) {
@@ -1010,43 +1014,31 @@ const CompanyDetail = () => {
       }
     } catch (err) {
       console.error("Error fetching corporate events:", err);
-      // Don't set main error state for corporate events loading failure
     } finally {
       setCorporateEventsLoading(false);
     }
   }, [companyId]);
 
-  // Fetch Asymmetrix content articles related to this company (by company id)
+  // Fetch Asymmetrix content articles via public companies_articles endpoint
   const fetchCompanyArticles = useCallback(
     async (companyIdForContent: string | number) => {
       if (companyIdForContent === undefined || companyIdForContent === null)
         return;
       setArticlesLoading(true);
       try {
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        if (!token) {
-          throw new Error("Missing auth token for content fetch");
-        }
-
         const params = new URLSearchParams();
-        // API expects the misspelled key 'conpany_id'
-        params.append("conpany_id", String(companyIdForContent));
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_Content_Articles?${params.toString()}`;
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-        if (!response.ok)
-          throw new Error(`Articles fetch failed: ${response.status}`);
-        const data = await response.json();
-        setCompanyArticles(
-          Array.isArray(data) ? (data as ContentArticle[]) : []
-        );
-      } catch (err) {
-        console.error("Error fetching company articles:", err);
+        params.append("new_company_id", String(companyIdForContent));
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/companies_articles?${params.toString()}`;
+        const response = await fetch(url, { method: "GET" });
+        if (!response.ok) {
+          setCompanyArticles([]);
+        } else {
+          const data = await response.json();
+          setCompanyArticles(
+            Array.isArray(data) ? (data as ContentArticle[]) : []
+          );
+        }
+      } catch {
         setCompanyArticles([]);
       } finally {
         setArticlesLoading(false);
@@ -1204,6 +1196,38 @@ const CompanyDetail = () => {
           }
         } catch {}
 
+        // Parse corporate events from Get_new_company payload (preferred, no auth)
+        try {
+          const newCounterparties = (
+            data as unknown as {
+              new_counterparties?: Array<{ items?: unknown }>;
+            }
+          )?.new_counterparties;
+          const parsedEvents: NewCorporateEvent[] = [];
+          if (Array.isArray(newCounterparties)) {
+            for (const entry of newCounterparties) {
+              const raw = (entry as { items?: unknown })?.items;
+              let payload: unknown = raw;
+              if (typeof raw === "string") {
+                try {
+                  payload = JSON.parse(raw as string);
+                } catch {
+                  // ignore malformed JSON
+                }
+              }
+              if (Array.isArray(payload)) {
+                parsedEvents.push(...(payload as NewCorporateEvent[]));
+              }
+            }
+          }
+          if (parsedEvents.length > 0) {
+            setCorporateEvents(parsedEvents);
+            setCorporateEventsLoading(false);
+          }
+        } catch {
+          // non-fatal
+        }
+
         // Parse optional investors_data → { current: [], past: [] } (stringified JSON or object)
         const parsedCurrent: CompanyInvestor[] = [];
         const parsedPast: CompanyInvestor[] = [];
@@ -1280,7 +1304,9 @@ const CompanyDetail = () => {
 
     if (companyId) {
       fetchCompanyData();
-      fetchCorporateEvents();
+      // Only fall back to protected events endpoint when token exists
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (token) fetchCorporateEvents();
       fetchFinancialMetrics(companyId);
     }
   }, [
@@ -2022,6 +2048,9 @@ const CompanyDetail = () => {
     .company-detail-page { overflow-x: hidden; }
     .responsiveGrid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; max-width: 100%; }
     .card { background: white; border-radius: 12px; }
+    /* Tighter rows inside Financial Metrics */
+    .desktop-financial-metrics .info-row { padding: 6px 0 !important; }
+    .mobile-financial-metrics .info-row { padding: 6px 0 !important; }
     /* Corporate Events styles (mirrors corporate-events list page) */
     .corporate-event-table { width: 100%; background: #fff; padding: 20px 24px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
     .corporate-event-table th, .corporate-event-table td { padding: 12px; text-align: left; vertical-align: top; border-bottom: 1px solid #e2e8f0; word-wrap: break-word; overflow-wrap: break-word; font-size: 14px; }
@@ -2363,6 +2392,616 @@ const CompanyDetail = () => {
                   {company.description || "No description available"}
                 </div>
               </div>
+              {/* Management moved into Overview */}
+              {hasManagement && (
+                <div style={{ marginTop: "16px" }}>
+                  <h3
+                    style={{
+                      ...styles.sectionTitle,
+                      fontSize: "17px",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    Management
+                  </h3>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: "24px",
+                    }}
+                    className="management-grid"
+                  >
+                    <div>
+                      <h4
+                        style={{
+                          ...styles.label,
+                          fontSize: "14px",
+                          marginBottom: "8px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Current:
+                      </h4>
+                      {company.Managmant_Roles_current &&
+                      company.Managmant_Roles_current.length > 0 ? (
+                        company.Managmant_Roles_current.map((person) => (
+                          <div
+                            key={person.id}
+                            style={{ marginBottom: "8px", fontSize: "14px" }}
+                          >
+                            {createClickableElement(
+                              `/individual/${person.individuals_id}`,
+                              `${person.Individual_text}: ${(
+                                person.job_titles_id || []
+                              )
+                                .map((job) => job?.job_title)
+                                .filter(Boolean)
+                                .join(", ")}`
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ color: "#6b7280", fontSize: "14px" }}>
+                          Not available
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h4
+                        style={{
+                          ...styles.label,
+                          fontSize: "14px",
+                          marginBottom: "8px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Past:
+                      </h4>
+                      {company.Managmant_Roles_past &&
+                      company.Managmant_Roles_past.length > 0 ? (
+                        company.Managmant_Roles_past.map((person) => (
+                          <div
+                            key={person.id}
+                            style={{ marginBottom: "8px", fontSize: "14px" }}
+                          >
+                            {createClickableElement(
+                              `/individual/${person.individuals_id}`,
+                              `${person.Individual_text}: ${(
+                                person.job_titles_id || []
+                              )
+                                .map((job) => job?.job_title)
+                                .filter(Boolean)
+                                .join(", ")}`
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ color: "#6b7280", fontSize: "14px" }}>
+                          Not available
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Corporate Events moved into Overview */}
+              <>
+                <div
+                  style={{
+                    marginTop: "16px",
+                    paddingTop: "16px",
+                    borderTop: "1px solid #e2e8f0",
+                  }}
+                >
+                  <h3
+                    style={{
+                      ...styles.sectionTitle,
+                      fontSize: "17px",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    Corporate Events{" "}
+                    {corporateEventsLoading
+                      ? ""
+                      : `(${corporateEvents.length})`}
+                  </h3>
+                  {corporateEventsLoading ? (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        padding: "20px",
+                        color: "#666",
+                        fontSize: "14px",
+                      }}
+                    >
+                      Loading corporate events...
+                    </div>
+                  ) : corporateEvents.length > 0 ? (
+                    <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+                      <table className="corporate-event-table">
+                        <thead>
+                          <tr>
+                            <th>Event Details</th>
+                            <th>Parties</th>
+                            <th>Deal Details</th>
+                            <th>Advisors</th>
+                            <th>Sectors</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(showAllCorporateEvents
+                            ? corporateEvents
+                            : corporateEvents.slice(0, 3)
+                          ).map((event, index) => {
+                            const isPartnership = /partnership/i.test(
+                              (event as NewCorporateEvent).deal_type ||
+                                (event as LegacyCorporateEvent).deal_type ||
+                                ""
+                            );
+                            const eventDate = (() => {
+                              const raw =
+                                (event as NewCorporateEvent)
+                                  .announcement_date ||
+                                (event as LegacyCorporateEvent)
+                                  .announcement_date;
+                              try {
+                                return new Date(raw).toLocaleDateString(
+                                  "en-US",
+                                  {
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                  }
+                                );
+                              } catch {
+                                return "Not available";
+                              }
+                            })();
+                            return (
+                              <tr key={event.id || index}>
+                                {/* Event Details */}
+                                <td>
+                                  <div style={{ marginBottom: "6px" }}>
+                                    <a
+                                      href={`/corporate-event/${event.id}`}
+                                      className="corporate-event-name"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        router.replace(
+                                          `/corporate-event/${event.id}`
+                                        );
+                                      }}
+                                    >
+                                      {event.description || "Not Available"}
+                                    </a>
+                                  </div>
+                                  <div className="muted-row">
+                                    Date: {eventDate}
+                                  </div>
+                                  <div className="muted-row">
+                                    Target HQ: {fullAddress || "Not available"}
+                                  </div>
+                                </td>
+                                {/* Parties */}
+                                <td>
+                                  <div className="muted-row">
+                                    <strong>Target:</strong>{" "}
+                                    <a
+                                      href={`/company/${companyId}`}
+                                      className="link-blue"
+                                    >
+                                      {company.name}
+                                    </a>
+                                  </div>
+                                  <div className="muted-row">
+                                    <strong>Other counterparties:</strong>{" "}
+                                    {(() => {
+                                      const newEvent =
+                                        event as NewCorporateEvent;
+                                      if (
+                                        Array.isArray(
+                                          newEvent.other_counterparties
+                                        )
+                                      ) {
+                                        const list =
+                                          newEvent.other_counterparties.filter(
+                                            (c) =>
+                                              c &&
+                                              typeof c.id === "number" &&
+                                              c.name
+                                          );
+                                        if (list.length === 0)
+                                          return <span>Not Available</span>;
+                                        return list.map((c, idx) => {
+                                          const href =
+                                            c.page_type === "investor"
+                                              ? `/investors/${c.id}`
+                                              : `/company/${c.id}`;
+                                          return (
+                                            <span key={`${c.id}-${idx}`}>
+                                              <a
+                                                href={href}
+                                                className="link-blue"
+                                              >
+                                                {c.name}
+                                              </a>
+                                              {idx < list.length - 1 && ", "}
+                                            </span>
+                                          );
+                                        });
+                                      }
+                                      const legacy =
+                                        event as LegacyCorporateEvent;
+                                      const items = (legacy["0"] || []).filter(
+                                        (it) =>
+                                          it &&
+                                          it._new_company &&
+                                          it._new_company.name
+                                      );
+                                      if (items.length === 0)
+                                        return <span>Not Available</span>;
+                                      return items.map((it, idx) => {
+                                        const id = it._new_company?.id;
+                                        const isInvestor = Boolean(
+                                          it._new_company?._is_that_investor
+                                        );
+                                        const href = isInvestor
+                                          ? `/investors/${id}`
+                                          : `/company/${id}`;
+                                        if (!id) {
+                                          return (
+                                            <span
+                                              key={`${it._new_company?.name}-${idx}`}
+                                            >
+                                              {it._new_company?.name}
+                                              {idx < items.length - 1 && ", "}
+                                            </span>
+                                          );
+                                        }
+                                        return (
+                                          <span key={`${id}-${idx}`}>
+                                            <a
+                                              href={href}
+                                              className="link-blue"
+                                            >
+                                              {it._new_company!.name}
+                                            </a>
+                                            {idx < items.length - 1 && ", "}
+                                          </span>
+                                        );
+                                      });
+                                    })()}
+                                  </div>
+                                </td>
+                                {/* Deal Details */}
+                                <td>
+                                  <div className="muted-row">
+                                    <strong>Deal Type:</strong>{" "}
+                                    {(event as NewCorporateEvent).deal_type ||
+                                    (event as LegacyCorporateEvent)
+                                      .deal_type ? (
+                                      <span className="pill pill-blue">
+                                        {(event as NewCorporateEvent)
+                                          .deal_type ||
+                                          (event as LegacyCorporateEvent)
+                                            .deal_type}
+                                      </span>
+                                    ) : (
+                                      <span>Not Available</span>
+                                    )}
+                                  </div>
+                                  {!isPartnership && (
+                                    <div className="muted-row">
+                                      <strong>Amount (m):</strong>{" "}
+                                      {(() => {
+                                        const display = (
+                                          event as NewCorporateEvent
+                                        ).investment_display;
+                                        if (display && display.trim())
+                                          return display;
+                                        const legacy =
+                                          event as LegacyCorporateEvent;
+                                        const legacyAny = legacy as unknown as {
+                                          investment_data?: {
+                                            investment_amount_m?:
+                                              | number
+                                              | string;
+                                            investment_amount?: number | string;
+                                            currency?: { Currency?: string };
+                                            _currency?: { Currency?: string };
+                                            currrency?: { Currency?: string };
+                                          };
+                                          investment_amount_m?: number | string;
+                                          investment_amount?: number | string;
+                                        };
+                                        const amount =
+                                          legacyAny?.investment_data
+                                            ?.investment_amount_m ??
+                                          legacyAny?.investment_data
+                                            ?.investment_amount ??
+                                          legacyAny?.investment_amount_m ??
+                                          legacyAny?.investment_amount;
+                                        const currency: string | undefined =
+                                          legacyAny?.investment_data?.currency
+                                            ?.Currency ||
+                                          legacyAny?.investment_data?._currency
+                                            ?.Currency ||
+                                          legacyAny?.investment_data?.currrency
+                                            ?.Currency;
+                                        if (amount != null && currency) {
+                                          const n = Number(amount);
+                                          if (!Number.isNaN(n))
+                                            return `${currency}${n.toLocaleString()}m`;
+                                        }
+                                        return "Not available";
+                                      })()}
+                                    </div>
+                                  )}
+                                  {!isPartnership && (
+                                    <div className="muted-row">
+                                      <strong>EV (m):</strong>{" "}
+                                      {(() => {
+                                        const display = (
+                                          event as NewCorporateEvent
+                                        ).ev_display as string | undefined;
+                                        if (display && display.trim())
+                                          return display;
+                                        const legacy =
+                                          event as LegacyCorporateEvent;
+                                        const amount = legacy.ev_data
+                                          ?.enterprise_value_m as
+                                          | number
+                                          | string
+                                          | undefined;
+                                        const currency: string | undefined =
+                                          legacy.ev_data?.currency?.Currency ||
+                                          legacy.ev_data?._currency?.Currency;
+                                        if (amount != null && currency) {
+                                          const n = Number(amount);
+                                          if (!Number.isNaN(n))
+                                            return `${currency}${n.toLocaleString()}m`;
+                                        }
+                                        return (
+                                          legacy.ev_data?.ev_band ||
+                                          "Not available"
+                                        );
+                                      })()}
+                                    </div>
+                                  )}
+                                </td>
+                                {/* Advisors */}
+                                <td>
+                                  <div className="muted-row">
+                                    <strong>Advisors:</strong>{" "}
+                                    {(() => {
+                                      const newEvent =
+                                        event as NewCorporateEvent;
+                                      const namesFromArray = Array.isArray(
+                                        newEvent.advisors_names
+                                      )
+                                        ? newEvent.advisors_names
+                                            .map((n) =>
+                                              typeof n === "string" ? n : ""
+                                            )
+                                            .filter(
+                                              (n) => n && n.trim().length > 0
+                                            )
+                                        : [];
+                                      const namesFromString =
+                                        typeof (
+                                          newEvent as unknown as {
+                                            advisors_names?: unknown;
+                                          }
+                                        ).advisors_names === "string"
+                                          ? [
+                                              String(
+                                                (
+                                                  newEvent as unknown as {
+                                                    advisors_names?: string;
+                                                  }
+                                                ).advisors_names
+                                              ),
+                                            ]
+                                          : [];
+                                      const namesFromObjects = Array.isArray(
+                                        newEvent.advisors
+                                      )
+                                        ? newEvent.advisors
+                                            .map(
+                                              (a) =>
+                                                a?.advisor_company?.name ||
+                                                a?._new_company?.name ||
+                                                ""
+                                            )
+                                            .filter(
+                                              (n) => n && n.trim().length > 0
+                                            )
+                                        : [];
+                                      let combined = [
+                                        ...namesFromArray,
+                                        ...namesFromString,
+                                        ...namesFromObjects,
+                                      ];
+                                      if (combined.length === 0) {
+                                        const legacy =
+                                          event as LegacyCorporateEvent;
+                                        const legacyNames = (
+                                          (legacy["1"] || []).map(
+                                            (item) =>
+                                              item._new_company?.name || ""
+                                          ) as Array<string>
+                                        ).filter(
+                                          (n) => n && n.trim().length > 0
+                                        );
+                                        combined = legacyNames;
+                                      }
+                                      const unique = Array.from(
+                                        new Set(combined.map((n) => n.trim()))
+                                      );
+                                      return unique.length > 0
+                                        ? unique.join(", ")
+                                        : "N/A";
+                                    })()}
+                                  </div>
+                                </td>
+                                {/* Sectors */}
+                                <td>
+                                  <div className="muted-row">
+                                    <strong>Primary:</strong>{" "}
+                                    {augmentedPrimarySectors.length > 0
+                                      ? augmentedPrimarySectors
+                                          .map((s) => s?.sector_name)
+                                          .filter(Boolean)
+                                          .join(", ")
+                                      : "Not available"}
+                                  </div>
+                                  <div className="muted-row">
+                                    <strong>Secondary:</strong>{" "}
+                                    {secondarySectors.length > 0
+                                      ? secondarySectors
+                                          .map((s) => s?.sector_name)
+                                          .filter(Boolean)
+                                          .join(", ")
+                                      : "Not available"}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {corporateEvents.length > 3 && (
+                        <div style={{ textAlign: "center", marginTop: "16px" }}>
+                          <button
+                            onClick={() =>
+                              setShowAllCorporateEvents(!showAllCorporateEvents)
+                            }
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#0075df",
+                              textDecoration: "underline",
+                              cursor: "pointer",
+                              fontSize: "14px",
+                              padding: "8px 0",
+                            }}
+                          >
+                            {showAllCorporateEvents ? "Show Less" : "See More"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        padding: "20px",
+                        color: "#666",
+                        fontSize: "14px",
+                      }}
+                    >
+                      No corporate events found
+                    </div>
+                  )}
+                </div>
+              </>
+
+              {/* Divider between Corporate Events and Insights */}
+              {hasArticles &&
+                (corporateEventsLoading || corporateEvents.length > 0) && (
+                  <div
+                    style={{ borderTop: "1px solid #e2e8f0", margin: "16px 0" }}
+                  />
+                )}
+
+              {/* Asymmetrix Insights & Analysis moved into Overview */}
+              <>
+                <div style={{ marginTop: "8px" }}>
+                  <h3
+                    style={{
+                      ...styles.sectionTitle,
+                      fontSize: "17px",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    Asymmetrix Insights & Analysis{" "}
+                    {articlesLoading ? "" : `(${companyArticles.length})`}
+                  </h3>
+                  {articlesLoading ? (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        padding: "20px",
+                        color: "#666",
+                        fontSize: "14px",
+                      }}
+                    >
+                      Loading content...
+                    </div>
+                  ) : companyArticles.length > 0 ? (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: "16px",
+                      }}
+                    >
+                      {companyArticles.slice(0, 4).map((article) => (
+                        <a
+                          key={article.id}
+                          href={`/article/${article.id}`}
+                          style={{
+                            border: "1px solid #e2e8f0",
+                            borderRadius: "8px",
+                            padding: "12px 12px",
+                            background: "#fff",
+                            display: "block",
+                            textDecoration: "none",
+                            color: "inherit",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontWeight: 700,
+                              marginBottom: 6,
+                              color: "#1a202c",
+                            }}
+                          >
+                            {article.Headline || "Untitled"}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: "#6b7280",
+                              marginBottom: 8,
+                            }}
+                          >
+                            {new Date(
+                              article.Publication_Date
+                            ).toLocaleDateString()}
+                          </div>
+                          <div style={{ fontSize: 14, color: "#374151" }}>
+                            {article.Strapline || ""}
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        padding: "20px",
+                        color: "#666",
+                        fontSize: "14px",
+                      }}
+                    >
+                      No related content found
+                    </div>
+                  )}
+                </div>
+              </>
             </div>
 
             {/* Desktop Financial Metrics */}
@@ -3059,93 +3698,7 @@ const CompanyDetail = () => {
 
           {/* LinkedIn section (desktop only) removed per request */}
 
-          {/* Management section */}
-          {hasManagement && (
-            <div style={{ ...styles.card, marginTop: "32px" }}>
-              <h2 style={{ ...styles.sectionTitle, marginBottom: "32px" }}>
-                Management
-              </h2>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "24px",
-                }}
-                className="management-grid"
-              >
-                <div>
-                  <h3
-                    style={{
-                      ...styles.label,
-                      fontSize: "16px",
-                      marginBottom: "16px",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Current:
-                  </h3>
-                  {company.Managmant_Roles_current &&
-                  company.Managmant_Roles_current.length > 0 ? (
-                    company.Managmant_Roles_current.map((person) => (
-                      <div
-                        key={person.id}
-                        style={{ marginBottom: "12px", fontSize: "14px" }}
-                      >
-                        {createClickableElement(
-                          `/individual/${person.individuals_id}`,
-                          `${person.Individual_text}: ${(
-                            person.job_titles_id || []
-                          )
-                            .map((job) => job?.job_title)
-                            .filter(Boolean)
-                            .join(", ")}`
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <div style={{ color: "#6b7280", fontSize: "14px" }}>
-                      Not available
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <h3
-                    style={{
-                      ...styles.label,
-                      fontSize: "16px",
-                      marginBottom: "16px",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Past:
-                  </h3>
-                  {company.Managmant_Roles_past &&
-                  company.Managmant_Roles_past.length > 0 ? (
-                    company.Managmant_Roles_past.map((person) => (
-                      <div
-                        key={person.id}
-                        style={{ marginBottom: "12px", fontSize: "14px" }}
-                      >
-                        {createClickableElement(
-                          `/individual/${person.individuals_id}`,
-                          `${person.Individual_text}: ${(
-                            person.job_titles_id || []
-                          )
-                            .map((job) => job?.job_title)
-                            .filter(Boolean)
-                            .join(", ")}`
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <div style={{ color: "#6b7280", fontSize: "14px" }}>
-                      Not available
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Management section moved into Overview above */}
 
           {/* Current Subsidiaries section */}
           {hasSubsidiaries && (
@@ -3368,9 +3921,9 @@ const CompanyDetail = () => {
             </div>
           )}
 
-          {/* Corporate Events section */}
+          {/* Corporate Events section moved into Overview above */}
           {(corporateEventsLoading || corporateEvents.length > 0) && (
-            <div style={{ ...styles.card, marginTop: "32px" }}>
+            <div style={{ display: "none" }}>
               <div
                 style={{
                   display: "flex",
@@ -3738,9 +4291,9 @@ const CompanyDetail = () => {
             </div>
           )}
 
-          {/* Asymmetrix Content (Insights & Analysis) related to this company */}
+          {/* Asymmetrix Content moved into Overview above */}
           {hasArticles && (
-            <div style={{ ...styles.card, marginTop: "32px" }}>
+            <div style={{ display: "none" }}>
               <div
                 style={{
                   display: "flex",
