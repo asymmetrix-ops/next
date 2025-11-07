@@ -1636,6 +1636,10 @@ const CompanyDetail = () => {
 
   // Currency suffix to show once in heading
   const metricsCurrencyCode =
+    normalizeCurrency(
+      (financialMetrics as unknown as { _currency?: { Currency?: string } })
+        ?._currency
+    ) ||
     normalizeCurrency(financialMetrics?.Rev_Currency) ||
     normalizeCurrency(financialMetrics?.EBITDA_currency) ||
     normalizeCurrency(financialMetrics?.EV_currency) ||
