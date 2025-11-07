@@ -1148,7 +1148,16 @@ const CompanyDetail = () => {
         // Use actual investor data from API
         const enrichedCompany = {
           ...data.Company,
-          investors: data.Company.investors_new_company || [],
+          investors: Array.isArray(
+            (data.Company as unknown as { investors_new_company?: unknown })
+              .investors_new_company
+          )
+            ? ((
+                data.Company as unknown as {
+                  investors_new_company: CompanyInvestor[];
+                }
+              ).investors_new_company as CompanyInvestor[])
+            : [],
           // Add the actual API fields - THESE ARE AT ROOT LEVEL, NOT IN data.Company!
           Managmant_Roles_current: data.Managmant_Roles_current || [],
           Managmant_Roles_past: data.Managmant_Roles_past || [],
@@ -1338,7 +1347,9 @@ const CompanyDetail = () => {
       try {
         const list = (
           [
-            ...(company?.investors || []),
+            ...(Array.isArray(company?.investors)
+              ? (company?.investors as unknown as CompanyInvestor[])
+              : []),
             ...newInvestorsCurrent,
             ...newInvestorsPast,
           ] as CompanyInvestor[]
@@ -1422,7 +1433,11 @@ const CompanyDetail = () => {
 
     const merged = Array.from(investorMap.values());
     // If nothing changed, avoid re-render churn
-    const prevIdsArray = (company.investors || [])
+    const prevIdsArray = (
+      Array.isArray(company.investors)
+        ? (company.investors as CompanyInvestor[])
+        : []
+    )
       .map((i) => (i ? (i as CompanyInvestor).id : undefined))
       .filter((v): v is number => typeof v === "number");
     const mergedIdsArray = merged.map((i) => i.id);
