@@ -473,52 +473,7 @@ const sourceLabel = (code?: number | string | null): string | undefined => {
   }
 };
 
-const formatFinancialValue = (value: string, currency?: string): string => {
-  // Guard invalids
-  if (
-    !value ||
-    value.toLowerCase?.() === "nan" ||
-    value.toLowerCase?.() === "null"
-  ) {
-    return "Not available";
-  }
-
-  // Strip existing grouping separators and whitespace, keep minus and decimal point
-  const sanitized = value.replace(/,/g, "").trim();
-  const numeric = Number(sanitized);
-
-  // Fallback: if not a finite number, return as-is with currency prefix when valid
-  const normalizedCurrency = (currency || "").toString().trim();
-  const isDigitsOnly = /^\d+$/.test(normalizedCurrency);
-
-  if (!Number.isFinite(numeric)) {
-    if (
-      normalizedCurrency &&
-      !isDigitsOnly &&
-      normalizedCurrency.toLowerCase() !== "nan" &&
-      normalizedCurrency.toLowerCase() !== "null"
-    ) {
-      return `${normalizedCurrency}${value}`;
-    }
-    return value;
-  }
-
-  // Format with thousand separators (commas) and no decimals
-  const formattedNumber = new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 0,
-  }).format(numeric);
-
-  if (
-    normalizedCurrency &&
-    !isDigitsOnly &&
-    normalizedCurrency.toLowerCase() !== "nan" &&
-    normalizedCurrency.toLowerCase() !== "null"
-  ) {
-    return `${normalizedCurrency}${formattedNumber}`;
-  }
-
-  return formattedNumber;
-};
+// Removed currency formatting helper; we show currency once in heading
 
 // Format helpers for additional financial metrics
 const formatPercent = (value?: number | null): string => {
@@ -534,33 +489,7 @@ const formatMultiple = (value?: number | null): string => {
   return `${rounded.toLocaleString()}x`;
 };
 
-// Short currency formatting for per-client/employee values (e.g., USD147k)
-const formatCurrencyShort = (
-  value?: number | null,
-  currency?: string
-): string => {
-  if (typeof value !== "number" || !Number.isFinite(value))
-    return "Not available";
-  const normalizedCurrency = (currency || "").toString().trim();
-  const isDigitsOnly = /^\d+$/.test(normalizedCurrency);
-  const prefix =
-    normalizedCurrency &&
-    !isDigitsOnly &&
-    normalizedCurrency.toLowerCase() !== "nan" &&
-    normalizedCurrency.toLowerCase() !== "null"
-      ? normalizedCurrency
-      : "";
-
-  if (Math.abs(value) >= 1_000_000) {
-    const num = Math.round(value / 1_000_000);
-    return `${prefix}${num.toLocaleString()}m`;
-  }
-  if (Math.abs(value) >= 1_000) {
-    const num = Math.round(value / 1_000);
-    return `${prefix}${num.toLocaleString()}k`;
-  }
-  return `${prefix}${Math.round(value).toLocaleString()}`;
-};
+// Removed short currency helper; we now display plain numbers
 
 // Normalize various currency representations to a displayable 3-letter code
 const normalizeCurrency = (candidate: unknown): string | undefined => {
@@ -3263,12 +3192,16 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>ARR (m):</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.ARR_source)
+                      ? `Source: ${sourceLabel(financialMetrics?.ARR_source)}`
+                      : undefined
+                  }
+                >
                   {typeof financialMetrics?.ARR_m === "number"
-                    ? formatFinancialValue(
-                        String(financialMetrics.ARR_m),
-                        displayCurrency
-                      )
+                    ? formatPlainNumber(financialMetrics.ARR_m)
                     : "Not available"}
                 </span>
               </div>
@@ -3324,17 +3257,23 @@ const CompanyDetail = () => {
               </div>
 
               {/* Other Metrics */}
-              <div style={{ ...styles.chartTitle, marginTop: "8px" }}>
+              <div
+                style={{ ...styles.chartTitle, marginTop: 20, marginBottom: 8 }}
+              >
                 Other Metrics
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>EBIT (m):</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.EBIT_source)
+                      ? `Source: ${sourceLabel(financialMetrics?.EBIT_source)}`
+                      : undefined
+                  }
+                >
                   {typeof financialMetrics?.EBIT_m === "number"
-                    ? formatFinancialValue(
-                        String(financialMetrics.EBIT_m),
-                        displayCurrency
-                      )
+                    ? formatPlainNumber(financialMetrics.EBIT_m)
                     : "Not available"}
                 </span>
               </div>
@@ -3681,7 +3620,9 @@ const CompanyDetail = () => {
                 </div>
               )}
               {/* Subscription Metrics */}
-              <div style={{ ...styles.chartTitle, marginTop: 8 }}>
+              <div
+                style={{ ...styles.chartTitle, marginTop: 20, marginBottom: 8 }}
+              >
                 Subscription Metrics
               </div>
               <div style={styles.infoRow}>
@@ -3692,12 +3633,16 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>ARR (m):</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.ARR_source)
+                      ? `Source: ${sourceLabel(financialMetrics?.ARR_source)}`
+                      : undefined
+                  }
+                >
                   {typeof financialMetrics?.ARR_m === "number"
-                    ? formatFinancialValue(
-                        String(financialMetrics.ARR_m),
-                        displayCurrency
-                      )
+                    ? formatPlainNumber(financialMetrics.ARR_m)
                     : "Not available"}
                 </span>
               </div>
@@ -3760,12 +3705,16 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>EBIT (m):</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.EBIT_source)
+                      ? `Source: ${sourceLabel(financialMetrics?.EBIT_source)}`
+                      : undefined
+                  }
+                >
                   {typeof financialMetrics?.EBIT_m === "number"
-                    ? formatFinancialValue(
-                        String(financialMetrics.EBIT_m),
-                        displayCurrency
-                      )
+                    ? formatPlainNumber(financialMetrics.EBIT_m)
                     : "Not available"}
                 </span>
               </div>
@@ -3778,13 +3727,10 @@ const CompanyDetail = () => {
                 </span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue per client:</span>
+                <span style={styles.label}>Revenue per client (k):</span>
                 <span style={styles.value}>
                   {typeof financialMetrics?.Rev_per_client === "number"
-                    ? formatCurrencyShort(
-                        financialMetrics.Rev_per_client,
-                        displayCurrency
-                      )
+                    ? toThousandsPlain(financialMetrics.Rev_per_client)
                     : "Not available"}
                 </span>
               </div>
@@ -3797,13 +3743,10 @@ const CompanyDetail = () => {
                 </span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue per employee:</span>
+                <span style={styles.label}>Revenue per employee (k):</span>
                 <span style={styles.value}>
                   {typeof financialMetrics?.Revenue_per_employee === "number"
-                    ? formatCurrencyShort(
-                        financialMetrics.Revenue_per_employee,
-                        displayCurrency
-                      )
+                    ? toThousandsPlain(financialMetrics.Revenue_per_employee)
                     : "Not available"}
                 </span>
               </div>
