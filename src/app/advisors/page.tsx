@@ -1943,7 +1943,7 @@ const AdvisorsPage = () => {
                 </div>
                 <div style={styles.gridItem}>
                   <h3 style={styles.subHeading} className="filters-sub-heading">
-                    Sector
+                    Sector of Advised Events
                   </h3>
                   <span style={styles.label}>By Primary Sectors</span>
                   <SearchableSelect
