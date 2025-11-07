@@ -1999,6 +1999,40 @@ const CompanyDetail = () => {
     .company-detail-page { overflow-x: hidden; }
     .responsiveGrid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; max-width: 100%; }
     .card { background: white; border-radius: 12px; }
+    /* Hover tooltips for metric values using title attribute */
+    .desktop-financial-metrics span[title],
+    .mobile-financial-metrics span[title] {
+      position: relative;
+      cursor: help;
+    }
+    .desktop-financial-metrics span[title]:hover::after,
+    .mobile-financial-metrics span[title]:hover::after {
+      content: attr(title);
+      position: absolute;
+      left: 0;
+      bottom: 100%;
+      transform: translateY(-6px);
+      background: rgba(17, 24, 39, 0.95);
+      color: #fff;
+      font-size: 12px;
+      line-height: 1.2;
+      padding: 6px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      z-index: 20;
+      pointer-events: none;
+    }
+    .desktop-financial-metrics span[title]:hover::before,
+    .mobile-financial-metrics span[title]:hover::before {
+      content: '';
+      position: absolute;
+      left: 8px;
+      bottom: calc(100% - 2px);
+      border: 6px solid transparent;
+      border-top-color: rgba(17, 24, 39, 0.95);
+      z-index: 21;
+      pointer-events: none;
+    }
     /* Tighter rows inside Financial Metrics */
     .desktop-financial-metrics .info-row { padding: 6px 0 !important; }
     .mobile-financial-metrics .info-row { padding: 6px 0 !important; }
