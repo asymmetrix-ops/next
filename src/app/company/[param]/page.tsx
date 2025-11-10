@@ -3247,7 +3247,14 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Recurring Revenue:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.ARR_source)
+                      ? `Source: ${sourceLabel(financialMetrics?.ARR_source)}`
+                      : undefined
+                  }
+                >
                   {formatPercent(financialMetrics?.ARR_pc)}
                 </span>
               </div>
@@ -3268,43 +3275,100 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Churn:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.Churn_Source)
+                      ? `Source: ${sourceLabel(financialMetrics?.Churn_Source)}`
+                      : undefined
+                  }
+                >
                   {formatPercent(financialMetrics?.Churn_pc)}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>GRR:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.GRR_source)
+                      ? `Source: ${sourceLabel(financialMetrics?.GRR_source)}`
+                      : undefined
+                  }
+                >
                   {formatPercent(financialMetrics?.GRR_pc)}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Upsell:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.Upsell_source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.Upsell_source
+                        )}`
+                      : undefined
+                  }
+                >
                   {formatPercent(financialMetrics?.Upsell_pc)}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Cross-sell:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.Cross_sell_source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.Cross_sell_source
+                        )}`
+                      : undefined
+                  }
+                >
                   {formatPercent(financialMetrics?.Cross_sell_pc)}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Price increase:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.Price_increase_source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.Price_increase_source
+                        )}`
+                      : undefined
+                  }
+                >
                   {formatPercent(financialMetrics?.Price_increase_pc)}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue expansion:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.Rev_expansion_source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.Rev_expansion_source
+                        )}`
+                      : undefined
+                  }
+                >
                   {formatPercent(financialMetrics?.Rev_expansion_pc)}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>NRR:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.NRR_source)
+                      ? `Source: ${sourceLabel(financialMetrics?.NRR_source)}`
+                      : undefined
+                  }
+                >
                   {typeof financialMetrics?.NRR === "number"
                     ? `${Math.round(financialMetrics.NRR)}%`
                     : "Not available"}
@@ -3312,7 +3376,16 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>New clients revenue growth:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.New_Client_Growth_Source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.New_Client_Growth_Source
+                        )}`
+                      : undefined
+                  }
+                >
                   {formatPercent(financialMetrics?.New_client_growth_pc)}
                 </span>
               </div>
@@ -3340,7 +3413,16 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Number of clients:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.No_Clients_source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.No_Clients_source
+                        )}`
+                      : undefined
+                  }
+                >
                   {typeof financialMetrics?.No_of_Clients === "number"
                     ? financialMetrics.No_of_Clients.toLocaleString()
                     : "Not available"}
@@ -3348,7 +3430,16 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per client (k):</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.Rev_per_client_source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.Rev_per_client_source
+                        )}`
+                      : undefined
+                  }
+                >
                   {typeof financialMetrics?.Rev_per_client === "number"
                     ? toThousandsPlain(financialMetrics.Rev_per_client)
                     : "Not available"}
@@ -3356,7 +3447,16 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Number of employees:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.No_Employees_source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.No_Employees_source
+                        )}`
+                      : undefined
+                  }
+                >
                   {typeof financialMetrics?.No_Employees === "number"
                     ? financialMetrics.No_Employees.toLocaleString()
                     : formatNumber(currentEmployeeCount)}
@@ -3364,7 +3464,16 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per employee (k):</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.Rev_per_employee_source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.Rev_per_employee_source
+                        )}`
+                      : undefined
+                  }
+                >
                   {typeof financialMetrics?.Revenue_per_employee === "number"
                     ? toThousandsPlain(financialMetrics.Revenue_per_employee)
                     : "Not available"}
@@ -3688,7 +3797,14 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Recurring Revenue:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.ARR_source)
+                      ? `Source: ${sourceLabel(financialMetrics?.ARR_source)}`
+                      : undefined
+                  }
+                >
                   {formatPercent(financialMetrics?.ARR_pc)}
                 </span>
               </div>
@@ -3709,43 +3825,100 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Churn:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.Churn_Source)
+                      ? `Source: ${sourceLabel(financialMetrics?.Churn_Source)}`
+                      : undefined
+                  }
+                >
                   {formatPercent(financialMetrics?.Churn_pc)}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>GRR:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.GRR_source)
+                      ? `Source: ${sourceLabel(financialMetrics?.GRR_source)}`
+                      : undefined
+                  }
+                >
                   {formatPercent(financialMetrics?.GRR_pc)}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Upsell:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.Upsell_source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.Upsell_source
+                        )}`
+                      : undefined
+                  }
+                >
                   {formatPercent(financialMetrics?.Upsell_pc)}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Cross-sell:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.Cross_sell_source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.Cross_sell_source
+                        )}`
+                      : undefined
+                  }
+                >
                   {formatPercent(financialMetrics?.Cross_sell_pc)}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Price increase:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.Price_increase_source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.Price_increase_source
+                        )}`
+                      : undefined
+                  }
+                >
                   {formatPercent(financialMetrics?.Price_increase_pc)}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue expansion:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.Rev_expansion_source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.Rev_expansion_source
+                        )}`
+                      : undefined
+                  }
+                >
                   {formatPercent(financialMetrics?.Rev_expansion_pc)}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>NRR:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.NRR_source)
+                      ? `Source: ${sourceLabel(financialMetrics?.NRR_source)}`
+                      : undefined
+                  }
+                >
                   {typeof financialMetrics?.NRR === "number"
                     ? `${Math.round(financialMetrics.NRR)}%`
                     : "Not available"}
@@ -3753,7 +3926,16 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>New clients revenue growth:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.New_Client_Growth_Source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.New_Client_Growth_Source
+                        )}`
+                      : undefined
+                  }
+                >
                   {formatPercent(financialMetrics?.New_client_growth_pc)}
                 </span>
               </div>
@@ -3781,7 +3963,16 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Number of clients:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.No_Clients_source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.No_Clients_source
+                        )}`
+                      : undefined
+                  }
+                >
                   {typeof financialMetrics?.No_of_Clients === "number"
                     ? financialMetrics.No_of_Clients.toLocaleString()
                     : "Not available"}
@@ -3789,7 +3980,16 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per client (k):</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.Rev_per_client_source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.Rev_per_client_source
+                        )}`
+                      : undefined
+                  }
+                >
                   {typeof financialMetrics?.Rev_per_client === "number"
                     ? toThousandsPlain(financialMetrics.Rev_per_client)
                     : "Not available"}
@@ -3797,7 +3997,16 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Number of employees:</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.No_Employees_source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.No_Employees_source
+                        )}`
+                      : undefined
+                  }
+                >
                   {typeof financialMetrics?.No_Employees === "number"
                     ? financialMetrics.No_Employees.toLocaleString()
                     : formatNumber(currentEmployeeCount)}
@@ -3805,7 +4014,16 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per employee (k):</span>
-                <span style={styles.value}>
+                <span
+                  style={styles.value}
+                  title={
+                    sourceLabel(financialMetrics?.Rev_per_employee_source)
+                      ? `Source: ${sourceLabel(
+                          financialMetrics?.Rev_per_employee_source
+                        )}`
+                      : undefined
+                  }
+                >
                   {typeof financialMetrics?.Revenue_per_employee === "number"
                     ? toThousandsPlain(financialMetrics.Revenue_per_employee)
                     : "Not available"}
