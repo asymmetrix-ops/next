@@ -86,6 +86,12 @@ const AdvisorsPage = () => {
     nomad: 0,
   });
   const lastRequestIdRef = useRef(0);
+  const sectorsRequestIdRef = useRef(0);
+
+  // Cache of advisorId -> sectors string fetched from dedicated endpoint
+  const [advisorSectorsById, setAdvisorSectorsById] = useState<
+    Record<number, string>
+  >({});
 
   // Filter state
   const [searchTerm, setSearchTerm] = useState("");
@@ -579,6 +585,96 @@ const AdvisorsPage = () => {
     fetchSecondarySectors();
   }, [selectedPrimarySectors, primarySectors, fetchSecondarySectors]);
 
+  // Fetch Advised D&A sectors for advisors on the current page (from dedicated API)
+  useEffect(() => {
+    if (!advisors || advisors.length === 0) return;
+
+    const currentIds = advisors
+      .map((a) => a?.id)
+      .filter((id): id is number => typeof id === "number" && id > 0);
+
+    // Determine which IDs still need fetching
+    const missingIds = currentIds.filter(
+      (id) => advisorSectorsById[id] === undefined
+    );
+    if (missingIds.length === 0) return;
+
+    const doFetch = async () => {
+      const reqId = ++sectorsRequestIdRef.current;
+      const token = localStorage.getItem("asymmetrix_auth_token");
+
+      // Helper to parse response into a sectors string
+      const parseSectorsList = (arr: unknown): string => {
+        if (!Array.isArray(arr)) return "";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const names = (arr as any[])
+          .map((x) => String(x?.sector_name || "").trim())
+          .filter((s) => s.length > 0);
+        return names.join(", ");
+      };
+
+      const fetchOne = async (
+        newCompanyId: number
+      ): Promise<[number, string]> => {
+        const base =
+          "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/da_sectors_for_advisors";
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        };
+
+        // GET with query param only
+        try {
+          const url = `${base}?new_company_id=${encodeURIComponent(
+            String(newCompanyId)
+          )}`;
+          const res = await fetch(url, { method: "GET", headers });
+          if (res.ok) {
+            const data = await res.json();
+            const sectors = parseSectorsList(data);
+            return [newCompanyId, sectors || ""];
+          }
+        } catch {
+          // ignore
+        }
+
+        return [newCompanyId, ""];
+      };
+
+      try {
+        // Limit concurrency a bit to be friendly
+        const BATCH_SIZE = 8;
+        const results: Array<[number, string]> = [];
+        for (let i = 0; i < missingIds.length; i += BATCH_SIZE) {
+          const batch = missingIds.slice(i, i + BATCH_SIZE);
+          // eslint-disable-next-line no-await-in-loop
+          const settled = await Promise.all(batch.map((id) => fetchOne(id)));
+          results.push(...settled);
+          // Optionally yield to event loop
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((r) => setTimeout(r, 0));
+        }
+
+        if (reqId === sectorsRequestIdRef.current && results.length > 0) {
+          setAdvisorSectorsById((prev) => {
+            const next = { ...prev };
+            for (const [id, sectors] of results) {
+              if (typeof id === "number") {
+                next[id] = sectors || "";
+              }
+            }
+            return next;
+          });
+        }
+      } catch (e) {
+        console.error("[Advisors] Failed fetching D&A sectors:", e);
+      }
+    };
+
+    doFetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [advisors]);
+
   // Handle search
   const handleSearch = () => {
     const updatedFilters = {
@@ -973,7 +1069,9 @@ const AdvisorsPage = () => {
                 whiteSpace: "nowrap",
               },
             },
-            advisor.sectors || "N/A"
+            advisorSectorsById[advisor.id as number]?.trim()
+              ? advisorSectorsById[advisor.id as number]
+              : advisor.sectors || "N/A"
           )
         )
       )
@@ -1108,7 +1206,9 @@ const AdvisorsPage = () => {
                   ? "sectors-full"
                   : "sectors-truncated",
               },
-              sectorsText
+              advisorSectorsById[advisor.id as number]?.trim()
+                ? advisorSectorsById[advisor.id as number]
+                : sectorsText
             ),
             sectorsIsLong &&
               React.createElement(

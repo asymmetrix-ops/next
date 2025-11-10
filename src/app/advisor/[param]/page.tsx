@@ -150,6 +150,7 @@ export default function AdvisorProfilePage() {
   const advisorId = parseInt(params.param as string);
   const [eventsExpanded, setEventsExpanded] = useState(false);
   const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
+  const [daSectors, setDaSectors] = useState<string>("");
   // Roles fetched from the LinkedIn/company endpoint (includes job titles)
   interface RoleItem {
     id: number;
@@ -247,6 +248,51 @@ export default function AdvisorProfilePage() {
       fetchLinkedInHistory();
     }
   }, [advisorId, fetchLinkedInHistory]);
+
+  // Fetch Advised D&A sectors from dedicated endpoint
+  useEffect(() => {
+    if (!advisorId || Number.isNaN(advisorId)) return;
+
+    const fetchSectors = async () => {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+      const base =
+        "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/da_sectors_for_advisors";
+
+      const parseSectorsList = (arr: unknown): string => {
+        if (!Array.isArray(arr)) return "";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const names = (arr as any[])
+          .map((x) => String(x?.sector_name || "").trim())
+          .filter((s) => s.length > 0);
+        return names.join(", ");
+      };
+
+      // GET only
+      try {
+        const url = `${base}?new_company_id=${encodeURIComponent(
+          String(advisorId)
+        )}`;
+        const res = await fetch(url, {
+          method: "GET",
+          headers,
+          credentials: "include",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const sectors = parseSectorsList(data);
+          setDaSectors(sectors || "");
+        }
+      } catch {
+        setDaSectors("");
+      }
+    };
+
+    fetchSectors();
+  }, [advisorId]);
 
   // Update page title when advisor data is loaded
   useEffect(() => {
@@ -674,7 +720,10 @@ export default function AdvisorProfilePage() {
                 <div className="info-item">
                   <span className="info-label">Advised D&A sectors:</span>
                   <span className="info-value">
-                    {formatSectorsList(Advised_DA_sectors) || "Not available"}
+                    {daSectors?.trim()
+                      ? daSectors
+                      : formatSectorsList(Advised_DA_sectors) ||
+                        "Not available"}
                   </span>
                 </div>
                 <div className="info-item">
