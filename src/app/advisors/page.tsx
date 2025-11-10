@@ -619,7 +619,6 @@ const AdvisorsPage = () => {
         const base =
           "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/da_sectors_for_advisors";
         const headers: Record<string, string> = {
-          "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         };
 

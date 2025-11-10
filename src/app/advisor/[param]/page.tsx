@@ -256,7 +256,6 @@ export default function AdvisorProfilePage() {
     const fetchSectors = async () => {
       const token = localStorage.getItem("asymmetrix_auth_token");
       const headers: Record<string, string> = {
-        "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
       const base =
@@ -279,7 +278,6 @@ export default function AdvisorProfilePage() {
         const res = await fetch(url, {
           method: "GET",
           headers,
-          credentials: "include",
         });
         if (res.ok) {
           const data = await res.json();
