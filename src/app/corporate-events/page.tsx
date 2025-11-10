@@ -756,7 +756,6 @@ const CorporateEventsTable = ({
                               }
                               const name = nc.name;
                               let url = "";
-                              const investorProfileId = nc._investor_profile_id;
                               const cpId =
                                 (
                                   counterparty as {
@@ -764,13 +763,21 @@ const CorporateEventsTable = ({
                                   }
                                 ).new_company_counterparty || nc.id;
                               if (nc._is_that_investor) {
-                                url =
-                                  typeof investorProfileId === "number" &&
-                                  investorProfileId > 0
-                                    ? `/investors/${investorProfileId}`
-                                    : typeof cpId === "number"
-                                    ? `/investors/${cpId}`
-                                    : "";
+                                // Use the New Company id for investor pages
+                                if (typeof cpId === "number") {
+                                  url = `/investors/${cpId}`;
+                                } else if (
+                                  typeof nc._url === "string" &&
+                                  nc._url
+                                ) {
+                                  // Fallback: convert backend investor url to our route
+                                  url = nc._url.replace(
+                                    /\/(?:investor)\//,
+                                    "/investors/"
+                                  );
+                                } else {
+                                  url = "";
+                                }
                               } else if (nc._is_that_data_analytic_company) {
                                 url =
                                   typeof cpId === "number"
