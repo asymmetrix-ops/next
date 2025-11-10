@@ -1595,7 +1595,7 @@ const AdvisorsPage = () => {
               <div style={styles.grid} className="filters-grid">
                 <div style={styles.gridItem}>
                   <h3 style={styles.subHeading} className="filters-sub-heading">
-                    Location
+                    Location of Advised events
                   </h3>
                   <span style={styles.label}>By Continental Region</span>
                   <SearchableSelect
