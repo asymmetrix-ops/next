@@ -2081,7 +2081,7 @@ const CompanyDetail = () => {
                   display: "inline-flex",
                   alignItems: "center",
                 }}
-                href="mailto:a.boden@asymmetrixintelligence.com?subject=Report%20Incorrect%20Company%20Data&body=Please%20describe%20the%20issue%20you%20found."
+                href="mailto:asymmetrix@asymmetrixintelligence.com?subject=Report%20Incorrect%20Company%20Data&body=Please%20describe%20the%20issue%20you%20found."
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -2472,426 +2472,448 @@ const CompanyDetail = () => {
               )}
 
               {/* Corporate Events moved into Overview */}
-              <>
-                <div
-                  style={{
-                    marginTop: "16px",
-                    paddingTop: "16px",
-                    borderTop: "1px solid #e2e8f0",
-                  }}
-                >
-                  <h3
+              {(corporateEventsLoading || corporateEvents.length > 0) && (
+                <>
+                  <div
                     style={{
-                      ...styles.sectionTitle,
-                      fontSize: "17px",
-                      marginBottom: "12px",
+                      marginTop: "16px",
+                      paddingTop: "16px",
+                      borderTop: "1px solid #e2e8f0",
                     }}
                   >
-                    Corporate Events{" "}
-                    {corporateEventsLoading
-                      ? ""
-                      : `(${corporateEvents.length})`}
-                  </h3>
-                  {corporateEventsLoading ? (
-                    <div
+                    <h3
                       style={{
-                        textAlign: "center",
-                        padding: "20px",
-                        color: "#666",
-                        fontSize: "14px",
+                        ...styles.sectionTitle,
+                        fontSize: "17px",
+                        marginBottom: "12px",
                       }}
                     >
-                      Loading corporate events...
-                    </div>
-                  ) : corporateEvents.length > 0 ? (
-                    <div style={{ overflowX: "auto", maxWidth: "100%" }}>
-                      <table className="corporate-event-table">
-                        <thead>
-                          <tr>
-                            <th>Event Details</th>
-                            <th>Parties</th>
-                            <th>Deal Details</th>
-                            <th>Advisors</th>
-                            <th>Sectors</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(showAllCorporateEvents
-                            ? corporateEvents
-                            : corporateEvents.slice(0, 3)
-                          ).map((event, index) => {
-                            const isPartnership = /partnership/i.test(
-                              (event as NewCorporateEvent).deal_type ||
-                                (event as LegacyCorporateEvent).deal_type ||
-                                ""
-                            );
-                            const eventDate = (() => {
-                              const raw =
-                                (event as NewCorporateEvent)
-                                  .announcement_date ||
-                                (event as LegacyCorporateEvent)
-                                  .announcement_date;
-                              try {
-                                return new Date(raw).toLocaleDateString(
-                                  "en-US",
-                                  {
-                                    year: "numeric",
-                                    month: "long",
-                                    day: "numeric",
-                                  }
-                                );
-                              } catch {
-                                return "Not available";
-                              }
-                            })();
-                            return (
-                              <tr key={event.id || index}>
-                                {/* Event Details */}
-                                <td>
-                                  <div style={{ marginBottom: "6px" }}>
-                                    <a
-                                      href={`/corporate-event/${event.id}`}
-                                      className="corporate-event-name"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        router.replace(
-                                          `/corporate-event/${event.id}`
-                                        );
-                                      }}
-                                    >
-                                      {event.description || "Not Available"}
-                                    </a>
-                                  </div>
-                                  <div className="muted-row">
-                                    Date: {eventDate}
-                                  </div>
-                                  <div className="muted-row">
-                                    Target HQ: {fullAddress || "Not available"}
-                                  </div>
-                                </td>
-                                {/* Parties */}
-                                <td>
-                                  <div className="muted-row">
-                                    <strong>Target:</strong>{" "}
-                                    <a
-                                      href={`/company/${companyId}`}
-                                      className="link-blue"
-                                    >
-                                      {company.name}
-                                    </a>
-                                  </div>
-                                  <div className="muted-row">
-                                    <strong>Other counterparties:</strong>{" "}
-                                    {(() => {
-                                      const newEvent =
-                                        event as NewCorporateEvent;
-                                      if (
-                                        Array.isArray(
-                                          newEvent.other_counterparties
-                                        )
-                                      ) {
-                                        const list =
-                                          newEvent.other_counterparties.filter(
-                                            (c) =>
-                                              c &&
-                                              typeof c.id === "number" &&
-                                              c.name
+                      Corporate Events{" "}
+                    </h3>
+                    {corporateEventsLoading ? (
+                      <div
+                        style={{
+                          textAlign: "center",
+                          padding: "20px",
+                          color: "#666",
+                          fontSize: "14px",
+                        }}
+                      >
+                        Loading corporate events...
+                      </div>
+                    ) : corporateEvents.length > 0 ? (
+                      <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+                        <table className="corporate-event-table">
+                          <thead>
+                            <tr>
+                              <th>Event Details</th>
+                              <th>Parties</th>
+                              <th>Deal Details</th>
+                              <th>Advisors</th>
+                              <th>Sectors</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(showAllCorporateEvents
+                              ? corporateEvents
+                              : corporateEvents.slice(0, 3)
+                            ).map((event, index) => {
+                              const isPartnership = /partnership/i.test(
+                                (event as NewCorporateEvent).deal_type ||
+                                  (event as LegacyCorporateEvent).deal_type ||
+                                  ""
+                              );
+                              const eventDate = (() => {
+                                const raw =
+                                  (event as NewCorporateEvent)
+                                    .announcement_date ||
+                                  (event as LegacyCorporateEvent)
+                                    .announcement_date;
+                                try {
+                                  return new Date(raw).toLocaleDateString(
+                                    "en-US",
+                                    {
+                                      year: "numeric",
+                                      month: "long",
+                                      day: "numeric",
+                                    }
+                                  );
+                                } catch {
+                                  return "Not available";
+                                }
+                              })();
+                              return (
+                                <tr key={event.id || index}>
+                                  {/* Event Details */}
+                                  <td>
+                                    <div style={{ marginBottom: "6px" }}>
+                                      <a
+                                        href={`/corporate-event/${event.id}`}
+                                        className="corporate-event-name"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          router.replace(
+                                            `/corporate-event/${event.id}`
                                           );
-                                        if (list.length === 0)
+                                        }}
+                                      >
+                                        {event.description || "Not Available"}
+                                      </a>
+                                    </div>
+                                    <div className="muted-row">
+                                      Date: {eventDate}
+                                    </div>
+                                    <div className="muted-row">
+                                      Target HQ:{" "}
+                                      {fullAddress || "Not available"}
+                                    </div>
+                                  </td>
+                                  {/* Parties */}
+                                  <td>
+                                    <div className="muted-row">
+                                      <strong>Target:</strong>{" "}
+                                      <a
+                                        href={`/company/${companyId}`}
+                                        className="link-blue"
+                                      >
+                                        {company.name}
+                                      </a>
+                                    </div>
+                                    <div className="muted-row">
+                                      <strong>Other counterparties:</strong>{" "}
+                                      {(() => {
+                                        const newEvent =
+                                          event as NewCorporateEvent;
+                                        if (
+                                          Array.isArray(
+                                            newEvent.other_counterparties
+                                          )
+                                        ) {
+                                          const list =
+                                            newEvent.other_counterparties.filter(
+                                              (c) =>
+                                                c &&
+                                                typeof c.id === "number" &&
+                                                c.name
+                                            );
+                                          if (list.length === 0)
+                                            return <span>Not Available</span>;
+                                          return list.map((c, idx) => {
+                                            const href =
+                                              c.page_type === "investor"
+                                                ? `/investors/${c.id}`
+                                                : `/company/${c.id}`;
+                                            return (
+                                              <span key={`${c.id}-${idx}`}>
+                                                <a
+                                                  href={href}
+                                                  className="link-blue"
+                                                >
+                                                  {c.name}
+                                                </a>
+                                                {idx < list.length - 1 && ", "}
+                                              </span>
+                                            );
+                                          });
+                                        }
+                                        const legacy =
+                                          event as LegacyCorporateEvent;
+                                        const items = (
+                                          legacy["0"] || []
+                                        ).filter(
+                                          (it) =>
+                                            it &&
+                                            it._new_company &&
+                                            it._new_company.name
+                                        );
+                                        if (items.length === 0)
                                           return <span>Not Available</span>;
-                                        return list.map((c, idx) => {
-                                          const href =
-                                            c.page_type === "investor"
-                                              ? `/investors/${c.id}`
-                                              : `/company/${c.id}`;
+                                        return items.map((it, idx) => {
+                                          const id = it._new_company?.id;
+                                          const isInvestor = Boolean(
+                                            it._new_company?._is_that_investor
+                                          );
+                                          const href = isInvestor
+                                            ? `/investors/${id}`
+                                            : `/company/${id}`;
+                                          if (!id) {
+                                            return (
+                                              <span
+                                                key={`${it._new_company?.name}-${idx}`}
+                                              >
+                                                {it._new_company?.name}
+                                                {idx < items.length - 1 && ", "}
+                                              </span>
+                                            );
+                                          }
                                           return (
-                                            <span key={`${c.id}-${idx}`}>
+                                            <span key={`${id}-${idx}`}>
                                               <a
                                                 href={href}
                                                 className="link-blue"
                                               >
-                                                {c.name}
+                                                {it._new_company!.name}
                                               </a>
-                                              {idx < list.length - 1 && ", "}
-                                            </span>
-                                          );
-                                        });
-                                      }
-                                      const legacy =
-                                        event as LegacyCorporateEvent;
-                                      const items = (legacy["0"] || []).filter(
-                                        (it) =>
-                                          it &&
-                                          it._new_company &&
-                                          it._new_company.name
-                                      );
-                                      if (items.length === 0)
-                                        return <span>Not Available</span>;
-                                      return items.map((it, idx) => {
-                                        const id = it._new_company?.id;
-                                        const isInvestor = Boolean(
-                                          it._new_company?._is_that_investor
-                                        );
-                                        const href = isInvestor
-                                          ? `/investors/${id}`
-                                          : `/company/${id}`;
-                                        if (!id) {
-                                          return (
-                                            <span
-                                              key={`${it._new_company?.name}-${idx}`}
-                                            >
-                                              {it._new_company?.name}
                                               {idx < items.length - 1 && ", "}
                                             </span>
                                           );
-                                        }
-                                        return (
-                                          <span key={`${id}-${idx}`}>
-                                            <a
-                                              href={href}
-                                              className="link-blue"
-                                            >
-                                              {it._new_company!.name}
-                                            </a>
-                                            {idx < items.length - 1 && ", "}
-                                          </span>
-                                        );
-                                      });
-                                    })()}
-                                  </div>
-                                </td>
-                                {/* Deal Details */}
-                                <td>
-                                  <div className="muted-row">
-                                    <strong>Deal Type:</strong>{" "}
-                                    {(event as NewCorporateEvent).deal_type ||
-                                    (event as LegacyCorporateEvent)
-                                      .deal_type ? (
-                                      <span className="pill pill-blue">
-                                        {(event as NewCorporateEvent)
-                                          .deal_type ||
-                                          (event as LegacyCorporateEvent)
-                                            .deal_type}
-                                      </span>
-                                    ) : (
-                                      <span>Not Available</span>
-                                    )}
-                                  </div>
-                                  {!isPartnership && (
-                                    <div className="muted-row">
-                                      <strong>Amount (m):</strong>{" "}
-                                      {(() => {
-                                        const display = (
-                                          event as NewCorporateEvent
-                                        ).investment_display;
-                                        if (display && display.trim())
-                                          return display;
-                                        const legacy =
-                                          event as LegacyCorporateEvent;
-                                        const legacyAny = legacy as unknown as {
-                                          investment_data?: {
-                                            investment_amount_m?:
-                                              | number
-                                              | string;
-                                            investment_amount?: number | string;
-                                            currency?: { Currency?: string };
-                                            _currency?: { Currency?: string };
-                                            currrency?: { Currency?: string };
-                                          };
-                                          investment_amount_m?: number | string;
-                                          investment_amount?: number | string;
-                                        };
-                                        const amount =
-                                          legacyAny?.investment_data
-                                            ?.investment_amount_m ??
-                                          legacyAny?.investment_data
-                                            ?.investment_amount ??
-                                          legacyAny?.investment_amount_m ??
-                                          legacyAny?.investment_amount;
-                                        const currency: string | undefined =
-                                          legacyAny?.investment_data?.currency
-                                            ?.Currency ||
-                                          legacyAny?.investment_data?._currency
-                                            ?.Currency ||
-                                          legacyAny?.investment_data?.currrency
-                                            ?.Currency;
-                                        if (amount != null && currency) {
-                                          const n = Number(amount);
-                                          if (!Number.isNaN(n))
-                                            return `${currency}${n.toLocaleString()}m`;
-                                        }
-                                        return "Not available";
+                                        });
                                       })()}
                                     </div>
-                                  )}
-                                  {!isPartnership && (
+                                  </td>
+                                  {/* Deal Details */}
+                                  <td>
                                     <div className="muted-row">
-                                      <strong>EV (m):</strong>{" "}
-                                      {(() => {
-                                        const display = (
-                                          event as NewCorporateEvent
-                                        ).ev_display as string | undefined;
-                                        if (display && display.trim())
-                                          return display;
-                                        const legacy =
-                                          event as LegacyCorporateEvent;
-                                        const amount = legacy.ev_data
-                                          ?.enterprise_value_m as
-                                          | number
-                                          | string
-                                          | undefined;
-                                        const currency: string | undefined =
-                                          legacy.ev_data?.currency?.Currency ||
-                                          legacy.ev_data?._currency?.Currency;
-                                        if (amount != null && currency) {
-                                          const n = Number(amount);
-                                          if (!Number.isNaN(n))
-                                            return `${currency}${n.toLocaleString()}m`;
-                                        }
-                                        return (
-                                          legacy.ev_data?.ev_band ||
-                                          "Not available"
-                                        );
-                                      })()}
+                                      <strong>Deal Type:</strong>{" "}
+                                      {(event as NewCorporateEvent).deal_type ||
+                                      (event as LegacyCorporateEvent)
+                                        .deal_type ? (
+                                        <span className="pill pill-blue">
+                                          {(event as NewCorporateEvent)
+                                            .deal_type ||
+                                            (event as LegacyCorporateEvent)
+                                              .deal_type}
+                                        </span>
+                                      ) : (
+                                        <span>Not Available</span>
+                                      )}
                                     </div>
-                                  )}
-                                </td>
-                                {/* Advisors */}
-                                <td>
-                                  <div className="muted-row">
-                                    <strong>Advisors:</strong>{" "}
-                                    {(() => {
-                                      const newEvent =
-                                        event as NewCorporateEvent;
-                                      const namesFromArray = Array.isArray(
-                                        newEvent.advisors_names
-                                      )
-                                        ? newEvent.advisors_names
-                                            .map((n) =>
-                                              typeof n === "string" ? n : ""
-                                            )
-                                            .filter(
-                                              (n) => n && n.trim().length > 0
-                                            )
-                                        : [];
-                                      const namesFromString =
-                                        typeof (
-                                          newEvent as unknown as {
-                                            advisors_names?: unknown;
+                                    {!isPartnership && (
+                                      <div className="muted-row">
+                                        <strong>Amount (m):</strong>{" "}
+                                        {(() => {
+                                          const display = (
+                                            event as NewCorporateEvent
+                                          ).investment_display;
+                                          if (display && display.trim())
+                                            return display;
+                                          const legacy =
+                                            event as LegacyCorporateEvent;
+                                          const legacyAny =
+                                            legacy as unknown as {
+                                              investment_data?: {
+                                                investment_amount_m?:
+                                                  | number
+                                                  | string;
+                                                investment_amount?:
+                                                  | number
+                                                  | string;
+                                                currency?: {
+                                                  Currency?: string;
+                                                };
+                                                _currency?: {
+                                                  Currency?: string;
+                                                };
+                                                currrency?: {
+                                                  Currency?: string;
+                                                };
+                                              };
+                                              investment_amount_m?:
+                                                | number
+                                                | string;
+                                              investment_amount?:
+                                                | number
+                                                | string;
+                                            };
+                                          const amount =
+                                            legacyAny?.investment_data
+                                              ?.investment_amount_m ??
+                                            legacyAny?.investment_data
+                                              ?.investment_amount ??
+                                            legacyAny?.investment_amount_m ??
+                                            legacyAny?.investment_amount;
+                                          const currency: string | undefined =
+                                            legacyAny?.investment_data?.currency
+                                              ?.Currency ||
+                                            legacyAny?.investment_data
+                                              ?._currency?.Currency ||
+                                            legacyAny?.investment_data
+                                              ?.currrency?.Currency;
+                                          if (amount != null && currency) {
+                                            const n = Number(amount);
+                                            if (!Number.isNaN(n))
+                                              return `${currency}${n.toLocaleString()}m`;
                                           }
-                                        ).advisors_names === "string"
-                                          ? [
-                                              String(
-                                                (
-                                                  newEvent as unknown as {
-                                                    advisors_names?: string;
-                                                  }
-                                                ).advisors_names
-                                              ),
-                                            ]
+                                          return "Not available";
+                                        })()}
+                                      </div>
+                                    )}
+                                    {!isPartnership && (
+                                      <div className="muted-row">
+                                        <strong>EV (m):</strong>{" "}
+                                        {(() => {
+                                          const display = (
+                                            event as NewCorporateEvent
+                                          ).ev_display as string | undefined;
+                                          if (display && display.trim())
+                                            return display;
+                                          const legacy =
+                                            event as LegacyCorporateEvent;
+                                          const amount = legacy.ev_data
+                                            ?.enterprise_value_m as
+                                            | number
+                                            | string
+                                            | undefined;
+                                          const currency: string | undefined =
+                                            legacy.ev_data?.currency
+                                              ?.Currency ||
+                                            legacy.ev_data?._currency?.Currency;
+                                          if (amount != null && currency) {
+                                            const n = Number(amount);
+                                            if (!Number.isNaN(n))
+                                              return `${currency}${n.toLocaleString()}m`;
+                                          }
+                                          return (
+                                            legacy.ev_data?.ev_band ||
+                                            "Not available"
+                                          );
+                                        })()}
+                                      </div>
+                                    )}
+                                  </td>
+                                  {/* Advisors */}
+                                  <td>
+                                    <div className="muted-row">
+                                      <strong>Advisors:</strong>{" "}
+                                      {(() => {
+                                        const newEvent =
+                                          event as NewCorporateEvent;
+                                        const namesFromArray = Array.isArray(
+                                          newEvent.advisors_names
+                                        )
+                                          ? newEvent.advisors_names
+                                              .map((n) =>
+                                                typeof n === "string" ? n : ""
+                                              )
+                                              .filter(
+                                                (n) => n && n.trim().length > 0
+                                              )
                                           : [];
-                                      const namesFromObjects = Array.isArray(
-                                        newEvent.advisors
-                                      )
-                                        ? newEvent.advisors
-                                            .map(
-                                              (a) =>
-                                                a?.advisor_company?.name ||
-                                                a?._new_company?.name ||
-                                                ""
-                                            )
-                                            .filter(
-                                              (n) => n && n.trim().length > 0
-                                            )
-                                        : [];
-                                      let combined = [
-                                        ...namesFromArray,
-                                        ...namesFromString,
-                                        ...namesFromObjects,
-                                      ];
-                                      if (combined.length === 0) {
-                                        const legacy =
-                                          event as LegacyCorporateEvent;
-                                        const legacyNames = (
-                                          (legacy["1"] || []).map(
-                                            (item) =>
-                                              item._new_company?.name || ""
-                                          ) as Array<string>
-                                        ).filter(
-                                          (n) => n && n.trim().length > 0
+                                        const namesFromString =
+                                          typeof (
+                                            newEvent as unknown as {
+                                              advisors_names?: unknown;
+                                            }
+                                          ).advisors_names === "string"
+                                            ? [
+                                                String(
+                                                  (
+                                                    newEvent as unknown as {
+                                                      advisors_names?: string;
+                                                    }
+                                                  ).advisors_names
+                                                ),
+                                              ]
+                                            : [];
+                                        const namesFromObjects = Array.isArray(
+                                          newEvent.advisors
+                                        )
+                                          ? newEvent.advisors
+                                              .map(
+                                                (a) =>
+                                                  a?.advisor_company?.name ||
+                                                  a?._new_company?.name ||
+                                                  ""
+                                              )
+                                              .filter(
+                                                (n) => n && n.trim().length > 0
+                                              )
+                                          : [];
+                                        let combined = [
+                                          ...namesFromArray,
+                                          ...namesFromString,
+                                          ...namesFromObjects,
+                                        ];
+                                        if (combined.length === 0) {
+                                          const legacy =
+                                            event as LegacyCorporateEvent;
+                                          const legacyNames = (
+                                            (legacy["1"] || []).map(
+                                              (item) =>
+                                                item._new_company?.name || ""
+                                            ) as Array<string>
+                                          ).filter(
+                                            (n) => n && n.trim().length > 0
+                                          );
+                                          combined = legacyNames;
+                                        }
+                                        const unique = Array.from(
+                                          new Set(combined.map((n) => n.trim()))
                                         );
-                                        combined = legacyNames;
-                                      }
-                                      const unique = Array.from(
-                                        new Set(combined.map((n) => n.trim()))
-                                      );
-                                      return unique.length > 0
-                                        ? unique.join(", ")
-                                        : "N/A";
-                                    })()}
-                                  </div>
-                                </td>
-                                {/* Sectors */}
-                                <td>
-                                  <div className="muted-row">
-                                    <strong>Primary:</strong>{" "}
-                                    {augmentedPrimarySectors.length > 0
-                                      ? augmentedPrimarySectors
-                                          .map((s) => s?.sector_name)
-                                          .filter(Boolean)
-                                          .join(", ")
-                                      : "Not available"}
-                                  </div>
-                                  <div className="muted-row">
-                                    <strong>Secondary:</strong>{" "}
-                                    {secondarySectors.length > 0
-                                      ? secondarySectors
-                                          .map((s) => s?.sector_name)
-                                          .filter(Boolean)
-                                          .join(", ")
-                                      : "Not available"}
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                      {corporateEvents.length > 3 && (
-                        <div style={{ textAlign: "center", marginTop: "16px" }}>
-                          <button
-                            onClick={() =>
-                              setShowAllCorporateEvents(!showAllCorporateEvents)
-                            }
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#0075df",
-                              textDecoration: "underline",
-                              cursor: "pointer",
-                              fontSize: "14px",
-                              padding: "8px 0",
-                            }}
+                                        return unique.length > 0
+                                          ? unique.join(", ")
+                                          : "N/A";
+                                      })()}
+                                    </div>
+                                  </td>
+                                  {/* Sectors */}
+                                  <td>
+                                    <div className="muted-row">
+                                      <strong>Primary:</strong>{" "}
+                                      {augmentedPrimarySectors.length > 0
+                                        ? augmentedPrimarySectors
+                                            .map((s) => s?.sector_name)
+                                            .filter(Boolean)
+                                            .join(", ")
+                                        : "Not available"}
+                                    </div>
+                                    <div className="muted-row">
+                                      <strong>Secondary:</strong>{" "}
+                                      {secondarySectors.length > 0
+                                        ? secondarySectors
+                                            .map((s) => s?.sector_name)
+                                            .filter(Boolean)
+                                            .join(", ")
+                                        : "Not available"}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                        {corporateEvents.length > 3 && (
+                          <div
+                            style={{ textAlign: "center", marginTop: "16px" }}
                           >
-                            {showAllCorporateEvents ? "Show Less" : "See More"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        textAlign: "center",
-                        padding: "20px",
-                        color: "#666",
-                        fontSize: "14px",
-                      }}
-                    >
-                      No corporate events found
-                    </div>
-                  )}
-                </div>
-              </>
+                            <button
+                              onClick={() =>
+                                setShowAllCorporateEvents(
+                                  !showAllCorporateEvents
+                                )
+                              }
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "#0075df",
+                                textDecoration: "underline",
+                                cursor: "pointer",
+                                fontSize: "14px",
+                                padding: "8px 0",
+                              }}
+                            >
+                              {showAllCorporateEvents
+                                ? "Show Less"
+                                : "See More"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          textAlign: "center",
+                          padding: "20px",
+                          color: "#666",
+                          fontSize: "14px",
+                        }}
+                      >
+                        No corporate events found
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
 
               {/* Divider between Corporate Events and Insights */}
               {hasArticles &&
@@ -2902,91 +2924,92 @@ const CompanyDetail = () => {
                 )}
 
               {/* Asymmetrix Insights & Analysis moved into Overview */}
-              <>
-                <div style={{ marginTop: "8px" }}>
-                  <h3
-                    style={{
-                      ...styles.sectionTitle,
-                      fontSize: "17px",
-                      marginBottom: "12px",
-                    }}
-                  >
-                    Asymmetrix Insights & Analysis{" "}
-                    {articlesLoading ? "" : `(${companyArticles.length})`}
-                  </h3>
-                  {articlesLoading ? (
-                    <div
+              {(articlesLoading || companyArticles.length > 0) && (
+                <>
+                  <div style={{ marginTop: "8px" }}>
+                    <h3
                       style={{
-                        textAlign: "center",
-                        padding: "20px",
-                        color: "#666",
-                        fontSize: "14px",
+                        ...styles.sectionTitle,
+                        fontSize: "17px",
+                        marginBottom: "12px",
                       }}
                     >
-                      Loading content...
-                    </div>
-                  ) : companyArticles.length > 0 ? (
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
-                        gap: "16px",
-                      }}
-                    >
-                      {companyArticles.slice(0, 4).map((article) => (
-                        <a
-                          key={article.id}
-                          href={`/article/${article.id}`}
-                          style={{
-                            border: "1px solid #e2e8f0",
-                            borderRadius: "8px",
-                            padding: "12px 12px",
-                            background: "#fff",
-                            display: "block",
-                            textDecoration: "none",
-                            color: "inherit",
-                          }}
-                        >
-                          <div
+                      Asymmetrix Insights & Analysis{" "}
+                    </h3>
+                    {articlesLoading ? (
+                      <div
+                        style={{
+                          textAlign: "center",
+                          padding: "20px",
+                          color: "#666",
+                          fontSize: "14px",
+                        }}
+                      >
+                        Loading content...
+                      </div>
+                    ) : companyArticles.length > 0 ? (
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: "16px",
+                        }}
+                      >
+                        {companyArticles.slice(0, 4).map((article) => (
+                          <a
+                            key={article.id}
+                            href={`/article/${article.id}`}
                             style={{
-                              fontWeight: 700,
-                              marginBottom: 6,
-                              color: "#1a202c",
+                              border: "1px solid #e2e8f0",
+                              borderRadius: "8px",
+                              padding: "12px 12px",
+                              background: "#fff",
+                              display: "block",
+                              textDecoration: "none",
+                              color: "inherit",
                             }}
                           >
-                            {article.Headline || "Untitled"}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 12,
-                              color: "#6b7280",
-                              marginBottom: 8,
-                            }}
-                          >
-                            {new Date(
-                              article.Publication_Date
-                            ).toLocaleDateString()}
-                          </div>
-                          <div style={{ fontSize: 14, color: "#374151" }}>
-                            {article.Strapline || ""}
-                          </div>
-                        </a>
-                      ))}
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        textAlign: "center",
-                        padding: "20px",
-                        color: "#666",
-                        fontSize: "14px",
-                      }}
-                    >
-                      No related content found
-                    </div>
-                  )}
-                </div>
-              </>
+                            <div
+                              style={{
+                                fontWeight: 700,
+                                marginBottom: 6,
+                                color: "#1a202c",
+                              }}
+                            >
+                              {article.Headline || "Untitled"}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: "#6b7280",
+                                marginBottom: 8,
+                              }}
+                            >
+                              {new Date(
+                                article.Publication_Date
+                              ).toLocaleDateString()}
+                            </div>
+                            <div style={{ fontSize: 14, color: "#374151" }}>
+                              {article.Strapline || ""}
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          textAlign: "center",
+                          padding: "20px",
+                          color: "#666",
+                          fontSize: "14px",
+                        }}
+                      >
+                        No related content found
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Desktop Financial Metrics */}
