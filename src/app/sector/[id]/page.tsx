@@ -488,6 +488,8 @@ const SectorDetailPage = () => {
         if (!Number.isNaN(sectorIdNum)) {
           params.append("Sector_id", String(sectorIdNum));
         }
+        // Prevent any intermediate caches from serving stale page-1 results
+        params.append("_", Date.now().toString());
 
         const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Get_Sector_s_new_companies?${params.toString()}`;
         const response = await fetch(url, {
@@ -597,26 +599,28 @@ const SectorDetailPage = () => {
           typeof overallCount === "number" ? overallCount : adapted.length
         );
         const r1b = (raw as NewCompaniesAPIResult)?.result1;
-        const computedCurPage = r1b?.curPage ?? page;
+        const requestedPage = Math.max(1, page || 1);
         const computedPerPage = r1b?.perPage ?? perPageToUse;
-        // Normalize offset to be a 0-based item start index for internal use
-        const computedOffset =
-          typeof r1b?.offset === "number"
-            ? Math.max(0, (r1b.offset - 1) * computedPerPage)
-            : Math.max(0, (computedCurPage - 1) * computedPerPage);
+        // Compute pagination based on the requested page to avoid relying on inconsistent API fields
+        const computedPageTotal =
+          r1b?.pageTotal ||
+          Math.max(
+            1,
+            Math.ceil((overallCount || adapted.length) / computedPerPage)
+          );
+        const computedOffset = Math.max(
+          0,
+          (requestedPage - 1) * computedPerPage
+        );
         setPagination({
           itemsReceived: r1b?.itemsReceived || adapted.length,
-          curPage: computedCurPage,
-          nextPage: r1b?.nextPage ?? null,
-          prevPage: r1b?.prevPage ?? null,
+          curPage: requestedPage,
+          nextPage:
+            requestedPage < computedPageTotal ? requestedPage + 1 : null,
+          prevPage: requestedPage > 1 ? requestedPage - 1 : null,
           offset: computedOffset,
           perPage: computedPerPage,
-          pageTotal:
-            r1b?.pageTotal ||
-            Math.max(
-              1,
-              Math.ceil((overallCount || adapted.length) / computedPerPage)
-            ),
+          pageTotal: computedPageTotal,
         });
       } catch (err) {
         console.error("Error fetching companies:", err);
@@ -1026,7 +1030,7 @@ const SectorDetailPage = () => {
     );
 
     return (
-      <tr key={company.id || index}>
+      <tr key={`${company.id || index}-p${pagination.curPage}`}>
         <td>
           <CompanyLogo logo={company.linkedin_logo} name={company.name} />
         </td>
@@ -1503,7 +1507,7 @@ const SectorDetailPage = () => {
                 <div className="company-cards">
                   {companies.map((company) => (
                     <CompanyCard
-                      key={company.id}
+                      key={`${company.id}-p${pagination.curPage}`}
                       company={company}
                       onClick={() => handleCompanyClick(company.id)}
                     />
