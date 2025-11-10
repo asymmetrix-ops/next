@@ -2097,7 +2097,7 @@ const CompanyDetail = () => {
               <h2 style={styles.sectionTitle}>Overview</h2>
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
-                  Primary Sector:
+                  Primary Sector(s):
                 </span>
                 <div style={styles.value} className="info-value">
                   {augmentedPrimarySectors.length > 0 ? (
@@ -2842,7 +2842,7 @@ const CompanyDetail = () => {
                                         );
                                         return unique.length > 0
                                           ? unique.join(", ")
-                                          : "N/A";
+                                          : "Not Available";
                                       })()}
                                     </div>
                                   </td>
@@ -4374,7 +4374,7 @@ const CompanyDetail = () => {
                                   );
                                   return unique.length > 0
                                     ? unique.join(", ")
-                                    : "N/A";
+                                    : "Not Available";
                                 })()}
                               </div>
                             </td>
