@@ -208,8 +208,17 @@ const InvestorDetailPage = () => {
   );
 
   const handleReportIncorrectData = useCallback(() => {
-    console.log("Report incorrect data clicked");
-  }, []);
+    const name = investorData?.Investor?.name ?? "";
+    const subject = `Contribute Investor Data – ${name} (ID ${investorId})`;
+    const body =
+      "Please describe the data you would like to contribute for this investor page.";
+    const mailto = `mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
+      subject
+    )}&body=${encodeURIComponent(body)}`;
+    if (typeof window !== "undefined") {
+      window.location.href = mailto;
+    }
+  }, [investorData?.Investor?.name, investorId]);
 
   // Loading state
   if (loading) {
@@ -338,7 +347,7 @@ const InvestorDetailPage = () => {
             onClick={handleReportIncorrectData}
             style={{
               padding: "8px 16px",
-              backgroundColor: "#dc2626",
+              backgroundColor: "#16a34a",
               color: "white",
               border: "none",
               borderRadius: "4px",
@@ -346,7 +355,7 @@ const InvestorDetailPage = () => {
               fontSize: "14px",
             }}
           >
-            Report Incorrect Data
+            Contribute Data
           </button>
         </div>
 

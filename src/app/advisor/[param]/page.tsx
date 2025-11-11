@@ -413,7 +413,7 @@ export default function AdvisorProfilePage() {
     }
     .report-button {
       padding: 8px 16px;
-      background-color: #dc2626;
+      background-color: #16a34a;
       color: white;
       border: none;
       border-radius: 4px;
@@ -696,15 +696,15 @@ export default function AdvisorProfilePage() {
           </div>
           <a
             className="report-button"
-            href={`mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
-              `Report Incorrect Advisor Data – ${Advisor.name} (ID ${Advisor.id})`
+            href={`mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
+              `Contribute Advisor Data – ${Advisor.name} (ID ${Advisor.id})`
             )}&body=${encodeURIComponent(
-              "Please describe the issue you found for this advisor page."
+              "Please describe the data you would like to contribute for this advisor page."
             )}`}
             target="_blank"
             rel="noopener noreferrer"
           >
-            Report Incorrect Data
+            Contribute Data
           </a>
         </div>
 

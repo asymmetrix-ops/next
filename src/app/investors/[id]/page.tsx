@@ -760,10 +760,10 @@ const InvestorDetailPage = () => {
     }
   }, [investorData?.Investor?.name]);
 
-  const reportMailTo = `mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
-    "Report Incorrect Investor Data"
+  const reportMailTo = `mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
+    "Contribute Investor Data"
   )}&body=${encodeURIComponent(
-    `Please describe the issue you found on the investor page.%0D%0A%0D%0AInvestor: ${
+    `Please describe the data you would like to contribute for this investor page.%0D%0A%0D%0AInvestor: ${
       investorId || ""
     } - ${investorData?.Investor?.name || ""}%0D%0AURL: ${
       typeof window !== "undefined" ? window.location.href : ""
@@ -1140,7 +1140,7 @@ const InvestorDetailPage = () => {
     }
     .report-button {
       padding: 8px 16px;
-      background-color: #dc2626;
+      background-color: #16a34a;
       color: white;
       border: none;
       border-radius: 4px;
@@ -1451,7 +1451,7 @@ const InvestorDetailPage = () => {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Report Incorrect Data
+            Contribute Data
           </a>
         </div>
 

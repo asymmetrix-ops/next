@@ -323,7 +323,7 @@ const CorporateEventDetail = ({
       margin-bottom: 12px;
     }
     .report-button {
-      background-color: #dc2626;
+      background-color: #16a34a;
       color: white;
       font-weight: 600;
       padding: 8px 16px;
@@ -557,17 +557,17 @@ const CorporateEventDetail = ({
             </h1>
             <a
               className="report-button"
-              href={`mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
-                `Report Incorrect Corporate Event Data – ${
+              href={`mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
+                `Contribute Corporate Event Data – ${
                   event?.description ?? "Unknown"
                 } (ID ${event?.id ?? "Unknown"})`
               )}&body=${encodeURIComponent(
-                "Please describe the issue you found for this corporate event page."
+                "Please describe the data you would like to contribute for this corporate event page."
               )}`}
               target="_blank"
               rel="noopener noreferrer"
             >
-              Report Incorrect Data
+              Contribute Data
             </a>
           </div>
 

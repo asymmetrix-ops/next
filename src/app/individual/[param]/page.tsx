@@ -242,16 +242,16 @@ export default function IndividualProfilePage() {
             </div>
           </div>
           <a
-            href={`mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
-              `Report Incorrect Individual Data – ${
+            href={`mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
+              `Contribute Individual Data – ${
                 individualName || Individual.advisor_individuals
               } (ID ${individualId})`
             )}&body=${encodeURIComponent(
-              "Please describe the issue you found for this individual page."
+              "Please describe the data you would like to contribute for this individual page."
             )}`}
             style={{
               padding: "8px 16px",
-              backgroundColor: "#dc2626",
+              backgroundColor: "#16a34a",
               color: "white",
               border: "none",
               borderRadius: "4px",
@@ -262,7 +262,7 @@ export default function IndividualProfilePage() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Report Incorrect Data
+            Contribute Data
           </a>
         </div>
 
