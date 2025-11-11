@@ -460,13 +460,50 @@ const toThousandsPlain = (value?: number | null): string => {
 
 // Map Xano source codes to human-readable labels (best-known mapping)
 const sourceLabel = (code?: number | string | null): string | undefined => {
-  const n = typeof code === "string" ? parseInt(code, 10) : code ?? undefined;
+  if (code == null) return undefined;
+
+  // Handle descriptive string values directly (robust to various spellings)
+  if (typeof code === "string" && Number.isNaN(Number(code))) {
+    const normalized = code.trim().toLowerCase();
+    if (normalized === "public") return "Public";
+    if (
+      normalized === "company provided" ||
+      normalized === "company_provided" ||
+      normalized === "company-provided"
+    )
+      return "Proprietary";
+    if (
+      normalized === "trusted third party" ||
+      normalized === "trusted_third_party" ||
+      normalized === "trusted-third-party" ||
+      normalized === "third party" ||
+      normalized === "third_party"
+    )
+      return "Proprietary";
+    if (
+      normalized === "human/model" ||
+      normalized === "human model" ||
+      normalized === "human" ||
+      normalized === "analyst" ||
+      normalized === "analyst-adjusted" ||
+      normalized === "analyst adjusted"
+    )
+      return "Estimate";
+    if (normalized === "model") return "Estimate";
+    return undefined;
+  }
+
+  // Fallback to numeric code mapping (covers historical IDs)
+  const n = typeof code === "number" ? code : parseInt(String(code), 10);
   switch (n) {
     case 1:
       return "Public";
+    case 2:
+    case 3:
     case 5:
       return "Proprietary";
     case 4:
+    case 6:
       return "Estimate";
     default:
       return undefined;
