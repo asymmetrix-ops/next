@@ -1199,7 +1199,7 @@ const CorporateEventsPage = () => {
   const buyerInvestorTypeOptions = [
     { value: "private_equity", label: "Private Equity" },
     { value: "venture_capital", label: "Venture Capital" },
-    { value: "da_strategic", label: "DA Strategic" },
+    { value: "da_strategic", label: "Data & Analytics Strategic" },
     { value: "other_strategic", label: "Other Strategic" },
   ];
 
