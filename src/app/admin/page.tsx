@@ -1407,6 +1407,7 @@ function SectorsTab() {
     id: number;
     name: string;
   }
+  // Single-tag states
   const [companyQuery, setCompanyQuery] = useState("");
   const [companyResults, setCompanyResults] = useState<SimpleCompany[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<SimpleCompany | null>(
@@ -1420,6 +1421,26 @@ function SectorsTab() {
   >([]);
   const [selectedSectorIds, setSelectedSectorIds] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  // Bulk tagging states
+  const [bulkSelectedSectorId, setBulkSelectedSectorId] = useState<number | "">(
+    ""
+  );
+  const [bulkCompanyQuery, setBulkCompanyQuery] = useState("");
+  const [bulkCompanyResults, setBulkCompanyResults] = useState<SimpleCompany[]>(
+    []
+  );
+  const [bulkSelectedCompanies, setBulkSelectedCompanies] = useState<
+    SimpleCompany[]
+  >([]);
+  const [bulkLoadingCompanies, setBulkLoadingCompanies] = useState(false);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{
+    total: number;
+    done: number;
+    success: number;
+    failed: number;
+  } | null>(null);
 
   // Manage by sector: select sector → view companies → untag
   const [selectedSectorForView, setSelectedSectorForView] = useState<
@@ -1501,6 +1522,50 @@ function SectorsTab() {
       setCompanyResults([]);
     } finally {
       setLoadingCompanies(false);
+    }
+  };
+
+  // Bulk company search
+  const bulkSearchCompanies = async () => {
+    if (!bulkCompanyQuery.trim()) return;
+    try {
+      setBulkLoadingCompanies(true);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = new URLSearchParams();
+      params.append("Offset", "1");
+      params.append("Per_page", "50");
+      params.append("Min_linkedin_members", "0");
+      params.append("Max_linkedin_members", "0");
+      params.append("Horizontals_ids", "");
+      params.append("query", bulkCompanyQuery.trim());
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+      if (!resp.ok) {
+        setBulkCompanyResults([]);
+        return;
+      }
+      const data = await resp.json().catch(() => null);
+      const items: Array<{ id: number; name: string }> =
+        (data?.result1?.items as Array<{ id: number; name: string }>) ||
+        (data?.companies?.items as Array<{ id: number; name: string }>) ||
+        (data?.items as Array<{ id: number; name: string }>) ||
+        [];
+      setBulkCompanyResults(
+        (Array.isArray(items) ? items : [])
+          .map((c) => ({ id: Number(c.id), name: String(c.name || "") }))
+          .filter((c) => c.id && c.name)
+      );
+    } catch {
+      setBulkCompanyResults([]);
+    } finally {
+      setBulkLoadingCompanies(false);
     }
   };
 
@@ -1885,6 +1950,213 @@ function SectorsTab() {
         >
           {submitting ? "Submitting..." : "Submit"}
         </button>
+      </div>
+
+      <div className="pt-8 mt-10 border-t">
+        <h2 className="mb-4 text-xl font-semibold">
+          Bulk Tag Companies to Sector
+        </h2>
+        <div className="mb-4">
+          <label className="block mb-1 text-sm font-medium">Sector</label>
+          <SearchableSelect
+            options={allSectors.map((s) => ({
+              value: s.id,
+              label: s.sector_name,
+            }))}
+            value={bulkSelectedSectorId}
+            onChange={(value) => {
+              if (typeof value === "number") {
+                setBulkSelectedSectorId(value);
+              }
+            }}
+            placeholder={
+              allSectors.length === 0
+                ? "Loading sectors..."
+                : "Select sector to tag companies to"
+            }
+            disabled={allSectors.length === 0}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className="block mb-1 text-sm font-medium">Companies</label>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              className="flex-1 p-2 rounded border"
+              placeholder="Search companies by name"
+              value={bulkCompanyQuery}
+              onChange={(e) => setBulkCompanyQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && bulkSearchCompanies()}
+            />
+            <button
+              className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
+              onClick={bulkSearchCompanies}
+              disabled={bulkLoadingCompanies}
+            >
+              {bulkLoadingCompanies ? "Searching…" : "Search"}
+            </button>
+          </div>
+          <SearchableSelect
+            options={bulkCompanyResults.map((c) => ({
+              value: c.id,
+              label: c.name,
+            }))}
+            value={""}
+            onChange={(value) => {
+              if (typeof value === "number") {
+                const found = bulkCompanyResults.find((c) => c.id === value);
+                if (
+                  found &&
+                  !bulkSelectedCompanies.find((c) => c.id === found.id)
+                ) {
+                  setBulkSelectedCompanies([...bulkSelectedCompanies, found]);
+                }
+              }
+            }}
+            placeholder={
+              bulkLoadingCompanies
+                ? "Loading companies..."
+                : bulkCompanyResults.length === 0
+                ? "Search above to load companies"
+                : "Select company to add"
+            }
+            disabled={bulkLoadingCompanies || bulkCompanyResults.length === 0}
+            style={{ width: "100%" }}
+          />
+          {bulkSelectedCompanies.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {bulkSelectedCompanies.map((c) => (
+                <span
+                  key={c.id}
+                  className="inline-flex gap-2 items-center px-3 py-2 text-sm text-purple-700 bg-purple-50 rounded"
+                >
+                  {c.name}
+                  <button
+                    onClick={() =>
+                      setBulkSelectedCompanies(
+                        bulkSelectedCompanies.filter((x) => x.id !== c.id)
+                      )
+                    }
+                    className="font-bold"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4">
+          <button
+            className="px-6 py-3 text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={async () => {
+              if (
+                typeof bulkSelectedSectorId !== "number" ||
+                bulkSelectedCompanies.length === 0 ||
+                bulkSubmitting
+              ) {
+                return;
+              }
+              setBulkSubmitting(true);
+              setBulkProgress({
+                total: bulkSelectedCompanies.length,
+                done: 0,
+                success: 0,
+                failed: 0,
+              });
+              try {
+                const token = localStorage.getItem("asymmetrix_auth_token");
+                const headers: Record<string, string> = {
+                  "Content-Type": "application/json",
+                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                };
+                // Process sequentially to avoid rate limits
+                for (const c of bulkSelectedCompanies) {
+                  try {
+                    // Load current
+                    const getUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${c.id}`;
+                    const getRes = await fetch(getUrl, {
+                      method: "GET",
+                      headers,
+                      credentials: "include",
+                    });
+                    if (!getRes.ok) {
+                      throw new Error(
+                        `GET ${getRes.status} ${await getRes
+                          .text()
+                          .catch(() => "")}`
+                      );
+                    }
+                    const payload = await getRes
+                      .json()
+                      .catch(() => ({} as unknown));
+                    const currentSectorIds = extractSectorIds(payload);
+                    const nextIds = Array.from(
+                      new Set<number>([
+                        ...currentSectorIds,
+                        bulkSelectedSectorId,
+                      ])
+                    );
+                    // Skip update if already present
+                    const needsUpdate =
+                      nextIds.length !== currentSectorIds.length;
+                    if (needsUpdate) {
+                      const putUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/edit_company_sectors`;
+                      const putRes = await fetch(putUrl, {
+                        method: "PUT",
+                        headers,
+                        credentials: "include",
+                        body: JSON.stringify({
+                          sectors: nextIds,
+                          new_company_id: c.id,
+                        }),
+                      });
+                      if (!putRes.ok) {
+                        throw new Error(
+                          `PUT ${putRes.status} ${await putRes
+                            .text()
+                            .catch(() => "")}`
+                        );
+                      }
+                    }
+                    setBulkProgress((prev) => ({
+                      total: prev?.total || bulkSelectedCompanies.length,
+                      done: (prev?.done || 0) + 1,
+                      success: (prev?.success || 0) + 1,
+                      failed: prev?.failed || 0,
+                    }));
+                  } catch {
+                    setBulkProgress((prev) => ({
+                      total: prev?.total || bulkSelectedCompanies.length,
+                      done: (prev?.done || 0) + 1,
+                      success: prev?.success || 0,
+                      failed: (prev?.failed || 0) + 1,
+                    }));
+                  }
+                }
+                alert("Bulk tagging complete");
+              } finally {
+                setBulkSubmitting(false);
+              }
+            }}
+            disabled={
+              typeof bulkSelectedSectorId !== "number" ||
+              bulkSelectedCompanies.length === 0 ||
+              bulkSubmitting
+            }
+          >
+            {bulkSubmitting ? "Tagging…" : "Tag selected companies"}
+          </button>
+          {bulkProgress && (
+            <div className="mt-2 text-sm text-gray-700">
+              Processed {bulkProgress.done}/{bulkProgress.total} •{" "}
+              {bulkProgress.success} succeeded, {bulkProgress.failed} failed
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="pt-8 mt-10 border-t">
