@@ -237,6 +237,12 @@ interface NewCounterpartyMinimal {
   counterparty_announcement_url?: string | null;
 }
 
+interface NewTargetCompanyMinimal {
+  id?: number;
+  name?: string;
+  page_type?: string;
+}
+
 interface NewAdvisorMinimal {
   id: number;
   advisor_company?: { id: number; name: string };
@@ -248,6 +254,7 @@ interface NewAdvisorMinimal {
 
 interface NewCorporateEvent {
   id?: number;
+  target_company?: NewTargetCompanyMinimal;
   advisors?: NewAdvisorMinimal[];
   advisors_names?: string[];
   deal_type?: string;
@@ -2609,12 +2616,41 @@ const CompanyDetail = () => {
                                   <td>
                                     <div className="muted-row">
                                       <strong>Target:</strong>{" "}
-                                      <a
-                                        href={`/company/${companyId}`}
-                                        className="link-blue"
-                                      >
-                                        {company.name}
-                                      </a>
+                                      {(() => {
+                                        const n = event as NewCorporateEvent;
+                                        const legacy = event as LegacyCorporateEvent;
+                                        // Prefer explicit target_company from new API
+                                        const targetName =
+                                          n?.target_company?.name ||
+                                          (Array.isArray(legacy["0"]) &&
+                                            legacy["0"].find(
+                                              (it) => it?._new_company?.name
+                                            )?._new_company?.name) ||
+                                          undefined;
+                                        const targetId =
+                                          n?.target_company?.id ||
+                                          (Array.isArray(legacy["0"]) &&
+                                            legacy["0"].find(
+                                              (it) => it?._new_company?.id
+                                            )?._new_company?.id) ||
+                                          undefined;
+                                        const pageType =
+                                          n?.target_company?.page_type === "investor"
+                                            ? "investors"
+                                            : "company";
+                                        const href =
+                                          targetId != null
+                                            ? `/${pageType}/${targetId}`
+                                            : undefined;
+                                        if (href && targetName) {
+                                          return (
+                                            <a href={href} className="link-blue">
+                                              {targetName}
+                                            </a>
+                                          );
+                                        }
+                                        return <span>{targetName || "Not Available"}</span>;
+                                      })()}
                                     </div>
                                     <div className="muted-row">
                                       <strong>Other counterparties:</strong>{" "}
@@ -4401,12 +4437,40 @@ const CompanyDetail = () => {
                             <td>
                               <div className="muted-row">
                                 <strong>Target:</strong>{" "}
-                                <a
-                                  href={`/company/${companyId}`}
-                                  className="link-blue"
-                                >
-                                  {company.name}
-                                </a>
+                                {(() => {
+                                  const n = event as NewCorporateEvent;
+                                  const legacy = event as LegacyCorporateEvent;
+                                  const targetName =
+                                    n?.target_company?.name ||
+                                    (Array.isArray(legacy["0"]) &&
+                                      legacy["0"].find(
+                                        (it) => it?._new_company?.name
+                                      )?._new_company?.name) ||
+                                    undefined;
+                                  const targetId =
+                                    n?.target_company?.id ||
+                                    (Array.isArray(legacy["0"]) &&
+                                      legacy["0"].find(
+                                        (it) => it?._new_company?.id
+                                      )?._new_company?.id) ||
+                                    undefined;
+                                  const pageType =
+                                    n?.target_company?.page_type === "investor"
+                                      ? "investors"
+                                      : "company";
+                                  const href =
+                                    targetId != null
+                                      ? `/${pageType}/${targetId}`
+                                      : undefined;
+                                  if (href && targetName) {
+                                    return (
+                                      <a href={href} className="link-blue">
+                                        {targetName}
+                                      </a>
+                                    );
+                                  }
+                                  return <span>{targetName || "Not Available"}</span>;
+                                })()}
                               </div>
                               <div className="muted-row">
                                 <strong>Other counterparties:</strong>{" "}
