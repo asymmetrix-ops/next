@@ -257,6 +257,8 @@ interface NewCorporateEvent {
   target_company?: NewTargetCompanyMinimal;
   advisors?: NewAdvisorMinimal[];
   advisors_names?: string[];
+  buyers_investors?: NewCounterpartyMinimal[]; // new: investors/acquirers
+  sellers?: NewCounterpartyMinimal[]; // new: sellers/divestors
   deal_type?: string;
   ev_display?: string | null;
   description?: string;
@@ -2618,7 +2620,8 @@ const CompanyDetail = () => {
                                       <strong>Target:</strong>{" "}
                                       {(() => {
                                         const n = event as NewCorporateEvent;
-                                        const legacy = event as LegacyCorporateEvent;
+                                        const legacy =
+                                          event as LegacyCorporateEvent;
                                         // Prefer explicit target_company from new API
                                         const targetName =
                                           n?.target_company?.name ||
@@ -2635,7 +2638,8 @@ const CompanyDetail = () => {
                                             )?._new_company?.id) ||
                                           undefined;
                                         const pageType =
-                                          n?.target_company?.page_type === "investor"
+                                          n?.target_company?.page_type ===
+                                          "investor"
                                             ? "investors"
                                             : "company";
                                         const href =
@@ -2644,31 +2648,43 @@ const CompanyDetail = () => {
                                             : undefined;
                                         if (href && targetName) {
                                           return (
-                                            <a href={href} className="link-blue">
+                                            <a
+                                              href={href}
+                                              className="link-blue"
+                                            >
                                               {targetName}
                                             </a>
                                           );
                                         }
-                                        return <span>{targetName || "Not Available"}</span>;
+                                        return (
+                                          <span>
+                                            {targetName || "Not Available"}
+                                          </span>
+                                        );
                                       })()}
                                     </div>
                                     <div className="muted-row">
-                                      <strong>Other counterparties:</strong>{" "}
+                                      <strong>Buyer(s) / Investor(s):</strong>{" "}
                                       {(() => {
                                         const newEvent =
                                           event as NewCorporateEvent;
-                                        if (
-                                          Array.isArray(
-                                            newEvent.other_counterparties
-                                          )
-                                        ) {
-                                          const list =
-                                            newEvent.other_counterparties.filter(
-                                              (c) =>
-                                                c &&
-                                                typeof c.id === "number" &&
-                                                c.name
-                                            );
+                                        // Prefer new buyers_investors; fallback to other_counterparties for backward compatibility
+                                        const candidates = Array.isArray(
+                                          newEvent.buyers_investors
+                                        )
+                                          ? newEvent.buyers_investors
+                                          : Array.isArray(
+                                              newEvent.other_counterparties
+                                            )
+                                          ? newEvent.other_counterparties
+                                          : [];
+                                        if (Array.isArray(candidates)) {
+                                          const list = candidates.filter(
+                                            (c) =>
+                                              c &&
+                                              typeof c.id === "number" &&
+                                              c.name
+                                          );
                                           if (list.length === 0)
                                             return <span>Not Available</span>;
                                           return list.map((c, idx) => {
@@ -4469,23 +4485,30 @@ const CompanyDetail = () => {
                                       </a>
                                     );
                                   }
-                                  return <span>{targetName || "Not Available"}</span>;
+                                  return (
+                                    <span>{targetName || "Not Available"}</span>
+                                  );
                                 })()}
                               </div>
                               <div className="muted-row">
-                                <strong>Other counterparties:</strong>{" "}
+                                <strong>Buyer(s) / Investor(s):</strong>{" "}
                                 {(() => {
                                   const newEvent = event as NewCorporateEvent;
-                                  if (
-                                    Array.isArray(newEvent.other_counterparties)
-                                  ) {
-                                    const list =
-                                      newEvent.other_counterparties.filter(
-                                        (c) =>
-                                          c &&
-                                          typeof c.id === "number" &&
-                                          c.name
-                                      );
+                                  // Prefer new buyers_investors; fallback to other_counterparties for backward compatibility
+                                  const candidates = Array.isArray(
+                                    newEvent.buyers_investors
+                                  )
+                                    ? newEvent.buyers_investors
+                                    : Array.isArray(
+                                        newEvent.other_counterparties
+                                      )
+                                    ? newEvent.other_counterparties
+                                    : [];
+                                  if (Array.isArray(candidates)) {
+                                    const list = candidates.filter(
+                                      (c) =>
+                                        c && typeof c.id === "number" && c.name
+                                    );
                                     if (list.length === 0)
                                       return <span>Not Available</span>;
                                     return list.map((c, idx) => {
