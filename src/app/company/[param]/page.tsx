@@ -29,9 +29,6 @@ const INVESTOR_SECTOR_IDS = new Set<number>([
   23226, // Accelerator
 ]);
 
-// Global override for metrics payload source display (set when metrics load)
-let metricsSourceOverrideLabel: string | undefined;
-
 // Types for API integration
 interface CompanyLocation {
   City: string;
@@ -76,56 +73,74 @@ interface CompanyFinancialMetrics {
   new_company_id: number;
   Financial_Year?: number | null;
   FY_YE_Month_Dec_default?: string | null;
-  _financial_metrics_data_source?: {
-    Front_End_Display?: string;
-  };
   Rev_Currency?: unknown;
   Revenue_m?: number | null;
+  Revenue_source_label?: string | null;
   Rev_source?: number | string | null;
   ARR_pc?: number | null;
   ARR_currency?: unknown;
   ARR_m?: number | null;
+  ARR_source_label?: string | null;
   ARR_source?: number | string | null;
   Churn_pc?: number | null;
+  Churn_source_label?: string | null;
   Churn_Source?: number | string | null;
   GRR_pc?: number | null;
+  GRR_source_label?: string | null;
   GRR_source?: number | string | null;
   Upsell_pc?: number | null;
+  Upsell_source_label?: string | null;
   Upsell_source?: number | string | null;
   Cross_sell_pc?: number | null;
+  Cross_sell_source_label?: string | null;
   Cross_sell_source?: number | string | null;
   Price_increase_pc?: number | null;
+  Price_increase_source_label?: string | null;
   Price_increase_source?: number | string | null;
   Rev_expansion_pc?: number | null;
+  Rev_expansion_source_label?: string | null;
   Rev_expansion_source?: number | string | null;
   NRR?: number | null;
+  NRR_source_label?: string | null;
   NRR_source?: number | string | null;
   New_client_growth_pc?: number | null;
+  New_client_growth_source_label?: string | null;
   New_Client_Growth_Source?: number | string | null;
   Rev_Growth_PC?: number | null;
+  Rev_growth_source_label?: string | null; // API label uses lower-case 'growth'
   Rev_Growth_source?: number | string | null;
   EBITDA_margin?: number | null;
+  EBITDA_margin_source_label?: string | null;
   EBITDA_margin_source?: number | string | null;
   EBITDA_currency?: unknown;
   EBITDA_m?: number | null;
+  EBITDA_source_label?: string | null;
   EBITDA_source?: number | string | null;
   Rule_of_40?: number | null;
+  Rule_of_40_source_label?: string | null;
   Rule_of_40_source?: number | string | null;
   Revenue_multiple?: number | null;
+  Revenue_multiple_source_label?: string | null;
   Rev_x_source?: number | string | null;
   EV_currency?: unknown;
   EV?: number | null;
+  EV_source_label?: string | null;
   EV_source?: number | string | null;
   EBIT_currency?: unknown;
   EBIT_m?: number | null;
+  EBIT_source_label?: string | null;
   EBIT_source?: number | string | null;
   No_of_Clients?: number | null;
+  No_of_Clients_source_label?: string | null;
   No_Clients_source?: number | string | null;
   Rev_per_client?: number | null;
+  Rev_per_client_source_label?: string | null;
   Rev_per_client_source?: number | string | null;
   No_Employees?: number | null;
+  No_Employees_source_label?: string | null;
   No_Employees_source?: number | string | null;
   Revenue_per_employee?: number | null;
+  Revenue_per_employee_source_label?: string | null;
   Rev_per_employee_source?: number | string | null;
   Data_entry_notes?: string | null;
 }
@@ -465,30 +480,35 @@ const formatPlainNumber = (value?: number | string | null): string => {
   });
 };
 
+// Numeric parsing helper for numbers that may arrive as strings
+const getNumeric = (value?: number | string | null): number | undefined => {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "number")
+    return Number.isFinite(value) ? value : undefined;
+  const trimmed = String(value).trim();
+  if (!trimmed) return undefined;
+  const n = Number(trimmed.replace(/,/g, ""));
+  return Number.isFinite(n) ? n : undefined;
+};
+
 // Convert absolute amounts to thousands (k) with up to 2 decimals
-const toThousandsPlain = (value?: number | null): string => {
-  if (typeof value !== "number" || !Number.isFinite(value))
-    return "Not available";
-  const thousands = value / 1000;
+const toThousandsPlain = (value?: number | string | null): string => {
+  const n = getNumeric(value);
+  if (n === undefined) return "Not available";
+  const thousands = n / 1000;
   return thousands.toLocaleString("en-US", { maximumFractionDigits: 2 });
 };
 
 // Map Xano source codes to human-readable labels (best-known mapping)
 const sourceLabel = (code?: number | string | null): string | undefined => {
-  // Prefer override provided by metrics payload itself when available
-  if (typeof metricsSourceOverrideLabel === "string") {
-    const norm = metricsSourceOverrideLabel.trim().toLowerCase();
-    if (norm === "estimate") return "Estimate";
-    if (norm === "public") return "Public";
-    if (norm === "proprietary") return "Proprietary";
-  }
-
   if (code == null) return undefined;
 
   // Handle descriptive string values directly (robust to various spellings)
   if (typeof code === "string" && Number.isNaN(Number(code))) {
     const normalized = code.trim().toLowerCase();
     if (normalized === "public") return "Public";
+    if (normalized === "estimate") return "Estimate";
+    if (normalized === "proprietary") return "Proprietary";
     if (
       normalized === "company provided" ||
       normalized === "company_provided" ||
@@ -536,17 +556,28 @@ const sourceLabel = (code?: number | string | null): string | undefined => {
 // Removed currency formatting helper; we show currency once in heading
 
 // Format helpers for additional financial metrics
-const formatPercent = (value?: number | null): string => {
-  if (typeof value !== "number" || !Number.isFinite(value))
-    return "Not available";
-  return `${Math.round(value)}%`;
+const formatPercent = (value?: number | string | null): string => {
+  const n = getNumeric(value);
+  if (n === undefined) return "Not available";
+  return `${Math.round(n)}%`;
 };
 
-const formatMultiple = (value?: number | null): string => {
-  if (typeof value !== "number" || !Number.isFinite(value))
-    return "Not available";
-  const rounded = Math.round(value * 10) / 10;
+const formatMultiple = (value?: number | string | null): string => {
+  const n = getNumeric(value);
+  if (n === undefined) return "Not available";
+  const rounded = Math.round(n * 10) / 10;
   return `${rounded.toLocaleString()}x`;
+};
+
+// Prefer explicit API-provided labels, fallback to legacy numeric/string codes
+const effectiveSourceLabel = (
+  label?: string | null,
+  code?: number | string | null
+): string | undefined => {
+  if (typeof label === "string" && label.trim().length > 0) {
+    return sourceLabel(label);
+  }
+  return sourceLabel(code);
 };
 
 // Removed short currency helper; we now display plain numbers
@@ -1101,9 +1132,6 @@ const CompanyDetail = () => {
         ? (data[0] as CompanyFinancialMetrics | undefined) || null
         : (data as CompanyFinancialMetrics);
       if (payload && typeof payload === "object") {
-        // Capture per-payload source display override for all metric tooltips
-        metricsSourceOverrideLabel =
-          payload?._financial_metrics_data_source?.Front_End_Display;
         setFinancialMetrics(payload);
       }
     } catch {
@@ -1678,15 +1706,15 @@ const CompanyDetail = () => {
 
   // Prefer values from `company_financial_metrics` when available for base figures (plain numbers, no currency)
   const revenueFromMetrics =
-    typeof financialMetrics?.Revenue_m === "number"
+    getNumeric(financialMetrics?.Revenue_m) !== undefined
       ? formatPlainNumber(financialMetrics?.Revenue_m)
       : undefined;
   const ebitdaFromMetrics =
-    typeof financialMetrics?.EBITDA_m === "number"
+    getNumeric(financialMetrics?.EBITDA_m) !== undefined
       ? formatPlainNumber(financialMetrics?.EBITDA_m)
       : undefined;
   const evFromMetrics =
-    typeof financialMetrics?.EV === "number"
+    getNumeric(financialMetrics?.EV) !== undefined
       ? formatPlainNumber(financialMetrics?.EV)
       : undefined;
 
@@ -2681,389 +2709,30 @@ const CompanyDetail = () => {
                                       })()}
                                     </div>
                                     <div className="muted-row">
-                                      <strong>Buyer(s):</strong>{" "}
+                                      <strong>Buyer(s) / Investor(s):</strong>{" "}
                                       {(() => {
                                         const newEvent =
                                           event as NewCorporateEvent;
-                                        type BuyersInvestorsItem = {
-                                          id: number;
-                                          name?: string;
-                                          page_type?: string;
-                                          counterparty_status?: string;
-                                        };
-                                        const raw = (
-                                          newEvent as unknown as {
-                                            buyers_investors?: unknown;
-                                          }
-                                        ).buyers_investors;
-                                        if (Array.isArray(raw)) {
-                                          const seenIds = new Set<number>();
-                                          const buyers = (
-                                            raw as BuyersInvestorsItem[]
-                                          ).filter((c) => {
-                                            const status = String(
-                                              c?.counterparty_status || ""
-                                            );
-                                            return (
+                                        // Prefer new buyers_investors; fallback to other_counterparties for backward compatibility
+                                        const candidates = Array.isArray(
+                                          newEvent.buyers_investors
+                                        )
+                                          ? newEvent.buyers_investors
+                                          : Array.isArray(
+                                              newEvent.other_counterparties
+                                            )
+                                          ? newEvent.other_counterparties
+                                          : [];
+                                        if (Array.isArray(candidates)) {
+                                          const list = candidates.filter(
+                                            (c) =>
                                               c &&
                                               typeof c.id === "number" &&
-                                              !!c.name &&
-                                              /(Acquirer|Bidder)/i.test(
-                                                status
-                                              ) &&
-                                              !seenIds.has(c.id) &&
-                                              (seenIds.add(c.id), true)
-                                            );
-                                          });
-                                          if (buyers.length === 0) {
-                                            return <span>Not Available</span>;
-                                          }
-                                          return buyers.map((c, idx) => {
-                                            const href =
-                                              c.page_type === "investor"
-                                                ? `/investors/${c.id}`
-                                                : `/company/${c.id}`;
-                                            return (
-                                              <span key={`${c.id}-${idx}`}>
-                                                <a
-                                                  href={href}
-                                                  className="link-blue"
-                                                >
-                                                  {c.name}
-                                                </a>
-                                                {idx < buyers.length - 1 &&
-                                                  ", "}
-                                              </span>
-                                            );
-                                          });
-                                        }
-                                        // Legacy buyers (names and links when possible)
-                                        const legacy =
-                                          event as LegacyCorporateEvent;
-                                        type LegacyCounterparty = {
-                                          _new_company?: {
-                                            id?: number;
-                                            name?: string;
-                                            _is_that_investor?: boolean;
-                                          };
-                                          _counterparty_type?: {
-                                            counterparty_status?: string;
-                                          };
-                                        };
-                                        const legacyItems: LegacyCounterparty[] =
-                                          Array.isArray(
-                                            (
-                                              legacy as unknown as Record<
-                                                string,
-                                                unknown
-                                              >
-                                            )["0"]
-                                          )
-                                            ? ((
-                                                legacy as unknown as Record<
-                                                  string,
-                                                  unknown
-                                                >
-                                              )[
-                                                "0"
-                                              ] as unknown as LegacyCounterparty[])
-                                            : [];
-                                        const legacyBuyers = legacyItems.filter(
-                                          (it) => {
-                                            const name = it?._new_company?.name;
-                                            const isInvestor = Boolean(
-                                              it?._new_company
-                                                ?._is_that_investor
-                                            );
-                                            const status =
-                                              it?._counterparty_type
-                                                ?.counterparty_status || "";
-                                            return (
-                                              !!name &&
-                                              !isInvestor &&
-                                              !/investor/i.test(
-                                                String(status)
-                                              ) &&
-                                              !/seller|divestor|vendor/i.test(
-                                                String(status)
-                                              )
-                                            );
-                                          }
-                                        );
-                                        if (legacyBuyers.length === 0)
-                                          return <span>Not Available</span>;
-                                        return legacyBuyers.map((it, idx) => {
-                                          const id = it._new_company?.id;
-                                          const href = `/company/${id}`;
-                                          if (!id) {
-                                            return (
-                                              <span
-                                                key={`${it._new_company?.name}-${idx}`}
-                                              >
-                                                {it._new_company?.name}
-                                                {idx <
-                                                  legacyBuyers.length - 1 &&
-                                                  ", "}
-                                              </span>
-                                            );
-                                          }
-                                          return (
-                                            <span key={`${id}-${idx}`}>
-                                              <a
-                                                href={href}
-                                                className="link-blue"
-                                              >
-                                                {it._new_company!.name}
-                                              </a>
-                                              {idx < legacyBuyers.length - 1 &&
-                                                ", "}
-                                            </span>
+                                              c.name
                                           );
-                                        });
-                                      })()}
-                                    </div>
-                                    <div className="muted-row">
-                                      <strong>Investor(s):</strong>{" "}
-                                      {(() => {
-                                        const newEvent =
-                                          event as NewCorporateEvent;
-                                        type BuyersInvestorsItem = {
-                                          id: number;
-                                          name?: string;
-                                          page_type?: string;
-                                          counterparty_status?: string;
-                                        };
-                                        const raw = (
-                                          newEvent as unknown as {
-                                            buyers_investors?: unknown;
-                                          }
-                                        ).buyers_investors;
-                                        if (Array.isArray(raw)) {
-                                          const seenIds = new Set<number>();
-                                          const investors = (
-                                            raw as BuyersInvestorsItem[]
-                                          ).filter((c) => {
-                                            const status = String(
-                                              c?.counterparty_status || ""
-                                            );
-                                            return (
-                                              c &&
-                                              typeof c.id === "number" &&
-                                              !!c.name &&
-                                              /Investor/i.test(status) &&
-                                              !seenIds.has(c.id) &&
-                                              (seenIds.add(c.id), true)
-                                            );
-                                          });
-                                          if (investors.length === 0) {
+                                          if (list.length === 0)
                                             return <span>Not Available</span>;
-                                          }
-                                          return investors.map((c, idx) => {
-                                            const href =
-                                              c.page_type === "investor"
-                                                ? `/investors/${c.id}`
-                                                : `/company/${c.id}`;
-                                            return (
-                                              <span key={`${c.id}-${idx}`}>
-                                                <a
-                                                  href={href}
-                                                  className="link-blue"
-                                                >
-                                                  {c.name}
-                                                </a>
-                                                {idx < investors.length - 1 &&
-                                                  ", "}
-                                              </span>
-                                            );
-                                          });
-                                        }
-                                        // Legacy investors
-                                        const legacy =
-                                          event as LegacyCorporateEvent;
-                                        type LegacyCounterparty = {
-                                          _new_company?: {
-                                            id?: number;
-                                            name?: string;
-                                            _is_that_investor?: boolean;
-                                          };
-                                          _counterparty_type?: {
-                                            counterparty_status?: string;
-                                          };
-                                        };
-                                        const legacyItems: LegacyCounterparty[] =
-                                          Array.isArray(
-                                            (
-                                              legacy as unknown as Record<
-                                                string,
-                                                unknown
-                                              >
-                                            )["0"]
-                                          )
-                                            ? ((
-                                                legacy as unknown as Record<
-                                                  string,
-                                                  unknown
-                                                >
-                                              )[
-                                                "0"
-                                              ] as unknown as LegacyCounterparty[])
-                                            : [];
-                                        const legacyInvestors =
-                                          legacyItems.filter((it) => {
-                                            const name = it?._new_company?.name;
-                                            const isInvestor = Boolean(
-                                              it?._new_company
-                                                ?._is_that_investor
-                                            );
-                                            const status =
-                                              it?._counterparty_type
-                                                ?.counterparty_status || "";
-                                            return (
-                                              !!name &&
-                                              (isInvestor ||
-                                                /investor/i.test(
-                                                  String(status)
-                                                ))
-                                            );
-                                          });
-                                        if (legacyInvestors.length === 0)
-                                          return <span>Not Available</span>;
-                                        return legacyInvestors.map(
-                                          (it, idx) => {
-                                            const id = it._new_company?.id;
-                                            const href = id
-                                              ? `/investors/${id}`
-                                              : undefined;
-                                            if (!id || !href) {
-                                              return (
-                                                <span
-                                                  key={`${it._new_company?.name}-${idx}`}
-                                                >
-                                                  {it._new_company?.name}
-                                                  {idx <
-                                                    legacyInvestors.length -
-                                                      1 && ", "}
-                                                </span>
-                                              );
-                                            }
-                                            return (
-                                              <span key={`${id}-${idx}`}>
-                                                <a
-                                                  href={href}
-                                                  className="link-blue"
-                                                >
-                                                  {it._new_company!.name}
-                                                </a>
-                                                {idx <
-                                                  legacyInvestors.length - 1 &&
-                                                  ", "}
-                                              </span>
-                                            );
-                                          }
-                                        );
-                                      })()}
-                                    </div>
-                                    {(() => {
-                                      // Combined fallback ONLY if both buyers and investors are empty
-                                      const newEvent =
-                                        event as NewCorporateEvent;
-                                      const buyersRaw = (
-                                        newEvent as unknown as {
-                                          buyers?: unknown;
-                                        }
-                                      ).buyers;
-                                      const investorsRaw = (
-                                        newEvent as unknown as {
-                                          investors?: unknown;
-                                        }
-                                      ).investors;
-                                      const hasSeparate =
-                                        Array.isArray(buyersRaw) ||
-                                        Array.isArray(investorsRaw);
-                                      const buyersCount = Array.isArray(
-                                        buyersRaw
-                                      )
-                                        ? (buyersRaw as unknown[]).length
-                                        : 0;
-                                      const investorsCount = Array.isArray(
-                                        investorsRaw
-                                      )
-                                        ? (investorsRaw as unknown[]).length
-                                        : 0;
-                                      const legacy =
-                                        event as LegacyCorporateEvent;
-                                      const legacyItems = Array.isArray(
-                                        (
-                                          legacy as unknown as Record<
-                                            string,
-                                            unknown
-                                          >
-                                        )["0"]
-                                      )
-                                        ? ((
-                                            legacy as unknown as Record<
-                                              string,
-                                              unknown
-                                            >
-                                          )["0"] as unknown as Array<{
-                                            _new_company?: { name?: string };
-                                          }>)
-                                        : [];
-                                      const hasLegacy = legacyItems.some(
-                                        (it) => it?._new_company?.name
-                                      );
-                                      if (
-                                        (hasSeparate &&
-                                          buyersCount + investorsCount > 0) ||
-                                        hasLegacy
-                                      ) {
-                                        // If we already showed buyers or investors, or we have legacy splits, skip combined
-                                        return null;
-                                      }
-                                      const candidatesRaw =
-                                        newEvent as unknown as {
-                                          buyers_investors?: unknown;
-                                          other_counterparties?: unknown;
-                                        };
-                                      const candidates = Array.isArray(
-                                        candidatesRaw.buyers_investors
-                                      )
-                                        ? (candidatesRaw.buyers_investors as Array<{
-                                            id: number;
-                                            name: string;
-                                            page_type?: string;
-                                          }>)
-                                        : Array.isArray(
-                                            candidatesRaw.other_counterparties
-                                          )
-                                        ? (candidatesRaw.other_counterparties as Array<{
-                                            id: number;
-                                            name: string;
-                                            page_type?: string;
-                                          }>)
-                                        : [];
-                                      if (
-                                        !Array.isArray(candidates) ||
-                                        candidates.length === 0
-                                      ) {
-                                        return null;
-                                      }
-                                      const seen = new Set<number>();
-                                      const list = candidates.filter(
-                                        (c) =>
-                                          c &&
-                                          typeof c.id === "number" &&
-                                          !!c.name &&
-                                          !seen.has(c.id) &&
-                                          (seen.add(c.id), true)
-                                      );
-                                      if (list.length === 0) return null;
-                                      return (
-                                        <div className="muted-row">
-                                          <strong>
-                                            Buyer(s) / Investor(s):
-                                          </strong>{" "}
-                                          {list.map((c, idx) => {
+                                          return list.map((c, idx) => {
                                             const href =
                                               c.page_type === "investor"
                                                 ? `/investors/${c.id}`
@@ -3079,10 +2748,52 @@ const CompanyDetail = () => {
                                                 {idx < list.length - 1 && ", "}
                                               </span>
                                             );
-                                          })}
-                                        </div>
-                                      );
-                                    })()}
+                                          });
+                                        }
+                                        const legacy =
+                                          event as LegacyCorporateEvent;
+                                        const items = (
+                                          legacy["0"] || []
+                                        ).filter(
+                                          (it) =>
+                                            it &&
+                                            it._new_company &&
+                                            it._new_company.name
+                                        );
+                                        if (items.length === 0)
+                                          return <span>Not Available</span>;
+                                        return items.map((it, idx) => {
+                                          const id = it._new_company?.id;
+                                          const isInvestor = Boolean(
+                                            it._new_company?._is_that_investor
+                                          );
+                                          const href = isInvestor
+                                            ? `/investors/${id}`
+                                            : `/company/${id}`;
+                                          if (!id) {
+                                            return (
+                                              <span
+                                                key={`${it._new_company?.name}-${idx}`}
+                                              >
+                                                {it._new_company?.name}
+                                                {idx < items.length - 1 && ", "}
+                                              </span>
+                                            );
+                                          }
+                                          return (
+                                            <span key={`${id}-${idx}`}>
+                                              <a
+                                                href={href}
+                                                className="link-blue"
+                                              >
+                                                {it._new_company!.name}
+                                              </a>
+                                              {idx < items.length - 1 && ", "}
+                                            </span>
+                                          );
+                                        });
+                                      })()}
+                                    </div>
                                   </td>
                                   {/* Deal Details */}
                                   <td>
@@ -3168,13 +2879,8 @@ const CompanyDetail = () => {
                                           const display = (
                                             event as NewCorporateEvent
                                           ).ev_display as string | undefined;
-                                          const directEvDisplay =
-                                            typeof display === "string" &&
-                                            display.trim().length > 0
-                                              ? display
-                                              : undefined;
-                                          if (directEvDisplay)
-                                            return directEvDisplay;
+                                          if (display && display.trim())
+                                            return display;
                                           const legacy =
                                             event as LegacyCorporateEvent;
                                           const amount = legacy.ev_data
@@ -3451,8 +3157,14 @@ const CompanyDetail = () => {
                   <span
                     style={styles.value}
                     title={
-                      sourceLabel(financialMetrics?.Rev_source)
-                        ? `Source: ${sourceLabel(financialMetrics?.Rev_source)}`
+                      effectiveSourceLabel(
+                        financialMetrics?.Revenue_source_label,
+                        financialMetrics?.Rev_source
+                      )
+                        ? `Source: ${effectiveSourceLabel(
+                            financialMetrics?.Revenue_source_label,
+                            financialMetrics?.Rev_source
+                          )}`
                         : undefined
                     }
                   >
@@ -3466,8 +3178,12 @@ const CompanyDetail = () => {
                   <span
                     style={styles.value}
                     title={
-                      sourceLabel(financialMetrics?.EBITDA_source)
-                        ? `Source: ${sourceLabel(
+                      effectiveSourceLabel(
+                        financialMetrics?.EBITDA_source_label,
+                        financialMetrics?.EBITDA_source
+                      )
+                        ? `Source: ${effectiveSourceLabel(
+                            financialMetrics?.EBITDA_source_label,
                             financialMetrics?.EBITDA_source
                           )}`
                         : undefined
@@ -3482,8 +3198,14 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.EV_source)
-                      ? `Source: ${sourceLabel(financialMetrics?.EV_source)}`
+                    effectiveSourceLabel(
+                      financialMetrics?.EV_source_label,
+                      financialMetrics?.EV_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.EV_source_label,
+                          financialMetrics?.EV_source
+                        )}`
                       : undefined
                   }
                 >
@@ -3495,8 +3217,14 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Rev_x_source)
-                      ? `Source: ${sourceLabel(financialMetrics?.Rev_x_source)}`
+                    effectiveSourceLabel(
+                      financialMetrics?.Revenue_multiple_source_label,
+                      financialMetrics?.Rev_x_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Revenue_multiple_source_label,
+                          financialMetrics?.Rev_x_source
+                        )}`
                       : undefined
                   }
                 >
@@ -3508,8 +3236,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Rev_Growth_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.Rev_growth_source_label,
+                      financialMetrics?.Rev_Growth_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Rev_growth_source_label,
                           financialMetrics?.Rev_Growth_source
                         )}`
                       : undefined
@@ -3523,8 +3255,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.EBITDA_margin_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.EBITDA_margin_source_label,
+                      financialMetrics?.EBITDA_margin_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.EBITDA_margin_source_label,
                           financialMetrics?.EBITDA_margin_source
                         )}`
                       : undefined
@@ -3538,8 +3274,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Rule_of_40_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.Rule_of_40_source_label,
+                      financialMetrics?.Rule_of_40_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Rule_of_40_source_label,
                           financialMetrics?.Rule_of_40_source
                         )}`
                       : undefined
@@ -3678,8 +3418,14 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.ARR_source)
-                      ? `Source: ${sourceLabel(financialMetrics?.ARR_source)}`
+                    effectiveSourceLabel(
+                      financialMetrics?.ARR_source_label,
+                      financialMetrics?.ARR_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.ARR_source_label,
+                          financialMetrics?.ARR_source
+                        )}`
                       : undefined
                   }
                 >
@@ -3691,14 +3437,18 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.ARR_source)
-                      ? `Source: ${sourceLabel(financialMetrics?.ARR_source)}`
+                    effectiveSourceLabel(
+                      financialMetrics?.ARR_source_label,
+                      financialMetrics?.ARR_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.ARR_source_label,
+                          financialMetrics?.ARR_source
+                        )}`
                       : undefined
                   }
                 >
-                  {typeof financialMetrics?.ARR_m === "number"
-                    ? formatPlainNumber(financialMetrics.ARR_m)
-                    : "Not available"}
+                  {formatPlainNumber(financialMetrics?.ARR_m)}
                 </span>
               </div>
               <div style={styles.infoRow}>
@@ -3706,8 +3456,14 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Churn_Source)
-                      ? `Source: ${sourceLabel(financialMetrics?.Churn_Source)}`
+                    effectiveSourceLabel(
+                      financialMetrics?.Churn_source_label,
+                      financialMetrics?.Churn_Source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Churn_source_label,
+                          financialMetrics?.Churn_Source
+                        )}`
                       : undefined
                   }
                 >
@@ -3719,8 +3475,14 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.GRR_source)
-                      ? `Source: ${sourceLabel(financialMetrics?.GRR_source)}`
+                    effectiveSourceLabel(
+                      financialMetrics?.GRR_source_label,
+                      financialMetrics?.GRR_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.GRR_source_label,
+                          financialMetrics?.GRR_source
+                        )}`
                       : undefined
                   }
                 >
@@ -3732,8 +3494,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Upsell_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.Upsell_source_label,
+                      financialMetrics?.Upsell_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Upsell_source_label,
                           financialMetrics?.Upsell_source
                         )}`
                       : undefined
@@ -3747,8 +3513,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Cross_sell_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.Cross_sell_source_label,
+                      financialMetrics?.Cross_sell_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Cross_sell_source_label,
                           financialMetrics?.Cross_sell_source
                         )}`
                       : undefined
@@ -3762,8 +3532,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Price_increase_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.Price_increase_source_label,
+                      financialMetrics?.Price_increase_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Price_increase_source_label,
                           financialMetrics?.Price_increase_source
                         )}`
                       : undefined
@@ -3777,8 +3551,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Rev_expansion_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.Rev_expansion_source_label,
+                      financialMetrics?.Rev_expansion_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Rev_expansion_source_label,
                           financialMetrics?.Rev_expansion_source
                         )}`
                       : undefined
@@ -3792,8 +3570,14 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.NRR_source)
-                      ? `Source: ${sourceLabel(financialMetrics?.NRR_source)}`
+                    effectiveSourceLabel(
+                      financialMetrics?.NRR_source_label,
+                      financialMetrics?.NRR_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.NRR_source_label,
+                          financialMetrics?.NRR_source
+                        )}`
                       : undefined
                   }
                 >
@@ -3807,8 +3591,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.New_Client_Growth_Source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.New_client_growth_source_label,
+                      financialMetrics?.New_Client_Growth_Source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.New_client_growth_source_label,
                           financialMetrics?.New_Client_Growth_Source
                         )}`
                       : undefined
@@ -3829,14 +3617,18 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.EBIT_source)
-                      ? `Source: ${sourceLabel(financialMetrics?.EBIT_source)}`
+                    effectiveSourceLabel(
+                      financialMetrics?.EBIT_source_label,
+                      financialMetrics?.EBIT_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.EBIT_source_label,
+                          financialMetrics?.EBIT_source
+                        )}`
                       : undefined
                   }
                 >
-                  {typeof financialMetrics?.EBIT_m === "number"
-                    ? formatPlainNumber(financialMetrics.EBIT_m)
-                    : "Not available"}
+                  {formatPlainNumber(financialMetrics?.EBIT_m)}
                 </span>
               </div>
               <div style={styles.infoRow}>
@@ -3844,8 +3636,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.No_Clients_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.No_of_Clients_source_label,
+                      financialMetrics?.No_Clients_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.No_of_Clients_source_label,
                           financialMetrics?.No_Clients_source
                         )}`
                       : undefined
@@ -3861,16 +3657,18 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Rev_per_client_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.Rev_per_client_source_label,
+                      financialMetrics?.Rev_per_client_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Rev_per_client_source_label,
                           financialMetrics?.Rev_per_client_source
                         )}`
                       : undefined
                   }
                 >
-                  {typeof financialMetrics?.Rev_per_client === "number"
-                    ? toThousandsPlain(financialMetrics.Rev_per_client)
-                    : "Not available"}
+                  {toThousandsPlain(financialMetrics?.Rev_per_client)}
                 </span>
               </div>
               <div style={styles.infoRow}>
@@ -3878,8 +3676,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.No_Employees_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.No_Employees_source_label,
+                      financialMetrics?.No_Employees_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.No_Employees_source_label,
                           financialMetrics?.No_Employees_source
                         )}`
                       : undefined
@@ -3895,16 +3697,18 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Rev_per_employee_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.Revenue_per_employee_source_label,
+                      financialMetrics?.Rev_per_employee_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Revenue_per_employee_source_label,
                           financialMetrics?.Rev_per_employee_source
                         )}`
                       : undefined
                   }
                 >
-                  {typeof financialMetrics?.Revenue_per_employee === "number"
-                    ? toThousandsPlain(financialMetrics.Revenue_per_employee)
-                    : "Not available"}
+                  {toThousandsPlain(financialMetrics?.Revenue_per_employee)}
                 </span>
               </div>
               <div style={styles.chartContainer} className="chartContainer">
@@ -3997,8 +3801,14 @@ const CompanyDetail = () => {
                   <span
                     style={styles.value}
                     title={
-                      sourceLabel(financialMetrics?.Rev_source)
-                        ? `Source: ${sourceLabel(financialMetrics?.Rev_source)}`
+                      effectiveSourceLabel(
+                        financialMetrics?.Revenue_source_label,
+                        financialMetrics?.Rev_source
+                      )
+                        ? `Source: ${effectiveSourceLabel(
+                            financialMetrics?.Revenue_source_label,
+                            financialMetrics?.Rev_source
+                          )}`
                         : undefined
                     }
                   >
@@ -4012,8 +3822,12 @@ const CompanyDetail = () => {
                   <span
                     style={styles.value}
                     title={
-                      sourceLabel(financialMetrics?.EBITDA_source)
-                        ? `Source: ${sourceLabel(
+                      effectiveSourceLabel(
+                        financialMetrics?.EBITDA_source_label,
+                        financialMetrics?.EBITDA_source
+                      )
+                        ? `Source: ${effectiveSourceLabel(
+                            financialMetrics?.EBITDA_source_label,
                             financialMetrics?.EBITDA_source
                           )}`
                         : undefined
@@ -4028,8 +3842,14 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.EV_source)
-                      ? `Source: ${sourceLabel(financialMetrics?.EV_source)}`
+                    effectiveSourceLabel(
+                      financialMetrics?.EV_source_label,
+                      financialMetrics?.EV_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.EV_source_label,
+                          financialMetrics?.EV_source
+                        )}`
                       : undefined
                   }
                 >
@@ -4041,8 +3861,14 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Rev_x_source)
-                      ? `Source: ${sourceLabel(financialMetrics?.Rev_x_source)}`
+                    effectiveSourceLabel(
+                      financialMetrics?.Revenue_multiple_source_label,
+                      financialMetrics?.Rev_x_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Revenue_multiple_source_label,
+                          financialMetrics?.Rev_x_source
+                        )}`
                       : undefined
                   }
                 >
@@ -4054,8 +3880,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Rev_Growth_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.Rev_growth_source_label,
+                      financialMetrics?.Rev_Growth_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Rev_growth_source_label,
                           financialMetrics?.Rev_Growth_source
                         )}`
                       : undefined
@@ -4069,8 +3899,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.EBITDA_margin_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.EBITDA_margin_source_label,
+                      financialMetrics?.EBITDA_margin_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.EBITDA_margin_source_label,
                           financialMetrics?.EBITDA_margin_source
                         )}`
                       : undefined
@@ -4084,8 +3918,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Rule_of_40_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.Rule_of_40_source_label,
+                      financialMetrics?.Rule_of_40_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Rule_of_40_source_label,
                           financialMetrics?.Rule_of_40_source
                         )}`
                       : undefined
@@ -4228,8 +4066,14 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.ARR_source)
-                      ? `Source: ${sourceLabel(financialMetrics?.ARR_source)}`
+                    effectiveSourceLabel(
+                      financialMetrics?.ARR_source_label,
+                      financialMetrics?.ARR_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.ARR_source_label,
+                          financialMetrics?.ARR_source
+                        )}`
                       : undefined
                   }
                 >
@@ -4241,14 +4085,18 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.ARR_source)
-                      ? `Source: ${sourceLabel(financialMetrics?.ARR_source)}`
+                    effectiveSourceLabel(
+                      financialMetrics?.ARR_source_label,
+                      financialMetrics?.ARR_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.ARR_source_label,
+                          financialMetrics?.ARR_source
+                        )}`
                       : undefined
                   }
                 >
-                  {typeof financialMetrics?.ARR_m === "number"
-                    ? formatPlainNumber(financialMetrics.ARR_m)
-                    : "Not available"}
+                  {formatPlainNumber(financialMetrics?.ARR_m)}
                 </span>
               </div>
               <div style={styles.infoRow}>
@@ -4256,8 +4104,14 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Churn_Source)
-                      ? `Source: ${sourceLabel(financialMetrics?.Churn_Source)}`
+                    effectiveSourceLabel(
+                      financialMetrics?.Churn_source_label,
+                      financialMetrics?.Churn_Source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Churn_source_label,
+                          financialMetrics?.Churn_Source
+                        )}`
                       : undefined
                   }
                 >
@@ -4269,8 +4123,14 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.GRR_source)
-                      ? `Source: ${sourceLabel(financialMetrics?.GRR_source)}`
+                    effectiveSourceLabel(
+                      financialMetrics?.GRR_source_label,
+                      financialMetrics?.GRR_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.GRR_source_label,
+                          financialMetrics?.GRR_source
+                        )}`
                       : undefined
                   }
                 >
@@ -4282,8 +4142,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Upsell_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.Upsell_source_label,
+                      financialMetrics?.Upsell_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Upsell_source_label,
                           financialMetrics?.Upsell_source
                         )}`
                       : undefined
@@ -4297,8 +4161,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Cross_sell_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.Cross_sell_source_label,
+                      financialMetrics?.Cross_sell_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Cross_sell_source_label,
                           financialMetrics?.Cross_sell_source
                         )}`
                       : undefined
@@ -4312,8 +4180,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Price_increase_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.Price_increase_source_label,
+                      financialMetrics?.Price_increase_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Price_increase_source_label,
                           financialMetrics?.Price_increase_source
                         )}`
                       : undefined
@@ -4327,8 +4199,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Rev_expansion_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.Rev_expansion_source_label,
+                      financialMetrics?.Rev_expansion_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Rev_expansion_source_label,
                           financialMetrics?.Rev_expansion_source
                         )}`
                       : undefined
@@ -4342,8 +4218,14 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.NRR_source)
-                      ? `Source: ${sourceLabel(financialMetrics?.NRR_source)}`
+                    effectiveSourceLabel(
+                      financialMetrics?.NRR_source_label,
+                      financialMetrics?.NRR_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.NRR_source_label,
+                          financialMetrics?.NRR_source
+                        )}`
                       : undefined
                   }
                 >
@@ -4357,8 +4239,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.New_Client_Growth_Source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.New_client_growth_source_label,
+                      financialMetrics?.New_Client_Growth_Source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.New_client_growth_source_label,
                           financialMetrics?.New_Client_Growth_Source
                         )}`
                       : undefined
@@ -4379,14 +4265,18 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.EBIT_source)
-                      ? `Source: ${sourceLabel(financialMetrics?.EBIT_source)}`
+                    effectiveSourceLabel(
+                      financialMetrics?.EBIT_source_label,
+                      financialMetrics?.EBIT_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.EBIT_source_label,
+                          financialMetrics?.EBIT_source
+                        )}`
                       : undefined
                   }
                 >
-                  {typeof financialMetrics?.EBIT_m === "number"
-                    ? formatPlainNumber(financialMetrics.EBIT_m)
-                    : "Not available"}
+                  {formatPlainNumber(financialMetrics?.EBIT_m)}
                 </span>
               </div>
               <div style={styles.infoRow}>
@@ -4394,8 +4284,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.No_Clients_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.No_of_Clients_source_label,
+                      financialMetrics?.No_Clients_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.No_of_Clients_source_label,
                           financialMetrics?.No_Clients_source
                         )}`
                       : undefined
@@ -4411,16 +4305,18 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Rev_per_client_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.Rev_per_client_source_label,
+                      financialMetrics?.Rev_per_client_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Rev_per_client_source_label,
                           financialMetrics?.Rev_per_client_source
                         )}`
                       : undefined
                   }
                 >
-                  {typeof financialMetrics?.Rev_per_client === "number"
-                    ? toThousandsPlain(financialMetrics.Rev_per_client)
-                    : "Not available"}
+                  {toThousandsPlain(financialMetrics?.Rev_per_client)}
                 </span>
               </div>
               <div style={styles.infoRow}>
@@ -4428,8 +4324,12 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.No_Employees_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.No_Employees_source_label,
+                      financialMetrics?.No_Employees_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.No_Employees_source_label,
                           financialMetrics?.No_Employees_source
                         )}`
                       : undefined
@@ -4445,16 +4345,18 @@ const CompanyDetail = () => {
                 <span
                   style={styles.value}
                   title={
-                    sourceLabel(financialMetrics?.Rev_per_employee_source)
-                      ? `Source: ${sourceLabel(
+                    effectiveSourceLabel(
+                      financialMetrics?.Revenue_per_employee_source_label,
+                      financialMetrics?.Rev_per_employee_source
+                    )
+                      ? `Source: ${effectiveSourceLabel(
+                          financialMetrics?.Revenue_per_employee_source_label,
                           financialMetrics?.Rev_per_employee_source
                         )}`
                       : undefined
                   }
                 >
-                  {typeof financialMetrics?.Revenue_per_employee === "number"
-                    ? toThousandsPlain(financialMetrics.Revenue_per_employee)
-                    : "Not available"}
+                  {toThousandsPlain(financialMetrics?.Revenue_per_employee)}
                 </span>
               </div>
               <div style={styles.chartContainer}>
@@ -4830,347 +4732,27 @@ const CompanyDetail = () => {
                                 })()}
                               </div>
                               <div className="muted-row">
-                                <strong>Buyer(s):</strong>{" "}
+                                <strong>Buyer(s) / Investor(s):</strong>{" "}
                                 {(() => {
                                   const newEvent = event as NewCorporateEvent;
-                                  type BuyersInvestorsItem = {
-                                    id: number;
-                                    name?: string;
-                                    page_type?: string;
-                                    counterparty_status?: string;
-                                  };
-                                  const raw = (
-                                    newEvent as unknown as {
-                                      buyers_investors?: unknown;
-                                    }
-                                  ).buyers_investors;
-                                  if (Array.isArray(raw)) {
-                                    const seenIds = new Set<number>();
-                                    const buyers = (
-                                      raw as BuyersInvestorsItem[]
-                                    ).filter((c) => {
-                                      const status = String(
-                                        c?.counterparty_status || ""
-                                      );
-                                      return (
-                                        c &&
-                                        typeof c.id === "number" &&
-                                        !!c.name &&
-                                        /(Acquirer|Bidder)/i.test(status) &&
-                                        !seenIds.has(c.id) &&
-                                        (seenIds.add(c.id), true)
-                                      );
-                                    });
-                                    if (buyers.length === 0) {
-                                      return <span>Not Available</span>;
-                                    }
-                                    return buyers.map((c, idx) => {
-                                      const href =
-                                        c.page_type === "investor"
-                                          ? `/investors/${c.id}`
-                                          : `/company/${c.id}`;
-                                      return (
-                                        <span key={`${c.id}-${idx}`}>
-                                          <a href={href} className="link-blue">
-                                            {c.name}
-                                          </a>
-                                          {idx < buyers.length - 1 && ", "}
-                                        </span>
-                                      );
-                                    });
-                                  }
-                                  // Legacy buyers
-                                  const legacy = event as LegacyCorporateEvent;
-                                  type LegacyCounterparty = {
-                                    _new_company?: {
-                                      id?: number;
-                                      name?: string;
-                                      _is_that_investor?: boolean;
-                                    };
-                                    _counterparty_type?: {
-                                      counterparty_status?: string;
-                                    };
-                                  };
-                                  const legacyItems: LegacyCounterparty[] =
-                                    Array.isArray(
-                                      (
-                                        legacy as unknown as Record<
-                                          string,
-                                          unknown
-                                        >
-                                      )["0"]
-                                    )
-                                      ? ((
-                                          legacy as unknown as Record<
-                                            string,
-                                            unknown
-                                          >
-                                        )[
-                                          "0"
-                                        ] as unknown as LegacyCounterparty[])
-                                      : [];
-                                  const legacyBuyers = legacyItems.filter(
-                                    (it) => {
-                                      const name = it?._new_company?.name;
-                                      const isInvestor = Boolean(
-                                        it?._new_company?._is_that_investor
-                                      );
-                                      const status =
-                                        it?._counterparty_type
-                                          ?.counterparty_status || "";
-                                      return (
-                                        !!name &&
-                                        !isInvestor &&
-                                        !/investor/i.test(String(status)) &&
-                                        !/seller|divestor|vendor/i.test(
-                                          String(status)
-                                        )
-                                      );
-                                    }
-                                  );
-                                  if (legacyBuyers.length === 0)
-                                    return <span>Not Available</span>;
-                                  return legacyBuyers.map((it, idx) => {
-                                    const id = it._new_company?.id;
-                                    const href = `/company/${id}`;
-                                    if (!id) {
-                                      return (
-                                        <span
-                                          key={`${it._new_company?.name}-${idx}`}
-                                        >
-                                          {it._new_company?.name}
-                                          {idx < legacyBuyers.length - 1 &&
-                                            ", "}
-                                        </span>
-                                      );
-                                    }
-                                    return (
-                                      <span key={`${id}-${idx}`}>
-                                        <a href={href} className="link-blue">
-                                          {it._new_company!.name}
-                                        </a>
-                                        {idx < legacyBuyers.length - 1 && ", "}
-                                      </span>
+                                  // Prefer new buyers_investors; fallback to other_counterparties for backward compatibility
+                                  const candidates = Array.isArray(
+                                    newEvent.buyers_investors
+                                  )
+                                    ? newEvent.buyers_investors
+                                    : Array.isArray(
+                                        newEvent.other_counterparties
+                                      )
+                                    ? newEvent.other_counterparties
+                                    : [];
+                                  if (Array.isArray(candidates)) {
+                                    const list = candidates.filter(
+                                      (c) =>
+                                        c && typeof c.id === "number" && c.name
                                     );
-                                  });
-                                })()}
-                              </div>
-                              <div className="muted-row">
-                                <strong>Investor(s):</strong>{" "}
-                                {(() => {
-                                  const newEvent = event as NewCorporateEvent;
-                                  type BuyersInvestorsItem = {
-                                    id: number;
-                                    name?: string;
-                                    page_type?: string;
-                                    counterparty_status?: string;
-                                  };
-                                  const raw = (
-                                    newEvent as unknown as {
-                                      buyers_investors?: unknown;
-                                    }
-                                  ).buyers_investors;
-                                  if (Array.isArray(raw)) {
-                                    const seenIds = new Set<number>();
-                                    const investors = (
-                                      raw as BuyersInvestorsItem[]
-                                    ).filter((c) => {
-                                      const status = String(
-                                        c?.counterparty_status || ""
-                                      );
-                                      return (
-                                        c &&
-                                        typeof c.id === "number" &&
-                                        !!c.name &&
-                                        /Investor/i.test(status) &&
-                                        !seenIds.has(c.id) &&
-                                        (seenIds.add(c.id), true)
-                                      );
-                                    });
-                                    if (investors.length === 0) {
+                                    if (list.length === 0)
                                       return <span>Not Available</span>;
-                                    }
-                                    return investors.map((c, idx) => {
-                                      const href =
-                                        c.page_type === "investor"
-                                          ? `/investors/${c.id}`
-                                          : `/company/${c.id}`;
-                                      return (
-                                        <span key={`${c.id}-${idx}`}>
-                                          <a href={href} className="link-blue">
-                                            {c.name}
-                                          </a>
-                                          {idx < investors.length - 1 && ", "}
-                                        </span>
-                                      );
-                                    });
-                                  }
-                                  // Legacy investors
-                                  const legacy = event as LegacyCorporateEvent;
-                                  type LegacyCounterparty = {
-                                    _new_company?: {
-                                      id?: number;
-                                      name?: string;
-                                      _is_that_investor?: boolean;
-                                    };
-                                    _counterparty_type?: {
-                                      counterparty_status?: string;
-                                    };
-                                  };
-                                  const legacyItems: LegacyCounterparty[] =
-                                    Array.isArray(
-                                      (
-                                        legacy as unknown as Record<
-                                          string,
-                                          unknown
-                                        >
-                                      )["0"]
-                                    )
-                                      ? ((
-                                          legacy as unknown as Record<
-                                            string,
-                                            unknown
-                                          >
-                                        )[
-                                          "0"
-                                        ] as unknown as LegacyCounterparty[])
-                                      : [];
-                                  const legacyInvestors = legacyItems.filter(
-                                    (it) => {
-                                      const name = it?._new_company?.name;
-                                      const isInvestor = Boolean(
-                                        it?._new_company?._is_that_investor
-                                      );
-                                      const status =
-                                        it?._counterparty_type
-                                          ?.counterparty_status || "";
-                                      return (
-                                        !!name &&
-                                        (isInvestor ||
-                                          /investor/i.test(String(status)))
-                                      );
-                                    }
-                                  );
-                                  if (legacyInvestors.length === 0)
-                                    return <span>Not Available</span>;
-                                  return legacyInvestors.map((it, idx) => {
-                                    const id = it._new_company?.id;
-                                    const href = id
-                                      ? `/investors/${id}`
-                                      : undefined;
-                                    if (!id || !href) {
-                                      return (
-                                        <span
-                                          key={`${it._new_company?.name}-${idx}`}
-                                        >
-                                          {it._new_company?.name}
-                                          {idx < legacyInvestors.length - 1 &&
-                                            ", "}
-                                        </span>
-                                      );
-                                    }
-                                    return (
-                                      <span key={`${id}-${idx}`}>
-                                        <a href={href} className="link-blue">
-                                          {it._new_company!.name}
-                                        </a>
-                                        {idx < legacyInvestors.length - 1 &&
-                                          ", "}
-                                      </span>
-                                    );
-                                  });
-                                })()}
-                              </div>
-                              {(() => {
-                                // Combined fallback ONLY if both buyers and investors are empty
-                                const newEvent = event as NewCorporateEvent;
-                                const buyersRaw = (
-                                  newEvent as unknown as {
-                                    buyers?: unknown;
-                                  }
-                                ).buyers;
-                                const investorsRaw = (
-                                  newEvent as unknown as {
-                                    investors?: unknown;
-                                  }
-                                ).investors;
-                                const hasSeparate =
-                                  Array.isArray(buyersRaw) ||
-                                  Array.isArray(investorsRaw);
-                                const buyersCount = Array.isArray(buyersRaw)
-                                  ? (buyersRaw as unknown[]).length
-                                  : 0;
-                                const investorsCount = Array.isArray(
-                                  investorsRaw
-                                )
-                                  ? (investorsRaw as unknown[]).length
-                                  : 0;
-                                const legacy = event as LegacyCorporateEvent;
-                                const legacyItems = Array.isArray(
-                                  (
-                                    legacy as unknown as Record<string, unknown>
-                                  )["0"]
-                                )
-                                  ? ((
-                                      legacy as unknown as Record<
-                                        string,
-                                        unknown
-                                      >
-                                    )["0"] as unknown as Array<{
-                                      _new_company?: { name?: string };
-                                    }>)
-                                  : [];
-                                const hasLegacy = legacyItems.some(
-                                  (it) => it?._new_company?.name
-                                );
-                                if (
-                                  (hasSeparate &&
-                                    buyersCount + investorsCount > 0) ||
-                                  hasLegacy
-                                ) {
-                                  return null;
-                                }
-                                const candidatesRaw = newEvent as unknown as {
-                                  buyers_investors?: unknown;
-                                  other_counterparties?: unknown;
-                                };
-                                const candidates = Array.isArray(
-                                  candidatesRaw.buyers_investors
-                                )
-                                  ? (candidatesRaw.buyers_investors as Array<{
-                                      id: number;
-                                      name: string;
-                                      page_type?: string;
-                                    }>)
-                                  : Array.isArray(
-                                      candidatesRaw.other_counterparties
-                                    )
-                                  ? (candidatesRaw.other_counterparties as Array<{
-                                      id: number;
-                                      name: string;
-                                      page_type?: string;
-                                    }>)
-                                  : [];
-                                if (
-                                  !Array.isArray(candidates) ||
-                                  candidates.length === 0
-                                ) {
-                                  return null;
-                                }
-                                const seen = new Set<number>();
-                                const list = candidates.filter(
-                                  (c) =>
-                                    c &&
-                                    typeof c.id === "number" &&
-                                    !!c.name &&
-                                    !seen.has(c.id) &&
-                                    (seen.add(c.id), true)
-                                );
-                                if (list.length === 0) return null;
-                                return (
-                                  <div className="muted-row">
-                                    <strong>Buyer(s) / Investor(s):</strong>{" "}
-                                    {list.map((c, idx) => {
+                                    return list.map((c, idx) => {
                                       const href =
                                         c.page_type === "investor"
                                           ? `/investors/${c.id}`
@@ -5183,10 +4765,46 @@ const CompanyDetail = () => {
                                           {idx < list.length - 1 && ", "}
                                         </span>
                                       );
-                                    })}
-                                  </div>
-                                );
-                              })()}
+                                    });
+                                  }
+                                  const legacy = event as LegacyCorporateEvent;
+                                  const items = (legacy["0"] || []).filter(
+                                    (it) =>
+                                      it &&
+                                      it._new_company &&
+                                      it._new_company.name
+                                  );
+                                  if (items.length === 0)
+                                    return <span>Not Available</span>;
+                                  return items.map((it, idx) => {
+                                    const id = it._new_company?.id;
+                                    const isInvestor = Boolean(
+                                      it._new_company?._is_that_investor
+                                    );
+                                    const href = isInvestor
+                                      ? `/investors/${id}`
+                                      : `/company/${id}`;
+                                    if (!id) {
+                                      return (
+                                        <span
+                                          key={`${it._new_company?.name}-${idx}`}
+                                        >
+                                          {it._new_company?.name}
+                                          {idx < items.length - 1 && ", "}
+                                        </span>
+                                      );
+                                    }
+                                    return (
+                                      <span key={`${id}-${idx}`}>
+                                        <a href={href} className="link-blue">
+                                          {it._new_company!.name}
+                                        </a>
+                                        {idx < items.length - 1 && ", "}
+                                      </span>
+                                    );
+                                  });
+                                })()}
+                              </div>
                             </td>
                             {/* Deal Details */}
                             <td>
