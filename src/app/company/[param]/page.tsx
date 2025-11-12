@@ -675,7 +675,13 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
 
 // Employee Chart Component
 const EmployeeChart = ({ data }: { data: EmployeeCount[] }) => {
-  const chartData = data.map((item) => ({
+  const hasNonZeroEmployees = data.some(
+    (item) => (item.employees_count ?? 0) > 0
+  );
+  const filteredData = hasNonZeroEmployees
+    ? data.filter((item) => (item.employees_count ?? 0) > 0)
+    : data;
+  const chartData = filteredData.map((item) => ({
     date: formatDate(item.date),
     count: item.employees_count,
     fullDate: item.date,
