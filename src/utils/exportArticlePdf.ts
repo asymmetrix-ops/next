@@ -429,18 +429,18 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
       .pdf-root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: var(--text); }
       .page { width: 200mm; min-height: 297mm; box-sizing: border-box; padding: 36mm 18mm 36mm 12mm; }
       .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
-      .brand-row { display:flex; align-items:center; gap:8px; margin-bottom: 2px; }
-      .logo { height: 16px; width: 16px; }
-      .brand { font-weight: 800; letter-spacing: 0.3px; font-size: 12px; color: var(--brand); text-transform: uppercase; }
-      .title { font-size: 22px; font-weight: 800; margin: 4px 0 8px 0; line-height: 1.25; }
+      .brand-row { display:flex; align-items:center; gap:14px; margin-bottom: 2px; }
+      .logo { height: 96px !important; width: 96px !important; display:inline-block; }
+      .brand { font-weight: 800; letter-spacing: 0.5px; font-size: 28px; color: var(--brand); text-transform: uppercase; }
+      .title { font-size: 24px; font-weight: 800; margin: 4px 0 8px 0; line-height: 1.25; }
       .strapline { font-size: 13px; color: var(--muted); margin: 0 0 12px 0; }
       .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 10px 0 18px; }
       .meta-block { border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; }
       .meta-title { font-size: 12px; font-weight: 700; margin: 0 0 6px 0; }
       .meta ul { margin: 0; padding-left: 18px; }
-      .section-title { font-size: 14px; font-weight: 800; margin: 22px 0 10px; break-after: avoid; page-break-after: avoid; }
-      .content { font-size: 12.5px; line-height: 1.65; word-break: break-word; overflow-wrap: anywhere; }
-      .content p { margin: 0 0 12px 0; page-break-inside: avoid; break-inside: avoid; orphans: 3; widows: 3; }
+      .section-title { font-size: 16px; font-weight: 800; margin: 22px 0 10px; break-after: avoid; page-break-after: avoid; }
+      .content { font-size: 16px !important; line-height: 1.65; word-break: break-word; overflow-wrap: anywhere; }
+      .content p, .content li { font-size: 16px !important; margin: 0 0 12px 0; page-break-inside: avoid; break-inside: avoid; orphans: 3; widows: 3; }
       .content ul { margin: 0 0 10px 18px; }
       .content ol { margin: 0 0 10px 18px; }
       .content h1,.content h2,.content h3 { margin: 16px 0 10px; break-after: avoid; page-break-after: avoid; }
@@ -474,7 +474,7 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
           <div class="brand-row">
             <img class="logo" alt="Asymmetrix" src="${escapeHtml(
               logoUrl
-            )}" crossorigin="anonymous" />
+            )}" crossorigin="anonymous" width="96" height="96" style="width:96px;height:96px;display:inline-block;" />
             <div class="brand">Asymmetrix</div>
           </div>
           <div class="title">${escapeHtml(title)}</div>
