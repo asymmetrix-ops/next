@@ -2681,30 +2681,389 @@ const CompanyDetail = () => {
                                       })()}
                                     </div>
                                     <div className="muted-row">
-                                      <strong>Buyer(s) / Investor(s):</strong>{" "}
+                                      <strong>Buyer(s):</strong>{" "}
                                       {(() => {
                                         const newEvent =
                                           event as NewCorporateEvent;
-                                        // Prefer new buyers_investors; fallback to other_counterparties for backward compatibility
-                                        const candidates = Array.isArray(
-                                          newEvent.buyers_investors
-                                        )
-                                          ? newEvent.buyers_investors
-                                          : Array.isArray(
-                                              newEvent.other_counterparties
-                                            )
-                                          ? newEvent.other_counterparties
-                                          : [];
-                                        if (Array.isArray(candidates)) {
-                                          const list = candidates.filter(
-                                            (c) =>
+                                        type BuyersInvestorsItem = {
+                                          id: number;
+                                          name?: string;
+                                          page_type?: string;
+                                          counterparty_status?: string;
+                                        };
+                                        const raw = (
+                                          newEvent as unknown as {
+                                            buyers_investors?: unknown;
+                                          }
+                                        ).buyers_investors;
+                                        if (Array.isArray(raw)) {
+                                          const seenIds = new Set<number>();
+                                          const buyers = (
+                                            raw as BuyersInvestorsItem[]
+                                          ).filter((c) => {
+                                            const status = String(
+                                              c?.counterparty_status || ""
+                                            );
+                                            return (
                                               c &&
                                               typeof c.id === "number" &&
-                                              c.name
-                                          );
-                                          if (list.length === 0)
+                                              !!c.name &&
+                                              /(Acquirer|Bidder)/i.test(
+                                                status
+                                              ) &&
+                                              !seenIds.has(c.id) &&
+                                              (seenIds.add(c.id), true)
+                                            );
+                                          });
+                                          if (buyers.length === 0) {
                                             return <span>Not Available</span>;
-                                          return list.map((c, idx) => {
+                                          }
+                                          return buyers.map((c, idx) => {
+                                            const href =
+                                              c.page_type === "investor"
+                                                ? `/investors/${c.id}`
+                                                : `/company/${c.id}`;
+                                            return (
+                                              <span key={`${c.id}-${idx}`}>
+                                                <a
+                                                  href={href}
+                                                  className="link-blue"
+                                                >
+                                                  {c.name}
+                                                </a>
+                                                {idx < buyers.length - 1 &&
+                                                  ", "}
+                                              </span>
+                                            );
+                                          });
+                                        }
+                                        // Legacy buyers (names and links when possible)
+                                        const legacy =
+                                          event as LegacyCorporateEvent;
+                                        type LegacyCounterparty = {
+                                          _new_company?: {
+                                            id?: number;
+                                            name?: string;
+                                            _is_that_investor?: boolean;
+                                          };
+                                          _counterparty_type?: {
+                                            counterparty_status?: string;
+                                          };
+                                        };
+                                        const legacyItems: LegacyCounterparty[] =
+                                          Array.isArray(
+                                            (
+                                              legacy as unknown as Record<
+                                                string,
+                                                unknown
+                                              >
+                                            )["0"]
+                                          )
+                                            ? ((
+                                                legacy as unknown as Record<
+                                                  string,
+                                                  unknown
+                                                >
+                                              )[
+                                                "0"
+                                              ] as unknown as LegacyCounterparty[])
+                                            : [];
+                                        const legacyBuyers = legacyItems.filter(
+                                          (it) => {
+                                            const name = it?._new_company?.name;
+                                            const isInvestor = Boolean(
+                                              it?._new_company
+                                                ?._is_that_investor
+                                            );
+                                            const status =
+                                              it?._counterparty_type
+                                                ?.counterparty_status || "";
+                                            return (
+                                              !!name &&
+                                              !isInvestor &&
+                                              !/investor/i.test(
+                                                String(status)
+                                              ) &&
+                                              !/seller|divestor|vendor/i.test(
+                                                String(status)
+                                              )
+                                            );
+                                          }
+                                        );
+                                        if (legacyBuyers.length === 0)
+                                          return <span>Not Available</span>;
+                                        return legacyBuyers.map((it, idx) => {
+                                          const id = it._new_company?.id;
+                                          const href = `/company/${id}`;
+                                          if (!id) {
+                                            return (
+                                              <span
+                                                key={`${it._new_company?.name}-${idx}`}
+                                              >
+                                                {it._new_company?.name}
+                                                {idx <
+                                                  legacyBuyers.length - 1 &&
+                                                  ", "}
+                                              </span>
+                                            );
+                                          }
+                                          return (
+                                            <span key={`${id}-${idx}`}>
+                                              <a
+                                                href={href}
+                                                className="link-blue"
+                                              >
+                                                {it._new_company!.name}
+                                              </a>
+                                              {idx < legacyBuyers.length - 1 &&
+                                                ", "}
+                                            </span>
+                                          );
+                                        });
+                                      })()}
+                                    </div>
+                                    <div className="muted-row">
+                                      <strong>Investor(s):</strong>{" "}
+                                      {(() => {
+                                        const newEvent =
+                                          event as NewCorporateEvent;
+                                        type BuyersInvestorsItem = {
+                                          id: number;
+                                          name?: string;
+                                          page_type?: string;
+                                          counterparty_status?: string;
+                                        };
+                                        const raw = (
+                                          newEvent as unknown as {
+                                            buyers_investors?: unknown;
+                                          }
+                                        ).buyers_investors;
+                                        if (Array.isArray(raw)) {
+                                          const seenIds = new Set<number>();
+                                          const investors = (
+                                            raw as BuyersInvestorsItem[]
+                                          ).filter((c) => {
+                                            const status = String(
+                                              c?.counterparty_status || ""
+                                            );
+                                            return (
+                                              c &&
+                                              typeof c.id === "number" &&
+                                              !!c.name &&
+                                              /Investor/i.test(status) &&
+                                              !seenIds.has(c.id) &&
+                                              (seenIds.add(c.id), true)
+                                            );
+                                          });
+                                          if (investors.length === 0) {
+                                            return <span>Not Available</span>;
+                                          }
+                                          return investors.map((c, idx) => {
+                                            const href =
+                                              c.page_type === "investor"
+                                                ? `/investors/${c.id}`
+                                                : `/company/${c.id}`;
+                                            return (
+                                              <span key={`${c.id}-${idx}`}>
+                                                <a
+                                                  href={href}
+                                                  className="link-blue"
+                                                >
+                                                  {c.name}
+                                                </a>
+                                                {idx < investors.length - 1 &&
+                                                  ", "}
+                                              </span>
+                                            );
+                                          });
+                                        }
+                                        // Legacy investors
+                                        const legacy =
+                                          event as LegacyCorporateEvent;
+                                        type LegacyCounterparty = {
+                                          _new_company?: {
+                                            id?: number;
+                                            name?: string;
+                                            _is_that_investor?: boolean;
+                                          };
+                                          _counterparty_type?: {
+                                            counterparty_status?: string;
+                                          };
+                                        };
+                                        const legacyItems: LegacyCounterparty[] =
+                                          Array.isArray(
+                                            (
+                                              legacy as unknown as Record<
+                                                string,
+                                                unknown
+                                              >
+                                            )["0"]
+                                          )
+                                            ? ((
+                                                legacy as unknown as Record<
+                                                  string,
+                                                  unknown
+                                                >
+                                              )[
+                                                "0"
+                                              ] as unknown as LegacyCounterparty[])
+                                            : [];
+                                        const legacyInvestors =
+                                          legacyItems.filter((it) => {
+                                            const name = it?._new_company?.name;
+                                            const isInvestor = Boolean(
+                                              it?._new_company
+                                                ?._is_that_investor
+                                            );
+                                            const status =
+                                              it?._counterparty_type
+                                                ?.counterparty_status || "";
+                                            return (
+                                              !!name &&
+                                              (isInvestor ||
+                                                /investor/i.test(
+                                                  String(status)
+                                                ))
+                                            );
+                                          });
+                                        if (legacyInvestors.length === 0)
+                                          return <span>Not Available</span>;
+                                        return legacyInvestors.map(
+                                          (it, idx) => {
+                                            const id = it._new_company?.id;
+                                            const href = id
+                                              ? `/investors/${id}`
+                                              : undefined;
+                                            if (!id || !href) {
+                                              return (
+                                                <span
+                                                  key={`${it._new_company?.name}-${idx}`}
+                                                >
+                                                  {it._new_company?.name}
+                                                  {idx <
+                                                    legacyInvestors.length -
+                                                      1 && ", "}
+                                                </span>
+                                              );
+                                            }
+                                            return (
+                                              <span key={`${id}-${idx}`}>
+                                                <a
+                                                  href={href}
+                                                  className="link-blue"
+                                                >
+                                                  {it._new_company!.name}
+                                                </a>
+                                                {idx <
+                                                  legacyInvestors.length - 1 &&
+                                                  ", "}
+                                              </span>
+                                            );
+                                          }
+                                        );
+                                      })()}
+                                    </div>
+                                    {(() => {
+                                      // Combined fallback ONLY if both buyers and investors are empty
+                                      const newEvent =
+                                        event as NewCorporateEvent;
+                                      const buyersRaw = (
+                                        newEvent as unknown as {
+                                          buyers?: unknown;
+                                        }
+                                      ).buyers;
+                                      const investorsRaw = (
+                                        newEvent as unknown as {
+                                          investors?: unknown;
+                                        }
+                                      ).investors;
+                                      const hasSeparate =
+                                        Array.isArray(buyersRaw) ||
+                                        Array.isArray(investorsRaw);
+                                      const buyersCount = Array.isArray(
+                                        buyersRaw
+                                      )
+                                        ? (buyersRaw as unknown[]).length
+                                        : 0;
+                                      const investorsCount = Array.isArray(
+                                        investorsRaw
+                                      )
+                                        ? (investorsRaw as unknown[]).length
+                                        : 0;
+                                      const legacy =
+                                        event as LegacyCorporateEvent;
+                                      const legacyItems = Array.isArray(
+                                        (
+                                          legacy as unknown as Record<
+                                            string,
+                                            unknown
+                                          >
+                                        )["0"]
+                                      )
+                                        ? ((
+                                            legacy as unknown as Record<
+                                              string,
+                                              unknown
+                                            >
+                                          )["0"] as unknown as Array<{
+                                            _new_company?: { name?: string };
+                                          }>)
+                                        : [];
+                                      const hasLegacy = legacyItems.some(
+                                        (it) => it?._new_company?.name
+                                      );
+                                      if (
+                                        (hasSeparate &&
+                                          buyersCount + investorsCount > 0) ||
+                                        hasLegacy
+                                      ) {
+                                        // If we already showed buyers or investors, or we have legacy splits, skip combined
+                                        return null;
+                                      }
+                                      const candidatesRaw =
+                                        newEvent as unknown as {
+                                          buyers_investors?: unknown;
+                                          other_counterparties?: unknown;
+                                        };
+                                      const candidates = Array.isArray(
+                                        candidatesRaw.buyers_investors
+                                      )
+                                        ? (candidatesRaw.buyers_investors as Array<{
+                                            id: number;
+                                            name: string;
+                                            page_type?: string;
+                                          }>)
+                                        : Array.isArray(
+                                            candidatesRaw.other_counterparties
+                                          )
+                                        ? (candidatesRaw.other_counterparties as Array<{
+                                            id: number;
+                                            name: string;
+                                            page_type?: string;
+                                          }>)
+                                        : [];
+                                      if (
+                                        !Array.isArray(candidates) ||
+                                        candidates.length === 0
+                                      ) {
+                                        return null;
+                                      }
+                                      const seen = new Set<number>();
+                                      const list = candidates.filter(
+                                        (c) =>
+                                          c &&
+                                          typeof c.id === "number" &&
+                                          !!c.name &&
+                                          !seen.has(c.id) &&
+                                          (seen.add(c.id), true)
+                                      );
+                                      if (list.length === 0) return null;
+                                      return (
+                                        <div className="muted-row">
+                                          <strong>
+                                            Buyer(s) / Investor(s):
+                                          </strong>{" "}
+                                          {list.map((c, idx) => {
                                             const href =
                                               c.page_type === "investor"
                                                 ? `/investors/${c.id}`
@@ -2720,52 +3079,10 @@ const CompanyDetail = () => {
                                                 {idx < list.length - 1 && ", "}
                                               </span>
                                             );
-                                          });
-                                        }
-                                        const legacy =
-                                          event as LegacyCorporateEvent;
-                                        const items = (
-                                          legacy["0"] || []
-                                        ).filter(
-                                          (it) =>
-                                            it &&
-                                            it._new_company &&
-                                            it._new_company.name
-                                        );
-                                        if (items.length === 0)
-                                          return <span>Not Available</span>;
-                                        return items.map((it, idx) => {
-                                          const id = it._new_company?.id;
-                                          const isInvestor = Boolean(
-                                            it._new_company?._is_that_investor
-                                          );
-                                          const href = isInvestor
-                                            ? `/investors/${id}`
-                                            : `/company/${id}`;
-                                          if (!id) {
-                                            return (
-                                              <span
-                                                key={`${it._new_company?.name}-${idx}`}
-                                              >
-                                                {it._new_company?.name}
-                                                {idx < items.length - 1 && ", "}
-                                              </span>
-                                            );
-                                          }
-                                          return (
-                                            <span key={`${id}-${idx}`}>
-                                              <a
-                                                href={href}
-                                                className="link-blue"
-                                              >
-                                                {it._new_company!.name}
-                                              </a>
-                                              {idx < items.length - 1 && ", "}
-                                            </span>
-                                          );
-                                        });
-                                      })()}
-                                    </div>
+                                          })}
+                                        </div>
+                                      );
+                                    })()}
                                   </td>
                                   {/* Deal Details */}
                                   <td>
@@ -2851,8 +3168,13 @@ const CompanyDetail = () => {
                                           const display = (
                                             event as NewCorporateEvent
                                           ).ev_display as string | undefined;
-                                          if (display && display.trim())
-                                            return display;
+                                          const directEvDisplay =
+                                            typeof display === "string" &&
+                                            display.trim().length > 0
+                                              ? display
+                                              : undefined;
+                                          if (directEvDisplay)
+                                            return directEvDisplay;
                                           const legacy =
                                             event as LegacyCorporateEvent;
                                           const amount = legacy.ev_data
@@ -4508,27 +4830,347 @@ const CompanyDetail = () => {
                                 })()}
                               </div>
                               <div className="muted-row">
-                                <strong>Buyer(s) / Investor(s):</strong>{" "}
+                                <strong>Buyer(s):</strong>{" "}
                                 {(() => {
                                   const newEvent = event as NewCorporateEvent;
-                                  // Prefer new buyers_investors; fallback to other_counterparties for backward compatibility
-                                  const candidates = Array.isArray(
-                                    newEvent.buyers_investors
-                                  )
-                                    ? newEvent.buyers_investors
-                                    : Array.isArray(
-                                        newEvent.other_counterparties
-                                      )
-                                    ? newEvent.other_counterparties
-                                    : [];
-                                  if (Array.isArray(candidates)) {
-                                    const list = candidates.filter(
-                                      (c) =>
-                                        c && typeof c.id === "number" && c.name
-                                    );
-                                    if (list.length === 0)
+                                  type BuyersInvestorsItem = {
+                                    id: number;
+                                    name?: string;
+                                    page_type?: string;
+                                    counterparty_status?: string;
+                                  };
+                                  const raw = (
+                                    newEvent as unknown as {
+                                      buyers_investors?: unknown;
+                                    }
+                                  ).buyers_investors;
+                                  if (Array.isArray(raw)) {
+                                    const seenIds = new Set<number>();
+                                    const buyers = (
+                                      raw as BuyersInvestorsItem[]
+                                    ).filter((c) => {
+                                      const status = String(
+                                        c?.counterparty_status || ""
+                                      );
+                                      return (
+                                        c &&
+                                        typeof c.id === "number" &&
+                                        !!c.name &&
+                                        /(Acquirer|Bidder)/i.test(status) &&
+                                        !seenIds.has(c.id) &&
+                                        (seenIds.add(c.id), true)
+                                      );
+                                    });
+                                    if (buyers.length === 0) {
                                       return <span>Not Available</span>;
-                                    return list.map((c, idx) => {
+                                    }
+                                    return buyers.map((c, idx) => {
+                                      const href =
+                                        c.page_type === "investor"
+                                          ? `/investors/${c.id}`
+                                          : `/company/${c.id}`;
+                                      return (
+                                        <span key={`${c.id}-${idx}`}>
+                                          <a href={href} className="link-blue">
+                                            {c.name}
+                                          </a>
+                                          {idx < buyers.length - 1 && ", "}
+                                        </span>
+                                      );
+                                    });
+                                  }
+                                  // Legacy buyers
+                                  const legacy = event as LegacyCorporateEvent;
+                                  type LegacyCounterparty = {
+                                    _new_company?: {
+                                      id?: number;
+                                      name?: string;
+                                      _is_that_investor?: boolean;
+                                    };
+                                    _counterparty_type?: {
+                                      counterparty_status?: string;
+                                    };
+                                  };
+                                  const legacyItems: LegacyCounterparty[] =
+                                    Array.isArray(
+                                      (
+                                        legacy as unknown as Record<
+                                          string,
+                                          unknown
+                                        >
+                                      )["0"]
+                                    )
+                                      ? ((
+                                          legacy as unknown as Record<
+                                            string,
+                                            unknown
+                                          >
+                                        )[
+                                          "0"
+                                        ] as unknown as LegacyCounterparty[])
+                                      : [];
+                                  const legacyBuyers = legacyItems.filter(
+                                    (it) => {
+                                      const name = it?._new_company?.name;
+                                      const isInvestor = Boolean(
+                                        it?._new_company?._is_that_investor
+                                      );
+                                      const status =
+                                        it?._counterparty_type
+                                          ?.counterparty_status || "";
+                                      return (
+                                        !!name &&
+                                        !isInvestor &&
+                                        !/investor/i.test(String(status)) &&
+                                        !/seller|divestor|vendor/i.test(
+                                          String(status)
+                                        )
+                                      );
+                                    }
+                                  );
+                                  if (legacyBuyers.length === 0)
+                                    return <span>Not Available</span>;
+                                  return legacyBuyers.map((it, idx) => {
+                                    const id = it._new_company?.id;
+                                    const href = `/company/${id}`;
+                                    if (!id) {
+                                      return (
+                                        <span
+                                          key={`${it._new_company?.name}-${idx}`}
+                                        >
+                                          {it._new_company?.name}
+                                          {idx < legacyBuyers.length - 1 &&
+                                            ", "}
+                                        </span>
+                                      );
+                                    }
+                                    return (
+                                      <span key={`${id}-${idx}`}>
+                                        <a href={href} className="link-blue">
+                                          {it._new_company!.name}
+                                        </a>
+                                        {idx < legacyBuyers.length - 1 && ", "}
+                                      </span>
+                                    );
+                                  });
+                                })()}
+                              </div>
+                              <div className="muted-row">
+                                <strong>Investor(s):</strong>{" "}
+                                {(() => {
+                                  const newEvent = event as NewCorporateEvent;
+                                  type BuyersInvestorsItem = {
+                                    id: number;
+                                    name?: string;
+                                    page_type?: string;
+                                    counterparty_status?: string;
+                                  };
+                                  const raw = (
+                                    newEvent as unknown as {
+                                      buyers_investors?: unknown;
+                                    }
+                                  ).buyers_investors;
+                                  if (Array.isArray(raw)) {
+                                    const seenIds = new Set<number>();
+                                    const investors = (
+                                      raw as BuyersInvestorsItem[]
+                                    ).filter((c) => {
+                                      const status = String(
+                                        c?.counterparty_status || ""
+                                      );
+                                      return (
+                                        c &&
+                                        typeof c.id === "number" &&
+                                        !!c.name &&
+                                        /Investor/i.test(status) &&
+                                        !seenIds.has(c.id) &&
+                                        (seenIds.add(c.id), true)
+                                      );
+                                    });
+                                    if (investors.length === 0) {
+                                      return <span>Not Available</span>;
+                                    }
+                                    return investors.map((c, idx) => {
+                                      const href =
+                                        c.page_type === "investor"
+                                          ? `/investors/${c.id}`
+                                          : `/company/${c.id}`;
+                                      return (
+                                        <span key={`${c.id}-${idx}`}>
+                                          <a href={href} className="link-blue">
+                                            {c.name}
+                                          </a>
+                                          {idx < investors.length - 1 && ", "}
+                                        </span>
+                                      );
+                                    });
+                                  }
+                                  // Legacy investors
+                                  const legacy = event as LegacyCorporateEvent;
+                                  type LegacyCounterparty = {
+                                    _new_company?: {
+                                      id?: number;
+                                      name?: string;
+                                      _is_that_investor?: boolean;
+                                    };
+                                    _counterparty_type?: {
+                                      counterparty_status?: string;
+                                    };
+                                  };
+                                  const legacyItems: LegacyCounterparty[] =
+                                    Array.isArray(
+                                      (
+                                        legacy as unknown as Record<
+                                          string,
+                                          unknown
+                                        >
+                                      )["0"]
+                                    )
+                                      ? ((
+                                          legacy as unknown as Record<
+                                            string,
+                                            unknown
+                                          >
+                                        )[
+                                          "0"
+                                        ] as unknown as LegacyCounterparty[])
+                                      : [];
+                                  const legacyInvestors = legacyItems.filter(
+                                    (it) => {
+                                      const name = it?._new_company?.name;
+                                      const isInvestor = Boolean(
+                                        it?._new_company?._is_that_investor
+                                      );
+                                      const status =
+                                        it?._counterparty_type
+                                          ?.counterparty_status || "";
+                                      return (
+                                        !!name &&
+                                        (isInvestor ||
+                                          /investor/i.test(String(status)))
+                                      );
+                                    }
+                                  );
+                                  if (legacyInvestors.length === 0)
+                                    return <span>Not Available</span>;
+                                  return legacyInvestors.map((it, idx) => {
+                                    const id = it._new_company?.id;
+                                    const href = id
+                                      ? `/investors/${id}`
+                                      : undefined;
+                                    if (!id || !href) {
+                                      return (
+                                        <span
+                                          key={`${it._new_company?.name}-${idx}`}
+                                        >
+                                          {it._new_company?.name}
+                                          {idx < legacyInvestors.length - 1 &&
+                                            ", "}
+                                        </span>
+                                      );
+                                    }
+                                    return (
+                                      <span key={`${id}-${idx}`}>
+                                        <a href={href} className="link-blue">
+                                          {it._new_company!.name}
+                                        </a>
+                                        {idx < legacyInvestors.length - 1 &&
+                                          ", "}
+                                      </span>
+                                    );
+                                  });
+                                })()}
+                              </div>
+                              {(() => {
+                                // Combined fallback ONLY if both buyers and investors are empty
+                                const newEvent = event as NewCorporateEvent;
+                                const buyersRaw = (
+                                  newEvent as unknown as {
+                                    buyers?: unknown;
+                                  }
+                                ).buyers;
+                                const investorsRaw = (
+                                  newEvent as unknown as {
+                                    investors?: unknown;
+                                  }
+                                ).investors;
+                                const hasSeparate =
+                                  Array.isArray(buyersRaw) ||
+                                  Array.isArray(investorsRaw);
+                                const buyersCount = Array.isArray(buyersRaw)
+                                  ? (buyersRaw as unknown[]).length
+                                  : 0;
+                                const investorsCount = Array.isArray(
+                                  investorsRaw
+                                )
+                                  ? (investorsRaw as unknown[]).length
+                                  : 0;
+                                const legacy = event as LegacyCorporateEvent;
+                                const legacyItems = Array.isArray(
+                                  (
+                                    legacy as unknown as Record<string, unknown>
+                                  )["0"]
+                                )
+                                  ? ((
+                                      legacy as unknown as Record<
+                                        string,
+                                        unknown
+                                      >
+                                    )["0"] as unknown as Array<{
+                                      _new_company?: { name?: string };
+                                    }>)
+                                  : [];
+                                const hasLegacy = legacyItems.some(
+                                  (it) => it?._new_company?.name
+                                );
+                                if (
+                                  (hasSeparate &&
+                                    buyersCount + investorsCount > 0) ||
+                                  hasLegacy
+                                ) {
+                                  return null;
+                                }
+                                const candidatesRaw = newEvent as unknown as {
+                                  buyers_investors?: unknown;
+                                  other_counterparties?: unknown;
+                                };
+                                const candidates = Array.isArray(
+                                  candidatesRaw.buyers_investors
+                                )
+                                  ? (candidatesRaw.buyers_investors as Array<{
+                                      id: number;
+                                      name: string;
+                                      page_type?: string;
+                                    }>)
+                                  : Array.isArray(
+                                      candidatesRaw.other_counterparties
+                                    )
+                                  ? (candidatesRaw.other_counterparties as Array<{
+                                      id: number;
+                                      name: string;
+                                      page_type?: string;
+                                    }>)
+                                  : [];
+                                if (
+                                  !Array.isArray(candidates) ||
+                                  candidates.length === 0
+                                ) {
+                                  return null;
+                                }
+                                const seen = new Set<number>();
+                                const list = candidates.filter(
+                                  (c) =>
+                                    c &&
+                                    typeof c.id === "number" &&
+                                    !!c.name &&
+                                    !seen.has(c.id) &&
+                                    (seen.add(c.id), true)
+                                );
+                                if (list.length === 0) return null;
+                                return (
+                                  <div className="muted-row">
+                                    <strong>Buyer(s) / Investor(s):</strong>{" "}
+                                    {list.map((c, idx) => {
                                       const href =
                                         c.page_type === "investor"
                                           ? `/investors/${c.id}`
@@ -4541,46 +5183,10 @@ const CompanyDetail = () => {
                                           {idx < list.length - 1 && ", "}
                                         </span>
                                       );
-                                    });
-                                  }
-                                  const legacy = event as LegacyCorporateEvent;
-                                  const items = (legacy["0"] || []).filter(
-                                    (it) =>
-                                      it &&
-                                      it._new_company &&
-                                      it._new_company.name
-                                  );
-                                  if (items.length === 0)
-                                    return <span>Not Available</span>;
-                                  return items.map((it, idx) => {
-                                    const id = it._new_company?.id;
-                                    const isInvestor = Boolean(
-                                      it._new_company?._is_that_investor
-                                    );
-                                    const href = isInvestor
-                                      ? `/investors/${id}`
-                                      : `/company/${id}`;
-                                    if (!id) {
-                                      return (
-                                        <span
-                                          key={`${it._new_company?.name}-${idx}`}
-                                        >
-                                          {it._new_company?.name}
-                                          {idx < items.length - 1 && ", "}
-                                        </span>
-                                      );
-                                    }
-                                    return (
-                                      <span key={`${id}-${idx}`}>
-                                        <a href={href} className="link-blue">
-                                          {it._new_company!.name}
-                                        </a>
-                                        {idx < items.length - 1 && ", "}
-                                      </span>
-                                    );
-                                  });
-                                })()}
-                              </div>
+                                    })}
+                                  </div>
+                                );
+                              })()}
                             </td>
                             {/* Deal Details */}
                             <td>
