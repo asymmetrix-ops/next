@@ -972,16 +972,60 @@ export default function HomeUserPage() {
                                   ? normalizeEntityHref(targetObj)
                                   : "";
 
-                                // Buyers / Investors
-                                const buyersNew = parseEntityArray<EntityRef>(
-                                  ev.buyers_investors
+                                // Buyers and Investors come separately on the new API
+                                const buyersArr = parseEntityArray<EntityRef>(
+                                  // new field
+                                  (ev as { buyers?: unknown }).buyers
                                 );
-                                const buyersFromLegacy = (
-                                  event.Other_Counterparties_of_Corporate_Event ||
-                                  []
-                                )
-                                  .map((cp) => cp._new_company?.name)
-                                  .filter(Boolean);
+                                const investorsArr = parseEntityArray<EntityRef>(
+                                  // new field
+                                  (ev as { investors?: unknown }).investors
+                                );
+                                // Legacy combined field (fallback)
+                                const buyersInvestorsCombined =
+                                  parseEntityArray<EntityRef>(
+                                    (ev as { buyers_investors?: unknown })
+                                      .buyers_investors
+                                  );
+                                // Legacy counterparties fallback (names only if no typed arrays)
+                                // Try to split when counterparty status flags exist; otherwise treat as combined
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const legacyCounterparties: any[] =
+                                  // @ts-expect-error legacy shape
+                                  (event as any)
+                                    .Other_Counterparties_of_Corporate_Event ||
+                                  [];
+                                const legacyInvestorsNames = legacyCounterparties
+                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                  .filter((cp: any) => {
+                                    const isInvestorFlag =
+                                      cp?._new_company?._is_that_investor ===
+                                      true;
+                                    const status =
+                                      cp?._counterparty_type
+                                        ?.counterparty_status || "";
+                                    return (
+                                      isInvestorFlag ||
+                                      /investor/i.test(String(status))
+                                    );
+                                  })
+                                  .map((cp) => cp?._new_company?.name)
+                                  .filter(Boolean) as string[];
+                                const legacyBuyersNames = legacyCounterparties
+                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                  .filter((cp: any) => {
+                                    const status =
+                                      cp?._counterparty_type
+                                        ?.counterparty_status || "";
+                                    return /acquirer|buyer/i.test(
+                                      String(status)
+                                    );
+                                  })
+                                  .map((cp) => cp?._new_company?.name)
+                                  .filter(Boolean) as string[];
+                                const legacyCombinedNames = legacyCounterparties
+                                  .map((cp) => cp?._new_company?.name)
+                                  .filter(Boolean) as string[];
 
                                 // Sellers
                                 const sellersNew = parseEntityArray<EntityRef>(
@@ -1014,19 +1058,81 @@ export default function HomeUserPage() {
                                       </div>
                                     )}
 
-                                    {(buyersNew.length > 0 ||
-                                      buyersFromLegacy.length > 0) && (
+                                    {buyersArr.length > 0 && (
                                       <div className="text-xs text-gray-500">
-                                        <strong>Buyer(s) / Investor(s):</strong>{" "}
-                                        {buyersNew.length > 0
-                                          ? dedupeById(buyersNew).map(
-                                              (b, i, arr) => {
+                                        <strong>Buyer(s):</strong>{" "}
+                                        {dedupeById(buyersArr).map(
+                                          (b, i, arr) => {
+                                            const href = normalizeEntityHref(b);
+                                            const name = b?.name || "Unknown";
+                                            return (
+                                              <span key={`buyer-${i}`}>
+                                                {href ? (
+                                                  <a
+                                                    href={href}
+                                                    className="text-blue-600 underline hover:text-blue-800"
+                                                    style={{ fontWeight: "500" }}
+                                                  >
+                                                    {name}
+                                                  </a>
+                                                ) : (
+                                                  <span>{name}</span>
+                                                )}
+                                                {i < arr.length - 1 && ", "}
+                                              </span>
+                                            );
+                                          }
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {investorsArr.length > 0 && (
+                                      <div className="text-xs text-gray-500">
+                                        <strong>Investor(s):</strong>{" "}
+                                        {dedupeById(investorsArr).map(
+                                          (inv, i, arr) => {
+                                            const href =
+                                              normalizeEntityHref(inv);
+                                            const name =
+                                              inv?.name || "Unknown";
+                                            return (
+                                              <span key={`investor-${i}`}>
+                                                {href ? (
+                                                  <a
+                                                    href={href}
+                                                    className="text-blue-600 underline hover:text-blue-800"
+                                                    style={{ fontWeight: "500" }}
+                                                  >
+                                                    {name}
+                                                  </a>
+                                                ) : (
+                                                  <span>{name}</span>
+                                                )}
+                                                {i < arr.length - 1 && ", "}
+                                              </span>
+                                            );
+                                          }
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Fallback: show combined list if separate arrays absent */}
+                                    {buyersArr.length === 0 &&
+                                      investorsArr.length === 0 &&
+                                      (buyersInvestorsCombined.length > 0 ||
+                                        legacyCombinedNames.length > 0) && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Buyer(s) / Investor(s):</strong>{" "}
+                                          {buyersInvestorsCombined.length > 0
+                                            ? dedupeById(
+                                                buyersInvestorsCombined
+                                              ).map((b, i, arr) => {
                                                 const href =
                                                   normalizeEntityHref(b);
                                                 const name =
                                                   b?.name || "Unknown";
                                                 return (
-                                                  <span key={`buyer-${i}`}>
+                                                  <span key={`bi-${i}`}>
                                                     {href ? (
                                                       <a
                                                         href={href}
@@ -1043,11 +1149,10 @@ export default function HomeUserPage() {
                                                     {i < arr.length - 1 && ", "}
                                                   </span>
                                                 );
-                                              }
-                                            )
-                                          : buyersFromLegacy.join(", ")}
-                                      </div>
-                                    )}
+                                              })
+                                            : legacyCombinedNames.join(", ")}
+                                        </div>
+                                      )}
 
                                     {sellersNew.length > 0 && (
                                       <div className="text-xs text-gray-500">
