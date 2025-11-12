@@ -29,6 +29,9 @@ const INVESTOR_SECTOR_IDS = new Set<number>([
   23226, // Accelerator
 ]);
 
+// Global override for metrics payload source display (set when metrics load)
+let metricsSourceOverrideLabel: string | undefined;
+
 // Types for API integration
 interface CompanyLocation {
   City: string;
@@ -73,6 +76,9 @@ interface CompanyFinancialMetrics {
   new_company_id: number;
   Financial_Year?: number | null;
   FY_YE_Month_Dec_default?: string | null;
+  _financial_metrics_data_source?: {
+    Front_End_Display?: string;
+  };
   Rev_Currency?: unknown;
   Revenue_m?: number | null;
   Rev_source?: number | string | null;
@@ -469,6 +475,14 @@ const toThousandsPlain = (value?: number | null): string => {
 
 // Map Xano source codes to human-readable labels (best-known mapping)
 const sourceLabel = (code?: number | string | null): string | undefined => {
+  // Prefer override provided by metrics payload itself when available
+  if (typeof metricsSourceOverrideLabel === "string") {
+    const norm = metricsSourceOverrideLabel.trim().toLowerCase();
+    if (norm === "estimate") return "Estimate";
+    if (norm === "public") return "Public";
+    if (norm === "proprietary") return "Proprietary";
+  }
+
   if (code == null) return undefined;
 
   // Handle descriptive string values directly (robust to various spellings)
@@ -1087,6 +1101,9 @@ const CompanyDetail = () => {
         ? (data[0] as CompanyFinancialMetrics | undefined) || null
         : (data as CompanyFinancialMetrics);
       if (payload && typeof payload === "object") {
+        // Capture per-payload source display override for all metric tooltips
+        metricsSourceOverrideLabel =
+          payload?._financial_metrics_data_source?.Front_End_Display;
         setFinancialMetrics(payload);
       }
     } catch {
