@@ -100,7 +100,7 @@ interface CompanyFinancialMetrics {
   Rev_expansion_pc?: number | null;
   Rev_expansion_source_label?: string | null;
   Rev_expansion_source?: number | string | null;
-  NRR?: number | null;
+  NRR?: number | string | null;
   NRR_source_label?: string | null;
   NRR_source?: number | string | null;
   New_client_growth_pc?: number | null;
@@ -116,7 +116,7 @@ interface CompanyFinancialMetrics {
   EBITDA_m?: number | null;
   EBITDA_source_label?: string | null;
   EBITDA_source?: number | string | null;
-  Rule_of_40?: number | null;
+  Rule_of_40?: number | string | null;
   Rule_of_40_source_label?: string | null;
   Rule_of_40_source?: number | string | null;
   Revenue_multiple?: number | null;
@@ -3291,9 +3291,12 @@ const CompanyDetail = () => {
                       : undefined
                   }
                 >
-                  {typeof financialMetrics?.Rule_of_40 === "number"
-                    ? Math.round(financialMetrics.Rule_of_40).toLocaleString()
-                    : "Not available"}
+                  {(() => {
+                    const n = getNumeric(financialMetrics?.Rule_of_40);
+                    return n !== undefined
+                      ? Math.round(n).toLocaleString()
+                      : "Not available";
+                  })()}
                 </span>
               </div>
               {hasIncomeStatementData && (
@@ -3587,9 +3590,7 @@ const CompanyDetail = () => {
                       : undefined
                   }
                 >
-                  {typeof financialMetrics?.NRR === "number"
-                    ? `${Math.round(financialMetrics.NRR)}%`
-                    : "Not available"}
+                  {formatPercent(financialMetrics?.NRR)}
                 </span>
               </div>
               <div style={styles.infoRow}>
@@ -3935,9 +3936,12 @@ const CompanyDetail = () => {
                       : undefined
                   }
                 >
-                  {typeof financialMetrics?.Rule_of_40 === "number"
-                    ? Math.round(financialMetrics.Rule_of_40).toLocaleString()
-                    : "Not available"}
+                  {(() => {
+                    const n = getNumeric(financialMetrics?.Rule_of_40);
+                    return n !== undefined
+                      ? Math.round(n).toLocaleString()
+                      : "Not available";
+                  })()}
                 </span>
               </div>
               {hasIncomeStatementData && (
@@ -4235,9 +4239,7 @@ const CompanyDetail = () => {
                       : undefined
                   }
                 >
-                  {typeof financialMetrics?.NRR === "number"
-                    ? `${Math.round(financialMetrics.NRR)}%`
-                    : "Not available"}
+                  {formatPercent(financialMetrics?.NRR)}
                 </span>
               </div>
               <div style={styles.infoRow}>
