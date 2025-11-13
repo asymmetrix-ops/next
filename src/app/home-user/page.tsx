@@ -1356,7 +1356,7 @@ export default function HomeUserPage() {
                       )}
                       <a
                         href={`/article/${article.id}?from=home`}
-                        className="mb-1 text-xs font-medium text-gray-900 hover:text-blue-600"
+                        className="mb-1 block max-w-[520px] text-xs font-medium text-gray-900 hover:text-blue-600"
                         style={{
                           textDecoration: "underline",
                           fontWeight: "500",
@@ -1394,9 +1394,8 @@ export default function HomeUserPage() {
                         ) : null;
                       })()}
                       {article.Strapline && (
-                        <p className="mb-1 text-xs text-gray-600">
-                          {article.Strapline.substring(0, 150)}
-                          {article.Strapline.length > 150 ? "..." : ""}
+                        <p className="mb-1 text-xs text-gray-600 leading-snug max-w-[520px] break-words">
+                          {article.Strapline}
                         </p>
                       )}
                       <p className="text-xs text-gray-500">
