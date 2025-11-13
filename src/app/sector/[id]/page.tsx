@@ -954,7 +954,8 @@ function RecentTransactionsCard({
                     <tr
                       key={`tx-${idx}`}
                       className={`transition-colors duration-150 hover:bg-slate-50/50 ${
-                        href ? "cursor-pointer" : ""}`}
+                        href ? "cursor-pointer" : ""
+                      }`}
                       onClick={() => {
                         if (href) {
                           window.location.href = href;
@@ -6163,7 +6164,7 @@ const SectorDetailPage = () => {
                             >
                               <td className="px-4 py-3 align-top whitespace-normal break-words">
                                 <a
-                                  href={`/sector/${s.id}`}
+                                  href={`/sub-sector/${s.id}`}
                                   className="font-medium text-blue-600 underline hover:text-blue-800"
                                 >
                                   {s.sector_name}
@@ -6192,7 +6193,7 @@ const SectorDetailPage = () => {
                               {s.sector_name.charAt(0)}
                             </div>
                             <a
-                              href={`/sector/${s.id}`}
+                              href={`/sub-sector/${s.id}`}
                               className="text-sm font-medium text-blue-600 underline truncate hover:text-blue-800"
                             >
                               {s.sector_name}
