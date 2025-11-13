@@ -111,6 +111,13 @@ interface NewCompaniesAPIResult {
   };
 }
 
+// Sub-sectors
+interface SubSector {
+  id: number;
+  sector_name: string;
+  Sector_importance: string;
+}
+
 // Utility functions
 const formatNumber = (num: number | undefined): string => {
   if (num === undefined || num === null) return "0";
@@ -947,8 +954,7 @@ function RecentTransactionsCard({
                     <tr
                       key={`tx-${idx}`}
                       className={`transition-colors duration-150 hover:bg-slate-50/50 ${
-                        href ? "cursor-pointer" : ""
-                      }`}
+                        href ? "cursor-pointer" : ""}`}
                       onClick={() => {
                         if (href) {
                           window.location.href = href;
@@ -1316,6 +1322,10 @@ const SectorDetailPage = () => {
   const [splitPERaw, setSplitPERaw] = useState<unknown>(null);
   const [splitMarketMapRaw, setSplitMarketMapRaw] = useState<unknown>(null);
   const [splitRecentRaw, setSplitRecentRaw] = useState<unknown>(null);
+  // Sub-sectors
+  const [subSectors, setSubSectors] = useState<SubSector[]>([]);
+  const [subSectorsLoading, setSubSectorsLoading] = useState(false);
+  const [subSectorsError, setSubSectorsError] = useState<string | null>(null);
   // All Companies (reusing companies page logic, filtered by primary sector id)
   interface AllCompanyItem {
     id: number;
@@ -2129,6 +2139,71 @@ const SectorDetailPage = () => {
     [fetchCompanies]
   );
 
+  // Fetch Sub-Sectors for this sector
+  const fetchSubSectors = useCallback(async () => {
+    setSubSectorsLoading(true);
+    setSubSectorsError(null);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) {
+        setSubSectorsError("Authentication required");
+        return;
+      }
+      const Sector_id = Number(sectorId);
+      if (Number.isNaN(Sector_id)) {
+        setSubSectorsError("Invalid sector id");
+        return;
+      }
+      const qs = new URLSearchParams();
+      qs.set("sectors_id", String(Sector_id));
+      const resp = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sub_sectors?${qs.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+        }
+      );
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(
+          `API request failed: ${resp.status} ${resp.statusText} - ${text}`
+        );
+      }
+      const json = await resp.json();
+      const arr = extractArray(json);
+      const mapped: SubSector[] = (arr as Array<Record<string, unknown>>)
+        .map((item) => {
+          const id =
+            getFirstMatchingNumber(item, [
+              "id",
+              "sector_id",
+              "secondary_sector_id",
+            ]) ?? 0;
+          const sectorName = toStringSafe(
+            getFirstMatchingValue(item, ["sector_name", "name"]) || ""
+          );
+          if (!id && !sectorName) return null;
+          return {
+            id,
+            sector_name: sectorName,
+            Sector_importance: "Secondary",
+          } as SubSector;
+        })
+        .filter(Boolean) as SubSector[];
+      setSubSectors(mapped);
+    } catch (e) {
+      setSubSectorsError(
+        e instanceof Error ? e.message : "Failed to fetch sub-sectors"
+      );
+    } finally {
+      setSubSectorsLoading(false);
+    }
+  }, [sectorId]);
+
   // Recompute derived datasets when sources change
   useEffect(() => {
     const source =
@@ -2196,6 +2271,13 @@ const SectorDetailPage = () => {
     const qpOwnership = searchParams?.get("ownership") || null;
     setOwnershipFilter(qpOwnership);
   }, [searchParams, activeTab]);
+
+  // Load Sub-Sectors when the tab is active
+  useEffect(() => {
+    if (activeTab === "subsectors") {
+      fetchSubSectors();
+    }
+  }, [activeTab, fetchSubSectors]);
 
   // Clear Market Map pre-filter when navigating away from All Companies tab
   useEffect(() => {
@@ -6016,6 +6098,116 @@ const SectorDetailPage = () => {
                 </button>
               </div>
             )}
+          </div>
+        ) : activeTab === "subsectors" ? (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
+              <div className="px-5 py-4 border-b border-slate-100">
+                <div className="flex justify-between items-center">
+                  <div className="flex gap-3 items-center text-xl">
+                    <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
+                      <svg
+                        className="w-4 h-4 text-indigo-600"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M3 12h18M3 6h18M3 18h18" />
+                      </svg>
+                    </span>
+                    <span className="text-slate-900">Sub-Sectors</span>
+                  </div>
+                  <div className="text-sm text-slate-600">
+                    {subSectors.length.toLocaleString()} total
+                  </div>
+                </div>
+              </div>
+              <div className="px-5 py-4">
+                {subSectorsLoading ? (
+                  <div className="py-10 text-center text-slate-500">
+                    Loading sub-sectors...
+                  </div>
+                ) : subSectorsError ? (
+                  <div className="py-4 text-center text-red-600">
+                    {subSectorsError}
+                  </div>
+                ) : subSectors.length === 0 ? (
+                  <div className="py-10 text-center text-slate-500">
+                    No sub-sectors found.
+                  </div>
+                ) : (
+                  <>
+                    {/* Desktop Table */}
+                    <div className="hidden overflow-x-auto md:block">
+                      <table className="min-w-full text-sm bg-white rounded-xl border shadow-lg table-fixed border-slate-200/60">
+                        <colgroup>
+                          <col style={{ width: "70%" }} />
+                          <col style={{ width: "30%" }} />
+                        </colgroup>
+                        <thead className="bg-slate-50/80">
+                          <tr className="hover:bg-slate-50/80">
+                            <th className="px-4 py-3 font-semibold text-left text-slate-700">
+                              Sub-Sector Name
+                            </th>
+                            <th className="px-4 py-3 font-semibold text-left text-slate-700">
+                              Importance
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {subSectors.map((s) => (
+                            <tr
+                              key={s.id}
+                              className="border-t hover:bg-slate-50/50 border-slate-100"
+                            >
+                              <td className="px-4 py-3 align-top whitespace-normal break-words">
+                                <a
+                                  href={`/sector/${s.id}`}
+                                  className="font-medium text-blue-600 underline hover:text-blue-800"
+                                >
+                                  {s.sector_name}
+                                </a>
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <span className="inline-block px-2 py-0.5 border rounded text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                  {s.Sector_importance}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* Mobile Cards */}
+                    <div className="md:hidden">
+                      {subSectors.map((s) => (
+                        <div
+                          key={s.id}
+                          className="flex justify-between items-center p-4 mb-3 bg-white rounded-lg border shadow-sm border-slate-200"
+                          title={s.sector_name}
+                        >
+                          <div className="flex gap-3 items-center min-w-0">
+                            <div className="flex justify-center items-center w-10 h-10 text-sm font-semibold text-white bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
+                              {s.sector_name.charAt(0)}
+                            </div>
+                            <a
+                              href={`/sector/${s.id}`}
+                              className="text-sm font-medium text-blue-600 underline truncate hover:text-blue-800"
+                            >
+                              {s.sector_name}
+                            </a>
+                          </div>
+                          <span className="inline-block px-2 py-0.5 border rounded text-xs bg-blue-50 text-blue-700 border-blue-200">
+                            {s.Sector_importance}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         ) : activeTab === "transactions" ? (
           <SectorTransactionsTab sectorId={sectorId} />
