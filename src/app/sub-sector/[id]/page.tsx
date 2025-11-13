@@ -4,25 +4,15 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import CompactPagination from "@/components/ui/CompactPagination";
-import { FollowButton } from "@/components/FollowButton";
 import { locationsService } from "@/lib/locationsService";
-import SearchableSelect from "@/components/ui/SearchableSelect";
 import {
   CorporateEvent,
   CorporateEventsResponse,
-  CorporateEventsFilters,
-  BuyerInvestorType,
 } from "@/types/corporateEvents";
 import {
   ContentArticle,
   InsightsAnalysisResponse,
 } from "@/types/insightsAnalysis";
-import { CSVExporter } from "@/utils/csvExport";
-import { ExportLimitModal } from "@/components/ExportLimitModal";
-import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
-import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
-import { fundingStageBadgeStyle } from "@/lib/corporateEventDealTypeBadge";
 
 const TABS = [
   { id: "all", name: "All Companies" },
@@ -32,1787 +22,16 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
-type SectorRef =
-  | string
-  | {
-      id?: number;
-      sector_id?: number;
-      sectorId?: number;
-      sector_name?: string;
-      Sector_name?: string;
-      name?: string;
-    };
-
 interface CompanyItem {
   id: number;
   name: string;
   description?: string;
-  primary_sectors?: SectorRef[];
-  secondary_sectors?: SectorRef[];
-  ownership_type_id?: number;
+  primary_sectors?: string[];
+  secondary_sectors?: string[];
   ownership?: string;
-  locations_id?: number;
   country?: string;
-  investors?: Array<{
-    id: number;
-    name: string;
-    /** When "company", link to dynamic company page; otherwise investor page */
-    page_type?: string;
-    /** Optional prebuilt path from API (takes precedence when set) */
-    href?: string;
-  }>;
-  companies_investors?: Array<{
-    company_name: string;
-    original_new_company_id: number;
-  }>;
   linkedin_logo?: string; // base64
   linkedin_members?: number;
-}
-
-interface AllCompaniesFilters {
-  countries: string[];
-  provinces: string[];
-  cities: string[];
-  continentalRegions?: string[];
-  subRegions?: string[];
-  hybridBusinessFocuses: number[];
-  ownershipTypes: number[];
-  linkedinMembersMin: number | null;
-  linkedinMembersMax: number | null;
-  searchQuery: string;
-}
-
-const truncateDescription = (
-  description: string,
-  maxLength: number = 250
-): { text: string; isLong: boolean } => {
-  const isLong = description.length > maxLength;
-  const truncated = isLong
-    ? description.substring(0, maxLength) + "..."
-    : description;
-  return { text: truncated, isLong };
-};
-
-const DescriptionCell: React.FC<{ description?: string; index: number }> = ({
-  description,
-  index,
-}) => {
-  const full = description || "N/A";
-  const { text, isLong } = truncateDescription(full);
-  const [expanded, setExpanded] = useState(false);
-
-  if (!isLong) {
-    return (
-      <span className="text-slate-700 whitespace-normal break-words">
-        {full}
-      </span>
-    );
-  }
-
-  return (
-    <div className="space-y-1 text-left">
-      <p className="text-slate-700 whitespace-normal break-words">
-        {expanded ? full : text}
-      </p>
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="text-xs text-blue-600 underline"
-        aria-expanded={expanded}
-        aria-controls={`subsec-description-${index}`}
-        id={`subsec-expand-${index}`}
-      >
-        {expanded ? "Collapse description" : "Expand description"}
-      </button>
-    </div>
-  );
-};
-
-const getSectorInfo = (sector: unknown): { name: string; id?: number } => {
-  if (typeof sector === "string") return { name: sector };
-  if (!sector || typeof sector !== "object") return { name: "" };
-  const rec = sector as Record<string, unknown>;
-  const nameRaw =
-    (typeof rec.sector_name === "string" && rec.sector_name) ||
-    (typeof rec.Sector_name === "string" && rec.Sector_name) ||
-    (typeof rec.name === "string" && rec.name) ||
-    "";
-
-  const idRaw = rec.id ?? rec.sector_id ?? rec.sectorId;
-  const id =
-    typeof idRaw === "number"
-      ? idRaw
-      : typeof idRaw === "string" && idRaw.trim() && !Number.isNaN(Number(idRaw))
-      ? Number(idRaw)
-      : undefined;
-  return { name: String(nameRaw), id };
-};
-
-const renderSectorLinks = (
-  sectors: unknown[] | undefined,
-  kind: "primary" | "secondary",
-  nameToId?: Record<string, number>
-): React.ReactNode => {
-  if (!Array.isArray(sectors) || sectors.length === 0) return "N/A";
-
-  const nodes: React.ReactNode[] = [];
-  sectors.forEach((s, index) => {
-    const { name, id } = getSectorInfo(s);
-    const label = String(name ?? "").trim();
-    if (!label) return;
-
-    const derivedId =
-      id ??
-      (nameToId ? nameToId[label.toLowerCase()] ?? nameToId[label] : undefined);
-
-    const href =
-      derivedId != null
-        ? kind === "primary"
-          ? `/sector/${derivedId}`
-          : `/sub-sector/${derivedId}`
-        : undefined;
-
-    nodes.push(
-      href ? (
-        <a
-          key={`${kind}-${derivedId ?? "na"}-${label}-${index}`}
-          href={href}
-          className="text-blue-600 underline hover:text-blue-800"
-        >
-          {label}
-        </a>
-      ) : (
-        <span key={`${kind}-${label}-${index}`}>{label}</span>
-      )
-    );
-
-    if (index < sectors.length - 1) {
-      nodes.push(<span key={`sep-${kind}-${index}`}>, </span>);
-    }
-  });
-
-  return nodes.length > 0 ? nodes : "N/A";
-};
-
-const investorDetailHref = (inv: {
-  id?: number;
-  href?: string;
-  page_type?: string;
-}): string | undefined => {
-  if (typeof inv.href === "string" && inv.href.trim()) {
-    return inv.href.trim();
-  }
-  const id = inv.id;
-  if (typeof id !== "number") return undefined;
-  const pt = String(inv.page_type ?? "").toLowerCase();
-  if (pt === "company") return `/company/${id}`;
-  return `/investors/${id}`;
-};
-
-const renderInvestorLinks = (
-  investors:
-    | Array<{
-        id?: number;
-        name?: string;
-        page_type?: string;
-        href?: string;
-      }>
-    | undefined
-): React.ReactNode => {
-  if (!Array.isArray(investors) || investors.length === 0) return "N/A";
-  const nodes: React.ReactNode[] = [];
-  investors.forEach((inv, index) => {
-    const name = String(inv?.name ?? "").trim();
-    if (!name) return;
-    const href = investorDetailHref(inv);
-    nodes.push(
-      href ? (
-        <a
-          key={`inv-${href}-${name}-${index}`}
-          href={href}
-          className="text-blue-600 underline hover:text-blue-800"
-        >
-          {name}
-        </a>
-      ) : (
-        <span key={`inv-${name}-${index}`}>{name}</span>
-      )
-    );
-    if (index < investors.length - 1) nodes.push(<span key={`inv-sep-${index}`}>, </span>);
-  });
-  return nodes.length > 0 ? nodes : "N/A";
-};
-
-// Transactions tab – mirrors corporate events grid layout,
-// pre-filtered by current sub-sector (secondary sector)
-function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState<CorporateEventsFilters>({
-    Countries: [],
-    Provinces: [],
-    Cities: [],
-    primary_sectors_ids: [],
-    Secondary_sectors_ids: [],
-    deal_types: [],
-    Deal_Status: [],
-    Buyer_Investor_Types: [],
-    Funding_stage: [],
-    Date_start: null,
-    Date_end: null,
-    search_query: "",
-    Page: 1,
-    Per_page: 50,
-  });
-
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
-  const [selectedContinentalRegions, setSelectedContinentalRegions] = useState<
-    string[]
-  >([]);
-  const [selectedSubRegions, setSelectedSubRegions] = useState<string[]>([]);
-  const [selectedProvinces, setSelectedProvinces] = useState<string[]>([]);
-  const [selectedCities, setSelectedCities] = useState<string[]>([]);
-  const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([]);
-  const [selectedDealStatuses, setSelectedDealStatuses] = useState<string[]>(
-    []
-  );
-  const [selectedBuyerInvestorTypes, setSelectedBuyerInvestorTypes] =
-    useState<BuyerInvestorType[]>([]);
-  const [selectedFundingStages, setSelectedFundingStages] = useState<string[]>(
-    []
-  );
-  const [searchTerm, setSearchTerm] = useState("");
-  const [dateStart, setDateStart] = useState("");
-  const [dateEnd, setDateEnd] = useState("");
-
-  const [countries, setCountries] = useState<Array<{ locations_Country: string }>>(
-    []
-  );
-  const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
-  const [subRegions, setSubRegions] = useState<string[]>([]);
-  const [provinces, setProvinces] = useState<
-    Array<{ State__Province__County: string }>
-  >([]);
-  const [cities, setCities] = useState<Array<{ City: string }>>([]);
-  const [fundingStages, setFundingStages] = useState<string[]>([]);
-
-  const [loadingCountries, setLoadingCountries] = useState(false);
-  const [loadingProvinces, setLoadingProvinces] = useState(false);
-  const [loadingCities, setLoadingCities] = useState(false);
-  const [loadingFundingStages, setLoadingFundingStages] = useState(false);
-
-  const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
-  const [pagination, setPagination] = useState({
-    itemsReceived: 0,
-    curPage: 1,
-    nextPage: null as number | null,
-    prevPage: null as number | null,
-    offset: 0,
-    perPage: 50,
-    pageTotal: 0,
-  });
-  const [summaryData, setSummaryData] = useState({
-    acquisitions: 0,
-    investments: 0,
-    ipos: 0,
-  });
-  const [loading, setLoading] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showExportLimitModal, setShowExportLimitModal] = useState(false);
-  const [exportsLeft, setExportsLeft] = useState(0);
-
-  const countryOptions = countries.map((country) => ({
-    value: country.locations_Country,
-    label: country.locations_Country,
-  }));
-  const provinceOptions = provinces.map((province) => ({
-    value: province.State__Province__County,
-    label: province.State__Province__County,
-  }));
-  const cityOptions = cities.map((city) => ({
-    value: city.City,
-    label: city.City,
-  }));
-
-  const fundingStageOptions = fundingStages.map((stage) => ({
-    value: stage,
-    label: stage,
-  }));
-
-  const buyerInvestorTypeOptions = [
-    { value: "private_equity", label: "Private Equity" },
-    { value: "venture_capital", label: "Venture Capital" },
-    { value: "da_strategic", label: "Data & Analytics Strategic" },
-    { value: "other_strategic", label: "Other Strategic" },
-  ];
-
-  const buyerInvestorTypeLabel = (value: string) => {
-    const found = buyerInvestorTypeOptions.find((o) => o.value === value);
-    return found ? found.label : value;
-  };
-
-  const eventTypeOptions = [
-    { value: "Acquisition", label: "Acquisition" },
-    { value: "Sale", label: "Sale" },
-    { value: "IPO", label: "IPO" },
-    { value: "MBO", label: "MBO" },
-    { value: "Investment", label: "Investment" },
-    { value: "Strategic Review", label: "Strategic Review" },
-    { value: "Divestment", label: "Divestment" },
-    { value: "Restructuring", label: "Restructuring" },
-    { value: "Dual track", label: "Dual track" },
-    { value: "Closing", label: "Closing" },
-    { value: "Grant", label: "Grant" },
-    { value: "Debt financing", label: "Debt financing" },
-    { value: "Partnership", label: "Partnership" },
-  ];
-
-  const dealStatusOptions = [
-    { value: "Completed", label: "Completed" },
-    { value: "In Market", label: "In Market" },
-    { value: "Not yet launched", label: "Not yet launched" },
-    { value: "Strategic Review", label: "Strategic Review" },
-    { value: "Deal Prep", label: "Deal Prep" },
-    { value: "In Exclusivity", label: "In Exclusivity" },
-  ];
-
-  const fetchCountries = async () => {
-    try {
-      setLoadingCountries(true);
-      const countriesData = await locationsService.getCountries();
-      setCountries(countriesData);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingCountries(false);
-    }
-  };
-
-  const fetchContinentalRegions = async () => {
-    try {
-      const list = await locationsService.getContinentalRegions();
-      if (Array.isArray(list)) setContinentalRegions(list);
-    } catch {
-      // ignore
-    }
-  };
-
-  const fetchSubRegions = async () => {
-    try {
-      const list = await locationsService.getSubRegions();
-      if (Array.isArray(list)) setSubRegions(list);
-    } catch {
-      // ignore
-    }
-  };
-
-  const fetchProvinces = async () => {
-    if (selectedCountries.length === 0) {
-      setProvinces([]);
-      return;
-    }
-    try {
-      setLoadingProvinces(true);
-      const provincesData = await locationsService.getProvinces(
-        selectedCountries
-      );
-      setProvinces(provincesData);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingProvinces(false);
-    }
-  };
-
-  const fetchCities = async () => {
-    if (selectedCountries.length === 0 || selectedProvinces.length === 0) {
-      setCities([]);
-      return;
-    }
-    try {
-      setLoadingCities(true);
-      const citiesData = await locationsService.getCities(
-        selectedCountries,
-        selectedProvinces
-      );
-      setCities(citiesData);
-    } catch {
-    
-    } finally {
-      setLoadingCities(false);
-    }
-  };
-
-  const fetchFundingStages = async () => {
-    try {
-      setLoadingFundingStages(true);
-      const stages = await locationsService.getFundingStages();
-      setFundingStages(stages);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingFundingStages(false);
-    }
-  };
-
-  const fetchCorporateEvents = async (nextFilters: CorporateEventsFilters) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) {
-        setError("Authentication required");
-        return;
-      }
-
-      const params = new URLSearchParams();
-      params.append("Page", nextFilters.Page.toString());
-      params.append("Per_page", nextFilters.Per_page.toString());
-
-      if (nextFilters.search_query)
-        params.append("search_query", nextFilters.search_query);
-
-      if (nextFilters.Countries.length > 0) {
-        params.append("Countries", nextFilters.Countries.join(","));
-      }
-      if (nextFilters.Provinces.length > 0) {
-        params.append("Provinces", nextFilters.Provinces.join(","));
-      }
-      if (nextFilters.Cities.length > 0) {
-        params.append("Cities", nextFilters.Cities.join(","));
-      }
-
-      const asPartial = nextFilters as Partial<CorporateEventsFilters>;
-      if (asPartial.continentalRegions && asPartial.continentalRegions.length) {
-        params.append(
-          "Continental_Region",
-          asPartial.continentalRegions.join(",")
-        );
-      }
-      if (asPartial.subRegions && asPartial.subRegions.length) {
-        params.append(
-          "geographical_sub_region",
-          asPartial.subRegions.join(",")
-        );
-      }
-
-      // Always pre-filter by current sub-sector (secondary sector)
-      const secondaryIds = [
-        subSectorId,
-        ...(nextFilters.Secondary_sectors_ids || []).filter(
-          (id) => id !== subSectorId
-        ),
-      ];
-      secondaryIds.forEach((id) =>
-        params.append("Secondary_sectors_ids[]", id.toString())
-      );
-
-      // Add event types as array params (API expects bracketed keys)
-      if (nextFilters.deal_types.length > 0) {
-        nextFilters.deal_types.forEach((dealType) => {
-          params.append("deal_types[]", dealType);
-        });
-      }
-      if (nextFilters.Deal_Status.length > 0) {
-        params.append("Deal_Status", nextFilters.Deal_Status.join(","));
-      }
-      if (nextFilters.Funding_stage && nextFilters.Funding_stage.length > 0) {
-        params.append("Funding_stage", nextFilters.Funding_stage.join(","));
-      }
-      if (
-        nextFilters.Buyer_Investor_Types &&
-        nextFilters.Buyer_Investor_Types.length > 0
-      ) {
-        params.append(
-          "Buyer_Investor_Types",
-          nextFilters.Buyer_Investor_Types.join(",")
-        );
-      }
-      if (nextFilters.Date_start) {
-        params.append("Date_start", nextFilters.Date_start);
-      }
-      if (nextFilters.Date_end) {
-        params.append("Date_end", nextFilters.Date_end);
-      }
-
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`;
-
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: CorporateEventsResponse = await response.json();
-
-      setCorporateEvents(data.items);
-      setPagination({
-        itemsReceived: data.itemsReceived,
-        curPage: data.curPage,
-        nextPage: data.nextPage,
-        prevPage: data.prevPage,
-        offset: data.offset,
-        perPage: nextFilters.Per_page,
-        pageTotal: data.pageTotal,
-      });
-      setSummaryData({
-        acquisitions: data.acquisitions,
-        investments: data.investments,
-        ipos: data.ipos,
-      });
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Failed to fetch corporate events"
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCountries();
-    fetchContinentalRegions();
-    fetchSubRegions();
-    fetchFundingStages();
-
-    if (!Number.isNaN(subSectorId) && subSectorId > 0) {
-      const initialFilters: CorporateEventsFilters = {
-        ...filters,
-        Secondary_sectors_ids: [subSectorId],
-      };
-      setFilters(initialFilters);
-      fetchCorporateEvents(initialFilters);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subSectorId]);
-
-  useEffect(() => {
-    fetchProvinces();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCountries]);
-
-  useEffect(() => {
-    fetchCities();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProvinces]);
-
-  const handleSearch = () => {
-    const updatedFilters: CorporateEventsFilters = {
-      ...filters,
-      search_query: searchTerm,
-      Countries: selectedCountries,
-      Provinces: selectedProvinces,
-      Cities: selectedCities,
-      deal_types: selectedEventTypes,
-      Deal_Status: selectedDealStatuses,
-      Buyer_Investor_Types: selectedBuyerInvestorTypes,
-      Funding_stage: selectedFundingStages,
-      Date_start: dateStart || null,
-      Date_end: dateEnd || null,
-      Page: 1,
-      Secondary_sectors_ids: [subSectorId],
-    };
-    setFilters(updatedFilters);
-    fetchCorporateEvents(updatedFilters);
-  };
-
-  const handlePageChange = (page: number) => {
-    const updatedFilters: CorporateEventsFilters = {
-      ...filters,
-      Page: page,
-      Buyer_Investor_Types: selectedBuyerInvestorTypes,
-      Funding_stage: selectedFundingStages,
-      Secondary_sectors_ids: [subSectorId],
-    };
-    setFilters(updatedFilters);
-    fetchCorporateEvents(updatedFilters);
-  };
-
-  // Helper function to build filter parameters for export API
-  const buildFilterParams = (): URLSearchParams => {
-    const params = new URLSearchParams();
-
-    // Add search query
-    if (searchTerm.trim()) {
-      params.append("search_query", searchTerm.trim());
-    }
-
-    // Add location filters as comma-separated values
-    if (selectedCountries.length > 0) {
-      params.append("Countries", selectedCountries.join(","));
-    }
-
-    if (selectedProvinces.length > 0) {
-      params.append("Provinces", selectedProvinces.join(","));
-    }
-
-    if (selectedCities.length > 0) {
-      params.append("Cities", selectedCities.join(","));
-    }
-
-    // Add region grouping filters
-    if (selectedContinentalRegions.length > 0) {
-      params.append("Continental_Region", selectedContinentalRegions.join(","));
-    }
-
-    if (selectedSubRegions.length > 0) {
-      params.append("geographical_sub_region", selectedSubRegions.join(","));
-    }
-
-    // Always include the current sub-sector in secondary sectors
-    params.append("Secondary_sectors_ids[]", subSectorId.toString());
-
-    // Add event types as array params (API expects bracketed keys)
-    if (selectedEventTypes.length > 0) {
-      selectedEventTypes.forEach((dealType) => {
-        params.append("deal_types[]", dealType);
-      });
-    }
-
-    // Add deal statuses as comma-separated values
-    if (selectedDealStatuses.length > 0) {
-      params.append("Deal_Status", selectedDealStatuses.join(","));
-    }
-
-    // Add funding stages as comma-separated values
-    if (selectedFundingStages.length > 0) {
-      params.append("Funding_stage", selectedFundingStages.join(","));
-    }
-
-    // Add buyer / investor types
-    if (selectedBuyerInvestorTypes.length > 0) {
-      params.append("Buyer_Investor_Types", selectedBuyerInvestorTypes.join(","));
-    }
-
-    // Add date filters
-    if (dateStart) {
-      params.append("Date_start", dateStart);
-    }
-
-    if (dateEnd) {
-      params.append("Date_end", dateEnd);
-    }
-
-    return params;
-  };
-
-  // Handle CSV export - fetches all matching events from export API
-  const handleExportCSV = async () => {
-    try {
-      // Check export limit first
-      const limitCheck = await checkExportLimit();
-      if (!limitCheck.canExport) {
-        setExportsLeft(limitCheck.exportsLeft);
-        setShowExportLimitModal(true);
-        return;
-      }
-
-      setExporting(true);
-
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) {
-        setError("Authentication required");
-        setExporting(false);
-        return;
-      }
-
-      // Build filter parameters
-      const params = buildFilterParams();
-
-      // Call the export API endpoint
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/export_corporate_events_csv?${params.toString()}`;
-
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        // Check if it's an export limit error
-        if (response.status === 403 || response.status === 429) {
-          const limitCheck = await checkExportLimit();
-          setExportsLeft(limitCheck.exportsLeft);
-          setShowExportLimitModal(true);
-          setExporting(false);
-          return;
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      // Export the data using the CSV exporter (same as corporate events page)
-      CSVExporter.exportCorporateEventsFromApiResponse(
-        data,
-        `sub_sector_${subSectorId}_transactions`
-      );
-    } catch (error) {
-      console.error("Error exporting corporate events:", error);
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to export corporate events"
-      );
-    } finally {
-      setExporting(false);
-    }
-  };
-
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "Not available";
-    try {
-      return new Date(dateString).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-    } catch {
-      return "Invalid date";
-    }
-  };
-
-  const formatCurrency = (
-    amount: string | undefined,
-    currency: string | undefined
-  ) => {
-    if (!amount || !currency) return "Not available";
-    const n = Number(amount);
-    if (Number.isNaN(n)) return "Not available";
-    return `${currency}${n.toLocaleString(undefined, {
-      maximumFractionDigits: 3,
-    })}`;
-  };
-
-  const renderSectorLinks = (
-    sectors:
-      | Array<string | { sector_name?: string; id?: number }>
-      | undefined,
-    isPrimary: boolean = true
-  ): React.ReactNode => {
-    if (!Array.isArray(sectors) || sectors.length === 0) {
-      return "Not available";
-    }
-    const nodes: React.ReactNode[] = [];
-    sectors.forEach((sector, index) => {
-      const name = typeof sector === "string" ? sector : sector?.sector_name;
-      if (!name) return;
-      const sectorId =
-        typeof sector === "object" && sector
-          ? (sector as { id?: number }).id
-          : undefined;
-      nodes.push(
-        sectorId ? (
-          <a
-            key={`${sectorId}-${name}-${index}`}
-            href={isPrimary ? `/sector/${sectorId}` : `/sub-sector/${sectorId}`}
-            className="text-blue-600 underline hover:text-blue-800"
-          >
-            {name}
-          </a>
-        ) : (
-          <span key={`${name}-${index}`}>{name}</span>
-        )
-      );
-      if (index < sectors.length - 1) {
-        nodes.push(<span key={`sep-${index}`}>, </span>);
-      }
-    });
-    return nodes.length > 0 ? nodes : "Not available";
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Filters Section */}
-      <div className="p-6 bg-white rounded-xl border shadow-lg border-slate-200/60">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-bold text-slate-900">Filters</h2>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="text-sm text-blue-600 underline hover:text-blue-800"
-          >
-            {showFilters ? "Hide Filters" : "Show Filters"}
-          </button>
-        </div>
-
-        {showFilters && (
-          <>
-            <h2 className="mt-4 mb-4 text-xl font-bold text-slate-900">
-              Filter Corporate Events
-            </h2>
-            <div className="grid grid-cols-1 gap-6 mb-6 md:grid-cols-3">
-              {/* Event Type */}
-              <div>
-                <h3 className="mb-4 text-lg font-semibold text-slate-900">
-                  Corporate Event Type
-                </h3>
-                <label className="block mb-2 text-sm font-semibold text-slate-900">
-                  By Type
-                </label>
-                <SearchableSelect
-                  options={eventTypeOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedEventTypes.includes(value)
-                    ) {
-                      setSelectedEventTypes([...selectedEventTypes, value]);
-                    }
-                  }}
-                  placeholder="Select Type"
-                  disabled={false}
-                  style={{}}
-                />
-                {selectedEventTypes.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedEventTypes.map((eventType) => (
-                      <span
-                        key={eventType}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
-                      >
-                        {eventType}
-                        <button
-                          onClick={() =>
-                            setSelectedEventTypes(
-                              selectedEventTypes.filter((t) => t !== eventType)
-                            )
-                          }
-                          className="font-bold text-blue-700 hover:text-blue-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
-                  By Deal Status
-                </label>
-                <SearchableSelect
-                  options={dealStatusOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedDealStatuses.includes(value)
-                    ) {
-                      setSelectedDealStatuses([...selectedDealStatuses, value]);
-                    }
-                  }}
-                  placeholder="Select Deal Status"
-                  disabled={false}
-                  style={{}}
-                />
-                {selectedDealStatuses.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedDealStatuses.map((status) => (
-                      <span
-                        key={status}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-red-700 bg-red-50 rounded"
-                      >
-                        {status}
-                        <button
-                          onClick={() =>
-                            setSelectedDealStatuses(
-                              selectedDealStatuses.filter((s) => s !== status)
-                            )
-                          }
-                          className="font-bold text-red-700 hover:text-red-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
-                  By Buyer / Investor Type
-                </label>
-                <SearchableSelect
-                  options={buyerInvestorTypeOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedBuyerInvestorTypes.includes(
-                        value as BuyerInvestorType
-                      )
-                    ) {
-                      setSelectedBuyerInvestorTypes([
-                        ...selectedBuyerInvestorTypes,
-                        value as BuyerInvestorType,
-                      ]);
-                    }
-                  }}
-                  placeholder="Select Buyer / Investor Type"
-                  disabled={false}
-                  style={{}}
-                />
-                {selectedBuyerInvestorTypes.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedBuyerInvestorTypes.map((type) => (
-                      <span
-                        key={type}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-800 bg-blue-50 rounded"
-                      >
-                        {buyerInvestorTypeLabel(type)}
-                        <button
-                          onClick={() =>
-                            setSelectedBuyerInvestorTypes(
-                              selectedBuyerInvestorTypes.filter((t) => t !== type)
-                            )
-                          }
-                          className="font-bold text-blue-800 hover:text-blue-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Location */}
-              <div>
-                <h3 className="mb-4 text-lg font-semibold text-slate-900">
-                  Location
-                </h3>
-
-                <label className="block mb-2 text-sm font-semibold text-slate-900">
-                  By Continental Region
-                </label>
-                <SearchableSelect
-                  options={continentalRegions.map((r) => ({
-                    value: r,
-                    label: r,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedContinentalRegions.includes(value)
-                    ) {
-                      setSelectedContinentalRegions([
-                        ...selectedContinentalRegions,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder="Select Continental Region"
-                  disabled={false}
-                  style={{}}
-                />
-                {selectedContinentalRegions.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedContinentalRegions.map((r) => (
-                      <span
-                        key={r}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
-                      >
-                        {r}
-                        <button
-                          onClick={() =>
-                            setSelectedContinentalRegions(
-                              selectedContinentalRegions.filter((x) => x !== r)
-                            )
-                          }
-                          className="font-bold text-blue-700 hover:text-blue-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
-                  By Sub-Region
-                </label>
-                <SearchableSelect
-                  options={subRegions.map((r) => ({ value: r, label: r }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedSubRegions.includes(value)
-                    ) {
-                      setSelectedSubRegions([...selectedSubRegions, value]);
-                    }
-                  }}
-                  placeholder="Select Sub-Region"
-                  disabled={false}
-                  style={{}}
-                />
-                {selectedSubRegions.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedSubRegions.map((r) => (
-                      <span
-                        key={r}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-orange-700 bg-orange-50 rounded"
-                      >
-                        {r}
-                        <button
-                          onClick={() =>
-                            setSelectedSubRegions(
-                              selectedSubRegions.filter((x) => x !== r)
-                            )
-                          }
-                          className="font-bold text-orange-700 hover:text-orange-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
-                  By Country
-                </label>
-                <SearchableSelect
-                  options={countryOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedCountries.includes(value)
-                    ) {
-                      setSelectedCountries([...selectedCountries, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingCountries ? "Loading..." : "Select Country"
-                  }
-                  disabled={loadingCountries}
-                  style={{}}
-                />
-                {selectedCountries.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedCountries.map((country) => (
-                      <span
-                        key={country}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
-                      >
-                        {country}
-                        <button
-                          onClick={() =>
-                            setSelectedCountries(
-                              selectedCountries.filter((c) => c !== country)
-                            )
-                          }
-                          className="font-bold text-blue-700 hover:text-blue-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
-                  By Province
-                </label>
-                <SearchableSelect
-                  options={provinceOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedProvinces.includes(value)
-                    ) {
-                      setSelectedProvinces([...selectedProvinces, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingProvinces
-                      ? "Loading..."
-                      : selectedCountries.length === 0
-                      ? "Select country first"
-                      : "Select Province"
-                  }
-                  disabled={loadingProvinces || selectedCountries.length === 0}
-                  style={{}}
-                />
-                {selectedProvinces.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedProvinces.map((province) => (
-                      <span
-                        key={province}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-green-700 bg-green-50 rounded"
-                      >
-                        {province}
-                        <button
-                          onClick={() =>
-                            setSelectedProvinces(
-                              selectedProvinces.filter((p) => p !== province)
-                            )
-                          }
-                          className="font-bold text-green-700 hover:text-green-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
-                  By City
-                </label>
-                <SearchableSelect
-                  options={cityOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedCities.includes(value)
-                    ) {
-                      setSelectedCities([...selectedCities, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingCities
-                      ? "Loading..."
-                      : selectedCountries.length === 0
-                      ? "Select country first"
-                      : "Select City"
-                  }
-                  disabled={loadingCities || selectedCountries.length === 0}
-                  style={{}}
-                />
-                {selectedCities.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedCities.map((city) => (
-                      <span
-                        key={city}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-orange-700 bg-orange-50 rounded"
-                      >
-                        {city}
-                        <button
-                          onClick={() =>
-                            setSelectedCities(
-                              selectedCities.filter((c) => c !== city)
-                            )
-                          }
-                          className="font-bold text-orange-700 hover:text-orange-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Date Filters */}
-              <div>
-                <h3 className="mb-4 text-lg font-semibold text-slate-900">
-                  Announcement Date
-                </h3>
-                <label className="block mb-2 text-sm font-semibold text-slate-900">
-                  Start
-                </label>
-                <input
-                  type="date"
-                  value={dateStart}
-                  onChange={(e) => setDateStart(e.target.value)}
-                  className="px-3 py-2 w-full rounded-md border border-slate-300"
-                />
-
-                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
-                  End
-                </label>
-                <input
-                  type="date"
-                  value={dateEnd}
-                  onChange={(e) => setDateEnd(e.target.value)}
-                  className="px-3 py-2 w-full rounded-md border border-slate-300"
-                />
-
-                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
-                  By Funding Stage
-                </label>
-                <SearchableSelect
-                  options={fundingStageOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedFundingStages.includes(value)
-                    ) {
-                      setSelectedFundingStages([...selectedFundingStages, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingFundingStages ? "Loading funding stages..." : "Select Funding Stage"
-                  }
-                  disabled={loadingFundingStages}
-                  style={{}}
-                />
-                {selectedFundingStages.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedFundingStages.map((stage) => (
-                      <span
-                        key={stage}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-emerald-700 bg-emerald-50 rounded"
-                      >
-                        {stage}
-                        <button
-                          onClick={() =>
-                            setSelectedFundingStages(
-                              selectedFundingStages.filter((s) => s !== stage)
-                            )
-                          }
-                          className="font-bold text-emerald-700 hover:text-emerald-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Search Row */}
-        <div className="mt-4">
-          {showFilters && (
-            <h3 className="mb-2 text-lg font-semibold text-slate-900">
-              Search Corporate Events
-            </h3>
-          )}
-          <div className="flex gap-3 items-center">
-            <input
-              type="text"
-              placeholder="Enter search terms here"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 px-3 py-2 max-w-md rounded-md border border-slate-300"
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
-            <button
-              onClick={handleSearch}
-              className="px-6 py-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700"
-            >
-              {loading ? "Searching..." : "Search"}
-            </button>
-          </div>
-        </div>
-
-        {error && (
-          <div className="p-3 mt-4 text-red-700 bg-red-50 rounded-md">
-            {error}
-          </div>
-        )}
-      </div>
-
-      {/* Statistics Block */}
-      {summaryData.acquisitions > 0 && (
-        <div className="p-6 bg-white rounded-xl border shadow-lg border-slate-200/60">
-          <h2 className="mb-4 text-xl font-bold text-slate-900">
-            Corporate Events
-          </h2>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            <div>
-              <span className="text-sm text-slate-600">Acquisitions:</span>
-              <p className="text-2xl font-bold text-slate-900">
-                {summaryData.acquisitions?.toLocaleString() || "0"}
-              </p>
-            </div>
-            <div>
-              <span className="text-sm text-slate-600">Investments:</span>
-              <p className="text-2xl font-bold text-slate-900">
-                {summaryData.investments?.toLocaleString() || "0"}
-              </p>
-            </div>
-            <div>
-              <span className="text-sm text-slate-600">IPOs:</span>
-              <p className="text-2xl font-bold text-slate-900">
-                {summaryData.ipos?.toLocaleString() || "0"}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Export Button */}
-      {corporateEvents.length > 0 && (
-        <div className="flex justify-end">
-          <button
-            onClick={handleExportCSV}
-            className="px-6 py-2 font-semibold text-white bg-green-600 rounded-md hover:bg-green-700"
-            disabled={loading || exporting}
-          >
-            {exporting ? "Exporting..." : "Export CSV"}
-          </button>
-        </div>
-      )}
-
-      {/* Results Table */}
-      {loading && (
-        <div className="py-10 text-center text-slate-600">
-          Loading corporate events...
-        </div>
-      )}
-
-      {!loading && corporateEvents.length === 0 && (
-        <div className="py-10 text-center text-slate-600">
-          No corporate events found.
-        </div>
-      )}
-
-      {!loading && corporateEvents.length > 0 && (
-        <div className="overflow-x-auto p-6 bg-white rounded-xl border shadow-lg border-slate-200/60">
-          <table className="w-full table-fixed">
-            <colgroup>
-              <col style={{ width: "30%" }} />
-              <col style={{ width: "18%" }} />
-              <col style={{ width: "20%" }} />
-              <col style={{ width: "14%" }} />
-              <col style={{ width: "18%" }} />
-            </colgroup>
-            <thead>
-              <tr className="border-b-2 border-slate-200">
-                <th className="p-3 text-sm font-semibold text-left text-slate-900">
-                  Event Details
-                </th>
-                <th className="p-3 text-sm font-semibold text-left text-slate-900">
-                  Parties
-                </th>
-                <th className="p-3 text-sm font-semibold text-left text-slate-900">
-                  Deal Details
-                </th>
-                <th className="p-3 text-sm font-semibold text-left text-slate-900">
-                  Advisors
-                </th>
-                <th className="p-3 text-sm font-semibold text-left text-slate-900">
-                  Sectors
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {corporateEvents.map((event: CorporateEvent, index: number) => {
-                // Check both new_company and _new_company for target data (API may use either)
-                const targetCounterparty = event.target_counterparty as unknown as {
-                  new_company?: {
-                    name?: string;
-                    country?: string;
-                    primary_sectors?: Array<string | { sector_name?: string; id?: number }>;
-                    secondary_sectors?: Array<string | { sector_name?: string; id?: number }>;
-                    _location?: { Country?: string };
-                    _sectors_primary?: Array<{ sector_name?: string; id?: number }>;
-                    _sectors_secondary?: Array<{ sector_name?: string; id?: number }>;
-                  };
-                  _new_company?: {
-                    name?: string;
-                    country?: string;
-                    primary_sectors?: Array<string | { sector_name?: string; id?: number }>;
-                    secondary_sectors?: Array<string | { sector_name?: string; id?: number }>;
-                    _location?: { Country?: string };
-                    _sectors_primary?: Array<{ sector_name?: string; id?: number }>;
-                    _sectors_secondary?: Array<{ sector_name?: string; id?: number }>;
-                  };
-                  new_company_counterparty?: number;
-                };
-                const target =
-                  targetCounterparty?.new_company ||
-                  targetCounterparty?._new_company;
-                const targetCounterpartyId =
-                  targetCounterparty?.new_company_counterparty;
-                const targetName = target?.name || "Not Available";
-                const targetHref = targetCounterpartyId
-                  ? `/company/${targetCounterpartyId}`
-                  : "";
-                const targetCountry =
-                  target?.country ||
-                  (target as
-                    | { _location?: { Country?: string } }
-                    | undefined)?._location?.Country ||
-                  "Not Available";
-                const fundingStage =
-                  (
-                    event.investment_data?.Funding_stage ||
-                    event.investment_data?.funding_stage ||
-                    ""
-                  ).trim();
-                const isPartnership = /partnership/i.test(
-                  event.deal_type || ""
-                );
-
-                // Extract primary sectors - check both new and legacy formats
-                const rawPrimary =
-                  (target?.primary_sectors as
-                    | Array<string | { sector_name?: string; id?: number }>
-                    | undefined) ??
-                  ((target as unknown as {
-                    _sectors_primary?: Array<{
-                      sector_name?: string;
-                      id?: number;
-                    }>;
-                  })?._sectors_primary as
-                    | Array<{ sector_name?: string; id?: number }>
-                    | undefined);
-
-                const primarySectorsForLinks:
-                  | Array<{ sector_name: string; id?: number }>
-                  | undefined =
-                  Array.isArray(rawPrimary) && rawPrimary.length > 0
-                    ? (rawPrimary
-                        .map((s) => {
-                          const name =
-                            typeof s === "string"
-                              ? s
-                              : (s as {
-                                  sector_name?: string;
-                                  id?: number;
-                                }).sector_name || "";
-                          const trimmed = name.trim();
-                          if (!trimmed) return null;
-                          const id =
-                            typeof s === "string"
-                              ? undefined
-                              : (s as { id?: number }).id;
-                          return { sector_name: trimmed, id };
-                        })
-                        .filter((x) => x !== null) as Array<{
-                        sector_name: string;
-                        id?: number;
-                      }>)
-                    : undefined;
-
-                // Extract secondary sectors - check both new and legacy formats
-                const rawSecondary =
-                  (target?.secondary_sectors as
-                    | Array<string | { sector_name?: string; id?: number }>
-                    | undefined) ??
-                  ((target as unknown as {
-                    _sectors_secondary?: Array<{
-                      sector_name?: string;
-                      id?: number;
-                    }>;
-                  })?._sectors_secondary as
-                    | Array<{ sector_name?: string; id?: number }>
-                    | undefined);
-
-                const secondarySectorsForLinks:
-                  | Array<{ sector_name: string; id?: number }>
-                  | undefined =
-                  Array.isArray(rawSecondary) && rawSecondary.length > 0
-                    ? (rawSecondary
-                        .map((s) => {
-                          const name =
-                            typeof s === "string"
-                              ? s
-                              : (s as {
-                                  sector_name?: string;
-                                  id?: number;
-                                }).sector_name || "";
-                          const trimmed = name.trim();
-                          if (!trimmed) return null;
-                          const id =
-                            typeof s === "string"
-                              ? undefined
-                              : (s as { id?: number }).id;
-                          return { sector_name: trimmed, id };
-                        })
-                        .filter((x) => x !== null) as Array<{
-                        sector_name: string;
-                        id?: number;
-                      }>)
-                    : undefined;
-
-                return (
-                  <tr
-                    key={event.id || index}
-                    className="border-b border-slate-100"
-                  >
-                    {/* Event Details */}
-                    <td className="p-3 align-top break-words">
-                      <div className="mb-1">
-                        <a
-                          href={`/corporate-event/${event.id}`}
-                          className="font-medium text-blue-600 underline hover:text-blue-800"
-                        >
-                          {event.description || "Not Available"}
-                        </a>
-                      </div>
-                      <div className="text-xs text-slate-600">
-                        Date: {formatDate(event.announcement_date)}
-                      </div>
-                      <div className="text-xs text-slate-600">
-                        Target HQ: {targetCountry}
-                      </div>
-                    </td>
-
-                    {/* Parties */}
-                    <td className="p-3 align-top text-xs break-words text-slate-600">
-                      <div className="mb-1">
-                        <strong>
-                          {(event as { target_label?: string }).target_label ||
-                            (isPartnership ? "Target(s)" : "Target")}
-                          :
-                        </strong>{" "}
-                        {(() => {
-                          // Use new targets array if available
-                          const targets = (
-                            event as {
-                              targets?: Array<{
-                                id: number;
-                                name: string;
-                                route: string;
-                              }>;
-                            }
-                          ).targets;
-                          if (Array.isArray(targets) && targets.length > 0) {
-                            const displayTargets = isPartnership
-                              ? targets
-                              : targets.slice(0, 1);
-                            return displayTargets.map((tgt, i, arr) => {
-                              const href =
-                                tgt.route === "investor" ||
-                                tgt.route === "investors"
-                                  ? `/investors/${tgt.id}`
-                                  : `/company/${tgt.id}`;
-                              return (
-                                <span key={`tgt-${tgt.id}`}>
-                                  <a
-                                    href={href}
-                                    className="text-blue-600 underline hover:text-blue-800"
-                                  >
-                                    {tgt.name}
-                                  </a>
-                                  {i < arr.length - 1 && ", "}
-                                </span>
-                              );
-                            });
-                          }
-                          // Fallback to legacy target_counterparty
-                          if (targetHref) {
-                            return (
-                              <a
-                                href={targetHref}
-                                className="text-blue-600 underline hover:text-blue-800"
-                              >
-                                {targetName}
-                              </a>
-                            );
-                          }
-                          return <span>{targetName}</span>;
-                        })()}
-                      </div>
-                      {!isPartnership && (
-                        <div>
-                          {(() => {
-                            const list = Array.isArray(
-                              event.other_counterparties
-                            )
-                              ? event.other_counterparties.filter((cp) =>
-                                  /investor|acquirer/i.test(
-                                    cp._counterparty_type?.counterparty_status ||
-                                      ""
-                                  )
-                                )
-                              : [];
-                            if (list.length === 0) {
-                              return (
-                                <>
-                                  <strong>Buyer(s):</strong> Not Available
-                                </>
-                              );
-                            }
-                            const statuses = list
-                              .map((cp) =>
-                                (
-                                  cp._counterparty_type?.counterparty_status ||
-                                  ""
-                                ).toLowerCase()
-                              )
-                              .join(" ");
-                            const hasAcquirer = /acquirer/.test(statuses);
-                            const label = hasAcquirer
-                              ? "Buyer(s)"
-                              : "Investor(s)";
-                            const names = list
-                              .map((cp) => cp._new_company?.name || "Unknown")
-                              .join(", ");
-                            return (
-                              <>
-                                <strong>{label}:</strong>{" "}
-                                {names || "Not Available"}
-                              </>
-                            );
-                          })()}
-                        </div>
-                      )}
-                      {!isPartnership && (
-                        <div className="mt-1 text-xs text-slate-600">
-                          <strong>Seller(s):</strong>{" "}
-                          {Array.isArray(event.other_counterparties) &&
-                          event.other_counterparties.length > 0
-                            ? (() => {
-                                const sellers =
-                                  event.other_counterparties.filter((cp) => {
-                                    const status =
-                                      cp._counterparty_type?.counterparty_status ||
-                                      "";
-                                    return /divestor|seller|vendor/i.test(status);
-                                  });
-                                if (sellers.length === 0)
-                                  return "Not Available";
-                                return sellers
-                                  .map(
-                                    (cp) => cp._new_company?.name || "Unknown"
-                                  )
-                                  .join(", ");
-                              })()
-                            : "Not Available"}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Deal Details */}
-                    <td className="p-3 align-top text-xs break-words text-slate-600">
-                      <div className="mb-1">
-                        <strong>Deal Type:</strong>{" "}
-                        {event.deal_type ? (
-                          <span className="inline-flex flex-wrap gap-1 align-middle">
-                            <DealTypeBadge dealType={event.deal_type} />
-                            {fundingStage && (
-                              <span style={fundingStageBadgeStyle()}>{fundingStage}</span>
-                            )}
-                          </span>
-                        ) : (
-                          "Not Available"
-                        )}
-                      </div>
-                      <div>
-                        <strong>Amount (m):</strong>{" "}
-                        {formatCurrency(
-                          event.investment_data?.investment_amount_m,
-                          event.investment_data?.currency?.Currency
-                        )}
-                      </div>
-                      <div>
-                        <strong>EV (m):</strong>{" "}
-                        {formatCurrency(
-                          event.ev_data?.enterprise_value_m,
-                          event.ev_data?.currency?.Currency
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Advisors */}
-                    <td className="p-3 align-top text-xs break-words text-slate-600">
-                      <div>
-                        <strong>Advisors:</strong>{" "}
-                        {Array.isArray(event.advisors) &&
-                        event.advisors.length > 0
-                          ? event.advisors
-                              .map((advisor) => {
-                                const nc = advisor._new_company;
-                                return nc?.name || "Unknown";
-                              })
-                              .join(", ")
-                          : "Not Available"}
-                      </div>
-                    </td>
-
-                    {/* Sectors */}
-                    <td className="p-3 align-top text-xs break-words text-slate-600">
-                      <div>
-                        <strong>Primary:</strong>{" "}
-                        {renderSectorLinks(primarySectorsForLinks as Array<
-                          string | { sector_name?: string; id?: number }
-                        >, true)}
-                      </div>
-                      <div className="mt-1">
-                        <strong>Secondary:</strong>{" "}
-                        {renderSectorLinks(secondarySectorsForLinks as Array<
-                          string | { sector_name?: string; id?: number }
-                        >, false)}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Pagination */}
-      <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-        <CompactPagination
-          curPage={pagination.curPage}
-          pageTotal={pagination.pageTotal}
-          onPageChange={handlePageChange}
-          disabled={loading}
-        />
-      </div>
-
-      {/* Scoped styles for pagination */}
-      <style jsx>{`
-        .pagination-button {
-          padding: 8px 12px;
-          border: none;
-          background: none;
-          color: #000;
-          cursor: pointer;
-          font-size: 14px;
-          transition: color 0.2s;
-        }
-        .pagination-button:hover {
-          color: #0075df;
-        }
-        .pagination-button.active {
-          color: #0075df;
-          text-decoration: underline;
-          font-weight: 500;
-        }
-        .pagination-button:disabled {
-          opacity: 0.3;
-          cursor: not-allowed;
-          color: #666;
-        }
-        .pagination-ellipsis {
-          padding: 8px 12px;
-          color: #000;
-          font-size: 14px;
-        }
-      `}</style>
-
-      <ExportLimitModal
-        isOpen={showExportLimitModal}
-        onClose={() => setShowExportLimitModal(false)}
-        exportsLeft={exportsLeft}
-        totalExports={EXPORT_LIMIT}
-      />
-    </div>
-  );
 }
 
 const SubSectorPage = () => {
@@ -1823,18 +42,8 @@ const SubSectorPage = () => {
     (searchParams?.get("tab") as TabId) || "all"
   );
 
-  const [primarySectorIdByName, setPrimarySectorIdByName] = useState<
-    Record<string, number>
-  >({});
-  const [secondarySectorIdByName, setSecondarySectorIdByName] = useState<
-    Record<string, number>
-  >({});
-
   // Header title lookup
   const [subSectorName, setSubSectorName] = useState<string>("");
-  const [headerPrimarySectors, setHeaderPrimarySectors] = useState<
-    Array<{ id: number; sector_name: string }>
-  >([]);
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
@@ -1854,107 +63,6 @@ const SubSectorPage = () => {
       cancelled = true;
     };
   }, [subSectorId]);
-
-  // Header primary sector(s) lookup for this sub-sector (via Xano API)
-  useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      try {
-        if (Number.isNaN(subSectorId) || subSectorId <= 0) {
-          setHeaderPrimarySectors([]);
-          return;
-        }
-
-        const token = localStorage.getItem("asymmetrix_auth_token") || "";
-        const authHeader =
-          token.trim().length === 0
-            ? undefined
-            : token.trim().toLowerCase().startsWith("bearer ")
-            ? token.trim()
-            : `Bearer ${token.trim()}`;
-
-        // Browser fetch doesn't reliably send JSON bodies with GET.
-        // Pass sectors_id as a query param instead.
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/Get_Primary_Sectors?sectors_id=${encodeURIComponent(
-          String(subSectorId)
-        )}`;
-
-        const resp = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(authHeader ? { Authorization: authHeader } : {}),
-          },
-        });
-
-        if (!resp.ok) throw new Error(`HTTP error ${resp.status}`);
-        const data = (await resp.json()) as unknown;
-        const list = Array.isArray(data) ? data : [];
-        const normalized = list
-          .map((x) => {
-            const rec = x as { id?: unknown; sector_name?: unknown };
-            return {
-              id: typeof rec.id === "number" ? rec.id : Number(rec.id),
-              sector_name:
-                typeof rec.sector_name === "string" ? rec.sector_name : "",
-            };
-          })
-          .filter((x) => Number.isFinite(x.id) && x.id > 0 && x.sector_name.trim());
-
-        if (!cancelled) setHeaderPrimarySectors(normalized);
-      } catch {
-        if (!cancelled) setHeaderPrimarySectors([]);
-      }
-    };
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [subSectorId]);
-
-  // Build sector name -> id maps (for hyperlinking name-only responses)
-  useEffect(() => {
-    if (activeTab !== "all") return;
-    let cancelled = false;
-    const normalize = (s: string) => s.trim().toLowerCase();
-    const load = async () => {
-      try {
-        const [primaries, secondaries] = await Promise.all([
-          locationsService.getPrimarySectors(),
-          locationsService.getAllSecondarySectorsWithPrimary(),
-        ]);
-
-        if (cancelled) return;
-
-        const pMap: Record<string, number> = {};
-        (Array.isArray(primaries) ? primaries : []).forEach((p) => {
-          const id = (p as { id?: number }).id;
-          const name = (p as { sector_name?: string }).sector_name;
-          if (typeof id === "number" && typeof name === "string" && name.trim()) {
-            pMap[normalize(name)] = id;
-          }
-        });
-
-        const sMap: Record<string, number> = {};
-        (Array.isArray(secondaries) ? secondaries : []).forEach((s) => {
-          const id = (s as { id?: number }).id;
-          const name = (s as { sector_name?: string }).sector_name;
-          if (typeof id === "number" && typeof name === "string" && name.trim()) {
-            sMap[normalize(name)] = id;
-          }
-        });
-
-        setPrimarySectorIdByName(pMap);
-        setSecondarySectorIdByName(sMap);
-      } catch {
-        // ignore
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab]);
 
   // Sync tab in URL
   const setTab = (id: TabId) => {
@@ -1982,54 +90,8 @@ const SubSectorPage = () => {
     pageTotal: 0,
   });
 
-  // All Companies filters (mirrors Companies page behaviour, scoped to this sub-sector)
-  const [allShowFilters, setAllShowFilters] = useState(false);
-  const [allSearchTerm, setAllSearchTerm] = useState("");
-  const [allCountries, setAllCountries] = useState<
-    Array<{ locations_Country: string }>
-  >([]);
-  const [allContinentalRegions, setAllContinentalRegions] = useState<string[]>(
-    []
-  );
-  const [allSubRegions, setAllSubRegions] = useState<string[]>([]);
-  const [allProvinces, setAllProvinces] = useState<
-    Array<{ State__Province__County: string }>
-  >([]);
-  const [allCities, setAllCities] = useState<Array<{ City: string }>>([]);
-  const [allHybridBusinessFocuses, setAllHybridBusinessFocuses] = useState<
-    Array<{ id: number; business_focus: string }>
-  >([]);
-  const [allOwnershipTypes, setAllOwnershipTypes] = useState<
-    Array<{ id: number; ownership: string }>
-  >([]);
-
-  const [selCountries, setSelCountries] = useState<string[]>([]);
-  const [selContinentalRegions, setSelContinentalRegions] = useState<string[]>(
-    []
-  );
-  const [selSubRegions, setSelSubRegions] = useState<string[]>([]);
-  const [selProvinces, setSelProvinces] = useState<string[]>([]);
-  const [selCities, setSelCities] = useState<string[]>([]);
-  const [selHybridBusinessFocuses, setSelHybridBusinessFocuses] = useState<
-    number[]
-  >([]);
-  const [selOwnershipTypes, setSelOwnershipTypes] = useState<number[]>([]);
-  const [selLinkedinMin, setSelLinkedinMin] = useState<number | null>(null);
-  const [selLinkedinMax, setSelLinkedinMax] = useState<number | null>(null);
-
-  const [loadingAllCountries, setLoadingAllCountries] = useState(false);
-  const [loadingAllProvinces, setLoadingAllProvinces] = useState(false);
-  const [loadingAllCities, setLoadingAllCities] = useState(false);
-  const [loadingAllHybridFocus, setLoadingAllHybridFocus] = useState(false);
-  const [loadingAllOwnershipTypes, setLoadingAllOwnershipTypes] =
-    useState(false);
-
-  const [allCompaniesCurrentFilters, setAllCompaniesCurrentFilters] = useState<
-    AllCompaniesFilters | undefined
-  >(undefined);
-
   const fetchCompanies = useCallback(
-    async (page: number = 1, filters?: AllCompaniesFilters) => {
+    async (page: number = 1) => {
       setCompaniesLoading(true);
       setCompaniesError(null);
       try {
@@ -2039,84 +101,19 @@ const SubSectorPage = () => {
           return;
         }
         if (Number.isNaN(subSectorId) || subSectorId <= 0) {
-          setCompaniesError("Invalid secondary sector id");
+          setCompaniesError("Invalid sub-sector id");
           return;
         }
-
         const perPage = 25;
-
-        // Track current filters for pagination reuse
-        if (filters !== undefined) {
-          setAllCompaniesCurrentFilters(filters);
-        }
-        const filtersToUse = filters ?? allCompaniesCurrentFilters;
-
-        // Use investors-enriched companies endpoint so we can display Investors
         const params = new URLSearchParams();
         params.append("Offset", String(page));
         params.append("Per_page", String(perPage));
-
-        // Always scope to this sub-sector
+        params.append("Min_linkedin_members", "0");
+        params.append("Max_linkedin_members", "0");
+        params.append("Horizontals_ids", "");
         params.append("Secondary_sectors_ids[]", String(subSectorId));
 
-        // Apply filters if present (same semantics as Companies page)
-        if (filtersToUse) {
-          if ((filtersToUse.continentalRegions || []).length > 0) {
-            params.append(
-              "Continental_Region",
-              (filtersToUse.continentalRegions || []).join(",")
-            );
-          }
-          if ((filtersToUse.subRegions || []).length > 0) {
-            params.append(
-              "geographical_sub_region",
-              (filtersToUse.subRegions || []).join(",")
-            );
-          }
-          if ((filtersToUse.countries || []).length > 0) {
-            (filtersToUse.countries || []).forEach((v) =>
-              params.append("Countries[]", v)
-            );
-          }
-          if ((filtersToUse.provinces || []).length > 0) {
-            (filtersToUse.provinces || []).forEach((v) =>
-              params.append("Provinces[]", v)
-            );
-          }
-          if ((filtersToUse.cities || []).length > 0) {
-            (filtersToUse.cities || []).forEach((v) =>
-              params.append("Cities[]", v)
-            );
-          }
-          if ((filtersToUse.ownershipTypes || []).length > 0) {
-            (filtersToUse.ownershipTypes || []).forEach((id) =>
-              params.append("Ownership_types_ids[]", String(id))
-            );
-          }
-          if ((filtersToUse.hybridBusinessFocuses || []).length > 0) {
-            (filtersToUse.hybridBusinessFocuses || []).forEach((id) =>
-              params.append("Hybrid_Data_ids[]", String(id))
-            );
-          }
-          params.append(
-            "Min_linkedin_members",
-            String(filtersToUse.linkedinMembersMin ?? 0)
-          );
-          params.append(
-            "Max_linkedin_members",
-            String(filtersToUse.linkedinMembersMax ?? 0)
-          );
-          if (filtersToUse.searchQuery) {
-            params.append("query", filtersToUse.searchQuery);
-          }
-        } else {
-          // Defaults when no filters present
-          params.append("Min_linkedin_members", "0");
-          params.append("Max_linkedin_members", "0");
-        }
-
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies_with_investors?${params.toString()}`;
-
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
         const response = await fetch(url, {
           method: "GET",
           headers: {
@@ -2131,7 +128,6 @@ const SubSectorPage = () => {
             `API request failed: ${response.status} ${response.statusText} - ${text}`
           );
         }
-
         const data = (await response.json()) as {
           result1?: {
             items?: CompanyItem[];
@@ -2163,96 +159,81 @@ const SubSectorPage = () => {
         setCompaniesLoading(false);
       }
     },
-    [subSectorId, allCompaniesCurrentFilters]
+    [subSectorId]
   );
 
   useEffect(() => {
     if (activeTab === "all") fetchCompanies(1);
   }, [activeTab, fetchCompanies]);
 
-  // Load All Companies filter option lists when All tab is opened
-  useEffect(() => {
-    if (activeTab !== "all") return;
-    let cancelled = false;
-    const loadOpts = async () => {
+  // -------------------------
+  // Transactions (by sub-sector)
+  // -------------------------
+  const [events, setEvents] = useState<CorporateEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [eventsPagination, setEventsPagination] = useState({
+    itemsReceived: 0,
+    curPage: 1,
+    nextPage: null as number | null,
+    prevPage: null as number | null,
+    offset: 0,
+    perPage: 50,
+    pageTotal: 0,
+  });
+
+  const fetchEvents = useCallback(
+    async (page: number = 1) => {
+      setEventsLoading(true);
+      setEventsError(null);
       try {
-        setLoadingAllCountries(true);
-        setLoadingAllHybridFocus(true);
-        setLoadingAllOwnershipTypes(true);
-        const [countries, continents, subs, hybrid, ownership] =
-          await Promise.all([
-            locationsService.getCountries(),
-            locationsService.getContinentalRegions(),
-            locationsService.getSubRegions(),
-            locationsService.getHybridBusinessFocuses(),
-            locationsService.getOwnershipTypes(),
-          ]);
-        if (!cancelled) {
-          setAllCountries(countries || []);
-          setAllContinentalRegions(Array.isArray(continents) ? continents : []);
-          setAllSubRegions(Array.isArray(subs) ? subs : []);
-          setAllHybridBusinessFocuses(hybrid || []);
-          setAllOwnershipTypes(ownership || []);
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) {
+          setEventsError("Authentication required");
+          return;
         }
-      } catch {
-        // ignore
-      } finally {
-        setLoadingAllCountries(false);
-        setLoadingAllHybridFocus(false);
-        setLoadingAllOwnershipTypes(false);
-      }
-    };
-    loadOpts();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab]);
-
-  // Dependent options for provinces/cities in All Companies filters
-  useEffect(() => {
-    const loadProvinces = async () => {
-      if (selCountries.length === 0) {
-        setAllProvinces([]);
-        setSelProvinces([]);
-        return;
-      }
-      try {
-        setLoadingAllProvinces(true);
-        const prov = await locationsService.getProvinces(selCountries);
-        setAllProvinces(prov || []);
-        setSelProvinces([]);
-      } catch {
-        // ignore
-      } finally {
-        setLoadingAllProvinces(false);
-      }
-    };
-    loadProvinces();
-  }, [selCountries]);
-
-  useEffect(() => {
-    const loadCities = async () => {
-      if (selCountries.length === 0) {
-        setAllCities([]);
-        setSelCities([]);
-        return;
-      }
-      try {
-        setLoadingAllCities(true);
-        const cities = await locationsService.getCities(
-          selCountries,
-          selProvinces
+        if (Number.isNaN(subSectorId) || subSectorId <= 0) {
+          setEventsError("Invalid sub-sector id");
+          return;
+        }
+        const params = new URLSearchParams();
+        params.append("Page", String(page));
+        params.append("Per_page", String(50));
+        params.append("Secondary_sectors_ids[]", String(subSectorId));
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`;
+        const resp = await fetch(url, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        if (!resp.ok) throw new Error(`HTTP error ${resp.status}`);
+        const data: CorporateEventsResponse = await resp.json();
+        setEvents(data.items || []);
+        setEventsPagination({
+          itemsReceived: data.itemsReceived,
+          curPage: data.curPage,
+          nextPage: data.nextPage,
+          prevPage: data.prevPage,
+          offset: data.offset,
+          perPage: 50,
+          pageTotal: data.pageTotal,
+        });
+      } catch (e) {
+        setEventsError(
+          e instanceof Error ? e.message : "Failed to fetch corporate events"
         );
-        setAllCities(cities || []);
-        setSelCities([]);
-      } catch {
-        // ignore
       } finally {
-        setLoadingAllCities(false);
+        setEventsLoading(false);
       }
-    };
-    loadCities();
-  }, [selCountries, selProvinces]);
+    },
+    [subSectorId]
+  );
+
+  useEffect(() => {
+    if (activeTab === "transactions") fetchEvents(1);
+  }, [activeTab, fetchEvents]);
 
   // -------------------------
   // Insights & Analysis (by sub-sector)
@@ -2281,7 +262,7 @@ const SubSectorPage = () => {
           return;
         }
         if (Number.isNaN(subSectorId) || subSectorId <= 0) {
-          setInsightsError("Invalid secondary sector id");
+          setInsightsError("Invalid sub-sector id");
           return;
         }
         const params = new URLSearchParams();
@@ -2323,48 +304,6 @@ const SubSectorPage = () => {
     if (activeTab === "insights") fetchInsights(1);
   }, [activeTab, fetchInsights]);
 
-  const handleCompaniesPageChange = useCallback(
-    (page: number) => {
-      if (
-        companiesLoading ||
-        page < 1 ||
-        page > companiesPagination.pageTotal ||
-        page === companiesPagination.curPage
-      ) {
-        return;
-      }
-
-      void fetchCompanies(page);
-    },
-    [
-      companiesLoading,
-      companiesPagination.curPage,
-      companiesPagination.pageTotal,
-      fetchCompanies,
-    ]
-  );
-
-  const handleInsightsPageChange = useCallback(
-    (page: number) => {
-      if (
-        insightsLoading ||
-        page < 1 ||
-        page > insightsPagination.pageTotal ||
-        page === insightsPagination.curPage
-      ) {
-        return;
-      }
-
-      void fetchInsights(page);
-    },
-    [
-      insightsLoading,
-      insightsPagination.curPage,
-      insightsPagination.pageTotal,
-      fetchInsights,
-    ]
-  );
-
   return (
     <div className="min-h-screen bg-gradient-to-br to-blue-50 from-slate-50">
       <Header />
@@ -2385,38 +324,8 @@ const SubSectorPage = () => {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-slate-900">
-                  {subSectorName || "Secondary Sector"}
+                  {subSectorName || "Sub-Sector"}
                 </h1>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              {!Number.isNaN(subSectorId) && subSectorId > 0 && (
-                <FollowButton
-                  followKey="followed_sectors"
-                  entityId={subSectorId}
-                  entityType="sector"
-                  label="Secondary Sector"
-                />
-              )}
-              <div className="text-sm text-right text-slate-700 whitespace-normal">
-              <span className="font-semibold text-slate-900">
-                Primary Sector(s):
-              </span>{" "}
-              {headerPrimarySectors.length === 0 ? (
-                <span className="text-slate-500">N/A</span>
-              ) : (
-                headerPrimarySectors.map((s, i) => (
-                  <React.Fragment key={`${s.id}-${s.sector_name}-${i}`}>
-                    <a
-                      href={`/sector/${s.id}`}
-                      className="text-blue-600 underline hover:text-blue-800"
-                    >
-                      {s.sector_name}
-                    </a>
-                    {i < headerPrimarySectors.length - 1 && ", "}
-                  </React.Fragment>
-                ))
-              )}
               </div>
             </div>
           </div>
@@ -2472,468 +381,6 @@ const SubSectorPage = () => {
                 </div>
               </div>
               <div className="px-5 py-4">
-                {/* All Companies Filters (same behaviour as Companies page, scoped to this sub-sector) */}
-                <div className="p-4 mb-3 bg-white rounded-xl border shadow-lg border-slate-200/60">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-base font-semibold text-slate-900">
-                      Filters
-                    </h3>
-                    <button
-                      onClick={() => setAllShowFilters(!allShowFilters)}
-                      className="text-sm text-blue-600 underline"
-                    >
-                      {allShowFilters ? "Hide Filters" : "Show Filters"}
-                    </button>
-                  </div>
-                  {allShowFilters && (
-                    <div className="grid grid-cols-1 gap-6 mt-4 md:grid-cols-3">
-                      {/* Location */}
-                      <div>
-                        <h4 className="mb-3 text-sm font-semibold text-slate-900">
-                          Location
-                        </h4>
-                        <span className="block mb-1 text-sm text-slate-700">
-                          By Continental Region
-                        </span>
-                        <SearchableSelect
-                          options={allContinentalRegions.map((r) => ({
-                            value: r,
-                            label: r,
-                          }))}
-                          value=""
-                          onChange={(v) => {
-                            if (
-                              typeof v === "string" &&
-                              v &&
-                              !selContinentalRegions.includes(v)
-                            ) {
-                              setSelContinentalRegions([
-                                ...selContinentalRegions,
-                                v,
-                              ]);
-                            }
-                          }}
-                          placeholder="Select Continental Region"
-                        />
-                        {selContinentalRegions.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selContinentalRegions.map((r) => (
-                              <span
-                                key={r}
-                                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
-                              >
-                                {r}
-                                <button
-                                  onClick={() =>
-                                    setSelContinentalRegions(
-                                      selContinentalRegions.filter((x) => x !== r)
-                                    )
-                                  }
-                                  className="font-bold"
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <span className="block mt-3 mb-1 text-sm text-slate-700">
-                          By Sub-Region
-                        </span>
-                        <SearchableSelect
-                          options={allSubRegions.map((r) => ({
-                            value: r,
-                            label: r,
-                          }))}
-                          value=""
-                          onChange={(v) => {
-                            if (
-                              typeof v === "string" &&
-                              v &&
-                              !selSubRegions.includes(v)
-                            ) {
-                              setSelSubRegions([...selSubRegions, v]);
-                            }
-                          }}
-                          placeholder="Select Sub-Region"
-                        />
-                        {selSubRegions.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selSubRegions.map((r) => (
-                              <span
-                                key={r}
-                                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
-                              >
-                                {r}
-                                <button
-                                  onClick={() =>
-                                    setSelSubRegions(
-                                      selSubRegions.filter((x) => x !== r)
-                                    )
-                                  }
-                                  className="font-bold"
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <span className="block mt-3 mb-1 text-sm text-slate-700">
-                          By Country
-                        </span>
-                        <SearchableSelect
-                          options={allCountries.map((c) => ({
-                            value: c.locations_Country,
-                            label: c.locations_Country,
-                          }))}
-                          value=""
-                          onChange={(v) => {
-                            if (
-                              typeof v === "string" &&
-                              v &&
-                              !selCountries.includes(v)
-                            ) {
-                              setSelCountries([...selCountries, v]);
-                            }
-                          }}
-                          placeholder={
-                            loadingAllCountries
-                              ? "Loading countries..."
-                              : "Select Country"
-                          }
-                          disabled={loadingAllCountries}
-                        />
-                        {selCountries.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selCountries.map((r) => (
-                              <span
-                                key={r}
-                                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
-                              >
-                                {r}
-                                <button
-                                  onClick={() =>
-                                    setSelCountries(
-                                      selCountries.filter((x) => x !== r)
-                                    )
-                                  }
-                                  className="font-bold"
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <span className="block mt-3 mb-1 text-sm text-slate-700">
-                          By State/County/Province
-                        </span>
-                        <SearchableSelect
-                          options={allProvinces.map((p) => ({
-                            value: p.State__Province__County,
-                            label: p.State__Province__County,
-                          }))}
-                          value=""
-                          onChange={(v) => {
-                            if (
-                              typeof v === "string" &&
-                              v &&
-                              !selProvinces.includes(v)
-                            ) {
-                              setSelProvinces([...selProvinces, v]);
-                            }
-                          }}
-                          placeholder={
-                            loadingAllProvinces
-                              ? "Loading provinces..."
-                              : selCountries.length === 0
-                              ? "Select country first"
-                              : "Select Province"
-                          }
-                          disabled={
-                            loadingAllProvinces || selCountries.length === 0
-                          }
-                        />
-                        {selProvinces.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selProvinces.map((r) => (
-                              <span
-                                key={r}
-                                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-green-700 bg-green-50 rounded"
-                              >
-                                {r}
-                                <button
-                                  onClick={() =>
-                                    setSelProvinces(
-                                      selProvinces.filter((x) => x !== r)
-                                    )
-                                  }
-                                  className="font-bold"
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <span className="block mt-3 mb-1 text-sm text-slate-700">
-                          By City
-                        </span>
-                        <SearchableSelect
-                          options={allCities.map((c) => ({
-                            value: c.City,
-                            label: c.City,
-                          }))}
-                          value=""
-                          onChange={(v) => {
-                            if (
-                              typeof v === "string" &&
-                              v &&
-                              !selCities.includes(v)
-                            ) {
-                              setSelCities([...selCities, v]);
-                            }
-                          }}
-                          placeholder={
-                            loadingAllCities
-                              ? "Loading cities..."
-                              : selCountries.length === 0
-                              ? "Select country first"
-                              : "Select City"
-                          }
-                          disabled={
-                            loadingAllCities || selCountries.length === 0
-                          }
-                        />
-                        {selCities.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selCities.map((r) => (
-                              <span
-                                key={r}
-                                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-orange-700 bg-orange-50 rounded"
-                              >
-                                {r}
-                                <button
-                                  onClick={() =>
-                                    setSelCities(selCities.filter((x) => x !== r))
-                                  }
-                                  className="font-bold"
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Hybrid / Business Focus */}
-                      <div>
-                        <h4 className="mb-3 text-sm font-semibold text-slate-900">
-                          Business Focus
-                        </h4>
-                        <span className="block mb-1 text-sm text-slate-700">
-                          Hybrid Business Focus
-                        </span>
-                        <SearchableSelect
-                          options={allHybridBusinessFocuses.map((f) => ({
-                            value: f.id,
-                            label: f.business_focus,
-                          }))}
-                          value=""
-                          onChange={(v) => {
-                            if (
-                              typeof v === "number" &&
-                              v &&
-                              !selHybridBusinessFocuses.includes(v)
-                            ) {
-                              setSelHybridBusinessFocuses([
-                                ...selHybridBusinessFocuses,
-                                v,
-                              ]);
-                            }
-                          }}
-                          placeholder={
-                            loadingAllHybridFocus
-                              ? "Loading business focuses..."
-                              : "Select Business Focus"
-                          }
-                          disabled={loadingAllHybridFocus}
-                        />
-                        {selHybridBusinessFocuses.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selHybridBusinessFocuses.map((id) => {
-                              const f = allHybridBusinessFocuses.find(
-                                (x) => x.id === id
-                              );
-                              return (
-                                <span
-                                  key={id}
-                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-amber-700 bg-amber-50 rounded"
-                                >
-                                  {f?.business_focus || `Focus ${id}`}
-                                  <button
-                                    onClick={() =>
-                                      setSelHybridBusinessFocuses(
-                                        selHybridBusinessFocuses.filter(
-                                          (x) => x !== id
-                                        )
-                                      )
-                                    }
-                                    className="font-bold"
-                                  >
-                                    ×
-                                  </button>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Company Details */}
-                      <div>
-                        <h4 className="mb-3 text-sm font-semibold text-slate-900">
-                          Company Details
-                        </h4>
-                        <span className="block mb-1 text-sm text-slate-700">
-                          By Ownership Type
-                        </span>
-                        <SearchableSelect
-                          options={allOwnershipTypes.map((o) => ({
-                            value: o.id,
-                            label: o.ownership,
-                          }))}
-                          value=""
-                          onChange={(v) => {
-                            if (
-                              typeof v === "number" &&
-                              v &&
-                              !selOwnershipTypes.includes(v)
-                            ) {
-                              setSelOwnershipTypes([...selOwnershipTypes, v]);
-                            }
-                          }}
-                          placeholder={
-                            loadingAllOwnershipTypes
-                              ? "Loading ownership types..."
-                              : "Select Ownership Type"
-                          }
-                          disabled={loadingAllOwnershipTypes}
-                        />
-                        {selOwnershipTypes.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {selOwnershipTypes.map((id) => {
-                              const o = allOwnershipTypes.find(
-                                (x) => x.id === id
-                              );
-                              return (
-                                <span
-                                  key={id}
-                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-purple-700 bg-purple-50 rounded"
-                                >
-                                  {o?.ownership || `Ownership ${id}`}
-                                  <button
-                                    onClick={() =>
-                                      setSelOwnershipTypes(
-                                        selOwnershipTypes.filter((x) => x !== id)
-                                      )
-                                    }
-                                    className="font-bold"
-                                  >
-                                    ×
-                                  </button>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                        <span className="block mt-3 mb-1 text-sm text-slate-700">
-                          LinkedIn Members Range
-                        </span>
-                        <div className="flex gap-3">
-                          <input
-                            type="number"
-                            className="px-3 py-2 w-full text-sm rounded border"
-                            placeholder="Min"
-                            value={selLinkedinMin ?? ""}
-                            onChange={(e) =>
-                              setSelLinkedinMin(
-                                e.target.value ? Number(e.target.value) : null
-                              )
-                            }
-                          />
-                          <input
-                            type="number"
-                            className="px-3 py-2 w-full text-sm rounded border"
-                            placeholder="Max"
-                            value={selLinkedinMax ?? ""}
-                            onChange={(e) =>
-                              setSelLinkedinMax(
-                                e.target.value ? Number(e.target.value) : null
-                              )
-                            }
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Search in All Companies */}
-                  <div className="mt-4">
-                    <h4 className="mb-2 text-sm font-semibold text-slate-900">
-                      Search for Company
-                    </h4>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <input
-                        type="text"
-                        className="px-3 py-2 w-full max-w-md text-sm rounded border"
-                        placeholder="Enter company name here"
-                        value={allSearchTerm}
-                        onChange={(e) => setAllSearchTerm(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            const f: AllCompaniesFilters = {
-                              countries: selCountries,
-                              provinces: selProvinces,
-                              cities: selCities,
-                              continentalRegions: selContinentalRegions,
-                              subRegions: selSubRegions,
-                              hybridBusinessFocuses: selHybridBusinessFocuses,
-                              ownershipTypes: selOwnershipTypes,
-                              linkedinMembersMin: selLinkedinMin,
-                              linkedinMembersMax: selLinkedinMax,
-                              searchQuery: allSearchTerm,
-                            };
-                            fetchCompanies(1, f);
-                          }
-                        }}
-                      />
-                      <button
-                        className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded hover:bg-blue-700"
-                        onClick={() => {
-                          const f: AllCompaniesFilters = {
-                            countries: selCountries,
-                            provinces: selProvinces,
-                            cities: selCities,
-                            continentalRegions: selContinentalRegions,
-                            subRegions: selSubRegions,
-                            hybridBusinessFocuses: selHybridBusinessFocuses,
-                            ownershipTypes: selOwnershipTypes,
-                            linkedinMembersMin: selLinkedinMin,
-                            linkedinMembersMax: selLinkedinMax,
-                            searchQuery: allSearchTerm,
-                          };
-                          fetchCompanies(1, f);
-                        }}
-                      >
-                        Search
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
                 {companiesLoading ? (
                   <div className="py-10 text-center text-slate-500">
                     Loading companies...
@@ -2944,44 +391,35 @@ const SubSectorPage = () => {
                   </div>
                 ) : companies.length === 0 ? (
                   <div className="py-10 text-center text-slate-500">
-                    No companies found for this secondary sector.
+                    No companies found for this sub-sector.
                   </div>
                 ) : (
                   <div className="overflow-x-hidden">
                     <table className="w-full text-sm table-fixed">
                       <thead className="bg-slate-50/80">
                         <tr className="hover:bg-slate-50/80">
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[7%]">
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[8%]">
                             Logo
                           </th>
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[14%]">
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[18%]">
                             Name
                           </th>
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[20%]">
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[32%]">
                             Description
                           </th>
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[12%]">
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[18%]">
                             Primary Sector(s)
                           </th>
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[12%]">
-                            Secondary Sector(s)
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[16%]">
+                            Sub-Sector(s)
                           </th>
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[9%]">
-                            Ownership
-                          </th>
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[12%]">
-                            Investor(s)
-                          </th>
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[10%]">
-                            HQ
-                          </th>
-                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[4%]">
+                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[8%]">
                             LinkedIn Members
                           </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {companies.map((c, index) => (
+                        {companies.map((c) => (
                           <tr key={c.id} className="hover:bg-slate-50/50">
                             <td className="py-3 pr-4">
                               {c.linkedin_logo ? (
@@ -3002,7 +440,7 @@ const SubSectorPage = () => {
                                 </div>
                               )}
                             </td>
-                            <td className="py-3 pr-4 align-middle text-center whitespace-normal break-words">
+                            <td className="py-3 pr-4 align-top whitespace-normal break-words">
                               <a
                                 href={`/company/${c.id}`}
                                 className="font-medium text-blue-600 underline"
@@ -3010,57 +448,20 @@ const SubSectorPage = () => {
                                 {c.name}
                               </a>
                             </td>
-                            <td className="py-3 pr-4 align-top whitespace-normal break-words">
-                              <DescriptionCell
-                                description={c.description}
-                                index={index}
-                              />
+                            <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
+                              {c.description || "N/A"}
                             </td>
-                            <td className="py-3 pr-4 align-top text-center whitespace-normal break-words text-slate-700">
-                              {renderSectorLinks(
-                                c.primary_sectors as unknown[] | undefined,
-                                "primary",
-                                primarySectorIdByName
-                              )}
+                            <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
+                              {Array.isArray(c.primary_sectors) &&
+                              c.primary_sectors.length > 0
+                                ? c.primary_sectors.join(", ")
+                                : "N/A"}
                             </td>
-                            <td className="py-3 pr-4 align-top text-center whitespace-normal break-words text-slate-700">
-                              {renderSectorLinks(
-                                c.secondary_sectors as unknown[] | undefined,
-                                "secondary",
-                                secondarySectorIdByName
-                              )}
-                            </td>
-                            <td className="py-3 pr-4 align-middle text-center whitespace-normal break-words text-slate-700">
-                              {c.ownership || "N/A"}
-                            </td>
-                            <td className="py-3 pr-4 align-middle text-center whitespace-normal break-words text-slate-700">
-                              {(() => {
-                                // Prefer new investors array from Get_new_companies_with_investors
-                                if (
-                                  Array.isArray(c.investors) &&
-                                  c.investors.length > 0
-                                ) {
-                                  return renderInvestorLinks(c.investors);
-                                }
-
-                                // Fallback to legacy companies_investors, if present
-                                if (
-                                  Array.isArray(c.companies_investors) &&
-                                  c.companies_investors.length > 0
-                                ) {
-                                  const names = c.companies_investors
-                                    .map((inv) => (inv.company_name || "").trim())
-                                    .filter((name) => name.length > 0);
-                                  if (names.length > 0) {
-                                    return names.join(", ");
-                                  }
-                                }
-
-                                return "N/A";
-                              })()}
-                            </td>
-                            <td className="py-3 pr-4 align-middle text-center whitespace-normal break-words text-slate-700">
-                              {c.country || "N/A"}
+                            <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
+                              {Array.isArray(c.secondary_sectors) &&
+                              c.secondary_sectors.length > 0
+                                ? c.secondary_sectors.join(", ")
+                                : "N/A"}
                             </td>
                             <td className="py-3 pr-4 text-center text-slate-700">
                               {typeof c.linkedin_members === "number"
@@ -3075,19 +476,208 @@ const SubSectorPage = () => {
                 )}
               </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-              <CompactPagination
-                curPage={companiesPagination.curPage}
-                pageTotal={companiesPagination.pageTotal}
-                onPageChange={handleCompaniesPageChange}
-                disabled={companiesLoading}
-              />
-            </div>
+            {companiesPagination.pageTotal > 1 && (
+              <div className="flex gap-2 justify-center items-center">
+                <button
+                  disabled={!companiesPagination.prevPage}
+                  onClick={() =>
+                    companiesPagination.prevPage &&
+                    fetchCompanies(companiesPagination.prevPage)
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  ← Previous
+                </button>
+                <span className="text-sm text-slate-600">
+                  Page {companiesPagination.curPage} of{" "}
+                  {companiesPagination.pageTotal}
+                </span>
+                <button
+                  disabled={!companiesPagination.nextPage}
+                  onClick={() =>
+                    companiesPagination.nextPage &&
+                    fetchCompanies(companiesPagination.nextPage)
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === "transactions" && (
-          <SubSectorTransactionsTab subSectorId={subSectorId} />
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
+              <div className="px-5 py-4 border-b border-slate-100">
+                <div className="flex justify-between items-center">
+                  <div className="flex gap-3 items-center text-xl">
+                    <span className="inline-flex justify-center items-center w-8 h-8 bg-orange-50 rounded-lg">
+                      <svg
+                        className="w-4 h-4 text-orange-600"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M3 12h18M12 3v18" />
+                      </svg>
+                    </span>
+                    <span className="text-slate-900">Transactions</span>
+                  </div>
+                </div>
+              </div>
+              <div className="px-5 py-4">
+                {eventsLoading ? (
+                  <div className="py-10 text-center text-slate-500">
+                    Loading transactions...
+                  </div>
+                ) : eventsError ? (
+                  <div className="py-4 text-center text-red-600">
+                    {eventsError}
+                  </div>
+                ) : events.length === 0 ? (
+                  <div className="py-10 text-center text-slate-500">
+                    No corporate events found.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full table-fixed">
+                      <colgroup>
+                        <col style={{ width: "40%" }} />
+                        <col style={{ width: "30%" }} />
+                        <col style={{ width: "30%" }} />
+                      </colgroup>
+                      <thead>
+                        <tr className="border-b-2 border-slate-200">
+                          <th className="p-3 text-sm font-semibold text-left text-slate-900">
+                            Event
+                          </th>
+                          <th className="p-3 text-sm font-semibold text-left text-slate-900">
+                            Parties
+                          </th>
+                          <th className="p-3 text-sm font-semibold text-left text-slate-900">
+                            Details
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {events.map((event) => (
+                          <tr
+                            key={event.id}
+                            className="border-b border-slate-100"
+                          >
+                            <td className="p-3 align-top break-words">
+                              <div className="mb-1">
+                                <a
+                                  href={`/corporate-event/${event.id}`}
+                                  className="font-medium text-blue-600 underline hover:text-blue-800"
+                                >
+                                  {event.description || "Not Available"}
+                                </a>
+                              </div>
+                              <div className="text-xs text-slate-600">
+                                Date:{" "}
+                                {event.announcement_date
+                                  ? new Date(
+                                      event.announcement_date
+                                    ).toLocaleDateString("en-US", {
+                                      year: "numeric",
+                                      month: "long",
+                                      day: "numeric",
+                                    })
+                                  : "Not available"}
+                              </div>
+                            </td>
+                            <td className="p-3 text-xs align-top break-words text-slate-600">
+                              <div className="mb-1">
+                                <strong>Target:</strong>{" "}
+                                {event.target_counterparty?.new_company ? (
+                                  <a
+                                    href={`/company/${
+                                      event.target_counterparty
+                                        ?.new_company_counterparty ||
+                                      event.target_counterparty?.new_company
+                                        ?.id ||
+                                      ""
+                                    }`}
+                                    className="text-blue-600 underline hover:text-blue-800"
+                                  >
+                                    {event.target_counterparty?.new_company
+                                      ?.name || "Not Available"}
+                                  </a>
+                                ) : (
+                                  "Not Available"
+                                )}
+                              </div>
+                              <div>
+                                <strong>Buyer/Investor:</strong>{" "}
+                                {Array.isArray(event.other_counterparties) &&
+                                event.other_counterparties.length > 0
+                                  ? event.other_counterparties
+                                      .map(
+                                        (cp) =>
+                                          cp._new_company?.name || "Unknown"
+                                      )
+                                      .join(", ")
+                                  : "Not Available"}
+                              </div>
+                            </td>
+                            <td className="p-3 text-xs align-top break-words text-slate-600">
+                              <div className="mb-1">
+                                <strong>Deal Type:</strong>{" "}
+                                {event.deal_type || "Not Available"}
+                              </div>
+                              <div>
+                                <strong>Amount (m):</strong>{" "}
+                                {event.investment_data?.investment_amount_m &&
+                                event.investment_data?.currency?.Currency
+                                  ? `${
+                                      event.investment_data.currency.Currency
+                                    }${Number(
+                                      event.investment_data.investment_amount_m
+                                    ).toLocaleString()}m`
+                                  : "Not available"}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+            {eventsPagination.pageTotal > 1 && (
+              <div className="flex gap-2 justify-center items-center">
+                <button
+                  disabled={!eventsPagination.prevPage}
+                  onClick={() =>
+                    eventsPagination.prevPage &&
+                    fetchEvents(eventsPagination.prevPage)
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  ← Previous
+                </button>
+                <span className="text-sm text-slate-600">
+                  Page {eventsPagination.curPage} of{" "}
+                  {eventsPagination.pageTotal}
+                </span>
+                <button
+                  disabled={!eventsPagination.nextPage}
+                  onClick={() =>
+                    eventsPagination.nextPage &&
+                    fetchEvents(eventsPagination.nextPage)
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
         {activeTab === "insights" && (
@@ -3166,14 +756,34 @@ const SubSectorPage = () => {
                 )}
               </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-              <CompactPagination
-                curPage={insightsPagination.curPage}
-                pageTotal={insightsPagination.pageTotal}
-                onPageChange={handleInsightsPageChange}
-                disabled={insightsLoading}
-              />
-            </div>
+            {insightsPagination.pageTotal > 1 && (
+              <div className="flex gap-2 justify-center items-center">
+                <button
+                  disabled={!insightsPagination.prevPage}
+                  onClick={() =>
+                    insightsPagination.prevPage &&
+                    fetchInsights(insightsPagination.prevPage)
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  ← Previous
+                </button>
+                <span className="text-sm text-slate-600">
+                  Page {insightsPagination.curPage} of{" "}
+                  {insightsPagination.pageTotal}
+                </span>
+                <button
+                  disabled={!insightsPagination.nextPage}
+                  onClick={() =>
+                    insightsPagination.nextPage &&
+                    fetchInsights(insightsPagination.nextPage)
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
           </div>
         )}
       </main>
