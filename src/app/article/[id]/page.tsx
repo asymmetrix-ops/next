@@ -488,11 +488,15 @@ const ArticleDetailPage = () => {
   if (loading) {
     return (
       <div style={styles.container}>
-        <Header />
+        <div className="no-print">
+          <Header />
+        </div>
         <div style={styles.maxWidth}>
           <div style={styles.loading}>Loading article...</div>
         </div>
-        <Footer />
+        <div className="no-print">
+          <Footer />
+        </div>
       </div>
     );
   }
@@ -500,7 +504,9 @@ const ArticleDetailPage = () => {
   if (error) {
     return (
       <div style={styles.container}>
-        <Header />
+        <div className="no-print">
+          <Header />
+        </div>
         <div style={styles.maxWidth}>
           <div style={styles.error}>
             {fromHome
@@ -508,7 +514,9 @@ const ArticleDetailPage = () => {
               : `Error: ${error}`}
           </div>
         </div>
-        <Footer />
+        <div className="no-print">
+          <Footer />
+        </div>
       </div>
     );
   }
@@ -516,7 +524,9 @@ const ArticleDetailPage = () => {
   if (!article) {
     return (
       <div style={styles.container}>
-        <Header />
+        <div className="no-print">
+          <Header />
+        </div>
         <div style={styles.maxWidth}>
           <div style={styles.error}>
             {fromHome
@@ -524,18 +534,24 @@ const ArticleDetailPage = () => {
               : "Article not found"}
           </div>
         </div>
-        <Footer />
+        <div className="no-print">
+          <Footer />
+        </div>
       </div>
     );
   }
 
   return (
     <div style={styles.container}>
-      <Header />
+      <div className="no-print">
+        <Header />
+      </div>
       <div style={styles.maxWidth}>
-        <button onClick={handleBackClick} style={styles.backButton}>
-          ← Back to Insights & Analysis
-        </button>
+        <div className="no-print">
+          <button onClick={handleBackClick} style={styles.backButton}>
+            ← Back to Insights & Analysis
+          </button>
+        </div>
 
         <div className="article-layout">
           {/* Left: Main body (2/3) */}
@@ -803,7 +819,9 @@ const ArticleDetailPage = () => {
           </div>
         </div>
       </div>
-      <Footer />
+      <div className="no-print">
+        <Footer />
+      </div>
       <style
         dangerouslySetInnerHTML={{
           __html: `
@@ -824,6 +842,19 @@ const ArticleDetailPage = () => {
           .article-body figure { margin: 1rem 0; }
           .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem; }
           .article-inline-image { margin: 1.25rem 0; }
+
+          /* Print styles */
+          @media print {
+            .no-print { display: none !important; }
+            body { background: #ffffff !important; }
+            .article-layout { display: block !important; }
+            .article-main { box-shadow: none !important; padding: 0 !important; }
+            .article-meta { display: none !important; }
+            .article-body a { color: inherit !important; text-decoration: none !important; }
+            .article-body img, .article-body figure { page-break-inside: avoid; break-inside: avoid; }
+          }
+
+          @page { size: A4; margin: 12mm; }
         `,
         }}
       />
