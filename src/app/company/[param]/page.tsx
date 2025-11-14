@@ -2744,11 +2744,10 @@ const CompanyDetail = () => {
                                       })()}
                                     </div>
                                     <div className="muted-row">
-                                      <strong>Buyer(s) / Investor(s):</strong>{" "}
+                                      <strong>Buyer(s):</strong>{" "}
                                       {(() => {
                                         const newEvent =
                                           event as NewCorporateEvent;
-                                        // Prefer new buyers_investors; fallback to other_counterparties for backward compatibility
                                         const candidates = Array.isArray(
                                           newEvent.buyers_investors
                                         )
@@ -2763,7 +2762,8 @@ const CompanyDetail = () => {
                                             (c) =>
                                               c &&
                                               typeof c.id === "number" &&
-                                              c.name
+                                              c.name &&
+                                              c.page_type !== "investor"
                                           );
                                           if (list.length === 0)
                                             return <span>Not Available</span>;
@@ -2793,18 +2793,96 @@ const CompanyDetail = () => {
                                           (it) =>
                                             it &&
                                             it._new_company &&
-                                            it._new_company.name
+                                            it._new_company.name &&
+                                            !it._new_company?._is_that_investor
                                         );
                                         if (items.length === 0)
                                           return <span>Not Available</span>;
                                         return items.map((it, idx) => {
                                           const id = it._new_company?.id;
-                                          const isInvestor = Boolean(
-                                            it._new_company?._is_that_investor
+                                          const href = `/company/${id}`;
+                                          if (!id) {
+                                            return (
+                                              <span
+                                                key={`${it._new_company?.name}-${idx}`}
+                                              >
+                                                {it._new_company?.name}
+                                                {idx < items.length - 1 && ", "}
+                                              </span>
+                                            );
+                                          }
+                                          return (
+                                            <span key={`${id}-${idx}`}>
+                                              <a
+                                                href={href}
+                                                className="link-blue"
+                                              >
+                                                {it._new_company!.name}
+                                              </a>
+                                              {idx < items.length - 1 && ", "}
+                                            </span>
                                           );
-                                          const href = isInvestor
-                                            ? `/investors/${id}`
-                                            : `/company/${id}`;
+                                        });
+                                      })()}
+                                    </div>
+                                    <div className="muted-row">
+                                      <strong>Investor(s):</strong>{" "}
+                                      {(() => {
+                                        const newEvent =
+                                          event as NewCorporateEvent;
+                                        const candidates = Array.isArray(
+                                          newEvent.buyers_investors
+                                        )
+                                          ? newEvent.buyers_investors
+                                          : Array.isArray(
+                                              newEvent.other_counterparties
+                                            )
+                                          ? newEvent.other_counterparties
+                                          : [];
+                                        if (Array.isArray(candidates)) {
+                                          const list = candidates.filter(
+                                            (c) =>
+                                              c &&
+                                              typeof c.id === "number" &&
+                                              c.name &&
+                                              c.page_type === "investor"
+                                          );
+                                          if (list.length === 0)
+                                            return <span>Not Available</span>;
+                                          return list.map((c, idx) => {
+                                            const href =
+                                              c.page_type === "investor"
+                                                ? `/investors/${c.id}`
+                                                : `/company/${c.id}`;
+                                            return (
+                                              <span key={`${c.id}-${idx}`}>
+                                                <a
+                                                  href={href}
+                                                  className="link-blue"
+                                                >
+                                                  {c.name}
+                                                </a>
+                                                {idx < list.length - 1 && ", "}
+                                              </span>
+                                            );
+                                          });
+                                        }
+                                        const legacy =
+                                          event as LegacyCorporateEvent;
+                                        const items = (
+                                          legacy["0"] || []
+                                        ).filter(
+                                          (it) =>
+                                            it &&
+                                            it._new_company &&
+                                            it._new_company.name &&
+                                            it._new_company?._is_that_investor
+                                        );
+                                        if (items.length === 0)
+                                          return <span>Not Available</span>;
+                                        return items.map((it, idx) => {
+                                          const id = it._new_company?.id;
+                                          const href = `/investors/${id}`;
                                           if (!id) {
                                             return (
                                               <span
@@ -4769,10 +4847,9 @@ const CompanyDetail = () => {
                                 })()}
                               </div>
                               <div className="muted-row">
-                                <strong>Buyer(s) / Investor(s):</strong>{" "}
+                                <strong>Buyer(s):</strong>{" "}
                                 {(() => {
                                   const newEvent = event as NewCorporateEvent;
-                                  // Prefer new buyers_investors; fallback to other_counterparties for backward compatibility
                                   const candidates = Array.isArray(
                                     newEvent.buyers_investors
                                   )
@@ -4785,7 +4862,10 @@ const CompanyDetail = () => {
                                   if (Array.isArray(candidates)) {
                                     const list = candidates.filter(
                                       (c) =>
-                                        c && typeof c.id === "number" && c.name
+                                        c &&
+                                        typeof c.id === "number" &&
+                                        c.name &&
+                                        c.page_type !== "investor"
                                     );
                                     if (list.length === 0)
                                       return <span>Not Available</span>;
@@ -4809,18 +4889,86 @@ const CompanyDetail = () => {
                                     (it) =>
                                       it &&
                                       it._new_company &&
-                                      it._new_company.name
+                                      it._new_company.name &&
+                                      !it._new_company?._is_that_investor
                                   );
                                   if (items.length === 0)
                                     return <span>Not Available</span>;
                                   return items.map((it, idx) => {
                                     const id = it._new_company?.id;
-                                    const isInvestor = Boolean(
-                                      it._new_company?._is_that_investor
+                                    const href = `/company/${id}`;
+                                    if (!id) {
+                                      return (
+                                        <span
+                                          key={`${it._new_company?.name}-${idx}`}
+                                        >
+                                          {it._new_company?.name}
+                                          {idx < items.length - 1 && ", "}
+                                        </span>
+                                      );
+                                    }
+                                    return (
+                                      <span key={`${id}-${idx}`}>
+                                        <a href={href} className="link-blue">
+                                          {it._new_company!.name}
+                                        </a>
+                                        {idx < items.length - 1 && ", "}
+                                      </span>
                                     );
-                                    const href = isInvestor
-                                      ? `/investors/${id}`
-                                      : `/company/${id}`;
+                                  });
+                                })()}
+                              </div>
+                              <div className="muted-row">
+                                <strong>Investor(s):</strong>{" "}
+                                {(() => {
+                                  const newEvent = event as NewCorporateEvent;
+                                  const candidates = Array.isArray(
+                                    newEvent.buyers_investors
+                                  )
+                                    ? newEvent.buyers_investors
+                                    : Array.isArray(
+                                        newEvent.other_counterparties
+                                      )
+                                    ? newEvent.other_counterparties
+                                    : [];
+                                  if (Array.isArray(candidates)) {
+                                    const list = candidates.filter(
+                                      (c) =>
+                                        c &&
+                                        typeof c.id === "number" &&
+                                        c.name &&
+                                        c.page_type === "investor"
+                                    );
+                                    if (list.length === 0)
+                                      return <span>Not Available</span>;
+                                    return list.map((c, idx) => {
+                                      const href =
+                                        c.page_type === "investor"
+                                          ? `/investors/${c.id}`
+                                          : `/company/${c.id}`;
+                                      return (
+                                        <span key={`${c.id}-${idx}`}>
+                                          <a href={href} className="link-blue">
+                                            {c.name}
+                                          </a>
+                                          {idx < list.length - 1 && ", "}
+                                        </span>
+                                      );
+                                    });
+                                  }
+                                  const legacy = event as LegacyCorporateEvent;
+                                  const items = (legacy["0"] || []).filter(
+                                    (it) =>
+                                      it &&
+                                      it._new_company &&
+                                      it._new_company.name &&
+                                      it._new_company?._is_that_investor
+                                  );
+                                  if (items.length === 0)
+                                    return <span>Not Available</span>;
+                                  return items.map((it, idx) => {
+                                    const id = it._new_company?.id;
+                                    const href = `/investors/${id}`;
                                     if (!id) {
                                       return (
                                         <span
