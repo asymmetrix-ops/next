@@ -612,16 +612,48 @@ const SubSectorPage = () => {
                                 )}
                               </div>
                               <div>
-                                <strong>Buyer/Investor:</strong>{" "}
-                                {Array.isArray(event.other_counterparties) &&
-                                event.other_counterparties.length > 0
-                                  ? event.other_counterparties
-                                      .map(
-                                        (cp) =>
-                                          cp._new_company?.name || "Unknown"
+                                {(() => {
+                                  const list = Array.isArray(
+                                    event.other_counterparties
+                                  )
+                                    ? event.other_counterparties.filter((cp) =>
+                                        /investor|acquirer/i.test(
+                                          cp._counterparty_type
+                                            ?.counterparty_status || ""
+                                        )
                                       )
-                                      .join(", ")
-                                  : "Not Available"}
+                                    : [];
+                                  if (list.length === 0) {
+                                    return (
+                                      <>
+                                        <strong>Buyer(s):</strong> Not Available
+                                      </>
+                                    );
+                                  }
+                                  const statuses = list
+                                    .map((cp) =>
+                                      (
+                                        cp._counterparty_type
+                                          ?.counterparty_status || ""
+                                      ).toLowerCase()
+                                    )
+                                    .join(" ");
+                                  const hasAcquirer = /acquirer/.test(statuses);
+                                  const label = hasAcquirer
+                                    ? "Buyer(s)"
+                                    : "Investor(s)";
+                                  const names = list
+                                    .map(
+                                      (cp) => cp._new_company?.name || "Unknown"
+                                    )
+                                    .join(", ");
+                                  return (
+                                    <>
+                                      <strong>{label}:</strong>{" "}
+                                      {names || "Not Available"}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </td>
                             <td className="p-3 text-xs align-top break-words text-slate-600">
