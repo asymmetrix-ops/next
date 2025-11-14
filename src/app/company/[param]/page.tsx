@@ -342,6 +342,8 @@ interface Company {
   ev_data: CompanyEV;
   _companies_employees_count_monthly: EmployeeCount[];
   Lifecycle_stage: LifecycleStage;
+  // Optional list of former names from API
+  Former_name?: string[];
   investors?: CompanyInvestor[];
   investors_new_company?: CompanyInvestor[];
   management_current?: CompanyManagement[];
@@ -1187,6 +1189,12 @@ const CompanyDetail = () => {
           // Add the actual API fields - THESE ARE AT ROOT LEVEL, NOT IN data.Company!
           Managmant_Roles_current: data.Managmant_Roles_current || [],
           Managmant_Roles_past: data.Managmant_Roles_past || [],
+          // Former company name(s) may come from root or inside Company
+          Former_name:
+            (data as unknown as { Former_name?: string[] })?.Former_name ||
+            (data.Company as unknown as { Former_name?: string[] })
+              ?.Former_name ||
+            [],
           have_subsidiaries_companies: data.have_subsidiaries_companies || {
             have_subsidiaries_companies: false,
             Subsidiaries_companies: [],
@@ -1830,6 +1838,14 @@ const CompanyDetail = () => {
 
   // Market Overview removed: no TradingView symbols computation
 
+  // Build a readable former name string if present
+  const formerNameDisplay =
+    Array.isArray(company?.Former_name) && company.Former_name.length > 0
+      ? company.Former_name.filter(
+          (v) => typeof v === "string" && v.trim().length > 0
+        ).join(", ")
+      : null;
+
   const styles = {
     container: {
       backgroundColor: "#f9fafb",
@@ -1870,6 +1886,11 @@ const CompanyDetail = () => {
       fontWeight: "700",
       color: "#1a202c",
       margin: "0",
+    },
+    formerName: {
+      marginTop: "4px",
+      fontSize: "14px",
+      color: "#4a5568",
     },
     headerRight: {
       display: "flex",
@@ -2018,6 +2039,9 @@ const CompanyDetail = () => {
       companyName: {
         fontSize: "22px",
         lineHeight: "1.3",
+      },
+      formerName: {
+        fontSize: "12px",
       },
       sectionTitle: {
         fontSize: "17px",
@@ -2169,7 +2193,12 @@ const CompanyDetail = () => {
                 logo={company._linkedin_data_of_new_company?.linkedin_logo}
                 name={company.name}
               />
-              <h1 style={styles.companyName}>{company.name}</h1>
+              <div>
+                <h1 style={styles.companyName}>{company.name}</h1>
+                {formerNameDisplay && (
+                  <div style={styles.formerName}>({formerNameDisplay})</div>
+                )}
+              </div>
             </div>
             <div style={styles.headerRight}>
               <a
