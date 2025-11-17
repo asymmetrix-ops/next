@@ -278,8 +278,13 @@ interface NewCorporateEvent {
   target_company?: NewTargetCompanyMinimal;
   advisors?: NewAdvisorMinimal[];
   advisors_names?: string[];
-  buyers_investors?: NewCounterpartyMinimal[]; // new: investors/acquirers
+  // New Xano payload fields for counterparties
+  // Older shape used `buyers_investors` and `other_counterparties`;
+  // newer one splits them into `buyers`, `sellers` and `investors`.
+  buyers_investors?: NewCounterpartyMinimal[]; // legacy: mix of buyers & investors
+  buyers?: NewCounterpartyMinimal[]; // new: buyers / acquirers
   sellers?: NewCounterpartyMinimal[]; // new: sellers/divestors
+  investors?: NewCounterpartyMinimal[]; // new: investors only
   deal_type?: string;
   ev_display?: string | null;
   description?: string;
@@ -1256,13 +1261,16 @@ const CompanyDetail = () => {
         try {
           const newCounterparties = (
             data as unknown as {
-              new_counterparties?: Array<{ items?: unknown }>;
+              // Backward compatible: either an array of wrapper-objects
+              // with `items` (legacy) or an array of event objects directly.
+              new_counterparties?: Array<{ items?: unknown } | NewCorporateEvent>;
             }
           )?.new_counterparties;
           const parsedEvents: NewCorporateEvent[] = [];
           if (Array.isArray(newCounterparties)) {
             for (const entry of newCounterparties) {
               const raw = (entry as { items?: unknown })?.items;
+              // If `items` is present, treat this as the legacy wrapped shape
               let payload: unknown = raw;
               if (typeof raw === "string") {
                 try {
@@ -1273,6 +1281,10 @@ const CompanyDetail = () => {
               }
               if (Array.isArray(payload)) {
                 parsedEvents.push(...(payload as NewCorporateEvent[]));
+              } else if (!raw && entry && typeof entry === "object") {
+                // Newer API may return the event object directly inside `new_counterparties`
+                // without an `items` wrapper; in that case treat `entry` as the event.
+                parsedEvents.push(entry as NewCorporateEvent);
               }
             }
           }
@@ -2748,15 +2760,21 @@ const CompanyDetail = () => {
                                       {(() => {
                                         const newEvent =
                                           event as NewCorporateEvent;
-                                        const candidates = Array.isArray(
-                                          newEvent.buyers_investors
-                                        )
-                                          ? newEvent.buyers_investors
-                                          : Array.isArray(
-                                              newEvent.other_counterparties
-                                            )
-                                          ? newEvent.other_counterparties
-                                          : [];
+                                        // Prefer explicit `buyers` from new API;
+                                        // fall back to legacy `buyers_investors`
+                                        // or `other_counterparties`.
+                                        const candidates =
+                                          Array.isArray(newEvent.buyers)
+                                            ? newEvent.buyers
+                                            : Array.isArray(
+                                                newEvent.buyers_investors
+                                              )
+                                            ? newEvent.buyers_investors
+                                            : Array.isArray(
+                                                newEvent.other_counterparties
+                                              )
+                                            ? newEvent.other_counterparties
+                                            : [];
                                         if (Array.isArray(candidates)) {
                                           const list = candidates.filter(
                                             (c) =>
@@ -2830,9 +2848,16 @@ const CompanyDetail = () => {
                                       {(() => {
                                         const newEvent =
                                           event as NewCorporateEvent;
+                                        // Prefer explicit `investors` from new API;
+                                        // fall back to legacy `buyers_investors`
+                                        // or `other_counterparties`.
                                         const candidates = Array.isArray(
-                                          newEvent.buyers_investors
+                                          newEvent.investors
                                         )
+                                          ? newEvent.investors
+                                          : Array.isArray(
+                                              newEvent.buyers_investors
+                                            )
                                           ? newEvent.buyers_investors
                                           : Array.isArray(
                                               newEvent.other_counterparties
