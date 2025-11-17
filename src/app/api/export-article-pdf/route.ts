@@ -83,13 +83,19 @@ export async function POST(req: NextRequest) {
         );
       }
     } else {
-      // Use full puppeteer locally (has bundled Chrome)
+       // Use full puppeteer locally (has bundled Chrome)
       try {
         console.log(
           "[export-article-pdf] Local environment detected, loading full puppeteer..."
         );
-        const puppeteerFull = await import("puppeteer");
-        puppeteer = puppeteerFull.default || puppeteerFull;
+         // Use evaluated dynamic import so TypeScript/bundler don't require
+         // the 'puppeteer' module/types to exist at build time.
+         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+         // @ts-ignore
+         const puppeteerFull = await (eval(
+           "import('puppeteer')"
+         ) as Promise<any>);
+         puppeteer = (puppeteerFull as any).default || puppeteerFull;
         console.log(
           "[export-article-pdf] Successfully loaded full puppeteer with bundled Chrome"
         );
@@ -211,6 +217,16 @@ export async function POST(req: NextRequest) {
             })
           : "Not available";
         const type = (e?.deal_type || "Not available").trim();
+        const fundingStage =
+          (
+            (e as {
+              investment_data?: { Funding_stage?: string; funding_stage?: string };
+            })?.investment_data?.Funding_stage ||
+            (e as {
+              investment_data?: { Funding_stage?: string; funding_stage?: string };
+            })?.investment_data?.funding_stage ||
+            ""
+          ).trim();
         const target = e?.target?.name || "Not available";
         const advisors = Array.isArray(e?.advisors)
           ? (e.advisors || [])
@@ -237,7 +253,13 @@ export async function POST(req: NextRequest) {
                 <div><b>Date:</b> ${escapeHtml(date)}</div>
                 <div><b>Deal Type:</b> <span class="pill pill-blue">${escapeHtml(
                   type
-                )}</span></div>
+                )}</span>${
+                  fundingStage
+                    ? ` <span class="pill pill-blue">${escapeHtml(
+                        fundingStage
+                      )}</span>`
+                    : ""
+                }</div>
                 <div><b>Target:</b> ${escapeHtml(target)}</div>
                 <div><b>Advisors:</b> ${escapeHtml(advisors)}</div>
                 <div><b>Primary:</b> ${escapeHtml(prim)}</div>

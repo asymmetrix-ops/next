@@ -29,6 +29,10 @@ export interface Currency {
 export interface InvestmentData {
   investment_amount_m: string;
   currency: Currency;
+  // Optional funding stage for investment-type events. API currently uses
+  // `Funding_stage` (capital F) but we also accept a lowercase variant.
+  Funding_stage?: string;
+  funding_stage?: string;
 }
 
 export interface EnterpriseValueData {

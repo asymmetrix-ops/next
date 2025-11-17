@@ -347,6 +347,12 @@ const CorporateEventsTable = ({
     };
 
     const isPartnership = /partnership/i.test(event.deal_type || "");
+    const fundingStage =
+      (
+        event.investment_data?.Funding_stage ||
+        event.investment_data?.funding_stage ||
+        ""
+      ).trim();
 
     return (
       <div className="corporate-event-card">
@@ -402,7 +408,17 @@ const CorporateEventsTable = ({
           <div className="corporate-event-card-info-item">
             <span className="corporate-event-card-info-label">Type:</span>
             {event.deal_type ? (
-              <span className="pill pill-blue">{event.deal_type}</span>
+              <>
+                <span className="pill pill-blue">{event.deal_type}</span>
+                {fundingStage && (
+                  <span
+                    className="pill pill-blue"
+                    style={{ marginLeft: 6 }}
+                  >
+                    {fundingStage}
+                  </span>
+                )}
+              </>
             ) : (
               <span className="corporate-event-card-info-value">N/A</span>
             )}
@@ -676,6 +692,12 @@ const CorporateEventsTable = ({
             const primaryText = derivePrimaryFromCompany(target);
             const secondaryText = deriveSecondaryFromCompany(target);
             const isPartnership = /partnership/i.test(event.deal_type || "");
+            const fundingStage =
+              (
+                event.investment_data?.Funding_stage ||
+                event.investment_data?.funding_stage ||
+                ""
+              ).trim();
             return (
               <tr key={event.id || index}>
                 {/* Event Details */}
@@ -894,7 +916,19 @@ const CorporateEventsTable = ({
                   <div className="muted-row">
                     <strong>Deal Type:</strong>{" "}
                     {event.deal_type ? (
-                      <span className="pill pill-blue">{event.deal_type}</span>
+                      <>
+                        <span className="pill pill-blue">
+                          {event.deal_type}
+                        </span>
+                        {fundingStage && (
+                          <span
+                            className="pill pill-blue"
+                            style={{ marginLeft: 6 }}
+                          >
+                            {fundingStage}
+                          </span>
+                        )}
+                      </>
                     ) : (
                       <span>Not Available</span>
                     )}

@@ -264,6 +264,10 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
           primary_sectors?: Array<{ id?: number; sector_name?: string }>;
           secondary_sectors?: Array<{ id?: number; sector_name?: string }>;
         };
+        investment_data?: {
+          Funding_stage?: string;
+          funding_stage?: string;
+        };
         advisors?: Array<{ _new_company?: { id?: number; name?: string } }>;
         primary_sectors?: Array<{ id?: number; sector_name?: string }>;
         secondary_sectors?: Array<{ id?: number; sector_name?: string }>;
@@ -303,6 +307,22 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
             ? formatDate(e.announcement_date)
             : "Not available";
           const type = (e?.deal_type || "Not available").trim();
+          const fundingStage =
+            (
+              (e as {
+                investment_data?: {
+                  Funding_stage?: string;
+                  funding_stage?: string;
+                };
+              })?.investment_data?.Funding_stage ||
+              (e as {
+                investment_data?: {
+                  Funding_stage?: string;
+                  funding_stage?: string;
+                };
+              })?.investment_data?.funding_stage ||
+              ""
+            ).trim();
           const targetName =
             (e as { target?: { name?: string } })?.target?.name ||
             "Not available";
@@ -359,7 +379,13 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
                 )}</span></div>
                 <div class=\"rce-item\"><span class=\"rce-label\">Deal Type:</span><span class=\"rce-value\"><span class=\"pill pill-blue\">${escapeHtml(
                   type
-                )}</span></span></div>
+                )}</span>${
+                  fundingStage
+                    ? ` <span class=\"pill pill-blue\">${escapeHtml(
+                        fundingStage
+                      )}</span>`
+                    : ""
+                }</span></div>
                 <div class=\"rce-item\"><span class=\"rce-label\">Advisors:</span><span class=\"rce-value\">${escapeHtml(
                   advisorNames
                 )}</span></div>
