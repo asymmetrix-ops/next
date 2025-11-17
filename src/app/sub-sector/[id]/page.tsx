@@ -431,6 +431,11 @@ const SubSectorPage = () => {
                     {companiesPagination.itemsReceived.toLocaleString()} total
                   </div>
                 </div>
+                <div className="mt-3 rounded-md bg-indigo-50 border border-indigo-200 px-4 py-2 text-xs text-indigo-800">
+                  Results are pre-filtered to companies whose{" "}
+                  <span className="font-semibold">sub-sector</span> matches this
+                  page.
+                </div>
               </div>
               <div className="px-5 py-4">
                 {companiesLoading ? (
