@@ -3,6 +3,10 @@ type PublicArticle = {
   Publication_Date?: string;
   Headline?: string;
   Strapline?: string;
+  // Content type fields may arrive in different shapes/keys
+  Content_Type?: string;
+  content_type?: string;
+  Content?: { Content_type?: string; Content_Type?: string };
 };
 
 const ReportsSection = async () => {
@@ -38,6 +42,17 @@ const ReportsSection = async () => {
 
   const list = items.slice(0, 3);
 
+  const getContentType = (article: PublicArticle) =>
+    (
+      article.Content_Type ||
+      article.content_type ||
+      article.Content?.Content_type ||
+      article.Content?.Content_Type ||
+      ""
+    )
+      .toString()
+      .trim();
+
   const formatDate = (value?: string) => {
     if (!value) return "";
     try {
@@ -60,28 +75,33 @@ const ReportsSection = async () => {
           </p>
         ) : (
           <div className="grid gap-8 md:grid-cols-3">
-            {list.map((article) => (
-              <a
-                key={article.id}
-                href={`/article/${article.id}?from=home`}
-                className="block overflow-hidden bg-white rounded-2xl border-0 shadow-lg"
-              >
-                <div className="px-4 py-2 bg-blue-100 text-asymmetrix-blue">
-                  <span className="text-sm font-medium">Article</span>
-                </div>
-                <div className="p-6">
-                  <h3 className="mb-3 text-xl font-bold leading-tight text-gray-900">
-                    {article.Headline || "Untitled"}
-                  </h3>
-                  <p className="mb-4 text-sm text-gray-600">
-                    {formatDate(article.Publication_Date)}
-                  </p>
-                  <p className="text-sm leading-relaxed text-gray-700">
-                    {article.Strapline || ""}
-                  </p>
-                </div>
-              </a>
-            ))}
+            {list.map((article) => {
+              const ct = getContentType(article);
+              return (
+                <a
+                  key={article.id}
+                  href={`/article/${article.id}?from=home`}
+                  className="block overflow-hidden bg-white rounded-2xl border-0 shadow-lg"
+                >
+                  {ct && (
+                    <div className="px-4 py-2 bg-blue-100 text-asymmetrix-blue">
+                      <span className="text-sm font-medium">{ct}</span>
+                    </div>
+                  )}
+                  <div className="p-6">
+                    <h3 className="mb-3 text-xl font-bold leading-tight text-gray-900">
+                      {article.Headline || "Untitled"}
+                    </h3>
+                    <p className="mb-4 text-sm text-gray-600">
+                      {formatDate(article.Publication_Date)}
+                    </p>
+                    <p className="text-sm leading-relaxed text-gray-700">
+                      {article.Strapline || ""}
+                    </p>
+                  </div>
+                </a>
+              );
+            })}
           </div>
         )}
       </div>
