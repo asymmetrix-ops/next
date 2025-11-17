@@ -32,41 +32,88 @@ export async function POST(req: NextRequest) {
         | string;
     };
 
-    // Dynamic import with fallback to serverless chromium in production
+    // Detect if we're in Vercel (serverless environment)
+    // When deployed to Vercel, use @sparticuz/chromium
+    // When running locally, use full puppeteer with bundled Chrome
+    const isVercel = !!process.env.VERCEL;
+
     let puppeteer: any = null;
     let executablePath: string | undefined;
     let launchArgs: Array<string> = [
-      "--allow-file-access-from-files",
       "--disable-gpu",
       "--disable-dev-shm-usage",
       "--disable-setuid-sandbox",
       "--no-sandbox",
       "--disable-web-security",
     ];
-    try {
-      // Prefer puppeteer-core + @sparticuz/chromium in serverless
-      const [{ default: puppeteerCore }, chromium] = await Promise.all([
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore - evaluated import to avoid bundling issues
-        eval("import('puppeteer-core')") as Promise<any>,
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        eval("import('@sparticuz/chromium')") as Promise<any>,
-      ]);
-      puppeteer = puppeteerCore;
-      executablePath = await chromium.executablePath();
-      if (Array.isArray(chromium.args)) {
-        launchArgs = chromium.args.concat(launchArgs);
-      }
-    } catch {
-      // Fallback to full puppeteer locally (dev) where Chrome is available
+
+    if (isVercel) {
+      // Use puppeteer-core + @sparticuz/chromium on Vercel
       try {
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        const mod = await (eval("import('puppeteer')") as Promise<any>);
-        puppeteer = mod;
-      } catch {
-        return new Response("Puppeteer not available", { status: 501 });
+        console.log(
+          "[export-article-pdf] Vercel environment detected, loading @sparticuz/chromium..."
+        );
+        const puppeteerCore = await import("puppeteer-core");
+        const chromium = await import("@sparticuz/chromium");
+
+        puppeteer = puppeteerCore.default || puppeteerCore;
+        executablePath = await chromium.default.executablePath();
+
+        console.log(
+          "[export-article-pdf] Successfully loaded serverless chromium"
+        );
+
+        // Merge chromium args with our custom args
+        const chromiumArgs = chromium.default.args || [];
+        launchArgs = [...chromiumArgs, ...launchArgs];
+      } catch (chromiumError) {
+        console.error(
+          "[export-article-pdf] Failed to load serverless chromium:",
+          chromiumError
+        );
+        return new Response(
+          JSON.stringify({
+            error: "Serverless Chromium not available",
+            message: String(chromiumError),
+          }),
+          {
+            status: 501,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    } else {
+       // Use full puppeteer locally (has bundled Chrome)
+      try {
+        console.log(
+          "[export-article-pdf] Local environment detected, loading full puppeteer..."
+        );
+         // Use evaluated dynamic import so TypeScript/bundler don't require
+         // the 'puppeteer' module/types to exist at build time.
+         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+         // @ts-ignore
+         const puppeteerFull = await (eval(
+           "import('puppeteer')"
+         ) as Promise<any>);
+         puppeteer = (puppeteerFull as any).default || puppeteerFull;
+        console.log(
+          "[export-article-pdf] Successfully loaded full puppeteer with bundled Chrome"
+        );
+      } catch (puppeteerError) {
+        console.error(
+          "[export-article-pdf] No puppeteer available:",
+          puppeteerError
+        );
+        return new Response(
+          JSON.stringify({
+            error: "Puppeteer not available",
+            message: String(puppeteerError),
+          }),
+          {
+            status: 501,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
       }
     }
 
@@ -170,6 +217,16 @@ export async function POST(req: NextRequest) {
             })
           : "Not available";
         const type = (e?.deal_type || "Not available").trim();
+        const fundingStage =
+          (
+            (e as {
+              investment_data?: { Funding_stage?: string; funding_stage?: string };
+            })?.investment_data?.Funding_stage ||
+            (e as {
+              investment_data?: { Funding_stage?: string; funding_stage?: string };
+            })?.investment_data?.funding_stage ||
+            ""
+          ).trim();
         const target = e?.target?.name || "Not available";
         const advisors = Array.isArray(e?.advisors)
           ? (e.advisors || [])
@@ -196,7 +253,13 @@ export async function POST(req: NextRequest) {
                 <div><b>Date:</b> ${escapeHtml(date)}</div>
                 <div><b>Deal Type:</b> <span class="pill pill-blue">${escapeHtml(
                   type
-                )}</span></div>
+                )}</span>${
+                  fundingStage
+                    ? ` <span class="pill pill-blue">${escapeHtml(
+                        fundingStage
+                      )}</span>`
+                    : ""
+                }</div>
                 <div><b>Target:</b> ${escapeHtml(target)}</div>
                 <div><b>Advisors:</b> ${escapeHtml(advisors)}</div>
                 <div><b>Primary:</b> ${escapeHtml(prim)}</div>
@@ -465,17 +528,28 @@ export async function POST(req: NextRequest) {
             </body>
         </html>`;
 
+    console.log("[export-article-pdf] Launching browser with:", {
+      executablePath,
+      argsCount: launchArgs.length,
+    });
+
     const browser = await puppeteer.launch({
       args: launchArgs,
       executablePath,
       headless: "new" as any,
       defaultViewport: { width: 1280, height: 900, deviceScaleFactor: 2 },
     });
+
+    console.log("[export-article-pdf] Browser launched successfully");
+
     const page = await browser.newPage();
     try {
       await page.emulateMediaType("screen");
     } catch {}
+
+    console.log("[export-article-pdf] Setting page content...");
     await page.setContent(html, { waitUntil: "networkidle0" });
+    console.log("[export-article-pdf] Content set, generating PDF...");
 
     const pdf = await page.pdf({
       format: "A4",
@@ -498,7 +572,22 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (e) {
-    console.error("[export-article-pdf]", e);
-    return new Response("Failed to generate PDF", { status: 500 });
+    console.error("[export-article-pdf] Error:", e);
+    const errorMessage =
+      e instanceof Error ? e.message : "Unknown error occurred";
+    const errorStack = e instanceof Error ? e.stack : "";
+
+    return new Response(
+      JSON.stringify({
+        error: "Failed to generate PDF",
+        message: errorMessage,
+        stack: errorStack,
+        timestamp: new Date().toISOString(),
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 }

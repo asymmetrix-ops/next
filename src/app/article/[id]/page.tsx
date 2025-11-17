@@ -201,7 +201,7 @@ const ArticleDetailPage = () => {
   const fromHome = (searchParams?.get?.("from") ?? "") === "home";
 
   const articleId = String((params as Record<string, unknown>)?.id || "");
-  const ENABLE_PDF_EXPORT = false;
+  const ENABLE_PDF_EXPORT = true;
 
   const fetchArticle = async () => {
     try {
@@ -313,16 +313,6 @@ const ArticleDetailPage = () => {
       fetchArticle();
     }
   }, [articleId]);
-
-  useEffect(() => {
-    if (article?.Headline) {
-      try {
-        document.title = `Asymmetrix – ${article.Headline}`;
-      } catch {
-        // ignore
-      }
-    }
-  }, [article?.Headline]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "Not available";
@@ -488,15 +478,11 @@ const ArticleDetailPage = () => {
   if (loading) {
     return (
       <div style={styles.container}>
-        <div className="no-print">
-          <Header />
-        </div>
+        <Header />
         <div style={styles.maxWidth}>
           <div style={styles.loading}>Loading article...</div>
         </div>
-        <div className="no-print">
-          <Footer />
-        </div>
+        <Footer />
       </div>
     );
   }
@@ -504,9 +490,7 @@ const ArticleDetailPage = () => {
   if (error) {
     return (
       <div style={styles.container}>
-        <div className="no-print">
-          <Header />
-        </div>
+        <Header />
         <div style={styles.maxWidth}>
           <div style={styles.error}>
             {fromHome
@@ -514,9 +498,7 @@ const ArticleDetailPage = () => {
               : `Error: ${error}`}
           </div>
         </div>
-        <div className="no-print">
-          <Footer />
-        </div>
+        <Footer />
       </div>
     );
   }
@@ -524,9 +506,7 @@ const ArticleDetailPage = () => {
   if (!article) {
     return (
       <div style={styles.container}>
-        <div className="no-print">
-          <Header />
-        </div>
+        <Header />
         <div style={styles.maxWidth}>
           <div style={styles.error}>
             {fromHome
@@ -534,24 +514,18 @@ const ArticleDetailPage = () => {
               : "Article not found"}
           </div>
         </div>
-        <div className="no-print">
-          <Footer />
-        </div>
+        <Footer />
       </div>
     );
   }
 
   return (
     <div style={styles.container}>
-      <div className="no-print">
-        <Header />
-      </div>
+      <Header />
       <div style={styles.maxWidth}>
-        <div className="no-print">
-          <button onClick={handleBackClick} style={styles.backButton}>
-            ← Back to Insights & Analysis
-          </button>
-        </div>
+        <button onClick={handleBackClick} style={styles.backButton}>
+          ← Back to Insights & Analysis
+        </button>
 
         <div className="article-layout">
           {/* Left: Main body (2/3) */}
@@ -788,7 +762,7 @@ const ArticleDetailPage = () => {
               }
               return (
                 <div style={styles.section}>
-                  <h2 style={styles.sectionTitle}>Related Corporate Events</h2>
+                  <h2 style={styles.sectionTitle}>Related Corporate Event</h2>
                   <div style={styles.tagContainer}>
                     {events.map((ev, idx) => {
                       const id = ev?.id;
@@ -819,9 +793,7 @@ const ArticleDetailPage = () => {
           </div>
         </div>
       </div>
-      <div className="no-print">
-        <Footer />
-      </div>
+      <Footer />
       <style
         dangerouslySetInnerHTML={{
           __html: `
@@ -842,19 +814,6 @@ const ArticleDetailPage = () => {
           .article-body figure { margin: 1rem 0; }
           .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem; }
           .article-inline-image { margin: 1.25rem 0; }
-
-          /* Print styles */
-          @media print {
-            .no-print { display: none !important; }
-            body { background: #ffffff !important; }
-            .article-layout { display: block !important; }
-            .article-main { box-shadow: none !important; padding: 0 !important; }
-            .article-meta { display: none !important; }
-            .article-body a { color: inherit !important; text-decoration: none !important; }
-            .article-body img, .article-body figure { page-break-inside: avoid; break-inside: avoid; }
-          }
-
-          @page { size: A4; margin: 12mm; }
         `,
         }}
       />
