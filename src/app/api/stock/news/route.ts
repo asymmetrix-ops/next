@@ -1,25 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchStockSearch } from "@/lib/yahoo-finance/fetchStockSearch";
 
+// Yahoo Finance integration temporarily disabled; this API now returns a 503
 export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const ticker = searchParams.get("ticker");
+  const searchParams = request.nextUrl.searchParams;
+  const ticker = searchParams.get("ticker");
 
-    if (!ticker) {
-      return NextResponse.json(
-        { error: "Missing ticker parameter" },
-        { status: 400 }
-      );
-    }
-
-    const data = await fetchStockSearch(ticker);
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error("Error fetching news data:", error);
+  if (!ticker) {
     return NextResponse.json(
-      { error: "Failed to fetch news data" },
-      { status: 500 }
+      { error: "Missing ticker parameter" },
+      { status: 400 }
     );
   }
+
+  return NextResponse.json(
+    { error: "Stock news API is temporarily disabled." },
+    { status: 503 }
+  );
 }

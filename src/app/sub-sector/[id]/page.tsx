@@ -28,11 +28,63 @@ interface CompanyItem {
   description?: string;
   primary_sectors?: string[];
   secondary_sectors?: string[];
+  ownership_type_id?: number;
   ownership?: string;
+  locations_id?: number;
   country?: string;
+  companies_investors?: Array<{
+    company_name: string;
+    original_new_company_id: number;
+  }>;
   linkedin_logo?: string; // base64
   linkedin_members?: number;
 }
+
+const truncateDescription = (
+  description: string,
+  maxLength: number = 250
+): { text: string; isLong: boolean } => {
+  const isLong = description.length > maxLength;
+  const truncated = isLong
+    ? description.substring(0, maxLength) + "..."
+    : description;
+  return { text: truncated, isLong };
+};
+
+const DescriptionCell: React.FC<{ description?: string; index: number }> = ({
+  description,
+  index,
+}) => {
+  const full = description || "N/A";
+  const { text, isLong } = truncateDescription(full);
+  const [expanded, setExpanded] = useState(false);
+
+  if (!isLong) {
+    return (
+      <span className="text-slate-700 whitespace-normal break-words">
+        {full}
+      </span>
+    );
+  }
+
+  return (
+    <div className="space-y-1 text-left">
+      <p className="text-slate-700 whitespace-normal break-words">
+        {expanded ? full : text}
+      </p>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="text-xs text-blue-600 underline"
+        aria-expanded={expanded}
+        aria-controls={`subsec-description-${index}`}
+        id={`subsec-expand-${index}`}
+      >
+        {expanded ? "Collapse description" : "Expand description"}
+      </button>
+    </div>
+  );
+};
 
 const SubSectorPage = () => {
   const params = useParams();
@@ -401,17 +453,20 @@ const SubSectorPage = () => {
                           <th className="py-3 font-semibold text-left text-slate-700 w-[8%]">
                             Logo
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[18%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[18%]">
                             Name
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[32%]">
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[26%]">
                             Description
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[18%]">
-                            Primary Sector(s)
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[12%]">
+                            Ownership
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[16%]">
-                            Sub-Sector(s)
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
+                            HQ
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
+                            Investors
                           </th>
                           <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[8%]">
                             LinkedIn Members
@@ -419,7 +474,7 @@ const SubSectorPage = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {companies.map((c) => (
+                        {companies.map((c, index) => (
                           <tr key={c.id} className="hover:bg-slate-50/50">
                             <td className="py-3 pr-4">
                               {c.linkedin_logo ? (
@@ -440,7 +495,7 @@ const SubSectorPage = () => {
                                 </div>
                               )}
                             </td>
-                            <td className="py-3 pr-4 align-top whitespace-normal break-words">
+                            <td className="py-3 pr-4 align-middle text-center whitespace-normal break-words">
                               <a
                                 href={`/company/${c.id}`}
                                 className="font-medium text-blue-600 underline"
@@ -448,19 +503,24 @@ const SubSectorPage = () => {
                                 {c.name}
                               </a>
                             </td>
-                            <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
-                              {c.description || "N/A"}
+                            <td className="py-3 pr-4 align-top whitespace-normal break-words">
+                              <DescriptionCell
+                                description={c.description}
+                                index={index}
+                              />
                             </td>
                             <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
-                              {Array.isArray(c.primary_sectors) &&
-                              c.primary_sectors.length > 0
-                                ? c.primary_sectors.join(", ")
-                                : "N/A"}
+                              {c.ownership || "N/A"}
                             </td>
                             <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
-                              {Array.isArray(c.secondary_sectors) &&
-                              c.secondary_sectors.length > 0
-                                ? c.secondary_sectors.join(", ")
+                              {c.country || "N/A"}
+                            </td>
+                            <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
+                              {Array.isArray(c.companies_investors) &&
+                              c.companies_investors.length > 0
+                                ? c.companies_investors
+                                    .map((inv) => inv.company_name)
+                                    .join(", ")
                                 : "N/A"}
                             </td>
                             <td className="py-3 pr-4 text-center text-slate-700">
@@ -527,6 +587,11 @@ const SubSectorPage = () => {
                     <span className="text-slate-900">Transactions</span>
                   </div>
                 </div>
+                <div className="mt-3 rounded-md bg-orange-50 border border-orange-200 px-4 py-2 text-xs text-orange-800">
+                  Results are pre-filtered to corporate events where the{" "}
+                  <span className="font-semibold">target</span> is in this{" "}
+                  <span className="font-semibold">sub-sector</span>.
+                </div>
               </div>
               <div className="px-5 py-4">
                 {eventsLoading ? (
@@ -588,6 +653,15 @@ const SubSectorPage = () => {
                                       day: "numeric",
                                     })
                                   : "Not available"}
+                              </div>
+                              <div className="text-xs text-slate-600">
+                                Target HQ:{" "}
+                                {(event.target_counterparty?.new_company
+                                  ?.country ||
+                                  (event.target_counterparty?.new_company as
+                                    | { _location?: { Country?: string } }
+                                    | undefined)?._location?.Country) ??
+                                  "Not available"}
                               </div>
                             </td>
                             <td className="p-3 text-xs align-top break-words text-slate-600">
@@ -655,6 +729,32 @@ const SubSectorPage = () => {
                                   );
                                 })()}
                               </div>
+                              <div className="mt-1 text-xs text-slate-600">
+                                <strong>Seller(s):</strong>{" "}
+                                {Array.isArray(event.other_counterparties) &&
+                                event.other_counterparties.length > 0
+                                  ? (() => {
+                                      const sellers =
+                                        event.other_counterparties.filter(
+                                          (cp) => {
+                                            const status =
+                                              cp._counterparty_type
+                                                ?.counterparty_status || "";
+                                            return /divestor|seller|vendor/i.test(
+                                              status
+                                            );
+                                          }
+                                        );
+                                      if (sellers.length === 0)
+                                        return "Not Available";
+                                      return sellers
+                                        .map(
+                                          (cp) => cp._new_company?.name || "Unknown"
+                                        )
+                                        .join(", ");
+                                    })()
+                                  : "Not Available"}
+                              </div>
                             </td>
                             <td className="p-3 text-xs align-top break-words text-slate-600">
                               <div className="mb-1">
@@ -671,6 +771,29 @@ const SubSectorPage = () => {
                                       event.investment_data.investment_amount_m
                                     ).toLocaleString()}m`
                                   : "Not available"}
+                              </div>
+                              <div>
+                                <strong>EV (m):</strong>{" "}
+                                {event.ev_data?.enterprise_value_m &&
+                                event.ev_data?.currency?.Currency
+                                  ? `${
+                                      event.ev_data.currency.Currency
+                                    }${Number(
+                                      event.ev_data.enterprise_value_m
+                                    ).toLocaleString()}m`
+                                  : "Not available"}
+                              </div>
+                              <div className="mt-1">
+                                <strong>Advisors:</strong>{" "}
+                                {Array.isArray(event.advisors) &&
+                                event.advisors.length > 0
+                                  ? event.advisors
+                                      .map((advisor) => {
+                                        const nc = advisor._new_company;
+                                        return nc?.name || "Unknown";
+                                      })
+                                      .join(", ")
+                                  : "Not Available"}
                               </div>
                             </td>
                           </tr>

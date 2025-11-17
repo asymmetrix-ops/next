@@ -13,16 +13,24 @@ const nextConfig = {
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
-  // Webpack configuration for Puppeteer/Chromium
+  // Webpack configuration for server-only dependencies
   webpack: (config, { isServer, dev }) => {
-    if (isServer && !dev) {
-      // Only mark as external in production builds to avoid bundling issues
-      config.externals = [
-        ...config.externals,
-        "@sparticuz/chromium",
-        "puppeteer-core",
-        "puppeteer",
-      ];
+    if (isServer) {
+      const existingExternals = Array.isArray(config.externals)
+        ? config.externals
+        : [];
+
+      // Always keep yahoo-finance2 external so Next.js doesn't try to bundle its test-only deps
+      config.externals = [...existingExternals, "yahoo-finance2"];
+
+      if (!dev) {
+        // Only mark as external in production builds to avoid bundling issues
+        config.externals.push(
+          "@sparticuz/chromium",
+          "puppeteer-core",
+          "puppeteer"
+        );
+      }
     }
     return config;
   },

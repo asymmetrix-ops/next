@@ -1,28 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchChartData } from "@/lib/yahoo-finance/fetchChartData";
-import type { Interval, Range } from "@/types/yahoo-finance";
 
+// Stock chart API temporarily disabled; no external finance dependency
 export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const ticker = searchParams.get("ticker");
-    const range = searchParams.get("range") as Range;
-    const interval = searchParams.get("interval") as Interval;
+  const searchParams = request.nextUrl.searchParams;
+  const ticker = searchParams.get("ticker");
 
-    if (!ticker || !range || !interval) {
-      return NextResponse.json(
-        { error: "Missing required parameters" },
-        { status: 400 }
-      );
-    }
-
-    const data = await fetchChartData(ticker, range, interval);
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error("Error fetching chart data:", error);
+  if (!ticker) {
     return NextResponse.json(
-      { error: "Failed to fetch chart data" },
-      { status: 500 }
+      { error: "Missing ticker parameter" },
+      { status: 400 }
     );
   }
+
+  return NextResponse.json(
+    { error: "Stock chart API is temporarily disabled." },
+    { status: 503 }
+  );
 }
