@@ -1,9 +1,3 @@
-export type BuyerInvestorType =
-  | "private_equity"
-  | "venture_capital"
-  | "da_strategic"
-  | "other_strategic";
-
 export interface CorporateEventsFilters {
   primary_sectors_ids: number[];
   Secondary_sectors_ids: number[];
@@ -20,29 +14,6 @@ export interface CorporateEventsFilters {
   Page: number;
   Per_page: number;
   Deal_Status: string[];
-  Funding_stage?: string[];
-  Buyer_Investor_Types?: BuyerInvestorType[];
-  user_id?: number | null;
-  portfolio_only?: boolean;
-  followed_entity_types?: string[];
-  // New portfolio filter fields
-  show_followed?: boolean;
-  filter_advisor_ids?: number[];
-  filter_company_ids?: number[];
-  filter_investor_ids?: number[];
-  filter_sector_ids?: number[];
-  filter_individual_ids?: number[];
-  EV_min?: string;
-  EV_max?: string;
-  Amount_min?: string;
-  Amount_max?: string;
-  Product_Types?: string[];
-  target_company_id?: number;
-  new_company_id?: number;
-  individual_id?: number;
-  investor_id?: number;
-  /** Platform currency for converted deal amounts (USD=15, EUR=6, GBP=7). */
-  preferred_currency_id?: number;
 }
 
 export interface CorporateEventsStats {
@@ -58,8 +29,6 @@ export interface Currency {
 export interface InvestmentData {
   investment_amount_m: string;
   currency: Currency;
-  investment_amount_m_native_currency_id?: number;
-  _currency?: Currency;
   // Optional funding stage for investment-type events. API currently uses
   // `Funding_stage` (capital F) but we also accept a lowercase variant.
   Funding_stage?: string;
@@ -69,9 +38,6 @@ export interface InvestmentData {
 export interface EnterpriseValueData {
   enterprise_value_m: string;
   currency: Currency;
-  enterprise_value_m_native_currency_id?: number;
-  _currency?: Currency;
-  ev_band?: string;
 }
 
 export interface Sector {
@@ -130,31 +96,16 @@ export interface Advisor {
   };
 }
 
-export interface Target {
-  id: number;
-  name: string;
-  path: string;
-  route: string;
-  entity_type: string;
-  hq_iso2?: string | null;
-  hq_country?: string | null;
-}
-
 export interface CorporateEvent {
   id: number;
   description: string;
   announcement_date: string;
   deal_type: string;
   target_counterparty: TargetCounterparty;
-  targets?: Target[];
   investment_data: InvestmentData;
   ev_data: EnterpriseValueData;
   other_counterparties: OtherCounterparty[];
   advisors: Advisor[];
-  /** Platform-currency formatted amount when API converts deal values. */
-  investment_display?: string | null;
-  /** Platform-currency formatted EV when API converts deal values. */
-  ev_display?: string | null;
 }
 
 export interface CorporateEventsResponse {
@@ -184,14 +135,6 @@ export interface CorporateEventDetail {
   announcement_date: string;
   closed_date: string;
   deal_type: string;
-  investment_amount_m?: number | string | null;
-  investment_currency?: string | null;
-  investment_amount_m_converted?: boolean;
-  investment_amount_m_native_currency_id?: number;
-  enterprise_value_m?: number | string | null;
-  enterprise_value_currency?: string | null;
-  enterprise_value_m_converted?: boolean;
-  enterprise_value_m_native_currency_id?: number;
   investment_data: {
     investment_amount_source: string;
     investment_amount_m: string;
@@ -290,44 +233,6 @@ export interface CorporateEventDetailResponse {
   Event_advisors: CorporateEventAdvisor[];
   Primary_sectors: PrimarySector[];
   "Sub-sectors": SubSector[];
-  Previous_Corporate_Events?: PreviousCorporateEvent[];
-  preferred_currency_id?: number;
-}
-
-export interface PreviousCorporateEventCounterparty {
-  id: number;
-  company_id: number;
-  company_name: string;
-  company_logo?: string;
-  counterparty_type?: number;
-  counterparty_status?: string;
-}
-
-export interface PreviousCorporateEvent {
-  id: number;
-  description?: string;
-  deal_type?: string;
-  deal_status?: string;
-  announcement_date?: string;
-  closed_date?: string;
-  // New API shape (preferred)
-  date?: string;
-  target?: {
-    company_id: number;
-    company_name: string;
-    company_logo?: string;
-  };
-  investors?: PreviousCorporateEventCounterparty[] | null;
-  investment_amount_m?: number | null;
-  enterprise_value_m?: number | null;
-  investment_currency?: string;
-  enterprise_value_currency?: string;
-  target_company_role?: {
-    counterparty_status?: string;
-    counterparty_type_id?: number;
-  };
-  // Legacy shape
-  counterparties?: PreviousCorporateEventCounterparty[];
 }
 
 export interface FilterOptions {
