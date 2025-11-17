@@ -12,11 +12,23 @@ export const validateInterval = (range: Range, interval: Interval): Interval =>
     ? interval
     : INTERVALS_FOR_RANGE[range][0];
 
+export interface YahooChartQuote {
+  close: number | null;
+  date: Date | null;
+}
+
+export interface YahooChartData {
+  quotes: YahooChartQuote[];
+  meta: {
+    regularMarketPrice?: number | null;
+  };
+}
+
 export async function fetchChartData(
   ticker: string,
   range: Range,
   interval: Interval
-) {
+): Promise<YahooChartData> {
   noStore();
 
   const queryOptions = {
@@ -25,7 +37,10 @@ export async function fetchChartData(
   };
 
   try {
-    const chartData = await yahooFinance.chart(ticker, queryOptions);
+    const chartData = (await yahooFinance.chart(
+      ticker,
+      queryOptions
+    )) as YahooChartData;
 
     return chartData;
   } catch (error) {
