@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useRightClick } from "@/hooks/useRightClick";
+import { CorporateEventDealMetrics } from "@/components/corporate-events/CorporateEventDealMetrics";
 import {
   LineChart,
   Line,
@@ -782,6 +783,9 @@ const CompanyDetail = () => {
     CompanyCorporateEvent[]
   >([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(true);
+  const [corporateEventsRaw, setCorporateEventsRaw] = useState<string | null>(
+    null
+  );
   const [showAllCorporateEvents, setShowAllCorporateEvents] = useState(false);
   const [showAllSubsidiaries, setShowAllSubsidiaries] = useState(false);
   const [companyArticles, setCompanyArticles] = useState<ContentArticle[]>([]);
@@ -811,6 +815,18 @@ const CompanyDetail = () => {
   >({});
 
   // Removed sectors normalization/mapping; rely solely on API-provided primary sectors
+
+  const sanitizeAmountValue = (
+    value?: number | string | null
+  ): number | string | null => {
+    if (value === undefined || value === null) return null;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      return trimmed;
+    }
+    return value;
+  };
 
   // Safely extract a sector id from various backend shapes
   const getSectorId = (sector: unknown): number | undefined => {
@@ -1035,21 +1051,58 @@ const CompanyDetail = () => {
       }
 
       const data: unknown = await response.json();
-      console.log("Corporate events API response:", data);
+      try {
+        setCorporateEventsRaw(
+          typeof data === "string"
+            ? data
+            : JSON.stringify(data, null, 2)
+        );
+      } catch {
+        setCorporateEventsRaw(null);
+      }
+
       if (isNewCorporateEventsEnvelope(data)) {
         const items: NewCorporateEvent[] = [];
+
+        // Optionally build a lookup of legacy events (with richer EV data)
+        // when the payload also includes New_Events_Wits_Advisors.
+        const legacyById = new Map<number, LegacyCorporateEvent>();
+        if (isLegacyCorporateEventsEnvelope(data as unknown)) {
+          const legacyEnvelope = data as unknown as LegacyCorporateEventsEnvelope;
+          for (const legacyEvent of legacyEnvelope.New_Events_Wits_Advisors) {
+            if (legacyEvent && typeof legacyEvent.id === "number") {
+              legacyById.set(legacyEvent.id, legacyEvent);
+            }
+          }
+        }
+
         for (const entry of data.new_counterparties) {
           const raw = entry?.items;
           if (typeof raw === "string") {
             try {
               const parsed = JSON.parse(raw) as unknown;
-              if (Array.isArray(parsed))
-                items.push(...(parsed as NewCorporateEvent[]));
+              if (Array.isArray(parsed)) {
+                for (const ev of parsed as NewCorporateEvent[]) {
+                  const id = ev?.id;
+                  const legacy = typeof id === "number" ? legacyById.get(id) : undefined;
+                  const merged = legacy && legacy.ev_data
+                    ? ({ ...ev, ev_data: legacy.ev_data } as NewCorporateEvent)
+                    : ev;
+                  items.push(merged);
+                }
+              }
             } catch (e) {
               console.warn("Failed to parse new_counterparties.items JSON", e);
             }
           } else if (Array.isArray(raw)) {
-            items.push(...(raw as NewCorporateEvent[]));
+            for (const ev of raw as NewCorporateEvent[]) {
+              const id = ev?.id;
+              const legacy = typeof id === "number" ? legacyById.get(id) : undefined;
+              const merged = legacy && legacy.ev_data
+                ? ({ ...ev, ev_data: legacy.ev_data } as NewCorporateEvent)
+                : ev;
+              items.push(merged);
+            }
           }
         }
         setCorporateEvents(items);
@@ -2935,113 +2988,96 @@ const CompanyDetail = () => {
                                   </td>
                                   {/* Deal Details */}
                                   <td>
-                                    <div className="muted-row">
-                                      <strong>Deal Type:</strong>{" "}
-                                      {(event as NewCorporateEvent).deal_type ||
-                                      (event as LegacyCorporateEvent)
-                                        .deal_type ? (
-                                        <span className="pill pill-blue">
-                                          {(event as NewCorporateEvent)
-                                            .deal_type ||
-                                            (event as LegacyCorporateEvent)
-                                              .deal_type}
-                                        </span>
-                                      ) : (
-                                        <span>Not Available</span>
-                                      )}
-                                    </div>
-                                    {!isPartnership && (
-                                      <div className="muted-row">
-                                        <strong>Amount (m):</strong>{" "}
-                                        {(() => {
-                                          const display = (
-                                            event as NewCorporateEvent
-                                          ).investment_display;
-                                          if (display && display.trim())
-                                            return display;
-                                          const legacy =
-                                            event as LegacyCorporateEvent;
-                                          const legacyAny =
-                                            legacy as unknown as {
-                                              investment_data?: {
-                                                investment_amount_m?:
-                                                  | number
-                                                  | string;
-                                                investment_amount?:
-                                                  | number
-                                                  | string;
-                                                currency?: {
-                                                  Currency?: string;
-                                                };
-                                                _currency?: {
-                                                  Currency?: string;
-                                                };
-                                                currrency?: {
-                                                  Currency?: string;
-                                                };
-                                              };
-                                              investment_amount_m?:
-                                                | number
-                                                | string;
-                                              investment_amount?:
-                                                | number
-                                                | string;
-                                            };
-                                          const amount =
-                                            legacyAny?.investment_data
-                                              ?.investment_amount_m ??
-                                            legacyAny?.investment_data
-                                              ?.investment_amount ??
-                                            legacyAny?.investment_amount_m ??
-                                            legacyAny?.investment_amount;
-                                          const currency: string | undefined =
-                                            legacyAny?.investment_data?.currency
-                                              ?.Currency ||
-                                            legacyAny?.investment_data
-                                              ?._currency?.Currency ||
-                                            legacyAny?.investment_data
-                                              ?.currrency?.Currency;
-                                          if (amount != null && currency) {
-                                            const n = Number(amount);
-                                            if (!Number.isNaN(n))
-                                              return `${currency}${n.toLocaleString()}m`;
-                                          }
-                                          return "Not available";
-                                        })()}
-                                      </div>
-                                    )}
-                                    {!isPartnership && (
-                                      <div className="muted-row">
-                                        <strong>EV (m):</strong>{" "}
-                                        {(() => {
-                                          const display = (
-                                            event as NewCorporateEvent
-                                          ).ev_display as string | undefined;
-                                          if (display && display.trim())
-                                            return display;
-                                          const legacy =
-                                            event as LegacyCorporateEvent;
-                                          const amount = legacy.ev_data
-                                            ?.enterprise_value_m as
+                                    {(() => {
+                                      const asNew = event as NewCorporateEvent;
+                                      const asLegacy =
+                                        event as LegacyCorporateEvent;
+                                      const anyEvent = event as unknown as {
+                                        investment_data?: {
+                                          investment_amount_m?:
                                             | number
-                                            | string
-                                            | undefined;
-                                          const currency: string | undefined =
-                                            legacy.ev_data?.currency
-                                              ?.Currency ||
-                                            legacy.ev_data?._currency?.Currency;
-                                          if (amount != null && currency) {
-                                            const n = Number(amount);
-                                            if (!Number.isNaN(n))
-                                              return `${currency}${n.toLocaleString()}m`;
-                                          }
-                                          return (
-                                            legacy.ev_data?.ev_band ||
-                                            "Not available"
-                                          );
-                                        })()}
-                                      </div>
-                                    )}
+                                            | string;
+                                          investment_amount?:
+                                            | number
+                                            | string;
+                                          currency?: { Currency?: string };
+                                          _currency?: { Currency?: string };
+                                          currrency?: { Currency?: string };
+                                        };
+                                        investment_amount_m?:
+                                          | number
+                                          | string;
+                                        investment_amount?: number | string;
+                                        ev_data?: {
+                                          enterprise_value_m?:
+                                            | number
+                                            | string;
+                                          ev_band?: string;
+                                          currency?: { Currency?: string };
+                                          _currency?: { Currency?: string };
+                                        };
+                                      };
+
+                                      const dealType =
+                                        asNew.deal_type || asLegacy.deal_type;
+
+                                      // Investment (Amount)
+                                      const amountDisplay =
+                                        asNew.investment_display || null;
+                                      const amountRaw =
+                                        anyEvent.investment_data
+                                          ?.investment_amount_m ??
+                                        anyEvent.investment_data
+                                          ?.investment_amount ??
+                                        anyEvent.investment_amount_m ??
+                                        anyEvent.investment_amount ??
+                                        null;
+                                      const amountMillions =
+                                        sanitizeAmountValue(amountRaw);
+                                      const amountCurrency: string | undefined =
+                                        anyEvent.investment_data?.currency
+                                          ?.Currency ||
+                                        anyEvent.investment_data?._currency
+                                          ?.Currency ||
+                                        anyEvent.investment_data?.currrency
+                                          ?.Currency;
+
+                                      // EV – Access ev_data directly from legacy event (it's already in the interface)
+                                      // The API response shows ev_data exists, so use asLegacy.ev_data directly
+                                      const evDataRaw = asLegacy.ev_data;
+                                      const evMillions = sanitizeAmountValue(
+                                        evDataRaw?.enterprise_value_m ?? null
+                                      );
+                                      // Try _currency first (what API returns), then currency (legacy fallback)
+                                      const evCurrency: string | undefined =
+                                        evDataRaw?._currency?.Currency ||
+                                        evDataRaw?.currency?.Currency ||
+                                        undefined;
+                                      const hasEvNumeric =
+                                        evMillions !== null &&
+                                        typeof evCurrency === "string" &&
+                                        evCurrency.trim().length > 0;
+                                      const evDisplay = hasEvNumeric
+                                        ? null
+                                        : (asNew.ev_display || null);
+                                      const evBandFallback = hasEvNumeric
+                                        ? null
+                                        : evDataRaw?.ev_band || null;
+
+                                      return (
+                                        <CorporateEventDealMetrics
+                                          dealType={dealType}
+                                          isPartnership={isPartnership}
+                                          amountDisplay={amountDisplay}
+                                          amountMillions={amountMillions}
+                                          amountCurrency={amountCurrency}
+                                          evDisplay={evDisplay}
+                                          evMillions={evMillions}
+                                          evCurrency={evCurrency}
+                                          evBandFallback={evBandFallback}
+                                        />
+                                      );
+                                    })()}
                                   </td>
                                   {/* Advisors */}
                                   <td>
@@ -3168,6 +3204,24 @@ const CompanyDetail = () => {
                                 ? "Show Less"
                                 : "See More"}
                             </button>
+                          </div>
+                        )}
+                        {corporateEventsRaw && (
+                          <div
+                            style={{
+                              marginTop: "16px",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontWeight: 600,
+                                marginBottom: "4px",
+                                color: "#4b5563",
+                              }}
+                            >
+    
+                            </div>
                           </div>
                         )}
                       </div>

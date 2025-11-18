@@ -192,7 +192,9 @@ const CorporateEventDetail = ({
     const n = Number(amount);
     if (Number.isNaN(n)) return "Not available";
     const formatted = n.toLocaleString(undefined, { maximumFractionDigits: 3 });
-    return `${currency}${formatted}m`;
+    // Amounts are already in millions; the "(m)" indicator lives in the field
+    // label (e.g., "Amount (m)"), so we omit the trailing "m" here.
+    return `${currency}${formatted}`;
   };
 
   // Prefer investment currency if present; otherwise fall back to EV currency

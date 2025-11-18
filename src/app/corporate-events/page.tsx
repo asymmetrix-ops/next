@@ -12,6 +12,7 @@ import {
   CorporateEventsFilters,
   BuyerInvestorType,
 } from "@/types/corporateEvents";
+import { CorporateEventDealMetrics } from "@/components/corporate-events/CorporateEventDealMetrics";
 import { CSVExporter } from "@/utils/csvExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
@@ -529,22 +530,6 @@ const CorporateEventsTable = ({
     }
   };
 
-  const formatCurrency = (
-    amount: string | undefined,
-    currency: string | undefined
-  ) => {
-    if (!amount || !currency) return "Not available";
-    const n = Number(amount);
-    if (Number.isNaN(n)) return "Not available";
-    // Values are already in millions; the "(m)" indicator is shown in the field
-    // name (e.g., "Amount (m)" and "EV (m)"), so we omit the trailing "m" here.
-    return `${currency}${n.toLocaleString(undefined, {
-      maximumFractionDigits: 3,
-    })}`;
-  };
-
-  // legacy helper retained for clarity; currently superseded by deriveSecondaryFromCompany
-
   // Sector name normalization and fallback map for reliability (e.g., Crypto -> Web 3)
   const normalizeSectorName = (name: string | undefined | null): string =>
     (name || "").trim().toLowerCase();
@@ -919,32 +904,14 @@ const CorporateEventsTable = ({
                 </td>
                 {/* Deal Details */}
                 <td>
-                  <div className="muted-row">
-                    <strong>Deal Type:</strong>{" "}
-                    {event.deal_type ? (
-                      <span className="pill pill-blue">{event.deal_type}</span>
-                    ) : (
-                      <span>Not Available</span>
-                    )}
-                  </div>
-                  {!isPartnership && (
-                    <div className="muted-row">
-                      <strong>Amount (m):</strong>{" "}
-                      {formatCurrency(
-                        event.investment_data?.investment_amount_m,
-                        event.investment_data?.currency?.Currency
-                      )}
-                    </div>
-                  )}
-                  {!isPartnership && (
-                    <div className="muted-row">
-                      <strong>EV (m):</strong>{" "}
-                      {formatCurrency(
-                        event.ev_data?.enterprise_value_m,
-                        event.ev_data?.currency?.Currency
-                      )}
-                    </div>
-                  )}
+                  <CorporateEventDealMetrics
+                    dealType={event.deal_type}
+                    isPartnership={isPartnership}
+                    amountMillions={event.investment_data?.investment_amount_m}
+                    amountCurrency={event.investment_data?.currency?.Currency}
+                    evMillions={event.ev_data?.enterprise_value_m}
+                    evCurrency={event.ev_data?.currency?.Currency}
+                  />
                 </td>
                 {/* Advisors */}
                 <td>
