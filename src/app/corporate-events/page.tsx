@@ -562,7 +562,8 @@ const CorporateEventsTable = ({
   };
 
   // Derive Primary sectors: prefer new `primary_sectors` (string[] or {sector_name}[]),
-  // fallback to legacy `_sectors_primary`, else compute from `secondary_sectors` / `_sectors_secondary`.
+  // fallback to legacy `_sectors_primary`, then use `derived_parent_primaries`, 
+  // else compute from `secondary_sectors` / `_sectors_secondary`.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const derivePrimaryFromCompany = (company: any | undefined): string => {
     const primaryNew = company?.primary_sectors as
@@ -580,6 +581,17 @@ const CorporateEventsTable = ({
       | undefined;
     if (Array.isArray(primaryLegacy) && primaryLegacy.length > 0) {
       return primaryLegacy.map((s) => s.sector_name).join(", ");
+    }
+
+    // Use derived_parent_primaries from API instead of computing from secondary
+    const derivedParentPrimaries = company?.derived_parent_primaries as
+      | Array<string | { sector_name: string }>
+      | undefined;
+    if (Array.isArray(derivedParentPrimaries) && derivedParentPrimaries.length > 0) {
+      const names = derivedParentPrimaries
+        .map((s) => (typeof s === "string" ? s : s.sector_name))
+        .filter(Boolean) as string[];
+      if (names.length > 0) return names.join(", ");
     }
 
     // Fallback: compute from secondary mapping (e.g., Crypto -> Web 3)
