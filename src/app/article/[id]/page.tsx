@@ -188,6 +188,44 @@ const styles = {
   },
 };
 
+// Derive Xano file host/origin from the public API URL so we can turn `path`
+// values like `/vault/...` into fully-qualified URLs for downloads.
+const XANO_API_URL = process.env.NEXT_PUBLIC_XANO_API_URL || "";
+const XANO_ORIGIN = (() => {
+  if (!XANO_API_URL) return "";
+  try {
+    const u = new URL(XANO_API_URL);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    // Fallback: strip trailing /api:... segment if present
+    return XANO_API_URL.replace(/\/api:[^/]+\/?$/, "");
+  }
+})();
+
+// Safely resolve a document URL from either an absolute url or a Xano `path`
+const getDocumentUrl = (
+  doc: { url?: unknown; path?: unknown } | null | undefined
+) => {
+  if (!doc || typeof doc !== "object") return undefined;
+
+  const normalize = (value: unknown): string | undefined => {
+    if (typeof value !== "string") return undefined;
+    const v = value.trim();
+    if (!v) return undefined;
+    if (/^https?:\/\//i.test(v)) return v;
+    if (XANO_ORIGIN && v.startsWith("/")) return `${XANO_ORIGIN}${v}`;
+    return v;
+  };
+
+  const fromUrl = normalize((doc as { url?: unknown }).url);
+  if (fromUrl) return fromUrl;
+
+  const fromPath = normalize((doc as { path?: unknown }).path);
+  if (fromPath) return fromPath;
+
+  return undefined;
+};
+
 const ArticleDetailPage = () => {
   const params = useParams();
   const router = useRouter();
@@ -249,6 +287,32 @@ const ArticleDetailPage = () => {
         return undefined;
       };
 
+      const rawRelatedDocs =
+        tryParse<
+          Array<{
+            access: string;
+            path: string;
+            name: string;
+            type: string;
+            size: number;
+            mime: string;
+            meta: { validated: boolean };
+            url?: string;
+          }>
+        >(raw.Related_Documents) || [];
+
+      const normalizedRelatedDocs = (Array.isArray(rawRelatedDocs)
+        ? rawRelatedDocs
+        : []
+      ).map((doc) => {
+        const resolvedUrl = getDocumentUrl(doc);
+        return {
+          ...doc,
+          // Ensure downstream code always has a string `url` to work with
+          url: resolvedUrl || String((doc as { url?: unknown }).url || ""),
+        };
+      });
+
       const normalized = {
         ...raw,
         sectors:
@@ -282,19 +346,7 @@ const ArticleDetailPage = () => {
               secondary_sectors?: Array<{ id?: number; sector_name?: string }>;
             }>
           >(raw.Related_Corporate_Event) || [],
-        Related_Documents:
-          tryParse<
-            Array<{
-              access: string;
-              path: string;
-              name: string;
-              type: string;
-              size: number;
-              mime: string;
-              meta: { validated: boolean };
-              url: string;
-            }>
-          >(raw.Related_Documents) || [],
+        Related_Documents: normalizedRelatedDocs,
       } as ArticleDetail;
 
       setArticle(normalized);
@@ -382,11 +434,14 @@ const ArticleDetailPage = () => {
         return _match;
       }
       used.add(idx);
-      const doc = imageDocs[idx] as { url?: string; name?: string } | undefined;
-      if (!doc || !doc.url) {
+      const doc = imageDocs[idx] as
+        | { url?: string; path?: string; name?: string }
+        | undefined;
+      const url = doc ? getDocumentUrl(doc) : undefined;
+      if (!doc || !url) {
         return _match;
       }
-      return buildFigureHtml(doc.url, doc.name || "");
+      return buildFigureHtml(url, doc.name || "");
     });
 
     return { html: replaced, usedIndices: used };
@@ -413,14 +468,13 @@ const ArticleDetailPage = () => {
       // No clear paragraphs; append all images at the end of the body
       const figures = imageDocs
         .filter(Boolean)
-        .map((doc) =>
-          doc && (doc as { url?: string; name?: string }).url
-            ? buildFigureHtml(
-                (doc as { url: string }).url,
-                (doc as { name?: string }).name || ""
-              )
-            : ""
-        )
+        .map((doc) => {
+          if (!doc) return "";
+          const url = getDocumentUrl(doc as { url?: string; path?: string });
+          if (!url) return "";
+          const name = (doc as { name?: string }).name || "";
+          return buildFigureHtml(url, name);
+        })
         .filter(Boolean)
         .join("");
       return { html: `${bodyHtml}${figures}`, injected: true };
@@ -447,10 +501,13 @@ const ArticleDetailPage = () => {
         if (insertionMap.has(p)) {
           const imgIdx = insertionMap.get(p)!;
           const doc = imageDocs[imgIdx] as
-            | { url?: string; name?: string }
+            | { url?: string; path?: string; name?: string }
             | undefined;
-          if (doc && doc.url) {
-            result += buildFigureHtml(doc.url, doc.name || "");
+          if (doc) {
+            const url = getDocumentUrl(doc);
+            if (url) {
+              result += buildFigureHtml(url, doc.name || "");
+            }
           }
         }
       } else {
@@ -465,13 +522,15 @@ const ArticleDetailPage = () => {
   const isImageDoc = (doc: {
     mime?: string;
     type?: string;
-    url: string;
-    name: string;
+    url?: string;
+    path?: string;
+    name?: string;
   }) => {
     if (!doc) return false;
     if (doc.mime && doc.mime.startsWith("image/")) return true;
     if (doc.type && doc.type.startsWith("image/")) return true;
-    const nameOrUrl = `${doc.name || ""} ${doc.url || ""}`;
+    const url = getDocumentUrl(doc);
+    const nameOrUrl = `${doc.name || ""} ${url || ""}`;
     return /(\.(png|jpe?g|gif|webp|svg))($|\?)/i.test(nameOrUrl);
   };
 
@@ -587,12 +646,19 @@ const ArticleDetailPage = () => {
                     {(article.Related_Documents || [])
                       .filter(Boolean)
                       .filter(isImageDoc)
-                      .map((doc, idx) => (
-                        <figure key={`${doc.url}-${idx}`} style={{ margin: 0 }}>
-                          <img src={doc.url || ""} alt={doc.name || ""} />
-                          <figcaption>{doc.name || ""}</figcaption>
-                        </figure>
-                      ))}
+                      .map((doc, idx) => {
+                        const url = getDocumentUrl(
+                          doc as { url?: string; path?: string }
+                        );
+                        const name = (doc as { name?: string }).name || "";
+                        if (!url) return null;
+                        return (
+                          <figure key={`${url}-${idx}`} style={{ margin: 0 }}>
+                            <img src={url} alt={name} />
+                            <figcaption>{name}</figcaption>
+                          </figure>
+                        );
+                      })}
                   </div>
                 </div>
               )}
@@ -609,7 +675,9 @@ const ArticleDetailPage = () => {
                       .filter(Boolean)
                       .filter((d) => !isImageDoc(d))
                       .map((doc, index) => {
-                        const url = (doc as unknown as { url?: string })?.url;
+                        const url = getDocumentUrl(
+                          doc as { url?: string; path?: string }
+                        );
                         const name = (doc as unknown as { name?: string })
                           ?.name;
                         if (!url) {
