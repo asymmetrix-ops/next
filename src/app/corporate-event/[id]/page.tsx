@@ -600,11 +600,11 @@ const CorporateEventDetail = ({
             </div>
             <div className="info-column">
               <div className="info-item">
-                <span className="info-label">Investment Amount:</span>
+                <span className="info-label">Investment Amount (m):</span>
                 <span className="info-value">{formatInvestmentAmount()}</span>
               </div>
               <div className="info-item">
-                <span className="info-label">Enterprise Value:</span>
+                <span className="info-label">Enterprise Value (m):</span>
                 <span className="info-value">
                   {(() => {
                     const flatEvent = (event ?? {}) as FlatEventFields;
