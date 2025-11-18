@@ -343,7 +343,7 @@ const CorporateEventsTable = ({
       if (Number.isNaN(n)) return "Not available";
       return `${currency}${n.toLocaleString(undefined, {
         maximumFractionDigits: 3,
-      })}m`;
+      })}`;
     };
 
     const isPartnership = /partnership/i.test(event.deal_type || "");
@@ -551,7 +551,7 @@ const CorporateEventsTable = ({
     if (Number.isNaN(n)) return "Not available";
     return `${currency}${n.toLocaleString(undefined, {
       maximumFractionDigits: 3,
-    })}m`;
+    })}`;
   };
 
   // legacy helper retained for clarity; currently superseded by deriveSecondaryFromCompany
@@ -949,6 +949,7 @@ const CorporateEventsTable = ({
                         event.ev_data?.enterprise_value_m,
                         event.ev_data?.currency?.Currency
                       )}
+                      m
                     </div>
                   )}
                 </td>
