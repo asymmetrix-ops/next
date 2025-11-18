@@ -574,7 +574,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
 
   return (
     <div className="space-y-6">
-      {/* Filters Section with pre-filter banner */}
+      {/* Filters Section */}
       <div className="p-6 bg-white rounded-xl border shadow-lg border-slate-200/60">
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-bold text-slate-900">Filters</h2>
@@ -584,11 +584,6 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
           >
             {showFilters ? "Hide Filters" : "Show Filters"}
           </button>
-        </div>
-        <div className="mt-3 rounded-md bg-orange-50 border border-orange-200 px-4 py-2 text-xs text-orange-800">
-          Results are pre-filtered to corporate events where the{" "}
-          <span className="font-semibold">target</span> is in this{" "}
-          <span className="font-semibold">sub-sector</span> (secondary sector).
         </div>
 
         {showFilters && (
@@ -1084,6 +1079,12 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                     | { _location?: { Country?: string } }
                     | undefined)?._location?.Country ||
                   "Not Available";
+                const fundingStage =
+                  (
+                    event.investment_data?.Funding_stage ||
+                    event.investment_data?.funding_stage ||
+                    ""
+                  ).trim();
 
                 return (
                   <tr
@@ -1188,7 +1189,20 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                     <td className="p-3 align-top text-xs break-words text-slate-600">
                       <div className="mb-1">
                         <strong>Deal Type:</strong>{" "}
-                        {event.deal_type || "Not Available"}
+                        {event.deal_type ? (
+                          <span className="inline-flex flex-wrap gap-1 align-middle">
+                            <span className="inline-block px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded">
+                              {event.deal_type}
+                            </span>
+                            {fundingStage && (
+                              <span className="inline-block px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded">
+                                {fundingStage}
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          "Not Available"
+                        )}
                       </div>
                       <div>
                         <strong>Amount (m):</strong>{" "}
@@ -1568,11 +1582,6 @@ const SubSectorPage = () => {
                     {companiesPagination.itemsReceived.toLocaleString()} total
                   </div>
                 </div>
-                <div className="mt-3 rounded-md bg-indigo-50 border border-indigo-200 px-4 py-2 text-xs text-indigo-800">
-                  Results are pre-filtered to companies whose{" "}
-                  <span className="font-semibold">sub-sector</span> matches this
-                  page.
-                </div>
               </div>
               <div className="px-5 py-4">
                 {companiesLoading ? (
@@ -1592,22 +1601,22 @@ const SubSectorPage = () => {
                     <table className="w-full text-sm table-fixed">
                       <thead className="bg-slate-50/80">
                         <tr className="hover:bg-slate-50/80">
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[8%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[8%]">
                             Logo
                           </th>
                           <th className="py-3 font-semibold text-center text-slate-700 w-[18%]">
                             Name
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[26%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[26%]">
                             Description
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[12%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[12%]">
                             Ownership
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[14%]">
                             HQ
                           </th>
-                          <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[14%]">
                             Investors
                           </th>
                           <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[8%]">
@@ -1660,9 +1669,14 @@ const SubSectorPage = () => {
                             <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
                               {Array.isArray(c.companies_investors) &&
                               c.companies_investors.length > 0
-                                ? c.companies_investors
-                                    .map((inv) => inv.company_name)
-                                    .join(", ")
+                                ? (() => {
+                                    const names = c.companies_investors
+                                      .map((inv) => (inv.company_name || "").trim())
+                                      .filter((name) => name.length > 0);
+                                    return names.length > 0
+                                      ? names.join(", ")
+                                      : "N/A";
+                                  })()
                                 : "N/A"}
                             </td>
                             <td className="py-3 pr-4 text-center text-slate-700">

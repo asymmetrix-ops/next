@@ -721,11 +721,11 @@ function MostActiveTableCard({
           <table className="min-w-full text-sm table-fixed">
             <thead className="bg-slate-50/80">
               <tr className="hover:bg-slate-50/80">
-                <th className="py-3 font-semibold text-left text-slate-700">
-                  {isInvestorTable ? "Investor" : "Acquirer"}
-                </th>
                 <th className="py-3 font-semibold text-center text-slate-700">
                   Deals
+                </th>
+                <th className="py-3 font-semibold text-left text-slate-700">
+                  {isInvestorTable ? "Investor" : "Acquirer"}
                 </th>
                 <th className="py-3 font-semibold text-left text-slate-700">
                   {mostRecentHeader ?? "Most Recent"}
@@ -759,6 +759,15 @@ function MostActiveTableCard({
                         }
                       }}
                     >
+                      <td className="py-3 text-center">
+                        <div
+                          className={`inline-flex justify-center items-center w-8 h-8 rounded-full ${accentClasses.countBg}`}
+                        >
+                          <span className="text-sm font-bold">
+                            {formatNumber(it.count)}
+                          </span>
+                        </div>
+                      </td>
                       <td className="py-3 pr-4">
                         {it.id ? (
                           <a href={linkUrl} className="flex gap-3 items-center">
@@ -839,15 +848,6 @@ function MostActiveTableCard({
                             </div>
                           </div>
                         )}
-                      </td>
-                      <td className="py-3 text-center">
-                        <div
-                          className={`inline-flex justify-center items-center w-8 h-8 rounded-full ${accentClasses.countBg}`}
-                        >
-                          <span className="text-sm font-bold">
-                            {formatNumber(it.count)}
-                          </span>
-                        </div>
                       </td>
                       <td className="py-3">
                         <div>
@@ -3515,11 +3515,11 @@ const SectorDetailPage = () => {
           <div className="overflow-x-auto p-6 bg-white rounded-xl border shadow-lg border-slate-200/60">
             <table className="w-full table-fixed">
               <colgroup>
-                <col style={{ width: "34%" }} />
+                <col style={{ width: "30%" }} />
                 <col style={{ width: "20%" }} />
                 <col style={{ width: "22%" }} />
                 <col style={{ width: "16%" }} />
-                <col style={{ width: "8%" }} />
+                <col style={{ width: "12%" }} />
               </colgroup>
               <thead>
                 <tr className="border-b-2 border-slate-200">
@@ -3575,6 +3575,13 @@ const SectorDetailPage = () => {
                       maximumFractionDigits: 3,
                     })}m`;
                   };
+
+                  const fundingStage =
+                    (
+                      event.investment_data?.Funding_stage ||
+                      event.investment_data?.funding_stage ||
+                      ""
+                    ).trim();
 
                   return (
                     <tr
@@ -3741,8 +3748,15 @@ const SectorDetailPage = () => {
                         <div className="mb-1 text-xs text-slate-600">
                           <strong>Deal Type:</strong>{" "}
                           {event.deal_type ? (
-                            <span className="inline-block px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded">
-                              {event.deal_type}
+                            <span className="inline-flex flex-wrap gap-1 align-middle">
+                              <span className="inline-block px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded">
+                                {event.deal_type}
+                              </span>
+                              {fundingStage && (
+                                <span className="inline-block px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded">
+                                  {fundingStage}
+                                </span>
+                              )}
                             </span>
                           ) : (
                             "Not Available"
@@ -4520,7 +4534,7 @@ const SectorDetailPage = () => {
                 items={peInvestors}
                 accent="purple"
                 badgeLabel="Private Equity"
-                mostRecentHeader="Most Recent Investment."
+                mostRecentHeader="Most Recent Investment"
                 showBadge={false}
               />
             </div>
@@ -5284,7 +5298,7 @@ const SectorDetailPage = () => {
                                   </div>
                                 )}
                               </td>
-                              <td className="py-3 pr-4 align-top whitespace-normal break-words">
+                              <td className="py-3 pr-4 align-middle whitespace-normal break-words">
                                 <a
                                   href={`/company/${c.id}`}
                                   className="font-medium text-blue-600 underline"
@@ -5331,12 +5345,12 @@ const SectorDetailPage = () => {
                                   "N/A"
                                 )}
                               </td>
-                              <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
+                              <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
                                 {primaryDisplay.length > 0
                                   ? primaryDisplay.join(", ")
                                   : "N/A"}
                               </td>
-                              <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
+                              <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
                                 {Array.isArray(c.secondary_sectors) &&
                                 c.secondary_sectors.length > 0
                                   ? c.secondary_sectors.join(", ")
@@ -5980,7 +5994,7 @@ const SectorDetailPage = () => {
                             Primary Sector(s)
                           </th>
                           <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
-                            Sectors
+                            Sub-Sector(s)
                           </th>
                           <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[7%]">
                             LinkedIn Members
@@ -6019,7 +6033,7 @@ const SectorDetailPage = () => {
                                   </div>
                                 )}
                               </td>
-                              <td className="py-3 pr-4 align-top whitespace-normal break-words">
+                              <td className="py-3 pr-4 align-middle whitespace-normal break-words">
                                 <a
                                   href={`/company/${c.id}`}
                                   className="font-medium text-blue-600 underline"
@@ -6066,12 +6080,12 @@ const SectorDetailPage = () => {
                                   "N/A"
                                 )}
                               </td>
-                              <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
+                              <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
                                 {primaryDisplay.length > 0
                                   ? primaryDisplay.join(", ")
                                   : "N/A"}
                               </td>
-                              <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
+                              <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
                                 {Array.isArray(c.secondary_sectors) &&
                                 c.secondary_sectors.length > 0
                                   ? c.secondary_sectors.join(", ")
@@ -6165,74 +6179,20 @@ const SectorDetailPage = () => {
                     No sub-sectors found.
                   </div>
                 ) : (
-                  <>
-                    {/* Desktop Table */}
-                    <div className="hidden overflow-x-auto md:block">
-                      <table className="min-w-full text-sm bg-white rounded-xl border shadow-lg table-fixed border-slate-200/60">
-                        <colgroup>
-                          <col style={{ width: "70%" }} />
-                          <col style={{ width: "30%" }} />
-                        </colgroup>
-                        <thead className="bg-slate-50/80">
-                          <tr className="hover:bg-slate-50/80">
-                            <th className="px-4 py-3 font-semibold text-left text-slate-700">
-                              Sub-Sector Name
-                            </th>
-                            <th className="px-4 py-3 font-semibold text-left text-slate-700">
-                              Importance
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {subSectors.map((s) => (
-                            <tr
-                              key={s.id}
-                              className="border-t hover:bg-slate-50/50 border-slate-100"
-                            >
-                              <td className="px-4 py-3 align-top whitespace-normal break-words">
-                                <a
-                                  href={`/sub-sector/${s.id}`}
-                                  className="font-medium text-blue-600 underline hover:text-blue-800"
-                                >
-                                  {s.sector_name}
-                                </a>
-                              </td>
-                              <td className="px-4 py-3 align-top">
-                                <span className="inline-block px-2 py-0.5 border rounded text-xs bg-blue-50 text-blue-700 border-blue-200">
-                                  {s.Sector_importance}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {/* Mobile Cards */}
-                    <div className="md:hidden">
-                      {subSectors.map((s) => (
-                        <div
-                          key={s.id}
-                          className="flex justify-between items-center p-4 mb-3 bg-white rounded-lg border shadow-sm border-slate-200"
-                          title={s.sector_name}
-                        >
-                          <div className="flex gap-3 items-center min-w-0">
-                            <div className="flex justify-center items-center w-10 h-10 text-sm font-semibold text-white bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
-                              {s.sector_name.charAt(0)}
-                            </div>
-                            <a
-                              href={`/sub-sector/${s.id}`}
-                              className="text-sm font-medium text-blue-600 underline truncate hover:text-blue-800"
-                            >
-                              {s.sector_name}
-                            </a>
-                          </div>
-                          <span className="inline-block px-2 py-0.5 border rounded text-xs bg-blue-50 text-blue-700 border-blue-200">
-                            {s.Sector_importance}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {subSectors.map((s) => (
+                      <a
+                        key={s.id}
+                        href={`/sub-sector/${s.id}`}
+                        className="flex items-center p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm hover:bg-slate-100 hover:border-blue-300 transition-colors duration-150"
+                        title={s.sector_name}
+                      >
+                        <span className="inline-flex max-w-full text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-3 py-1 truncate">
+                          {s.sector_name}
+                        </span>
+                      </a>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
