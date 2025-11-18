@@ -342,9 +342,11 @@ const CorporateEventsTable = ({
       if (!amount || !currency) return "Not available";
       const n = Number(amount);
       if (Number.isNaN(n)) return "Not available";
+      // Values are already in millions; the "(m)" indicator is shown in the field
+      // name (e.g., "Amount (m)"), so we omit the trailing "m" here.
       return `${currency}${n.toLocaleString(undefined, {
         maximumFractionDigits: 3,
-      })}m`;
+      })}`;
     };
 
     const isPartnership = /partnership/i.test(event.deal_type || "");
@@ -534,9 +536,11 @@ const CorporateEventsTable = ({
     if (!amount || !currency) return "Not available";
     const n = Number(amount);
     if (Number.isNaN(n)) return "Not available";
+    // Values are already in millions; the "(m)" indicator is shown in the field
+    // name (e.g., "Amount (m)" and "EV (m)"), so we omit the trailing "m" here.
     return `${currency}${n.toLocaleString(undefined, {
       maximumFractionDigits: 3,
-    })}m`;
+    })}`;
   };
 
   // legacy helper retained for clarity; currently superseded by deriveSecondaryFromCompany
