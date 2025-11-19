@@ -719,13 +719,18 @@ function MostActiveTableCard({
       <div className="px-5 pb-5">
         <div className="overflow-auto" style={{ maxHeight: "28rem" }}>
           <table className="min-w-full text-sm table-fixed">
+            <colgroup>
+              <col style={{ width: "38%" }} />
+              <col style={{ width: "24%" }} />
+              <col style={{ width: "38%" }} />
+            </colgroup>
             <thead className="bg-slate-50/80">
               <tr className="hover:bg-slate-50/80">
-                <th className="py-3 font-semibold text-center text-slate-700">
-                  Deals
-                </th>
                 <th className="py-3 font-semibold text-left text-slate-700">
                   {isInvestorTable ? "Investor" : "Acquirer"}
+                </th>
+                <th className="py-3 font-semibold text-center text-slate-700">
+                  Deals
                 </th>
                 <th className="py-3 font-semibold text-left text-slate-700">
                   {mostRecentHeader ?? "Most Recent"}
@@ -759,15 +764,6 @@ function MostActiveTableCard({
                         }
                       }}
                     >
-                      <td className="py-3 text-center">
-                        <div
-                          className={`inline-flex justify-center items-center w-8 h-8 rounded-full ${accentClasses.countBg}`}
-                        >
-                          <span className="text-sm font-bold">
-                            {formatNumber(it.count)}
-                          </span>
-                        </div>
-                      </td>
                       <td className="py-3 pr-4">
                         {it.id ? (
                           <a href={linkUrl} className="flex gap-3 items-center">
@@ -848,6 +844,15 @@ function MostActiveTableCard({
                             </div>
                           </div>
                         )}
+                      </td>
+                      <td className="py-3 text-center">
+                        <div
+                          className={`inline-flex justify-center items-center w-8 h-8 rounded-full ${accentClasses.countBg}`}
+                        >
+                          <span className="text-sm font-bold">
+                            {formatNumber(it.count)}
+                          </span>
+                        </div>
                       </td>
                       <td className="py-3">
                         <div>
@@ -6184,12 +6189,10 @@ const SectorDetailPage = () => {
                       <a
                         key={s.id}
                         href={`/sub-sector/${s.id}`}
-                        className="flex items-center p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm hover:bg-slate-100 hover:border-blue-300 transition-colors duration-150"
+                        className="inline-flex max-w-full text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-3 py-1 truncate hover:bg-blue-100 hover:border-blue-300 transition-colors duration-150"
                         title={s.sector_name}
                       >
-                        <span className="inline-flex max-w-full text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-3 py-1 truncate">
-                          {s.sector_name}
-                        </span>
+                        {s.sector_name}
                       </a>
                     ))}
                   </div>
