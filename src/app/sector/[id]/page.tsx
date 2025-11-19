@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 // import Image from "next/image";
 import Header from "@/components/Header";
@@ -2470,6 +2470,7 @@ const SectorDetailPage = () => {
 
   // Comprehensive Transactions Tab Component
   function SectorTransactionsTab({ sectorId }: { sectorId: string }) {
+    const hasInitialLoaded = useRef(false);
     // State for filters
     const [showFilters, setShowFilters] = useState(false);
     const [filters, setFilters] = useState<CorporateEventsFilters>({
@@ -2808,8 +2809,11 @@ const SectorDetailPage = () => {
       }
     };
 
-    // Initial data fetch
+    // Initial data fetch (guarded to avoid double-load in React Strict Mode)
     useEffect(() => {
+      if (hasInitialLoaded.current) return;
+      hasInitialLoaded.current = true;
+
       fetchCountries();
       fetchContinentalRegions();
       fetchSubRegions();
@@ -3758,7 +3762,7 @@ const SectorDetailPage = () => {
                                 {event.deal_type}
                               </span>
                               {fundingStage && (
-                                <span className="inline-block px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded">
+                                <span className="inline-block px-2 py-1 text-xs text-green-700 bg-green-50 rounded">
                                   {fundingStage}
                                 </span>
                               )}

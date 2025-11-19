@@ -1195,7 +1195,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                               {event.deal_type}
                             </span>
                             {fundingStage && (
-                              <span className="inline-block px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded">
+                              <span className="inline-block px-2 py-1 text-xs text-green-700 bg-green-50 rounded">
                                 {fundingStage}
                               </span>
                             )}
