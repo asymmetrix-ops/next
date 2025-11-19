@@ -780,102 +780,93 @@ const CorporateEventsTable = ({
                         ? "Investor(s)"
                         : null;
                     if (!label) return null;
+
+                    if (
+                      !Array.isArray(event.other_counterparties) ||
+                      event.other_counterparties.length === 0
+                    ) {
+                      return null;
+                    }
+
+                    const relevant = event.other_counterparties.filter((cp) => {
+                      const status =
+                        cp._counterparty_type?.counterparty_status || "";
+                      if (label === "Buyer(s)") {
+                        return /^(acquirer|buyer)$/i.test(status);
+                      }
+                      if (label === "Investor(s)") {
+                        return /^investor/i.test(status);
+                      }
+                      return false;
+                    });
+
+                    if (relevant.length === 0) return null;
+
                     return (
                       <div className="muted-row">
                         <strong>{label}:</strong>{" "}
-                        {Array.isArray(event.other_counterparties) &&
-                        event.other_counterparties.length > 0
-                          ? (() => {
-                              const buyers = event.other_counterparties.filter(
-                                (cp) => {
-                                  const status =
-                                    cp._counterparty_type
-                                      ?.counterparty_status || "";
-                                  if (label === "Buyer(s)") {
-                                    return /^(acquirer|buyer)$/i.test(status);
-                                  }
-                                  if (label === "Investor(s)") {
-                                    return /^investor/i.test(status);
-                                  }
-                                  return false;
-                                }
+                        {relevant.map((counterparty, subIndex) => {
+                          const nc = counterparty._new_company as
+                            | {
+                                id?: number;
+                                name: string;
+                                _is_that_investor?: boolean;
+                                _is_that_data_analytic_company?: boolean;
+                                _url?: string;
+                                _investor_profile_id?: number;
+                              }
+                            | undefined;
+                          if (!nc) {
+                            return null;
+                          }
+                          const name = nc.name;
+                          let url = "";
+                          const cpId =
+                            (
+                              counterparty as {
+                                new_company_counterparty?: number;
+                              }
+                            ).new_company_counterparty || nc.id;
+                          if (nc._is_that_investor) {
+                            // Use the New Company id for investor pages
+                            if (typeof cpId === "number") {
+                              url = `/investors/${cpId}`;
+                            } else if (
+                              typeof nc._url === "string" &&
+                              nc._url
+                            ) {
+                              // Fallback: convert backend investor url to our route
+                              url = nc._url.replace(
+                                /\/(?:investor)\//,
+                                "/investors/"
                               );
-                              if (buyers.length === 0)
-                                return <span>Not Available</span>;
-                              return buyers.map((counterparty, subIndex) => {
-                                const nc = counterparty._new_company as
-                                  | {
-                                      id?: number;
-                                      name: string;
-                                      _is_that_investor?: boolean;
-                                      _is_that_data_analytic_company?: boolean;
-                                      _url?: string;
-                                      _investor_profile_id?: number;
-                                    }
-                                  | undefined;
-                                if (!nc) {
-                                  return (
-                                    <span key={subIndex}>
-                                      Not Available
-                                      {subIndex < buyers.length - 1 && ", "}
-                                    </span>
-                                  );
-                                }
-                                const name = nc.name;
-                                let url = "";
-                                const cpId =
-                                  (
-                                    counterparty as {
-                                      new_company_counterparty?: number;
-                                    }
-                                  ).new_company_counterparty || nc.id;
-                                if (nc._is_that_investor) {
-                                  // Use the New Company id for investor pages
-                                  if (typeof cpId === "number") {
-                                    url = `/investors/${cpId}`;
-                                  } else if (
-                                    typeof nc._url === "string" &&
-                                    nc._url
-                                  ) {
-                                    // Fallback: convert backend investor url to our route
-                                    url = nc._url.replace(
-                                      /\/(?:investor)\//,
-                                      "/investors/"
-                                    );
-                                  } else {
-                                    url = "";
-                                  }
-                                } else if (nc._is_that_data_analytic_company) {
-                                  url =
-                                    typeof cpId === "number"
-                                      ? `/company/${cpId}`
-                                      : "";
-                                } else if (
-                                  typeof nc._url === "string" &&
-                                  nc._url
-                                ) {
-                                  url = nc._url.replace(
-                                    /\/(?:investor)\//,
-                                    "/investors/"
-                                  );
-                                }
-                                return (
-                                  <span key={subIndex}>
-                                    {url ? (
-                                      <a href={url} className="link-blue">
-                                        {name}
-                                      </a>
-                                    ) : (
-                                      <span style={{ color: "#000" }}>
-                                        {name}
-                                      </span>
-                                    )}
-                                    {subIndex < buyers.length - 1 && ", "}
-                                  </span>
-                                );
-                              });
-                            })()
-                          : "Not Available"}
+                            } else {
+                              url = "";
+                            }
+                          } else if (nc._is_that_data_analytic_company) {
+                            url =
+                              typeof cpId === "number"
+                                ? `/company/${cpId}`
+                                : "";
+                          } else if (typeof nc._url === "string" && nc._url) {
+                            url = nc._url.replace(
+                              /\/(?:investor)\//,
+                              "/investors/"
+                            );
+                          }
+                          return (
+                            <span key={subIndex}>
+                              {url ? (
+                                <a href={url} className="link-blue">
+                                  {name}
+                                </a>
+                              ) : (
+                                <span style={{ color: "#000" }}>{name}</span>
+                              )}
+                              {subIndex < relevant.length - 1 && ", "}
+                            </span>
+                          );
+                        })}
                       </div>
                     );
                   })()}

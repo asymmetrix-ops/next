@@ -72,6 +72,17 @@ export const CorporateEventDealMetrics: React.FC<
   evCurrency,
   evBandFallback,
 }) => {
+  const hasEvDisplay = isNonEmptyString(evDisplay);
+  const hasEvNumeric =
+    evMillions != null && isNonEmptyString(evCurrency) && // ensure both present
+    !Number.isNaN(
+      typeof evMillions === "number"
+        ? evMillions
+        : Number(String(evMillions).replace(/,/g, "").trim())
+    );
+  const hasEvBand = isNonEmptyString(evBandFallback);
+  const shouldShowEvRow = hasEvDisplay || hasEvNumeric || hasEvBand;
+
   return (
     <>
       <div className="muted-row">
@@ -101,16 +112,18 @@ export const CorporateEventDealMetrics: React.FC<
               ? amountDisplay
               : formatMillions(amountMillions, amountCurrency)}
           </div>
-          <div className="muted-row">
-            <strong>{evLabel}:</strong>{" "}
-            {isNonEmptyString(evDisplay)
-              ? evDisplay
-              : evMillions != null || evCurrency
-              ? formatMillions(evMillions, evCurrency)
-              : isNonEmptyString(evBandFallback)
-              ? evBandFallback
-              : "Not available"}
-          </div>
+          {shouldShowEvRow && (
+            <div className="muted-row">
+              <strong>{evLabel}:</strong>{" "}
+              {isNonEmptyString(evDisplay)
+                ? evDisplay
+                : hasEvNumeric
+                ? formatMillions(evMillions, evCurrency)
+                : isNonEmptyString(evBandFallback)
+                ? evBandFallback
+                : null}
+            </div>
+          )}
         </>
       )}
     </>

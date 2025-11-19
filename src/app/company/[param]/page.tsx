@@ -2809,183 +2809,163 @@ const CompanyDetail = () => {
                                         );
                                       })()}
                                     </div>
-                                    <div className="muted-row">
-                                      <strong>Buyer(s):</strong>{" "}
-                                      {(() => {
-                                        const newEvent =
-                                          event as NewCorporateEvent;
-                                        // Prefer explicit `buyers` from new API;
-                                        // fall back to legacy `buyers_investors`
-                                        // or `other_counterparties`.
-                                        const candidates =
-                                          Array.isArray(newEvent.buyers)
-                                            ? newEvent.buyers
-                                            : Array.isArray(
-                                                newEvent.buyers_investors
-                                              )
-                                            ? newEvent.buyers_investors
-                                            : Array.isArray(
-                                                newEvent.other_counterparties
-                                              )
-                                            ? newEvent.other_counterparties
-                                            : [];
-                                        if (Array.isArray(candidates)) {
-                                          const list = candidates.filter(
-                                            (c) =>
-                                              c &&
-                                              typeof c.id === "number" &&
-                                              c.name &&
-                                              c.page_type !== "investor"
-                                          );
-                                          if (list.length === 0)
-                                            return <span>Not Available</span>;
-                                          return list.map((c, idx) => {
-                                            const href =
-                                              c.page_type === "investor"
-                                                ? `/investors/${c.id}`
-                                                : `/company/${c.id}`;
-                                            return (
-                                              <span key={`${c.id}-${idx}`}>
+                                    {(() => {
+                                      const newEvent = event as NewCorporateEvent;
+                                      // Prefer explicit `buyers` from new API;
+                                      // fall back to legacy `buyers_investors`
+                                      // or `other_counterparties`.
+                                      const candidates = Array.isArray(newEvent.buyers)
+                                        ? newEvent.buyers
+                                        : Array.isArray(newEvent.buyers_investors)
+                                        ? newEvent.buyers_investors
+                                        : Array.isArray(newEvent.other_counterparties)
+                                        ? newEvent.other_counterparties
+                                        : [];
+                                      const legacy = event as LegacyCorporateEvent;
+                                      const legacyItems = (legacy["0"] || []).filter(
+                                        (it) =>
+                                          it &&
+                                          it._new_company &&
+                                          it._new_company.name &&
+                                          !it._new_company?._is_that_investor
+                                      );
+
+                                      const list: Array<{
+                                        id?: number;
+                                        name: string;
+                                        href: string | null;
+                                      }> = [];
+
+                                      if (Array.isArray(candidates)) {
+                                        candidates.forEach((c) => {
+                                          if (
+                                            c &&
+                                            typeof c.id === "number" &&
+                                            c.name &&
+                                            c.page_type !== "investor"
+                                          ) {
+                                            list.push({
+                                              id: c.id,
+                                              name: c.name,
+                                              href:
+                                                c.page_type === "investor"
+                                                  ? `/investors/${c.id}`
+                                                  : `/company/${c.id}`,
+                                            });
+                                          }
+                                        });
+                                      }
+
+                                      legacyItems.forEach((it) => {
+                                        const id = it._new_company?.id;
+                                        list.push({
+                                          id,
+                                          name: it._new_company!.name,
+                                          href: id ? `/company/${id}` : null,
+                                        });
+                                      });
+
+                                      if (list.length === 0) return null;
+
+                                      return (
+                                        <div className="muted-row">
+                                          <strong>Buyer(s):</strong>{" "}
+                                          {list.map((c, idx) => (
+                                            <span key={`${c.id ?? c.name}-${idx}`}>
+                                              {c.href ? (
                                                 <a
-                                                  href={href}
+                                                  href={c.href}
                                                   className="link-blue"
                                                 >
                                                   {c.name}
                                                 </a>
-                                                {idx < list.length - 1 && ", "}
-                                              </span>
-                                            );
-                                          });
-                                        }
-                                        const legacy =
-                                          event as LegacyCorporateEvent;
-                                        const items = (
-                                          legacy["0"] || []
-                                        ).filter(
-                                          (it) =>
-                                            it &&
-                                            it._new_company &&
-                                            it._new_company.name &&
-                                            !it._new_company?._is_that_investor
-                                        );
-                                        if (items.length === 0)
-                                          return <span>Not Available</span>;
-                                        return items.map((it, idx) => {
-                                          const id = it._new_company?.id;
-                                          const href = `/company/${id}`;
-                                          if (!id) {
-                                            return (
-                                              <span
-                                                key={`${it._new_company?.name}-${idx}`}
-                                              >
-                                                {it._new_company?.name}
-                                                {idx < items.length - 1 && ", "}
-                                              </span>
-                                            );
-                                          }
-                                          return (
-                                            <span key={`${id}-${idx}`}>
-                                              <a
-                                                href={href}
-                                                className="link-blue"
-                                              >
-                                                {it._new_company!.name}
-                                              </a>
-                                              {idx < items.length - 1 && ", "}
+                                              ) : (
+                                                <span>{c.name}</span>
+                                              )}
+                                              {idx < list.length - 1 && ", "}
                                             </span>
-                                          );
+                                          ))}
+                                        </div>
+                                      );
+                                    })()}
+                                    {(() => {
+                                      const newEvent = event as NewCorporateEvent;
+                                      // Prefer explicit `investors` from new API;
+                                      // fall back to legacy `buyers_investors`
+                                      // or `other_counterparties`.
+                                      const candidates = Array.isArray(
+                                        newEvent.investors
+                                      )
+                                        ? newEvent.investors
+                                        : Array.isArray(newEvent.buyers_investors)
+                                        ? newEvent.buyers_investors
+                                        : Array.isArray(newEvent.other_counterparties)
+                                        ? newEvent.other_counterparties
+                                        : [];
+                                      const legacy = event as LegacyCorporateEvent;
+                                      const legacyItems = (legacy["0"] || []).filter(
+                                        (it) =>
+                                          it &&
+                                          it._new_company &&
+                                          it._new_company.name &&
+                                          it._new_company?._is_that_investor
+                                      );
+
+                                      const list: Array<{
+                                        id?: number;
+                                        name: string;
+                                        href: string | null;
+                                      }> = [];
+
+                                      if (Array.isArray(candidates)) {
+                                        candidates.forEach((c) => {
+                                          if (
+                                            c &&
+                                            typeof c.id === "number" &&
+                                            c.name &&
+                                            c.page_type === "investor"
+                                          ) {
+                                            list.push({
+                                              id: c.id,
+                                              name: c.name,
+                                              href: `/investors/${c.id}`,
+                                            });
+                                          }
                                         });
-                                      })()}
-                                    </div>
-                                    <div className="muted-row">
-                                      <strong>Investor(s):</strong>{" "}
-                                      {(() => {
-                                        const newEvent =
-                                          event as NewCorporateEvent;
-                                        // Prefer explicit `investors` from new API;
-                                        // fall back to legacy `buyers_investors`
-                                        // or `other_counterparties`.
-                                        const candidates = Array.isArray(
-                                          newEvent.investors
-                                        )
-                                          ? newEvent.investors
-                                          : Array.isArray(
-                                              newEvent.buyers_investors
-                                            )
-                                          ? newEvent.buyers_investors
-                                          : Array.isArray(
-                                              newEvent.other_counterparties
-                                            )
-                                          ? newEvent.other_counterparties
-                                          : [];
-                                        if (Array.isArray(candidates)) {
-                                          const list = candidates.filter(
-                                            (c) =>
-                                              c &&
-                                              typeof c.id === "number" &&
-                                              c.name &&
-                                              c.page_type === "investor"
-                                          );
-                                          if (list.length === 0)
-                                            return <span>Not Available</span>;
-                                          return list.map((c, idx) => {
-                                            const href =
-                                              c.page_type === "investor"
-                                                ? `/investors/${c.id}`
-                                                : `/company/${c.id}`;
-                                            return (
-                                              <span key={`${c.id}-${idx}`}>
+                                      }
+
+                                      legacyItems.forEach((it) => {
+                                        const id = it._new_company?.id;
+                                        list.push({
+                                          id,
+                                          name: it._new_company!.name,
+                                          href: id ? `/investors/${id}` : null,
+                                        });
+                                      });
+
+                                      if (list.length === 0) return null;
+
+                                      return (
+                                        <div className="muted-row">
+                                          <strong>Investor(s):</strong>{" "}
+                                          {list.map((c, idx) => (
+                                            <span key={`${c.id ?? c.name}-${idx}`}>
+                                              {c.href ? (
                                                 <a
-                                                  href={href}
+                                                  href={c.href}
                                                   className="link-blue"
                                                 >
                                                   {c.name}
                                                 </a>
-                                                {idx < list.length - 1 && ", "}
-                                              </span>
-                                            );
-                                          });
-                                        }
-                                        const legacy =
-                                          event as LegacyCorporateEvent;
-                                        const items = (
-                                          legacy["0"] || []
-                                        ).filter(
-                                          (it) =>
-                                            it &&
-                                            it._new_company &&
-                                            it._new_company.name &&
-                                            it._new_company?._is_that_investor
-                                        );
-                                        if (items.length === 0)
-                                          return <span>Not Available</span>;
-                                        return items.map((it, idx) => {
-                                          const id = it._new_company?.id;
-                                          const href = `/investors/${id}`;
-                                          if (!id) {
-                                            return (
-                                              <span
-                                                key={`${it._new_company?.name}-${idx}`}
-                                              >
-                                                {it._new_company?.name}
-                                                {idx < items.length - 1 && ", "}
-                                              </span>
-                                            );
-                                          }
-                                          return (
-                                            <span key={`${id}-${idx}`}>
-                                              <a
-                                                href={href}
-                                                className="link-blue"
-                                              >
-                                                {it._new_company!.name}
-                                              </a>
-                                              {idx < items.length - 1 && ", "}
+                                              ) : (
+                                                <span>{c.name}</span>
+                                              )}
+                                              {idx < list.length - 1 && ", "}
                                             </span>
-                                          );
-                                        });
-                                      })()}
-                                    </div>
+                                          ))}
+                                        </div>
+                                      );
+                                    })()}
                                   </td>
                                   {/* Deal Details */}
                                   <td>
@@ -3177,21 +3157,74 @@ const CompanyDetail = () => {
                                   <td>
                                     <div className="muted-row">
                                       <strong>Primary:</strong>{" "}
-                                      {augmentedPrimarySectors.length > 0
-                                        ? augmentedPrimarySectors
-                                            .map((s) => s?.sector_name)
-                                            .filter(Boolean)
-                                            .join(", ")
-                                        : "Not available"}
+                                      {augmentedPrimarySectors.length > 0 ? (
+                                        augmentedPrimarySectors.map((s, idx) => {
+                                          const id = s?.sector_id;
+                                          const name = s?.sector_name || "";
+                                          if (!name) return null;
+                                          const node =
+                                            typeof id === "number" ? (
+                                              <a
+                                                key={`${name}-${id}`}
+                                                href={`/sector/${id}`}
+                                                className="link-blue"
+                                              >
+                                                {name}
+                                              </a>
+                                            ) : (
+                                              <span key={`${name}-na`}>
+                                                {name}
+                                              </span>
+                                            );
+                                          return (
+                                            <React.Fragment
+                                              key={`${name}-${id ?? "na"}`}
+                                            >
+                                              {node}
+                                              {idx <
+                                                augmentedPrimarySectors.length -
+                                                  1 && ", "}
+                                            </React.Fragment>
+                                          );
+                                        })
+                                      ) : (
+                                        <span>Not available</span>
+                                      )}
                                     </div>
                                     <div className="muted-row">
                                       <strong>Secondary:</strong>{" "}
-                                      {secondarySectors.length > 0
-                                        ? secondarySectors
-                                            .map((s) => s?.sector_name)
-                                            .filter(Boolean)
-                                            .join(", ")
-                                        : "Not available"}
+                                      {secondarySectors.length > 0 ? (
+                                        secondarySectors.map((s, idx) => {
+                                          const id = s?.sector_id;
+                                          const name = s?.sector_name || "";
+                                          if (!name) return null;
+                                          const node =
+                                            typeof id === "number" ? (
+                                              <a
+                                                key={`${name}-${id}`}
+                                                href={`/sector/${id}`}
+                                                className="link-blue"
+                                              >
+                                                {name}
+                                              </a>
+                                            ) : (
+                                              <span key={`${name}-na`}>
+                                                {name}
+                                              </span>
+                                            );
+                                          return (
+                                            <React.Fragment
+                                              key={`${name}-${id ?? "na"}`}
+                                            >
+                                              {node}
+                                              {idx < secondarySectors.length - 1 &&
+                                                ", "}
+                                            </React.Fragment>
+                                          );
+                                        })
+                                      ) : (
+                                        <span>Not available</span>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>
@@ -5090,7 +5123,7 @@ const CompanyDetail = () => {
                               </div>
                             </td>
                             {/* Deal Details */}
-                            <td>
+                                  <td>
                               <div className="muted-row">
                                 <strong>Deal Type:</strong>{" "}
                                 {(event as NewCorporateEvent).deal_type ||
@@ -5103,6 +5136,28 @@ const CompanyDetail = () => {
                                   <span>Not Available</span>
                                 )}
                               </div>
+                              {(() => {
+                                const anyEvent = event as unknown as {
+                                  investment_data?: {
+                                    Funding_stage?: string;
+                                    funding_stage?: string;
+                                  };
+                                };
+                                const fundingStage = (
+                                  anyEvent.investment_data?.Funding_stage ||
+                                  anyEvent.investment_data?.funding_stage ||
+                                  ""
+                                ).trim();
+                                if (!fundingStage) return null;
+                                return (
+                                  <div className="muted-row">
+                                    <strong>Deal Stage:</strong>{" "}
+                                    <span className="pill pill-green">
+                                      {fundingStage}
+                                    </span>
+                                  </div>
+                                );
+                              })()}
                               {!isPartnership && (
                                 <div className="muted-row">
                                   <strong>Amount (m):</strong>{" "}
@@ -5148,13 +5203,10 @@ const CompanyDetail = () => {
                                 </div>
                               )}
                               {!isPartnership && (
-                                <div className="muted-row">
-                                  <strong>EV (m):</strong>{" "}
+                                <>
                                   {(() => {
                                     const display = (event as NewCorporateEvent)
                                       .ev_display as string | undefined;
-                                    if (display && display.trim())
-                                      return display;
                                     const legacy =
                                       event as LegacyCorporateEvent;
                                     const amount = legacy.ev_data
@@ -5165,16 +5217,39 @@ const CompanyDetail = () => {
                                     const currency: string | undefined =
                                       legacy.ev_data?.currency?.Currency ||
                                       legacy.ev_data?._currency?.Currency;
-                                    if (amount != null && currency) {
-                                      const n = Number(amount);
-                                      if (!Number.isNaN(n))
-                                        return `${currency}${n.toLocaleString()}m`;
+                                    const hasNumericEv =
+                                      amount != null &&
+                                      typeof currency === "string" &&
+                                      currency.trim().length > 0 &&
+                                      !Number.isNaN(Number(amount));
+                                    const hasBand =
+                                      typeof legacy.ev_data?.ev_band ===
+                                        "string" &&
+                                      legacy.ev_data!.ev_band!.trim().length >
+                                        0;
+                                    if (
+                                      !(
+                                        (display && display.trim()) ||
+                                        hasNumericEv ||
+                                        hasBand
+                                      )
+                                    ) {
+                                      return null;
                                     }
                                     return (
-                                      legacy.ev_data?.ev_band || "Not available"
+                                      <div className="muted-row">
+                                        <strong>EV (m):</strong>{" "}
+                                        {display && display.trim()
+                                          ? display
+                                          : hasNumericEv
+                                          ? `${currency}${Number(
+                                              amount
+                                            ).toLocaleString()}m`
+                                          : legacy.ev_data?.ev_band || null}
+                                      </div>
                                     );
                                   })()}
-                                </div>
+                                </>
                               )}
                             </td>
                             {/* Advisors */}
@@ -5248,21 +5323,64 @@ const CompanyDetail = () => {
                             <td>
                               <div className="muted-row">
                                 <strong>Primary:</strong>{" "}
-                                {augmentedPrimarySectors.length > 0
-                                  ? augmentedPrimarySectors
-                                      .map((s) => s?.sector_name)
-                                      .filter(Boolean)
-                                      .join(", ")
-                                  : "Not available"}
+                                {augmentedPrimarySectors.length > 0 ? (
+                                  augmentedPrimarySectors.map((s, idx) => {
+                                    const id = s?.sector_id;
+                                    const name = s?.sector_name || "";
+                                    if (!name) return null;
+                                    const node =
+                                      typeof id === "number" ? (
+                                        <a
+                                          key={`${name}-${id}`}
+                                          href={`/sector/${id}`}
+                                          className="link-blue"
+                                        >
+                                          {name}
+                                        </a>
+                                      ) : (
+                                        <span key={`${name}-na`}>{name}</span>
+                                      );
+                                    return (
+                                      <React.Fragment key={`${name}-${id ?? "na"}`}>
+                                        {node}
+                                        {idx <
+                                          augmentedPrimarySectors.length - 1 && ", "}
+                                      </React.Fragment>
+                                    );
+                                  })
+                                ) : (
+                                  <span>Not available</span>
+                                )}
                               </div>
                               <div className="muted-row">
                                 <strong>Secondary:</strong>{" "}
-                                {secondarySectors.length > 0
-                                  ? secondarySectors
-                                      .map((s) => s?.sector_name)
-                                      .filter(Boolean)
-                                      .join(", ")
-                                  : "Not available"}
+                                {secondarySectors.length > 0 ? (
+                                  secondarySectors.map((s, idx) => {
+                                    const id = s?.sector_id;
+                                    const name = s?.sector_name || "";
+                                    if (!name) return null;
+                                    const node =
+                                      typeof id === "number" ? (
+                                        <a
+                                          key={`${name}-${id}`}
+                                          href={`/sector/${id}`}
+                                          className="link-blue"
+                                        >
+                                          {name}
+                                        </a>
+                                      ) : (
+                                        <span key={`${name}-na`}>{name}</span>
+                                      );
+                                    return (
+                                      <React.Fragment key={`${name}-${id ?? "na"}`}>
+                                        {node}
+                                        {idx < secondarySectors.length - 1 && ", "}
+                                      </React.Fragment>
+                                    );
+                                  })
+                                ) : (
+                                  <span>Not available</span>
+                                )}
                               </div>
                             </td>
                           </tr>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
+import { locationsService } from "@/lib/locationsService";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 // import { useRightClick } from "@/hooks/useRightClick";
@@ -221,6 +222,10 @@ export default function HomeUserPage() {
     return [];
   };
 
+  // Sector name normalization helper
+  const normalizeSectorName = (name: string | undefined | null): string =>
+    (name || "").trim().toLowerCase();
+
   // Helper function to normalize primary sector(s) from either old or new shape
   const getRelatedPrimarySectors = (
     secondarySectorsOrObjects:
@@ -354,6 +359,59 @@ export default function HomeUserPage() {
     const mapped = getRelatedPrimarySectors(fallbackSecondaries);
     return mapped || "Not Available";
   };
+
+  // Name -> id maps for linking primary/secondary sectors to sector pages
+  const [primaryNameToId, setPrimaryNameToId] = useState<Record<string, number>>(
+    {}
+  );
+  const [secondaryNameToId, setSecondaryNameToId] = useState<
+    Record<string, number>
+  >({});
+
+  // Build mapping from sector names to ids (shared across dashboard events)
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [primaries, allSecondary] = await Promise.all([
+          locationsService.getPrimarySectors(),
+          locationsService.getAllSecondarySectorsWithPrimary(),
+        ]);
+
+        if (cancelled) return;
+
+        const primaryMap: Record<string, number> = {};
+        primaries.forEach((p) => {
+          const name = (p as { sector_name?: string }).sector_name;
+          const id = (p as { id?: number }).id;
+          if (name && typeof id === "number") {
+            primaryMap[normalizeSectorName(name)] = id;
+          }
+        });
+
+        const secondaryMap: Record<string, number> = {};
+        (allSecondary || []).forEach((s) => {
+          const name = (s as { sector_name?: string }).sector_name;
+          const id = (s as { id?: number }).id;
+          if (name && typeof id === "number") {
+            secondaryMap[normalizeSectorName(name)] = id;
+          }
+        });
+
+        setPrimaryNameToId(primaryMap);
+        setSecondaryNameToId(secondaryMap);
+      } catch (e) {
+        console.warn(
+          "[Home Dashboard] Failed to load sector id mappings for links",
+          e
+        );
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Corporate Event navigation handler with graceful fallback to search
   const handleCorporateEventClick = useCallback(
@@ -1379,13 +1437,77 @@ export default function HomeUserPage() {
                                   <div className="space-y-1">
                                     {primary && primary !== "Not Available" && (
                                       <div className="text-xs text-gray-500">
-                                        <strong>Primary:</strong> {primary}
+                                        <strong>Primary:</strong>{" "}
+                                        {(() => {
+                                          const names = primary
+                                            .split(",")
+                                            .map((s) => s.trim())
+                                            .filter(Boolean);
+                                          if (names.length === 0)
+                                            return primary;
+                                          return names.map((name, idx) => {
+                                            const id =
+                                              primaryNameToId[
+                                                normalizeSectorName(name)
+                                              ];
+                                            const node =
+                                              typeof id === "number" ? (
+                                                <a
+                                                  key={`${name}-${id}`}
+                                                  href={`/sector/${id}`}
+                                                  className="text-blue-600 underline hover:text-blue-800"
+                                                >
+                                                  {name}
+                                                </a>
+                                              ) : (
+                                                <span key={`${name}-na`}>
+                                                  {name}
+                                                </span>
+                                              );
+                                            return (
+                                              <span
+                                                key={`${name}-${id ?? "na"}`}
+                                              >
+                                                {node}
+                                                {idx < names.length - 1 && ", "}
+                                              </span>
+                                            );
+                                          });
+                                        })()}
                                       </div>
                                     )}
                                     {secondary.length > 0 && (
                                       <div className="text-xs text-gray-500">
                                         <strong>Secondary:</strong>{" "}
-                                        {secondary.join(", ")}
+                                        {secondary.map((name, idx) => {
+                                          const id =
+                                            secondaryNameToId[
+                                              normalizeSectorName(name)
+                                            ];
+                                          const node =
+                                            typeof id === "number" ? (
+                                              <a
+                                                key={`${name}-${id}`}
+                                                href={`/sector/${id}`}
+                                                className="text-blue-600 underline hover:text-blue-800"
+                                              >
+                                                {name}
+                                              </a>
+                                            ) : (
+                                              <span key={`${name}-na`}>
+                                                {name}
+                                              </span>
+                                            );
+                                          return (
+                                            <span
+                                              key={`${name}-${id ?? "na"}`}
+                                            >
+                                              {node}
+                                              {idx < secondary.length - 1 &&
+                                                ", "}
+                                            </span>
+                                          );
+                                        })}
                                       </div>
                                     )}
                                   </div>
