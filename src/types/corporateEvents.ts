@@ -16,6 +16,8 @@ export interface CorporateEventsFilters {
   subRegions?: string[];
   // Buyer / Investor type filter: values sent as strings in query
   Buyer_Investor_Types?: BuyerInvestorType[];
+  // Funding stage filter: array of funding stage labels from funding_stage_options API
+  Funding_stage?: string[];
   Date_start: string | null;
   Date_end: string | null;
   search_query: string;

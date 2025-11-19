@@ -2233,6 +2233,7 @@ const CompanyDetail = () => {
     .muted-row { font-size: 12px; color: #4a5568; margin: 4px 0; }
     .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
     .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
+    .pill-green { background-color: #dcfce7; color: #15803d; }
     @media (max-width: 768px) {
       .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
       .desktop-financial-metrics { display: none !important; }
@@ -3064,9 +3065,27 @@ const CompanyDetail = () => {
                                         ? null
                                         : evDataRaw?.ev_band || null;
 
+                                      const fundingStage =
+                                        (
+                                          ((anyEvent as unknown as {
+                                            investment_data?: {
+                                              Funding_stage?: string;
+                                              funding_stage?: string;
+                                            };
+                                          }).investment_data?.Funding_stage ||
+                                            (anyEvent as unknown as {
+                                              investment_data?: {
+                                                Funding_stage?: string;
+                                                funding_stage?: string;
+                                              };
+                                            }).investment_data?.funding_stage ||
+                                            "") as string
+                                        ).trim();
+
                                       return (
                                         <CorporateEventDealMetrics
                                           dealType={dealType}
+                                          fundingStage={fundingStage || undefined}
                                           isPartnership={isPartnership}
                                           amountDisplay={amountDisplay}
                                           amountMillions={amountMillions}

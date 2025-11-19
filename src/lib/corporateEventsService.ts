@@ -74,6 +74,11 @@ class CorporateEventsService {
       queryParams.append("Deal_Status", filters.Deal_Status.join(","));
     }
 
+    // Funding stage filter - comma-separated list of stage labels
+    if (filters.Funding_stage && filters.Funding_stage.length > 0) {
+      queryParams.append("Funding_stage", filters.Funding_stage.join(","));
+    }
+
     // Add date filters
     if (filters.Date_start) {
       queryParams.append("Date_start", filters.Date_start);

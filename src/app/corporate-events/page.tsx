@@ -405,11 +405,46 @@ const CorporateEventsTable = ({
           </div>
           <div className="corporate-event-card-info-item">
             <span className="corporate-event-card-info-label">Type:</span>
-            {event.deal_type ? (
-              <span className="pill pill-blue">{event.deal_type}</span>
-            ) : (
-              <span className="corporate-event-card-info-value">N/A</span>
-            )}
+            {(() => {
+              const fundingStage =
+                (
+                  ((event as unknown as {
+                    investment_data?: {
+                      Funding_stage?: string;
+                      funding_stage?: string;
+                    };
+                  }).investment_data?.Funding_stage ||
+                    (event as unknown as {
+                      investment_data?: {
+                        Funding_stage?: string;
+                        funding_stage?: string;
+                      };
+                    }).investment_data?.funding_stage ||
+                    "") as string
+                ).trim();
+
+              if (!event.deal_type && !fundingStage) {
+                return (
+                  <span className="corporate-event-card-info-value">N/A</span>
+                );
+              }
+
+              return (
+                <>
+                  {event.deal_type && (
+                    <span className="pill pill-blue">{event.deal_type}</span>
+                  )}
+                  {fundingStage && (
+                    <span
+                      className="pill pill-green"
+                      style={{ marginLeft: "4px" }}
+                    >
+                      {fundingStage}
+                    </span>
+                  )}
+                </>
+              );
+            })()}
           </div>
           {!isPartnership && (
             <div className="corporate-event-card-info-item corporate-event-card-info-full-width">
@@ -678,6 +713,22 @@ const CorporateEventsTable = ({
             const primaryText = derivePrimaryFromCompany(target);
             const secondaryText = deriveSecondaryFromCompany(target);
             const isPartnership = /partnership/i.test(event.deal_type || "");
+            const fundingStage =
+              (
+                ((event as unknown as {
+                  investment_data?: {
+                    Funding_stage?: string;
+                    funding_stage?: string;
+                  };
+                }).investment_data?.Funding_stage ||
+                  (event as unknown as {
+                    investment_data?: {
+                      Funding_stage?: string;
+                      funding_stage?: string;
+                    };
+                  }).investment_data?.funding_stage ||
+                  "") as string
+              ).trim();
             return (
               <tr key={event.id || index}>
                 {/* Event Details */}
@@ -918,6 +969,7 @@ const CorporateEventsTable = ({
                 <td>
                   <CorporateEventDealMetrics
                     dealType={event.deal_type}
+                    fundingStage={fundingStage || undefined}
                     isPartnership={isPartnership}
                     amountMillions={event.investment_data?.investment_amount_m}
                     amountCurrency={event.investment_data?.currency?.Currency}
@@ -1052,6 +1104,7 @@ const CorporateEventsPage = () => {
     Secondary_sectors_ids: [],
     deal_types: [],
     Deal_Status: [],
+    Funding_stage: [],
     Date_start: null,
     Date_end: null,
     search_query: "",
@@ -1080,6 +1133,9 @@ const CorporateEventsPage = () => {
   const [selectedBuyerInvestorTypes, setSelectedBuyerInvestorTypes] = useState<
     BuyerInvestorType[]
   >([]);
+  const [selectedFundingStages, setSelectedFundingStages] = useState<string[]>(
+    []
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [dateStart, setDateStart] = useState("");
   const [dateEnd, setDateEnd] = useState("");
@@ -1094,6 +1150,7 @@ const CorporateEventsPage = () => {
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
   );
+  const [fundingStages, setFundingStages] = useState<string[]>([]);
   // Removed eventTypes and dealStatuses state since we're using hardcoded options
 
   // Loading states
@@ -1102,6 +1159,7 @@ const CorporateEventsPage = () => {
   const [loadingCities, setLoadingCities] = useState(false);
   const [loadingPrimarySectors, setLoadingPrimarySectors] = useState(false);
   const [loadingSecondarySectors, setLoadingSecondarySectors] = useState(false);
+  const [loadingFundingStages, setLoadingFundingStages] = useState(false);
   // Removed loading states for event types and deal statuses since we're using hardcoded options
 
   // State for corporate events data
@@ -1149,6 +1207,11 @@ const CorporateEventsPage = () => {
   const secondarySectorOptions = secondarySectors.map((sector) => ({
     value: sector.id,
     label: sector.sector_name,
+  }));
+
+  const fundingStageOptions = fundingStages.map((stage) => ({
+    value: stage,
+    label: stage,
   }));
 
   // Hardcoded options for Deal Types (By Type)
@@ -1231,6 +1294,30 @@ const CorporateEventsPage = () => {
       console.error("Error fetching primary sectors:", error);
     } finally {
       setLoadingPrimarySectors(false);
+    }
+  };
+
+  const fetchFundingStages = async () => {
+    try {
+      setLoadingFundingStages(true);
+      const response = await fetch(
+        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/funding_stage_options"
+      );
+      if (!response.ok) {
+        throw new Error(`Failed to fetch funding stages: ${response.status}`);
+      }
+      const data: unknown = await response.json();
+      if (Array.isArray(data)) {
+        setFundingStages(
+          data
+            .map((v) => (typeof v === "string" ? v : ""))
+            .filter((v): v is string => Boolean(v))
+        );
+      }
+    } catch (err) {
+      console.error("Error fetching funding stages:", err);
+    } finally {
+      setLoadingFundingStages(false);
     }
   };
 
@@ -1372,6 +1459,17 @@ const CorporateEventsPage = () => {
         params.append("Deal_Status", filters.Deal_Status.join(","));
       }
 
+      // Add funding stages as comma-separated values
+      if (
+        (filters as Partial<CorporateEventsFilters>).Funding_stage &&
+        (filters as Partial<CorporateEventsFilters>).Funding_stage!.length > 0
+      ) {
+        params.append(
+          "Funding_stage",
+          (filters as Partial<CorporateEventsFilters>).Funding_stage!.join(",")
+        );
+      }
+
       // Add buyer / investor types
       if (
         (filters as Partial<CorporateEventsFilters>).Buyer_Investor_Types &&
@@ -1444,6 +1542,7 @@ const CorporateEventsPage = () => {
     fetchContinentalRegions();
     fetchSubRegions();
     fetchPrimarySectors();
+    fetchFundingStages();
     // Initial fetch of all corporate events
     fetchCorporateEvents(filters);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1478,6 +1577,7 @@ const CorporateEventsPage = () => {
       deal_types: selectedEventTypes,
       Deal_Status: selectedDealStatuses,
       Buyer_Investor_Types: selectedBuyerInvestorTypes,
+      Funding_stage: selectedFundingStages,
       Date_start: dateStart || null,
       Date_end: dateEnd || null,
       Page: 1, // Reset to first page when searching
@@ -1499,6 +1599,7 @@ const CorporateEventsPage = () => {
       selectedEventTypes.length > 0 ||
       selectedDealStatuses.length > 0 ||
       selectedBuyerInvestorTypes.length > 0 ||
+      selectedFundingStages.length > 0 ||
       searchTerm.trim() !== "" ||
       dateStart !== "" ||
       dateEnd !== ""
@@ -1583,8 +1684,9 @@ const CorporateEventsPage = () => {
       color: #005bb5;
     }
     .muted-row { font-size: 12px; color: #4a5568; margin: 4px 0; }
-    .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
-    .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
+      .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
+      .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
+      .pill-green { background-color: #dcfce7; color: #15803d; }
     .loading { text-align: center; padding: 40px; color: #666; }
     .error { text-align: center; padding: 20px; color: #e53e3e; background-color: #fed7d7; border-radius: 6px; margin-bottom: 16px; }
     .pagination { display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 24px; padding: 16px; }
@@ -2485,6 +2587,78 @@ const CorporateEventsPage = () => {
                           </span>
                         );
                       })}
+                    </div>
+                  )}
+
+                  {/* Funding Stage */}
+                  <span style={styles.label}>By Funding Stage</span>
+                  <SearchableSelect
+                    options={fundingStageOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedFundingStages.includes(value)
+                      ) {
+                        setSelectedFundingStages([
+                          ...selectedFundingStages,
+                          value,
+                        ]);
+                      }
+                    }}
+                    placeholder={
+                      loadingFundingStages
+                        ? "Loading funding stages..."
+                        : "Select Funding Stage"
+                    }
+                    disabled={loadingFundingStages}
+                    style={styles.select}
+                  />
+
+                  {selectedFundingStages.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedFundingStages.map((stage) => (
+                        <span
+                          key={stage}
+                          style={{
+                            backgroundColor: "#e0f2fe",
+                            color: "#0369a1",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {stage}
+                          <button
+                            onClick={() => {
+                              setSelectedFundingStages(
+                                selectedFundingStages.filter((s) => s !== stage)
+                              );
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#0369a1",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>
