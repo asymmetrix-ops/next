@@ -2262,7 +2262,9 @@ const CompanyDetail = () => {
               <div>
                 <h1 style={styles.companyName}>{company.name}</h1>
                 {formerNameDisplay && (
-                  <div style={styles.formerName}>({formerNameDisplay})</div>
+                  <div style={styles.formerName}>
+                    (Formerly {formerNameDisplay})
+                  </div>
                 )}
               </div>
             </div>
