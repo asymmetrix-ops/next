@@ -58,6 +58,8 @@ interface CorporateEvent {
     currrency?: {
       Currency: string;
     };
+    Funding_stage?: string;
+    funding_stage?: string;
   };
   ev_data?: {
     enterprise_value_m?: string;
@@ -1186,11 +1188,41 @@ export default function HomeUserPage() {
                                 const ev: any = event as any;
                                 const details = safeParseJson<{
                                   Type?: string;
+                                  Funding_Stage?: string;
                                   Amount?: string;
+                                  Investment_Amount?: {
+                                    value?: number;
+                                    currency?: string;
+                                    formatted?: string;
+                                  };
+                                  Enterprise_Value?: {
+                                    value?: number;
+                                    currency?: string;
+                                    formatted?: string;
+                                  } | null;
                                 }>(ev.deal_details);
+
                                 const dealType =
                                   details?.Type || event.deal_type;
-                                // Normalize amount to avoid duplicated label like "Amount: Amount: 1900 USD"
+
+                                const fundingStage = (
+                                  (details?.Funding_Stage ||
+                                    (event as {
+                                      investment_data?: {
+                                        Funding_stage?: string;
+                                        funding_stage?: string;
+                                      };
+                                    }).investment_data?.Funding_stage ||
+                                    (event as {
+                                      investment_data?: {
+                                        Funding_stage?: string;
+                                        funding_stage?: string;
+                                      };
+                                    }).investment_data?.funding_stage ||
+                                    "") as string
+                                ).trim();
+
+                                // Normalize legacy Amount string to avoid duplicated label
                                 const rawAmount = (details?.Amount || "")
                                   .toString()
                                   .trim();
@@ -1199,7 +1231,7 @@ export default function HomeUserPage() {
                                   ""
                                 );
                                 // Format amount as CURR before number, no space (e.g., USD1900)
-                                const formatAmount = (
+                                const formatAmountString = (
                                   value: string
                                 ): string => {
                                   const v = (value || "").trim();
@@ -1219,10 +1251,35 @@ export default function HomeUserPage() {
                                     return `${m3[1].toUpperCase()}${m3[2]}`;
                                   return v;
                                 };
-                                const amountFromDetails =
-                                  formatAmount(cleanedAmount);
+
+                                const formatAmountObject = (opts?: {
+                                  value?: number;
+                                  currency?: string;
+                                  formatted?: string;
+                                }): string => {
+                                  if (!opts) return "";
+                                  const { value, currency, formatted } = opts;
+                                  if (formatted && formatted.trim()) {
+                                    return formatted.trim();
+                                  }
+                                  if (
+                                    typeof value === "number" &&
+                                    typeof currency === "string" &&
+                                    currency.trim()
+                                  ) {
+                                    return `${currency.trim().toUpperCase()}${value}`;
+                                  }
+                                  return "";
+                                };
+
+                                const amountFromDetailsObject =
+                                  formatAmountObject(details?.Investment_Amount);
+                                const amountFromDetailsString =
+                                  formatAmountString(cleanedAmount);
+
                                 const amount =
-                                  amountFromDetails ||
+                                  amountFromDetailsObject ||
+                                  amountFromDetailsString ||
                                   (event.investment_data?.investment_amount_m &&
                                   event.investment_data?.currrency?.Currency
                                     ? `${String(
@@ -1232,16 +1289,32 @@ export default function HomeUserPage() {
                                           .investment_amount_m
                                       )}`
                                     : "");
-                                const valuation =
+
+                                const valuationFromDetails =
+                                  formatAmountObject(
+                                    details?.Enterprise_Value ?? undefined
+                                  );
+                                const valuationFallback =
                                   event.ev_data?.enterprise_value_m &&
                                   event.ev_data?.Currency
                                     ? `${event.ev_data.enterprise_value_m} ${event.ev_data.Currency}`
                                     : "";
+                                const valuation =
+                                  valuationFromDetails || valuationFallback;
+
                                 return (
                                   <div className="space-y-1">
                                     {dealType && (
                                       <div className="text-xs text-gray-500">
                                         <strong>Type:</strong> {dealType}
+                                      </div>
+                                    )}
+                                    {fundingStage && (
+                                      <div className="text-xs text-gray-500">
+                                        <strong>Deal Stage:</strong>{" "}
+                                        <span className="inline-block px-2 py-0.5 ml-1 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">
+                                          {fundingStage}
+                                        </span>
                                       </div>
                                     )}
                                     {amount && (
