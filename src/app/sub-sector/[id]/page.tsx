@@ -35,6 +35,10 @@ interface CompanyItem {
   ownership?: string;
   locations_id?: number;
   country?: string;
+  investors?: Array<{
+    id: number;
+    name: string;
+  }>;
   companies_investors?: Array<{
     company_name: string;
     original_new_company_id: number;
@@ -1376,16 +1380,20 @@ const SubSectorPage = () => {
           setCompaniesError("Invalid sub-sector id");
           return;
         }
+
         const perPage = 25;
+
+        // Use investors-enriched companies endpoint so we can display Investors
         const params = new URLSearchParams();
         params.append("Offset", String(page));
         params.append("Per_page", String(perPage));
         params.append("Min_linkedin_members", "0");
         params.append("Max_linkedin_members", "0");
-        params.append("Horizontals_ids", "");
+        // No horizontals filter needed for this view
         params.append("Secondary_sectors_ids[]", String(subSectorId));
 
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies_with_investors?${params.toString()}`;
+
         const response = await fetch(url, {
           method: "GET",
           headers: {
@@ -1400,6 +1408,7 @@ const SubSectorPage = () => {
             `API request failed: ${response.status} ${response.statusText} - ${text}`
           );
         }
+
         const data = (await response.json()) as {
           result1?: {
             items?: CompanyItem[];
@@ -1663,18 +1672,33 @@ const SubSectorPage = () => {
                             <td className="py-3 pr-4 align-middle text-center whitespace-normal break-words text-slate-700">
                               {c.ownership || "N/A"}
                             </td>
-                            <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
-                              {Array.isArray(c.companies_investors) &&
-                              c.companies_investors.length > 0
-                                ? (() => {
-                                    const names = c.companies_investors
-                                      .map((inv) => (inv.company_name || "").trim())
-                                      .filter((name) => name.length > 0);
-                                    return names.length > 0
-                                      ? names.join(", ")
-                                      : "N/A";
-                                  })()
-                                : "N/A"}
+                            <td className="py-3 pr-4 align-middle text-center whitespace-normal break-words text-slate-700">
+                              {(() => {
+                                // Prefer new investors array from Get_new_companies_with_investors
+                                if (Array.isArray(c.investors) && c.investors.length > 0) {
+                                  const names = c.investors
+                                    .map((inv) => (inv.name || "").trim())
+                                    .filter((name) => name.length > 0);
+                                  if (names.length > 0) {
+                                    return names.join(", ");
+                                  }
+                                }
+
+                                // Fallback to legacy companies_investors, if present
+                                if (
+                                  Array.isArray(c.companies_investors) &&
+                                  c.companies_investors.length > 0
+                                ) {
+                                  const names = c.companies_investors
+                                    .map((inv) => (inv.company_name || "").trim())
+                                    .filter((name) => name.length > 0);
+                                  if (names.length > 0) {
+                                    return names.join(", ");
+                                  }
+                                }
+
+                                return "N/A";
+                              })()}
                             </td>
                             <td className="py-3 pr-4 align-middle text-center whitespace-normal break-words text-slate-700">
                               {c.country || "N/A"}
