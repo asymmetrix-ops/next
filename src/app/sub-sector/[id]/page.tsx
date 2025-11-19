@@ -1614,10 +1614,10 @@ const SubSectorPage = () => {
                             Ownership
                           </th>
                           <th className="py-3 font-semibold text-center text-slate-700 w-[14%]">
-                            HQ
+                            Investors
                           </th>
                           <th className="py-3 font-semibold text-center text-slate-700 w-[14%]">
-                            Investors
+                            HQ
                           </th>
                           <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[8%]">
                             LinkedIn Members
@@ -1660,11 +1660,8 @@ const SubSectorPage = () => {
                                 index={index}
                               />
                             </td>
-                            <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
+                            <td className="py-3 pr-4 align-middle text-center whitespace-normal break-words text-slate-700">
                               {c.ownership || "N/A"}
-                            </td>
-                            <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
-                              {c.country || "N/A"}
                             </td>
                             <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
                               {Array.isArray(c.companies_investors) &&
@@ -1678,6 +1675,9 @@ const SubSectorPage = () => {
                                       : "N/A";
                                   })()
                                 : "N/A"}
+                            </td>
+                            <td className="py-3 pr-4 align-middle text-center whitespace-normal break-words text-slate-700">
+                              {c.country || "N/A"}
                             </td>
                             <td className="py-3 pr-4 text-center text-slate-700">
                               {typeof c.linkedin_members === "number"
