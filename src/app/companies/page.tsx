@@ -1836,7 +1836,7 @@ const CompanyDashboard = ({
             <div style={styles.searchDiv}>
               <input
                 type="text"
-                placeholder="Enter company name here"
+                placeholder="by name / keyword"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 style={styles.input}
