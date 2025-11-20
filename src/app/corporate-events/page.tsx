@@ -10,7 +10,9 @@ import {
   CorporateEvent,
   CorporateEventsResponse,
   CorporateEventsFilters,
+  BuyerInvestorType,
 } from "@/types/corporateEvents";
+import { CorporateEventDealMetrics } from "@/components/corporate-events/CorporateEventDealMetrics";
 import { CSVExporter } from "@/utils/csvExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
@@ -341,18 +343,14 @@ const CorporateEventsTable = ({
       if (!amount || !currency) return "Not available";
       const n = Number(amount);
       if (Number.isNaN(n)) return "Not available";
+      // Values are already in millions; the "(m)" indicator is shown in the field
+      // name (e.g., "Amount (m)"), so we omit the trailing "m" here.
       return `${currency}${n.toLocaleString(undefined, {
         maximumFractionDigits: 3,
       })}`;
     };
 
     const isPartnership = /partnership/i.test(event.deal_type || "");
-    const fundingStage =
-      (
-        event.investment_data?.Funding_stage ||
-        event.investment_data?.funding_stage ||
-        ""
-      ).trim();
 
     return (
       <div className="corporate-event-card">
@@ -407,21 +405,46 @@ const CorporateEventsTable = ({
           </div>
           <div className="corporate-event-card-info-item">
             <span className="corporate-event-card-info-label">Type:</span>
-            {event.deal_type ? (
-              <>
-                <span className="pill pill-blue">{event.deal_type}</span>
-                {fundingStage && (
-                  <span
-                    className="pill pill-blue"
-                    style={{ marginLeft: 6 }}
-                  >
-                    {fundingStage}
-                  </span>
-                )}
-              </>
-            ) : (
-              <span className="corporate-event-card-info-value">N/A</span>
-            )}
+            {(() => {
+              const fundingStage =
+                (
+                  ((event as unknown as {
+                    investment_data?: {
+                      Funding_stage?: string;
+                      funding_stage?: string;
+                    };
+                  }).investment_data?.Funding_stage ||
+                    (event as unknown as {
+                      investment_data?: {
+                        Funding_stage?: string;
+                        funding_stage?: string;
+                      };
+                    }).investment_data?.funding_stage ||
+                    "") as string
+                ).trim();
+
+              if (!event.deal_type && !fundingStage) {
+                return (
+                  <span className="corporate-event-card-info-value">N/A</span>
+                );
+              }
+
+              return (
+                <>
+                  {event.deal_type && (
+                    <span className="pill pill-blue">{event.deal_type}</span>
+                  )}
+                  {fundingStage && (
+                    <span
+                      className="pill pill-green"
+                      style={{ marginLeft: "4px" }}
+                    >
+                      {fundingStage}
+                    </span>
+                  )}
+                </>
+              );
+            })()}
           </div>
           {!isPartnership && (
             <div className="corporate-event-card-info-item corporate-event-card-info-full-width">
@@ -542,20 +565,6 @@ const CorporateEventsTable = ({
     }
   };
 
-  const formatCurrency = (
-    amount: string | undefined,
-    currency: string | undefined
-  ) => {
-    if (!amount || !currency) return "Not available";
-    const n = Number(amount);
-    if (Number.isNaN(n)) return "Not available";
-    return `${currency}${n.toLocaleString(undefined, {
-      maximumFractionDigits: 3,
-    })}`;
-  };
-
-  // legacy helper retained for clarity; currently superseded by deriveSecondaryFromCompany
-
   // Sector name normalization and fallback map for reliability (e.g., Crypto -> Web 3)
   const normalizeSectorName = (name: string | undefined | null): string =>
     (name || "").trim().toLowerCase();
@@ -588,7 +597,8 @@ const CorporateEventsTable = ({
   };
 
   // Derive Primary sectors: prefer new `primary_sectors` (string[] or {sector_name}[]),
-  // fallback to legacy `_sectors_primary`, else compute from `secondary_sectors` / `_sectors_secondary`.
+  // fallback to legacy `_sectors_primary`, then use `derived_parent_primaries`, 
+  // else compute from `secondary_sectors` / `_sectors_secondary`.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const derivePrimaryFromCompany = (company: any | undefined): string => {
     const primaryNew = company?.primary_sectors as
@@ -606,6 +616,17 @@ const CorporateEventsTable = ({
       | undefined;
     if (Array.isArray(primaryLegacy) && primaryLegacy.length > 0) {
       return primaryLegacy.map((s) => s.sector_name).join(", ");
+    }
+
+    // Use derived_parent_primaries from API instead of computing from secondary
+    const derivedParentPrimaries = company?.derived_parent_primaries as
+      | Array<string | { sector_name: string }>
+      | undefined;
+    if (Array.isArray(derivedParentPrimaries) && derivedParentPrimaries.length > 0) {
+      const names = derivedParentPrimaries
+        .map((s) => (typeof s === "string" ? s : s.sector_name))
+        .filter(Boolean) as string[];
+      if (names.length > 0) return names.join(", ");
     }
 
     // Fallback: compute from secondary mapping (e.g., Crypto -> Web 3)
@@ -694,9 +715,19 @@ const CorporateEventsTable = ({
             const isPartnership = /partnership/i.test(event.deal_type || "");
             const fundingStage =
               (
-                event.investment_data?.Funding_stage ||
-                event.investment_data?.funding_stage ||
-                ""
+                ((event as unknown as {
+                  investment_data?: {
+                    Funding_stage?: string;
+                    funding_stage?: string;
+                  };
+                }).investment_data?.Funding_stage ||
+                  (event as unknown as {
+                    investment_data?: {
+                      Funding_stage?: string;
+                      funding_stage?: string;
+                    };
+                  }).investment_data?.funding_stage ||
+                  "") as string
               ).trim();
             return (
               <tr key={event.id || index}>
@@ -740,91 +771,105 @@ const CorporateEventsTable = ({
                       <span>{targetName}</span>
                     )}
                   </div>
-                  {!isPartnership && (
-                    <div className="muted-row">
-                      <strong>Buyer(s) / Investor(s):</strong>{" "}
-                      {Array.isArray(event.other_counterparties) &&
-                      event.other_counterparties.length > 0
-                        ? (() => {
-                            const buyers = event.other_counterparties.filter(
-                              (cp) => {
-                                const status =
-                                  cp._counterparty_type?.counterparty_status ||
-                                  "";
-                                return /investor|acquirer/i.test(status);
+                  {(() => {
+                    const dealType = (event.deal_type || "").toLowerCase();
+                    const label =
+                      dealType === "acquisition"
+                        ? "Buyer(s)"
+                        : dealType === "investment"
+                        ? "Investor(s)"
+                        : null;
+                    if (!label) return null;
+
+                    if (
+                      !Array.isArray(event.other_counterparties) ||
+                      event.other_counterparties.length === 0
+                    ) {
+                      return null;
+                    }
+
+                    const relevant = event.other_counterparties.filter((cp) => {
+                      const status =
+                        cp._counterparty_type?.counterparty_status || "";
+                      if (label === "Buyer(s)") {
+                        return /^(acquirer|buyer)$/i.test(status);
+                      }
+                      if (label === "Investor(s)") {
+                        return /^investor/i.test(status);
+                      }
+                      return false;
+                    });
+
+                    if (relevant.length === 0) return null;
+
+                    return (
+                      <div className="muted-row">
+                        <strong>{label}:</strong>{" "}
+                        {relevant.map((counterparty, subIndex) => {
+                          const nc = counterparty._new_company as
+                            | {
+                                id?: number;
+                                name: string;
+                                _is_that_investor?: boolean;
+                                _is_that_data_analytic_company?: boolean;
+                                _url?: string;
+                                _investor_profile_id?: number;
                               }
-                            );
-                            if (buyers.length === 0)
-                              return <span>Not Available</span>;
-                            return buyers.map((counterparty, subIndex) => {
-                              const nc = counterparty._new_company as
-                                | {
-                                    id?: number;
-                                    name: string;
-                                    _is_that_investor?: boolean;
-                                    _is_that_data_analytic_company?: boolean;
-                                    _url?: string;
-                                    _investor_profile_id?: number;
-                                  }
-                                | undefined;
-                              if (!nc) {
-                                return (
-                                  <span key={subIndex}>
-                                    Not Available
-                                    {subIndex < buyers.length - 1 && ", "}
-                                  </span>
-                                );
+                            | undefined;
+                          if (!nc) {
+                            return null;
+                          }
+                          const name = nc.name;
+                          let url = "";
+                          const cpId =
+                            (
+                              counterparty as {
+                                new_company_counterparty?: number;
                               }
-                              const name = nc.name;
-                              let url = "";
-                              const investorProfileId = nc._investor_profile_id;
-                              const cpId =
-                                (
-                                  counterparty as {
-                                    new_company_counterparty?: number;
-                                  }
-                                ).new_company_counterparty || nc.id;
-                              if (nc._is_that_investor) {
-                                url =
-                                  typeof investorProfileId === "number" &&
-                                  investorProfileId > 0
-                                    ? `/investors/${investorProfileId}`
-                                    : typeof cpId === "number"
-                                    ? `/investors/${cpId}`
-                                    : "";
-                              } else if (nc._is_that_data_analytic_company) {
-                                url =
-                                  typeof cpId === "number"
-                                    ? `/company/${cpId}`
-                                    : "";
-                              } else if (
-                                typeof nc._url === "string" &&
-                                nc._url
-                              ) {
-                                url = nc._url.replace(
-                                  /\/(?:investor)\//,
-                                  "/investors/"
-                                );
-                              }
-                              return (
-                                <span key={subIndex}>
-                                  {url ? (
-                                    <a href={url} className="link-blue">
-                                      {name}
-                                    </a>
-                                  ) : (
-                                    <span style={{ color: "#000" }}>
-                                      {name}
-                                    </span>
-                                  )}
-                                  {subIndex < buyers.length - 1 && ", "}
-                                </span>
+                            ).new_company_counterparty || nc.id;
+                          if (nc._is_that_investor) {
+                            // Use the New Company id for investor pages
+                            if (typeof cpId === "number") {
+                              url = `/investors/${cpId}`;
+                            } else if (
+                              typeof nc._url === "string" &&
+                              nc._url
+                            ) {
+                              // Fallback: convert backend investor url to our route
+                              url = nc._url.replace(
+                                /\/(?:investor)\//,
+                                "/investors/"
                               );
-                            });
-                          })()
-                        : "Not Available"}
-                    </div>
-                  )}
+                            } else {
+                              url = "";
+                            }
+                          } else if (nc._is_that_data_analytic_company) {
+                            url =
+                              typeof cpId === "number"
+                                ? `/company/${cpId}`
+                                : "";
+                          } else if (typeof nc._url === "string" && nc._url) {
+                            url = nc._url.replace(
+                              /\/(?:investor)\//,
+                              "/investors/"
+                            );
+                          }
+                          return (
+                            <span key={subIndex}>
+                              {url ? (
+                                <a href={url} className="link-blue">
+                                  {name}
+                                </a>
+                              ) : (
+                                <span style={{ color: "#000" }}>{name}</span>
+                              )}
+                              {subIndex < relevant.length - 1 && ", "}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                   {!isPartnership && (
                     <div className="muted-row">
                       <strong>Seller(s):</strong>{" "}
@@ -913,45 +958,15 @@ const CorporateEventsTable = ({
                 </td>
                 {/* Deal Details */}
                 <td>
-                  <div className="muted-row">
-                    <strong>Deal Type:</strong>{" "}
-                    {event.deal_type ? (
-                      <>
-                        <span className="pill pill-blue">
-                          {event.deal_type}
-                        </span>
-                        {fundingStage && (
-                          <span
-                            className="pill pill-blue"
-                            style={{ marginLeft: 6 }}
-                          >
-                            {fundingStage}
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <span>Not Available</span>
-                    )}
-                  </div>
-                  {!isPartnership && (
-                    <div className="muted-row">
-                      <strong>Amount (m):</strong>{" "}
-                      {formatCurrency(
-                        event.investment_data?.investment_amount_m,
-                        event.investment_data?.currency?.Currency
-                      )}
-                    </div>
-                  )}
-                  {!isPartnership && (
-                    <div className="muted-row">
-                      <strong>EV (m):</strong>{" "}
-                      {formatCurrency(
-                        event.ev_data?.enterprise_value_m,
-                        event.ev_data?.currency?.Currency
-                      )}
-                      m
-                    </div>
-                  )}
+                  <CorporateEventDealMetrics
+                    dealType={event.deal_type}
+                    fundingStage={fundingStage || undefined}
+                    isPartnership={isPartnership}
+                    amountMillions={event.investment_data?.investment_amount_m}
+                    amountCurrency={event.investment_data?.currency?.Currency}
+                    evMillions={event.ev_data?.enterprise_value_m}
+                    evCurrency={event.ev_data?.currency?.Currency}
+                  />
                 </td>
                 {/* Advisors */}
                 <td>
@@ -1080,6 +1095,7 @@ const CorporateEventsPage = () => {
     Secondary_sectors_ids: [],
     deal_types: [],
     Deal_Status: [],
+    Funding_stage: [],
     Date_start: null,
     Date_end: null,
     search_query: "",
@@ -1105,6 +1121,12 @@ const CorporateEventsPage = () => {
   const [selectedDealStatuses, setSelectedDealStatuses] = useState<string[]>(
     []
   );
+  const [selectedBuyerInvestorTypes, setSelectedBuyerInvestorTypes] = useState<
+    BuyerInvestorType[]
+  >([]);
+  const [selectedFundingStages, setSelectedFundingStages] = useState<string[]>(
+    []
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [dateStart, setDateStart] = useState("");
   const [dateEnd, setDateEnd] = useState("");
@@ -1119,6 +1141,7 @@ const CorporateEventsPage = () => {
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
   );
+  const [fundingStages, setFundingStages] = useState<string[]>([]);
   // Removed eventTypes and dealStatuses state since we're using hardcoded options
 
   // Loading states
@@ -1127,6 +1150,7 @@ const CorporateEventsPage = () => {
   const [loadingCities, setLoadingCities] = useState(false);
   const [loadingPrimarySectors, setLoadingPrimarySectors] = useState(false);
   const [loadingSecondarySectors, setLoadingSecondarySectors] = useState(false);
+  const [loadingFundingStages, setLoadingFundingStages] = useState(false);
   // Removed loading states for event types and deal statuses since we're using hardcoded options
 
   // State for corporate events data
@@ -1176,6 +1200,11 @@ const CorporateEventsPage = () => {
     label: sector.sector_name,
   }));
 
+  const fundingStageOptions = fundingStages.map((stage) => ({
+    value: stage,
+    label: stage,
+  }));
+
   // Hardcoded options for Deal Types (By Type)
   const eventTypeOptions = [
     { value: "Acquisition", label: "Acquisition" },
@@ -1202,6 +1231,19 @@ const CorporateEventsPage = () => {
     { value: "Deal Prep", label: "Deal Prep" },
     { value: "In Exclusivity", label: "In Exclusivity" },
   ];
+
+  // Buyer / Investor Type options (value matches API contract)
+  const buyerInvestorTypeOptions = [
+    { value: "private_equity", label: "Private Equity" },
+    { value: "venture_capital", label: "Venture Capital" },
+    { value: "da_strategic", label: "Data & Analytics Strategic" },
+    { value: "other_strategic", label: "Other Strategic" },
+  ];
+
+  const buyerInvestorTypeLabel = (value: string) => {
+    const found = buyerInvestorTypeOptions.find((o) => o.value === value);
+    return found ? found.label : value;
+  };
 
   // Fetch functions
   const fetchCountries = async () => {
@@ -1243,6 +1285,30 @@ const CorporateEventsPage = () => {
       console.error("Error fetching primary sectors:", error);
     } finally {
       setLoadingPrimarySectors(false);
+    }
+  };
+
+  const fetchFundingStages = async () => {
+    try {
+      setLoadingFundingStages(true);
+      const response = await fetch(
+        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/funding_stage_options"
+      );
+      if (!response.ok) {
+        throw new Error(`Failed to fetch funding stages: ${response.status}`);
+      }
+      const data: unknown = await response.json();
+      if (Array.isArray(data)) {
+        setFundingStages(
+          data
+            .map((v) => (typeof v === "string" ? v : ""))
+            .filter((v): v is string => Boolean(v))
+        );
+      }
+    } catch (err) {
+      console.error("Error fetching funding stages:", err);
+    } finally {
+      setLoadingFundingStages(false);
     }
   };
 
@@ -1384,6 +1450,31 @@ const CorporateEventsPage = () => {
         params.append("Deal_Status", filters.Deal_Status.join(","));
       }
 
+      // Add funding stages as comma-separated values
+      if (
+        (filters as Partial<CorporateEventsFilters>).Funding_stage &&
+        (filters as Partial<CorporateEventsFilters>).Funding_stage!.length > 0
+      ) {
+        params.append(
+          "Funding_stage",
+          (filters as Partial<CorporateEventsFilters>).Funding_stage!.join(",")
+        );
+      }
+
+      // Add buyer / investor types
+      if (
+        (filters as Partial<CorporateEventsFilters>).Buyer_Investor_Types &&
+        (filters as Partial<CorporateEventsFilters>).Buyer_Investor_Types!
+          .length > 0
+      ) {
+        params.append(
+          "Buyer_Investor_Types",
+          (
+            filters as Partial<CorporateEventsFilters>
+          ).Buyer_Investor_Types!.join(",")
+        );
+      }
+
       // Add date filters
       if (filters.Date_start) {
         params.append("Date_start", filters.Date_start);
@@ -1442,6 +1533,7 @@ const CorporateEventsPage = () => {
     fetchContinentalRegions();
     fetchSubRegions();
     fetchPrimarySectors();
+    fetchFundingStages();
     // Initial fetch of all corporate events
     fetchCorporateEvents(filters);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1475,6 +1567,8 @@ const CorporateEventsPage = () => {
       Secondary_sectors_ids: selectedSecondarySectors,
       deal_types: selectedEventTypes,
       Deal_Status: selectedDealStatuses,
+      Buyer_Investor_Types: selectedBuyerInvestorTypes,
+      Funding_stage: selectedFundingStages,
       Date_start: dateStart || null,
       Date_end: dateEnd || null,
       Page: 1, // Reset to first page when searching
@@ -1495,6 +1589,8 @@ const CorporateEventsPage = () => {
       selectedSecondarySectors.length > 0 ||
       selectedEventTypes.length > 0 ||
       selectedDealStatuses.length > 0 ||
+      selectedBuyerInvestorTypes.length > 0 ||
+      selectedFundingStages.length > 0 ||
       searchTerm.trim() !== "" ||
       dateStart !== "" ||
       dateEnd !== ""
@@ -1579,8 +1675,9 @@ const CorporateEventsPage = () => {
       color: #005bb5;
     }
     .muted-row { font-size: 12px; color: #4a5568; margin: 4px 0; }
-    .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
-    .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
+      .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
+      .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
+      .pill-green { background-color: #dcfce7; color: #15803d; }
     .loading { text-align: center; padding: 40px; color: #666; }
     .error { text-align: center; padding: 20px; color: #e53e3e; background-color: #fed7d7; border-radius: 6px; margin-bottom: 16px; }
     .pagination { display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 24px; padding: 16px; }
@@ -1881,6 +1978,78 @@ const CorporateEventsPage = () => {
                               background: "none",
                               border: "none",
                               color: "#c62828",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Buyer / Investor Type */}
+                  <span style={styles.label}>By Buyer / Investor Type</span>
+                  <SearchableSelect
+                    options={buyerInvestorTypeOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedBuyerInvestorTypes.includes(
+                          value as BuyerInvestorType
+                        )
+                      ) {
+                        setSelectedBuyerInvestorTypes([
+                          ...selectedBuyerInvestorTypes,
+                          value as BuyerInvestorType,
+                        ]);
+                      }
+                    }}
+                    placeholder="Select Buyer / Investor Type"
+                    disabled={false}
+                    style={styles.select}
+                  />
+
+                  {selectedBuyerInvestorTypes.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedBuyerInvestorTypes.map((t) => (
+                        <span
+                          key={t}
+                          style={{
+                            backgroundColor: "#e0f2fe",
+                            color: "#0369a1",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {buyerInvestorTypeLabel(t)}
+                          <button
+                            onClick={() => {
+                              setSelectedBuyerInvestorTypes(
+                                selectedBuyerInvestorTypes.filter(
+                                  (x) => x !== t
+                                )
+                              );
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#0369a1",
                               cursor: "pointer",
                               fontWeight: "bold",
                               fontSize: "14px",
@@ -2409,6 +2578,78 @@ const CorporateEventsPage = () => {
                           </span>
                         );
                       })}
+                    </div>
+                  )}
+
+                  {/* Funding Stage */}
+                  <span style={styles.label}>By Funding Stage</span>
+                  <SearchableSelect
+                    options={fundingStageOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "string" &&
+                        value &&
+                        !selectedFundingStages.includes(value)
+                      ) {
+                        setSelectedFundingStages([
+                          ...selectedFundingStages,
+                          value,
+                        ]);
+                      }
+                    }}
+                    placeholder={
+                      loadingFundingStages
+                        ? "Loading funding stages..."
+                        : "Select Funding Stage"
+                    }
+                    disabled={loadingFundingStages}
+                    style={styles.select}
+                  />
+
+                  {selectedFundingStages.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedFundingStages.map((stage) => (
+                        <span
+                          key={stage}
+                          style={{
+                            backgroundColor: "#e0f2fe",
+                            color: "#0369a1",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {stage}
+                          <button
+                            onClick={() => {
+                              setSelectedFundingStages(
+                                selectedFundingStages.filter((s) => s !== stage)
+                              );
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#0369a1",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>
