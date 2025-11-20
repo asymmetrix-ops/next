@@ -10,6 +10,7 @@ import {
   CorporateEvent,
   CorporateEventsResponse,
   CorporateEventsFilters,
+  BuyerInvestorType,
 } from "@/types/corporateEvents";
 import {
   ContentArticle,
@@ -105,6 +106,8 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
     Secondary_sectors_ids: [],
     deal_types: [],
     Deal_Status: [],
+    Buyer_Investor_Types: [],
+    Funding_stage: [],
     Date_start: null,
     Date_end: null,
     search_query: "",
@@ -123,6 +126,11 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
   const [selectedDealStatuses, setSelectedDealStatuses] = useState<string[]>(
     []
   );
+  const [selectedBuyerInvestorTypes, setSelectedBuyerInvestorTypes] =
+    useState<BuyerInvestorType[]>([]);
+  const [selectedFundingStages, setSelectedFundingStages] = useState<string[]>(
+    []
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [dateStart, setDateStart] = useState("");
   const [dateEnd, setDateEnd] = useState("");
@@ -136,10 +144,12 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
     Array<{ State__Province__County: string }>
   >([]);
   const [cities, setCities] = useState<Array<{ City: string }>>([]);
+  const [fundingStages, setFundingStages] = useState<string[]>([]);
 
   const [loadingCountries, setLoadingCountries] = useState(false);
   const [loadingProvinces, setLoadingProvinces] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingFundingStages, setLoadingFundingStages] = useState(false);
 
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
   const [pagination, setPagination] = useState({
@@ -171,6 +181,23 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
     value: city.City,
     label: city.City,
   }));
+
+  const fundingStageOptions = fundingStages.map((stage) => ({
+    value: stage,
+    label: stage,
+  }));
+
+  const buyerInvestorTypeOptions = [
+    { value: "private_equity", label: "Private Equity" },
+    { value: "venture_capital", label: "Venture Capital" },
+    { value: "da_strategic", label: "Data & Analytics Strategic" },
+    { value: "other_strategic", label: "Other Strategic" },
+  ];
+
+  const buyerInvestorTypeLabel = (value: string) => {
+    const found = buyerInvestorTypeOptions.find((o) => o.value === value);
+    return found ? found.label : value;
+  };
 
   const eventTypeOptions = [
     { value: "Acquisition", label: "Acquisition" },
@@ -264,6 +291,30 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
     }
   };
 
+  const fetchFundingStages = async () => {
+    try {
+      setLoadingFundingStages(true);
+      const response = await fetch(
+        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/funding_stage_options"
+      );
+      if (!response.ok) {
+        throw new Error(`Failed to fetch funding stages: ${response.status}`);
+      }
+      const data: unknown = await response.json();
+      if (Array.isArray(data)) {
+        setFundingStages(
+          data
+            .map((v) => (typeof v === "string" ? v : ""))
+            .filter((v): v is string => Boolean(v))
+        );
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingFundingStages(false);
+    }
+  };
+
   const fetchCorporateEvents = async (nextFilters: CorporateEventsFilters) => {
     try {
       setLoading(true);
@@ -323,6 +374,18 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
       if (nextFilters.Deal_Status.length > 0) {
         params.append("Deal_Status", nextFilters.Deal_Status.join(","));
       }
+      if (nextFilters.Funding_stage && nextFilters.Funding_stage.length > 0) {
+        params.append("Funding_stage", nextFilters.Funding_stage.join(","));
+      }
+      if (
+        nextFilters.Buyer_Investor_Types &&
+        nextFilters.Buyer_Investor_Types.length > 0
+      ) {
+        params.append(
+          "Buyer_Investor_Types",
+          nextFilters.Buyer_Investor_Types.join(",")
+        );
+      }
       if (nextFilters.Date_start) {
         params.append("Date_start", nextFilters.Date_start);
       }
@@ -374,6 +437,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
     fetchCountries();
     fetchContinentalRegions();
     fetchSubRegions();
+    fetchFundingStages();
 
     if (!Number.isNaN(subSectorId) && subSectorId > 0) {
       const initialFilters: CorporateEventsFilters = {
@@ -405,6 +469,8 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
       Cities: selectedCities,
       deal_types: selectedEventTypes,
       Deal_Status: selectedDealStatuses,
+      Buyer_Investor_Types: selectedBuyerInvestorTypes,
+      Funding_stage: selectedFundingStages,
       Date_start: dateStart || null,
       Date_end: dateEnd || null,
       Page: 1,
@@ -418,6 +484,8 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
     const updatedFilters: CorporateEventsFilters = {
       ...filters,
       Page: page,
+      Buyer_Investor_Types: selectedBuyerInvestorTypes,
+      Funding_stage: selectedFundingStages,
       Secondary_sectors_ids: [subSectorId],
     };
     setFilters(updatedFilters);
@@ -677,6 +745,53 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                             )
                           }
                           className="font-bold text-red-700 hover:text-red-900"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
+                  By Buyer / Investor Type
+                </label>
+                <SearchableSelect
+                  options={buyerInvestorTypeOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedBuyerInvestorTypes.includes(
+                        value as BuyerInvestorType
+                      )
+                    ) {
+                      setSelectedBuyerInvestorTypes([
+                        ...selectedBuyerInvestorTypes,
+                        value as BuyerInvestorType,
+                      ]);
+                    }
+                  }}
+                  placeholder="Select Buyer / Investor Type"
+                  disabled={false}
+                  style={{}}
+                />
+                {selectedBuyerInvestorTypes.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedBuyerInvestorTypes.map((type) => (
+                      <span
+                        key={type}
+                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-800 bg-blue-50 rounded"
+                      >
+                        {buyerInvestorTypeLabel(type)}
+                        <button
+                          onClick={() =>
+                            setSelectedBuyerInvestorTypes(
+                              selectedBuyerInvestorTypes.filter((t) => t !== type)
+                            )
+                          }
+                          className="font-bold text-blue-800 hover:text-blue-900"
                         >
                           ×
                         </button>
@@ -947,6 +1062,50 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                   onChange={(e) => setDateEnd(e.target.value)}
                   className="px-3 py-2 w-full rounded-md border border-slate-300"
                 />
+
+                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
+                  By Funding Stage
+                </label>
+                <SearchableSelect
+                  options={fundingStageOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedFundingStages.includes(value)
+                    ) {
+                      setSelectedFundingStages([...selectedFundingStages, value]);
+                    }
+                  }}
+                  placeholder={
+                    loadingFundingStages ? "Loading funding stages..." : "Select Funding Stage"
+                  }
+                  disabled={loadingFundingStages}
+                  style={{}}
+                />
+                {selectedFundingStages.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedFundingStages.map((stage) => (
+                      <span
+                        key={stage}
+                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-emerald-700 bg-emerald-50 rounded"
+                      >
+                        {stage}
+                        <button
+                          onClick={() =>
+                            setSelectedFundingStages(
+                              selectedFundingStages.filter((s) => s !== stage)
+                            )
+                          }
+                          className="font-bold text-emerald-700 hover:text-emerald-900"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </>

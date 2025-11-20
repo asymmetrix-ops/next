@@ -1,3 +1,9 @@
+export type BuyerInvestorType =
+  | "private_equity"
+  | "venture_capital"
+  | "da_strategic"
+  | "other_strategic";
+
 export interface CorporateEventsFilters {
   primary_sectors_ids: number[];
   Secondary_sectors_ids: number[];
@@ -14,6 +20,8 @@ export interface CorporateEventsFilters {
   Page: number;
   Per_page: number;
   Deal_Status: string[];
+  Funding_stage?: string[];
+  Buyer_Investor_Types?: BuyerInvestorType[];
 }
 
 export interface CorporateEventsStats {

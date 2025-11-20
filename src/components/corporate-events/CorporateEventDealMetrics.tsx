@@ -4,6 +4,7 @@ import React from "react";
 
 export interface CorporateEventDealMetricsProps {
   dealType?: string | null;
+  fundingStage?: string | null;
   isPartnership?: boolean;
   amountLabel?: string;
   evLabel?: string;
@@ -58,6 +59,7 @@ export const CorporateEventDealMetrics: React.FC<
   CorporateEventDealMetricsProps
 > = ({
   dealType,
+  fundingStage,
   isPartnership,
   amountLabel = "Amount (m)",
   evLabel = "EV (m)",
@@ -77,6 +79,11 @@ export const CorporateEventDealMetrics: React.FC<
           <span className="pill pill-blue">{dealType}</span>
         ) : (
           <span>Not Available</span>
+        )}
+        {isNonEmptyString(fundingStage) && (
+          <span className="pill pill-green" style={{ marginLeft: "4px" }}>
+            {fundingStage}
+          </span>
         )}
       </div>
 

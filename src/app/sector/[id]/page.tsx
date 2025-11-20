@@ -12,6 +12,7 @@ import {
   CorporateEvent,
   CorporateEventsResponse,
   CorporateEventsFilters,
+  BuyerInvestorType,
 } from "@/types/corporateEvents";
 import { CSVExporter } from "@/utils/csvExport";
 import {
@@ -2481,6 +2482,8 @@ const SectorDetailPage = () => {
       Secondary_sectors_ids: [],
       deal_types: [],
       Deal_Status: [],
+      Buyer_Investor_Types: [],
+      Funding_stage: [],
       Date_start: null,
       Date_end: null,
       search_query: "",
@@ -2502,6 +2505,11 @@ const SectorDetailPage = () => {
     const [selectedDealStatuses, setSelectedDealStatuses] = useState<string[]>(
       []
     );
+    const [selectedBuyerInvestorTypes, setSelectedBuyerInvestorTypes] =
+      useState<BuyerInvestorType[]>([]);
+    const [selectedFundingStages, setSelectedFundingStages] = useState<
+      string[]
+    >([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [dateStart, setDateStart] = useState("");
     const [dateEnd, setDateEnd] = useState("");
@@ -2519,6 +2527,7 @@ const SectorDetailPage = () => {
     const [secondarySectors, setSecondarySectors] = useState<
       Array<{ id: number; sector_name: string }>
     >([]);
+    const [fundingStages, setFundingStages] = useState<string[]>([]);
 
     // Loading states
     const [loadingCountries, setLoadingCountries] = useState(false);
@@ -2526,6 +2535,7 @@ const SectorDetailPage = () => {
     const [loadingCities, setLoadingCities] = useState(false);
     const [loadingSecondarySectors, setLoadingSecondarySectors] =
       useState(false);
+    const [loadingFundingStages, setLoadingFundingStages] = useState(false);
 
     // State for corporate events data
     const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>(
@@ -2568,6 +2578,23 @@ const SectorDetailPage = () => {
       value: sector.id,
       label: sector.sector_name,
     }));
+
+    const fundingStageOptions = fundingStages.map((stage) => ({
+      value: stage,
+      label: stage,
+    }));
+
+    const buyerInvestorTypeOptions = [
+      { value: "private_equity", label: "Private Equity" },
+      { value: "venture_capital", label: "Venture Capital" },
+      { value: "da_strategic", label: "Data & Analytics Strategic" },
+      { value: "other_strategic", label: "Other Strategic" },
+    ];
+
+    const buyerInvestorTypeLabel = (value: string) => {
+      const found = buyerInvestorTypeOptions.find((o) => o.value === value);
+      return found ? found.label : value;
+    };
 
     // Hardcoded options for Deal Types
     const eventTypeOptions = [
@@ -2680,6 +2707,32 @@ const SectorDetailPage = () => {
       }
     };
 
+    const fetchFundingStages = async () => {
+      try {
+        setLoadingFundingStages(true);
+        const response = await fetch(
+          "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/funding_stage_options"
+        );
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch funding stages: ${response.status}`
+          );
+        }
+        const data: unknown = await response.json();
+        if (Array.isArray(data)) {
+          setFundingStages(
+            data
+              .map((v) => (typeof v === "string" ? v : ""))
+              .filter((v): v is string => Boolean(v))
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching funding stages:", error);
+      } finally {
+        setLoadingFundingStages(false);
+      }
+    };
+
     const fetchCorporateEvents = async (filters: CorporateEventsFilters) => {
       try {
         setLoading(true);
@@ -2758,6 +2811,20 @@ const SectorDetailPage = () => {
           params.append("Deal_Status", filters.Deal_Status.join(","));
         }
 
+        if (filters.Funding_stage && filters.Funding_stage.length > 0) {
+          params.append("Funding_stage", filters.Funding_stage.join(","));
+        }
+
+        if (
+          filters.Buyer_Investor_Types &&
+          filters.Buyer_Investor_Types.length > 0
+        ) {
+          params.append(
+            "Buyer_Investor_Types",
+            filters.Buyer_Investor_Types.join(",")
+          );
+        }
+
         // Add date filters
         if (filters.Date_start) {
           params.append("Date_start", filters.Date_start);
@@ -2818,6 +2885,7 @@ const SectorDetailPage = () => {
       fetchContinentalRegions();
       fetchSubRegions();
       fetchSecondarySectors();
+      fetchFundingStages();
       // Auto-populate primary sector filter with current sector ID
       const sectorIdNum = parseInt(sectorId);
       if (!isNaN(sectorIdNum)) {
@@ -2858,6 +2926,8 @@ const SectorDetailPage = () => {
         Secondary_sectors_ids: selectedSecondarySectors,
         deal_types: selectedEventTypes,
         Deal_Status: selectedDealStatuses,
+        Buyer_Investor_Types: selectedBuyerInvestorTypes,
+        Funding_stage: selectedFundingStages,
         Date_start: dateStart || null,
         Date_end: dateEnd || null,
         Page: 1,
@@ -3085,6 +3155,53 @@ const SectorDetailPage = () => {
                             )
                           }
                           className="font-bold text-red-700 hover:text-red-900"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
+                  By Buyer / Investor Type
+                </label>
+                <SearchableSelect
+                  options={buyerInvestorTypeOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedBuyerInvestorTypes.includes(
+                        value as BuyerInvestorType
+                      )
+                    ) {
+                      setSelectedBuyerInvestorTypes([
+                        ...selectedBuyerInvestorTypes,
+                        value as BuyerInvestorType,
+                      ]);
+                    }
+                  }}
+                  placeholder="Select Buyer / Investor Type"
+                  disabled={false}
+                  style={{}}
+                />
+                {selectedBuyerInvestorTypes.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedBuyerInvestorTypes.map((type) => (
+                      <span
+                        key={type}
+                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-800 bg-blue-50 rounded"
+                      >
+                        {buyerInvestorTypeLabel(type)}
+                        <button
+                          onClick={() =>
+                            setSelectedBuyerInvestorTypes(
+                              selectedBuyerInvestorTypes.filter((t) => t !== type)
+                            )
+                          }
+                          className="font-bold text-blue-800 hover:text-blue-900"
                         >
                           ×
                         </button>
@@ -3396,6 +3513,50 @@ const SectorDetailPage = () => {
                         </span>
                       );
                     })}
+                  </div>
+                )}
+
+                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
+                  By Funding Stage
+                </label>
+                <SearchableSelect
+                  options={fundingStageOptions}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedFundingStages.includes(value)
+                    ) {
+                      setSelectedFundingStages([...selectedFundingStages, value]);
+                    }
+                  }}
+                  placeholder={
+                    loadingFundingStages ? "Loading funding stages..." : "Select Funding Stage"
+                  }
+                  disabled={loadingFundingStages}
+                  style={{}}
+                />
+                {selectedFundingStages.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedFundingStages.map((stage) => (
+                      <span
+                        key={stage}
+                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-emerald-700 bg-emerald-50 rounded"
+                      >
+                        {stage}
+                        <button
+                          onClick={() =>
+                            setSelectedFundingStages(
+                              selectedFundingStages.filter((s) => s !== stage)
+                            )
+                          }
+                          className="font-bold text-emerald-700 hover:text-emerald-900"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
                   </div>
                 )}
 
