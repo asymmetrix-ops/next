@@ -630,18 +630,40 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
     })}`;
   };
 
-  const formatSectorArray = (
+  const renderSectorLinks = (
     sectors:
-      | Array<string | { sector_name?: string }>
+      | Array<string | { sector_name?: string; id?: number }>
       | undefined
-  ): string => {
+  ): React.ReactNode => {
     if (!Array.isArray(sectors) || sectors.length === 0) {
       return "Not available";
     }
-    const names = sectors
-      .map((s) => (typeof s === "string" ? s : s.sector_name || ""))
-      .filter((s) => s.trim().length > 0);
-    return names.length > 0 ? names.join(", ") : "Not available";
+    const nodes: React.ReactNode[] = [];
+    sectors.forEach((sector, index) => {
+      const name = typeof sector === "string" ? sector : sector?.sector_name;
+      if (!name) return;
+      const sectorId =
+        typeof sector === "object" && sector
+          ? (sector as { id?: number }).id
+          : undefined;
+      nodes.push(
+        sectorId ? (
+          <a
+            key={`${sectorId}-${name}-${index}`}
+            href={`/sector/${sectorId}`}
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            {name}
+          </a>
+        ) : (
+          <span key={`${name}-${index}`}>{name}</span>
+        )
+      );
+      if (index < sectors.length - 1) {
+        nodes.push(<span key={`sep-${index}`}>, </span>);
+      }
+    });
+    return nodes.length > 0 ? nodes : "Not available";
   };
 
   return (
@@ -1252,6 +1274,80 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                   event.deal_type || ""
                 );
 
+                const rawPrimary =
+                  (target?.primary_sectors as
+                    | Array<string | { sector_name?: string }>
+                    | undefined) ??
+                  ((target as unknown as {
+                    _sectors_primary?: Array<{ sector_name?: string }>;
+                  })?._sectors_primary as
+                    | Array<{ sector_name?: string }>
+                    | undefined);
+
+                const primarySectorsForLinks:
+                  | Array<{ sector_name: string; id?: number }>
+                  | undefined =
+                  Array.isArray(rawPrimary) && rawPrimary.length > 0
+                    ? (rawPrimary
+                        .map((s) => {
+                          const name =
+                            typeof s === "string"
+                              ? s
+                              : (s as {
+                                  sector_name?: string;
+                                  id?: number;
+                                }).sector_name || "";
+                          const trimmed = name.trim();
+                          if (!trimmed) return null;
+                          const id =
+                            typeof s === "string"
+                              ? undefined
+                              : (s as { id?: number }).id;
+                          return { sector_name: trimmed, id };
+                        })
+                        .filter((x) => x !== null) as Array<{
+                        sector_name: string;
+                        id?: number;
+                      }>)
+                    : undefined;
+
+                const rawSecondary =
+                  (target?.secondary_sectors as
+                    | Array<string | { sector_name?: string }>
+                    | undefined) ??
+                  ((target as unknown as {
+                    _sectors_secondary?: Array<{ sector_name?: string }>;
+                  })?._sectors_secondary as
+                    | Array<{ sector_name?: string }>
+                    | undefined);
+
+                const secondarySectorsForLinks:
+                  | Array<{ sector_name: string; id?: number }>
+                  | undefined =
+                  Array.isArray(rawSecondary) && rawSecondary.length > 0
+                    ? (rawSecondary
+                        .map((s) => {
+                          const name =
+                            typeof s === "string"
+                              ? s
+                              : (s as {
+                                  sector_name?: string;
+                                  id?: number;
+                                }).sector_name || "";
+                          const trimmed = name.trim();
+                          if (!trimmed) return null;
+                          const id =
+                            typeof s === "string"
+                              ? undefined
+                              : (s as { id?: number }).id;
+                          return { sector_name: trimmed, id };
+                        })
+                        .filter((x) => x !== null) as Array<{
+                        sector_name: string;
+                        id?: number;
+                      }>)
+                    : undefined;
+
                 return (
                   <tr
                     key={event.id || index}
@@ -1415,21 +1511,15 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                     <td className="p-3 align-top text-xs break-words text-slate-600">
                       <div>
                         <strong>Primary:</strong>{" "}
-                        {formatSectorArray(
-                          event.target_counterparty?.new_company
-                            ?.primary_sectors as
-                            | Array<string | { sector_name?: string }>
-                            | undefined
-                        )}
+                        {renderSectorLinks(primarySectorsForLinks as Array<
+                          string | { sector_name?: string; id?: number }
+                        >)}
                       </div>
                       <div className="mt-1">
                         <strong>Secondary:</strong>{" "}
-                        {formatSectorArray(
-                          event.target_counterparty?.new_company
-                            ?.secondary_sectors as
-                            | Array<string | { sector_name?: string }>
-                            | undefined
-                        )}
+                        {renderSectorLinks(secondarySectorsForLinks as Array<
+                          string | { sector_name?: string; id?: number }
+                        >)}
                       </div>
                     </td>
                   </tr>

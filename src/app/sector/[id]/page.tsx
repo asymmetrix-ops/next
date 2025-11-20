@@ -3746,6 +3746,45 @@ const SectorDetailPage = () => {
                     })}m`;
                   };
 
+                  const renderSectorLinks = (
+                    sectors:
+                      | Array<string | { sector_name?: string; id?: number }>
+                      | undefined
+                  ): React.ReactNode => {
+                    if (!Array.isArray(sectors) || sectors.length === 0) {
+                      return "Not available";
+                    }
+                    const nodes: React.ReactNode[] = [];
+                    sectors.forEach((sector, index) => {
+                      const name =
+                        typeof sector === "string"
+                          ? sector
+                          : sector?.sector_name;
+                      if (!name) return;
+                      const sectorId =
+                        typeof sector === "object" && sector
+                          ? (sector as { id?: number }).id
+                          : undefined;
+                      nodes.push(
+                        sectorId ? (
+                          <a
+                            key={`${sectorId}-${name}-${index}`}
+                            href={`/sector/${sectorId}`}
+                            className="text-blue-600 underline hover:text-blue-800"
+                          >
+                            {name}
+                          </a>
+                        ) : (
+                          <span key={`${name}-${index}`}>{name}</span>
+                        )
+                      );
+                      if (index < sectors.length - 1) {
+                        nodes.push(<span key={`sep-${index}`}>, </span>);
+                      }
+                    });
+                    return nodes.length > 0 ? nodes : "Not available";
+                  };
+
                   const fundingStage =
                     (
                       event.investment_data?.Funding_stage ||
@@ -3755,6 +3794,30 @@ const SectorDetailPage = () => {
                   const isPartnership = /partnership/i.test(
                     event.deal_type || ""
                   );
+                  const primarySectorsSource =
+                    (target?.primary_sectors as
+                      | Array<string | { sector_name?: string; id?: number }>
+                      | undefined) ??
+                    ((target as unknown as {
+                      _sectors_primary?: Array<{
+                        sector_name?: string;
+                        id?: number;
+                      }>;
+                    })?._sectors_primary as
+                      | Array<{ sector_name?: string; id?: number }>
+                      | undefined);
+                  const secondarySectorsSource =
+                    (target?.secondary_sectors as
+                      | Array<string | { sector_name?: string; id?: number }>
+                      | undefined) ??
+                    ((target as unknown as {
+                      _sectors_secondary?: Array<{
+                        sector_name?: string;
+                        id?: number;
+                      }>;
+                    })?._sectors_secondary as
+                      | Array<{ sector_name?: string; id?: number }>
+                      | undefined);
 
                   return (
                     <tr
@@ -3987,47 +4050,11 @@ const SectorDetailPage = () => {
                       <td className="p-3 align-top break-words">
                         <div className="text-xs text-slate-600">
                           <strong>Primary:</strong>{" "}
-                          {target?.primary_sectors
-                            ? Array.isArray(target.primary_sectors) &&
-                              target.primary_sectors.length > 0
-                              ? target.primary_sectors
-                                  .map((s) =>
-                                    typeof s === "string"
-                                      ? s
-                                      : (s as { sector_name?: string })
-                                          .sector_name
-                                  )
-                                  .join(", ")
-                              : "Not available"
-                            : target?._sectors_primary &&
-                              Array.isArray(target._sectors_primary) &&
-                              target._sectors_primary.length > 0
-                            ? target._sectors_primary
-                                .map((s) => s.sector_name)
-                                .join(", ")
-                            : "Not available"}
+                          {renderSectorLinks(primarySectorsSource)}
                         </div>
                         <div className="text-xs text-slate-600">
                           <strong>Secondary:</strong>{" "}
-                          {target?.secondary_sectors
-                            ? Array.isArray(target.secondary_sectors) &&
-                              target.secondary_sectors.length > 0
-                              ? target.secondary_sectors
-                                  .map((s) =>
-                                    typeof s === "string"
-                                      ? s
-                                      : (s as { sector_name?: string })
-                                          .sector_name
-                                  )
-                                  .join(", ")
-                              : "Not available"
-                            : target?._sectors_secondary &&
-                              Array.isArray(target._sectors_secondary) &&
-                              target._sectors_secondary.length > 0
-                            ? target._sectors_secondary
-                                .map((s) => s.sector_name)
-                                .join(", ")
-                            : "Not available"}
+                          {renderSectorLinks(secondarySectorsSource)}
                         </div>
                       </td>
                     </tr>
