@@ -816,16 +816,8 @@ const ArticleDetailPage = () => {
               </div>
             )}
             {(() => {
-              const ct = (
-                article.Content_Type ||
-                article.content_type ||
-                article.Content?.Content_type ||
-                article.Content?.Content_Type ||
-                ""
-              ).trim();
-              const isHotTake = /^(hot\s*take)$/i.test(ct);
               const events = article.Related_Corporate_Event || [];
-              if (!isHotTake || !Array.isArray(events) || events.length === 0) {
+              if (!Array.isArray(events) || events.length === 0) {
                 return null;
               }
               return (
