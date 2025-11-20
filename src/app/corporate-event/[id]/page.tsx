@@ -337,7 +337,7 @@ const CorporateEventDetail = ({
     }
     .info-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 24px;
       margin-top: 24px;
     }
@@ -574,13 +574,8 @@ const CorporateEventDetail = ({
           </div>
 
           <div className="info-grid">
+            {/* Column 1: Dates */}
             <div className="info-column">
-              <div className="info-item">
-                <span className="info-label">Deal Type:</span>
-                <span className="info-value">
-                  {event?.deal_type || "Not available"}
-                </span>
-              </div>
               <div className="info-item">
                 <span className="info-label">Date Announced:</span>
                 <span className="info-value">
@@ -598,6 +593,30 @@ const CorporateEventDetail = ({
                 </span>
               </div>
             </div>
+
+            {/* Column 2: Deal details */}
+            <div className="info-column">
+              <div className="info-item">
+                <span className="info-label">Deal Type:</span>
+                <span className="info-value">
+                  {event?.deal_type || "Not available"}
+                </span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Deal Stage:</span>
+                <span className="info-value">
+                  {event?.investment_data?.Funding_stage || "Not available"}
+                </span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Deal Status:</span>
+                <span className="info-value">
+                  {event?.deal_status || "Not available"}
+                </span>
+              </div>
+            </div>
+
+            {/* Column 3: Investment & EV */}
             <div className="info-column">
               <div className="info-item">
                 <span className="info-label">Investment Amount (m):</span>
@@ -640,6 +659,62 @@ const CorporateEventDetail = ({
                 ) : (
                   <span className="info-value">Not available</span>
                 )}
+              </div>
+            </div>
+
+            {/* Column 4: Sectors */}
+            <div className="info-column">
+              <div className="info-item">
+                <span className="info-label">Primary Sector(s):</span>
+                <span className="info-value">
+                  {(() => {
+                    // Derive primary sectors from sub-sectors mapping when needed
+                    const existing = Array.isArray(data.Primary_sectors)
+                      ? data.Primary_sectors.map((s) => s.sector_name)
+                      : [];
+                    // Support both legacy single object `related_primary_sector`
+                    // and new array `related_primary_sectors` on sub-sectors
+                    const derived = Array.isArray(subSectors)
+                      ? subSectors
+                          .flatMap((s) => {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const anyS = s as any;
+                            const single = anyS?.related_primary_sector;
+                            const many = anyS?.related_primary_sectors;
+                            if (Array.isArray(many)) {
+                              return many
+                                .map(
+                                  (x: { sector_name?: string }) =>
+                                    x?.sector_name
+                                )
+                                .filter(
+                                  (v: unknown): v is string =>
+                                    typeof v === "string" && v.length > 0
+                                );
+                            }
+                            const name: unknown = single?.sector_name;
+                            return typeof name === "string" && name.length > 0
+                              ? [name]
+                              : [];
+                          })
+                          .filter((v): v is string => Boolean(v))
+                      : [];
+                    const combined = Array.from(
+                      new Set([...existing, ...derived])
+                    );
+                    return combined.length > 0
+                      ? combined.join(", ")
+                      : "Not available";
+                  })()}
+                </span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Sub-Sector(s):</span>
+                <span className="info-value">
+                  {subSectors.length > 0
+                    ? subSectors.map((s) => s.sector_name).join(", ")
+                    : "Not available"}
+                </span>
               </div>
             </div>
           </div>
@@ -719,69 +794,6 @@ const CorporateEventDetail = ({
             )}
           </div>
         )}
-
-        {/* Sectors Card */}
-        <div className="corporate-event-card">
-          <h2 className="corporate-event-subtitle">Sectors</h2>
-          <div className="info-grid">
-            <div className="info-column">
-              <div className="info-item">
-                <span className="info-label">Primary Sectors:</span>
-                <span className="info-value">
-                  {(() => {
-                    // Derive primary sectors from sub-sectors mapping when needed
-                    const existing = Array.isArray(data.Primary_sectors)
-                      ? data.Primary_sectors.map((s) => s.sector_name)
-                      : [];
-                    // Support both legacy single object `related_primary_sector`
-                    // and new array `related_primary_sectors` on sub-sectors
-                    const derived = Array.isArray(subSectors)
-                      ? subSectors
-                          .flatMap((s) => {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            const anyS = s as any;
-                            const single = anyS?.related_primary_sector;
-                            const many = anyS?.related_primary_sectors;
-                            if (Array.isArray(many)) {
-                              return many
-                                .map(
-                                  (x: { sector_name?: string }) =>
-                                    x?.sector_name
-                                )
-                                .filter(
-                                  (v: unknown): v is string =>
-                                    typeof v === "string" && v.length > 0
-                                );
-                            }
-                            const name: unknown = single?.sector_name;
-                            return typeof name === "string" && name.length > 0
-                              ? [name]
-                              : [];
-                          })
-                          .filter((v): v is string => Boolean(v))
-                      : [];
-                    const combined = Array.from(
-                      new Set([...existing, ...derived])
-                    );
-                    return combined.length > 0
-                      ? combined.join(", ")
-                      : "Not available";
-                  })()}
-                </span>
-              </div>
-            </div>
-            <div className="info-column">
-              <div className="info-item">
-                <span className="info-label">Sub-Sector(s):</span>
-                <span className="info-value">
-                  {subSectors.length > 0
-                    ? subSectors.map((s) => s.sector_name).join(", ")
-                    : "Not available"}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Counterparties Card */}
         <div className="corporate-event-card">
