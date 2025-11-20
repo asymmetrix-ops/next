@@ -771,7 +771,7 @@ const CorporateEventsTable = ({
                       <span>{targetName}</span>
                     )}
                   </div>
-                  {(() => {
+                  {!isPartnership && (() => {
                     const dealType = (event.deal_type || "").toLowerCase();
                     const label =
                       dealType === "acquisition"

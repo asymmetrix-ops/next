@@ -1248,6 +1248,9 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                     event.investment_data?.funding_stage ||
                     ""
                   ).trim();
+                const isPartnership = /partnership/i.test(
+                  event.deal_type || ""
+                );
 
                 return (
                   <tr
@@ -1287,65 +1290,74 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                           <span>{targetName}</span>
                         )}
                       </div>
-                      <div>
-                        {(() => {
-                          const list = Array.isArray(event.other_counterparties)
-                            ? event.other_counterparties.filter((cp) =>
-                                /investor|acquirer/i.test(
-                                  cp._counterparty_type?.counterparty_status ||
-                                    ""
+                      {!isPartnership && (
+                        <div>
+                          {(() => {
+                            const list = Array.isArray(
+                              event.other_counterparties
+                            )
+                              ? event.other_counterparties.filter((cp) =>
+                                  /investor|acquirer/i.test(
+                                    cp._counterparty_type?.counterparty_status ||
+                                      ""
+                                  )
                                 )
+                              : [];
+                            if (list.length === 0) {
+                              return (
+                                <>
+                                  <strong>Buyer(s):</strong> Not Available
+                                </>
+                              );
+                            }
+                            const statuses = list
+                              .map((cp) =>
+                                (
+                                  cp._counterparty_type?.counterparty_status ||
+                                  ""
+                                ).toLowerCase()
                               )
-                            : [];
-                          if (list.length === 0) {
+                              .join(" ");
+                            const hasAcquirer = /acquirer/.test(statuses);
+                            const label = hasAcquirer
+                              ? "Buyer(s)"
+                              : "Investor(s)";
+                            const names = list
+                              .map((cp) => cp._new_company?.name || "Unknown")
+                              .join(", ");
                             return (
                               <>
-                                <strong>Buyer(s):</strong> Not Available
+                                <strong>{label}:</strong>{" "}
+                                {names || "Not Available"}
                               </>
                             );
-                          }
-                          const statuses = list
-                            .map((cp) =>
-                              (
-                                cp._counterparty_type?.counterparty_status || ""
-                              ).toLowerCase()
-                            )
-                            .join(" ");
-                          const hasAcquirer = /acquirer/.test(statuses);
-                          const label = hasAcquirer ? "Buyer(s)" : "Investor(s)";
-                          const names = list
-                            .map((cp) => cp._new_company?.name || "Unknown")
-                            .join(", ");
-                          return (
-                            <>
-                              <strong>{label}:</strong>{" "}
-                              {names || "Not Available"}
-                            </>
-                          );
-                        })()}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-600">
-                        <strong>Seller(s):</strong>{" "}
-                        {Array.isArray(event.other_counterparties) &&
-                        event.other_counterparties.length > 0
-                          ? (() => {
-                              const sellers =
-                                event.other_counterparties.filter((cp) => {
-                                  const status =
-                                    cp._counterparty_type?.counterparty_status ||
-                                    "";
-                                  return /divestor|seller|vendor/i.test(status);
-                                });
-                              if (sellers.length === 0)
-                                return "Not Available";
-                              return sellers
-                                .map(
-                                  (cp) => cp._new_company?.name || "Unknown"
-                                )
-                                .join(", ");
-                            })()
-                          : "Not Available"}
-                      </div>
+                          })()}
+                        </div>
+                      )}
+                      {!isPartnership && (
+                        <div className="mt-1 text-xs text-slate-600">
+                          <strong>Seller(s):</strong>{" "}
+                          {Array.isArray(event.other_counterparties) &&
+                          event.other_counterparties.length > 0
+                            ? (() => {
+                                const sellers =
+                                  event.other_counterparties.filter((cp) => {
+                                    const status =
+                                      cp._counterparty_type?.counterparty_status ||
+                                      "";
+                                    return /divestor|seller|vendor/i.test(status);
+                                  });
+                                if (sellers.length === 0)
+                                  return "Not Available";
+                                return sellers
+                                  .map(
+                                    (cp) => cp._new_company?.name || "Unknown"
+                                  )
+                                  .join(", ");
+                              })()
+                            : "Not Available"}
+                        </div>
+                      )}
                     </td>
 
                     {/* Deal Details */}
