@@ -1451,27 +1451,18 @@ const CorporateEventsPage = () => {
       }
 
       // Add funding stages as comma-separated values
-      if (
-        (filters as Partial<CorporateEventsFilters>).Funding_stage &&
-        (filters as Partial<CorporateEventsFilters>).Funding_stage!.length > 0
-      ) {
-        params.append(
-          "Funding_stage",
-          (filters as Partial<CorporateEventsFilters>).Funding_stage!.join(",")
-        );
+      if (filters.Funding_stage && filters.Funding_stage.length > 0) {
+        params.append("Funding_stage", filters.Funding_stage.join(","));
       }
 
       // Add buyer / investor types
       if (
-        (filters as Partial<CorporateEventsFilters>).Buyer_Investor_Types &&
-        (filters as Partial<CorporateEventsFilters>).Buyer_Investor_Types!
-          .length > 0
+        filters.Buyer_Investor_Types &&
+        filters.Buyer_Investor_Types.length > 0
       ) {
         params.append(
           "Buyer_Investor_Types",
-          (
-            filters as Partial<CorporateEventsFilters>
-          ).Buyer_Investor_Types!.join(",")
+          filters.Buyer_Investor_Types.join(",")
         );
       }
 

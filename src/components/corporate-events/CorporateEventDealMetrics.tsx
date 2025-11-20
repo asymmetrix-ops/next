@@ -1,59 +1,59 @@
 "use client";
 
 import React from "react";
-import { T } from "@/components/redesign/primitives";
-import { fundingStageBadgeStyle } from "@/lib/corporateEventDealTypeBadge";
-import {
-  formatCorporateEventEnterpriseValue,
-  formatCorporateEventInvestmentAmount,
-  formatCorporateEventMillionsAmount,
-} from "@/lib/corporateEventAmountDisplay";
-import { DealTypeBadge } from "./DealTypeBadge";
-
-const metricRowStyle = (
-  align: "left" | "center"
-): React.CSSProperties => ({
-  fontSize: 12,
-  color: T.muted,
-  margin: "4px 0",
-  lineHeight: 1.45,
-  textAlign: align,
-  width: "100%",
-});
 
 export interface CorporateEventDealMetricsProps {
   dealType?: string | null;
-  /** Optional funding stage label (e.g. "Series A") to display next to deal type. */
   fundingStage?: string | null;
   isPartnership?: boolean;
   amountLabel?: string;
   evLabel?: string;
   /**
-   * Pre-formatted investment amount (e.g. "GBP11,560").
-   * When omitted, `event` is used to derive the display string.
+   * When backend provides a ready-made display string for investment (e.g. "EUR 90m"),
+   * prefer this over numeric fields.
    */
   amountDisplay?: string | null;
-  /** @deprecated Prefer `event` or `amountDisplay`. */
+  /**
+   * Amount in millions (numeric or string). No trailing "m" should be added here;
+   * the "(m)" indicator lives in the label.
+   */
   amountMillions?: number | string | null;
-  /** @deprecated Prefer `event` or `amountDisplay`. */
   amountCurrency?: string | null;
   /**
-   * Pre-formatted EV amount. When omitted, `event` is used to derive the display string.
+   * When backend provides a ready-made display string for EV.
    */
   evDisplay?: string | null;
-  /** @deprecated Prefer `event` or `evDisplay`. */
+  /**
+   * EV in millions (numeric or string). No trailing "m" should be added here;
+   * the "(m)" indicator lives in the label.
+   */
   evMillions?: number | string | null;
-  /** @deprecated Prefer `event` or `evDisplay`. */
   evCurrency?: string | null;
-  /** Optional textual fallback for EV when numeric amount is missing. */
+  /**
+   * Optional textual fallback for EV when numeric amount is missing
+   * (e.g. an EV band string).
+   */
   evBandFallback?: string | null;
-  /** Event payload used to derive amount/EV when display props are not provided. */
-  event?: unknown;
-  align?: "left" | "center";
 }
 
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
+
+const formatMillions = (
+  amount: number | string | null | undefined,
+  currency: string | null | undefined
+): string => {
+  if (amount == null || !isNonEmptyString(currency)) return "Not available";
+  const n =
+    typeof amount === "number"
+      ? amount
+      : Number(String(amount).replace(/,/g, "").trim());
+  if (Number.isNaN(n)) return "Not available";
+  // Values are already in millions; "(m)" is indicated in the field label.
+  return `${currency}${n.toLocaleString(undefined, {
+    maximumFractionDigits: 3,
+  })}`;
+};
 
 export const CorporateEventDealMetrics: React.FC<
   CorporateEventDealMetricsProps
@@ -70,84 +70,46 @@ export const CorporateEventDealMetrics: React.FC<
   evMillions,
   evCurrency,
   evBandFallback,
-  event,
-  align = "left",
 }) => {
-  const resolvedAmountDisplay =
-    (isNonEmptyString(amountDisplay) ? amountDisplay : null) ??
-    (event
-      ? formatCorporateEventInvestmentAmount(event)
-      : formatCorporateEventMillionsFallback(amountMillions, amountCurrency));
-
-  const resolvedEvDisplay =
-    (isNonEmptyString(evDisplay) ? evDisplay : null) ??
-    (event
-      ? formatCorporateEventEnterpriseValue(event, "")
-      : formatCorporateEventMillionsFallback(evMillions, evCurrency));
-
-  const hasEvBand = isNonEmptyString(evBandFallback);
-  const shouldShowEvRow =
-    isNonEmptyString(resolvedEvDisplay) || hasEvBand;
-
-  const rowStyle = metricRowStyle(align);
-
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: align === "center" ? "center" : "flex-start",
-        width: "100%",
-        minWidth: 0,
-      }}
-    >
-      <div style={rowStyle}>
+    <>
+      <div className="muted-row">
         <strong>Deal Type:</strong>{" "}
-        {isNonEmptyString(dealType) || isNonEmptyString(fundingStage) ? (
-          <span
-            style={{
-              display: "inline-flex",
-              flexWrap: "wrap",
-              gap: 4,
-              justifyContent: align === "center" ? "center" : "flex-start",
-              verticalAlign: "middle",
-            }}
-          >
-            {isNonEmptyString(dealType) && <DealTypeBadge dealType={dealType} />}
-            {isNonEmptyString(fundingStage) && (
-              <span style={fundingStageBadgeStyle()}>{fundingStage}</span>
-            )}
-          </span>
+        {isNonEmptyString(dealType) ? (
+          <span className="pill pill-blue">{dealType}</span>
         ) : (
           <span>Not Available</span>
         )}
+        {isNonEmptyString(fundingStage) && (
+          <span className="pill pill-green" style={{ marginLeft: "4px" }}>
+            {fundingStage}
+          </span>
+        )}
       </div>
 
+      {/* For partnerships we intentionally hide amount / EV in list views */}
       {!isPartnership && (
         <>
-          <div style={rowStyle}>
-            <strong>{amountLabel}:</strong> {resolvedAmountDisplay}
+          <div className="muted-row">
+            <strong>{amountLabel}:</strong>{" "}
+            {isNonEmptyString(amountDisplay)
+              ? amountDisplay
+              : formatMillions(amountMillions, amountCurrency)}
           </div>
-          {shouldShowEvRow && (
-            <div style={rowStyle}>
-              <strong>{evLabel}:</strong>{" "}
-              {isNonEmptyString(resolvedEvDisplay)
-                ? resolvedEvDisplay
-                : hasEvBand
-                  ? evBandFallback
-                  : null}
-            </div>
-          )}
+          <div className="muted-row">
+            <strong>{evLabel}:</strong>{" "}
+            {isNonEmptyString(evDisplay)
+              ? evDisplay
+              : evMillions != null || evCurrency
+              ? formatMillions(evMillions, evCurrency)
+              : isNonEmptyString(evBandFallback)
+              ? evBandFallback
+              : "Not available"}
+          </div>
         </>
       )}
-    </div>
+    </>
   );
 };
 
-function formatCorporateEventMillionsFallback(
-  amount: number | string | null | undefined,
-  currency: string | null | undefined
-): string {
-  if (amount == null || !isNonEmptyString(currency)) return "Not available";
-  return formatCorporateEventMillionsAmount(amount, currency);
-}
+
