@@ -2119,19 +2119,13 @@ const SectorDetailPage = () => {
     loadCities();
   }, [selCountries, selProvinces]);
 
+  // Kick off all sector-scoped data loads in parallel as soon as the page mounts.
   useEffect(() => {
-    if (sectorId) {
-      fetchSectorData();
-    }
-  }, [fetchSectorData, sectorId]);
-
-  useEffect(() => {
-    if (sectorData) {
-      fetchCompanies(1);
-      // Fire off split dataset fetches in parallel
-      fetchSplitDatasets();
-    }
-  }, [sectorData, fetchCompanies, fetchSplitDatasets]);
+    if (!sectorId) return;
+    fetchSectorData();
+    fetchCompanies(1);
+    fetchSplitDatasets();
+  }, [sectorId, fetchSectorData, fetchCompanies, fetchSplitDatasets]);
 
   useEffect(() => {
     if (activeTab === "public") {
