@@ -629,8 +629,13 @@ function SectorThesisCard({
 }: {
   sectorData: SectorStatistics | null;
 }) {
-  const sectorName = sectorData?.Sector?.sector_name;
-  const thesisHtml = sectorData?.Sector?.Sector_thesis;
+  // Handle both old (nested) and new (flat) API response formats
+  const sectorName = 
+    (sectorData as { sector_name?: string })?.sector_name || // New flat format
+    sectorData?.Sector?.sector_name;    // Old nested format
+  const thesisHtml = 
+    (sectorData as { Sector_thesis?: string })?.Sector_thesis || // New flat format
+    sectorData?.Sector?.Sector_thesis;    // Old nested format
 
   return (
     <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
@@ -1513,56 +1518,7 @@ const SectorDetailPage = () => {
   //   };
   // }, []);
 
-  // Fetch sector data
-  const fetchSectorData = useCallback(async () => {
-    setError(null);
-    const startTime = performance.now();
-    console.log('🚀 [Sector] Starting fetchSectorData...');
-
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-
-      if (!token) {
-        setError("Authentication required");
-        return;
-      }
-
-      const params = new URLSearchParams();
-      params.append("Sector_id", sectorId);
-
-      const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Get_Sector?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          credentials: "include",
-        }
-      );
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("Authentication required");
-        }
-        if (response.status === 404) {
-          throw new Error("Sector not found");
-        }
-        throw new Error(`API request failed: ${response.statusText}`);
-      }
-
-      const data: SectorStatistics = await response.json();
-      setSectorData(data);
-      const endTime = performance.now();
-      console.log(`✅ [Sector] fetchSectorData completed in ${(endTime - startTime).toFixed(0)}ms`);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch sector data"
-      );
-      console.error("Error fetching sector data:", err);
-    }
-  }, [sectorId]);
+  // Note: fetchSectorData and fetchSplitDatasets removed - now using /api/sector/[id]/overview route
 
   // Fetch companies data (include companies whose secondary sectors map to this primary sector)
   const fetchCompanies = useCallback(
@@ -1738,84 +1694,7 @@ const SectorDetailPage = () => {
     [sectorId, selectedPerPage]
   );
 
-  // Fetch split datasets (market map, strategic acquirers, PE investors)
-  // Each API updates state immediately when it responds (progressive rendering)
-  const fetchSplitDatasets = useCallback(async () => {
-    const startTime = performance.now();
-    console.log('🚀 [Sector] Starting fetchSplitDatasets (4 independent parallel calls)...');
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) return;
-      const Sector_id = Number(sectorId);
-      if (Number.isNaN(Sector_id)) return;
-
-      const headers = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      } as HeadersInit;
-      const qs = new URLSearchParams();
-      qs.append("Sector_id", String(Sector_id));
-
-      // Fire all 4 APIs independently - each updates UI as soon as it responds
-      // Market Map
-      const mmStart = performance.now();
-      fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map?${qs.toString()}`,
-        { method: "GET", headers, credentials: "include" }
-      )
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          setSplitMarketMapRaw(data);
-          console.log(`✅ Market Map loaded in ${(performance.now() - mmStart).toFixed(0)}ms`);
-        })
-        .catch(() => console.log('❌ Market Map failed'));
-
-      // Strategic Acquirers
-      const stratStart = performance.now();
-      fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_strategic_acquirers?${qs.toString()}`,
-        { method: "GET", headers, credentials: "include" }
-      )
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          setSplitStrategicRaw(data);
-          console.log(`✅ Strategic Acquirers loaded in ${(performance.now() - stratStart).toFixed(0)}ms`);
-        })
-        .catch(() => console.log('❌ Strategic Acquirers failed'));
-
-      // PE Investors
-      const peStart = performance.now();
-      fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_pe_investors?${qs.toString()}`,
-        { method: "GET", headers, credentials: "include" }
-      )
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          setSplitPERaw(data);
-          console.log(`✅ PE Investors loaded in ${(performance.now() - peStart).toFixed(0)}ms`);
-        })
-        .catch(() => console.log('❌ PE Investors failed'));
-
-      // Recent Transactions
-      const recentStart = performance.now();
-      const recentQs = new URLSearchParams(qs);
-      recentQs.set("top_15", "true");
-      fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${recentQs.toString()}`,
-        { method: "GET", headers, credentials: "include" }
-      )
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          setSplitRecentRaw(data);
-          console.log(`✅ Recent Transactions loaded in ${(performance.now() - recentStart).toFixed(0)}ms`);
-        })
-        .catch(() => console.log('❌ Recent Transactions failed'));
-
-      console.log(`⚡ [Sector] All 4 APIs fired independently in ${(performance.now() - startTime).toFixed(0)}ms - will update UI as each responds`);
-    } catch {
-      // ignore
-    }
-  }, [sectorId]);
+  // Note: fetchSplitDatasets removed - now part of /api/sector/[id]/overview route
 
   // Fetch All Companies via generic companies endpoint filtered by primary sector id
   const fetchAllCompaniesForSector = useCallback(
@@ -2146,17 +2025,107 @@ const SectorDetailPage = () => {
     loadCities();
   }, [selCountries, selProvinces]);
 
-  // Kick off ONLY overview tab data loads on initial mount (lazy load other tabs)
+  // Fetch each dataset independently from Xano - updates UI as soon as each responds (progressive rendering)
+  const fetchOverviewDataProgressive = useCallback(async () => {
+    console.log('🎬 [Client] Fetching overview data progressively (each card renders as data arrives)...');
+    
+    const token = typeof window !== 'undefined' ? localStorage.getItem('asymmetrix_auth_token') : null;
+    if (!token) {
+      setError('Authentication required');
+      return;
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    };
+
+    // Fire all 5 APIs independently - each updates state immediately when it responds
+    
+    // 1. Sector metadata (name + thesis) - fastest (~69ms via server, direct should be similar)
+    const sectorStart = performance.now();
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors/${sectorId}`, { 
+      method: 'GET',
+      headers,
+      credentials: 'include'
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data) {
+          setSectorData(data as SectorStatistics);
+          console.log(`✅ Sector loaded in ${(performance.now() - sectorStart).toFixed(0)}ms`);
+        }
+      })
+      .catch(err => console.error('❌ Sector failed:', err));
+
+    const qs = new URLSearchParams();
+    qs.append('Sector_id', sectorId);
+
+    // 2. Market Map
+    const mmStart = performance.now();
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map?${qs.toString()}`, { 
+      method: 'GET',
+      headers,
+      credentials: 'include'
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        setSplitMarketMapRaw(data);
+        console.log(`✅ Market Map loaded in ${(performance.now() - mmStart).toFixed(0)}ms`);
+      })
+      .catch(err => console.error('❌ Market Map failed:', err));
+
+    // 3. Strategic Acquirers
+    const stratStart = performance.now();
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_strategic_acquirers?${qs.toString()}`, { 
+      method: 'GET',
+      headers,
+      credentials: 'include'
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        setSplitStrategicRaw(data);
+        console.log(`✅ Strategic Acquirers loaded in ${(performance.now() - stratStart).toFixed(0)}ms`);
+      })
+      .catch(err => console.error('❌ Strategic Acquirers failed:', err));
+
+    // 4. PE Investors
+    const peStart = performance.now();
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_pe_investors?${qs.toString()}`, { 
+      method: 'GET',
+      headers,
+      credentials: 'include'
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        setSplitPERaw(data);
+        console.log(`✅ PE Investors loaded in ${(performance.now() - peStart).toFixed(0)}ms`);
+      })
+      .catch(err => console.error('❌ PE Investors failed:', err));
+
+    // 5. Recent Transactions
+    const recentStart = performance.now();
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${qs.toString()}&top_15=true`, { 
+      method: 'GET',
+      headers,
+      credentials: 'include'
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        setSplitRecentRaw(data);
+        console.log(`✅ Recent Transactions loaded in ${(performance.now() - recentStart).toFixed(0)}ms`);
+      })
+      .catch(err => console.error('❌ Recent Transactions failed:', err));
+
+    console.log('💡 [Client] All 5 APIs fired independently - UI updates as each responds');
+    console.log('💡 [Client] Other tabs (All Companies, Public, Transactions, etc.) will load when clicked');
+  }, [sectorId]);
+
+  // Kick off ONLY overview tab data load on initial mount (lazy load other tabs)
   useEffect(() => {
     if (!sectorId) return;
-    console.log('🎬 [Sector] Component mounted, loading OVERVIEW tab data only (lazy loading other tabs)...');
-    const componentMountTime = performance.now();
-    fetchSectorData(); // For header + thesis (6-7s)
-    fetchSplitDatasets(); // For overview cards: market map, PE, strategic, recent transactions (9-10s)
-    // Note: NOT loading fetchCompanies (9-10s) on mount - only load when user interacts with pagination
-    console.log(`⏱️  [Sector] Overview API calls initiated in ${(performance.now() - componentMountTime).toFixed(0)}ms`);
-    console.log('💡 [Sector] Other tabs (All Companies, Public, Transactions, etc.) will load when clicked');
-  }, [sectorId, fetchSectorData, fetchSplitDatasets]);
+    fetchOverviewDataProgressive();
+  }, [sectorId, fetchOverviewDataProgressive]);
 
   useEffect(() => {
     if (activeTab === "public") {
@@ -2457,8 +2426,9 @@ const SectorDetailPage = () => {
 
   // Update page title when sector data is loaded
   if (typeof document !== "undefined" && sectorData) {
-    const titleName = (sectorData as { Sector?: { sector_name?: string } })
-      ?.Sector?.sector_name;
+    const titleName = 
+      (sectorData as { sector_name?: string })?.sector_name || // New flat format
+      (sectorData as { Sector?: { sector_name?: string } })?.Sector?.sector_name; // Old nested format
     if (titleName) {
       document.title = `Asymmetrix – ${titleName}`;
     }
@@ -4722,8 +4692,9 @@ const SectorDetailPage = () => {
               <div>
                 <h1 className="text-xl font-bold text-slate-900">
                   {sectorData ? (
-                    (sectorData as { Sector?: { sector_name?: string } })?.Sector
-                      ?.sector_name || "Sector"
+                    (sectorData as { sector_name?: string })?.sector_name || // New flat format
+                    (sectorData as { Sector?: { sector_name?: string } })?.Sector?.sector_name || // Old nested format
+                    "Sector"
                   ) : (
                     <span className="inline-block h-7 w-48 bg-slate-200 animate-pulse rounded"></span>
                   )}
@@ -4746,32 +4717,87 @@ const SectorDetailPage = () => {
           <div className="space-y-8">
             {/* Top Row */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <SectorThesisCard sectorData={sectorData} />
-              <RecentTransactionsCard transactions={recentTransactions} />
+              {sectorData ? (
+                <SectorThesisCard sectorData={sectorData} />
+              ) : (
+                <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
+                  <div className="h-6 bg-slate-200 rounded w-1/3 mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-slate-200 rounded"></div>
+                    <div className="h-4 bg-slate-200 rounded"></div>
+                    <div className="h-4 bg-slate-200 rounded w-5/6"></div>
+                  </div>
+                </div>
+              )}
+              {recentTransactions.length > 0 ? (
+                <RecentTransactionsCard transactions={recentTransactions} />
+              ) : (
+                <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
+                  <div className="h-6 bg-slate-200 rounded w-1/2 mb-4"></div>
+                  <div className="space-y-3">
+                    <div className="h-16 bg-slate-200 rounded"></div>
+                    <div className="h-16 bg-slate-200 rounded"></div>
+                    <div className="h-16 bg-slate-200 rounded"></div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Middle Row */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <MostActiveTableCard
-                title="Most Active Strategic Acquirers"
-                items={strategicAcquirers}
-                accent="blue"
-                badgeLabel="Strategic Acquirer"
-                mostRecentHeader="Most Recent Acquisition"
-                showBadge={false}
-              />
-              <MostActiveTableCard
-                title="Most Active Private Equity Investors"
-                items={peInvestors}
-                accent="purple"
-                badgeLabel="Private Equity"
-                mostRecentHeader="Most Recent Investment"
-                showBadge={false}
-              />
+              {strategicAcquirers.length > 0 ? (
+                <MostActiveTableCard
+                  title="Most Active Strategic Acquirers"
+                  items={strategicAcquirers}
+                  accent="blue"
+                  badgeLabel="Strategic Acquirer"
+                  mostRecentHeader="Most Recent Acquisition"
+                  showBadge={false}
+                />
+              ) : (
+                <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
+                  <div className="h-6 bg-slate-200 rounded w-2/3 mb-4"></div>
+                  <div className="space-y-3">
+                    <div className="h-12 bg-slate-200 rounded"></div>
+                    <div className="h-12 bg-slate-200 rounded"></div>
+                    <div className="h-12 bg-slate-200 rounded"></div>
+                  </div>
+                </div>
+              )}
+              {peInvestors.length > 0 ? (
+                <MostActiveTableCard
+                  title="Most Active Private Equity Investors"
+                  items={peInvestors}
+                  accent="purple"
+                  badgeLabel="Private Equity"
+                  mostRecentHeader="Most Recent Investment"
+                  showBadge={false}
+                />
+              ) : (
+                <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
+                  <div className="h-6 bg-slate-200 rounded w-2/3 mb-4"></div>
+                  <div className="space-y-3">
+                    <div className="h-12 bg-slate-200 rounded"></div>
+                    <div className="h-12 bg-slate-200 rounded"></div>
+                    <div className="h-12 bg-slate-200 rounded"></div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Bottom Row */}
-            <MarketMapGrid companies={marketMapCompanies} />
+            {marketMapCompanies.length > 0 ? (
+              <MarketMapGrid companies={marketMapCompanies} />
+            ) : (
+              <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
+                <div className="h-6 bg-slate-200 rounded w-1/4 mb-4"></div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <div key={i} className="h-24 bg-slate-200 rounded"></div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Debug blocks removed */}
 
@@ -4846,11 +4872,6 @@ const SectorDetailPage = () => {
             {companiesLoading && (
               <div className="text-center text-slate-500">
                 Loading companies...
-              </div>
-            )}
-            {!companiesLoading && companies.length === 0 && (
-              <div className="text-center text-slate-500">
-                No companies found in this sector.
               </div>
             )}
           </div>
