@@ -1100,7 +1100,7 @@ const CorporateEventsPage = () => {
     Date_end: null,
     search_query: "",
     Page: 1,
-    Per_page: 50,
+    Per_page: 25,
   });
 
   // State for each filter (arrays for multi-select)
@@ -1161,7 +1161,7 @@ const CorporateEventsPage = () => {
     nextPage: null as number | null,
     prevPage: null as number | null,
     offset: 0,
-    perPage: 50,
+    perPage: 25,
     pageTotal: 0,
   });
   const [summaryData, setSummaryData] = useState({
@@ -1484,7 +1484,8 @@ const CorporateEventsPage = () => {
         params.append("Date_end", filters.Date_end);
       }
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`;
+      // Call our server-side API route instead of the external API directly
+      const url = `/api/corporate-events?${params.toString()}`;
 
       const response = await fetch(url, {
         method: "GET",
