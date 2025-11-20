@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 // import Image from "next/image";
 import Header from "@/components/Header";
@@ -1302,7 +1302,6 @@ const SectorDetailPage = () => {
   const [sectorData, setSectorData] = useState<SectorStatistics | null>(null);
   const [companies, setCompanies] = useState<SectorCompany[]>([]);
   const [companiesTotal, setCompaniesTotal] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
   const [companiesLoading, setCompaniesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
@@ -1516,8 +1515,9 @@ const SectorDetailPage = () => {
 
   // Fetch sector data
   const fetchSectorData = useCallback(async () => {
-    setLoading(true);
     setError(null);
+    const startTime = performance.now();
+    console.log('🚀 [Sector] Starting fetchSectorData...');
 
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
@@ -1554,13 +1554,13 @@ const SectorDetailPage = () => {
 
       const data: SectorStatistics = await response.json();
       setSectorData(data);
+      const endTime = performance.now();
+      console.log(`✅ [Sector] fetchSectorData completed in ${(endTime - startTime).toFixed(0)}ms`);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to fetch sector data"
       );
       console.error("Error fetching sector data:", err);
-    } finally {
-      setLoading(false);
     }
   }, [sectorId]);
 
@@ -1569,6 +1569,8 @@ const SectorDetailPage = () => {
     async (page: number = 1, perPageOverride?: number) => {
       setCompaniesLoading(true);
       const perPageToUse = perPageOverride || selectedPerPage;
+      const startTime = performance.now();
+      console.log('🚀 [Sector] Starting fetchCompanies...');
 
       try {
         const token = localStorage.getItem("asymmetrix_auth_token");
@@ -1725,6 +1727,8 @@ const SectorDetailPage = () => {
               Math.ceil((overallCount || adapted.length) / computedPerPage)
             ),
         });
+        const endTime = performance.now();
+        console.log(`✅ [Sector] fetchCompanies completed in ${(endTime - startTime).toFixed(0)}ms`);
       } catch (err) {
         console.error("Error fetching companies:", err);
       } finally {
@@ -1735,7 +1739,10 @@ const SectorDetailPage = () => {
   );
 
   // Fetch split datasets (market map, strategic acquirers, PE investors)
+  // Each API updates state immediately when it responds (progressive rendering)
   const fetchSplitDatasets = useCallback(async () => {
+    const startTime = performance.now();
+    console.log('🚀 [Sector] Starting fetchSplitDatasets (4 independent parallel calls)...');
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
       if (!token) return;
@@ -1749,42 +1756,62 @@ const SectorDetailPage = () => {
       const qs = new URLSearchParams();
       qs.append("Sector_id", String(Sector_id));
 
-      const [mmRes, stratRes, peRes, recentRes] = await Promise.all([
-        fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map?${qs.toString()}`,
-          { method: "GET", headers, credentials: "include" }
-        ),
-        fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_strategic_acquirers?${qs.toString()}`,
-          { method: "GET", headers, credentials: "include" }
-        ),
-        fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_pe_investors?${qs.toString()}`,
-          { method: "GET", headers, credentials: "include" }
-        ),
-        fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${(() => {
-            const q = new URLSearchParams(qs);
-            q.set("top_15", "true");
-            return q.toString();
-          })()}`,
-          { method: "GET", headers, credentials: "include" }
-        ),
-      ]);
+      // Fire all 4 APIs independently - each updates UI as soon as it responds
+      // Market Map
+      const mmStart = performance.now();
+      fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map?${qs.toString()}`,
+        { method: "GET", headers, credentials: "include" }
+      )
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          setSplitMarketMapRaw(data);
+          console.log(`✅ Market Map loaded in ${(performance.now() - mmStart).toFixed(0)}ms`);
+        })
+        .catch(() => console.log('❌ Market Map failed'));
 
-      const [mmJson, stratJson, peJson, recentJson] = await Promise.all([
-        mmRes.ok ? mmRes.json() : Promise.resolve(null),
-        stratRes.ok ? stratRes.json() : Promise.resolve(null),
-        peRes.ok ? peRes.json() : Promise.resolve(null),
-        recentRes.ok ? recentRes.json() : Promise.resolve(null),
-      ]);
+      // Strategic Acquirers
+      const stratStart = performance.now();
+      fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_strategic_acquirers?${qs.toString()}`,
+        { method: "GET", headers, credentials: "include" }
+      )
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          setSplitStrategicRaw(data);
+          console.log(`✅ Strategic Acquirers loaded in ${(performance.now() - stratStart).toFixed(0)}ms`);
+        })
+        .catch(() => console.log('❌ Strategic Acquirers failed'));
 
-      setSplitMarketMapRaw(mmJson);
-      setSplitStrategicRaw(stratJson);
-      setSplitPERaw(peJson);
-      setSplitRecentRaw(recentJson);
+      // PE Investors
+      const peStart = performance.now();
+      fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_pe_investors?${qs.toString()}`,
+        { method: "GET", headers, credentials: "include" }
+      )
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          setSplitPERaw(data);
+          console.log(`✅ PE Investors loaded in ${(performance.now() - peStart).toFixed(0)}ms`);
+        })
+        .catch(() => console.log('❌ PE Investors failed'));
 
-      // split datasets loaded (no console)
+      // Recent Transactions
+      const recentStart = performance.now();
+      const recentQs = new URLSearchParams(qs);
+      recentQs.set("top_15", "true");
+      fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${recentQs.toString()}`,
+        { method: "GET", headers, credentials: "include" }
+      )
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          setSplitRecentRaw(data);
+          console.log(`✅ Recent Transactions loaded in ${(performance.now() - recentStart).toFixed(0)}ms`);
+        })
+        .catch(() => console.log('❌ Recent Transactions failed'));
+
+      console.log(`⚡ [Sector] All 4 APIs fired independently in ${(performance.now() - startTime).toFixed(0)}ms - will update UI as each responds`);
     } catch {
       // ignore
     }
@@ -2119,13 +2146,17 @@ const SectorDetailPage = () => {
     loadCities();
   }, [selCountries, selProvinces]);
 
-  // Kick off all sector-scoped data loads in parallel as soon as the page mounts.
+  // Kick off ONLY overview tab data loads on initial mount (lazy load other tabs)
   useEffect(() => {
     if (!sectorId) return;
-    fetchSectorData();
-    fetchCompanies(1);
-    fetchSplitDatasets();
-  }, [sectorId, fetchSectorData, fetchCompanies, fetchSplitDatasets]);
+    console.log('🎬 [Sector] Component mounted, loading OVERVIEW tab data only (lazy loading other tabs)...');
+    const componentMountTime = performance.now();
+    fetchSectorData(); // For header + thesis (6-7s)
+    fetchSplitDatasets(); // For overview cards: market map, PE, strategic, recent transactions (9-10s)
+    // Note: NOT loading fetchCompanies (9-10s) on mount - only load when user interacts with pagination
+    console.log(`⏱️  [Sector] Overview API calls initiated in ${(performance.now() - componentMountTime).toFixed(0)}ms`);
+    console.log('💡 [Sector] Other tabs (All Companies, Public, Transactions, etc.) will load when clicked');
+  }, [sectorId, fetchSectorData, fetchSplitDatasets]);
 
   useEffect(() => {
     if (activeTab === "public") {
@@ -2295,20 +2326,65 @@ const SectorDetailPage = () => {
     }
   }, [activeTab, ownershipFilter]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen">
-        <Header />
-        <div style={{ padding: "40px", textAlign: "center" }}>
-          <div style={{ fontSize: "18px", color: "#666" }}>
-            Loading sector data...
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
+  // Map optional dashboard datasets from the preferred source (companies API), fallback to sector API.
+  // Heavy mapping work is wrapped in useMemo so it does not repeat on every render.
+  const preferredSource = useMemo(() => {
+    if (splitStrategicRaw || splitPERaw || splitMarketMapRaw || splitRecentRaw) {
+      return {
+        ...(splitStrategicRaw
+          ? { strategic_acquirers: splitStrategicRaw as unknown }
+          : {}),
+        ...(splitPERaw ? { pe_investors: splitPERaw as unknown } : {}),
+        ...(splitMarketMapRaw
+          ? { market_map: splitMarketMapRaw as unknown }
+          : {}),
+        ...(splitRecentRaw
+          ? { resent_trasnactions: splitRecentRaw as unknown }
+          : {}),
+        ...((companiesApiPayload as Record<string, unknown> | null) || {}),
+        ...((sectorData as unknown as Record<string, unknown> | null) || {}),
+      };
+    }
+    return (companiesApiPayload as Record<string, unknown> | null) ?? sectorData;
+  }, [
+    splitStrategicRaw,
+    splitPERaw,
+    splitMarketMapRaw,
+    splitRecentRaw,
+    companiesApiPayload,
+    sectorData,
+  ]);
 
+  const recentTransactions: TransactionRecord[] = useMemo(() => {
+    if (!preferredSource) return [];
+    const raw = (preferredSource as { resent_trasnactions?: unknown })
+      ?.resent_trasnactions;
+    const alt = (preferredSource as { recent_transactions?: unknown })
+      ?.recent_transactions;
+    return mapRecentTransactions(extractArray(raw ?? alt ?? []));
+  }, [preferredSource]);
+
+  const strategicAcquirers: RankedEntity[] = useMemo(() => {
+    if (!preferredSource) return [];
+    const raw = (preferredSource as { strategic_acquirers?: unknown })
+      ?.strategic_acquirers;
+    return mapRankedEntities(extractArray(raw ?? []));
+  }, [preferredSource]);
+
+  const peInvestors: RankedEntity[] = useMemo(() => {
+    if (!preferredSource) return [];
+    const raw = (preferredSource as { pe_investors?: unknown })?.pe_investors;
+    return mapRankedEntities(extractArray(raw ?? []));
+  }, [preferredSource]);
+
+  const marketMapCompanies: SectorCompany[] = useMemo(() => {
+    if (!preferredSource) return companies;
+    const raw = (preferredSource as { market_map?: unknown })?.market_map;
+    const mapped = mapMarketMapToCompanies(raw);
+    return mapped.length > 0 ? mapped : companies;
+  }, [preferredSource, companies]);
+
+  // Only block rendering for critical errors (auth/not found)
   if (error) {
     return (
       <div className="min-h-screen">
@@ -2379,12 +2455,8 @@ const SectorDetailPage = () => {
     );
   }
 
-  if (!sectorData) {
-    return null;
-  }
-
   // Update page title when sector data is loaded
-  if (typeof document !== "undefined") {
+  if (typeof document !== "undefined" && sectorData) {
     const titleName = (sectorData as { Sector?: { sector_name?: string } })
       ?.Sector?.sector_name;
     if (titleName) {
@@ -2393,75 +2465,32 @@ const SectorDetailPage = () => {
   }
 
   // Normalize statistics to support both new and legacy API shapes
-  const totalsRow: SectorTotalsRow | null = Array.isArray(
-    (sectorData as unknown as { Total_number_of_companies?: unknown })
-      .Total_number_of_companies
-  )
-    ? (
-        sectorData as unknown as {
-          Total_number_of_companies: SectorTotalsRow[];
-        }
-      ).Total_number_of_companies[0] || null
-    : null;
+  const totalsRow: SectorTotalsRow | null =
+    sectorData &&
+    Array.isArray(
+      (sectorData as unknown as { Total_number_of_companies?: unknown })
+        .Total_number_of_companies
+    )
+      ? (
+          sectorData as unknown as {
+            Total_number_of_companies: SectorTotalsRow[];
+          }
+        ).Total_number_of_companies[0] || null
+      : null;
 
   const totalCompaniesStat =
     totalsRow?.Number_of_Companies ??
-    (typeof (sectorData as unknown as { Total_number_of_companies?: unknown })
-      .Total_number_of_companies === "number"
-      ? (sectorData as unknown as { Total_number_of_companies: number })
-          .Total_number_of_companies
+    (typeof (
+      sectorData as unknown as { Total_number_of_companies?: unknown } | null
+    )?.Total_number_of_companies === "number"
+      ? (
+          sectorData as unknown as {
+            Total_number_of_companies: number;
+          }
+        ).Total_number_of_companies
       : 0);
 
   // Removed statistics card; keep totals only when needed elsewhere
-
-  // Map optional dashboard datasets from the preferred source (companies API), fallback to sector API
-  const preferredSource =
-    splitStrategicRaw || splitPERaw || splitMarketMapRaw || splitRecentRaw
-      ? {
-          // Compose a virtual preferred source from split endpoints where available
-          ...(splitStrategicRaw
-            ? { strategic_acquirers: splitStrategicRaw as unknown }
-            : {}),
-          ...(splitPERaw ? { pe_investors: splitPERaw as unknown } : {}),
-          ...(splitMarketMapRaw
-            ? { market_map: splitMarketMapRaw as unknown }
-            : {}),
-          ...(splitRecentRaw
-            ? { resent_trasnactions: splitRecentRaw as unknown }
-            : {}),
-          // fallback fields from companies API and sector API
-          ...((companiesApiPayload as Record<string, unknown> | null) || {}),
-          ...((sectorData as unknown as Record<string, unknown> | null) || {}),
-        }
-      : companiesApiPayload ?? sectorData;
-  const recentTransactions: TransactionRecord[] = mapRecentTransactions(
-    extractArray(
-      (preferredSource as unknown as { resent_trasnactions?: unknown })
-        ?.resent_trasnactions ??
-        (preferredSource as unknown as { recent_transactions?: unknown })
-          ?.recent_transactions ??
-        []
-    )
-  );
-  const strategicAcquirers: RankedEntity[] = mapRankedEntities(
-    extractArray(
-      (preferredSource as unknown as { strategic_acquirers?: unknown })
-        ?.strategic_acquirers ?? []
-    )
-  );
-  const peInvestors: RankedEntity[] = mapRankedEntities(
-    extractArray(
-      (preferredSource as unknown as { pe_investors?: unknown })
-        ?.pe_investors ?? []
-    )
-  );
-
-  const marketMapCompanies: SectorCompany[] = (() => {
-    const raw = (preferredSource as unknown as { market_map?: unknown })
-      ?.market_map;
-    const mapped = mapMarketMapToCompanies(raw);
-    return mapped.length > 0 ? mapped : companies;
-  })();
 
   // Comprehensive Transactions Tab Component
   function SectorTransactionsTab({ sectorId }: { sectorId: string }) {
@@ -4692,8 +4721,12 @@ const SectorDetailPage = () => {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-slate-900">
-                  {(sectorData as { Sector?: { sector_name?: string } })?.Sector
-                    ?.sector_name || "Sector"}
+                  {sectorData ? (
+                    (sectorData as { Sector?: { sector_name?: string } })?.Sector
+                      ?.sector_name || "Sector"
+                  ) : (
+                    <span className="inline-block h-7 w-48 bg-slate-200 animate-pulse rounded"></span>
+                  )}
                 </h1>
               </div>
             </div>
