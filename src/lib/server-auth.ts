@@ -75,6 +75,46 @@ export class ServerDashboardApiService {
   async getSectorDetails(sectorId: number) {
     return this.request(`/Get_Sector?Sector_id=${sectorId}`);
   }
+
+  // Sector page specific endpoints
+  async getSector(sectorId: string) {
+    return this.request(`/sectors/${sectorId}`, {
+      next: { revalidate: 300 },
+    });
+  }
+
+  async getSectorMarketMap(sectorId: string) {
+    const qs = new URLSearchParams();
+    qs.append('Sector_id', sectorId);
+    return this.request(`/sectors_market_map?${qs.toString()}`, {
+      next: { revalidate: 300 },
+    });
+  }
+
+  async getSectorStrategicAcquirers(sectorId: string) {
+    const qs = new URLSearchParams();
+    qs.append('Sector_id', sectorId);
+    return this.request(`/sectors_strategic_acquirers?${qs.toString()}`, {
+      next: { revalidate: 300 },
+    });
+  }
+
+  async getSectorPEInvestors(sectorId: string) {
+    const qs = new URLSearchParams();
+    qs.append('Sector_id', sectorId);
+    return this.request(`/sectors_pe_investors?${qs.toString()}`, {
+      next: { revalidate: 300 },
+    });
+  }
+
+  async getSectorRecentTransactions(sectorId: string) {
+    const qs = new URLSearchParams();
+    qs.append('Sector_id', sectorId);
+    qs.append('top_15', 'true');
+    return this.request(`/sectors_resent_trasnactions?${qs.toString()}`, {
+      next: { revalidate: 300 },
+    });
+  }
 }
 
 export const serverDashboardApiService = new ServerDashboardApiService();
