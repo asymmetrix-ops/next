@@ -85,7 +85,7 @@ export class ServerDashboardApiService {
 
   async getSectorMarketMap(sectorId: string) {
     const qs = new URLSearchParams();
-    qs.append('Sector_id', sectorId);
+    qs.append('Sector_id', parseInt(sectorId, 10).toString());
     return this.request(`/sectors_market_map?${qs.toString()}`, {
       next: { revalidate: 300 },
     });
@@ -93,7 +93,7 @@ export class ServerDashboardApiService {
 
   async getSectorStrategicAcquirers(sectorId: string) {
     const qs = new URLSearchParams();
-    qs.append('Sector_id', sectorId);
+    qs.append('Sector_id', parseInt(sectorId, 10).toString());
     return this.request(`/sectors_strategic_acquirers?${qs.toString()}`, {
       next: { revalidate: 300 },
     });
@@ -101,7 +101,7 @@ export class ServerDashboardApiService {
 
   async getSectorPEInvestors(sectorId: string) {
     const qs = new URLSearchParams();
-    qs.append('Sector_id', sectorId);
+    qs.append('Sector_id', parseInt(sectorId, 10).toString());
     return this.request(`/sectors_pe_investors?${qs.toString()}`, {
       next: { revalidate: 300 },
     });
@@ -109,7 +109,7 @@ export class ServerDashboardApiService {
 
   async getSectorRecentTransactions(sectorId: string) {
     const qs = new URLSearchParams();
-    qs.append('Sector_id', sectorId);
+    qs.append('Sector_id', parseInt(sectorId, 10).toString());
     qs.append('top_15', 'true');
     return this.request(`/sectors_resent_trasnactions?${qs.toString()}`, {
       next: { revalidate: 300 },

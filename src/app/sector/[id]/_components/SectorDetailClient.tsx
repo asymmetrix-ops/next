@@ -629,6 +629,10 @@ function SectorThesisCard({
 }: {
   sectorData: SectorStatistics | null;
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showButton, setShowButton] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
   // Handle both old (nested) and new (flat) API response formats
   const sectorName = 
     (sectorData as { sector_name?: string })?.sector_name || // New flat format
@@ -636,6 +640,39 @@ function SectorThesisCard({
   const thesisHtml = 
     (sectorData as { Sector_thesis?: string })?.Sector_thesis || // New flat format
     sectorData?.Sector?.Sector_thesis;    // Old nested format
+
+  // Some backends may HTML-encode tags (e.g. &lt;ul&gt;). Decode the most common entities
+  // so that lists and other HTML markup render correctly.
+  const normalizedThesisHtml = useMemo(() => {
+    if (!thesisHtml) return "";
+    const looksEncoded =
+      thesisHtml.includes("&lt;") &&
+      thesisHtml.includes("&gt;");
+    const result = looksEncoded
+      ? thesisHtml
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&amp;/g, "&")
+      : thesisHtml;
+    
+    // Debug: log if we have ul/li tags
+    if (result.includes('<ul>') || result.includes('<li>')) {
+      console.log('🧪 [Thesis] HTML contains ul/li tags, first 200 chars:', result.slice(0, 200));
+    }
+    
+    return result;
+  }, [thesisHtml]);
+
+  // Check if content exceeds 10 lines (~17rem or 272px)
+  useEffect(() => {
+    if (contentRef.current && thesisHtml) {
+      const contentHeight = contentRef.current.scrollHeight;
+      const lineHeight = 27; // approximate line height in pixels
+      const maxLines = 10;
+      const maxHeight = lineHeight * maxLines;
+      setShowButton(contentHeight > maxHeight);
+    }
+  }, [thesisHtml]);
 
   return (
     <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
@@ -664,10 +701,63 @@ function SectorThesisCard({
       </div>
       <div className="px-5 py-5">
         {thesisHtml ? (
-          <div
-            className="max-w-none prose prose-sm text-slate-700"
-            dangerouslySetInnerHTML={{ __html: thesisHtml }}
-          />
+          <>
+            <div
+              ref={contentRef}
+              className="sector-thesis-content text-slate-700"
+              style={{
+                maxHeight: isExpanded ? 'none' : '270px',
+                overflow: 'hidden',
+                transition: 'max-height 0.3s ease',
+                fontSize: '14px',
+                lineHeight: '1.7',
+              }}
+              dangerouslySetInnerHTML={{ __html: normalizedThesisHtml }}
+            />
+            {showButton && (
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                {isExpanded ? 'See Less' : 'See More'}
+              </button>
+            )}
+            {/* Inline styles for this specific component */}
+            <style
+              dangerouslySetInnerHTML={{
+                __html: `
+                  .sector-thesis-content ul { 
+                    list-style-type: disc !important; 
+                    list-style: disc !important; 
+                    margin: 0 0 1rem 0 !important; 
+                    padding-left: 1.5rem !important; 
+                    display: block !important;
+                  }
+                  .sector-thesis-content ol { 
+                    list-style-type: decimal !important; 
+                    list-style: decimal !important; 
+                    margin: 0 0 1rem 0 !important; 
+                    padding-left: 1.5rem !important; 
+                    display: block !important;
+                  }
+                  .sector-thesis-content li { 
+                    margin-bottom: 0.5rem !important; 
+                    display: list-item !important;
+                    list-style-type: inherit !important;
+                    list-style-position: outside !important;
+                  }
+                  .sector-thesis-content ul ul { 
+                    margin-top: 0.5rem !important; 
+                    margin-bottom: 0.5rem !important; 
+                    padding-left: 1.25rem !important; 
+                  }
+                  .sector-thesis-content p { margin: 0 0 1rem 0; }
+                  .sector-thesis-content h1, .sector-thesis-content h2, .sector-thesis-content h3, .sector-thesis-content h4, .sector-thesis-content h5, .sector-thesis-content h6 { margin: 1.25rem 0 0.75rem; font-weight: 700; }
+                  .sector-thesis-content a { color: #2563eb; text-decoration: underline; }
+                `,
+              }}
+            />
+          </>
         ) : (
           <div className="text-sm text-slate-500">Not available</div>
         )}
@@ -1321,6 +1411,39 @@ const SectorDetailPage = ({
   const [sectorData, setSectorData] = useState<SectorStatistics | null>(
     initialSectorData as SectorStatistics | null
   );
+
+  // Debug log on mount to inspect initial data
+  useEffect(() => {
+    if (initialSectorData) {
+      try {
+        type SectorApiItem = {
+          Sector_thesis?: unknown;
+          Sector?: { Sector_thesis?: unknown };
+        };
+
+        const items: SectorApiItem[] = Array.isArray(initialSectorData)
+          ? (initialSectorData as SectorApiItem[])
+          : ([initialSectorData] as SectorApiItem[]);
+
+        const first = items[0] ?? {};
+        const flatThesis = first.Sector_thesis;
+        const nestedThesis = first.Sector?.Sector_thesis;
+
+        console.log('🧪 [Client] INITIAL Sector thesis debug (from server):', {
+          hasData: Boolean(initialSectorData),
+          isArray: Array.isArray(initialSectorData),
+          flatThesisSample:
+            typeof flatThesis === 'string' ? flatThesis.slice(0, 300) : flatThesis,
+          nestedThesisSample:
+            typeof nestedThesis === 'string'
+              ? nestedThesis.slice(0, 300)
+              : nestedThesis,
+        });
+      } catch (e) {
+        console.log('🧪 [Client] INITIAL Sector thesis debug failed', e);
+      }
+    }
+  }, [initialSectorData]);
   const [companies, setCompanies] = useState<SectorCompany[]>([]);
   const [companiesTotal, setCompaniesTotal] = useState<number | null>(null);
   const [companiesLoading, setCompaniesLoading] = useState(false);
@@ -2044,6 +2167,7 @@ const SectorDetailPage = ({
   // Fetch each dataset independently from Xano - updates UI as soon as each responds (progressive rendering)
   const fetchOverviewDataProgressive = useCallback(async () => {
     console.log('🎬 [Client] Fetching overview data progressively (each card renders as data arrives)...');
+    console.log('🧪 [Client] Will log thesis data when sector fetch completes...');
     
     const token = typeof window !== 'undefined' ? localStorage.getItem('asymmetrix_auth_token') : null;
     if (!token) {
@@ -2068,6 +2192,35 @@ const SectorDetailPage = ({
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data) {
+          // Debug log to inspect how thesis is returned from Xano
+          try {
+            type SectorApiItem = {
+              Sector_thesis?: unknown;
+              Sector?: { Sector_thesis?: unknown };
+            };
+
+            const items: SectorApiItem[] = Array.isArray(data)
+              ? (data as SectorApiItem[])
+              : ([data] as SectorApiItem[]);
+
+            const first = items[0] ?? {};
+            const flatThesis = first.Sector_thesis;
+            const nestedThesis = first.Sector?.Sector_thesis;
+
+            console.log('🧪 [Client] Sector thesis debug:', {
+              hasData: Boolean(data),
+              isArray: Array.isArray(data),
+              flatThesisSample:
+                typeof flatThesis === 'string' ? flatThesis.slice(0, 300) : flatThesis,
+              nestedThesisSample:
+                typeof nestedThesis === 'string'
+                  ? nestedThesis.slice(0, 300)
+                  : nestedThesis,
+            });
+          } catch (e) {
+            console.log('🧪 [Client] Sector thesis debug failed to inspect data', e);
+          }
+
           setSectorData(data as SectorStatistics);
           console.log(`✅ Sector loaded in ${(performance.now() - sectorStart).toFixed(0)}ms`);
         }
@@ -2075,7 +2228,7 @@ const SectorDetailPage = ({
       .catch(err => console.error('❌ Sector failed:', err));
 
     const qs = new URLSearchParams();
-    qs.append('Sector_id', sectorId);
+    qs.append('Sector_id', parseInt(sectorId, 10).toString());
 
     // 2. Market Map
     const mmStart = performance.now();
@@ -2143,8 +2296,12 @@ const SectorDetailPage = ({
     if (!sectorId) return;
     // Only fetch if we don't have initial data
     const hasInitialData = initialSectorData && initialMarketMap && initialStrategicAcquirers && initialPEInvestors && initialRecentTransactions;
+    console.log('🧪 [Client] useEffect check - hasInitialData:', hasInitialData, 'will fetch:', !hasInitialData);
     if (!hasInitialData) {
+      console.log('🧪 [Client] Calling fetchOverviewDataProgressive...');
       fetchOverviewDataProgressive();
+    } else {
+      console.log('🧪 [Client] Skipping fetchOverviewDataProgressive - using initial data');
     }
   }, [sectorId, fetchOverviewDataProgressive, initialSectorData, initialMarketMap, initialStrategicAcquirers, initialPEInvestors, initialRecentTransactions]);
 
@@ -4116,6 +4273,47 @@ const SectorDetailPage = ({
             font-size: 14px;
           }
         `}</style>
+
+        {/* CSS for Sector Thesis HTML content - matching article page exactly */}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+          .sector-thesis-content p { margin: 0 0 1rem 0; }
+          .sector-thesis-content ul { 
+            list-style-type: disc !important; 
+            list-style: disc !important; 
+            margin: 0 0 1rem 0 !important; 
+            padding-left: 1.5rem !important; 
+            display: block !important;
+          }
+          .sector-thesis-content ol { 
+            list-style-type: decimal !important; 
+            list-style: decimal !important; 
+            margin: 0 0 1rem 0 !important; 
+            padding-left: 1.5rem !important; 
+            display: block !important;
+          }
+          .sector-thesis-content li { 
+            margin-bottom: 0.5rem !important; 
+            display: list-item !important;
+            list-style-type: inherit !important;
+          }
+          .sector-thesis-content ul ul { 
+            margin-top: 0.5rem !important; 
+            margin-bottom: 0.5rem !important; 
+            padding-left: 1.25rem !important; 
+          }
+          .sector-thesis-content h1, .sector-thesis-content h2, .sector-thesis-content h3, .sector-thesis-content h4, .sector-thesis-content h5, .sector-thesis-content h6 { margin: 1.25rem 0 0.75rem; font-weight: 700; }
+          .sector-thesis-content a { color: #2563eb; text-decoration: underline; }
+          .sector-thesis-content blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid #e5e7eb; color: #374151; }
+          .sector-thesis-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+          .sector-thesis-content th, .sector-thesis-content td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+          .sector-thesis-content img { max-width: 100%; height: auto; display: block; margin: 1rem auto; border-radius: 8px; }
+          .sector-thesis-content figure { margin: 1rem 0; }
+          .sector-thesis-content figcaption { text-align: center; font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem; }
+        `,
+          }}
+        />
       </div>
     );
   }

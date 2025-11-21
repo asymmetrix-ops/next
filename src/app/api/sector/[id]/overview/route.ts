@@ -31,7 +31,7 @@ export async function GET(
     };
 
     const qs = new URLSearchParams();
-    qs.append('Sector_id', sectorId);
+    qs.append('Sector_id', parseInt(sectorId, 10).toString());
 
     // Fetch all overview data in parallel ON THE SERVER
     // Track individual API call timings to identify bottleneck
@@ -102,6 +102,32 @@ export async function GET(
       peRes.ok ? peRes.json() : null,
       recentRes.ok ? recentRes.json() : null,
     ]);
+
+    // Debug logging: inspect what the backend is returning for the sector thesis
+    try {
+      type SectorApiItem = {
+        Sector_thesis?: unknown;
+        Sector?: { Sector_thesis?: unknown };
+      };
+
+      const items: SectorApiItem[] = Array.isArray(sectorData)
+        ? (sectorData as SectorApiItem[])
+        : ([sectorData] as SectorApiItem[]);
+
+      const first = items[0] ?? {};
+      const flatThesis = first.Sector_thesis;
+      const nestedThesis = first.Sector?.Sector_thesis;
+
+      console.log('[API] 🧪 Sector thesis debug:', {
+        hasData: Boolean(sectorData),
+        flatThesisSample:
+          typeof flatThesis === 'string' ? flatThesis.slice(0, 300) : flatThesis,
+        nestedThesisSample:
+          typeof nestedThesis === 'string' ? nestedThesis.slice(0, 300) : nestedThesis,
+      });
+    } catch (e) {
+      console.log('[API] 🧪 Sector thesis debug failed to inspect sectorData', e);
+    }
 
     const totalTime = performance.now() - startTime;
     console.log(`[API] ✅ Overview data fetched in ${totalTime.toFixed(0)}ms`);
