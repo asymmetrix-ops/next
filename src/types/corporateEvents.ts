@@ -39,6 +39,8 @@ export interface Currency {
 export interface InvestmentData {
   investment_amount_m: string;
   currency: Currency;
+  Funding_stage?: string;
+  funding_stage?: string;
 }
 
 export interface EnterpriseValueData {
