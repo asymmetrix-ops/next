@@ -5,7 +5,6 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 // import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import CompactPagination from "@/components/ui/CompactPagination";
 import { locationsService } from "@/lib/locationsService";
 import { BuildingOfficeIcon } from "@heroicons/react/24/outline";
 import SearchableSelect from "@/components/ui/SearchableSelect";
@@ -16,66 +15,11 @@ import {
   BuyerInvestorType,
 } from "@/types/corporateEvents";
 import { CSVExporter } from "@/utils/csvExport";
-import { ExportLimitModal } from "@/components/ExportLimitModal";
-import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import {
   ContentArticle,
   InsightsAnalysisResponse,
   InsightsAnalysisFilters,
 } from "@/types/insightsAnalysis";
-import {
-  getArticleByline,
-  isNewsArticle,
-  normalizeContentArticles,
-} from "@/lib/contentArticleDisplay";
-import type { CompaniesFilters } from "@/app/companies/actions";
-import {
-  CompaniesSearchDashboard,
-  EMPTY_OWNERSHIP_COUNTS,
-  type CompaniesOwnershipCounts,
-} from "@/components/companies/CompaniesSearchDashboard";
-import {
-  fetchAllCompaniesClientPages,
-  fetchCompaniesClient,
-  fetchCompaniesCountsClient,
-} from "@/lib/companiesClientApi";
-import { buildCompaniesSearchPayload } from "@/lib/companiesFilterPayload";
-import { ownershipFilterParamToTab } from "@/lib/companiesSearchFilterConfig";
-import {
-  CompaniesDataTable,
-  ALL_COMPANY_COLUMN_KEYS,
-  type CompaniesSortChangePayload,
-} from "@/components/companies/CompaniesDataTable";
-import {
-  DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS,
-  SECTOR_ALL_COMPANIES_COLUMNS_STORAGE_KEY,
-  type CompanyRow,
-} from "@/components/companies/companyColumnDefinitions";
-import { getApiColumnsForSelectedKeys } from "@/components/companies/companiesApiColumns";
-import { DealTypeBadge } from "@/components/corporate-events/DealTypeBadge";
-import {
-  formatCorporateEventEnterpriseValue,
-  formatCorporateEventInvestmentAmount,
-} from "@/components/corporate-events/corporateEventsTableUtils";
-import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
-import { appendPreferredCurrencyIdToSearchParams } from "@/lib/platformCurrency";
-
-import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
-import { SEARCH_MULTI_VALUE_STYLES } from "@/components/search/SearchEntityMultiValueCell";
-import {
-  parseAdvisedEntities,
-  parseAdvisorSectors,
-  type AdvisedEntityRef,
-} from "@/components/search/searchEntityLinkUtils";
-import { AdvisedEntitiesList } from "@/components/advisors/AdvisedEntitiesList";
-import { ADVISORS_API_BASE } from "@/lib/advisorsApiBase";
-import {
-  advisorSearchPayloadToSearchParams,
-  buildAdvisorSearchPayloadFromClauses,
-} from "@/lib/advisorFilterBuilder";
-
-const SECTOR_API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
-
 
 // Types for API integration
 interface SectorData {
@@ -117,55 +61,13 @@ interface SectorStatistics {
   market_map?: unknown;
 }
 
-const normalizeContentTypeLabel = (raw: unknown): string | undefined => {
-  if (typeof raw !== "string") return undefined;
-  const trimmed = raw.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-};
-
-const inferContentTypeFromHeadline = (headline: unknown): string | undefined => {
-  const normalizedHeadline = normalizeContentTypeLabel(headline);
-  if (!normalizedHeadline) return undefined;
-
-  const parts = normalizedHeadline.split(/\s*[–—-]\s*/);
-  const candidate = (parts[0] || "").trim().toLowerCase();
-
-  const known = new Map<string, string>([
-    ["company analysis", "Company Analysis"],
-    ["deal analysis", "Deal Analysis"],
-    ["deal perspective", "Deal Perspective"],
-    ["market commentary", "Market Commentary"],
-    ["sector analysis", "Sector Analysis"],
-    ["hot take", "Hot Take"],
-    ["executive interview", "Executive Interview"],
-  ]);
-
-  return known.get(candidate);
-};
-
-const getEffectiveContentType = (article: ContentArticle): string | undefined => {
-  const anyArticle = article as ContentArticle & {
-    content_type?: unknown;
-    ContentType?: unknown;
-    contentType?: unknown;
-  };
-
-  return (
-    normalizeContentTypeLabel(anyArticle.Content_Type) ||
-    normalizeContentTypeLabel(anyArticle.content_type) ||
-    normalizeContentTypeLabel(anyArticle.ContentType) ||
-    normalizeContentTypeLabel(anyArticle.contentType) ||
-    inferContentTypeFromHeadline(anyArticle.Headline)
-  );
-};
-
 interface SectorCompany {
   id: number;
   name: string;
   locations_id: number;
   url: string;
   sectors: string[];
-  primary_sectors: SectorLinkItem[];
+  primary_sectors: string[];
   description: string;
   linkedin_employee: number;
   linkedin_employee_latest: number;
@@ -182,95 +84,12 @@ interface SectorCompany {
 }
 
 // Response shape for the new companies endpoint used on sector page
-type SectorLinkItem =
-  | string
-  | {
-      sector_name?: string;
-      Sector_name?: string;
-      name?: string;
-      id?: number;
-      sector_id?: number;
-      sectorId?: number;
-    };
-
-const getSectorLabel = (sector: SectorLinkItem): string => {
-  const name =
-    typeof sector === "string"
-      ? sector
-      : sector?.sector_name || sector?.Sector_name || sector?.name;
-  return String(name ?? "").trim();
-};
-
-const renderSectorLinks = (
-  sectors: SectorLinkItem[] | undefined,
-  hrefBase: "/sector/" | "/sub-sector/" = "/sector/"
-): React.ReactNode => {
-  if (!Array.isArray(sectors) || sectors.length === 0) {
-    return "N/A";
-  }
-  const nodes: React.ReactNode[] = [];
-  sectors.forEach((sector, index) => {
-    const label = getSectorLabel(sector);
-    if (!label) return;
-    const sectorId =
-      typeof sector === "object" && sector
-        ? (sector.id ?? sector.sector_id ?? sector.sectorId ?? undefined)
-        : undefined;
-
-    nodes.push(
-      typeof sectorId === "number" ? (
-        <a
-          key={`${hrefBase}${sectorId}-${label}-${index}`}
-          href={`${hrefBase}${sectorId}`}
-          className="text-blue-600 underline hover:text-blue-800"
-        >
-          {label}
-        </a>
-      ) : (
-        <span key={`${label}-${index}`}>{label}</span>
-      )
-    );
-
-    if (index < sectors.length - 1) nodes.push(<span key={`sep-${index}`}>, </span>);
-  });
-  return nodes.length > 0 ? nodes : "N/A";
-};
-
-const parseSectorList = (value: unknown): SectorLinkItem[] => {
-  if (value == null || value === "") return [];
-  if (Array.isArray(value)) return value as SectorLinkItem[];
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed || trimmed === "[]" || trimmed === "{}") return [];
-    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
-      try {
-        const parsed = JSON.parse(trimmed) as unknown;
-        if (Array.isArray(parsed)) return parsed as SectorLinkItem[];
-        if (parsed && typeof parsed === "object") {
-          return Object.values(parsed as Record<string, SectorLinkItem>);
-        }
-      } catch {
-        // fall through
-      }
-    }
-    return trimmed
-      .split(",")
-      .map((part) => part.trim())
-      .filter(Boolean)
-      .map((sector_name) => ({ sector_name }));
-  }
-  if (typeof value === "object") {
-    return Object.values(value as Record<string, SectorLinkItem>);
-  }
-  return [];
-};
-
 interface NewCompanyItem {
   id: number;
   name: string;
   url?: string;
-  secondary_sectors?: SectorLinkItem[];
-  primary_sectors?: SectorLinkItem[];
+  secondary_sectors?: string[];
+  primary_sectors?: string[];
   description?: string;
   linkedin_members?: number;
   linkedin_members_old?: number;
@@ -324,44 +143,8 @@ interface RankedEntity {
   count: number;
   id?: number;
   mostRecentTarget?: string;
-  mostRecentTargetId?: number;
   closedDate?: string;
-  corporateEventId?: number;
   logoUrl?: string; // fully qualified (e.g., data:image/jpeg;base64,...)
-}
-
-
-function renderMostRecentTargetValue(
-  entity: Pick<RankedEntity, "mostRecentTarget" | "mostRecentTargetId" | "corporateEventId">,
-  className = "text-blue-600 hover:underline"
-): React.ReactNode {
-  if (!entity.mostRecentTarget) return "-";
-
-  if (entity.mostRecentTargetId) {
-    return (
-      <a
-        href={`/company/${entity.mostRecentTargetId}`}
-        className={className}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {entity.mostRecentTarget}
-      </a>
-    );
-  }
-
-  if (entity.corporateEventId) {
-    return (
-      <a
-        href={`/corporate-event/${entity.corporateEventId}`}
-        className={className}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {entity.mostRecentTarget}
-      </a>
-    );
-  }
-
-  return entity.mostRecentTarget;
 }
 
 function toStringSafe(value: unknown): string {
@@ -587,49 +370,14 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
           "times",
           "occurrences",
         ]) ?? 0;
-      const mostRecentTargetRaw = getFirstMatchingValue(obj, [
-        "Most_Recent_Target",
-        "most_recent_target",
-        "Most_Recent_Investment",
-        "most_recent_investment",
-        "Most_Recent_Acquisition",
-        "most_recent_acquisition",
-      ]);
-      let mostRecentTarget = "";
-      let mostRecentTargetId: number | undefined;
-      if (mostRecentTargetRaw && typeof mostRecentTargetRaw === "object") {
-        const targetObj = mostRecentTargetRaw as Record<string, unknown>;
-        mostRecentTarget = toStringSafe(
-          getFirstMatchingValue(targetObj, [
-            "name",
-            "company_name",
-            "target_name",
-            "Target",
-            "target",
-          ]) || ""
-        );
-        mostRecentTargetId = getFirstMatchingNumber(targetObj, [
-          "id",
-          "company_id",
-          "target_company_id",
-          "new_company_id",
-          "original_new_company_id",
-        ]);
-      } else {
-        mostRecentTarget = toStringSafe(mostRecentTargetRaw || "");
-        mostRecentTargetId = getFirstMatchingNumber(obj, [
-          "Most_Recent_Target_Id",
-          "Most_Recent_Target_ID",
-          "Most_Recent_Target_company_id",
-          "most_recent_target_company_id",
-          "Most_Recent_Target_Company_ID",
-          "most_recent_target_id",
-          "Most_Recent_Target_id",
-          "Target_company_id",
-          "target_company_id",
-          "most_recent_target_new_company_id",
-        ]);
-      }
+      const mostRecentTarget = toStringSafe(
+        getFirstMatchingValue(obj, [
+          "Most_Recent_Target",
+          "most_recent_target",
+          "Most_Recent_Acquisition",
+          "most_recent_acquisition",
+        ]) || ""
+      );
       const closedDate = toStringSafe(
         getFirstMatchingValue(obj, [
           "Closed_Date",
@@ -637,8 +385,6 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
           "date",
           "Announcement_Date",
           "announcement_date",
-          "Most_Recent_Announcement_Date",
-          "most_recent_announcement_date",
         ]) || ""
       );
       const acquirerId = getFirstMatchingNumber(obj, [
@@ -649,29 +395,21 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
         "company_id",
         "id",
         "investor_company_id",
-        "vc_investor_company_id",
-      ]);
-      const corporateEventId = getFirstMatchingNumber(obj, [
-        "Most_Recent_Target_Event_Id",
-        "most_recent_target_event_id",
-        "Corporate_Event_ID",
-        "corporate_event_id",
-        "event_id",
-        "corporateEventId",
       ]);
       // Build logo URL if available (prefer prefixed, else base64 data)
       const rawLogo = toStringSafe(
         getFirstMatchingValue(obj, [
           "Acquirer_Logo_Url",
-          "Investor_Logo_Url",
-          "PE_Investor_Logo_Url",
-          "VC_Investor_Logo_Url",
           "logo",
           "logo_url",
           "logoUrl",
         ]) || ""
       );
-      const logoUrl = resolveCompanyLogoSrc(rawLogo) ?? "";
+      const logoUrl = rawLogo
+        ? rawLogo.startsWith("http") || rawLogo.startsWith("data:image")
+          ? rawLogo
+          : `data:image/jpeg;base64,${rawLogo}`
+        : "";
       const count = typeof countRaw === "number" ? countRaw : 0;
       if (!name) return null;
       return {
@@ -679,33 +417,19 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
         count,
         id: typeof acquirerId === "number" ? acquirerId : undefined,
         mostRecentTarget: mostRecentTarget || undefined,
-        mostRecentTargetId:
-          typeof mostRecentTargetId === "number" ? mostRecentTargetId : undefined,
         closedDate: closedDate || undefined,
-        corporateEventId:
-          typeof corporateEventId === "number" ? corporateEventId : undefined,
         logoUrl: logoUrl || undefined,
       } as RankedEntity;
     })
     .filter(Boolean) as RankedEntity[];
 }
 
-
 function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
   if (!raw) return [];
-  // Support Xano response wrapper: { market_map: { ... } }
-  const normalizedRaw =
-    raw && typeof raw === "object" && !Array.isArray(raw)
-      ? ((raw as { market_map?: unknown })?.market_map ?? raw)
-      : raw;
   const toTypeFromBucket = (bucket: string): string => {
-    const b = (bucket || "")
-      .toLowerCase()
-      .replace(/_/g, " ")
-      .replace(/\bcompanies\b/g, "")
-      .trim();
+    const b = (bucket || "").toLowerCase();
     if (b.includes("public")) return "public";
-    if (b.includes("private equity") || b.includes("privateequity") || b.includes("pe"))
+    if (b.includes("private equity") || b.includes("pe"))
       return "private_equity_owned";
     if (b.includes("venture") || b.includes("vc"))
       return "venture_capital_backed";
@@ -723,16 +447,10 @@ function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
     c: Record<string, unknown>,
     bucketHint?: string
   ): SectorCompany => {
-    // Handle ID extraction - could be number or string
-    let idVal: number = 0;
-    if (typeof c.id === "number") {
-      idVal = c.id;
-    } else if (typeof c.id === "string") {
-      const parsed = parseInt(c.id, 10);
-      idVal = isNaN(parsed) ? 0 : parsed;
-    } else if ((c as { original_new_company_id?: number }).original_new_company_id) {
-      idVal = (c as { original_new_company_id?: number }).original_new_company_id!;
-    }
+    const idVal =
+      (c.id as number | undefined) ||
+      (c as { original_new_company_id?: number }).original_new_company_id ||
+      0;
     const ownership = toStringSafe(c.ownership);
     const primarySectors = Array.isArray(
       (c as { primary_sectors?: string[] }).primary_sectors
@@ -740,7 +458,7 @@ function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
       ? ((c as { primary_sectors?: string[] }).primary_sectors as string[])
       : [];
     const company = {
-      id: idVal,
+      id: typeof idVal === "number" ? idVal : 0,
       name: toStringSafe(c.name ?? c.company_name),
       locations_id: 0,
       url: toStringSafe(c.url),
@@ -796,12 +514,8 @@ function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
   const out: SectorCompany[] = [];
 
   // If raw is a non-array object whose values are arrays (bucket -> items)
-  if (
-    normalizedRaw &&
-    !Array.isArray(normalizedRaw) &&
-    typeof normalizedRaw === "object"
-  ) {
-    const obj = normalizedRaw as Record<string, unknown>;
+  if (raw && !Array.isArray(raw) && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
     let treated = false;
     for (const [key, value] of Object.entries(obj)) {
       if (Array.isArray(value)) {
@@ -816,9 +530,9 @@ function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
   }
 
   // Otherwise, treat as array (possibly wrapped)
-  const arr = Array.isArray(normalizedRaw)
-    ? (normalizedRaw as Array<unknown>)
-    : (extractArray(normalizedRaw) as Array<unknown>);
+  const arr = Array.isArray(raw)
+    ? (raw as Array<unknown>)
+    : (extractArray(raw) as Array<unknown>);
   if (!Array.isArray(arr)) return out;
 
   if (arr.length > 0 && typeof arr[0] === "object" && arr[0] !== null) {
@@ -864,8 +578,7 @@ function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
 const TABS = [
   { id: "overview", name: "Overview" },
   { id: "public", name: "Public Companies" },
-  { id: "most_active", name: "Most Active" },
-  { id: "subsectors", name: "Secondary Sectors" },
+  { id: "subsectors", name: "Sub-Sectors" },
   { id: "transactions", name: "Transactions" },
   { id: "insights", name: "Insights & Analysis" },
   { id: "all", name: "All Companies" },
@@ -911,49 +624,22 @@ function TabNavigation({
   );
 }
 
-function RecentInsightsCard({
-  articles,
-  loading,
+function SectorThesisCard({
+  sectorData,
 }: {
-  articles: ContentArticle[];
-  loading: boolean;
+  sectorData: SectorStatistics | null;
 }) {
-  const sortedArticles = useMemo(
-    () =>
-      [...articles].sort(
-        (a, b) =>
-          new Date(b.Publication_Date).getTime() -
-          new Date(a.Publication_Date).getTime()
-      ),
-    [articles]
-  );
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "";
-    try {
-      return new Date(dateString).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-    } catch {
-      return "";
-    }
-  };
-
-  const getBadgeStyle = (contentType?: string): React.CSSProperties => {
-    const t = (contentType || "").toLowerCase();
-    if (t === "company analysis") return { background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0" };
-    if (t === "deal analysis") return { background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe" };
-    if (t === "sector analysis") return { background: "#f5f3ff", color: "#5b21b6", border: "1px solid #ddd6fe" };
-    if (t === "hot take") return { background: "#fff7ed", color: "#9a3412", border: "1px solid #fed7aa" };
-    if (t === "executive interview") return { background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" };
-    return { background: "#f8fafc", color: "#475569", border: "1px solid #e2e8f0" };
-  };
+  // Handle both old (nested) and new (flat) API response formats
+  const sectorName = 
+    (sectorData as { sector_name?: string })?.sector_name || // New flat format
+    sectorData?.Sector?.sector_name;    // Old nested format
+  const thesisHtml = 
+    (sectorData as { Sector_thesis?: string })?.Sector_thesis || // New flat format
+    sectorData?.Sector?.Sector_thesis;    // Old nested format
 
   return (
-    <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 flex flex-col overflow-hidden" style={{ height: "535px" }}>
-      <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
+    <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
+      <div className="px-5 py-4 border-b border-slate-100">
         <div className="flex justify-between items-center">
           <div className="flex gap-3 items-center">
             <span className="inline-flex justify-center items-center w-8 h-8 bg-blue-50 rounded-lg">
@@ -964,77 +650,32 @@ function RecentInsightsCard({
                 stroke="currentColor"
                 strokeWidth="2"
               >
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                <path d="M12 19V6M5 12h14" />
               </svg>
             </span>
-            <span className="font-semibold text-slate-900">Recent Insights &amp; Analysis</span>
+            <span className="font-semibold text-slate-900">Sector Thesis</span>
           </div>
-          <a
-            href="?tab=insights"
-            className="text-xs text-blue-600 hover:text-blue-800 font-medium underline flex-shrink-0"
-          >
-            View All
-          </a>
+          {sectorName && (
+            <span className="text-xs px-2.5 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
+              {sectorName}
+            </span>
+          )}
         </div>
       </div>
-      <div className="px-5 py-4 flex-1 overflow-hidden">
-        {loading ? (
-          <div className="space-y-3 animate-pulse">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="space-y-1.5 pb-3 border-b border-slate-100 last:border-0">
-                <div className="h-3.5 bg-slate-200 rounded w-1/4"></div>
-                <div className="h-4 bg-slate-200 rounded w-5/6"></div>
-                <div className="h-3 bg-slate-200 rounded w-full"></div>
-                <div className="h-3 bg-slate-200 rounded w-4/5"></div>
-              </div>
-            ))}
-          </div>
-        ) : sortedArticles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-              <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-              </svg>
-            </div>
-            <p className="text-slate-500 text-sm">No insights available for this sector yet</p>
-          </div>
+      <div className="px-5 py-5">
+        {thesisHtml ? (
+          <div
+            className="max-w-none prose prose-sm text-slate-700"
+            dangerouslySetInnerHTML={{ __html: thesisHtml }}
+          />
         ) : (
-          <div className="divide-y divide-slate-100 overflow-y-auto overflow-x-hidden h-full">
-            {sortedArticles.map((article) => (
-              <a
-                key={article.id}
-                href={`/article/${article.id}`}
-                className="block py-3 first:pt-0 group hover:bg-slate-50/50 -mx-5 px-5 transition-colors duration-150"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  {article.Content_Type && (
-                    <span
-                      className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full leading-none flex-shrink-0"
-                      style={getBadgeStyle(article.Content_Type)}
-                    >
-                      {article.Content_Type}
-                    </span>
-                  )}
-                  <span className="text-xs text-slate-400 flex-shrink-0">
-                    {formatDate(article.Publication_Date)}
-                  </span>
-                </div>
-                <h3 className="text-sm font-semibold text-slate-900 leading-snug mb-1 group-hover:text-blue-700 transition-colors line-clamp-1">
-                  {article.Headline || "Untitled"}
-                </h3>
-                {article.Strapline && (
-                  <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
-                    {article.Strapline}
-                  </p>
-                )}
-              </a>
-            ))}
-          </div>
+          <div className="text-sm text-slate-500">Not available</div>
         )}
       </div>
     </div>
   );
 }
+
 function MostActiveTableCard({
   title,
   items,
@@ -1042,7 +683,6 @@ function MostActiveTableCard({
   badgeLabel,
   mostRecentHeader,
   showBadge = true,
-  onViewAll,
 }: {
   title: string;
   items: RankedEntity[];
@@ -1050,7 +690,6 @@ function MostActiveTableCard({
   badgeLabel: string;
   mostRecentHeader?: string;
   showBadge?: boolean;
-  onViewAll?: () => void;
 }) {
   const hasItems = Array.isArray(items) && items.length > 0;
   const accentClasses =
@@ -1070,1159 +709,178 @@ function MostActiveTableCard({
   return (
     <div className="h-full bg-white rounded-xl border shadow-lg border-slate-200/60">
       <div className="px-5 py-4 border-b border-slate-100">
-        <div className="flex gap-3 items-center justify-between">
-          <div className="flex gap-3 items-center text-xl">
-            <span className="inline-flex justify-center items-center w-8 h-8 rounded-lg bg-slate-50">
-              <BuildingOfficeIcon
-                className={`w-4 h-4 text-${
-                  accent === "purple" ? "purple" : "blue"
-                }-600`}
-              />
-            </span>
-            <span className="text-base font-semibold text-slate-900 sm:text-lg">
-              {title}
-            </span>
-          </div>
-          {onViewAll && (
-            <button
-              onClick={onViewAll}
-              className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors whitespace-nowrap"
-            >
-              View All →
-            </button>
-          )}
+        <div className="flex gap-3 items-center text-xl">
+          <span className="inline-flex justify-center items-center w-8 h-8 rounded-lg bg-slate-50">
+            <BuildingOfficeIcon
+              className={`w-4 h-4 text-${
+                accent === "purple" ? "purple" : "blue"
+              }-600`}
+            />
+          </span>
+          <span className="text-base font-semibold text-slate-900 sm:text-lg">
+            {title}
+          </span>
         </div>
       </div>
       <div className="px-5 pb-5">
-        <div className="overflow-auto md:max-h-[28rem]" style={{ maxHeight: "28rem" }}>
-          {/* Mobile: card list */}
-          <div className="block space-y-3 md:hidden">
-            {!hasItems ? (
-              <div className="py-6 text-sm text-center text-slate-500">
-                -
-              </div>
-            ) : (
-              items.slice(0, 25).map((it) => {
-                const linkUrl = isInvestorTable
-                  ? `/investors/${it.id}`
-                  : `/company/${it.id}`;
-                const content = (
-                  <>
-                    <div className="flex gap-3 items-center min-w-0 flex-1">
-                      {it.logoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={it.logoUrl}
-                          alt={it.name}
-                          className="object-contain w-8 h-8 rounded-lg flex-shrink-0"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = "none";
-                            const fallback =
-                              target.nextElementSibling as HTMLElement | null;
-                            if (fallback) fallback.style.display = "flex";
-                          }}
-                        />
-                      ) : null}
-                      <div
-                        className={`${
-                          it.logoUrl ? "hidden" : "flex"
-                        } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br flex-shrink-0 ${
-                          accentClasses.gradient
-                        }`}
-                      >
-                        <BuildingOfficeIcon className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium text-slate-900 truncate">
-                          {it.name}
-                        </p>
-                        {showBadge && badgeLabel && (
-                          <span
-                            className={`inline-block mt-0.5 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
-                          >
-                            {badgeLabel}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 items-center justify-between mt-2 pt-2 border-t border-slate-100">
-                      <span className="text-xs text-slate-500">Deals</span>
-                      <div
-                        className={`inline-flex justify-center items-center w-8 h-8 rounded-full flex-shrink-0 ${accentClasses.countBg}`}
-                      >
-                        <span className="text-sm font-bold">
-                          {formatNumber(it.count)}
-                        </span>
-                      </div>
-                      <div className="text-right min-w-0 flex-1">
-                        <p className="text-xs font-medium text-slate-900 truncate">
-                          {renderMostRecentTargetValue(
-                            it,
-                            "text-blue-600 hover:underline"
-                          )}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {it.closedDate || "-"}
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                );
-                return it.id ? (
-                  <a
-                    key={`${title}-${it.name}`}
-                    href={linkUrl}
-                    className="block p-3 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors"
-                  >
-                    {content}
-                  </a>
-                ) : (
-                  <div
-                    key={`${title}-${it.name}`}
-                    className="block p-3 rounded-lg border border-slate-200 bg-slate-50/50"
-                  >
-                    {content}
-                  </div>
-                );
-              })
-            )}
-          </div>
-          {/* Desktop: table */}
-          <div className="hidden md:block overflow-auto" style={{ maxHeight: "28rem" }}>
-            <table className="min-w-full text-sm table-fixed">
-              <colgroup>
-                <col style={{ width: "38%" }} />
-                <col style={{ width: "24%" }} />
-                <col style={{ width: "38%" }} />
-              </colgroup>
-              <thead className="bg-slate-50/80">
-                <tr className="hover:bg-slate-50/80">
-                  <th className="py-3 font-semibold text-left text-slate-700">
-                    {isInvestorTable ? "Investor" : "Acquirer"}
-                  </th>
-                  <th className="py-3 font-semibold text-center text-slate-700">
-                    Deals
-                  </th>
-                  <th className="py-3 font-semibold text-left text-slate-700">
-                    {mostRecentHeader ?? "Most Recent"}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {!hasItems ? (
-                  <tr>
-                    <td
-                      colSpan={3}
-                      className="py-6 text-sm text-center text-slate-500"
-                    >
-                      -
-                    </td>
-                  </tr>
-                ) : (
-                  items.slice(0, 25).map((it) => {
-                    const linkUrl = isInvestorTable
-                      ? `/investors/${it.id}`
-                      : `/company/${it.id}`;
-                    return (
-                      <tr
-                        key={`${title}-${it.name}`}
-                        className={`transition-colors duration-150 hover:bg-slate-50/50 ${
-                          it.id ? "cursor-pointer" : ""
-                        }`}
-                        onClick={() => {
-                          if (it.id) {
-                            window.location.href = linkUrl;
-                          }
-                        }}
-                      >
-                        <td className="py-3 pr-4">
-                          {it.id ? (
-                            <a href={linkUrl} className="flex gap-3 items-center">
-                              {it.logoUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={it.logoUrl}
-                                  alt={it.name}
-                                  className="object-contain w-8 h-8 rounded-lg"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = "none";
-                                    const fallback =
-                                      target.nextElementSibling as HTMLElement | null;
-                                    if (fallback) fallback.style.display = "flex";
-                                  }}
-                                />
-                              ) : null}
-                              <div
-                                className={`${
-                                  it.logoUrl ? "hidden" : "flex"
-                                } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
-                                  accentClasses.gradient
-                                }`}
-                              >
-                                <BuildingOfficeIcon className="w-4 h-4" />
-                              </div>
-                              <div>
-                                <span className="font-medium text-blue-600 underline">
-                                  {it.name}
-                                </span>
-                                {showBadge && badgeLabel && (
-                                  <span
-                                    className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
-                                  >
-                                    {badgeLabel}
-                                  </span>
-                                )}
-                              </div>
-                            </a>
-                          ) : (
-                            <div className="flex gap-3 items-center">
-                              {it.logoUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={it.logoUrl}
-                                  alt={it.name}
-                                  className="object-contain w-8 h-8 rounded-lg"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = "none";
-                                    const fallback =
-                                      target.nextElementSibling as HTMLElement | null;
-                                    if (fallback) fallback.style.display = "flex";
-                                  }}
-                                />
-                              ) : null}
-                              <div
-                                className={`${
-                                  it.logoUrl ? "hidden" : "flex"
-                                } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
-                                  accentClasses.gradient
-                                }`}
-                              >
-                                <BuildingOfficeIcon className="w-4 h-4" />
-                              </div>
-                              <div>
-                                <p className="font-medium text-slate-900">
-                                  {it.name}
-                                </p>
-                                {showBadge && badgeLabel && (
-                                  <span
-                                    className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
-                                  >
-                                    {badgeLabel}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-3 text-center">
-                          <div
-                            className={`inline-flex justify-center items-center w-8 h-8 rounded-full ${accentClasses.countBg}`}
-                          >
-                            <span className="text-sm font-bold">
-                              {formatNumber(it.count)}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3">
-                          <div>
-                            <p className="text-sm font-medium text-slate-900">
-                              {renderMostRecentTargetValue(it)}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-500">
-                              {it.closedDate || "-"}
-                            </p>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Most Active tab ─────────────────────────────────────────────────────────
-
-const MOST_ACTIVE_SUB_TABS = [
-  { id: "strategics", label: "Strategic Acquirers" },
-  { id: "pe", label: "PE Investors" },
-  { id: "venture", label: "Venture Investors" },
-  { id: "advisors", label: "Advisors" },
-] as const;
-
-type MostActiveSubTabId = (typeof MOST_ACTIVE_SUB_TABS)[number]["id"];
-
-interface AdvisorEntity {
-  name: string;
-  totalDealsAdvised: number;
-  id?: number;
-  country?: string;
-  sectors: Array<{ id: number; name: string }>;
-  sectorsCount?: number;
-  advisedEntities: AdvisedEntityRef[];
-  advisedEntitiesCount?: number;
-  logoUrl?: string;
-}
-
-function MostActiveSubTabNav({
-  active,
-  onChange,
-}: {
-  active: MostActiveSubTabId;
-  onChange: (id: MostActiveSubTabId) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1 bg-slate-100 rounded-lg p-1 w-fit mb-6">
-      {MOST_ACTIVE_SUB_TABS.map((st) => (
-        <button
-          key={st.id}
-          onClick={() => onChange(st.id)}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors duration-150 whitespace-nowrap ${
-            active === st.id
-              ? "bg-white text-slate-900 shadow-sm"
-              : "text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          {st.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function MostActiveFullTable({
-  items,
-  accent,
-  columnOneLabel,
-  mostRecentHeader,
-}: {
-  items: RankedEntity[];
-  accent: "blue" | "purple" | "green";
-  columnOneLabel: string;
-  mostRecentHeader: string;
-}) {
-  const accentMap = {
-    blue: {
-      gradient: "from-blue-500 to-indigo-500",
-      countBg: "bg-blue-50 text-blue-700",
-    },
-    purple: {
-      gradient: "from-purple-500 to-pink-500",
-      countBg: "bg-purple-50 text-purple-700",
-    },
-    green: {
-      gradient: "from-emerald-500 to-teal-500",
-      countBg: "bg-emerald-50 text-emerald-700",
-    },
-  };
-  const cls = accentMap[accent];
-  const isInvestorTable = accent !== "blue";
-
-  if (items.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-          <BuildingOfficeIcon className="w-6 h-6 text-slate-400" />
-        </div>
-        <p className="text-slate-500 text-sm">No data available yet</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="overflow-auto">
-      <table className="min-w-full text-sm">
-        <thead>
-          <tr className="bg-slate-50 border-b border-slate-100">
-            <th className="py-3 px-4 text-left font-semibold text-slate-600 w-10">#</th>
-            <th className="py-3 px-4 text-left font-semibold text-slate-600">{columnOneLabel}</th>
-            <th className="py-3 px-4 text-center font-semibold text-slate-600 w-24">Deals</th>
-            <th className="py-3 px-4 text-left font-semibold text-slate-600">{mostRecentHeader}</th>
-            <th className="py-3 px-4 text-left font-semibold text-slate-600 w-36">Date</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {items.map((it, i) => {
-            const linkUrl = isInvestorTable
-              ? `/investors/${it.id}`
-              : `/company/${it.id}`;
-            return (
-              <tr
-                key={`${it.name}-${i}`}
-                className={`hover:bg-slate-50/60 transition-colors duration-100 ${it.id ? "cursor-pointer" : ""}`}
-                onClick={() => { if (it.id) window.location.href = linkUrl; }}
-              >
-                <td className="py-3 px-4 text-slate-400 font-medium">{i + 1}</td>
-                <td className="py-3 px-4">
-                  <div className="flex items-center gap-3">
-                    {it.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={it.logoUrl}
-                        alt={it.name}
-                        className="w-8 h-8 rounded-lg object-contain flex-shrink-0"
-                        onError={(e) => {
-                          const t = e.target as HTMLImageElement;
-                          t.style.display = "none";
-                          const fb = t.nextElementSibling as HTMLElement | null;
-                          if (fb) fb.style.display = "flex";
-                        }}
-                      />
-                    ) : null}
-                    <div
-                      className={`${it.logoUrl ? "hidden" : "flex"} justify-center items-center w-8 h-8 rounded-lg text-white bg-gradient-to-br flex-shrink-0 ${cls.gradient}`}
-                    >
-                      <BuildingOfficeIcon className="w-4 h-4" />
-                    </div>
-                    {it.id ? (
-                      <a
-                        href={linkUrl}
-                        className="font-medium text-blue-600 hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {it.name}
-                      </a>
-                    ) : (
-                      <span className="font-medium text-slate-900">{it.name}</span>
-                    )}
-                  </div>
-                </td>
-                <td className="py-3 px-4 text-center">
-                  <span
-                    className={`inline-flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold ${cls.countBg}`}
-                  >
-                    {formatNumber(it.count)}
-                  </span>
-                </td>
-                <td className="py-3 px-4 text-slate-700 max-w-[200px] truncate">
-                  {renderMostRecentTargetValue(it)}
-                </td>
-                <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
-                  {it.closedDate || "-"}
-                </td>
+        <div className="overflow-auto" style={{ maxHeight: "28rem" }}>
+          <table className="min-w-full text-sm table-fixed">
+            <colgroup>
+              <col style={{ width: "38%" }} />
+              <col style={{ width: "24%" }} />
+              <col style={{ width: "38%" }} />
+            </colgroup>
+            <thead className="bg-slate-50/80">
+              <tr className="hover:bg-slate-50/80">
+                <th className="py-3 font-semibold text-left text-slate-700">
+                  {isInvestorTable ? "Investor" : "Acquirer"}
+                </th>
+                <th className="py-3 font-semibold text-center text-slate-700">
+                  Deals
+                </th>
+                <th className="py-3 font-semibold text-left text-slate-700">
+                  {mostRecentHeader ?? "Most Recent"}
+                </th>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function AdvisorsFullTable({ items }: { items: AdvisorEntity[] }) {
-  if (items.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-          <BuildingOfficeIcon className="w-6 h-6 text-slate-400" />
-        </div>
-        <p className="text-slate-500 text-sm font-medium">No advisor data available yet</p>
-        <p className="text-slate-400 text-xs mt-1 max-w-sm">
-          Data will appear here when Corporate Events with advisors are available for this sector.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <style>{SEARCH_MULTI_VALUE_STYLES}</style>
-      <div className="overflow-auto">
-        <table className="min-w-full text-sm">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              <th className="py-3 px-4 text-left font-semibold text-slate-600 w-10">#</th>
-              <th className="py-3 px-4 text-left font-semibold text-slate-600 w-16">Logo</th>
-              <th className="py-3 px-4 text-left font-semibold text-slate-600">Advisor Name</th>
-              <th className="py-3 px-4 text-left font-semibold text-slate-600">Country</th>
-              <th className="py-3 px-4 text-center font-semibold text-slate-600 w-48">
-                Total No. Deals Advised
-              </th>
-              <th className="py-3 px-4 text-left font-semibold text-slate-600">
-                Companies Advised
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {items.map((it, i) => {
-              const linkUrl = it.id ? `/advisor/${it.id}` : undefined;
-              return (
-                <tr
-                  key={`${it.name}-${i}`}
-                  className="hover:bg-slate-50/60 transition-colors duration-100"
-                >
-                  <td className="py-3 px-4 text-slate-400 font-medium">{i + 1}</td>
-                  <td className="py-3 px-4">
-                    {it.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={it.logoUrl}
-                        alt={it.name}
-                        className="w-8 h-8 rounded-lg object-contain"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="flex justify-center items-center w-8 h-8 rounded-lg text-white bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
-                        <BuildingOfficeIcon className="w-4 h-4" />
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-3 px-4">
-                    {linkUrl ? (
-                      <a href={linkUrl} className="font-medium text-blue-600 hover:underline">
-                        {it.name}
-                      </a>
-                    ) : (
-                      <span className="font-medium text-slate-900">{it.name}</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4 text-slate-700">
-                    {it.country || "-"}
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold bg-amber-50 text-amber-700">
-                      {formatNumber(it.totalDealsAdvised)}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-slate-700 max-w-[360px]">
-                    <AdvisedEntitiesList items={it.advisedEntities} />
+            </thead>
+            <tbody>
+              {!hasItems ? (
+                <tr>
+                  <td
+                    colSpan={3}
+                    className="py-6 text-sm text-center text-slate-500"
+                  >
+                    Not available
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
-}
-
-const MOST_ACTIVE_SUB_TAB_CONFIG: Record<
-  MostActiveSubTabId,
-  { title: string; description: string }
-> = {
-  strategics: {
-    title: "Most Active Strategic Acquirers",
-    description:
-      "Companies that have made the most acquisitions within this sector, ranked by deal count.",
-  },
-  pe: {
-    title: "Most Active Private Equity Investors",
-    description:
-      "Private equity firms that have been most active in investing within this sector.",
-  },
-  venture: {
-    title: "Most Active Venture Investors",
-    description:
-      "Venture capital firms (Financial Services / Venture Capital) most active in this sector.",
-  },
-  advisors: {
-    title: "Most Active Advisors",
-    description:
-      "Advisory firms that have advised on the most transactions where this sector is the primary sector. All-time.",
-  },
-};
-
-interface MostActivePagedState {
-  items: RankedEntity[];
-  currentPage: number;
-  totalPages: number;
-  total: number;
-  loading: boolean;
-}
-
-interface MostActiveAdvisorsPagedState {
-  items: AdvisorEntity[];
-  currentPage: number;
-  totalPages: number;
-  total: number;
-  loading: boolean;
-}
-
-const MOST_ACTIVE_INITIAL_STATE: MostActivePagedState = {
-  items: [],
-  currentPage: 1,
-  totalPages: 1,
-  total: 0,
-  loading: false,
-};
-
-const MOST_ACTIVE_ADVISORS_INITIAL_STATE: MostActiveAdvisorsPagedState = {
-  items: [],
-  currentPage: 1,
-  totalPages: 1,
-  total: 0,
-  loading: false,
-};
-
-function MostActivePagination({
-  currentPage,
-  totalPages,
-  onPageChange,
-  disabled = false,
-}: {
-  currentPage: number;
-  totalPages: number;
-  onPageChange: (page: number) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-      <CompactPagination
-        curPage={currentPage}
-        pageTotal={totalPages}
-        onPageChange={onPageChange}
-        disabled={disabled}
-      />
-    </div>
-  );
-}
-
-function getNestedRecord(
-  raw: Record<string, unknown>,
-  key: string
-): Record<string, unknown> | undefined {
-  const value = raw[key];
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
-}
-
-function getAdvisorListRoot(raw: unknown): unknown[] {
-  if (!raw || typeof raw !== "object") return [];
-  const root = raw as Record<string, unknown>;
-  const result1 = getNestedRecord(root, "result1");
-  const advisorsCompanies = getNestedRecord(root, "Advisors_companies");
-  return extractArray(
-    root.items
-      ? { items: root.items }
-      : result1?.items
-      ? { items: result1.items }
-      : advisorsCompanies?.items
-      ? { items: advisorsCompanies.items }
-      : raw
-  );
-}
-
-function getAdvisorPaginationNumber(
-  raw: unknown,
-  key: string
-): number | undefined {
-  if (!raw || typeof raw !== "object") return undefined;
-  const root = raw as Record<string, unknown>;
-  const result1 = getNestedRecord(root, "result1");
-  const advisorsCompanies = getNestedRecord(root, "Advisors_companies");
-  const value = root[key] ?? result1?.[key] ?? advisorsCompanies?.[key];
-  if (typeof value === "number") return value;
-  if (typeof value === "string" && value.trim() !== "") return Number(value);
-  return undefined;
-}
-
-function mapAdvisorEntities(raw: unknown): AdvisorEntity[] {
-  const arr = getAdvisorListRoot(raw);
-  return arr
-    .map((item) => {
-      const obj = (item || {}) as Record<string, unknown>;
-      const name = toStringSafe(getFirstMatchingValue(obj, ["name", "advisor", "Advisor"]));
-      if (!name) return null;
-
-      const rawLogo = toStringSafe(
-        getFirstMatchingValue(obj, ["linkedin_logo", "Linkedin_Logo", "logo_url"]) || ""
-      );
-      const logoUrl = resolveCompanyLogoSrc(rawLogo) ?? "";
-
-      const sectorsValue = getFirstMatchingValue(obj, [
-        "sectors",
-        "target_sectors",
-        "Target_Sectors",
-      ]);
-      const sectors = parseAdvisorSectors(sectorsValue);
-      const sectorsCount =
-        getFirstMatchingNumber(obj, ["sectors_count", "sectorsCount"]) ??
-        sectors.length;
-
-      const advisedEntitiesValue = getFirstMatchingValue(obj, [
-        "advised_entities",
-        "advisedEntities",
-      ]);
-      const advisedEntities = parseAdvisedEntities(advisedEntitiesValue);
-      const advisedEntitiesCount =
-        getFirstMatchingNumber(obj, [
-          "advised_entities_count",
-          "advisedEntitiesCount",
-        ]) ?? advisedEntities.length;
-
-      return {
-        id: getFirstMatchingNumber(obj, ["id", "advisor_id", "company_id"]),
-        name,
-        country: toStringSafe(getFirstMatchingValue(obj, ["country", "Country"]) || "") || undefined,
-        totalDealsAdvised:
-          getFirstMatchingNumber(obj, ["events_advised", "events_cnt_sector"]) ?? 0,
-        sectors,
-        sectorsCount,
-        advisedEntities,
-        advisedEntitiesCount,
-        logoUrl: logoUrl || undefined,
-      } as AdvisorEntity;
-    })
-    .filter(Boolean) as AdvisorEntity[];
-}
-
-function MostActiveTab({
-  sectorId,
-  sectorImportance,
-  activeSubTab,
-  setActiveSubTab,
-}: {
-  sectorId: string;
-  sectorImportance?: string;
-  activeSubTab: MostActiveSubTabId;
-  setActiveSubTab: (id: MostActiveSubTabId) => void;
-}) {
-  const [strategicsState, setStrategicsState] = useState<MostActivePagedState>(
-    MOST_ACTIVE_INITIAL_STATE
-  );
-  const [peState, setPeState] = useState<MostActivePagedState>(
-    MOST_ACTIVE_INITIAL_STATE
-  );
-  const [vcState, setVcState] = useState<MostActivePagedState>(
-    MOST_ACTIVE_INITIAL_STATE
-  );
-  const [advisorsState, setAdvisorsState] =
-    useState<MostActiveAdvisorsPagedState>(MOST_ACTIVE_ADVISORS_INITIAL_STATE);
-
-  const fetchStrategics = useCallback(
-    async (page: number) => {
-      setStrategicsState((prev) => ({ ...prev, loading: true }));
-      try {
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : null;
-        if (!token) {
-          setStrategicsState((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-
-        const sectorIdNum = Number(sectorId);
-        if (Number.isNaN(sectorIdNum)) {
-          setStrategicsState((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-
-        const qs = new URLSearchParams();
-        qs.set("Sector_id", String(sectorIdNum));
-        qs.set("limit", "25");
-        qs.set("offset", String((page - 1) * 25));
-
-        const resp = await fetch(
-          `${SECTOR_API_BASE}/sectors_strategic_acquirers?${qs.toString()}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!resp.ok) {
-          setStrategicsState((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-
-        const data = await resp.json() as {
-          items?: unknown[];
-          total?: number;
-          total_pages?: number;
-        };
-        const items = extractArray(data);
-        setStrategicsState({
-          items: mapRankedEntities(items),
-          currentPage: page,
-          totalPages: data.total_pages ?? 1,
-          total: data.total ?? items.length,
-          loading: false,
-        });
-      } catch {
-        setStrategicsState((prev) => ({ ...prev, loading: false }));
-      }
-    },
-    [sectorId]
-  );
-
-  const fetchPEInvestors = useCallback(
-    async (page: number) => {
-      setPeState((prev) => ({ ...prev, loading: true }));
-      try {
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : null;
-        if (!token) {
-          setPeState((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-
-        const sectorIdNum = Number(sectorId);
-        if (Number.isNaN(sectorIdNum)) {
-          setPeState((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-
-        const qs = new URLSearchParams();
-        qs.set("Sector_id", String(sectorIdNum));
-        qs.set("limit", "25");
-        qs.set("offset", String((page - 1) * 25));
-
-        const resp = await fetch(
-          `${SECTOR_API_BASE}/sectors_pe_investors?${qs.toString()}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!resp.ok) {
-          setPeState((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-
-        const data = await resp.json() as {
-          items?: unknown[];
-          total?: number;
-          total_pages?: number;
-        };
-        const items = extractArray(data);
-        setPeState({
-          items: mapRankedEntities(items),
-          currentPage: page,
-          totalPages: data.total_pages ?? 1,
-          total: data.total ?? items.length,
-          loading: false,
-        });
-      } catch {
-        setPeState((prev) => ({ ...prev, loading: false }));
-      }
-    },
-    [sectorId]
-  );
-
-  const fetchVCInvestors = useCallback(
-    async (page: number) => {
-      setVcState((prev) => ({ ...prev, loading: true }));
-      try {
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : null;
-        if (!token) {
-          setVcState((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-
-        const sectorIdNum = Number(sectorId);
-        if (Number.isNaN(sectorIdNum)) {
-          setVcState((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-
-        const qs = new URLSearchParams();
-        qs.set("Sector_id", String(sectorIdNum));
-        qs.set("limit", "25");
-        qs.set("offset", String((page - 1) * 25));
-
-        const resp = await fetch(
-          `${SECTOR_API_BASE}/sectors_vc_investors?${qs.toString()}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!resp.ok) {
-          setVcState((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-
-        const data = await resp.json() as {
-          items?: unknown[];
-          total?: number;
-          total_pages?: number;
-        };
-        const items = extractArray(data);
-        setVcState({
-          items: mapRankedEntities(items),
-          currentPage: page,
-          totalPages: data.total_pages ?? 1,
-          total: data.total ?? items.length,
-          loading: false,
-        });
-      } catch {
-        setVcState((prev) => ({ ...prev, loading: false }));
-      }
-    },
-    [sectorId]
-  );
-
-  const fetchAdvisors = useCallback(
-    async (page: number) => {
-      setAdvisorsState((prev) => ({ ...prev, loading: true }));
-      try {
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : null;
-        if (!token) {
-          setAdvisorsState((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-
-        const sectorIdNum = Number(sectorId);
-        if (Number.isNaN(sectorIdNum)) {
-          setAdvisorsState((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-
-        const isSecondarySector = (sectorImportance || "")
-          .toLowerCase()
-          .includes("secondary");
-        const qs = advisorSearchPayloadToSearchParams({
-          ...buildAdvisorSearchPayloadFromClauses([], {
-            page,
-            perPage: 25,
-            portfolioOnly: false,
-            primarySectorIds: isSecondarySector ? [] : [sectorIdNum],
-            secondarySectorIds: isSecondarySector ? [sectorIdNum] : [],
-            endpoint: "sql_advisors_list",
-          }),
-          include_sectors: true,
-        });
-
-        const resp = await fetch(
-          `${ADVISORS_API_BASE}/get_all_advisors_list?${qs.toString()}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!resp.ok) {
-          setAdvisorsState((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-
-        const data = await resp.json();
-        const items = mapAdvisorEntities(data);
-        const total = getAdvisorPaginationNumber(data, "itemsTotal") ?? items.length;
-        const totalPages =
-          getAdvisorPaginationNumber(data, "pageTotal") ??
-          (total > 0 ? Math.ceil(total / 25) : 1);
-
-        setAdvisorsState({
-          items,
-          currentPage: getAdvisorPaginationNumber(data, "curPage") ?? page,
-          totalPages: Math.max(1, totalPages),
-          total,
-          loading: false,
-        });
-      } catch {
-        setAdvisorsState((prev) => ({ ...prev, loading: false }));
-      }
-    },
-    [sectorId, sectorImportance]
-  );
-
-  // Fetch on first activation and whenever sectorId changes
-  useEffect(() => {
-    if (activeSubTab === "strategics") {
-      fetchStrategics(1);
-    } else if (activeSubTab === "pe") {
-      fetchPEInvestors(1);
-    } else if (activeSubTab === "venture") {
-      fetchVCInvestors(1);
-    } else if (activeSubTab === "advisors") {
-      fetchAdvisors(1);
-    }
-  }, [
-    activeSubTab,
-    sectorId,
-    fetchAdvisors,
-    fetchPEInvestors,
-    fetchStrategics,
-    fetchVCInvestors,
-  ]);
-
-  const config = MOST_ACTIVE_SUB_TAB_CONFIG[activeSubTab];
-
-  const renderSkeleton = () => (
-    <div className="space-y-3 py-2">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-4 animate-pulse">
-          <div className="w-6 h-4 bg-slate-200 rounded" />
-          <div className="w-8 h-8 bg-slate-200 rounded-lg flex-shrink-0" />
-          <div className="flex-1 h-4 bg-slate-200 rounded" />
-          <div className="w-10 h-8 bg-slate-200 rounded-full" />
-          <div className="w-32 h-4 bg-slate-200 rounded" />
-          <div className="w-20 h-4 bg-slate-200 rounded" />
-        </div>
-      ))}
-    </div>
-  );
-
-  return (
-    <div className="space-y-6">
-      <MostActiveSubTabNav active={activeSubTab} onChange={setActiveSubTab} />
-
-      <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
-        <div className="px-6 py-4 border-b border-slate-100">
-          <div className="flex items-center gap-3 mb-1">
-            <span
-              className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${
-                activeSubTab === "strategics"
-                  ? "bg-blue-50"
-                  : activeSubTab === "pe"
-                  ? "bg-purple-50"
-                  : activeSubTab === "venture"
-                  ? "bg-emerald-50"
-                  : "bg-amber-50"
-              }`}
-            >
-              <BuildingOfficeIcon
-                className={`w-4 h-4 ${
-                  activeSubTab === "strategics"
-                    ? "text-blue-600"
-                    : activeSubTab === "pe"
-                    ? "text-purple-600"
-                    : activeSubTab === "venture"
-                    ? "text-emerald-600"
-                    : "text-amber-600"
-                }`}
-              />
-            </span>
-            <h3 className="text-lg font-semibold text-slate-900">{config.title}</h3>
-            {((activeSubTab === "strategics" && strategicsState.total > 0) ||
-              (activeSubTab === "pe" && peState.total > 0) ||
-              (activeSubTab === "venture" && vcState.total > 0) ||
-              (activeSubTab === "advisors" && advisorsState.total > 0)) && (
-              <span className="ml-auto text-sm text-slate-500 tabular-nums">
-                {activeSubTab === "strategics"
-                  ? strategicsState.total
-                  : activeSubTab === "pe"
-                  ? peState.total
-                  : activeSubTab === "venture"
-                  ? vcState.total
-                  : advisorsState.total} total
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-slate-500 ml-11">{config.description}</p>
-        </div>
-
-        <div className="px-6 py-4">
-          {activeSubTab === "strategics" && (
-            <>
-              {strategicsState.loading ? (
-                renderSkeleton()
               ) : (
-                <>
-                  <MostActiveFullTable
-                    items={strategicsState.items}
-                    accent="blue"
-                    columnOneLabel="Acquirer"
-                    mostRecentHeader="Most Recent Acquisition"
-                  />
-                  <MostActivePagination
-                    currentPage={strategicsState.currentPage}
-                    totalPages={strategicsState.totalPages}
-                    onPageChange={fetchStrategics}
-                  />
-                </>
+                items.slice(0, 25).map((it) => {
+                  const linkUrl = isInvestorTable
+                    ? `/investors/${it.id}`
+                    : `/company/${it.id}`;
+                  return (
+                    <tr
+                      key={`${title}-${it.name}`}
+                      className={`transition-colors duration-150 hover:bg-slate-50/50 ${
+                        it.id ? "cursor-pointer" : ""
+                      }`}
+                      onClick={() => {
+                        if (it.id) {
+                          window.location.href = linkUrl;
+                        }
+                      }}
+                    >
+                      <td className="py-3 pr-4">
+                        {it.id ? (
+                          <a href={linkUrl} className="flex gap-3 items-center">
+                            {it.logoUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={it.logoUrl}
+                                alt={it.name}
+                                className="object-contain w-8 h-8 rounded-lg"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = "none";
+                                  const fallback =
+                                    target.nextElementSibling as HTMLElement | null;
+                                  if (fallback) fallback.style.display = "flex";
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className={`${
+                                it.logoUrl ? "hidden" : "flex"
+                              } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
+                                accentClasses.gradient
+                              }`}
+                            >
+                              <BuildingOfficeIcon className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <span className="font-medium text-blue-600 underline">
+                                {it.name}
+                              </span>
+                              {showBadge && badgeLabel && (
+                                <span
+                                  className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
+                                >
+                                  {badgeLabel}
+                                </span>
+                              )}
+                            </div>
+                          </a>
+                        ) : (
+                          <div className="flex gap-3 items-center">
+                            {it.logoUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={it.logoUrl}
+                                alt={it.name}
+                                className="object-contain w-8 h-8 rounded-lg"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = "none";
+                                  const fallback =
+                                    target.nextElementSibling as HTMLElement | null;
+                                  if (fallback) fallback.style.display = "flex";
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className={`${
+                                it.logoUrl ? "hidden" : "flex"
+                              } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
+                                accentClasses.gradient
+                              }`}
+                            >
+                              <BuildingOfficeIcon className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-slate-900">
+                                {it.name}
+                              </p>
+                              {showBadge && badgeLabel && (
+                                <span
+                                  className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
+                                >
+                                  {badgeLabel}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 text-center">
+                        <div
+                          className={`inline-flex justify-center items-center w-8 h-8 rounded-full ${accentClasses.countBg}`}
+                        >
+                          <span className="text-sm font-bold">
+                            {formatNumber(it.count)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3">
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">
+                            {it.mostRecentTarget || "N/A"}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {it.closedDate || "N/A"}
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
-            </>
-          )}
-          {activeSubTab === "pe" && (
-            <>
-              {peState.loading ? (
-                renderSkeleton()
-              ) : (
-                <>
-                  <MostActiveFullTable
-                    items={peState.items}
-                    accent="purple"
-                    columnOneLabel="Investor"
-                    mostRecentHeader="Most Recent Investment"
-                  />
-                  <MostActivePagination
-                    currentPage={peState.currentPage}
-                    totalPages={peState.totalPages}
-                    onPageChange={fetchPEInvestors}
-                  />
-                </>
-              )}
-            </>
-          )}
-          {activeSubTab === "venture" && (
-            <>
-              {vcState.loading ? (
-                renderSkeleton()
-              ) : (
-                <>
-                  <MostActiveFullTable
-                    items={vcState.items}
-                    accent="green"
-                    columnOneLabel="Investor"
-                    mostRecentHeader="Most Recent Investment"
-                  />
-                  <MostActivePagination
-                    currentPage={vcState.currentPage}
-                    totalPages={vcState.totalPages}
-                    onPageChange={fetchVCInvestors}
-                  />
-                </>
-              )}
-            </>
-          )}
-          {activeSubTab === "advisors" && (
-            <>
-              {advisorsState.loading ? (
-                renderSkeleton()
-              ) : (
-                <>
-                  <AdvisorsFullTable items={advisorsState.items} />
-                  <MostActivePagination
-                    currentPage={advisorsState.currentPage}
-                    totalPages={advisorsState.totalPages}
-                    onPageChange={fetchAdvisors}
-                  />
-                </>
-              )}
-            </>
-          )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   );
 }
-
-// ── End Most Active tab ──────────────────────────────────────────────────────
 
 function RecentTransactionsCard({
   transactions,
@@ -2230,6 +888,21 @@ function RecentTransactionsCard({
   transactions: TransactionRecord[];
 }) {
   const hasItems = Array.isArray(transactions) && transactions.length > 0;
+
+  const getDealTypeBadge = (dealType?: string) => {
+    const colors: Record<string, string> = {
+      acquisition: "bg-red-50 text-red-700 border-red-200",
+      merger: "bg-blue-50 text-blue-700 border-blue-200",
+      ipo: "bg-green-50 text-green-700 border-green-200",
+      funding_round: "bg-purple-50 text-purple-700 border-purple-200",
+      lbo: "bg-orange-50 text-orange-700 border-orange-200",
+      recapitalization: "bg-pink-50 text-pink-700 border-pink-200",
+    };
+    return (
+      colors[(dealType || "").toLowerCase().replace(/\s+/g, "_")] ||
+      "bg-gray-50 text-gray-700 border-gray-200"
+    );
+  };
 
   const getStatusBadge = (status?: string) => {
     const colors: Record<string, string> = {
@@ -2245,8 +918,8 @@ function RecentTransactionsCard({
   };
 
   return (
-    <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 flex flex-col overflow-hidden" style={{ height: '535px' }}>
-      <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
+    <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
+      <div className="px-5 py-4 border-b border-slate-100">
         <div className="flex gap-3 items-center text-xl">
           <span className="inline-flex justify-center items-center w-8 h-8 bg-orange-50 rounded-lg">
             <svg
@@ -2262,302 +935,162 @@ function RecentTransactionsCard({
           <span className="text-slate-900">Recent Transactions</span>
         </div>
       </div>
-      <div className="px-5 pb-5 flex-1 overflow-hidden">
-        <div className="overflow-auto h-full">
-          {/* Mobile: card list */}
-          <div className="block space-y-3 md:hidden">
-            {!hasItems ? (
-              <div className="py-6 text-sm text-center text-slate-500">
-                Not available
-              </div>
-            ) : (
-              transactions.slice(0, 25).map((t, idx) => {
-                const announcementDate = t.date ? new Date(t.date) : null;
-                const valueDisplay = t.value ? `$${t.value}M` : null;
-                const href = t.eventId
-                  ? `/corporate-event/${t.eventId}`
-                  : t.targetCompanyId
-                  ? `/company/${t.targetCompanyId}`
-                  : undefined;
-                const content = (
-                  <>
-                    <div className="flex gap-3 items-start min-w-0">
-                      {t.targetLogoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={t.targetLogoUrl}
-                          alt={t.target}
-                          className="object-contain w-8 h-8 rounded-lg flex-shrink-0"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = "none";
-                            const fallback =
-                              target.nextElementSibling as HTMLElement | null;
-                            if (fallback) fallback.style.display = "flex";
-                          }}
-                        />
-                      ) : null}
-                      <div
-                        className={`${
-                          t.targetLogoUrl ? "hidden" : "flex"
-                        } justify-center items-center w-8 h-8 text-xs font-semibold text-white bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex-shrink-0`}
-                      >
-                        {(t.target || "?").charAt(0)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-slate-900 break-words">
-                          {t.target || "-"}
-                        </p>
-                        {announcementDate &&
-                          !Number.isNaN(announcementDate.getTime()) && (
-                            <div className="flex gap-1 items-center mt-0.5">
-                              <svg
-                                className="w-3 h-3 text-slate-400 flex-shrink-0"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <rect
-                                  x="3"
-                                  y="4"
-                                  width="18"
-                                  height="18"
-                                  rx="2"
-                                />
-                                <path d="M16 2v4M8 2v4M3 10h18" />
-                              </svg>
-                              <p className="text-xs text-slate-500">
-                                {announcementDate.toLocaleDateString(
-                                  undefined,
-                                  {
-                                    month: "short",
-                                    day: "2-digit",
-                                    year: "numeric",
-                                  }
-                                )}
-                              </p>
-                            </div>
-                          )}
-                      </div>
-                    </div>
-                    <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
-                      <p className="text-xs font-semibold text-slate-500">
-                        Buyer/Investor
-                      </p>
-                      <p className="text-sm font-medium text-slate-900 break-words">
-                        {t.buyer || "-"}
-                      </p>
-                      {valueDisplay && (
-                        <p className="text-xs text-slate-500">{valueDisplay}</p>
-                      )}
-                    </div>
-                    {(t.type || t.seller) && (
-                      <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap gap-1">
-                        {t.type && (
-                          <DealTypeBadge dealType={t.type.replace(/_/g, " ")} />
-                        )}
-                        {t.seller && (
-                          <span
-                            className={`inline-block px-2 py-1 border rounded text-xs ${getStatusBadge(
-                              t.seller
-                            )}`}
+      <div className="px-5 pb-5">
+        <div className="overflow-auto" style={{ maxHeight: "28rem" }}>
+          <table className="min-w-full text-sm table-fixed">
+            <thead className="bg-slate-50/80">
+              <tr className="hover:bg-slate-50/80">
+                <th className="py-3 w-1/2 font-semibold text-left text-slate-700">
+                  Target
+                </th>
+                <th className="py-3 font-semibold text-left text-slate-700">
+                  Buyer/Investor
+                </th>
+                <th className="py-3 font-semibold text-left text-slate-700">
+                  Deal Type
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {hasItems ? (
+                transactions.slice(0, 25).map((t, idx) => {
+                  const announcementDate = t.date ? new Date(t.date) : null;
+                  const valueDisplay = t.value ? `$${t.value}M` : null;
+                  const href = t.eventId
+                    ? `/corporate-event/${t.eventId}`
+                    : t.targetCompanyId
+                    ? `/company/${t.targetCompanyId}`
+                    : undefined;
+                  return (
+                    <tr
+                      key={`tx-${idx}`}
+                      className={`transition-colors duration-150 hover:bg-slate-50/50 ${
+                        href ? "cursor-pointer" : ""
+                      }`}
+                      onClick={() => {
+                        if (href) {
+                          window.location.href = href;
+                        }
+                      }}
+                    >
+                      <td className="py-3 pr-4">
+                        <div className="flex gap-3 items-center">
+                          {t.targetLogoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={t.targetLogoUrl}
+                              alt={t.target}
+                              className="object-contain w-8 h-8 rounded-lg"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = "none";
+                                const fallback =
+                                  target.nextElementSibling as HTMLElement | null;
+                                if (fallback) fallback.style.display = "flex";
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className={`${
+                              t.targetLogoUrl ? "hidden" : "flex"
+                            } justify-center items-center w-8 h-8 text-xs font-semibold text-white bg-gradient-to-br from-orange-500 to-red-500 rounded-lg`}
                           >
-                            {t.seller}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </>
-                );
-                return href ? (
-                  <a
-                    key={`tx-${idx}`}
-                    href={href}
-                    className="block p-3 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors"
-                  >
-                    {content}
-                  </a>
-                ) : (
-                  <div
-                    key={`tx-${idx}`}
-                    className="block p-3 rounded-lg border border-slate-200 bg-slate-50/50"
-                  >
-                    {content}
-                  </div>
-                );
-              })
-            )}
-          </div>
-          {/* Desktop: table */}
-          <div className="hidden md:block overflow-auto h-full">
-            <table className="min-w-full text-sm table-fixed">
-              <thead className="bg-slate-50/80">
-                <tr className="hover:bg-slate-50/80">
-                  <th className="py-3 w-1/2 font-semibold text-left text-slate-700">
-                    Target
-                  </th>
-                  <th className="py-3 font-semibold text-left text-slate-700">
-                    Buyer/Investor
-                  </th>
-                  <th className="py-3 font-semibold text-left text-slate-700">
-                    Deal Type
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {hasItems ? (
-                  transactions.slice(0, 25).map((t, idx) => {
-                    const announcementDate = t.date ? new Date(t.date) : null;
-                    const valueDisplay = t.value ? `$${t.value}M` : null;
-                    const href = t.eventId
-                      ? `/corporate-event/${t.eventId}`
-                      : t.targetCompanyId
-                      ? `/company/${t.targetCompanyId}`
-                      : undefined;
-                    return (
-                      <tr
-                        key={`tx-${idx}`}
-                        className={`transition-colors duration-150 hover:bg-slate-50/50 ${
-                          href ? "cursor-pointer" : ""
-                        }`}
-                        onClick={() => {
-                          if (href) {
-                            window.location.href = href;
-                          }
-                        }}
-                      >
-                        <td className="py-3 pr-4">
-                          <div className="flex gap-3 items-center">
-                            {t.targetLogoUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={t.targetLogoUrl}
-                                alt={t.target}
-                                className="object-contain w-8 h-8 rounded-lg"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = "none";
-                                  const fallback =
-                                    target.nextElementSibling as HTMLElement | null;
-                                  if (fallback) fallback.style.display = "flex";
-                                }}
-                              />
-                            ) : null}
-                            <div
-                              className={`${
-                                t.targetLogoUrl ? "hidden" : "flex"
-                              } justify-center items-center w-8 h-8 text-xs font-semibold text-white bg-gradient-to-br from-orange-500 to-red-500 rounded-lg`}
-                            >
-                              {(t.target || "?").charAt(0)}
-                            </div>
-                            <div>
-                              <p className="font-medium text-slate-900">
-                                {t.target || "-"}
-                              </p>
-                              {announcementDate &&
-                                !Number.isNaN(announcementDate.getTime()) && (
-                                  <div className="flex gap-1 items-center mt-1">
-                                    <svg
-                                      className="w-3 h-3 text-slate-400"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                    >
-                                      <rect
-                                        x="3"
-                                        y="4"
-                                        width="18"
-                                        height="18"
-                                        rx="2"
-                                      />
-                                      <path d="M16 2v4M8 2v4M3 10h18" />
-                                    </svg>
-                                    <p className="text-xs text-slate-500">
-                                      {announcementDate.toLocaleDateString(
-                                        undefined,
-                                        {
-                                          month: "short",
-                                          day: "2-digit",
-                                          year: "numeric",
-                                        }
-                                      )}
-                                    </p>
-                                  </div>
-                                )}
-                            </div>
+                            {(t.target || "?").charAt(0)}
                           </div>
-                        </td>
-                        <td className="py-3 pr-4">
                           <div>
                             <p className="font-medium text-slate-900">
-                              {t.buyer || "-"}
+                              {t.target || "-"}
                             </p>
-                            {valueDisplay && (
-                              <p className="mt-1 text-xs text-slate-500">
-                                {valueDisplay}
-                              </p>
-                            )}
+                            {announcementDate &&
+                              !Number.isNaN(announcementDate.getTime()) && (
+                                <div className="flex gap-1 items-center mt-1">
+                                  <svg
+                                    className="w-3 h-3 text-slate-400"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                  >
+                                    <rect
+                                      x="3"
+                                      y="4"
+                                      width="18"
+                                      height="18"
+                                      rx="2"
+                                    />
+                                    <path d="M16 2v4M8 2v4M3 10h18" />
+                                  </svg>
+                                  <p className="text-xs text-slate-500">
+                                    {announcementDate.toLocaleDateString(
+                                      undefined,
+                                      {
+                                        month: "short",
+                                        day: "2-digit",
+                                        year: "numeric",
+                                      }
+                                    )}
+                                  </p>
+                                </div>
+                              )}
                           </div>
-                        </td>
-                        <td className="py-3">
-                          <div className="space-y-1">
-                            {t.type && (
-                              <DealTypeBadge dealType={t.type.replace(/_/g, " ")} />
-                            )}
-                            {t.seller && (
-                              <span
-                                className={`inline-block px-2 py-1 border rounded text-xs ${getStatusBadge(
-                                  t.seller
-                                )} ml-1`}
-                              >
-                                {t.seller}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={3}
-                      className="py-6 text-sm text-center text-slate-500"
-                    >
-                      Not available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <div>
+                          <p className="font-medium text-slate-900">
+                            {t.buyer || "-"}
+                          </p>
+                          {valueDisplay && (
+                            <p className="mt-1 text-xs text-slate-500">
+                              {valueDisplay}
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3">
+                        <div className="space-y-1">
+                          {t.type && (
+                            <span
+                              className={`inline-block px-2 py-1 border rounded text-xs ${getDealTypeBadge(
+                                t.type
+                              )}`}
+                            >
+                              {t.type.replace(/_/g, " ")}
+                            </span>
+                          )}
+                          {t.seller && (
+                            <span
+                              className={`inline-block px-2 py-1 border rounded text-xs ${getStatusBadge(
+                                t.seller
+                              )} ml-1`}
+                            >
+                              {t.seller}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td
+                    colSpan={3}
+                    className="py-6 text-sm text-center text-slate-500"
+                  >
+                    Not available
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   );
 }
 
-// Total counts per type from API (public_count, pe_count, vc_count, private_count)
-interface MarketMapCounts {
-  public?: number;
-  private_equity_owned?: number;
-  venture_capital_backed?: number;
-  private?: number;
-}
-
-function MarketMapGrid({
-  companies,
-  counts: countsProp,
-  onExportBucket,
-  exportingBucket,
-}: {
-  companies: SectorCompany[];
-  counts?: MarketMapCounts;
-  onExportBucket?: (type: string, label: string) => void;
-  exportingBucket?: string | null;
-}) {
+function MarketMapGrid({ companies }: { companies: SectorCompany[] }) {
   const labelFor = (type: string) =>
     type === "public"
       ? "Public"
@@ -2586,7 +1119,7 @@ function MarketMapGrid({
         : "",
       sub_sector:
         Array.isArray(c.primary_sectors) && c.primary_sectors.length > 0
-          ? getSectorLabel(c.primary_sectors[0] as SectorLinkItem)
+          ? c.primary_sectors[0]
           : "",
       company_type: computedType,
       ownership_text: ownershipText,
@@ -2703,38 +1236,24 @@ function MarketMapGrid({
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {Object.entries(categorized).map(([type, list]) => (
             <div key={type} className="space-y-4">
-              <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-                <div className="flex gap-3 items-center min-w-0">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex gap-3 items-center">
                   {getIcon(type)}
-                  <h3 className="font-semibold text-slate-900 truncate">
+                  <h3 className="font-semibold text-slate-900">
                     {titleFor(type)}
                   </h3>
-                  <span className="inline-flex flex-shrink-0 px-2 py-0.5 text-xs rounded bg-slate-100 text-slate-700 border border-slate-200">
-                    {countsProp?.[type as keyof MarketMapCounts] ?? list.length}
+                  <span className="inline-flex px-2 py-0.5 text-xs rounded bg-slate-100 text-slate-700 border border-slate-200">
+                    {list.length}
                   </span>
                 </div>
-                <div className="flex flex-shrink-0 gap-2 items-center">
-                  {onExportBucket && (
-                    <button
-                      onClick={() => onExportBucket(type, titleFor(type))}
-                      disabled={exportingBucket === type}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border rounded-md transition-colors duration-150 border-slate-300 text-slate-600 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
-                      </svg>
-                      {exportingBucket === type ? "Exporting…" : "Export CSV"}
-                    </button>
-                  )}
-                  <a
-                    href={`?tab=all&ownership=${encodeURIComponent(type)}`}
-                    className="px-3 py-1.5 text-sm border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50"
-                  >
-                    View All
-                  </a>
-                </div>
+                <a
+                  href={`?tab=all&ownership=${encodeURIComponent(type)}`}
+                  className="px-3 py-1.5 text-sm border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50"
+                >
+                  View All
+                </a>
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
                 {list.slice(0, 12).map((company) => (
                   <a
                     key={company.id}
@@ -2802,31 +1321,6 @@ const SectorDetailPage = ({
   const [sectorData, setSectorData] = useState<SectorStatistics | null>(
     initialSectorData as SectorStatistics | null
   );
-
-  // Debug log on mount to inspect initial data
-  useEffect(() => {
-    if (initialSectorData) {
-      try {
-        type SectorApiItem = {
-          Sector_thesis?: unknown;
-          Sector?: { Sector_thesis?: unknown };
-        };
-
-        const items: SectorApiItem[] = Array.isArray(initialSectorData)
-          ? (initialSectorData as SectorApiItem[])
-          : ([initialSectorData] as SectorApiItem[]);
-
-        const first = items[0] ?? {};
-        // Debug: Sector thesis data available from server
-        console.debug("Sector thesis sample (client effect):", {
-          flatThesis: first.Sector_thesis,
-          nestedThesis: first.Sector?.Sector_thesis,
-        });
-      } catch {
-        // Debug: Sector thesis debug failed
-      }
-    }
-  }, [initialSectorData]);
   const [companies, setCompanies] = useState<SectorCompany[]>([]);
   const [companiesTotal, setCompaniesTotal] = useState<number | null>(null);
   const [companiesLoading, setCompaniesLoading] = useState(false);
@@ -2845,42 +1339,16 @@ const SectorDetailPage = ({
   const searchParams = useSearchParams();
   const initialTab = (searchParams?.get("tab") || "overview").toString();
   const [activeTab, setActiveTab] = useState<string>(initialTab);
-  const [mostActiveSubTab, setMostActiveSubTab] =
-    useState<MostActiveSubTabId>("strategics");
-
-  const goToMostActiveSubTab = (subTab: MostActiveSubTabId) => {
-    setActiveTab("most_active");
-    setMostActiveSubTab(subTab);
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("tab", "most_active");
-      window.history.replaceState({}, "", url.toString());
-    }
-  };
-
   const [ownershipFilter, setOwnershipFilter] = useState<string | null>(
     searchParams?.get("ownership") || null
   );
   // Debug states removed
   const [companiesApiPayload, setCompaniesApiPayload] = useState<unknown>(null);
   // Split datasets fetched from dedicated endpoints (initialized with server-side data if available)
-  const [splitStrategicRaw, setSplitStrategicRaw] = useState<unknown>(
-    initialStrategicAcquirers || null
-  );
+  const [splitStrategicRaw, setSplitStrategicRaw] = useState<unknown>(initialStrategicAcquirers || null);
   const [splitPERaw, setSplitPERaw] = useState<unknown>(initialPEInvestors || null);
-  // Market map - now client-fetched for instant page navigation
   const [splitMarketMapRaw, setSplitMarketMapRaw] = useState<unknown>(initialMarketMap || null);
-  const [splitRecentRaw, setSplitRecentRaw] = useState<unknown>(
-    initialRecentTransactions || null
-  );
-  const [insightsArticles, setInsightsArticles] = useState<ContentArticle[]>([]);
-  // Track if overview data has finished loading (to distinguish "loading" from "no data")
-  const [overviewDataLoaded, setOverviewDataLoaded] = useState(false);
-  // Market map / All Companies export state
-  const [mmExportingBucket, setMmExportingBucket] = useState<string | null>(null);
-  const [allExporting, setAllExporting] = useState(false);
-  const [mmShowExportLimitModal, setMmShowExportLimitModal] = useState(false);
-  const [mmExportsLeft, setMmExportsLeft] = useState(0);
+  const [splitRecentRaw, setSplitRecentRaw] = useState<unknown>(initialRecentTransactions || null);
   // Sub-sectors
   const [subSectors, setSubSectors] = useState<SubSector[]>([]);
   const [subSectorsLoading, setSubSectorsLoading] = useState(false);
@@ -2890,13 +1358,25 @@ const SectorDetailPage = ({
     id: number;
     name: string;
     description: string;
-    url?: string;
     primary_sectors: string[];
     secondary_sectors: string[];
     ownership: string;
     country: string;
     linkedin_logo: string; // base64
     linkedin_members: number;
+  }
+  interface AllCompaniesFilters {
+    countries: string[];
+    provinces: string[];
+    cities: string[];
+    continentalRegions?: string[];
+    subRegions?: string[];
+    secondarySectors: number[];
+    hybridBusinessFocuses: number[];
+    ownershipTypes: number[];
+    linkedinMembersMin: number | null;
+    linkedinMembersMax: number | null;
+    searchQuery: string;
   }
   const [allCompanies, setAllCompanies] = useState<AllCompanyItem[]>([]);
   const [allCompaniesLoading, setAllCompaniesLoading] = useState(false);
@@ -2912,22 +1392,66 @@ const SectorDetailPage = ({
     perPage: 25,
     pageTotal: 0,
   });
-  const [showAllCompaniesColumnsModal, setShowAllCompaniesColumnsModal] =
-    useState(false);
-  const [allCompaniesColumnsCount, setAllCompaniesColumnsCount] = useState<number>(
-    DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS.length
+  const [allExpandedDescriptions, setAllExpandedDescriptions] = useState<
+    Record<number, boolean>
+  >({});
+
+  // All Companies - filter state and options (mirrors Companies page, excluding Primary Sectors)
+  const [allShowFilters, setAllShowFilters] = useState(false);
+  const [allSearchTerm, setAllSearchTerm] = useState("");
+
+  // Options
+  const [allCountries, setAllCountries] = useState<
+    Array<{ locations_Country: string }>
+  >([]);
+  const [allContinentalRegions, setAllContinentalRegions] = useState<string[]>(
+    []
   );
-  const allCompaniesApiColumnsRef = useRef<string[]>(
-    getApiColumnsForSelectedKeys([...DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS])
+  const [allSubRegions, setAllSubRegions] = useState<string[]>([]);
+  const [allProvinces, setAllProvinces] = useState<
+    Array<{ State__Province__County: string }>
+  >([]);
+  const [allCities, setAllCities] = useState<Array<{ City: string }>>([]);
+  const [allSecondarySectors, setAllSecondarySectors] = useState<
+    Array<{ id: number; sector_name: string }>
+  >([]);
+  const [allHybridBusinessFocuses, setAllHybridBusinessFocuses] = useState<
+    Array<{ id: number; business_focus: string }>
+  >([]);
+  const [allOwnershipTypes, setAllOwnershipTypes] = useState<
+    Array<{ id: number; ownership: string }>
+  >([]);
+
+  // Selected
+  const [selCountries, setSelCountries] = useState<string[]>([]);
+  const [selContinentalRegions, setSelContinentalRegions] = useState<string[]>(
+    []
   );
+  const [selSubRegions, setSelSubRegions] = useState<string[]>([]);
+  const [selProvinces, setSelProvinces] = useState<string[]>([]);
+  const [selCities, setSelCities] = useState<string[]>([]);
+  const [selSecondarySectors, setSelSecondarySectors] = useState<number[]>([]);
+  const [selHybridBusinessFocuses, setSelHybridBusinessFocuses] = useState<
+    number[]
+  >([]);
+  const [selOwnershipTypes, setSelOwnershipTypes] = useState<number[]>([]);
+  const [selLinkedinMin, setSelLinkedinMin] = useState<number | null>(null);
+  const [selLinkedinMax, setSelLinkedinMax] = useState<number | null>(null);
+
+  // Current filters for pagination reuse
   const [allCompaniesCurrentFilters, setAllCompaniesCurrentFilters] = useState<
-    CompaniesFilters | undefined
+    AllCompaniesFilters | undefined
   >(undefined);
-  const [allCompaniesOwnershipCounts, setAllCompaniesOwnershipCounts] =
-    useState<CompaniesOwnershipCounts>(EMPTY_OWNERSHIP_COUNTS);
-  const allCompaniesCountsTimeoutRef = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
+
+  // Loading flags
+  const [loadingAllCountries, setLoadingAllCountries] = useState(false);
+  const [loadingAllProvinces, setLoadingAllProvinces] = useState(false);
+  const [loadingAllCities, setLoadingAllCities] = useState(false);
+  const [loadingAllSecondarySectors, setLoadingAllSecondarySectors] =
+    useState(false);
+  const [loadingAllHybridFocus, setLoadingAllHybridFocus] = useState(false);
+  const [loadingAllOwnershipTypes, setLoadingAllOwnershipTypes] =
+    useState(false);
 
   // Public Companies (reuse companies API with primary sector filter and ownership Public)
   const [publicCompanies, setPublicCompanies] = useState<AllCompanyItem[]>([]);
@@ -2947,6 +1471,37 @@ const SectorDetailPage = ({
   const [publicExpandedDescriptions, setPublicExpandedDescriptions] = useState<
     Record<number, boolean>
   >({});
+
+  // Ownership type id mapping (from API)
+  const [ownershipTypeIds, setOwnershipTypeIds] = useState<
+    Record<string, number>
+  >({});
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const list = await locationsService.getOwnershipTypes();
+        if (!cancelled && Array.isArray(list)) {
+          const map: Record<string, number> = {};
+          for (const o of list) {
+            const id = (o as { id?: number }).id;
+            const name = (o as { ownership?: string }).ownership || "";
+            if (typeof id === "number" && name) {
+              const key = name.trim().toLowerCase();
+              map[key] = id;
+            }
+          }
+          setOwnershipTypeIds(map);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Load secondary->primary mapping once (not required in the new overview layout)
   // useEffect(() => {
@@ -2986,6 +1541,8 @@ const SectorDetailPage = ({
     async (page: number = 1, perPageOverride?: number) => {
       setCompaniesLoading(true);
       const perPageToUse = perPageOverride || selectedPerPage;
+      const startTime = performance.now();
+      console.log('🚀 [Sector] Starting fetchCompanies...');
 
       try {
         const token = localStorage.getItem("asymmetrix_auth_token");
@@ -3073,9 +1630,7 @@ const SectorDetailPage = ({
           )
             ? ((c as unknown as { sectors?: string[] }).sectors as string[])
             : Array.isArray(c.secondary_sectors)
-            ? (c.secondary_sectors as SectorLinkItem[])
-                .map(getSectorLabel)
-                .filter((s) => s.length > 0)
+            ? (c.secondary_sectors as string[])
             : [],
           primary_sectors: Array.isArray(c.primary_sectors)
             ? c.primary_sectors
@@ -3144,6 +1699,8 @@ const SectorDetailPage = ({
               Math.ceil((overallCount || adapted.length) / computedPerPage)
             ),
         });
+        const endTime = performance.now();
+        console.log(`✅ [Sector] fetchCompanies completed in ${(endTime - startTime).toFixed(0)}ms`);
       } catch (err) {
         console.error("Error fetching companies:", err);
       } finally {
@@ -3155,49 +1712,142 @@ const SectorDetailPage = ({
 
   // Note: fetchSplitDatasets removed - now part of /api/sector/[id]/overview route
 
+  // Fetch All Companies via generic companies endpoint filtered by primary sector id
   const fetchAllCompaniesForSector = useCallback(
-    async (page: number = 1, filters?: CompaniesFilters) => {
+    async (page: number = 1, filters?: AllCompaniesFilters) => {
       setAllCompaniesLoading(true);
       setAllCompaniesError(null);
 
       try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
         const Sector_id = Number(sectorId);
         if (Number.isNaN(Sector_id)) {
           throw new Error("Invalid sector id");
         }
 
+        const perPage = 25;
+        const offset = page; // companies page uses 1-based Offset
+
+        const params = new URLSearchParams();
+        params.append("Offset", String(offset));
+        params.append("Per_page", String(perPage));
+        // Always send default values; override with filters when provided
+        params.append("Min_linkedin_members", "0");
+        params.append("Max_linkedin_members", "0");
+        params.append("Horizontals_ids", "");
+        params.append("Primary_sectors_ids[]", String(Sector_id));
+        // Apply ownership filter from URL to keep page sizes consistent
+        if (ownershipFilter) {
+          // Explicit mapping per product requirements
+          const ownershipMap: Record<string, number> = {
+            public: 7,
+            private_equity_owned: 1,
+            venture_capital_backed: 3,
+            private: 2,
+          };
+          const mappedId = ownershipMap[ownershipFilter];
+          if (mappedId) {
+            params.append("Ownership_types_ids[]", String(mappedId));
+          }
+        }
+
+        // Merge with current filters when none provided (pagination)
+        const filtersToUse = filters ?? allCompaniesCurrentFilters;
         if (filters !== undefined) {
           setAllCompaniesCurrentFilters(filters);
         }
-        const filtersToUse =
-          filters ??
-          allCompaniesCurrentFilters ?? {
-            filters_sql: null,
-            query: null,
-            columns: [],
-            has_financial_filters: false,
-            has_year_filter: false,
-          };
-
-        const data = await fetchCompaniesClient(page, {
-          ...filtersToUse,
-          columns: allCompaniesApiColumnsRef.current,
-          Per_page: 25,
-        });
-
-        if (!data?.result1) {
-          throw new Error("Failed to fetch companies");
+        if (filtersToUse) {
+          if ((filtersToUse.continentalRegions || []).length > 0) {
+            params.append(
+              "Continental_Region",
+              (filtersToUse.continentalRegions || []).join(",")
+            );
+          }
+          if ((filtersToUse.subRegions || []).length > 0) {
+            params.append(
+              "geographical_sub_region",
+              (filtersToUse.subRegions || []).join(",")
+            );
+          }
+          if ((filtersToUse.countries || []).length > 0) {
+            (filtersToUse.countries || []).forEach((v) =>
+              params.append("Countries[]", v)
+            );
+          }
+          if ((filtersToUse.provinces || []).length > 0) {
+            (filtersToUse.provinces || []).forEach((v) =>
+              params.append("Provinces[]", v)
+            );
+          }
+          if ((filtersToUse.cities || []).length > 0) {
+            (filtersToUse.cities || []).forEach((v) =>
+              params.append("Cities[]", v)
+            );
+          }
+          if ((filtersToUse.secondarySectors || []).length > 0) {
+            (filtersToUse.secondarySectors || []).forEach((id) =>
+              params.append("Secondary_sectors_ids[]", String(id))
+            );
+          }
+          if ((filtersToUse.ownershipTypes || []).length > 0) {
+            (filtersToUse.ownershipTypes || []).forEach((id) =>
+              params.append("Ownership_types_ids[]", String(id))
+            );
+          }
+          if ((filtersToUse.hybridBusinessFocuses || []).length > 0) {
+            (filtersToUse.hybridBusinessFocuses || []).forEach((id) =>
+              params.append("Hybrid_Data_ids[]", String(id))
+            );
+          }
+          params.set(
+            "Min_linkedin_members",
+            String(filtersToUse.linkedinMembersMin ?? 0)
+          );
+          params.set(
+            "Max_linkedin_members",
+            String(filtersToUse.linkedinMembersMax ?? 0)
+          );
+          if (filtersToUse.searchQuery) {
+            params.append("query", filtersToUse.searchQuery);
+          }
         }
 
-        const r1 = data.result1;
-        setAllCompanies((r1.items || []) as AllCompanyItem[]);
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `API request failed: ${response.status} ${response.statusText} - ${errorText}`
+          );
+        }
+        const data = JSON.parse(await response.text()) as {
+          result1?: {
+            items?: AllCompanyItem[];
+            itemsReceived?: number;
+            curPage?: number;
+            nextPage?: number | null;
+            prevPage?: number | null;
+            offset?: number;
+            perPage?: number;
+            pageTotal?: number;
+          };
+        };
+        const r1 = data.result1 || {};
+        setAllCompanies(r1.items || []);
         setAllCompaniesPagination({
           itemsReceived: r1.itemsReceived || 0,
           curPage: r1.curPage || 1,
           nextPage: r1.nextPage || null,
           prevPage: r1.prevPage || null,
           offset: r1.offset || 0,
-          perPage: r1.perPage || 25,
+          perPage: r1.perPage || perPage,
           pageTotal: r1.pageTotal || 0,
         });
       } catch (err) {
@@ -3208,77 +1858,7 @@ const SectorDetailPage = ({
         setAllCompaniesLoading(false);
       }
     },
-    [sectorId, allCompaniesCurrentFilters]
-  );
-
-  const scheduleAllCompaniesCountsFetch = useCallback(
-    (countsFilters: CompaniesFilters) => {
-      if (allCompaniesCountsTimeoutRef.current) {
-        clearTimeout(allCompaniesCountsTimeoutRef.current);
-      }
-      allCompaniesCountsTimeoutRef.current = setTimeout(() => {
-        void fetchCompaniesCountsClient(countsFilters)
-          .then((countsData) => {
-            if (!countsData) return;
-            setAllCompaniesOwnershipCounts({
-              totalCount: countsData.totalCount || 0,
-              publicCompanies: countsData.publicCompanies || 0,
-              peOwnedCompanies: countsData.peOwnedCompanies || 0,
-              vcOwnedCompanies: countsData.vcOwnedCompanies || 0,
-              privateCompanies: countsData.privateCompanies || 0,
-              subsidiaryCompanies: countsData.subsidiaryCompanies || 0,
-              acquiredCompanies: countsData.acquiredCompanies || 0,
-              otherCompanies: countsData.otherCompanies || 0,
-            });
-          })
-          .catch(console.error);
-      }, 400);
-    },
-    []
-  );
-
-  const handleAllCompaniesApiColumnsChange = useCallback((apiColumns: string[]) => {
-    allCompaniesApiColumnsRef.current = apiColumns;
-  }, []);
-
-  const handleAllCompaniesSearch = useCallback(
-    (listFilters: CompaniesFilters, countsFilters: CompaniesFilters) => {
-      scheduleAllCompaniesCountsFetch(countsFilters);
-      void fetchAllCompaniesForSector(1, listFilters);
-    },
-    [fetchAllCompaniesForSector, scheduleAllCompaniesCountsFetch]
-  );
-
-  const refetchAllCompaniesFirstPage = useCallback(() => {
-    void fetchAllCompaniesForSector(1);
-  }, [fetchAllCompaniesForSector]);
-
-  const handleAllCompaniesSortChange = useCallback(
-    (sortPayload: CompaniesSortChangePayload) => {
-      const base =
-        allCompaniesCurrentFilters ?? {
-          filters_sql: null,
-          query: null,
-          columns: [],
-          has_financial_filters: false,
-          has_year_filter: false,
-        };
-      void fetchAllCompaniesForSector(1, {
-        ...base,
-        ...sortPayload,
-      });
-    },
-    [fetchAllCompaniesForSector, allCompaniesCurrentFilters]
-  );
-
-  const forcedPrimarySectorIds = useMemo(() => {
-    const id = Number(sectorId);
-    return Number.isFinite(id) && id > 0 ? [id] : [];
-  }, [sectorId]);
-
-  const initialAllCompaniesOwnershipTab = useMemo(
-    () => ownershipFilterParamToTab(ownershipFilter),
-    [ownershipFilter]
+    [sectorId, ownershipFilter, allCompaniesCurrentFilters]
   );
 
   // Fetch Public Companies for sector (ownership type Public)
@@ -3356,67 +1936,217 @@ const SectorDetailPage = ({
     [sectorId]
   );
 
+  useEffect(() => {
+    if (activeTab === "all") {
+      fetchAllCompaniesForSector(1);
+    }
+  }, [activeTab, fetchAllCompaniesForSector]);
 
-  // Fetch all overview data via Next.js API route (cached for 5 min).
-  // Single request aggregates all Xano calls server-side → faster for users far from Xano.
-  // First request: ~6s (slowest Xano endpoint). Subsequent requests: <200ms (from cache).
-  const fetchOverviewData = useCallback(async () => {
-    try {
-      // Use Next.js API route - it handles auth via cookies and caches the response
-      const resp = await fetch(`/api/sector/${sectorId}/overview`, {
-        method: "GET",
-        credentials: "include", // Send cookies for auth
-      });
-
-      if (!resp.ok) {
-        if (resp.status === 401) {
-          setError("Authentication required");
-        } else if (resp.status === 503) {
-          setError("Sector data is not available yet. Please try again later.");
-        } else {
-          console.error("❌ Overview fetch failed:", resp.status);
-          setError("Failed to load sector data.");
+  // Load All Companies filter options when All tab is first opened
+  useEffect(() => {
+    if (activeTab !== "all") return;
+    let cancelled = false;
+    const loadOpts = async () => {
+      try {
+        setLoadingAllCountries(true);
+        setLoadingAllHybridFocus(true);
+        setLoadingAllOwnershipTypes(true);
+        const [countries, continents, subs, hybrid, ownership] =
+          await Promise.all([
+            locationsService.getCountries(),
+            locationsService.getContinentalRegions(),
+            locationsService.getSubRegions(),
+            locationsService.getHybridBusinessFocuses(),
+            locationsService.getOwnershipTypes(),
+          ]);
+        if (!cancelled) {
+          setAllCountries(countries || []);
+          setAllContinentalRegions(Array.isArray(continents) ? continents : []);
+          setAllSubRegions(Array.isArray(subs) ? subs : []);
+          setAllHybridBusinessFocuses(hybrid || []);
+          setAllOwnershipTypes(ownership || []);
         }
-        setOverviewDataLoaded(true);
+      } catch {
+        // ignore
+      } finally {
+        setLoadingAllCountries(false);
+        setLoadingAllHybridFocus(false);
+        setLoadingAllOwnershipTypes(false);
+      }
+      try {
+        setLoadingAllSecondarySectors(true);
+        const secs = await locationsService.getAllSecondarySectorsWithPrimary();
+        if (!cancelled) {
+          setAllSecondarySectors(
+            Array.isArray(secs)
+              ? (secs as Array<{ id: number; sector_name: string }>)
+              : []
+          );
+        }
+      } catch {
+        // ignore
+      } finally {
+        setLoadingAllSecondarySectors(false);
+      }
+    };
+    loadOpts();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab]);
+
+  // Dependent options for provinces/cities
+  useEffect(() => {
+    const loadProvinces = async () => {
+      if (selCountries.length === 0) {
+        setAllProvinces([]);
+        setSelProvinces([]);
         return;
       }
-
-      const data = await resp.json();
-      
-      // Update all state at once from aggregated response
-      if (data.sectorData) {
-        setSectorData(data.sectorData as SectorStatistics);
+      try {
+        setLoadingAllProvinces(true);
+        const prov = await locationsService.getProvinces(selCountries);
+        setAllProvinces(prov || []);
+        setSelProvinces([]);
+      } catch {
+        // ignore
+      } finally {
+        setLoadingAllProvinces(false);
       }
-      if (data.splitDatasets) {
-        const { marketMap, strategic, pe, recentTransactions, insightsArticles } =
-          data.splitDatasets;
-        if (marketMap) setSplitMarketMapRaw(marketMap);
-        if (strategic) setSplitStrategicRaw(strategic);
-        if (pe) setSplitPERaw(pe);
-        if (recentTransactions) setSplitRecentRaw(recentTransactions);
-        setInsightsArticles(
-          Array.isArray(insightsArticles) ? (insightsArticles as ContentArticle[]) : []
+    };
+    loadProvinces();
+  }, [selCountries]);
+
+  useEffect(() => {
+    const loadCities = async () => {
+      if (selCountries.length === 0) {
+        setAllCities([]);
+        setSelCities([]);
+        return;
+      }
+      try {
+        setLoadingAllCities(true);
+        const cities = await locationsService.getCities(
+          selCountries,
+          selProvinces
         );
+        setAllCities(cities || []);
+        setSelCities([]);
+      } catch {
+        // ignore
+      } finally {
+        setLoadingAllCities(false);
       }
+    };
+    loadCities();
+  }, [selCountries, selProvinces]);
 
-      // Log server timing for debugging
-      if (data.timings) {
-        console.log("📊 Server fetch timings:", data.timings);
-      }
-      
-      // Mark data as loaded (for empty state handling)
-      setOverviewDataLoaded(true);
-    } catch (e) {
-      console.error("❌ Overview fetch failed:", e);
-      setOverviewDataLoaded(true); // Also mark as loaded on error
+  // Fetch each dataset independently from Xano - updates UI as soon as each responds (progressive rendering)
+  const fetchOverviewDataProgressive = useCallback(async () => {
+    console.log('🎬 [Client] Fetching overview data progressively (each card renders as data arrives)...');
+    
+    const token = typeof window !== 'undefined' ? localStorage.getItem('asymmetrix_auth_token') : null;
+    if (!token) {
+      setError('Authentication required');
+      return;
     }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    };
+
+    // Fire all 5 APIs independently - each updates state immediately when it responds
+    
+    // 1. Sector metadata (name + thesis) - fastest (~69ms via server, direct should be similar)
+    const sectorStart = performance.now();
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors/${sectorId}`, { 
+      method: 'GET',
+      headers,
+      credentials: 'include'
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data) {
+          setSectorData(data as SectorStatistics);
+          console.log(`✅ Sector loaded in ${(performance.now() - sectorStart).toFixed(0)}ms`);
+        }
+      })
+      .catch(err => console.error('❌ Sector failed:', err));
+
+    const qs = new URLSearchParams();
+    qs.append('Sector_id', sectorId);
+
+    // 2. Market Map
+    const mmStart = performance.now();
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map?${qs.toString()}`, { 
+      method: 'GET',
+      headers,
+      credentials: 'include'
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        setSplitMarketMapRaw(data);
+        console.log(`✅ Market Map loaded in ${(performance.now() - mmStart).toFixed(0)}ms`);
+      })
+      .catch(err => console.error('❌ Market Map failed:', err));
+
+    // 3. Strategic Acquirers
+    const stratStart = performance.now();
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_strategic_acquirers?${qs.toString()}`, { 
+      method: 'GET',
+      headers,
+      credentials: 'include'
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        setSplitStrategicRaw(data);
+        console.log(`✅ Strategic Acquirers loaded in ${(performance.now() - stratStart).toFixed(0)}ms`);
+      })
+      .catch(err => console.error('❌ Strategic Acquirers failed:', err));
+
+    // 4. PE Investors
+    const peStart = performance.now();
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_pe_investors?${qs.toString()}`, { 
+      method: 'GET',
+      headers,
+      credentials: 'include'
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        setSplitPERaw(data);
+        console.log(`✅ PE Investors loaded in ${(performance.now() - peStart).toFixed(0)}ms`);
+      })
+      .catch(err => console.error('❌ PE Investors failed:', err));
+
+    // 5. Recent Transactions
+    const recentStart = performance.now();
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${qs.toString()}&top_15=true`, { 
+      method: 'GET',
+      headers,
+      credentials: 'include'
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        setSplitRecentRaw(data);
+        console.log(`✅ Recent Transactions loaded in ${(performance.now() - recentStart).toFixed(0)}ms`);
+      })
+      .catch(err => console.error('❌ Recent Transactions failed:', err));
+
+    console.log('💡 [Client] All 5 APIs fired independently - UI updates as each responds');
+    console.log('💡 [Client] Other tabs (All Companies, Public, Transactions, etc.) will load when clicked');
   }, [sectorId]);
 
-  // Kick off data loading on mount
+  // Kick off ONLY overview tab data load on initial mount (lazy load other tabs)
+  // Skip if we already have initial server-side data
   useEffect(() => {
     if (!sectorId) return;
-    fetchOverviewData();
-  }, [sectorId, fetchOverviewData]);
+    // Only fetch if we don't have initial data
+    const hasInitialData = initialSectorData && initialMarketMap && initialStrategicAcquirers && initialPEInvestors && initialRecentTransactions;
+    if (!hasInitialData) {
+      fetchOverviewDataProgressive();
+    }
+  }, [sectorId, fetchOverviewDataProgressive, initialSectorData, initialMarketMap, initialStrategicAcquirers, initialPEInvestors, initialRecentTransactions]);
 
   useEffect(() => {
     if (activeTab === "public") {
@@ -3426,60 +2156,9 @@ const SectorDetailPage = ({
 
   const handlePageChange = useCallback(
     (page: number) => {
-      if (
-        companiesLoading ||
-        page < 1 ||
-        page > pagination.pageTotal ||
-        page === pagination.curPage
-      ) {
-        return;
-      }
-
       fetchCompanies(page);
     },
-    [fetchCompanies, companiesLoading, pagination.curPage, pagination.pageTotal]
-  );
-
-  const handleAllCompaniesPageChange = useCallback(
-    (page: number) => {
-      if (
-        allCompaniesLoading ||
-        page < 1 ||
-        page > allCompaniesPagination.pageTotal ||
-        page === allCompaniesPagination.curPage
-      ) {
-        return;
-      }
-
-      void fetchAllCompaniesForSector(page);
-    },
-    [
-      allCompaniesLoading,
-      allCompaniesPagination.curPage,
-      allCompaniesPagination.pageTotal,
-      fetchAllCompaniesForSector,
-    ]
-  );
-
-  const handlePublicCompaniesPageChange = useCallback(
-    (page: number) => {
-      if (
-        publicCompaniesLoading ||
-        page < 1 ||
-        page > publicCompaniesPagination.pageTotal ||
-        page === publicCompaniesPagination.curPage
-      ) {
-        return;
-      }
-
-      void fetchPublicCompaniesForSector(page);
-    },
-    [
-      publicCompaniesLoading,
-      publicCompaniesPagination.curPage,
-      publicCompaniesPagination.pageTotal,
-      fetchPublicCompaniesForSector,
-    ]
+    [fetchCompanies]
   );
 
   // Fetch Sub-Sectors for this sector
@@ -3540,7 +2219,7 @@ const SectorDetailPage = ({
       setSubSectors(mapped);
     } catch (e) {
       setSubSectorsError(
-        e instanceof Error ? e.message : "Failed to fetch secondary sectors"
+        e instanceof Error ? e.message : "Failed to fetch sub-sectors"
       );
     } finally {
       setSubSectorsLoading(false);
@@ -3695,223 +2374,6 @@ const SectorDetailPage = ({
     return mapped.length > 0 ? mapped : companies;
   }, [preferredSource, companies]);
 
-  // Total counts per type from market_map API (prefer cached totals over visible item counts)
-  const marketMapCounts: MarketMapCounts | undefined = useMemo(() => {
-    if (!preferredSource) return undefined;
-    const raw = (preferredSource as { market_map?: unknown })?.market_map;
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
-    const o = raw as Record<string, unknown>;
-
-    const countsRecord =
-      o["counts"] && typeof o["counts"] === "object" && !Array.isArray(o["counts"])
-        ? (o["counts"] as Record<string, unknown>)
-        : undefined;
-
-    const countsFromCache = {
-      public:
-        getFirstMatchingNumber(countsRecord || {}, ["public"]) ??
-        getFirstMatchingNumber(o, ["public_total_count", "Public_total_count"]),
-      private_equity_owned:
-        getFirstMatchingNumber(countsRecord || {}, ["pe"]) ??
-        getFirstMatchingNumber(o, ["pe_total_count", "Pe_total_count"]),
-      venture_capital_backed:
-        getFirstMatchingNumber(countsRecord || {}, ["vc"]) ??
-        getFirstMatchingNumber(o, ["vc_total_count", "Vc_total_count"]),
-      private:
-        getFirstMatchingNumber(countsRecord || {}, ["private"]) ??
-        getFirstMatchingNumber(o, ["private_total_count", "Private_total_count"]),
-    };
-
-    if (
-      countsFromCache.public !== undefined ||
-      countsFromCache.private_equity_owned !== undefined ||
-      countsFromCache.venture_capital_backed !== undefined ||
-      countsFromCache.private !== undefined
-    ) {
-      return countsFromCache;
-    }
-
-    // New format fallback: {public: [...], pe: [...], vc: [...], private: [...]}.
-    // These are only the preview items, so use them only when cached totals are unavailable.
-    const publicArr = Array.isArray(o["public"]) ? o["public"] : undefined;
-    const peArr = Array.isArray(o["pe"]) ? o["pe"] : undefined;
-    const vcArr = Array.isArray(o["vc"]) ? o["vc"] : undefined;
-    const privateArr = Array.isArray(o["private"]) ? o["private"] : undefined;
-
-    if (publicArr || peArr || vcArr || privateArr) {
-      return {
-        public: publicArr?.length ?? 0,
-        private_equity_owned: peArr?.length ?? 0,
-        venture_capital_backed: vcArr?.length ?? 0,
-        private: privateArr?.length ?? 0,
-      };
-    }
-
-    // Legacy format: explicit count fields
-    return {
-      public: getFirstMatchingNumber(o, ["public_count", "Public_count"]),
-      private_equity_owned: getFirstMatchingNumber(o, ["pe_count", "Pe_count"]),
-      venture_capital_backed: getFirstMatchingNumber(o, [
-        "vc_count",
-        "Vc_count",
-      ]),
-      private: getFirstMatchingNumber(o, ["private_count", "Private_count"]),
-    };
-  }, [preferredSource]);
-
-  // Sector name slug for export filenames
-  const sectorNameSlug = useMemo(() => {
-    const name =
-      (sectorData as { sector_name?: string })?.sector_name ||
-      (sectorData as { Sector?: { sector_name?: string } })?.Sector?.sector_name ||
-      `sector_${sectorId}`;
-    return name.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "");
-  }, [sectorData, sectorId]);
-
-  // Fixed ownership → Xano type ID mapping
-  const BUCKET_TYPE_IDS: Record<string, number> = {
-    public: 7,
-    private_equity_owned: 1,
-    venture_capital_backed: 3,
-    private: 2,
-  };
-
-  // Build a single export row from an AllCompanyItem (matches API ExportRow shape)
-  const buildExportRow = (
-    c: AllCompanyItem,
-    origin: string,
-    filtersApplied?: string
-  ) => ({
-    id: c.id,
-    name: c.name || "N/A",
-    url: c.url || "N/A",
-    asymmetrixUrl: `${origin}/company/${c.id}`,
-    description: c.description || "N/A",
-    primarySectors: Array.isArray(c.primary_sectors)
-      ? (c.primary_sectors as unknown as SectorLinkItem[])
-          .map(getSectorLabel)
-          .filter(Boolean)
-          .join(", ") || "N/A"
-      : "N/A",
-    subSectors: Array.isArray(c.secondary_sectors)
-      ? (c.secondary_sectors as unknown as SectorLinkItem[])
-          .map(getSectorLabel)
-          .filter(Boolean)
-          .join(", ") || "N/A"
-      : "N/A",
-    linkedinMembers: c.linkedin_members ?? 0,
-    country: c.country || "N/A",
-    ...(filtersApplied ? { filtersApplied } : {}),
-  });
-
-  // Call the server-side Excel export API and trigger a file download
-  const downloadExcelExport = async (
-    rows: ReturnType<typeof buildExportRow>[],
-    filename: string
-  ) => {
-    const res = await fetch("/api/export/sector-companies", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows, filename }),
-    });
-    if (!res.ok) throw new Error(`Export API failed: ${res.status}`);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${filename}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  };
-
-  // Export a single market-map bucket (called from each "Export CSV" next to "View All")
-  const handleExportBucket = useCallback(
-    async (bucketType: string, bucketLabel: string) => {
-      const limitCheck = await checkExportLimit();
-      if (!limitCheck.canExport) {
-        setMmExportsLeft(limitCheck.exportsLeft);
-        setMmShowExportLimitModal(true);
-        return;
-      }
-      setMmExportingBucket(bucketType);
-      try {
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        const origin = typeof window !== "undefined" ? window.location.origin : "";
-        const items = await fetchAllCompaniesClientPages<AllCompanyItem>(
-          buildCompaniesSearchPayload({
-            state: {
-              filters: [],
-              viewId: null,
-              searchText: "",
-              filterLogic: "and",
-            },
-            primarySectors: [],
-            secondarySectors: [],
-            ownershipTypes: [],
-            ownershipTypeIds: [BUCKET_TYPE_IDS[bucketType] ?? 0],
-            scopedPrimarySectorIds: [Number(sectorId)],
-            perPage: 500,
-          }),
-          { perPage: 500, token }
-        );
-        const rows = items.map((c) => buildExportRow(c, origin));
-        await downloadExcelExport(rows, `${sectorNameSlug}_${bucketLabel.replace(/\s+/g, "_")}`);
-      } finally {
-        setMmExportingBucket(null);
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sectorId, sectorNameSlug]
-  );
-
-  // Export all companies in the "All Companies" tab, respecting active filters
-  const handleExportAllCompanies = useCallback(async () => {
-    const limitCheck = await checkExportLimit();
-    if (!limitCheck.canExport) {
-      setMmExportsLeft(limitCheck.exportsLeft);
-      setMmShowExportLimitModal(true);
-      return;
-    }
-    setAllExporting(true);
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const origin = typeof window !== "undefined" ? window.location.origin : "";
-      const filtersToUse = allCompaniesCurrentFilters ?? {
-        filters_sql: null,
-        query: null,
-        columns: [],
-        has_financial_filters: false,
-        has_year_filter: false,
-      };
-      const filtersApplied = filtersToUse.filters_sql
-        ? `filters_sql: ${filtersToUse.filters_sql}`
-        : undefined;
-
-      const items = await fetchAllCompaniesClientPages<AllCompanyItem>(
-        {
-          ...filtersToUse,
-          columns: allCompaniesApiColumnsRef.current,
-          Per_page: 500,
-        },
-        { perPage: 500, token }
-      );
-      const rows = items.map((c) =>
-        buildExportRow(c, origin, filtersApplied || undefined)
-      );
-      const ownershipSlug = ownershipFilter
-        ? `_${ownershipFilter.replace(/_/g, " ")}`.replace(/\s+/g, "_")
-        : "";
-      await downloadExcelExport(
-        rows,
-        `${sectorNameSlug}_All_Companies${ownershipSlug}`
-      );
-    } finally {
-      setAllExporting(false);
-    }
-  }, [sectorNameSlug, ownershipFilter, allCompaniesCurrentFilters]);
-
   // Only block rendering for critical errors (auth/not found)
   if (error) {
     return (
@@ -4021,34 +2483,9 @@ const SectorDetailPage = ({
 
   // Removed statistics card; keep totals only when needed elsewhere
 
-  // Type for target company from API response (with _new_company structure)
-  interface TargetCompanyWithLocation {
-    id?: number;
-    name?: string;
-    country?: string;
-    primary_sectors?: Array<string | { sector_name?: string; id?: number }>;
-    secondary_sectors?: Array<string | { sector_name?: string; id?: number }>;
-    derived_parent_primaries?: Array<
-      string | { sector_name?: string; id?: number; sector_id?: number }
-    >;
-    _location?: {
-      Country?: string;
-    };
-    _sectors_primary?: Array<{ sector_name?: string; id?: number }>;
-    _sectors_secondary?: Array<{ sector_name?: string; id?: number }>;
-  }
-
-  interface TargetCounterpartyWithUnderscore {
-    _new_company?: TargetCompanyWithLocation;
-    new_company?: TargetCompanyWithLocation;
-    new_company_counterparty?: number;
-    id?: number;
-  }
-
   // Comprehensive Transactions Tab Component
   function SectorTransactionsTab({ sectorId }: { sectorId: string }) {
     const hasInitialLoaded = useRef(false);
-    const { currencyId: preferredCurrencyId } = usePlatformCurrency();
     // State for filters
     const [showFilters, setShowFilters] = useState(false);
     const [filters, setFilters] = useState<CorporateEventsFilters>({
@@ -4134,9 +2571,6 @@ const SectorDetailPage = ({
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [exporting, setExporting] = useState(false);
-    const [showExportLimitModal, setShowExportLimitModal] = useState(false);
-    const [exportsLeft, setExportsLeft] = useState(0);
 
     // Convert API data to dropdown options format
     const countryOptions = countries.map((country) => ({
@@ -4290,8 +2724,22 @@ const SectorDetailPage = ({
     const fetchFundingStages = async () => {
       try {
         setLoadingFundingStages(true);
-        const stages = await locationsService.getFundingStages();
-        setFundingStages(stages);
+        const response = await fetch(
+          "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/funding_stage_options"
+        );
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch funding stages: ${response.status}`
+          );
+        }
+        const data: unknown = await response.json();
+        if (Array.isArray(data)) {
+          setFundingStages(
+            data
+              .map((v) => (typeof v === "string" ? v : ""))
+              .filter((v): v is string => Boolean(v))
+          );
+        }
       } catch (error) {
         console.error("Error fetching funding stages:", error);
       } finally {
@@ -4367,11 +2815,9 @@ const SectorDetailPage = ({
           });
         }
 
-        // Add event types as array params (API expects bracketed keys)
+        // Add event types
         if (filters.deal_types.length > 0) {
-          filters.deal_types.forEach((dealType) => {
-            params.append("deal_types[]", dealType);
-          });
+          params.append("deal_types", filters.deal_types.join(","));
         }
 
         // Add deal statuses
@@ -4400,8 +2846,6 @@ const SectorDetailPage = ({
         if (filters.Date_end) {
           params.append("Date_end", filters.Date_end);
         }
-
-        appendPreferredCurrencyIdToSearchParams(params, preferredCurrencyId);
 
         const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`;
 
@@ -4469,13 +2913,6 @@ const SectorDetailPage = ({
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sectorId]);
 
-    useEffect(() => {
-      if (!hasInitialLoaded.current) return;
-      if (filters.primary_sectors_ids.length === 0) return;
-      fetchCorporateEvents(filters);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [preferredCurrencyId]);
-
     // Fetch provinces when countries change
     useEffect(() => {
       fetchProvinces();
@@ -4520,149 +2957,125 @@ const SectorDetailPage = ({
       fetchCorporateEvents(updatedFilters);
     };
 
-    // Build filter parameters for export API
-    const buildFilterParams = (): URLSearchParams => {
-      const params = new URLSearchParams();
-
-      // Add search query
-      if (searchTerm.trim()) {
-        params.append("search_query", searchTerm.trim());
-      }
-
-      // Add location filters as comma-separated values
-      if (selectedCountries.length > 0) {
-        params.append("Countries", selectedCountries.join(","));
-      }
-
-      if (selectedProvinces.length > 0) {
-        params.append("Provinces", selectedProvinces.join(","));
-      }
-
-      if (selectedCities.length > 0) {
-        params.append("Cities", selectedCities.join(","));
-      }
-
-      // Add region grouping filters
-      if (selectedContinentalRegions.length > 0) {
-        params.append("Continental_Region", selectedContinentalRegions.join(","));
-      }
-
-      if (selectedSubRegions.length > 0) {
-        params.append("geographical_sub_region", selectedSubRegions.join(","));
-      }
-
-      // Always include the current sector in primary sectors
-      const sectorIdNum = parseInt(sectorId);
-      if (!isNaN(sectorIdNum)) {
-        params.append("primary_sectors_ids[]", sectorIdNum.toString());
-      }
-
-      // Add secondary sectors
-      if (selectedSecondarySectors.length > 0) {
-        selectedSecondarySectors.forEach((id) => {
-          params.append("Secondary_sectors_ids[]", id.toString());
-        });
-      }
-
-      // Add event types as array params (API expects bracketed keys)
-      if (selectedEventTypes.length > 0) {
-        selectedEventTypes.forEach((dealType) => {
-          params.append("deal_types[]", dealType);
-        });
-      }
-
-      // Add deal statuses as comma-separated values
-      if (selectedDealStatuses.length > 0) {
-        params.append("Deal_Status", selectedDealStatuses.join(","));
-      }
-
-      // Add funding stages as comma-separated values
-      if (selectedFundingStages.length > 0) {
-        params.append("Funding_stage", selectedFundingStages.join(","));
-      }
-
-      // Add buyer / investor types
-      if (selectedBuyerInvestorTypes.length > 0) {
-        params.append("Buyer_Investor_Types", selectedBuyerInvestorTypes.join(","));
-      }
-
-      // Add date filters
-      if (dateStart) {
-        params.append("Date_start", dateStart);
-      }
-
-      if (dateEnd) {
-        params.append("Date_end", dateEnd);
-      }
-
-      appendPreferredCurrencyIdToSearchParams(params, preferredCurrencyId);
-
-      return params;
-    };
-
-    // Handle CSV export - fetches all matching events from export API
-    const handleExportCSV = async () => {
-      try {
-        // Check export limit first
-        const limitCheck = await checkExportLimit();
-        if (!limitCheck.canExport) {
-          setExportsLeft(limitCheck.exportsLeft);
-          setShowExportLimitModal(true);
-          return;
-        }
-
-        setExporting(true);
-
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        if (!token) {
-          setError("Authentication required");
-          setExporting(false);
-          return;
-        }
-
-        // Build filter parameters
-        const params = buildFilterParams();
-
-        // Call the export API endpoint
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/export_corporate_events_csv?${params.toString()}`;
-
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          // Check if it's an export limit error
-          if (response.status === 403 || response.status === 429) {
-            const limitCheck = await checkExportLimit();
-            setExportsLeft(limitCheck.exportsLeft);
-            setShowExportLimitModal(true);
-            setExporting(false);
-            return;
-          }
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        // Export the data using the CSV exporter (same as corporate events page)
-        CSVExporter.exportCorporateEventsFromApiResponse(
-          data,
+    // Handle CSV export
+    const handleExportCSV = () => {
+      if (corporateEvents.length > 0) {
+        CSVExporter.exportCorporateEvents(
+          corporateEvents,
           `sector_${sectorId}_transactions`
         );
-      } catch (error) {
-        console.error("Error exporting corporate events:", error);
-        setError(
-          error instanceof Error
-            ? error.message
-            : "Failed to export corporate events"
-        );
-      } finally {
-        setExporting(false);
       }
+    };
+
+    // Generate pagination buttons
+    const generatePaginationButtons = () => {
+      const buttons = [];
+      const currentPage = pagination.curPage;
+      const totalPages = pagination.pageTotal;
+
+      // Previous button
+      buttons.push(
+        <button
+          key="prev"
+          className="pagination-button"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={!pagination.prevPage}
+        >
+          &lt;
+        </button>
+      );
+
+      // Page numbers
+      if (totalPages <= 7) {
+        for (let i = 1; i <= totalPages; i++) {
+          buttons.push(
+            <button
+              key={i}
+              className={`pagination-button ${
+                i === currentPage ? "active" : ""
+              }`}
+              onClick={() => handlePageChange(i)}
+            >
+              {i.toString()}
+            </button>
+          );
+        }
+      } else {
+        // Show first page
+        buttons.push(
+          <button
+            key={1}
+            className={`pagination-button ${currentPage === 1 ? "active" : ""}`}
+            onClick={() => handlePageChange(1)}
+          >
+            1
+          </button>
+        );
+
+        if (currentPage > 3) {
+          buttons.push(
+            <span key="ellipsis1" className="pagination-ellipsis">
+              ...
+            </span>
+          );
+        }
+
+        // Show current page and neighbors
+        for (
+          let i = Math.max(2, currentPage - 1);
+          i <= Math.min(totalPages - 1, currentPage + 1);
+          i++
+        ) {
+          if (i > 1 && i < totalPages) {
+            buttons.push(
+              <button
+                key={i}
+                className={`pagination-button ${
+                  i === currentPage ? "active" : ""
+                }`}
+                onClick={() => handlePageChange(i)}
+              >
+                {i.toString()}
+              </button>
+            );
+          }
+        }
+
+        if (currentPage < totalPages - 2) {
+          buttons.push(
+            <span key="ellipsis2" className="pagination-ellipsis">
+              ...
+            </span>
+          );
+        }
+
+        // Show last page
+        buttons.push(
+          <button
+            key={totalPages}
+            className={`pagination-button ${
+              currentPage === totalPages ? "active" : ""
+            }`}
+            onClick={() => handlePageChange(totalPages)}
+          >
+            {totalPages.toString()}
+          </button>
+        );
+      }
+
+      // Next button
+      buttons.push(
+        <button
+          key="next"
+          className="pagination-button"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={!pagination.nextPage}
+        >
+          &gt;
+        </button>
+      );
+
+      return buttons;
     };
 
     return (
@@ -5262,9 +3675,9 @@ const SectorDetailPage = ({
             <button
               onClick={handleExportCSV}
               className="px-6 py-2 font-semibold text-white bg-green-600 rounded-md hover:bg-green-700"
-              disabled={loading || exporting}
+              disabled={loading}
             >
-              {exporting ? "Exporting..." : "Export CSV"}
+              {loading ? "Exporting..." : "Export CSV"}
             </button>
           </div>
         )}
@@ -5313,19 +3726,14 @@ const SectorDetailPage = ({
               </thead>
               <tbody>
                 {corporateEvents.map((event: CorporateEvent, index: number) => {
-                  // API returns _new_company (with underscore), not new_company
-                  const targetCounterparty = event.target_counterparty as unknown as TargetCounterpartyWithUnderscore;
-                  const target: TargetCompanyWithLocation | undefined = 
-                    targetCounterparty?._new_company ?? 
-                    targetCounterparty?.new_company;
+                  const target = event.target_counterparty?.new_company;
                   const targetCounterpartyId =
                     event.target_counterparty?.new_company_counterparty;
                   const targetName = target?.name || "Not Available";
                   const targetHref = targetCounterpartyId
                     ? `/company/${targetCounterpartyId}`
                     : "";
-                  const targetCountry = (target?._location?.Country ?? 
-                                        target?.country) || "Not Available";
+                  const targetCountry = target?.country || "Not Available";
 
                   const formatDate = (dateString: string) => {
                     if (!dateString) return "Not available";
@@ -5340,20 +3748,22 @@ const SectorDetailPage = ({
                     }
                   };
 
-                  type SectorLinkItem =
-                    | string
-                    | {
-                        sector_name?: string;
-                        Sector_name?: string;
-                        name?: string;
-                        id?: number;
-                        sector_id?: number;
-                        sectorId?: number;
-                      };
+                  const formatCurrency = (
+                    amount: string | undefined,
+                    currency: string | undefined
+                  ) => {
+                    if (!amount || !currency) return "Not available";
+                    const n = Number(amount);
+                    if (Number.isNaN(n)) return "Not available";
+                    return `${currency}${n.toLocaleString(undefined, {
+                      maximumFractionDigits: 3,
+                    })}m`;
+                  };
 
                   const renderSectorLinks = (
-                    sectors: SectorLinkItem[] | undefined,
-                    hrefBase: "/sector/" | "/sub-sector/" = "/sector/"
+                    sectors:
+                      | Array<string | { sector_name?: string; id?: number }>
+                      | undefined
                   ): React.ReactNode => {
                     if (!Array.isArray(sectors) || sectors.length === 0) {
                       return "Not available";
@@ -5363,23 +3773,17 @@ const SectorDetailPage = ({
                       const name =
                         typeof sector === "string"
                           ? sector
-                          : sector?.sector_name ||
-                            sector?.Sector_name ||
-                            sector?.name;
+                          : sector?.sector_name;
                       if (!name) return;
                       const sectorId =
                         typeof sector === "object" && sector
-                          ? (sector.id ??
-                              sector.sector_id ??
-                              sector.sectorId ??
-                              undefined)
+                          ? (sector as { id?: number }).id
                           : undefined;
-
                       nodes.push(
-                        typeof sectorId === "number" ? (
+                        sectorId ? (
                           <a
-                            key={`${hrefBase}${sectorId}-${name}-${index}`}
-                            href={`${hrefBase}${sectorId}`}
+                            key={`${sectorId}-${name}-${index}`}
+                            href={`/sector/${sectorId}`}
                             className="text-blue-600 underline hover:text-blue-800"
                           >
                             {name}
@@ -5405,27 +3809,29 @@ const SectorDetailPage = ({
                     event.deal_type || ""
                   );
                   const primarySectorsSource =
-                    (target?.primary_sectors as SectorLinkItem[] | undefined) ??
-                    ((target as unknown as { _sectors_primary?: SectorLinkItem[] })
-                      ?._sectors_primary as SectorLinkItem[] | undefined);
+                    (target?.primary_sectors as
+                      | Array<string | { sector_name?: string; id?: number }>
+                      | undefined) ??
+                    ((target as unknown as {
+                      _sectors_primary?: Array<{
+                        sector_name?: string;
+                        id?: number;
+                      }>;
+                    })?._sectors_primary as
+                      | Array<{ sector_name?: string; id?: number }>
+                      | undefined);
                   const secondarySectorsSource =
-                    (target?.secondary_sectors as SectorLinkItem[] | undefined) ??
-                    ((target as unknown as { _sectors_secondary?: SectorLinkItem[] })
-                      ?._sectors_secondary as SectorLinkItem[] | undefined);
-
-                  // Some API responses omit `primary_sectors` but include
-                  // `derived_parent_primaries` (now typically [{id, sector_name}]).
-                  // Use it as a fallback so sectors still render (and hyperlink when ids exist).
-                  const derivedParentPrimariesSource = target?.derived_parent_primaries;
-
-                  const primarySectorsEffective: SectorLinkItem[] | undefined =
-                    Array.isArray(primarySectorsSource) &&
-                    primarySectorsSource.length > 0
-                      ? primarySectorsSource
-                      : Array.isArray(derivedParentPrimariesSource) &&
-                        derivedParentPrimariesSource.length > 0
-                      ? derivedParentPrimariesSource
-                      : primarySectorsSource;
+                    (target?.secondary_sectors as
+                      | Array<string | { sector_name?: string; id?: number }>
+                      | undefined) ??
+                    ((target as unknown as {
+                      _sectors_secondary?: Array<{
+                        sector_name?: string;
+                        id?: number;
+                      }>;
+                    })?._sectors_secondary as
+                      | Array<{ sector_name?: string; id?: number }>
+                      | undefined);
 
                   return (
                     <tr
@@ -5452,58 +3858,17 @@ const SectorDetailPage = ({
                       {/* Parties */}
                       <td className="p-3 align-top break-words">
                         <div className="mb-1 text-xs text-slate-600">
-                          <strong>
-                            {(event as { target_label?: string }).target_label ||
-                              (isPartnership ? "Target(s)" : "Target")}
-                            :
-                          </strong>{" "}
-                          {(() => {
-                            // Use new targets array if available
-                            const targets = (
-                              event as {
-                                targets?: Array<{
-                                  id: number;
-                                  name: string;
-                                  route: string;
-                                }>;
-                              }
-                            ).targets;
-                            if (Array.isArray(targets) && targets.length > 0) {
-                              const displayTargets = isPartnership
-                                ? targets
-                                : targets.slice(0, 1);
-                              return displayTargets.map((tgt, i, arr) => {
-                                const href =
-                                  tgt.route === "investor" ||
-                                  tgt.route === "investors"
-                                    ? `/investors/${tgt.id}`
-                                    : `/company/${tgt.id}`;
-                                return (
-                                  <span key={`tgt-${tgt.id}`}>
-                                    <a
-                                      href={href}
-                                      className="text-blue-600 underline hover:text-blue-800"
-                                    >
-                                      {tgt.name}
-                                    </a>
-                                    {i < arr.length - 1 && ", "}
-                                  </span>
-                                );
-                              });
-                            }
-                            // Fallback to legacy target_counterparty
-                            if (targetHref) {
-                              return (
-                                <a
-                                  href={targetHref}
-                                  className="text-blue-600 underline hover:text-blue-800"
-                                >
-                                  {targetName}
-                                </a>
-                              );
-                            }
-                            return <span>{targetName}</span>;
-                          })()}
+                          <strong>Target:</strong>{" "}
+                          {targetHref ? (
+                            <a
+                              href={targetHref}
+                              className="text-blue-600 underline hover:text-blue-800"
+                            >
+                              {targetName}
+                            </a>
+                          ) : (
+                            <span>{targetName}</span>
+                          )}
                         </div>
                         {!isPartnership && (
                           <div className="text-xs text-slate-600">
@@ -5537,10 +3902,36 @@ const SectorDetailPage = ({
                               const label = hasAcquirer
                                 ? "Buyer(s)"
                                 : "Investor(s)";
+                              const names = list
+                                .map((cp) => cp._new_company?.name || "Unknown")
+                                .join(", ");
                               return (
                                 <>
                                   <strong>{label}:</strong>{" "}
-                                  {list.map((counterparty, subIndex) => {
+                                  {names || "Not Available"}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        )}
+                        {!isPartnership && (
+                          <div className="text-xs text-slate-600">
+                            <strong>Seller(s):</strong>{" "}
+                            {Array.isArray(event.other_counterparties) &&
+                            event.other_counterparties.length > 0
+                              ? (() => {
+                                  const sellers =
+                                    event.other_counterparties.filter((cp) => {
+                                      const status =
+                                        cp._counterparty_type
+                                          ?.counterparty_status || "";
+                                      return /divestor|seller|vendor/i.test(
+                                        status
+                                      );
+                                    });
+                                  if (sellers.length === 0)
+                                    return <span>Not Available</span>;
+                                  return sellers.map((counterparty, subIndex) => {
                                     const nc = counterparty._new_company as
                                       | {
                                           id?: number;
@@ -5555,9 +3946,11 @@ const SectorDetailPage = ({
                                     const investorProfileId =
                                       nc?._investor_profile_id;
                                     const cpId =
-                                      (counterparty as {
-                                        new_company_counterparty?: number;
-                                      }).new_company_counterparty || nc?.id;
+                                      (
+                                        counterparty as {
+                                          new_company_counterparty?: number;
+                                        }
+                                      ).new_company_counterparty || nc?.id;
                                     let url = "";
                                     if (nc?._is_that_investor) {
                                       url =
@@ -5584,7 +3977,7 @@ const SectorDetailPage = ({
                                       );
                                     }
                                     return (
-                                      <span key={`buyer-${counterparty.id}-${subIndex}`}>
+                                      <span key={subIndex}>
                                         {url ? (
                                           <a
                                             href={url}
@@ -5595,100 +3988,14 @@ const SectorDetailPage = ({
                                         ) : (
                                           <span>{name}</span>
                                         )}
-                                        {subIndex < list.length - 1 && ", "}
+                                        {subIndex < sellers.length - 1 && ", "}
                                       </span>
                                     );
-                                  })}
-                                </>
-                              );
-                            })()}
+                                  });
+                                })()
+                              : "Not Available"}
                           </div>
                         )}
-                        {(() => {
-                          if (isPartnership) return null;
-                          if (
-                            !Array.isArray(event.other_counterparties) ||
-                            event.other_counterparties.length === 0
-                          )
-                            return null;
-
-                          const sellers = event.other_counterparties.filter(
-                            (cp) => {
-                              const status =
-                                cp._counterparty_type?.counterparty_status ||
-                                "";
-                              return /divestor|seller|vendor/i.test(status);
-                            }
-                          );
-
-                          // Requirement: if Seller(s) has no value, don't show the Seller(s) field at all.
-                          if (sellers.length === 0) return null;
-
-                          return (
-                            <div className="text-xs text-slate-600">
-                              <strong>Seller(s):</strong>{" "}
-                              {sellers.map((counterparty, subIndex) => {
-                                const nc = counterparty._new_company as
-                                  | {
-                                      id?: number;
-                                      name?: string;
-                                      _is_that_investor?: boolean;
-                                      _is_that_data_analytic_company?: boolean;
-                                      _url?: string;
-                                      _investor_profile_id?: number;
-                                    }
-                                  | undefined;
-                                const name = (nc?.name || "Unknown").trim();
-                                const investorProfileId =
-                                  nc?._investor_profile_id;
-                                const cpId =
-                                  (
-                                    counterparty as {
-                                      new_company_counterparty?: number;
-                                    }
-                                  ).new_company_counterparty || nc?.id;
-                                let url = "";
-                                if (nc?._is_that_investor) {
-                                  url =
-                                    typeof investorProfileId === "number" &&
-                                    investorProfileId > 0
-                                      ? `/investors/${investorProfileId}`
-                                      : typeof cpId === "number"
-                                      ? `/investors/${cpId}`
-                                      : "";
-                                } else if (nc?._is_that_data_analytic_company) {
-                                  url =
-                                    typeof cpId === "number"
-                                      ? `/company/${cpId}`
-                                      : "";
-                                } else if (
-                                  typeof nc?._url === "string" &&
-                                  nc?._url
-                                ) {
-                                  url = nc!._url.replace(
-                                    /\/(?:investor)\//,
-                                    "/investors/"
-                                  );
-                                }
-                                return (
-                                  <span key={subIndex}>
-                                    {url ? (
-                                      <a
-                                        href={url}
-                                        className="text-blue-600 underline hover:text-blue-800"
-                                      >
-                                        {name}
-                                      </a>
-                                    ) : (
-                                      <span>{name}</span>
-                                    )}
-                                    {subIndex < sellers.length - 1 && ", "}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          );
-                        })()}
                       </td>
                       {/* Deal Details */}
                       <td className="p-3 align-top break-words">
@@ -5711,11 +4018,17 @@ const SectorDetailPage = ({
                         </div>
                         <div className="text-xs text-slate-600">
                           <strong>Amount (m):</strong>{" "}
-                          {formatCorporateEventInvestmentAmount(event)}
+                          {formatCurrency(
+                            event.investment_data?.investment_amount_m,
+                            event.investment_data?.currency?.Currency
+                          )}
                         </div>
                         <div className="text-xs text-slate-600">
                           <strong>EV (m):</strong>{" "}
-                          {formatCorporateEventEnterpriseValue(event)}
+                          {formatCurrency(
+                            event.ev_data?.enterprise_value_m,
+                            event.ev_data?.currency?.Currency
+                          )}
                         </div>
                       </td>
                       {/* Advisors */}
@@ -5727,12 +4040,7 @@ const SectorDetailPage = ({
                             ? event.advisors.map((advisor, idx) => {
                                 const nc = advisor._new_company;
                                 const name = nc?.name || "Unknown";
-                                // Advisor pages use `new_comp_id` (i.e., new_company id).
-                                // Some API shapes omit `_new_company.id`, so fall back to `new_company_advised`.
-                                const id =
-                                  nc?.id ??
-                                  (advisor as unknown as { new_company_advised?: number })
-                                    .new_company_advised;
+                                const id = nc?.id;
                                 return (
                                   <span key={id || idx}>
                                     {id ? (
@@ -5756,11 +4064,11 @@ const SectorDetailPage = ({
                       <td className="p-3 align-top break-words">
                         <div className="text-xs text-slate-600">
                           <strong>Primary:</strong>{" "}
-                          {renderSectorLinks(primarySectorsEffective, "/sector/")}
+                          {renderSectorLinks(primarySectorsSource)}
                         </div>
                         <div className="text-xs text-slate-600">
                           <strong>Secondary:</strong>{" "}
-                          {renderSectorLinks(secondarySectorsSource, "/sub-sector/")}
+                          {renderSectorLinks(secondarySectorsSource)}
                         </div>
                       </td>
                     </tr>
@@ -5772,14 +4080,11 @@ const SectorDetailPage = ({
         )}
 
         {/* Pagination */}
-        <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-          <CompactPagination
-            curPage={pagination.curPage}
-            pageTotal={pagination.pageTotal}
-            onPageChange={handlePageChange}
-            disabled={loading}
-          />
-        </div>
+        {pagination.pageTotal > 1 && (
+          <div className="flex gap-2 justify-center items-center mt-6">
+            {generatePaginationButtons()}
+          </div>
+        )}
 
         {/* CSS for pagination */}
         <style jsx>{`
@@ -5811,13 +4116,6 @@ const SectorDetailPage = ({
             font-size: 14px;
           }
         `}</style>
-
-      <ExportLimitModal
-        isOpen={showExportLimitModal}
-        onClose={() => setShowExportLimitModal(false)}
-        exportsLeft={exportsLeft}
-        totalExports={EXPORT_LIMIT}
-      />
       </div>
     );
   }
@@ -5902,7 +4200,7 @@ const SectorDetailPage = ({
 
         const data: InsightsAnalysisResponse = await response.json();
 
-        setArticles(normalizeContentArticles(data.items || []));
+        setArticles(data.items);
         setPagination({
           itemsReceived: data.itemsReceived,
           curPage: data.curPage,
@@ -5938,11 +4236,33 @@ const SectorDetailPage = ({
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sectorId]);
 
-    // Fetch content types (cached via locationsService)
+    // Fetch content types
     useEffect(() => {
       const run = async () => {
         try {
-          const values = await locationsService.getContentTypesForArticles();
+          const token = localStorage.getItem("asymmetrix_auth_token");
+          if (!token) return;
+          const resp = await fetch(
+            "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/content_types_for_articles",
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          if (!resp.ok) return;
+          const data = (await resp.json()) as Array<{
+            Content_Content_Type1: string;
+          }>;
+          const values = Array.from(
+            new Set(
+              (Array.isArray(data) ? data : [])
+                .map((d) => (d?.Content_Content_Type1 || "").trim())
+                .filter(Boolean)
+            )
+          );
           setContentTypes(values);
         } catch {
           // ignore
@@ -5967,6 +4287,10 @@ const SectorDetailPage = ({
       const updatedFilters = { ...filters, Offset: page };
       setFilters(updatedFilters);
       fetchInsightsAnalysis(updatedFilters);
+    };
+
+    const handleArticleClick = (articleId: number) => {
+      router.push(`/article/${articleId}`);
     };
 
     const formatDate = (dateString: string) => {
@@ -6007,51 +4331,150 @@ const SectorDetailPage = ({
       const t = (contentType || "").toLowerCase();
       if (t === "company analysis") return "badge badge-company-analysis";
       if (t === "deal analysis") return "badge badge-deal-analysis";
-      if (t === "deal perspective") return "badge badge-deal-perspective";
-      if (t === "market commentary") return "badge badge-market-commentary";
       if (t === "sector analysis") return "badge badge-sector-analysis";
       if (t === "hot take") return "badge badge-hot-take";
       if (t === "executive interview") return "badge badge-executive-interview";
-      if (t === "news") return "badge badge-news";
       return "badge";
+    };
+
+    const generatePaginationButtons = () => {
+      const buttons = [];
+      const currentPage = pagination.curPage;
+      const totalPages = pagination.pageTotal;
+
+      buttons.push(
+        <button
+          key="prev"
+          className="pagination-button"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={!pagination.prevPage}
+        >
+          &lt;
+        </button>
+      );
+
+      if (totalPages <= 7) {
+        for (let i = 1; i <= totalPages; i++) {
+          buttons.push(
+            <button
+              key={i}
+              className={`pagination-button ${
+                i === currentPage ? "active" : ""
+              }`}
+              onClick={() => handlePageChange(i)}
+            >
+              {i.toString()}
+            </button>
+          );
+        }
+      } else {
+        buttons.push(
+          <button
+            key={1}
+            className={`pagination-button ${currentPage === 1 ? "active" : ""}`}
+            onClick={() => handlePageChange(1)}
+          >
+            1
+          </button>
+        );
+
+        if (currentPage > 3) {
+          buttons.push(
+            <span key="ellipsis1" className="pagination-ellipsis">
+              ...
+            </span>
+          );
+        }
+
+        for (
+          let i = Math.max(2, currentPage - 1);
+          i <= Math.min(totalPages - 1, currentPage + 1);
+          i++
+        ) {
+          if (i > 1 && i < totalPages) {
+            buttons.push(
+              <button
+                key={i}
+                className={`pagination-button ${
+                  i === currentPage ? "active" : ""
+                }`}
+                onClick={() => handlePageChange(i)}
+              >
+                {i.toString()}
+              </button>
+            );
+          }
+        }
+
+        if (currentPage < totalPages - 2) {
+          buttons.push(
+            <span key="ellipsis2" className="pagination-ellipsis">
+              ...
+            </span>
+          );
+        }
+
+        buttons.push(
+          <button
+            key={totalPages}
+            className={`pagination-button ${
+              currentPage === totalPages ? "active" : ""
+            }`}
+            onClick={() => handlePageChange(totalPages)}
+          >
+            {totalPages.toString()}
+          </button>
+        );
+      }
+
+      buttons.push(
+        <button
+          key="next"
+          className="pagination-button"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={!pagination.nextPage}
+        >
+          &gt;
+        </button>
+      );
+
+      return buttons;
     };
 
     return (
       <div className="space-y-6">
         {/* Filters Section */}
         <div className="p-8 bg-white rounded-xl border shadow-lg border-slate-200/60">
-          <div className="space-y-4 max-w-2xl">
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <input
-                type="text"
-                placeholder="Enter search term here"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-4 py-3 w-full rounded-md border border-slate-300"
-                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-              />
-              <select
-                value={filters.Content_Type || ""}
-                onChange={(e) => {
-                  const updated = {
-                    ...filters,
-                    Content_Type: e.target.value || undefined,
-                    content_type: e.target.value || undefined,
-                    Offset: 1,
-                  };
-                  setFilters(updated);
-                  fetchInsightsAnalysis(updated);
-                }}
-                className="px-4 py-3 w-full rounded-md border border-slate-300"
-              >
-                <option value="">All Content Types</option>
-                {contentTypes.map((ct) => (
-                  <option key={ct} value={ct}>
-                    {ct}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="space-y-4 max-w-md">
+            <input
+              type="text"
+              placeholder="Enter search term here"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="px-4 py-3 w-full rounded-md border border-slate-300"
+              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+            />
+            <select
+              value={filters.Content_Type || ""}
+              onChange={(e) => {
+                const updated = {
+                  ...filters,
+                  Content_Type: e.target.value || undefined,
+                  content_type: e.target.value || undefined,
+                  Offset: 1,
+                };
+                setFilters(updated);
+                fetchInsightsAnalysis(updated);
+              }}
+              className="px-4 py-3 w-full rounded-md border border-slate-300"
+            >
+              <option value="">All Content Types</option>
+              {contentTypes.map((ct) => (
+                <option key={ct} value={ct}>
+                  {ct}
+                </option>
+              ))}
+            </select>
             <button
               onClick={handleSearch}
               className="px-6 py-3 w-full font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700"
@@ -6082,85 +4505,64 @@ const SectorDetailPage = ({
 
         {!loading && articles.length > 0 && (
           <div className="insights-analysis-cards">
-            {articles.map((article: ContentArticle, index: number) => {
-              const effectiveContentType = getEffectiveContentType(article);
-              const isNews = isNewsArticle({
-                Content_Type: effectiveContentType,
-              });
-              const byline = isNews ? getArticleByline(article) : "";
-
-              return (
-                <a
-                  key={article.id || index}
-                  href={`/article/${article.id}`}
-                  className="article-card"
-                  onClick={(e) => {
-                    if (
-                      e.defaultPrevented ||
-                      e.button !== 0 ||
-                      e.metaKey ||
-                      e.ctrlKey ||
-                      e.shiftKey ||
-                      e.altKey
-                    )
-                      return;
-                    e.preventDefault();
-                    router.push(`/article/${article.id}`);
-                  }}
-                >
-                  <h3 className="article-title">
-                    {article.Headline || "Not Available"}
-                  </h3>
-                  <p className="article-date">
-                    {formatDate(article.Publication_Date)}
-                  </p>
-                  {article.Transaction_status && (
-                    <div className="article-transaction-status-row">
-                      <span className="article-transaction-status-badge">
-                        {article.Transaction_status}
-                      </span>
-                    </div>
-                  )}
-                  {effectiveContentType && (
-                    <div className="article-badge-row">
-                      <span className={badgeClassFor(effectiveContentType)}>
-                        {effectiveContentType}
-                      </span>
-                    </div>
-                  )}
-                  {byline ? (
-                    <p className="article-byline">{byline}</p>
-                  ) : null}
-                  <p className="article-summary">
-                    {article.Strapline || "No summary available"}
-                  </p>
-                  <div className="article-meta">
-                    <span className="article-meta-label">Companies:</span>
-                    <span className="article-meta-value">
-                      {formatCompanies(article.companies_mentioned)}
+            {articles.map((article: ContentArticle, index: number) => (
+              <a
+                key={article.id || index}
+                href={`/article/${article.id}`}
+                className="article-card"
+                onClick={(e) => {
+                  if (
+                    e.defaultPrevented ||
+                    e.button !== 0 ||
+                    e.metaKey ||
+                    e.ctrlKey ||
+                    e.shiftKey ||
+                    e.altKey
+                  )
+                    return;
+                  e.preventDefault();
+                  handleArticleClick(article.id);
+                }}
+              >
+                <h3 className="article-title">
+                  {article.Headline || "Not Available"}
+                </h3>
+                <p className="article-date">
+                  {formatDate(article.Publication_Date)}
+                </p>
+                {article.Content_Type && (
+                  <div className="article-badge-row">
+                    <span className={badgeClassFor(article.Content_Type)}>
+                      {article.Content_Type}
                     </span>
                   </div>
-                  <div className="article-meta">
-                    <span className="article-meta-label">Sectors:</span>
-                    <span className="article-meta-value">
-                      {formatSectors(article.sectors)}
-                    </span>
-                  </div>
-                </a>
-              );
-            })}
+                )}
+                <p className="article-summary">
+                  {article.Strapline || "No summary available"}
+                </p>
+                <div className="article-meta">
+                  <span className="article-meta-label">Companies:</span>
+                  <span className="article-meta-value">
+                    {formatCompanies(article.companies_mentioned)}
+                  </span>
+                </div>
+                <div className="article-meta">
+                  <span className="article-meta-label">Sectors:</span>
+                  <span className="article-meta-value">
+                    {formatSectors(article.sectors)}
+                  </span>
+                </div>
+              </a>
+            ))}
           </div>
         )}
 
         {/* Pagination */}
-        <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-          <CompactPagination
-            curPage={pagination.curPage}
-            pageTotal={pagination.pageTotal}
-            onPageChange={handlePageChange}
-            disabled={loading}
-          />
-        </div>
+        {pagination.pageTotal > 1 && (
+          <div className="flex gap-2 justify-center items-center mt-6">
+            {generatePaginationButtons()}
+          </div>
+        )}
 
         {/* CSS Styles */}
         <style jsx>{`
@@ -6200,28 +4602,6 @@ const SectorDetailPage = ({
             margin: 0 0 16px 0;
             font-weight: 500;
           }
-          .article-transaction-status-row {
-            margin: -6px 0 10px 0;
-            display: block;
-          }
-          .article-transaction-status-badge {
-            display: inline-flex;
-            align-items: center;
-            font-size: 11px;
-            line-height: 1;
-            padding: 5px 10px;
-            border-radius: 9999px;
-            border: 1.5px solid #4ade80;
-            font-weight: 700;
-            letter-spacing: 0.03em;
-            text-transform: uppercase;
-            background: #dcfce7;
-            color: #166534;
-            white-space: nowrap;
-            max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
           .article-badge-row {
             margin: -8px 0 16px 0;
             display: block;
@@ -6245,16 +4625,6 @@ const SectorDetailPage = ({
             color: #1e40af;
             border-color: #bfdbfe;
           }
-          .badge-deal-perspective {
-            background: #ecfeff;
-            color: #155e75;
-            border-color: #a5f3fc;
-          }
-          .badge-market-commentary {
-            background: #fefce8;
-            color: #854d0e;
-            border-color: #fde68a;
-          }
           .badge-sector-analysis {
             background: #f5f3ff;
             color: #5b21b6;
@@ -6269,17 +4639,6 @@ const SectorDetailPage = ({
             background: #f0fdf4;
             color: #166534;
             border-color: #bbf7d0;
-          }
-          .badge-news {
-            background: #fff1f2;
-            color: #9f1239;
-            border-color: #fecdd3;
-          }
-          .article-byline {
-            font-size: 13px;
-            color: #6b7280;
-            margin: -12px 0 16px 0;
-            font-style: italic;
           }
           .article-summary {
             font-size: 14px;
@@ -6383,40 +4742,32 @@ const SectorDetailPage = ({
 
         {activeTab === "overview" ? (
           <div className="space-y-8">
-            {/* Top Row - Changed from grid to flex */}
-            <div className="flex flex-col lg:flex-row gap-6">
-              <div className="lg:w-1/2">
-                <RecentInsightsCard
-                  articles={insightsArticles}
-                  loading={!overviewDataLoaded}
-                />
-              </div>
-              <div className="lg:w-1/2">
-                {recentTransactions.length > 0 ? (
-                  <RecentTransactionsCard transactions={recentTransactions} />
-                ) : overviewDataLoaded ? (
-                  <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Recent Transactions</h3>
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                        <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                      </div>
-                      <p className="text-slate-500 text-sm">No recent transactions data available for this sector</p>
-                    </div>
+            {/* Top Row */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {sectorData ? (
+                <SectorThesisCard sectorData={sectorData} />
+              ) : (
+                <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
+                  <div className="h-6 bg-slate-200 rounded w-1/3 mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-slate-200 rounded"></div>
+                    <div className="h-4 bg-slate-200 rounded"></div>
+                    <div className="h-4 bg-slate-200 rounded w-5/6"></div>
                   </div>
-                ) : (
-                  <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
-                    <div className="h-6 bg-slate-200 rounded w-1/2 mb-4"></div>
-                    <div className="space-y-3">
-                      <div className="h-16 bg-slate-200 rounded"></div>
-                      <div className="h-16 bg-slate-200 rounded"></div>
-                      <div className="h-16 bg-slate-200 rounded"></div>
-                    </div>
+                </div>
+              )}
+              {recentTransactions.length > 0 ? (
+                <RecentTransactionsCard transactions={recentTransactions} />
+              ) : (
+                <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
+                  <div className="h-6 bg-slate-200 rounded w-1/2 mb-4"></div>
+                  <div className="space-y-3">
+                    <div className="h-16 bg-slate-200 rounded"></div>
+                    <div className="h-16 bg-slate-200 rounded"></div>
+                    <div className="h-16 bg-slate-200 rounded"></div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             {/* Middle Row */}
@@ -6429,20 +4780,7 @@ const SectorDetailPage = ({
                   badgeLabel="Strategic Acquirer"
                   mostRecentHeader="Most Recent Acquisition"
                   showBadge={false}
-                  onViewAll={() => goToMostActiveSubTab("strategics")}
                 />
-              ) : overviewDataLoaded ? (
-                <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Most Active Strategic Acquirers</h3>
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                      <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
-                    </div>
-                    <p className="text-slate-500 text-sm">No strategic acquirers data available for this sector</p>
-                  </div>
-                </div>
               ) : (
                 <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
                   <div className="h-6 bg-slate-200 rounded w-2/3 mb-4"></div>
@@ -6461,20 +4799,7 @@ const SectorDetailPage = ({
                   badgeLabel="Private Equity"
                   mostRecentHeader="Most Recent Investment"
                   showBadge={false}
-                  onViewAll={() => goToMostActiveSubTab("pe")}
                 />
-              ) : overviewDataLoaded ? (
-                <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Most Active Private Equity Investors</h3>
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                      <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <p className="text-slate-500 text-sm">No private equity investors data available for this sector</p>
-                  </div>
-                </div>
               ) : (
                 <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
                   <div className="h-6 bg-slate-200 rounded w-2/3 mb-4"></div>
@@ -6489,24 +4814,7 @@ const SectorDetailPage = ({
 
             {/* Bottom Row */}
             {marketMapCompanies.length > 0 ? (
-              <MarketMapGrid
-                companies={marketMapCompanies}
-                counts={marketMapCounts}
-                onExportBucket={handleExportBucket}
-                exportingBucket={mmExportingBucket}
-              />
-            ) : overviewDataLoaded ? (
-              <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Market Map</h3>
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                    <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                    </svg>
-                  </div>
-                  <p className="text-slate-500 text-sm">No market map data available for this sector</p>
-                </div>
-              </div>
+              <MarketMapGrid companies={marketMapCompanies} />
             ) : (
               <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
                 <div className="h-6 bg-slate-200 rounded w-1/4 mb-4"></div>
@@ -6531,6 +4839,11 @@ const SectorDetailPage = ({
                   )}{" "}
                   of {formatNumber(companiesTotal ?? totalCompaniesStat)}{" "}
                   companies
+                  {pagination.pageTotal > 1 && (
+                    <span className="ml-2">
+                      (Page {pagination.curPage} of {pagination.pageTotal})
+                    </span>
+                  )}
                 </div>
                 <div className="flex gap-2 items-center">
                   <label className="text-sm text-slate-600">Show</label>
@@ -6550,13 +4863,34 @@ const SectorDetailPage = ({
                     <option value={500}>500</option>
                   </select>
                   <span className="text-sm text-slate-600">per page</span>
-                  <div className="ml-4">
-                    <CompactPagination
-                      curPage={pagination.curPage}
-                      pageTotal={pagination.pageTotal}
-                      onPageChange={handlePageChange}
-                      disabled={companiesLoading}
-                    />
+                  <div className="flex gap-2 items-center ml-4">
+                    <button
+                      className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                      onClick={() =>
+                        handlePageChange(
+                          Math.max(1, (pagination.curPage || 1) - 1)
+                        )
+                      }
+                      disabled={(pagination.curPage || 1) <= 1}
+                    >
+                      ← Previous
+                    </button>
+                    <button
+                      className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                      onClick={() =>
+                        handlePageChange(
+                          Math.min(
+                            pagination.pageTotal || 1,
+                            (pagination.curPage || 1) + 1
+                          )
+                        )
+                      }
+                      disabled={
+                        (pagination.curPage || 1) >= (pagination.pageTotal || 1)
+                      }
+                    >
+                      Next →
+                    </button>
                   </div>
                 </div>
               </div>
@@ -6572,7 +4906,7 @@ const SectorDetailPage = ({
           <div className="space-y-4">
             <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
               <div className="px-5 py-4 border-b border-slate-100">
-                <div className="flex justify-between items-center gap-3">
+                <div className="flex justify-between items-center">
                   <div className="flex gap-3 items-center text-xl">
                     <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
                       <svg
@@ -6587,78 +4921,1301 @@ const SectorDetailPage = ({
                     </span>
                     <span className="text-slate-900">All Companies</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-slate-600">
-                      {allCompaniesOwnershipCounts.totalCount.toLocaleString()} matches
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowAllCompaniesColumnsModal((v) => !v)}
-                      aria-pressed={showAllCompaniesColumnsModal}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border rounded-md transition-colors duration-150 ${
-                        showAllCompaniesColumnsModal
-                          ? "border-slate-900 bg-slate-900 text-white"
-                          : "border-slate-300 text-slate-700 bg-white hover:bg-slate-50"
-                      }`}
-                    >
-                      <svg width="14" height="10" viewBox="0 0 14 10" fill="none" aria-hidden="true">
-                        <path d="M0 1h14M0 5h10M0 9h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
-                      Columns {allCompaniesColumnsCount}/{ALL_COMPANY_COLUMN_KEYS.length}
-                    </button>
-                    <button
-                      onClick={handleExportAllCompanies}
-                      disabled={allExporting}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border rounded-md transition-colors duration-150 border-slate-300 text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
-                      </svg>
-                      {allExporting ? "Exporting…" : "Export CSV"}
-                    </button>
+                  <div className="text-sm text-slate-600">
+                    {allCompaniesPagination.itemsReceived.toLocaleString()}{" "}
+                    total
                   </div>
                 </div>
               </div>
-              <div className="px-5 pt-2 pb-1">
-                <CompaniesSearchDashboard
-                  key={`${sectorId}-${ownershipFilter ?? "all"}`}
-                  embedded
-                  forcedPrimarySectorIds={forcedPrimarySectorIds}
-                  initialOwnershipTab={initialAllCompaniesOwnershipTab}
-                  ownershipCounts={allCompaniesOwnershipCounts}
-                  onSearch={handleAllCompaniesSearch}
-                />
-              </div>
               <div className="px-5 py-4">
-                <CompaniesDataTable
-                  companies={allCompanies as CompanyRow[]}
-                  loading={allCompaniesLoading}
-                  error={allCompaniesError}
-                  columnStorageKey={SECTOR_ALL_COMPANIES_COLUMNS_STORAGE_KEY}
-                  defaultColumnKeys={DEFAULT_SECTOR_ALL_COMPANY_COLUMN_KEYS}
-                  onApiColumnsChange={handleAllCompaniesApiColumnsChange}
-                  onRefetch={refetchAllCompaniesFirstPage}
-                  onSortChange={handleAllCompaniesSortChange}
-                  syncSortFromFilters={{
-                    sort_column: allCompaniesCurrentFilters?.sort_column,
-                    sort_direction: allCompaniesCurrentFilters?.sort_direction,
-                  }}
-                  externalShowColumnsModal={showAllCompaniesColumnsModal}
-                  externalSetShowColumnsModal={setShowAllCompaniesColumnsModal}
-                  onColumnsCountChange={setAllCompaniesColumnsCount}
-                  hideSelection
-                  emptyMessage="No companies found for this sector."
-                />
+                {ownershipFilter && (
+                  <div className="px-3 py-2 mb-3 bg-blue-50 rounded border border-blue-200">
+                    <span className="text-sm text-blue-900">
+                      Viewing a pre-filtered list:{" "}
+                      <strong>
+                        {ownershipFilter === "public"
+                          ? "Public Companies"
+                          : ownershipFilter === "private_equity_owned"
+                          ? "Private Equity Owned"
+                          : ownershipFilter === "venture_capital_backed"
+                          ? "Venture Capital Backed"
+                          : "Private Companies"}
+                      </strong>
+                    </span>
+                    <button
+                      onClick={() => {
+                        try {
+                          if (typeof window !== "undefined") {
+                            const url = new URL(window.location.href);
+                            url.searchParams.delete("ownership");
+                            url.searchParams.set("tab", "all");
+                            window.history.replaceState({}, "", url.toString());
+                          }
+                        } finally {
+                          setOwnershipFilter(null);
+                          fetchAllCompaniesForSector(1);
+                        }
+                      }}
+                      className="ml-3 text-sm font-semibold text-blue-700 underline hover:text-blue-900"
+                    >
+                      Clear filter
+                    </button>
+                  </div>
+                )}
+                <div className="p-4 mb-3 bg-white rounded-xl border shadow-lg border-slate-200/60">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-base font-semibold text-slate-900">
+                      Filters
+                    </h3>
+                    <button
+                      onClick={() => setAllShowFilters(!allShowFilters)}
+                      className="text-sm text-blue-600 underline"
+                    >
+                      {allShowFilters ? "Hide Filters" : "Show Filters"}
+                    </button>
+                  </div>
+                  {allShowFilters && (
+                    <div className="grid grid-cols-1 gap-6 mt-4 md:grid-cols-3">
+                      <div>
+                        <h4 className="mb-3 text-sm font-semibold text-slate-900">
+                          Location
+                        </h4>
+                        <span className="block mb-1 text-sm text-slate-700">
+                          By Continental Region
+                        </span>
+                        <SearchableSelect
+                          options={allContinentalRegions.map((r) => ({
+                            value: r,
+                            label: r,
+                          }))}
+                          value=""
+                          onChange={(v) => {
+                            if (
+                              typeof v === "string" &&
+                              v &&
+                              !selContinentalRegions.includes(v)
+                            ) {
+                              setSelContinentalRegions([
+                                ...selContinentalRegions,
+                                v,
+                              ]);
+                            }
+                          }}
+                          placeholder="Select Continental Region"
+                        />
+                        {selContinentalRegions.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {selContinentalRegions.map((r) => (
+                              <span
+                                key={r}
+                                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
+                              >
+                                {r}
+                                <button
+                                  onClick={() =>
+                                    setSelContinentalRegions(
+                                      selContinentalRegions.filter(
+                                        (x) => x !== r
+                                      )
+                                    )
+                                  }
+                                  className="font-bold"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <span className="block mt-3 mb-1 text-sm text-slate-700">
+                          By Sub-Region
+                        </span>
+                        <SearchableSelect
+                          options={allSubRegions.map((r) => ({
+                            value: r,
+                            label: r,
+                          }))}
+                          value=""
+                          onChange={(v) => {
+                            if (
+                              typeof v === "string" &&
+                              v &&
+                              !selSubRegions.includes(v)
+                            ) {
+                              setSelSubRegions([...selSubRegions, v]);
+                            }
+                          }}
+                          placeholder="Select Sub-Region"
+                        />
+                        {selSubRegions.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {selSubRegions.map((r) => (
+                              <span
+                                key={r}
+                                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
+                              >
+                                {r}
+                                <button
+                                  onClick={() =>
+                                    setSelSubRegions(
+                                      selSubRegions.filter((x) => x !== r)
+                                    )
+                                  }
+                                  className="font-bold"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <span className="block mt-3 mb-1 text-sm text-slate-700">
+                          By Country
+                        </span>
+                        <SearchableSelect
+                          options={allCountries.map((c) => ({
+                            value: c.locations_Country,
+                            label: c.locations_Country,
+                          }))}
+                          value=""
+                          onChange={(v) => {
+                            if (
+                              typeof v === "string" &&
+                              v &&
+                              !selCountries.includes(v)
+                            ) {
+                              setSelCountries([...selCountries, v]);
+                            }
+                          }}
+                          placeholder={
+                            loadingAllCountries
+                              ? "Loading countries..."
+                              : "Select Country"
+                          }
+                          disabled={loadingAllCountries}
+                        />
+                        {selCountries.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {selCountries.map((r) => (
+                              <span
+                                key={r}
+                                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
+                              >
+                                {r}
+                                <button
+                                  onClick={() =>
+                                    setSelCountries(
+                                      selCountries.filter((x) => x !== r)
+                                    )
+                                  }
+                                  className="font-bold"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <span className="block mt-3 mb-1 text-sm text-slate-700">
+                          By State/County/Province
+                        </span>
+                        <SearchableSelect
+                          options={allProvinces.map((p) => ({
+                            value: p.State__Province__County,
+                            label: p.State__Province__County,
+                          }))}
+                          value=""
+                          onChange={(v) => {
+                            if (
+                              typeof v === "string" &&
+                              v &&
+                              !selProvinces.includes(v)
+                            ) {
+                              setSelProvinces([...selProvinces, v]);
+                            }
+                          }}
+                          placeholder={
+                            loadingAllProvinces
+                              ? "Loading provinces..."
+                              : selCountries.length === 0
+                              ? "Select country first"
+                              : "Select Province"
+                          }
+                          disabled={
+                            loadingAllProvinces || selCountries.length === 0
+                          }
+                        />
+                        {selProvinces.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {selProvinces.map((r) => (
+                              <span
+                                key={r}
+                                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-green-700 bg-green-50 rounded"
+                              >
+                                {r}
+                                <button
+                                  onClick={() =>
+                                    setSelProvinces(
+                                      selProvinces.filter((x) => x !== r)
+                                    )
+                                  }
+                                  className="font-bold"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <span className="block mt-3 mb-1 text-sm text-slate-700">
+                          By City
+                        </span>
+                        <SearchableSelect
+                          options={allCities.map((c) => ({
+                            value: c.City,
+                            label: c.City,
+                          }))}
+                          value=""
+                          onChange={(v) => {
+                            if (
+                              typeof v === "string" &&
+                              v &&
+                              !selCities.includes(v)
+                            ) {
+                              setSelCities([...selCities, v]);
+                            }
+                          }}
+                          placeholder={
+                            loadingAllCities
+                              ? "Loading cities..."
+                              : selCountries.length === 0
+                              ? "Select country first"
+                              : "Select City"
+                          }
+                          disabled={
+                            loadingAllCities || selCountries.length === 0
+                          }
+                        />
+                        {selCities.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {selCities.map((r) => (
+                              <span
+                                key={r}
+                                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-orange-700 bg-orange-50 rounded"
+                              >
+                                {r}
+                                <button
+                                  onClick={() =>
+                                    setSelCities(
+                                      selCities.filter((x) => x !== r)
+                                    )
+                                  }
+                                  className="font-bold"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="mb-3 text-sm font-semibold text-slate-900">
+                          Sectors
+                        </h4>
+                        <span className="block mb-1 text-sm text-slate-700">
+                          By Secondary Sectors
+                        </span>
+                        <SearchableSelect
+                          options={allSecondarySectors.map((s) => ({
+                            value: s.id,
+                            label: s.sector_name,
+                          }))}
+                          value=""
+                          onChange={(v) => {
+                            if (
+                              typeof v === "number" &&
+                              v &&
+                              !selSecondarySectors.includes(v)
+                            ) {
+                              setSelSecondarySectors([
+                                ...selSecondarySectors,
+                                v,
+                              ]);
+                            }
+                          }}
+                          placeholder={
+                            loadingAllSecondarySectors
+                              ? "Loading sectors..."
+                              : "Select Secondary Sector"
+                          }
+                          disabled={loadingAllSecondarySectors}
+                        />
+                        {selSecondarySectors.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {selSecondarySectors.map((id) => {
+                              const s = allSecondarySectors.find(
+                                (x) => x.id === id
+                              );
+                              return (
+                                <span
+                                  key={id}
+                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-green-700 bg-green-50 rounded"
+                                >
+                                  {s?.sector_name || `Sector ${id}`}
+                                  <button
+                                    onClick={() =>
+                                      setSelSecondarySectors(
+                                        selSecondarySectors.filter(
+                                          (x) => x !== id
+                                        )
+                                      )
+                                    }
+                                    className="font-bold"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <span className="block mt-3 mb-1 text-sm text-slate-700">
+                          Hybrid Business Focus
+                        </span>
+                        <SearchableSelect
+                          options={allHybridBusinessFocuses.map((f) => ({
+                            value: f.id,
+                            label: f.business_focus,
+                          }))}
+                          value=""
+                          onChange={(v) => {
+                            if (
+                              typeof v === "number" &&
+                              v &&
+                              !selHybridBusinessFocuses.includes(v)
+                            ) {
+                              setSelHybridBusinessFocuses([
+                                ...selHybridBusinessFocuses,
+                                v,
+                              ]);
+                            }
+                          }}
+                          placeholder={
+                            loadingAllHybridFocus
+                              ? "Loading business focuses..."
+                              : "Select Business Focus"
+                          }
+                          disabled={loadingAllHybridFocus}
+                        />
+                        {selHybridBusinessFocuses.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {selHybridBusinessFocuses.map((id) => {
+                              const f = allHybridBusinessFocuses.find(
+                                (x) => x.id === id
+                              );
+                              return (
+                                <span
+                                  key={id}
+                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-amber-700 bg-amber-50 rounded"
+                                >
+                                  {f?.business_focus || `Focus ${id}`}
+                                  <button
+                                    onClick={() =>
+                                      setSelHybridBusinessFocuses(
+                                        selHybridBusinessFocuses.filter(
+                                          (x) => x !== id
+                                        )
+                                      )
+                                    }
+                                    className="font-bold"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="mb-3 text-sm font-semibold text-slate-900">
+                          Company Details
+                        </h4>
+                        <span className="block mb-1 text-sm text-slate-700">
+                          By Ownership Type
+                        </span>
+                        <SearchableSelect
+                          options={allOwnershipTypes.map((o) => ({
+                            value: o.id,
+                            label: o.ownership,
+                          }))}
+                          value=""
+                          onChange={(v) => {
+                            if (
+                              typeof v === "number" &&
+                              v &&
+                              !selOwnershipTypes.includes(v)
+                            ) {
+                              setSelOwnershipTypes([...selOwnershipTypes, v]);
+                            }
+                          }}
+                          placeholder={
+                            loadingAllOwnershipTypes
+                              ? "Loading ownership types..."
+                              : "Select Ownership Type"
+                          }
+                          disabled={loadingAllOwnershipTypes}
+                        />
+                        {selOwnershipTypes.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {selOwnershipTypes.map((id) => {
+                              const o = allOwnershipTypes.find(
+                                (x) => x.id === id
+                              );
+                              return (
+                                <span
+                                  key={id}
+                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-purple-700 bg-purple-50 rounded"
+                                >
+                                  {o?.ownership || `Ownership ${id}`}
+                                  <button
+                                    onClick={() =>
+                                      setSelOwnershipTypes(
+                                        selOwnershipTypes.filter(
+                                          (x) => x !== id
+                                        )
+                                      )
+                                    }
+                                    className="font-bold"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <span className="block mt-3 mb-1 text-sm text-slate-700">
+                          LinkedIn Members Range
+                        </span>
+                        <div className="flex gap-3">
+                          <input
+                            type="number"
+                            className="px-3 py-2 w-full text-sm rounded border"
+                            placeholder="Min"
+                            value={selLinkedinMin ?? ""}
+                            onChange={(e) =>
+                              setSelLinkedinMin(
+                                e.target.value ? Number(e.target.value) : null
+                              )
+                            }
+                          />
+                          <input
+                            type="number"
+                            className="px-3 py-2 w-full text-sm rounded border"
+                            placeholder="Max"
+                            value={selLinkedinMax ?? ""}
+                            onChange={(e) =>
+                              setSelLinkedinMax(
+                                e.target.value ? Number(e.target.value) : null
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="mt-4">
+                    <h4 className="mb-2 text-sm font-semibold text-slate-900">
+                      Search for Company
+                    </h4>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="text"
+                        className="px-3 py-2 w-full max-w-md text-sm rounded border"
+                        placeholder="Enter company name here"
+                        value={allSearchTerm}
+                        onChange={(e) => setAllSearchTerm(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            const f: AllCompaniesFilters = {
+                              countries: selCountries,
+                              provinces: selProvinces,
+                              cities: selCities,
+                              continentalRegions: selContinentalRegions,
+                              subRegions: selSubRegions,
+                              secondarySectors: selSecondarySectors,
+                              hybridBusinessFocuses: selHybridBusinessFocuses,
+                              ownershipTypes: selOwnershipTypes,
+                              linkedinMembersMin: selLinkedinMin,
+                              linkedinMembersMax: selLinkedinMax,
+                              searchQuery: allSearchTerm,
+                            };
+                            fetchAllCompaniesForSector(1, f);
+                          }
+                        }}
+                      />
+                      <button
+                        className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded hover:bg-blue-700"
+                        onClick={() => {
+                          const f: AllCompaniesFilters = {
+                            countries: selCountries,
+                            provinces: selProvinces,
+                            cities: selCities,
+                            continentalRegions: selContinentalRegions,
+                            subRegions: selSubRegions,
+                            secondarySectors: selSecondarySectors,
+                            hybridBusinessFocuses: selHybridBusinessFocuses,
+                            ownershipTypes: selOwnershipTypes,
+                            linkedinMembersMin: selLinkedinMin,
+                            linkedinMembersMax: selLinkedinMax,
+                            searchQuery: allSearchTerm,
+                          };
+                          fetchAllCompaniesForSector(1, f);
+                        }}
+                      >
+                        Search
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                {allCompaniesLoading ? (
+                  <div className="py-10 text-center text-slate-500">
+                    Loading companies...
+                  </div>
+                ) : allCompaniesError ? (
+                  <div className="py-4 text-center text-red-600">
+                    {allCompaniesError}
+                  </div>
+                ) : allCompanies.length === 0 ? (
+                  <div className="py-10 text-center text-slate-500">
+                    No companies found for this sector.
+                  </div>
+                ) : (
+                  <div className="overflow-x-hidden">
+                    <table className="w-full text-sm table-fixed">
+                      <thead className="bg-slate-50/80">
+                        <tr className="hover:bg-slate-50/80">
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[8%]">
+                            Logo
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[17%]">
+                            Name
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[20%]">
+                            Description
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[16%]">
+                            Primary Sector(s)
+                          </th>
+                          <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
+                            Sub-Sector(s)
+                          </th>
+                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[7%]">
+                            LinkedIn Members
+                          </th>
+                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[7%]">
+                            Country
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(ownershipFilter &&
+                        !ownershipTypeIds[
+                          ownershipFilter
+                            .replace(/_/g, " ")
+                            .replace(
+                              "venture capital backed",
+                              "venture capital"
+                            )
+                            .replace("private equity owned", "private equity")
+                            .trim()
+                        ]
+                          ? allCompanies.filter((c) => {
+                              const own = (c.ownership || "").toLowerCase();
+                              if (ownershipFilter === "public")
+                                return own.includes("public");
+                              if (ownershipFilter === "private_equity_owned")
+                                return own.includes("private equity");
+                              if (ownershipFilter === "venture_capital_backed")
+                                return own.includes("venture");
+                              if (ownershipFilter === "private")
+                                return (
+                                  !own.includes("public") &&
+                                  !own.includes("private equity") &&
+                                  !own.includes("venture")
+                                );
+                              return true;
+                            })
+                          : allCompanies
+                        ).map((c) => {
+                          const primaryDisplay = Array.isArray(
+                            c.primary_sectors
+                          )
+                            ? c.primary_sectors
+                            : [];
+                          const expanded = !!allExpandedDescriptions[c.id];
+                          return (
+                            <tr key={c.id} className="hover:bg-slate-50/50">
+                              <td className="py-3 pr-4">
+                                {c.linkedin_logo ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={`data:image/jpeg;base64,${c.linkedin_logo}`}
+                                    alt={`${c.name} logo`}
+                                    className="object-contain w-12 h-8 rounded"
+                                    onError={(e) => {
+                                      (
+                                        e.target as HTMLImageElement
+                                      ).style.display = "none";
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="flex justify-center items-center w-12 h-8 text-[10px] text-slate-500 bg-slate-100 rounded">
+                                    No Logo
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-3 pr-4 align-middle whitespace-normal break-words">
+                                <a
+                                  href={`/company/${c.id}`}
+                                  className="font-medium text-blue-600 underline"
+                                >
+                                  {c.name}
+                                </a>
+                              </td>
+                              <td className="py-3 pr-4 align-top whitespace-normal break-words text-slate-700">
+                                {c.description ? (
+                                  <>
+                                    <div
+                                      style={
+                                        expanded
+                                          ? {}
+                                          : {
+                                              display: "-webkit-box",
+                                              WebkitLineClamp: 4,
+                                              WebkitBoxOrient: "vertical",
+                                              overflow: "hidden",
+                                              textOverflow: "ellipsis",
+                                              minHeight: "5rem",
+                                            }
+                                      }
+                                    >
+                                      {c.description}
+                                    </div>
+                                    {c.description.length > 160 && (
+                                      <button
+                                        className="mt-1 text-xs text-blue-600 underline hover:text-blue-800"
+                                        onClick={() =>
+                                          setAllExpandedDescriptions(
+                                            (prev) => ({
+                                              ...prev,
+                                              [c.id]: !expanded,
+                                            })
+                                          )
+                                        }
+                                      >
+                                        {expanded ? "Read Less" : "Read More"}
+                                      </button>
+                                    )}
+                                  </>
+                                ) : (
+                                  "N/A"
+                                )}
+                              </td>
+                              <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
+                                {primaryDisplay.length > 0
+                                  ? primaryDisplay.join(", ")
+                                  : "N/A"}
+                              </td>
+                              <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
+                                {Array.isArray(c.secondary_sectors) &&
+                                c.secondary_sectors.length > 0
+                                  ? c.secondary_sectors.join(", ")
+                                  : "N/A"}
+                              </td>
+                              <td className="py-3 pr-4 text-center text-slate-700">
+                                {typeof c.linkedin_members === "number"
+                                  ? c.linkedin_members.toLocaleString()
+                                  : "0"}
+                              </td>
+                              <td className="py-3 pr-4 text-center text-slate-700">
+                                {c.country || "N/A"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
+              {/* All Companies Filters (same as Companies search, minus Primary Sectors) */}
+              {false && (
+                <div className="px-5 pb-2">
+                  <div className="p-4 bg-white rounded-xl border shadow-lg border-slate-200/60">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-base font-semibold text-slate-900">
+                        Filters
+                      </h3>
+                      <button
+                        onClick={() => setAllShowFilters(!allShowFilters)}
+                        className="text-sm text-blue-600 underline"
+                      >
+                        {allShowFilters ? "Hide Filters" : "Show Filters"}
+                      </button>
+                    </div>
+                    {allShowFilters && (
+                      <div className="grid grid-cols-1 gap-6 mt-4 md:grid-cols-3">
+                        {/* Location */}
+                        <div>
+                          <h4 className="mb-3 text-sm font-semibold text-slate-900">
+                            Location
+                          </h4>
+                          <span className="block mb-1 text-sm text-slate-700">
+                            By Continental Region
+                          </span>
+                          <SearchableSelect
+                            options={allContinentalRegions.map((r) => ({
+                              value: r,
+                              label: r,
+                            }))}
+                            value=""
+                            onChange={(v) => {
+                              if (
+                                typeof v === "string" &&
+                                v &&
+                                !selContinentalRegions.includes(v)
+                              ) {
+                                setSelContinentalRegions([
+                                  ...selContinentalRegions,
+                                  v,
+                                ]);
+                              }
+                            }}
+                            placeholder="Select Continental Region"
+                          />
+                          {selContinentalRegions.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {selContinentalRegions.map((r) => (
+                                <span
+                                  key={r}
+                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
+                                >
+                                  {r}
+                                  <button
+                                    onClick={() =>
+                                      setSelContinentalRegions(
+                                        selContinentalRegions.filter(
+                                          (x) => x !== r
+                                        )
+                                      )
+                                    }
+                                    className="font-bold"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          <span className="block mt-3 mb-1 text-sm text-slate-700">
+                            By Sub-Region
+                          </span>
+                          <SearchableSelect
+                            options={allSubRegions.map((r) => ({
+                              value: r,
+                              label: r,
+                            }))}
+                            value=""
+                            onChange={(v) => {
+                              if (
+                                typeof v === "string" &&
+                                v &&
+                                !selSubRegions.includes(v)
+                              ) {
+                                setSelSubRegions([...selSubRegions, v]);
+                              }
+                            }}
+                            placeholder="Select Sub-Region"
+                          />
+                          {selSubRegions.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {selSubRegions.map((r) => (
+                                <span
+                                  key={r}
+                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
+                                >
+                                  {r}
+                                  <button
+                                    onClick={() =>
+                                      setSelSubRegions(
+                                        selSubRegions.filter((x) => x !== r)
+                                      )
+                                    }
+                                    className="font-bold"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          <span className="block mt-3 mb-1 text-sm text-slate-700">
+                            By Country
+                          </span>
+                          <SearchableSelect
+                            options={allCountries.map((c) => ({
+                              value: c.locations_Country,
+                              label: c.locations_Country,
+                            }))}
+                            value=""
+                            onChange={(v) => {
+                              if (
+                                typeof v === "string" &&
+                                v &&
+                                !selCountries.includes(v)
+                              ) {
+                                setSelCountries([...selCountries, v]);
+                              }
+                            }}
+                            placeholder={
+                              loadingAllCountries
+                                ? "Loading countries..."
+                                : "Select Country"
+                            }
+                            disabled={loadingAllCountries}
+                          />
+                          {selCountries.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {selCountries.map((r) => (
+                                <span
+                                  key={r}
+                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
+                                >
+                                  {r}
+                                  <button
+                                    onClick={() =>
+                                      setSelCountries(
+                                        selCountries.filter((x) => x !== r)
+                                      )
+                                    }
+                                    className="font-bold"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          <span className="block mt-3 mb-1 text-sm text-slate-700">
+                            By State/County/Province
+                          </span>
+                          <SearchableSelect
+                            options={allProvinces.map((p) => ({
+                              value: p.State__Province__County,
+                              label: p.State__Province__County,
+                            }))}
+                            value=""
+                            onChange={(v) => {
+                              if (
+                                typeof v === "string" &&
+                                v &&
+                                !selProvinces.includes(v)
+                              ) {
+                                setSelProvinces([...selProvinces, v]);
+                              }
+                            }}
+                            placeholder={
+                              loadingAllProvinces
+                                ? "Loading provinces..."
+                                : selCountries.length === 0
+                                ? "Select country first"
+                                : "Select Province"
+                            }
+                            disabled={
+                              loadingAllProvinces || selCountries.length === 0
+                            }
+                          />
+                          {selProvinces.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {selProvinces.map((r) => (
+                                <span
+                                  key={r}
+                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-green-700 bg-green-50 rounded"
+                                >
+                                  {r}
+                                  <button
+                                    onClick={() =>
+                                      setSelProvinces(
+                                        selProvinces.filter((x) => x !== r)
+                                      )
+                                    }
+                                    className="font-bold"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          <span className="block mt-3 mb-1 text-sm text-slate-700">
+                            By City
+                          </span>
+                          <SearchableSelect
+                            options={allCities.map((c) => ({
+                              value: c.City,
+                              label: c.City,
+                            }))}
+                            value=""
+                            onChange={(v) => {
+                              if (
+                                typeof v === "string" &&
+                                v &&
+                                !selCities.includes(v)
+                              ) {
+                                setSelCities([...selCities, v]);
+                              }
+                            }}
+                            placeholder={
+                              loadingAllCities
+                                ? "Loading cities..."
+                                : selCountries.length === 0
+                                ? "Select country first"
+                                : "Select City"
+                            }
+                            disabled={
+                              loadingAllCities || selCountries.length === 0
+                            }
+                          />
+                          {selCities.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {selCities.map((r) => (
+                                <span
+                                  key={r}
+                                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-orange-700 bg-orange-50 rounded"
+                                >
+                                  {r}
+                                  <button
+                                    onClick={() =>
+                                      setSelCities(
+                                        selCities.filter((x) => x !== r)
+                                      )
+                                    }
+                                    className="font-bold"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Sectors */}
+                        <div>
+                          <h4 className="mb-3 text-sm font-semibold text-slate-900">
+                            Sectors
+                          </h4>
+                          <span className="block mb-1 text-sm text-slate-700">
+                            By Secondary Sectors
+                          </span>
+                          <SearchableSelect
+                            options={allSecondarySectors.map((s) => ({
+                              value: s.id,
+                              label: s.sector_name,
+                            }))}
+                            value=""
+                            onChange={(v) => {
+                              if (
+                                typeof v === "number" &&
+                                v &&
+                                !selSecondarySectors.includes(v)
+                              ) {
+                                setSelSecondarySectors([
+                                  ...selSecondarySectors,
+                                  v,
+                                ]);
+                              }
+                            }}
+                            placeholder={
+                              loadingAllSecondarySectors
+                                ? "Loading sectors..."
+                                : "Select Secondary Sector"
+                            }
+                            disabled={loadingAllSecondarySectors}
+                          />
+                          {selSecondarySectors.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {selSecondarySectors.map((id) => {
+                                const s = allSecondarySectors.find(
+                                  (x) => x.id === id
+                                );
+                                return (
+                                  <span
+                                    key={id}
+                                    className="inline-flex gap-1 items-center px-2 py-1 text-xs text-green-700 bg-green-50 rounded"
+                                  >
+                                    {s?.sector_name || `Sector ${id}`}
+                                    <button
+                                      onClick={() =>
+                                        setSelSecondarySectors(
+                                          selSecondarySectors.filter(
+                                            (x) => x !== id
+                                          )
+                                        )
+                                      }
+                                      className="font-bold"
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          <span className="block mt-3 mb-1 text-sm text-slate-700">
+                            Hybrid Business Focus
+                          </span>
+                          <SearchableSelect
+                            options={allHybridBusinessFocuses.map((f) => ({
+                              value: f.id,
+                              label: f.business_focus,
+                            }))}
+                            value=""
+                            onChange={(v) => {
+                              if (
+                                typeof v === "number" &&
+                                v &&
+                                !selHybridBusinessFocuses.includes(v)
+                              ) {
+                                setSelHybridBusinessFocuses([
+                                  ...selHybridBusinessFocuses,
+                                  v,
+                                ]);
+                              }
+                            }}
+                            placeholder={
+                              loadingAllHybridFocus
+                                ? "Loading business focuses..."
+                                : "Select Business Focus"
+                            }
+                            disabled={loadingAllHybridFocus}
+                          />
+                          {selHybridBusinessFocuses.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {selHybridBusinessFocuses.map((id) => {
+                                const f = allHybridBusinessFocuses.find(
+                                  (x) => x.id === id
+                                );
+                                return (
+                                  <span
+                                    key={id}
+                                    className="inline-flex gap-1 items-center px-2 py-1 text-xs text-amber-700 bg-amber-50 rounded"
+                                  >
+                                    {f?.business_focus || `Focus ${id}`}
+                                    <button
+                                      onClick={() =>
+                                        setSelHybridBusinessFocuses(
+                                          selHybridBusinessFocuses.filter(
+                                            (x) => x !== id
+                                          )
+                                        )
+                                      }
+                                      className="font-bold"
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Company Details */}
+                        <div>
+                          <h4 className="mb-3 text-sm font-semibold text-slate-900">
+                            Company Details
+                          </h4>
+                          <span className="block mb-1 text-sm text-slate-700">
+                            By Ownership Type
+                          </span>
+                          <SearchableSelect
+                            options={allOwnershipTypes.map((o) => ({
+                              value: o.id,
+                              label: o.ownership,
+                            }))}
+                            value=""
+                            onChange={(v) => {
+                              if (
+                                typeof v === "number" &&
+                                v &&
+                                !selOwnershipTypes.includes(v)
+                              ) {
+                                setSelOwnershipTypes([...selOwnershipTypes, v]);
+                              }
+                            }}
+                            placeholder={
+                              loadingAllOwnershipTypes
+                                ? "Loading ownership types..."
+                                : "Select Ownership Type"
+                            }
+                            disabled={loadingAllOwnershipTypes}
+                          />
+                          {selOwnershipTypes.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {selOwnershipTypes.map((id) => {
+                                const o = allOwnershipTypes.find(
+                                  (x) => x.id === id
+                                );
+                                return (
+                                  <span
+                                    key={id}
+                                    className="inline-flex gap-1 items-center px-2 py-1 text-xs text-purple-700 bg-purple-50 rounded"
+                                  >
+                                    {o?.ownership || `Ownership ${id}`}
+                                    <button
+                                      onClick={() =>
+                                        setSelOwnershipTypes(
+                                          selOwnershipTypes.filter(
+                                            (x) => x !== id
+                                          )
+                                        )
+                                      }
+                                      className="font-bold"
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          <span className="block mt-3 mb-1 text-sm text-slate-700">
+                            LinkedIn Members Range
+                          </span>
+                          <div className="flex gap-3">
+                            <input
+                              type="number"
+                              className="px-3 py-2 w-full text-sm rounded border"
+                              placeholder="Min"
+                              value={selLinkedinMin ?? ""}
+                              onChange={(e) =>
+                                setSelLinkedinMin(
+                                  e.target.value ? Number(e.target.value) : null
+                                )
+                              }
+                            />
+                            <input
+                              type="number"
+                              className="px-3 py-2 w-full text-sm rounded border"
+                              placeholder="Max"
+                              value={selLinkedinMax ?? ""}
+                              onChange={(e) =>
+                                setSelLinkedinMax(
+                                  e.target.value ? Number(e.target.value) : null
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Search */}
+                    <div className="mt-4">
+                      <h4 className="mb-2 text-sm font-semibold text-slate-900">
+                        Search for Company
+                      </h4>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <input
+                          type="text"
+                          className="px-3 py-2 w-full max-w-md text-sm rounded border"
+                          placeholder="Enter company name here"
+                          value={allSearchTerm}
+                          onChange={(e) => setAllSearchTerm(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              const f: AllCompaniesFilters = {
+                                countries: selCountries,
+                                provinces: selProvinces,
+                                cities: selCities,
+                                continentalRegions: selContinentalRegions,
+                                subRegions: selSubRegions,
+                                secondarySectors: selSecondarySectors,
+                                hybridBusinessFocuses: selHybridBusinessFocuses,
+                                ownershipTypes: selOwnershipTypes,
+                                linkedinMembersMin: selLinkedinMin,
+                                linkedinMembersMax: selLinkedinMax,
+                                searchQuery: allSearchTerm,
+                              };
+                              fetchAllCompaniesForSector(1, f);
+                            }
+                          }}
+                        />
+                        <button
+                          className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded hover:bg-blue-700"
+                          onClick={() => {
+                            const f: AllCompaniesFilters = {
+                              countries: selCountries,
+                              provinces: selProvinces,
+                              cities: selCities,
+                              continentalRegions: selContinentalRegions,
+                              subRegions: selSubRegions,
+                              secondarySectors: selSecondarySectors,
+                              hybridBusinessFocuses: selHybridBusinessFocuses,
+                              ownershipTypes: selOwnershipTypes,
+                              linkedinMembersMin: selLinkedinMin,
+                              linkedinMembersMax: selLinkedinMax,
+                              searchQuery: allSearchTerm,
+                            };
+                            fetchAllCompaniesForSector(1, f);
+                          }}
+                        >
+                          Search
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-            <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-              <CompactPagination
-                curPage={allCompaniesPagination.curPage}
-                pageTotal={allCompaniesPagination.pageTotal}
-                onPageChange={handleAllCompaniesPageChange}
-                disabled={allCompaniesLoading}
-              />
-            </div>
+            {allCompaniesPagination.pageTotal > 1 && (
+              <div className="flex gap-2 justify-center items-center">
+                <button
+                  disabled={!allCompaniesPagination.prevPage}
+                  onClick={() =>
+                    allCompaniesPagination.prevPage &&
+                    fetchAllCompaniesForSector(allCompaniesPagination.prevPage)
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  ← Previous
+                </button>
+                <span className="text-sm text-slate-600">
+                  Page {allCompaniesPagination.curPage} of{" "}
+                  {allCompaniesPagination.pageTotal}
+                </span>
+                <button
+                  disabled={!allCompaniesPagination.nextPage}
+                  onClick={() =>
+                    allCompaniesPagination.nextPage &&
+                    fetchAllCompaniesForSector(allCompaniesPagination.nextPage)
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
           </div>
         ) : activeTab === "public" ? (
           <div className="space-y-4">
@@ -6716,7 +6273,7 @@ const SectorDetailPage = ({
                             Primary Sector(s)
                           </th>
                           <th className="py-3 font-semibold text-left text-slate-700 w-[14%]">
-                            Secondary Sector(s)
+                            Sub-Sector(s)
                           </th>
                           <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[7%]">
                             LinkedIn Members
@@ -6728,10 +6285,11 @@ const SectorDetailPage = ({
                       </thead>
                       <tbody>
                         {publicCompanies.map((c) => {
-                          const primaryDisplay = parseSectorList(c.primary_sectors);
-                          const secondaryDisplay = parseSectorList(
-                            c.secondary_sectors
-                          );
+                          const primaryDisplay = Array.isArray(
+                            c.primary_sectors
+                          )
+                            ? c.primary_sectors
+                            : [];
                           const expanded = !!publicExpandedDescriptions[c.id];
                           return (
                             <tr key={c.id} className="hover:bg-slate-50/50">
@@ -6802,13 +6360,15 @@ const SectorDetailPage = ({
                                 )}
                               </td>
                               <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
-                                {renderSectorLinks(primaryDisplay, "/sector/")}
+                                {primaryDisplay.length > 0
+                                  ? primaryDisplay.join(", ")
+                                  : "N/A"}
                               </td>
                               <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
-                                {renderSectorLinks(
-                                  secondaryDisplay,
-                                  "/sub-sector/"
-                                )}
+                                {Array.isArray(c.secondary_sectors) &&
+                                c.secondary_sectors.length > 0
+                                  ? c.secondary_sectors.join(", ")
+                                  : "N/A"}
                               </td>
                               <td className="py-3 pr-4 text-center text-slate-700">
                                 {typeof c.linkedin_members === "number"
@@ -6827,14 +6387,38 @@ const SectorDetailPage = ({
                 )}
               </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-              <CompactPagination
-                curPage={publicCompaniesPagination.curPage}
-                pageTotal={publicCompaniesPagination.pageTotal}
-                onPageChange={handlePublicCompaniesPageChange}
-                disabled={publicCompaniesLoading}
-              />
-            </div>
+            {publicCompaniesPagination.pageTotal > 1 && (
+              <div className="flex gap-2 justify-center items-center">
+                <button
+                  disabled={!publicCompaniesPagination.prevPage}
+                  onClick={() =>
+                    publicCompaniesPagination.prevPage &&
+                    fetchPublicCompaniesForSector(
+                      publicCompaniesPagination.prevPage
+                    )
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  ← Previous
+                </button>
+                <span className="text-sm text-slate-600">
+                  Page {publicCompaniesPagination.curPage} of{" "}
+                  {publicCompaniesPagination.pageTotal}
+                </span>
+                <button
+                  disabled={!publicCompaniesPagination.nextPage}
+                  onClick={() =>
+                    publicCompaniesPagination.nextPage &&
+                    fetchPublicCompaniesForSector(
+                      publicCompaniesPagination.nextPage
+                    )
+                  }
+                  className="px-3 py-1.5 rounded-md text-sm border border-blue-600 text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
           </div>
         ) : activeTab === "subsectors" ? (
           <div className="space-y-4">
@@ -6853,7 +6437,7 @@ const SectorDetailPage = ({
                         <path d="M3 12h18M3 6h18M3 18h18" />
                       </svg>
                     </span>
-                    <span className="text-slate-900">Secondary Sectors</span>
+                    <span className="text-slate-900">Sub-Sectors</span>
                   </div>
                   <div className="text-sm text-slate-600">
                     {subSectors.length.toLocaleString()} total
@@ -6863,7 +6447,7 @@ const SectorDetailPage = ({
               <div className="px-5 py-4">
                 {subSectorsLoading ? (
                   <div className="py-10 text-center text-slate-500">
-                    Loading secondary sectors...
+                    Loading sub-sectors...
                   </div>
                 ) : subSectorsError ? (
                   <div className="py-4 text-center text-red-600">
@@ -6871,7 +6455,7 @@ const SectorDetailPage = ({
                   </div>
                 ) : subSectors.length === 0 ? (
                   <div className="py-10 text-center text-slate-500">
-                    No secondary sectors found.
+                    No sub-sectors found.
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -6890,19 +6474,6 @@ const SectorDetailPage = ({
               </div>
             </div>
           </div>
-        ) : activeTab === "most_active" ? (
-          <MostActiveTab
-            sectorId={sectorId}
-            sectorImportance={
-              sectorData?.Sector?.Sector_importance ||
-              toStringSafe(
-                (sectorData as unknown as { Sector_importance?: unknown })
-                  ?.Sector_importance
-              )
-            }
-            activeSubTab={mostActiveSubTab}
-            setActiveSubTab={setMostActiveSubTab}
-          />
         ) : activeTab === "transactions" ? (
           <SectorTransactionsTab sectorId={sectorId} />
         ) : activeTab === "insights" ? (
@@ -6920,12 +6491,6 @@ const SectorDetailPage = ({
           </div>
         )}
       </main>
-      <ExportLimitModal
-        isOpen={mmShowExportLimitModal}
-        onClose={() => setMmShowExportLimitModal(false)}
-        exportsLeft={mmExportsLeft}
-        totalExports={EXPORT_LIMIT}
-      />
       <Footer />
     </div>
   );
