@@ -64,6 +64,10 @@ export class ServerDashboardApiService {
     return response.json();
   }
 
+  async getSectorsOverview() {
+    return this.request("/sectors_overview");
+  }
+
   async getPrimarySectorsWithCompanyCounts() {
     return this.request("/Primary_sectors_with_companies_counts");
   }
@@ -81,7 +85,7 @@ export class ServerDashboardApiService {
 
   async getSectorMarketMap(sectorId: string) {
     const qs = new URLSearchParams();
-    qs.append('Sector_id', parseInt(sectorId, 10).toString());
+    qs.append('Sector_id', sectorId);
     return this.request(`/sectors_market_map?${qs.toString()}`, {
       next: { revalidate: 300 },
     });
@@ -89,7 +93,7 @@ export class ServerDashboardApiService {
 
   async getSectorStrategicAcquirers(sectorId: string) {
     const qs = new URLSearchParams();
-    qs.append('Sector_id', parseInt(sectorId, 10).toString());
+    qs.append('Sector_id', sectorId);
     return this.request(`/sectors_strategic_acquirers?${qs.toString()}`, {
       next: { revalidate: 300 },
     });
@@ -97,7 +101,7 @@ export class ServerDashboardApiService {
 
   async getSectorPEInvestors(sectorId: string) {
     const qs = new URLSearchParams();
-    qs.append('Sector_id', parseInt(sectorId, 10).toString());
+    qs.append('Sector_id', sectorId);
     return this.request(`/sectors_pe_investors?${qs.toString()}`, {
       next: { revalidate: 300 },
     });
@@ -105,18 +109,9 @@ export class ServerDashboardApiService {
 
   async getSectorRecentTransactions(sectorId: string) {
     const qs = new URLSearchParams();
-    qs.append('Sector_id', parseInt(sectorId, 10).toString());
+    qs.append('Sector_id', sectorId);
     qs.append('top_15', 'true');
     return this.request(`/sectors_resent_trasnactions?${qs.toString()}`, {
-      next: { revalidate: 300 },
-    });
-  }
-
-  // Overview data - contains strategic_acquirers and pe_investors (slowest endpoint ~3-6s)
-  async getSectorOverviewData(sectorId: string) {
-    const qs = new URLSearchParams();
-    qs.append('Sector_id', parseInt(sectorId, 10).toString());
-    return this.request<{ strategic_acquirers?: unknown; pe_investors?: unknown }>(`/overview_data?${qs.toString()}`, {
       next: { revalidate: 300 },
     });
   }
