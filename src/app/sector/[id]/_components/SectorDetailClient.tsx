@@ -632,6 +632,7 @@ function SectorThesisCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [showButton, setShowButton] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Handle both old (nested) and new (flat) API response formats
   const sectorName = 
@@ -641,8 +642,6 @@ function SectorThesisCard({
     (sectorData as { Sector_thesis?: string })?.Sector_thesis || // New flat format
     sectorData?.Sector?.Sector_thesis;    // Old nested format
 
-  // Some backends may HTML-encode tags (e.g. &lt;ul&gt;). Decode the most common entities
-  // so that lists and other HTML markup render correctly.
   const normalizedThesisHtml = useMemo(() => {
     if (!thesisHtml) return "";
     const looksEncoded =
@@ -655,7 +654,6 @@ function SectorThesisCard({
           .replace(/&amp;/g, "&")
       : thesisHtml;
     
-    // Debug: log if we have ul/li tags
     if (result.includes('<ul>') || result.includes('<li>')) {
       console.log('🧪 [Thesis] HTML contains ul/li tags, first 200 chars:', result.slice(0, 200));
     }
@@ -663,20 +661,22 @@ function SectorThesisCard({
     return result;
   }, [thesisHtml]);
 
-  // Check if content exceeds 10 lines (~17rem or 272px)
+  // Check if content exceeds container height
   useEffect(() => {
-    if (contentRef.current && thesisHtml) {
+    if (contentRef.current && containerRef.current && thesisHtml) {
       const contentHeight = contentRef.current.scrollHeight;
-      const lineHeight = 27; // approximate line height in pixels
-      const maxLines = 10;
-      const maxHeight = lineHeight * maxLines;
-      setShowButton(contentHeight > maxHeight);
+      const containerHeight = containerRef.current.clientHeight;
+      // Show button if content is taller than available container space
+      setShowButton(contentHeight > containerHeight - 48); // -48 for button height + margin
     }
   }, [thesisHtml]);
 
   return (
-    <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
-      <div className="px-5 py-4 border-b border-slate-100">
+    <div 
+      className="bg-white rounded-xl border shadow-lg border-slate-200/60 flex flex-col"
+      style={{ height: isExpanded ? 'auto' : '535px' }}
+    >
+      <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
         <div className="flex justify-between items-center">
           <div className="flex gap-3 items-center">
             <span className="inline-flex justify-center items-center w-8 h-8 bg-blue-50 rounded-lg">
@@ -699,25 +699,26 @@ function SectorThesisCard({
           )}
         </div>
       </div>
-      <div className="px-5 py-5">
+      <div 
+        ref={containerRef}
+        className="px-5 py-5 flex flex-col flex-1 overflow-hidden"
+      >
         {thesisHtml ? (
           <>
             <div
               ref={contentRef}
-              className="sector-thesis-content text-slate-700"
+              className="sector-thesis-content text-slate-700 flex-1"
               style={{
-                maxHeight: isExpanded ? 'none' : '270px',
-                overflow: 'hidden',
-                transition: 'max-height 0.3s ease',
                 fontSize: '14px',
                 lineHeight: '1.7',
+                overflow: isExpanded ? 'visible' : 'hidden',
               }}
               dangerouslySetInnerHTML={{ __html: normalizedThesisHtml }}
             />
             {showButton && (
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors self-start flex-shrink-0"
               >
                 {isExpanded ? 'See Less' : 'See More'}
               </button>
@@ -759,13 +760,21 @@ function SectorThesisCard({
             />
           </>
         ) : (
-          <div className="text-sm text-slate-500">Not available</div>
+          <div className="text-sm text-slate-600 space-y-2">
+            <p>
+              A detailed sector thesis is not yet available for
+              {sectorName ? ` the ${sectorName} sector.` : " this sector."}
+            </p>
+            <p>
+              You can still use the market map, recent transactions, and investor
+              activity on this page to understand how this space is evolving.
+            </p>
+          </div>
         )}
       </div>
     </div>
   );
 }
-
 function MostActiveTableCard({
   title,
   items,
@@ -1008,7 +1017,7 @@ function RecentTransactionsCard({
   };
 
   return (
-    <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
+    <div className="bg-white rounded-xl border shadow-lg border-slate-200/60" style={{ height: '535px' }}>
       <div className="px-5 py-4 border-b border-slate-100">
         <div className="flex gap-3 items-center text-xl">
           <span className="inline-flex justify-center items-center w-8 h-8 bg-orange-50 rounded-lg">
@@ -4940,32 +4949,36 @@ const SectorDetailPage = ({
 
         {activeTab === "overview" ? (
           <div className="space-y-8">
-            {/* Top Row */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              {sectorData ? (
-                <SectorThesisCard sectorData={sectorData} />
-              ) : (
-                <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
-                  <div className="h-6 bg-slate-200 rounded w-1/3 mb-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-4 bg-slate-200 rounded"></div>
-                    <div className="h-4 bg-slate-200 rounded"></div>
-                    <div className="h-4 bg-slate-200 rounded w-5/6"></div>
+            {/* Top Row - Changed from grid to flex */}
+            <div className="flex flex-col lg:flex-row gap-6">
+              <div className="lg:w-1/2">
+                {sectorData ? (
+                  <SectorThesisCard sectorData={sectorData} />
+                ) : (
+                  <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
+                    <div className="h-6 bg-slate-200 rounded w-1/3 mb-4"></div>
+                    <div className="space-y-2">
+                      <div className="h-4 bg-slate-200 rounded"></div>
+                      <div className="h-4 bg-slate-200 rounded"></div>
+                      <div className="h-4 bg-slate-200 rounded w-5/6"></div>
+                    </div>
                   </div>
-                </div>
-              )}
-              {recentTransactions.length > 0 ? (
-                <RecentTransactionsCard transactions={recentTransactions} />
-              ) : (
-                <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
-                  <div className="h-6 bg-slate-200 rounded w-1/2 mb-4"></div>
-                  <div className="space-y-3">
-                    <div className="h-16 bg-slate-200 rounded"></div>
-                    <div className="h-16 bg-slate-200 rounded"></div>
-                    <div className="h-16 bg-slate-200 rounded"></div>
+                )}
+              </div>
+              <div className="lg:w-1/2">
+                {recentTransactions.length > 0 ? (
+                  <RecentTransactionsCard transactions={recentTransactions} />
+                ) : (
+                  <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
+                    <div className="h-6 bg-slate-200 rounded w-1/2 mb-4"></div>
+                    <div className="space-y-3">
+                      <div className="h-16 bg-slate-200 rounded"></div>
+                      <div className="h-16 bg-slate-200 rounded"></div>
+                      <div className="h-16 bg-slate-200 rounded"></div>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Middle Row */}
