@@ -6,12 +6,12 @@ import Image from "next/image";
 import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { CorporateEventDealMetrics } from "@/components/corporate-events/CorporateEventDealMetrics";
 import { useIndividualProfile } from "../../../hooks/useIndividualProfile";
 import {
   formatIndividualLocation,
   formatDate,
   formatJobTitles,
-  formatCurrency,
   formatAdvisorsList,
 } from "../../../utils/individualHelpers";
 import {
@@ -267,7 +267,7 @@ export default function IndividualProfilePage() {
         </div>
 
         <div style={{ display: "flex", gap: "32px", flexWrap: "wrap" }}>
-          {/* Left Column - Overview */}
+          {/* Left Column - Overview & Corporate Events */}
           <div style={{ flex: "1", minWidth: "300px" }}>
             {/* Overview Section */}
             <div
@@ -331,211 +331,26 @@ export default function IndividualProfilePage() {
                     "Not available"
                   )}
                 </div>
+
+                {Individual.bio && (
+                  <div style={{ marginTop: "8px" }}>
+                    <h3
+                      style={{
+                        margin: "8px 0 8px",
+                        fontSize: "16px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Bio
+                    </h3>
+                    <div style={{ whiteSpace: "pre-wrap" }}>
+                      {Individual.bio}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Bio Section */}
-            {Individual.bio && (
-              <div
-                style={{
-                  backgroundColor: "white",
-                  padding: "24px",
-                  borderRadius: "8px",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                  marginBottom: "24px",
-                }}
-              >
-                <h2
-                  style={{
-                    margin: "0 0 16px 0",
-                    fontSize: "20px",
-                    fontWeight: "bold",
-                  }}
-                >
-                  Bio
-                </h2>
-                <div style={{ whiteSpace: "pre-wrap" }}>{Individual.bio}</div>
-              </div>
-            )}
-
-            {/* Roles Section */}
-            <div
-              style={{
-                backgroundColor: "white",
-                padding: "24px",
-                borderRadius: "8px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-              }}
-            >
-              <h2
-                style={{
-                  margin: "0 0 16px 0",
-                  fontSize: "20px",
-                  fontWeight: "bold",
-                }}
-              >
-                Roles
-              </h2>
-              {Roles && Roles.length > 0 ? (
-                <div style={{ overflowX: "auto" }}>
-                  <table
-                    style={{
-                      width: "100%",
-                      borderCollapse: "collapse",
-                      fontSize: "14px",
-                    }}
-                  >
-                    <thead>
-                      <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px",
-                            fontWeight: "bold",
-                            fontSize: "12px",
-                          }}
-                        >
-                          Logo
-                        </th>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px",
-                            fontWeight: "bold",
-                            fontSize: "12px",
-                          }}
-                        >
-                          Company
-                        </th>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px",
-                            fontWeight: "bold",
-                            fontSize: "12px",
-                          }}
-                        >
-                          Status
-                        </th>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px",
-                            fontWeight: "bold",
-                            fontSize: "12px",
-                          }}
-                        >
-                          Role
-                        </th>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "8px",
-                            fontWeight: "bold",
-                            fontSize: "12px",
-                          }}
-                        >
-                          URL
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Roles.map((role: IndividualRole, index: number) => (
-                        <tr
-                          key={index}
-                          style={{ borderBottom: "1px solid #f1f5f9" }}
-                        >
-                          <td style={{ padding: "8px", fontSize: "12px" }}>
-                            <CompanyLogo
-                              logo={
-                                role.new_company?._linkedin_data_of_new_company
-                                  ?.linkedin_logo || ""
-                              }
-                              name={role.new_company?.name || "—"}
-                            />
-                          </td>
-                          <td style={{ padding: "8px", fontSize: "12px" }}>
-                            {role.new_company?.id ? (
-                              <a
-                                href={`/company/${role.new_company.id}`}
-                                style={{
-                                  color: "#3b82f6",
-                                  textDecoration: "underline",
-                                }}
-                              >
-                                {role.new_company?.name}
-                              </a>
-                            ) : (
-                              <span style={{ color: "#6b7280" }}>
-                                {role.new_company?.name || "—"}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding: "8px", fontSize: "12px" }}>
-                            <span
-                              style={{
-                                padding: "2px 6px",
-                                borderRadius: "4px",
-                                fontSize: "10px",
-                                backgroundColor:
-                                  role.Status === "Current"
-                                    ? "#dcfce7"
-                                    : "#f3f4f6",
-                                color:
-                                  role.Status === "Current"
-                                    ? "#166534"
-                                    : "#374151",
-                              }}
-                            >
-                              {role.Status}
-                            </span>
-                          </td>
-                          <td style={{ padding: "8px", fontSize: "12px" }}>
-                            {formatJobTitles(role.job_titles_id)}
-                          </td>
-                          <td style={{ padding: "8px", fontSize: "12px" }}>
-                            {role.current_employer_url ? (
-                              <a
-                                href={role.current_employer_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{
-                                  color: "#3b82f6",
-                                  textDecoration: "none",
-                                  fontSize: "10px",
-                                }}
-                              >
-                                View Profile
-                              </a>
-                            ) : (
-                              <span
-                                style={{ color: "#6b7280", fontSize: "10px" }}
-                              >
-                                Not available
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    color: "#6b7280",
-                    textAlign: "center",
-                    padding: "20px",
-                  }}
-                >
-                  No roles available
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Column - Corporate Events & Related Individuals */}
-          <div style={{ flex: "1", minWidth: "300px" }}>
             {/* Corporate Events Section */}
             <div
               style={{
@@ -582,6 +397,7 @@ export default function IndividualProfilePage() {
                   <table
                     style={{
                       width: "100%",
+                      minWidth: "1100px",
                       borderCollapse: "collapse",
                       fontSize: "14px",
                     }}
@@ -714,14 +530,11 @@ export default function IndividualProfilePage() {
                               })()}
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
-                              {event.ev_data.enterprise_value_m &&
-                              event.ev_data._currency &&
-                              event.ev_data._currency.Currency
-                                ? formatCurrency(
-                                    event.ev_data.enterprise_value_m,
-                                    event.ev_data._currency.Currency
-                                  )
-                                : "—"}
+                              <CorporateEventDealMetrics
+                                dealType={event.deal_type}
+                                evMillions={event.ev_data?.enterprise_value_m}
+                                evCurrency={event.ev_data?._currency?.Currency}
+                              />
                             </td>
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               {(() => {
@@ -770,7 +583,10 @@ export default function IndividualProfilePage() {
                 </div>
               )}
             </div>
+          </div>
 
+          {/* Right Column - Related Individuals & Roles */}
+          <div style={{ flex: "1", minWidth: "300px" }}>
             {/* Related Individuals Section */}
             <div
               style={{
@@ -947,6 +763,181 @@ export default function IndividualProfilePage() {
                   }}
                 >
                   No related individuals available
+                </div>
+              )}
+            </div>
+            {/* Roles Section */}
+            <div
+              style={{
+                marginTop: "24px",
+                backgroundColor: "white",
+                padding: "24px",
+                borderRadius: "8px",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              }}
+            >
+              <h2
+                style={{
+                  margin: "0 0 16px 0",
+                  fontSize: "20px",
+                  fontWeight: "bold",
+                }}
+              >
+                Roles
+              </h2>
+              {Roles && Roles.length > 0 ? (
+                <div style={{ overflowX: "auto" }}>
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      fontSize: "14px",
+                    }}
+                  >
+                    <thead>
+                      <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
+                        <th
+                          style={{
+                            textAlign: "left",
+                            padding: "8px",
+                            fontWeight: "bold",
+                            fontSize: "12px",
+                          }}
+                        >
+                          Logo
+                        </th>
+                        <th
+                          style={{
+                            textAlign: "left",
+                            padding: "8px",
+                            fontWeight: "bold",
+                            fontSize: "12px",
+                          }}
+                        >
+                          Company
+                        </th>
+                        <th
+                          style={{
+                            textAlign: "left",
+                            padding: "8px",
+                            fontWeight: "bold",
+                            fontSize: "12px",
+                          }}
+                        >
+                          Status
+                        </th>
+                        <th
+                          style={{
+                            textAlign: "left",
+                            padding: "8px",
+                            fontWeight: "bold",
+                            fontSize: "12px",
+                          }}
+                        >
+                          Role
+                        </th>
+                        <th
+                          style={{
+                            textAlign: "left",
+                            padding: "8px",
+                            fontWeight: "bold",
+                            fontSize: "12px",
+                          }}
+                        >
+                          URL
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Roles.map((role: IndividualRole, index: number) => (
+                        <tr
+                          key={index}
+                          style={{ borderBottom: "1px solid #f1f5f9" }}
+                        >
+                          <td style={{ padding: "8px", fontSize: "12px" }}>
+                            <CompanyLogo
+                              logo={
+                                role.new_company?._linkedin_data_of_new_company
+                                  ?.linkedin_logo || ""
+                              }
+                              name={role.new_company?.name || "—"}
+                            />
+                          </td>
+                          <td style={{ padding: "8px", fontSize: "12px" }}>
+                            {role.new_company?.id ? (
+                              <a
+                                href={`/company/${role.new_company.id}`}
+                                style={{
+                                  color: "#3b82f6",
+                                  textDecoration: "underline",
+                                }}
+                              >
+                                {role.new_company?.name}
+                              </a>
+                            ) : (
+                              <span style={{ color: "#6b7280" }}>
+                                {role.new_company?.name || "—"}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: "8px", fontSize: "12px" }}>
+                            <span
+                              style={{
+                                padding: "2px 6px",
+                                borderRadius: "4px",
+                                fontSize: "10px",
+                                backgroundColor:
+                                  role.Status === "Current"
+                                    ? "#dcfce7"
+                                    : "#f3f4f6",
+                                color:
+                                  role.Status === "Current"
+                                    ? "#166534"
+                                    : "#374151",
+                              }}
+                            >
+                              {role.Status}
+                            </span>
+                          </td>
+                          <td style={{ padding: "8px", fontSize: "12px" }}>
+                            {formatJobTitles(role.job_titles_id)}
+                          </td>
+                          <td style={{ padding: "8px", fontSize: "12px" }}>
+                            {role.current_employer_url ? (
+                              <a
+                                href={role.current_employer_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  color: "#3b82f6",
+                                  textDecoration: "none",
+                                  fontSize: "10px",
+                                }}
+                              >
+                                View Profile
+                              </a>
+                            ) : (
+                              <span
+                                style={{ color: "#6b7280", fontSize: "10px" }}
+                              >
+                                Not available
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    color: "#6b7280",
+                    textAlign: "center",
+                    padding: "20px",
+                  }}
+                >
+                  No roles available
                 </div>
               )}
             </div>
