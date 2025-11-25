@@ -12,6 +12,7 @@ interface Sector {
   id: number;
   sector_name: string;
   Number_of_Companies: number;
+  Number_of_Sub_Sectors?: number;
   Number_of_PE: number;
   Number_of_VC: number;
   Number_of_Public: number;
@@ -21,6 +22,7 @@ interface Sector {
 type SortField =
   | "sector_name"
   | "Number_of_Companies"
+  | "Number_of_Sub_Sectors"
   | "Number_of_Public"
   | "Number_of_PE"
   | "Number_of_VC"
@@ -39,7 +41,7 @@ interface SectorsResponse {
   };
 }
 
-// Sector Card Component for mobile
+// Sector Card Component - larger boxes for primary sectors
 const SectorCard = ({
   sector,
   onClick,
@@ -47,7 +49,6 @@ const SectorCard = ({
   sector: Sector;
   onClick: () => void;
 }) => {
-  // Right-click handled via native anchors now
   const formatNumber = (num: number | undefined) => {
     if (num === undefined || num === null) return "0";
     return num.toLocaleString();
@@ -61,20 +62,24 @@ const SectorCard = ({
       style: {
         backgroundColor: "white",
         borderRadius: "12px",
-        padding: "16px",
-        marginBottom: "12px",
-        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+        padding: "20px 16px",
+        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
         cursor: "pointer",
         border: "1px solid #e2e8f0",
+        transition: "all 0.2s ease",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column" as const,
+        minWidth: 0,
+        maxWidth: "100%",
+        boxSizing: "border-box" as const,
+        overflow: "hidden",
       },
     },
     React.createElement(
       "div",
       {
         style: {
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
           marginBottom: "12px",
         },
       },
@@ -84,26 +89,64 @@ const SectorCard = ({
           href: `/sector/${sector.id}`,
           style: {
             fontSize: "16px",
-            fontWeight: "600",
+            fontWeight: "700",
             margin: "0",
             display: "block",
+            color: "#0075df",
+            textDecoration: "none",
+            marginBottom: "8px",
           },
         },
         sector.sector_name || "N/A"
       ),
       React.createElement(
-        "span",
+        "div",
         {
           style: {
-            fontSize: "14px",
-            fontWeight: "600",
-            color: "#1a202c",
-            backgroundColor: "#f7fafc",
-            padding: "4px 8px",
-            borderRadius: "6px",
+            display: "flex",
+            gap: "8px",
+            flexWrap: "nowrap" as const,
+            alignItems: "center",
+            minWidth: 0,
+            width: "100%",
           },
         },
-        `${formatNumber(sector.Number_of_Companies)} companies`
+        React.createElement(
+          "div",
+          {
+            style: {
+              fontSize: "12px",
+              fontWeight: "600",
+              color: "#1a202c",
+              backgroundColor: "#f0f9ff",
+              padding: "6px 12px",
+              borderRadius: "6px",
+              display: "inline-block",
+              border: "1px solid #bae6fd",
+              whiteSpace: "nowrap" as const,
+              flexShrink: 0,
+            },
+          },
+          `${formatNumber(sector.Number_of_Companies)} companies`
+        ),
+        React.createElement(
+          "div",
+          {
+            style: {
+              fontSize: "12px",
+              fontWeight: "600",
+              color: "#1a202c",
+              backgroundColor: "#f0f9ff",
+              padding: "6px 12px",
+              borderRadius: "6px",
+              display: "inline-block",
+              border: "1px solid #bae6fd",
+              whiteSpace: "nowrap" as const,
+              flexShrink: 0,
+            },
+          },
+          `${formatNumber(sector.Number_of_Sub_Sectors || 0)} sub-sectors`
+        )
       )
     ),
     React.createElement(
@@ -112,7 +155,7 @@ const SectorCard = ({
         style: {
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
-          gap: "8px",
+          gap: "10px",
           fontSize: "12px",
         },
       },
@@ -121,14 +164,20 @@ const SectorCard = ({
         {
           style: {
             display: "flex",
-            justifyContent: "space-between",
-            padding: "4px 0",
+            flexDirection: "column" as const,
+            padding: "8px",
+            backgroundColor: "#f9fafb",
+            borderRadius: "6px",
           },
         },
-        React.createElement("span", { style: { color: "#4a5568" } }, "Public:"),
         React.createElement(
           "span",
-          { style: { fontWeight: "500" } },
+          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
+          "Public"
+        ),
+        React.createElement(
+          "span",
+          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
           formatNumber(sector.Number_of_Public)
         )
       ),
@@ -137,14 +186,20 @@ const SectorCard = ({
         {
           style: {
             display: "flex",
-            justifyContent: "space-between",
-            padding: "4px 0",
+            flexDirection: "column" as const,
+            padding: "8px",
+            backgroundColor: "#f9fafb",
+            borderRadius: "6px",
           },
         },
-        React.createElement("span", { style: { color: "#4a5568" } }, "PE:"),
         React.createElement(
           "span",
-          { style: { fontWeight: "500" } },
+          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
+          "PE-owned"
+        ),
+        React.createElement(
+          "span",
+          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
           formatNumber(sector.Number_of_PE)
         )
       ),
@@ -153,14 +208,20 @@ const SectorCard = ({
         {
           style: {
             display: "flex",
-            justifyContent: "space-between",
-            padding: "4px 0",
+            flexDirection: "column" as const,
+            padding: "8px",
+            backgroundColor: "#f9fafb",
+            borderRadius: "6px",
           },
         },
-        React.createElement("span", { style: { color: "#4a5568" } }, "VC:"),
         React.createElement(
           "span",
-          { style: { fontWeight: "500" } },
+          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
+          "VC-backed"
+        ),
+        React.createElement(
+          "span",
+          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
           formatNumber(sector.Number_of_VC)
         )
       ),
@@ -169,18 +230,20 @@ const SectorCard = ({
         {
           style: {
             display: "flex",
-            justifyContent: "space-between",
-            padding: "4px 0",
+            flexDirection: "column" as const,
+            padding: "8px",
+            backgroundColor: "#f9fafb",
+            borderRadius: "6px",
           },
         },
         React.createElement(
           "span",
-          { style: { color: "#4a5568" } },
-          "Private:"
+          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
+          "Private"
         ),
         React.createElement(
           "span",
-          { style: { fontWeight: "500" } },
+          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
           formatNumber(sector.Number_of_Private)
         )
       )
@@ -206,20 +269,10 @@ const SectorsSection = () => {
     router.push(`/sector/${sectorId}`);
   };
 
-  // Sorting function
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("desc");
-    }
-  };
-
   // Sort sectors
   const sortedSectors = [...sectors].sort((a, b) => {
-    let aValue: string | number = a[sortField];
-    let bValue: string | number = b[sortField];
+    let aValue: string | number = a[sortField] ?? 0;
+    let bValue: string | number = b[sortField] ?? 0;
 
     if (typeof aValue === "string") {
       aValue = aValue.toLowerCase();
@@ -231,12 +284,6 @@ const SectorsSection = () => {
     } else {
       return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
     }
-  });
-
-  const [summaryData, setSummaryData] = useState({
-    primary_sectors_count: 0,
-    sub_sectors_count: 0,
-    top_5_primary_sectors: [] as string[],
   });
 
   // Fetch sectors data
@@ -263,17 +310,6 @@ const SectorsSection = () => {
 
       const data: SectorsResponse = await response.json();
       setSectors(data.sectors || []);
-      setSummaryData({
-        primary_sectors_count: data.summary?.total_sectors || 37,
-        sub_sectors_count: data.summary?.total_companies || 762,
-        top_5_primary_sectors: [
-          "Financial",
-          "Energy & Commodities",
-          "ESG",
-          "Real Estate",
-          "Company Data",
-        ],
-      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch sectors");
       console.error("Error fetching sectors:", err);
@@ -310,134 +346,35 @@ const SectorsSection = () => {
     fetchSectors();
   }, []);
 
-  const tableRows = sortedSectors.map((sector, index) => {
-    // Format numbers with commas
-    const formatNumber = (num: number | undefined) => {
-      if (num === undefined || num === null) return "0";
-      return num.toLocaleString();
-    };
-
-    return React.createElement(
-      "tr",
-      { key: index },
-      React.createElement(
-        "td",
-        null,
-        React.createElement(
-          "a",
-          { href: `/sector/${sector.id}`, className: "sector-name" },
-          sector.sector_name || "N/A"
-        )
-      ),
-      React.createElement("td", null, formatNumber(sector.Number_of_Companies)),
-      React.createElement("td", null, formatNumber(sector.Number_of_Public)),
-      React.createElement("td", null, formatNumber(sector.Number_of_PE)),
-      React.createElement("td", null, formatNumber(sector.Number_of_VC)),
-      React.createElement("td", null, formatNumber(sector.Number_of_Private))
-    );
-  });
 
   const style = `
+    * {
+      box-sizing: border-box;
+    }
     .sectors-section {
       padding: 32px 24px;
       border-radius: 8px;
-    }
-    .sectors-stats {
-      background: #fff;
-      padding: 32px 24px;
-      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
-      border-radius: 16px;
-      margin-bottom: 24px;
-    }
-    .stats-title {
-      font-size: 24px;
-      font-weight: 700;
-      color: #1a202c;
-      margin: 0 0 24px 0;
-    }
-    .stats-content {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .stats-item {
-      display: flex;
-      justify-content: flex-start;
-      align-items: center;
-      padding: 8px 0;
-      border-bottom: 1px solid #e2e8f0;
-      gap: 4px;
-    }
-    .stats-item:last-child {
-      border-bottom: none;
-    }
-    .stats-label {
-      font-size: 14px;
-      color: #4a5568;
-      font-weight: 500;
-    }
-    .stats-value {
-      font-size: 16px;
-      color: #000;
-      font-weight: 600;
-    }
-    .top-sectors {
-      margin-top: 12px;
-    }
-    .top-sectors-label {
-      font-size: 14px;
-      color: #4a5568;
-      font-weight: 500;
-      margin-bottom: 6px;
-    }
-    .top-sectors-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .top-sector-item {
-      background: #f7fafc;
-      padding: 4px 12px;
-      border-radius: 16px;
-      font-size: 12px;
-      color: #4a5568;
-      font-weight: 500;
-    }
-    .sectors-table {
+      max-width: 1600px;
+      margin: 0 auto;
       width: 100%;
-      background: #fff;
-      padding: 32px 24px;
-      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
-      border-radius: 16px;
-      border-collapse: collapse;
-      table-layout: fixed;
+      box-sizing: border-box;
+      overflow-x: hidden;
     }
-    .sectors-table th,
-    .sectors-table td {
-      padding: 16px;
-      text-align: left;
-      vertical-align: top;
-      border-bottom: 1px solid #e2e8f0;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
+    .sectors-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      width: 100%;
+      box-sizing: border-box;
     }
-    .sectors-table th {
-      font-weight: 600;
-      color: #1a202c;
-      font-size: 14px;
-      background: #f9fafb;
-      border-bottom: 2px solid #e2e8f0;
+    .sector-card {
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
     }
-    .sectors-table td {
-      font-size: 14px;
-      color: #000;
-      line-height: 1.5;
-    }
-    .sector-name {
-      color: #0075df;
-      text-decoration: underline;
-      cursor: pointer;
-      font-weight: 500;
+    .sector-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
     }
     .loading {
       text-align: center;
@@ -457,43 +394,27 @@ const SectorsSection = () => {
       .sectors-section {
         padding: 16px;
       }
-      .sectors-stats {
-        padding: 20px 16px;
-        margin-bottom: 16px;
-      }
-      .stats-title {
-        font-size: 20px;
-        margin-bottom: 16px;
-      }
-      .stats-item {
-        padding: 8px 0;
-      }
-      .stats-label {
-        font-size: 13px;
-      }
-      .stats-value {
-        font-size: 14px;
-      }
-      .top-sectors-list {
-        flex-direction: column;
-      }
-      .top-sector-item {
-        font-size: 11px;
-        padding: 3px 10px;
-      }
-      .sectors-table {
-        display: none;
-      }
-      .sectors-cards {
-        display: block;
+      .sectors-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
       }
     }
-    @media (min-width: 769px) {
-      .sectors-cards {
-        display: none;
+    @media (min-width: 769px) and (max-width: 1024px) {
+      .sectors-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
       }
-      .sectors-table {
-        display: table;
+    }
+    @media (min-width: 1025px) and (max-width: 1399px) {
+      .sectors-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+      }
+    }
+    @media (min-width: 1400px) {
+      .sectors-grid {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 16px;
       }
     }
   `;
@@ -527,142 +448,87 @@ const SectorsSection = () => {
   return React.createElement(
     "div",
     { className: "sectors-section" },
-    // Statistics Block
+    // Sort Controls
     React.createElement(
       "div",
-      { className: "sectors-stats" },
-      React.createElement("h2", { className: "stats-title" }, "Sectors"),
+      { 
+        className: "sort-controls",
+        style: {
+          marginBottom: "24px",
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          flexWrap: "wrap" as const,
+          width: "100%",
+          maxWidth: "100%",
+        }
+      },
       React.createElement(
-        "div",
-        { className: "stats-content" },
-        React.createElement(
-          "div",
-          { className: "stats-item" },
-          React.createElement(
-            "span",
-            { className: "stats-label" },
-            "Primary Sectors: "
-          ),
-          React.createElement(
-            "span",
-            { className: "stats-value" },
-            summaryData.primary_sectors_count.toLocaleString()
-          )
-        ),
-        React.createElement(
-          "div",
-          { className: "stats-item" },
-          React.createElement(
-            "span",
-            { className: "stats-label" },
-            "Sub-sectors: "
-          ),
-          React.createElement(
-            "span",
-            { className: "stats-value" },
-            summaryData.sub_sectors_count.toLocaleString()
-          )
-        ),
-        React.createElement(
-          "div",
-          { className: "top-sectors" },
-          React.createElement(
-            "div",
-            { className: "top-sectors-label" },
-            "Top 5 Primary Sectors:"
-          ),
-          React.createElement(
-            "div",
-            { className: "top-sectors-list" },
-            summaryData.top_5_primary_sectors.map((sector, index) =>
-              React.createElement(
-                "span",
-                { key: index, className: "top-sector-item" },
-                sector
-              )
-            )
-          )
-        )
+        "span",
+        { 
+          style: { 
+            fontSize: "14px", 
+            fontWeight: "600",
+            color: "#4a5568"
+          } 
+        },
+        "Sort by:"
+      ),
+      React.createElement(
+        "select",
+        {
+          value: sortField,
+          onChange: (e: React.ChangeEvent<HTMLSelectElement>) => {
+            const newField = e.target.value as SortField;
+            if (sortField === newField) {
+              setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+            } else {
+              setSortField(newField);
+              setSortDirection("desc");
+            }
+          },
+          style: {
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "1px solid #e2e8f0",
+            backgroundColor: "white",
+            fontSize: "14px",
+            cursor: "pointer",
+            outline: "none",
+          }
+        },
+        React.createElement("option", { value: "sector_name" }, "Sector Name"),
+        React.createElement("option", { value: "Number_of_Companies" }, "Number of Companies"),
+        React.createElement("option", { value: "Number_of_Sub_Sectors" }, "Number of Sub-Sectors"),
+        React.createElement("option", { value: "Number_of_Public" }, "Public Companies"),
+        React.createElement("option", { value: "Number_of_PE" }, "PE-owned Companies"),
+        React.createElement("option", { value: "Number_of_VC" }, "VC-backed Companies"),
+        React.createElement("option", { value: "Number_of_Private" }, "Private Companies")
+      ),
+      React.createElement(
+        "button",
+        {
+          onClick: () => setSortDirection(sortDirection === "asc" ? "desc" : "asc"),
+          style: {
+            padding: "8px 16px",
+            borderRadius: "8px",
+            border: "1px solid #e2e8f0",
+            backgroundColor: "white",
+            fontSize: "14px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+            fontWeight: "500",
+          }
+        },
+        sortDirection === "asc" ? "↑ Ascending" : "↓ Descending"
       )
     ),
-    // Desktop Table
-    React.createElement(
-      "table",
-      { className: "sectors-table" },
-      React.createElement(
-        "thead",
-        null,
-        React.createElement(
-          "tr",
-          null,
-          React.createElement(
-            "th",
-            {
-              onClick: () => handleSort("sector_name"),
-              style: { cursor: "pointer", userSelect: "none" },
-            },
-            "Sector Name",
-            sortField === "sector_name" &&
-              (sortDirection === "asc" ? " ↑" : " ↓")
-          ),
-          React.createElement(
-            "th",
-            {
-              onClick: () => handleSort("Number_of_Companies"),
-              style: { cursor: "pointer", userSelect: "none" },
-            },
-            "Number of Companies",
-            sortField === "Number_of_Companies" &&
-              (sortDirection === "asc" ? " ↑" : " ↓")
-          ),
-          React.createElement(
-            "th",
-            {
-              onClick: () => handleSort("Number_of_Public"),
-              style: { cursor: "pointer", userSelect: "none" },
-            },
-            "Number of Public Companies",
-            sortField === "Number_of_Public" &&
-              (sortDirection === "asc" ? " ↑" : " ↓")
-          ),
-          React.createElement(
-            "th",
-            {
-              onClick: () => handleSort("Number_of_PE"),
-              style: { cursor: "pointer", userSelect: "none" },
-            },
-            "Number of PE-owned Companies",
-            sortField === "Number_of_PE" &&
-              (sortDirection === "asc" ? " ↑" : " ↓")
-          ),
-          React.createElement(
-            "th",
-            {
-              onClick: () => handleSort("Number_of_VC"),
-              style: { cursor: "pointer", userSelect: "none" },
-            },
-            "Number of VC-owned Companies",
-            sortField === "Number_of_VC" &&
-              (sortDirection === "asc" ? " ↑" : " ↓")
-          ),
-          React.createElement(
-            "th",
-            {
-              onClick: () => handleSort("Number_of_Private"),
-              style: { cursor: "pointer", userSelect: "none" },
-            },
-            "Number of Private Companies",
-            sortField === "Number_of_Private" &&
-              (sortDirection === "asc" ? " ↑" : " ↓")
-          )
-        )
-      ),
-      React.createElement("tbody", null, tableRows)
-    ),
-    // Mobile Cards
+    // Sectors Grid (replaces table, shows on all screen sizes)
     React.createElement(
       "div",
-      { className: "sectors-cards" },
+      { className: "sectors-grid" },
       sortedSectors.map((sector) =>
         React.createElement(SectorCard, {
           key: sector.id,
