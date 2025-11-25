@@ -1,36 +1,30 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { locationsService } from "@/lib/locationsService";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for API integration
 interface Sector {
   id: number;
   sector_name: string;
-  sector_type?: "Primary" | "Secondary" | string;
-  parent_sector_names?: string | null;
-  parent_sector_ids?: string | null;
   Number_of_Companies: number;
-  Number_of_Sub_Sectors?: number;
   Number_of_PE: number;
   Number_of_VC: number;
   Number_of_Public: number;
   Number_of_Private: number;
-  Number_of_Other: number;
 }
 
 type SortField =
   | "sector_name"
   | "Number_of_Companies"
-  | "Number_of_Sub_Sectors"
   | "Number_of_Public"
   | "Number_of_PE"
   | "Number_of_VC"
-  | "Number_of_Private"
-  | "Number_of_Other";
+  | "Number_of_Private";
 type SortDirection = "asc" | "desc";
 
 interface SectorsResponse {
@@ -45,148 +39,13 @@ interface SectorsResponse {
   };
 }
 
-interface ParentSectorRef {
-  id: number | null;
-  name: string;
-}
-
-function isPrimarySector(sector: Sector): boolean {
-  if (sector.sector_type === "Primary") return true;
-  if (sector.sector_type === "Secondary") return false;
-  return (sector.Number_of_Sub_Sectors ?? 0) > 0;
-}
-
-function getSectorPageHref(sector: Sector): string {
-  return isPrimarySector(sector)
-    ? `/sector/${sector.id}`
-    : `/sub-sector/${sector.id}`;
-}
-
-function parseParentSectors(sector: Sector): ParentSectorRef[] {
-  const names =
-    sector.parent_sector_names
-      ?.split(",")
-      .map((name) => name.trim())
-      .filter(Boolean) ?? [];
-  const ids =
-    sector.parent_sector_ids
-      ?.replace(/[{}]/g, "")
-      .split(",")
-      .map((id) => id.trim())
-      .filter((id) => id && id.toUpperCase() !== "NULL") ?? [];
-
-  return names.map((name, index) => {
-    const parsedId = ids[index] ? Number.parseInt(ids[index], 10) : Number.NaN;
-    return {
-      name,
-      id: Number.isFinite(parsedId) ? parsedId : null,
-    };
-  });
-}
-
-function sortSectorsList(
-  sectors: Sector[],
-  sortField: SortField,
-  sortDirection: SortDirection
-): Sector[] {
-  return [...sectors].sort((a, b) => {
-    let aValue: string | number = a[sortField] ?? 0;
-    let bValue: string | number = b[sortField] ?? 0;
-
-    if (typeof aValue === "string") {
-      aValue = aValue.toLowerCase();
-      bValue = (bValue as string).toLowerCase();
-    }
-
-    if (sortDirection === "asc") {
-      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-    }
-
-    return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-  });
-}
-
-const SectorSearchResults = ({
-  results,
-  searchQuery,
-}: {
-  results: Sector[];
-  searchQuery: string;
-}) => {
-  if (results.length === 0) {
-    return (
-      <div className="search-no-results">
-        No sectors found matching &ldquo;{searchQuery}&rdquo;.
-      </div>
-    );
-  }
-
-  return (
-    <div className="search-results">
-      <p className="search-results-summary">
-        {results.length.toLocaleString()} result
-        {results.length === 1 ? "" : "s"} for &ldquo;{searchQuery}&rdquo;
-      </p>
-      <div className="search-results-table">
-        <div className="search-results-header">
-          <span>Sector</span>
-          <span>Type</span>
-          <span>Primary Sector(s)</span>
-          <span>Companies</span>
-        </div>
-        {results.map((sector) => {
-          const isPrimary = isPrimarySector(sector);
-          const parents = parseParentSectors(sector);
-          const href = getSectorPageHref(sector);
-
-          return (
-            <div key={sector.id} className="search-result-row">
-              <a href={href} className="search-result-name">
-                {sector.sector_name || "N/A"}
-              </a>
-              <span
-                className={`search-result-type ${
-                  isPrimary ? "primary" : "secondary"
-                }`}
-              >
-                {isPrimary ? "Primary" : "Secondary"}
-              </span>
-              <span className="search-result-parents">
-                {!isPrimary && parents.length > 0 ? (
-                  parents.map((parent, index) => (
-                    <React.Fragment key={`${parent.id ?? parent.name}-${index}`}>
-                      {index > 0 ? ", " : null}
-                      {parent.id ? (
-                        <a href={`/sector/${parent.id}`}>{parent.name}</a>
-                      ) : (
-                        parent.name
-                      )}
-                    </React.Fragment>
-                  ))
-                ) : (
-                  "—"
-                )}
-              </span>
-              <span className="search-result-companies">
-                {(sector.Number_of_Companies ?? 0).toLocaleString()}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
 // Sector Card Component - larger boxes for primary sectors
 const SectorCard = ({
   sector,
   onClick,
-  href,
 }: {
   sector: Sector;
   onClick: () => void;
-  href: string;
 }) => {
   const formatNumber = (num: number | undefined) => {
     if (num === undefined || num === null) return "0";
@@ -200,8 +59,8 @@ const SectorCard = ({
       onClick,
       style: {
         backgroundColor: "white",
-        borderRadius: "12px",
-        padding: "20px 16px",
+        borderRadius: "16px",
+        padding: "32px 24px",
         boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
         cursor: "pointer",
         border: "1px solid #e2e8f0",
@@ -209,31 +68,27 @@ const SectorCard = ({
         height: "100%",
         display: "flex",
         flexDirection: "column" as const,
-        minWidth: 0,
-        maxWidth: "100%",
-        boxSizing: "border-box" as const,
-        overflow: "hidden",
       },
     },
     React.createElement(
       "div",
       {
         style: {
-          marginBottom: "12px",
+          marginBottom: "20px",
         },
       },
       React.createElement(
         "a",
         {
-          href,
+          href: `/sector/${sector.id}`,
           style: {
-            fontSize: "16px",
+            fontSize: "20px",
             fontWeight: "700",
             margin: "0",
             display: "block",
             color: "#0075df",
             textDecoration: "none",
-            marginBottom: "8px",
+            marginBottom: "12px",
           },
         },
         sector.sector_name || "N/A"
@@ -242,61 +97,27 @@ const SectorCard = ({
         "div",
         {
           style: {
-            display: "flex",
-            gap: "8px",
-            flexWrap: "wrap" as const,
-            alignItems: "center",
-            minWidth: 0,
-            width: "100%",
+            fontSize: "16px",
+            fontWeight: "600",
+            color: "#1a202c",
+            backgroundColor: "#f0f9ff",
+            padding: "8px 16px",
+            borderRadius: "8px",
+            display: "inline-block",
+            border: "1px solid #bae6fd",
           },
         },
-        React.createElement(
-          "div",
-          {
-            style: {
-              fontSize: "12px",
-              fontWeight: "600",
-              color: "#1a202c",
-              backgroundColor: "#f0f9ff",
-              padding: "6px 10px",
-              borderRadius: "6px",
-              display: "inline-block",
-              border: "1px solid #bae6fd",
-              whiteSpace: "nowrap" as const,
-              maxWidth: "100%",
-            },
-          },
-          `${formatNumber(sector.Number_of_Companies)} companies`
-        ),
-        React.createElement(
-          "div",
-          {
-            style: {
-              fontSize: "12px",
-              fontWeight: "600",
-              color: "#1a202c",
-              backgroundColor: "#f0f9ff",
-              padding: "6px 10px",
-              borderRadius: "6px",
-              display: "inline-block",
-              border: "1px solid #bae6fd",
-              whiteSpace: "nowrap" as const,
-              maxWidth: "100%",
-            },
-          },
-          `${formatNumber(sector.Number_of_Sub_Sectors || 0)} secondary sectors`
-        )
+        `${formatNumber(sector.Number_of_Companies)} companies`
       )
     ),
     React.createElement(
       "div",
       {
         style: {
-          display: "flex",
-          flexDirection: "column" as const,
-          gap: "10px",
-          fontSize: "12px",
-          width: "100%",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "16px",
+          fontSize: "14px",
         },
       },
       React.createElement(
@@ -304,24 +125,21 @@ const SectorCard = ({
         {
           style: {
             display: "flex",
-            flexDirection: "row" as const,
-            alignItems: "center" as const,
-            justifyContent: "space-between" as const,
-            padding: "8px",
+            flexDirection: "column" as const,
+            padding: "12px",
             backgroundColor: "#f9fafb",
-            borderRadius: "6px",
-            width: "100%",
+            borderRadius: "8px",
           },
         },
         React.createElement(
           "span",
-          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
-          formatNumber(sector.Number_of_Public)
-        ),
-        React.createElement(
-          "span",
-          { style: { color: "#6b7280", fontSize: "12px" } },
+          { style: { color: "#6b7280", marginBottom: "4px", fontSize: "13px" } },
           "Public"
+        ),
+        React.createElement(
+          "span",
+          { style: { fontWeight: "700", fontSize: "18px", color: "#1a202c" } },
+          formatNumber(sector.Number_of_Public)
         )
       ),
       React.createElement(
@@ -329,24 +147,21 @@ const SectorCard = ({
         {
           style: {
             display: "flex",
-            flexDirection: "row" as const,
-            alignItems: "center" as const,
-            justifyContent: "space-between" as const,
-            padding: "8px",
+            flexDirection: "column" as const,
+            padding: "12px",
             backgroundColor: "#f9fafb",
-            borderRadius: "6px",
-            width: "100%",
+            borderRadius: "8px",
           },
         },
         React.createElement(
           "span",
-          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
-          formatNumber(sector.Number_of_PE)
-        ),
-        React.createElement(
-          "span",
-          { style: { color: "#6b7280", fontSize: "12px" } },
+          { style: { color: "#6b7280", marginBottom: "4px", fontSize: "13px" } },
           "PE-owned"
+        ),
+        React.createElement(
+          "span",
+          { style: { fontWeight: "700", fontSize: "18px", color: "#1a202c" } },
+          formatNumber(sector.Number_of_PE)
         )
       ),
       React.createElement(
@@ -354,24 +169,21 @@ const SectorCard = ({
         {
           style: {
             display: "flex",
-            flexDirection: "row" as const,
-            alignItems: "center" as const,
-            justifyContent: "space-between" as const,
-            padding: "8px",
+            flexDirection: "column" as const,
+            padding: "12px",
             backgroundColor: "#f9fafb",
-            borderRadius: "6px",
-            width: "100%",
+            borderRadius: "8px",
           },
         },
         React.createElement(
           "span",
-          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
+          { style: { color: "#6b7280", marginBottom: "4px", fontSize: "13px" } },
+          "VC-owned"
+        ),
+        React.createElement(
+          "span",
+          { style: { fontWeight: "700", fontSize: "18px", color: "#1a202c" } },
           formatNumber(sector.Number_of_VC)
-        ),
-        React.createElement(
-          "span",
-          { style: { color: "#6b7280", fontSize: "12px" } },
-          "VC-backed"
         )
       ),
       React.createElement(
@@ -379,111 +191,103 @@ const SectorCard = ({
         {
           style: {
             display: "flex",
-            flexDirection: "row" as const,
-            alignItems: "center" as const,
-            justifyContent: "space-between" as const,
-            padding: "8px",
+            flexDirection: "column" as const,
+            padding: "12px",
             backgroundColor: "#f9fafb",
-            borderRadius: "6px",
-            width: "100%",
+            borderRadius: "8px",
           },
         },
         React.createElement(
           "span",
-          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
-          formatNumber(sector.Number_of_Private)
-        ),
-        React.createElement(
-          "span",
-          { style: { color: "#6b7280", fontSize: "12px" } },
+          { style: { color: "#6b7280", marginBottom: "4px", fontSize: "13px" } },
           "Private"
-        )
-      ),
-      React.createElement(
-        "div",
-        {
-          style: {
-            display: "flex",
-            flexDirection: "row" as const,
-            alignItems: "center" as const,
-            justifyContent: "space-between" as const,
-            padding: "8px",
-            backgroundColor: "#f9fafb",
-            borderRadius: "6px",
-            width: "100%",
-          },
-        },
-        React.createElement(
-          "span",
-          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
-          formatNumber(sector.Number_of_Other)
         ),
         React.createElement(
           "span",
-          { style: { color: "#6b7280", fontSize: "12px" } },
-          "Other"
+          { style: { fontWeight: "700", fontSize: "18px", color: "#1a202c" } },
+          formatNumber(sector.Number_of_Private)
         )
       )
     )
   );
 };
 
+// Helpers
+const normalizeSectorName = (name: string | undefined | null): string =>
+  (name || "").trim().toLowerCase();
+
 const SectorsSection = () => {
   const router = useRouter();
-  const [allSectors, setAllSectors] = useState<Sector[]>([]);
+  const [sectors, setSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>("sector_name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  // Keep input separate from the applied query so we only search on button click.
-  const [searchInput, setSearchInput] = useState<string>("");
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  // Preload mapping for potential downstream use; currently not used directly on this page
+  const [, setSecondaryToPrimaryMap] = useState<Record<string, string>>({});
 
-  const trimmedSearchQuery = searchQuery.trim();
-  const isSearching = trimmedSearchQuery.length > 0;
+  const handleSectorClick = (sectorId: number) => {
+    router.push(`/sector/${sectorId}`);
+  };
 
-  const primarySectors = useMemo(
-    () => allSectors.filter(isPrimarySector),
-    [allSectors]
-  );
+  // Sort sectors
+  const sortedSectors = [...sectors].sort((a, b) => {
+    let aValue: string | number = a[sortField];
+    let bValue: string | number = b[sortField];
 
-  const sortedPrimarySectors = useMemo(
-    () => sortSectorsList(primarySectors, sortField, sortDirection),
-    [primarySectors, sortField, sortDirection]
-  );
+    if (typeof aValue === "string") {
+      aValue = aValue.toLowerCase();
+      bValue = (bValue as string).toLowerCase();
+    }
 
-  const searchResults = useMemo(() => {
-    if (!isSearching) return [];
+    if (sortDirection === "asc") {
+      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+    } else {
+      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+    }
+  });
 
-    const query = trimmedSearchQuery.toLowerCase();
-    const matches = allSectors.filter((sector) =>
-      sector.sector_name.toLowerCase().includes(query)
-    );
+  const [summaryData, setSummaryData] = useState({
+    primary_sectors_count: 0,
+    sub_sectors_count: 0,
+    top_5_primary_sectors: [] as string[],
+  });
 
-    return sortSectorsList(matches, sortField, sortDirection);
-  }, [allSectors, isSearching, trimmedSearchQuery, sortField, sortDirection]);
-
-  // Fetch sector list from cache only (populated by external cache engine).
+  // Fetch sectors data
   const fetchSectors = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch("/api/sectors/list", { method: "GET" });
+      const token = localStorage.getItem("asymmetrix_auth_token");
 
-      if (response.status === 503) {
-        setError("Sector list is not available yet. Please try again later.");
-        setAllSectors([]);
-        return;
-      }
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Primary_sectors_with_companies_counts`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`API request failed: ${response.statusText}`);
       }
 
       const data: SectorsResponse = await response.json();
-      const list = data.sectors || [];
-      setAllSectors(list);
+      setSectors(data.sectors || []);
+      setSummaryData({
+        primary_sectors_count: data.summary?.total_sectors || 37,
+        sub_sectors_count: data.summary?.total_companies || 762,
+        top_5_primary_sectors: [
+          "Financial",
+          "Energy & Commodities",
+          "ESG",
+          "Real Estate",
+          "Company Data",
+        ],
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch sectors");
       console.error("Error fetching sectors:", err);
@@ -492,39 +296,107 @@ const SectorsSection = () => {
     }
   };
 
-  const handleSearch = () => {
-    setSearchQuery(searchInput.trim());
-  };
-
   useEffect(() => {
+    // Load mapping in background (used for counts enrichment if needed later)
+    (async () => {
+      try {
+        const allSecondary =
+          await locationsService.getAllSecondarySectorsWithPrimary();
+        const map: Record<string, string> = {};
+        if (Array.isArray(allSecondary)) {
+          for (const sec of allSecondary) {
+            const secName = (sec as { sector_name?: string }).sector_name;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const primary = (sec as any)?.related_primary_sector as
+              | { sector_name?: string }
+              | undefined;
+            const primaryName = primary?.sector_name;
+            if (secName && primaryName) {
+              map[normalizeSectorName(secName)] = primaryName;
+            }
+          }
+        }
+        setSecondaryToPrimaryMap(map);
+      } catch {
+        // best-effort; ignore mapping load errors here
+      }
+    })();
     fetchSectors();
   }, []);
 
 
   const style = `
-    * {
-      box-sizing: border-box;
-    }
     .sectors-section {
       padding: 32px 24px;
       border-radius: 8px;
       max-width: 1600px;
       margin: 0 auto;
-      width: 100%;
-      box-sizing: border-box;
-      overflow-x: hidden;
+    }
+    .sectors-stats {
+      background: #fff;
+      padding: 32px 24px;
+      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
+      border-radius: 16px;
+      margin-bottom: 32px;
+    }
+    .stats-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1a202c;
+      margin: 0 0 24px 0;
+    }
+    .stats-content {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .stats-item {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #e2e8f0;
+      gap: 4px;
+    }
+    .stats-item:last-child {
+      border-bottom: none;
+    }
+    .stats-label {
+      font-size: 14px;
+      color: #4a5568;
+      font-weight: 500;
+    }
+    .stats-value {
+      font-size: 16px;
+      color: #000;
+      font-weight: 600;
+    }
+    .top-sectors {
+      margin-top: 12px;
+    }
+    .top-sectors-label {
+      font-size: 14px;
+      color: #4a5568;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+    .top-sectors-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .top-sector-item {
+      background: #f7fafc;
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-size: 12px;
+      color: #4a5568;
+      font-weight: 500;
     }
     .sectors-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 16px;
-      width: 100%;
-      box-sizing: border-box;
-    }
-    .sector-card {
-      min-width: 0;
-      max-width: 100%;
-      box-sizing: border-box;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 24px;
     }
     .sector-card:hover {
       transform: translateY(-4px);
@@ -543,133 +415,53 @@ const SectorsSection = () => {
       border-radius: 6px;
       margin-bottom: 16px;
     }
-    .search-results {
-      width: 100%;
-    }
-    .search-results-summary {
-      margin: 0 0 12px;
-      font-size: 14px;
-      color: #4a5568;
-    }
-    .search-results-table {
-      width: 100%;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      overflow: hidden;
-      background: white;
-    }
-    .search-results-header,
-    .search-result-row {
-      display: grid;
-      grid-template-columns: minmax(180px, 2fr) 120px minmax(180px, 2fr) 100px;
-      gap: 16px;
-      align-items: center;
-      padding: 12px 16px;
-    }
-    .search-results-header {
-      background: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
-      font-size: 12px;
-      font-weight: 700;
-      color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .search-result-row {
-      border-bottom: 1px solid #f1f5f9;
-      font-size: 14px;
-    }
-    .search-result-row:last-child {
-      border-bottom: none;
-    }
-    .search-result-row:hover {
-      background: #f8fafc;
-    }
-    .search-result-name,
-    .search-result-parents a {
-      color: #0075df;
-      font-weight: 600;
-      text-decoration: none;
-    }
-    .search-result-name:hover,
-    .search-result-parents a:hover {
-      text-decoration: underline;
-    }
-    .search-result-type {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 600;
-      width: fit-content;
-    }
-    .search-result-type.primary {
-      background: #eff6ff;
-      color: #1d4ed8;
-      border: 1px solid #bfdbfe;
-    }
-    .search-result-type.secondary {
-      background: #f5f3ff;
-      color: #6d28d9;
-      border: 1px solid #ddd6fe;
-    }
-    .search-result-parents {
-      color: #334155;
-    }
-    .search-result-companies {
-      color: #1a202c;
-      font-weight: 600;
-    }
-    .search-no-results {
-      padding: 32px 16px;
-      text-align: center;
-      color: #64748b;
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-    }
 
     @media (max-width: 768px) {
       .sectors-section {
         padding: 16px;
       }
+      .sectors-stats {
+        padding: 20px 16px;
+        margin-bottom: 20px;
+      }
+      .stats-title {
+        font-size: 22px;
+        margin-bottom: 16px;
+      }
+      .stats-item {
+        padding: 8px 0;
+      }
+      .stats-label {
+        font-size: 13px;
+      }
+      .stats-value {
+        font-size: 14px;
+      }
+      .top-sectors-list {
+        flex-direction: column;
+      }
+      .top-sector-item {
+        font-size: 11px;
+        padding: 3px 10px;
+      }
       .sectors-grid {
         grid-template-columns: 1fr;
-        gap: 12px;
-      }
-      .search-results-header,
-      .search-result-row {
-        grid-template-columns: 1fr;
-        gap: 8px;
-      }
-      .search-results-header {
-        display: none;
-      }
-      .search-result-row {
-        padding: 16px;
-      }
-      .search-result-type {
-        justify-self: start;
+        gap: 16px;
       }
     }
     @media (min-width: 769px) and (max-width: 1024px) {
       .sectors-grid {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 16px;
+        grid-template-columns: repeat(2, 1fr);
       }
     }
-    @media (min-width: 1025px) and (max-width: 1399px) {
+    @media (min-width: 1025px) {
       .sectors-grid {
-        grid-template-columns: repeat(4, 1fr);
-        gap: 16px;
+        grid-template-columns: repeat(3, 1fr);
       }
     }
     @media (min-width: 1400px) {
       .sectors-grid {
-        grid-template-columns: repeat(5, 1fr);
-        gap: 16px;
+        grid-template-columns: repeat(4, 1fr);
       }
     }
   `;
@@ -703,10 +495,68 @@ const SectorsSection = () => {
   return React.createElement(
     "div",
     { className: "sectors-section" },
-    // Search + Sort Controls
+    // Statistics Block
     React.createElement(
       "div",
-      {
+      { className: "sectors-stats" },
+      React.createElement("h2", { className: "stats-title" }, "Sectors"),
+      React.createElement(
+        "div",
+        { className: "stats-content" },
+        React.createElement(
+          "div",
+          { className: "stats-item" },
+          React.createElement(
+            "span",
+            { className: "stats-label" },
+            "Primary Sectors: "
+          ),
+          React.createElement(
+            "span",
+            { className: "stats-value" },
+            summaryData.primary_sectors_count.toLocaleString()
+          )
+        ),
+        React.createElement(
+          "div",
+          { className: "stats-item" },
+          React.createElement(
+            "span",
+            { className: "stats-label" },
+            "Sub-sectors: "
+          ),
+          React.createElement(
+            "span",
+            { className: "stats-value" },
+            summaryData.sub_sectors_count.toLocaleString()
+          )
+        ),
+        React.createElement(
+          "div",
+          { className: "top-sectors" },
+          React.createElement(
+            "div",
+            { className: "top-sectors-label" },
+            "Top 5 Primary Sectors:"
+          ),
+          React.createElement(
+            "div",
+            { className: "top-sectors-list" },
+            summaryData.top_5_primary_sectors.map((sector, index) =>
+              React.createElement(
+                "span",
+                { key: index, className: "top-sector-item" },
+                sector
+              )
+            )
+          )
+        )
+      )
+    ),
+    // Sort Controls
+    React.createElement(
+      "div",
+      { 
         className: "sort-controls",
         style: {
           marginBottom: "24px",
@@ -714,71 +564,16 @@ const SectorsSection = () => {
           alignItems: "center",
           gap: "12px",
           flexWrap: "wrap" as const,
-          width: "100%",
-          maxWidth: "100%",
-        },
+        }
       },
-      // Search input
-      React.createElement(
-        "div",
-        {
-          style: {
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            flexGrow: 1,
-            minWidth: "240px",
-          },
-        },
-        React.createElement("input", {
-          type: "text",
-          value: searchInput,
-          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            setSearchInput(e.target.value),
-          onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
-            if (e.key === "Enter") {
-              handleSearch();
-            }
-          },
-          placeholder: "Search sectors or secondary sectors",
-          style: {
-            padding: "8px 12px",
-            borderRadius: "8px",
-            border: "1px solid #e2e8f0",
-            backgroundColor: "white",
-            fontSize: "14px",
-            flexGrow: 1,
-            minWidth: "0",
-          },
-        }),
-        React.createElement(
-          "button",
-          {
-            onClick: () => handleSearch(),
-            style: {
-              padding: "8px 16px",
-              borderRadius: "8px",
-              border: "1px solid #e2e8f0",
-              backgroundColor: "#0075df",
-              color: "white",
-              fontSize: "14px",
-              cursor: "pointer",
-              fontWeight: "500",
-              whiteSpace: "nowrap",
-            },
-          },
-          "Search"
-        )
-      ),
-      // Sort controls
       React.createElement(
         "span",
-        {
-          style: {
-            fontSize: "14px",
+        { 
+          style: { 
+            fontSize: "14px", 
             fontWeight: "600",
-            color: "#4a5568",
-          },
+            color: "#4a5568"
+          } 
         },
         "Sort by:"
       ),
@@ -803,50 +598,19 @@ const SectorsSection = () => {
             fontSize: "14px",
             cursor: "pointer",
             outline: "none",
-          },
+          }
         },
         React.createElement("option", { value: "sector_name" }, "Sector Name"),
-        React.createElement(
-          "option",
-          { value: "Number_of_Companies" },
-          "Number of Companies"
-        ),
-        React.createElement(
-          "option",
-          { value: "Number_of_Sub_Sectors" },
-          "Number of Secondary Sectors"
-        ),
-        React.createElement(
-          "option",
-          { value: "Number_of_Public" },
-          "Public Companies"
-        ),
-        React.createElement(
-          "option",
-          { value: "Number_of_PE" },
-          "PE-owned Companies"
-        ),
-        React.createElement(
-          "option",
-          { value: "Number_of_VC" },
-          "VC-backed Companies"
-        ),
-        React.createElement(
-          "option",
-          { value: "Number_of_Private" },
-          "Private Companies"
-      ),
-      React.createElement(
-        "option",
-        { value: "Number_of_Other" },
-        "Other Companies"
-        )
+        React.createElement("option", { value: "Number_of_Companies" }, "Number of Companies"),
+        React.createElement("option", { value: "Number_of_Public" }, "Public Companies"),
+        React.createElement("option", { value: "Number_of_PE" }, "PE-owned Companies"),
+        React.createElement("option", { value: "Number_of_VC" }, "VC-owned Companies"),
+        React.createElement("option", { value: "Number_of_Private" }, "Private Companies")
       ),
       React.createElement(
         "button",
         {
-          onClick: () =>
-            setSortDirection(sortDirection === "asc" ? "desc" : "asc"),
+          onClick: () => setSortDirection(sortDirection === "asc" ? "desc" : "asc"),
           style: {
             padding: "8px 16px",
             borderRadius: "8px",
@@ -858,28 +622,23 @@ const SectorsSection = () => {
             alignItems: "center",
             gap: "4px",
             fontWeight: "500",
-          },
+          }
         },
         sortDirection === "asc" ? "↑ Ascending" : "↓ Descending"
       )
     ),
-    isSearching
-      ? React.createElement(SectorSearchResults, {
-          results: searchResults,
-          searchQuery: trimmedSearchQuery,
+    // Sectors Grid (replaces table, shows on all screen sizes)
+    React.createElement(
+      "div",
+      { className: "sectors-grid" },
+      sortedSectors.map((sector) =>
+        React.createElement(SectorCard, {
+          key: sector.id,
+          sector,
+          onClick: () => handleSectorClick(sector.id),
         })
-      : React.createElement(
-          "div",
-          { className: "sectors-grid" },
-          sortedPrimarySectors.map((sector) =>
-            React.createElement(SectorCard, {
-              key: sector.id,
-              sector,
-              href: `/sector/${sector.id}`,
-              onClick: () => router.push(`/sector/${sector.id}`),
-            })
-          )
-        ),
+      )
+    ),
     React.createElement("style", {
       dangerouslySetInnerHTML: { __html: style },
     })
