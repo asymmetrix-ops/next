@@ -2361,7 +2361,7 @@ const CompanyDetail = () => {
                         const id = getSectorId(sector);
                         const content = id ? (
                           createClickableElement(
-                            `/sector/${id}`,
+                            `/sub-sector/${id}`,
                             sector.sector_name
                           )
                         ) : (
@@ -3204,7 +3204,7 @@ const CompanyDetail = () => {
                                             typeof id === "number" ? (
                                               <a
                                                 key={`${name}-${id}`}
-                                                href={`/sector/${id}`}
+                                                href={`/sub-sector/${id}`}
                                                 className="link-blue"
                                               >
                                                 {name}
@@ -5365,7 +5365,7 @@ const CompanyDetail = () => {
                                       typeof id === "number" ? (
                                         <a
                                           key={`${name}-${id}`}
-                                          href={`/sector/${id}`}
+                                          href={`/sub-sector/${id}`}
                                           className="link-blue"
                                         >
                                           {name}

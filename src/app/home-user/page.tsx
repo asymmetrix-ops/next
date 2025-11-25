@@ -1488,7 +1488,7 @@ export default function HomeUserPage() {
                                             typeof id === "number" ? (
                                               <a
                                                 key={`${name}-${id}`}
-                                                href={`/sector/${id}`}
+                                                href={`/sub-sector/${id}`}
                                                 className="text-blue-600 underline hover:text-blue-800"
                                               >
                                                 {name}

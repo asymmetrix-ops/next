@@ -784,10 +784,12 @@ const ArticleDetailPage = () => {
                   {article.sectors.map((sector) => {
                     const sid = getSectorId(sector);
                     if (!sid) return null;
+                    const isPrimary = sector.Sector_importance === "Primary";
+                    const linkPath = isPrimary ? `/sector/${sid}` : `/sub-sector/${sid}`;
                     return (
                       <Link
                         key={sid}
-                        href={`/sector/${sid}`}
+                        href={linkPath}
                         style={{
                           ...styles.sectorTag,
                           cursor: "pointer",
@@ -808,7 +810,7 @@ const ArticleDetailPage = () => {
                         prefetch={false}
                       >
                         {sector.sector_name}
-                        {sector.Sector_importance === "Primary" && " (Primary)"}
+                        {isPrimary && " (Primary)"}
                       </Link>
                     );
                   })}

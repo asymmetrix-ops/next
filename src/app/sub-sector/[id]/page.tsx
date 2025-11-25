@@ -646,7 +646,8 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
   const renderSectorLinks = (
     sectors:
       | Array<string | { sector_name?: string; id?: number }>
-      | undefined
+      | undefined,
+    isPrimary: boolean = true
   ): React.ReactNode => {
     if (!Array.isArray(sectors) || sectors.length === 0) {
       return "Not available";
@@ -663,7 +664,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
         sectorId ? (
           <a
             key={`${sectorId}-${name}-${index}`}
-            href={`/sector/${sectorId}`}
+            href={isPrimary ? `/sector/${sectorId}` : `/sub-sector/${sectorId}`}
             className="text-blue-600 underline hover:text-blue-800"
           >
             {name}
@@ -1526,13 +1527,13 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                         <strong>Primary:</strong>{" "}
                         {renderSectorLinks(primarySectorsForLinks as Array<
                           string | { sector_name?: string; id?: number }
-                        >)}
+                        >, true)}
                       </div>
                       <div className="mt-1">
                         <strong>Secondary:</strong>{" "}
                         {renderSectorLinks(secondarySectorsForLinks as Array<
                           string | { sector_name?: string; id?: number }
-                        >)}
+                        >, false)}
                       </div>
                     </td>
                   </tr>

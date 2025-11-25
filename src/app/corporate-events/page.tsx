@@ -1055,7 +1055,7 @@ const CorporateEventsTable = ({
                           nodes.push(
                             <a
                               key={`${name}-${id}`}
-                              href={`/sector/${id}`}
+                              href={`/sub-sector/${id}`}
                               className="link-blue"
                             >
                               {name}

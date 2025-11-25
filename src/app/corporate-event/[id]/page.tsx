@@ -712,7 +712,26 @@ const CorporateEventDetail = ({
                 <span className="info-label">Sub-Sector(s):</span>
                 <span className="info-value">
                   {subSectors.length > 0
-                    ? subSectors.map((s) => s.sector_name).join(", ")
+                    ? subSectors.map((s, idx) => {
+                        const name = s.sector_name || "";
+                        const id = (s as { id?: number }).id;
+                        if (!name) return null;
+                        return (
+                          <React.Fragment key={`subsector-${id ?? idx}`}>
+                            {typeof id === "number" ? (
+                              <a
+                                href={`/sub-sector/${id}`}
+                                className="link-blue"
+                              >
+                                {name}
+                              </a>
+                            ) : (
+                              <span>{name}</span>
+                            )}
+                            {idx < subSectors.length - 1 && ", "}
+                          </React.Fragment>
+                        );
+                      })
                     : "Not available"}
                 </span>
               </div>
