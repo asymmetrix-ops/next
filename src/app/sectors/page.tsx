@@ -69,6 +69,10 @@ const SectorCard = ({
         height: "100%",
         display: "flex",
         flexDirection: "column" as const,
+        minWidth: 0,
+        maxWidth: "100%",
+        boxSizing: "border-box" as const,
+        overflow: "hidden",
       },
     },
     React.createElement(
@@ -83,7 +87,7 @@ const SectorCard = ({
         {
           href: `/sector/${sector.id}`,
           style: {
-            fontSize: "18px",
+            fontSize: "16px",
             fontWeight: "700",
             margin: "0",
             display: "block",
@@ -102,13 +106,15 @@ const SectorCard = ({
             gap: "8px",
             flexWrap: "nowrap" as const,
             alignItems: "center",
+            minWidth: 0,
+            width: "100%",
           },
         },
         React.createElement(
           "div",
           {
             style: {
-              fontSize: "14px",
+              fontSize: "12px",
               fontWeight: "600",
               color: "#1a202c",
               backgroundColor: "#f0f9ff",
@@ -116,6 +122,8 @@ const SectorCard = ({
               borderRadius: "6px",
               display: "inline-block",
               border: "1px solid #bae6fd",
+              whiteSpace: "nowrap" as const,
+              flexShrink: 0,
             },
           },
           `${formatNumber(sector.Number_of_Companies)} companies`
@@ -124,7 +132,7 @@ const SectorCard = ({
           "div",
           {
             style: {
-              fontSize: "14px",
+              fontSize: "12px",
               fontWeight: "600",
               color: "#1a202c",
               backgroundColor: "#f0f9ff",
@@ -132,6 +140,8 @@ const SectorCard = ({
               borderRadius: "6px",
               display: "inline-block",
               border: "1px solid #bae6fd",
+              whiteSpace: "nowrap" as const,
+              flexShrink: 0,
             },
           },
           `${formatNumber(sector.Number_of_Sub_Sectors || 0)} sub-sectors`
@@ -145,7 +155,7 @@ const SectorCard = ({
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
           gap: "10px",
-          fontSize: "13px",
+          fontSize: "12px",
         },
       },
       React.createElement(
@@ -161,12 +171,12 @@ const SectorCard = ({
         },
         React.createElement(
           "span",
-          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "11px" } },
+          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
           "Public"
         ),
         React.createElement(
           "span",
-          { style: { fontWeight: "700", fontSize: "16px", color: "#1a202c" } },
+          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
           formatNumber(sector.Number_of_Public)
         )
       ),
@@ -183,12 +193,12 @@ const SectorCard = ({
         },
         React.createElement(
           "span",
-          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "11px" } },
+          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
           "PE-owned"
         ),
         React.createElement(
           "span",
-          { style: { fontWeight: "700", fontSize: "16px", color: "#1a202c" } },
+          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
           formatNumber(sector.Number_of_PE)
         )
       ),
@@ -205,12 +215,12 @@ const SectorCard = ({
         },
         React.createElement(
           "span",
-          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "11px" } },
-          "VC-owned"
+          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
+          "VC-backed"
         ),
         React.createElement(
           "span",
-          { style: { fontWeight: "700", fontSize: "16px", color: "#1a202c" } },
+          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
           formatNumber(sector.Number_of_VC)
         )
       ),
@@ -227,12 +237,12 @@ const SectorCard = ({
         },
         React.createElement(
           "span",
-          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "11px" } },
+          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
           "Private"
         ),
         React.createElement(
           "span",
-          { style: { fontWeight: "700", fontSize: "16px", color: "#1a202c" } },
+          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
           formatNumber(sector.Number_of_Private)
         )
       )
@@ -337,16 +347,29 @@ const SectorsSection = () => {
 
 
   const style = `
+    * {
+      box-sizing: border-box;
+    }
     .sectors-section {
       padding: 32px 24px;
       border-radius: 8px;
       max-width: 1600px;
       margin: 0 auto;
+      width: 100%;
+      box-sizing: border-box;
+      overflow-x: hidden;
     }
     .sectors-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 16px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .sector-card {
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
     }
     .sector-card:hover {
       transform: translateY(-4px);
@@ -435,6 +458,8 @@ const SectorsSection = () => {
           alignItems: "center",
           gap: "12px",
           flexWrap: "wrap" as const,
+          width: "100%",
+          maxWidth: "100%",
         }
       },
       React.createElement(
@@ -475,7 +500,7 @@ const SectorsSection = () => {
         React.createElement("option", { value: "Number_of_Companies" }, "Number of Companies"),
         React.createElement("option", { value: "Number_of_Public" }, "Public Companies"),
         React.createElement("option", { value: "Number_of_PE" }, "PE-owned Companies"),
-        React.createElement("option", { value: "Number_of_VC" }, "VC-owned Companies"),
+        React.createElement("option", { value: "Number_of_VC" }, "VC-backed Companies"),
         React.createElement("option", { value: "Number_of_Private" }, "Private Companies")
       ),
       React.createElement(
