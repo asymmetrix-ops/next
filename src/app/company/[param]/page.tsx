@@ -2234,6 +2234,13 @@ const CompanyDetail = () => {
     .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
     .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
     .pill-green { background-color: #dcfce7; color: #15803d; }
+    /* Management card hover effects */
+    .management-card:hover {
+      background-color: #e6f0ff !important;
+      border-color: #0075df !important;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0, 117, 223, 0.1);
+    }
     @media (max-width: 768px) {
       .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
       .desktop-financial-metrics { display: none !important; }
@@ -2583,85 +2590,148 @@ const CompanyDetail = () => {
                   >
                     Management
                   </h3>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "24px",
-                    }}
-                    className="management-grid"
-                  >
-                    <div>
+                  
+                  {/* Current Management */}
+                  {company.Managmant_Roles_current &&
+                  company.Managmant_Roles_current.length > 0 && (
+                    <div style={{ marginBottom: "20px" }}>
                       <h4
                         style={{
-                          ...styles.label,
                           fontSize: "14px",
-                          marginBottom: "8px",
+                          marginBottom: "12px",
                           fontWeight: 600,
+                          color: "#4a5568",
                         }}
                       >
                         Current:
                       </h4>
-                      {company.Managmant_Roles_current &&
-                      company.Managmant_Roles_current.length > 0 ? (
-                        company.Managmant_Roles_current.map((person) => (
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                          gap: "12px",
+                        }}
+                        className="management-grid"
+                      >
+                        {company.Managmant_Roles_current.map((person) => (
                           <div
                             key={person.id}
-                            style={{ marginBottom: "8px", fontSize: "14px" }}
+                            style={{
+                              padding: "12px",
+                              border: "1px solid #e2e8f0",
+                              borderRadius: "8px",
+                              backgroundColor: "#f9fafb",
+                              transition: "all 0.2s ease",
+                              cursor: "pointer",
+                            }}
+                            className="management-card"
+                            onClick={() => {
+                              window.location.href = `/individual/${person.individuals_id}`;
+                            }}
                           >
-                            {createClickableElement(
-                              `/individual/${person.individuals_id}`,
-                              `${person.Individual_text}: ${(
-                                person.job_titles_id || []
-                              )
+                            <div
+                              style={{
+                                fontSize: "14px",
+                                fontWeight: 600,
+                                color: "#0075df",
+                                marginBottom: "4px",
+                              }}
+                            >
+                              {person.Individual_text}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: "13px",
+                                color: "#4a5568",
+                                lineHeight: "1.4",
+                              }}
+                            >
+                              {(person.job_titles_id || [])
                                 .map((job) => job?.job_title)
                                 .filter(Boolean)
-                                .join(", ")}`
-                            )}
+                                .join(", ") || "No title"}
+                            </div>
                           </div>
-                        ))
-                      ) : (
-                        <div style={{ color: "#6b7280", fontSize: "14px" }}>
-                          Not available
-                        </div>
-                      )}
+                        ))}
+                      </div>
                     </div>
+                  )}
+
+                  {/* Past Management */}
+                  {company.Managmant_Roles_past &&
+                  company.Managmant_Roles_past.length > 0 && (
                     <div>
                       <h4
                         style={{
-                          ...styles.label,
                           fontSize: "14px",
-                          marginBottom: "8px",
+                          marginBottom: "12px",
                           fontWeight: 600,
+                          color: "#4a5568",
                         }}
                       >
                         Past:
                       </h4>
-                      {company.Managmant_Roles_past &&
-                      company.Managmant_Roles_past.length > 0 ? (
-                        company.Managmant_Roles_past.map((person) => (
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                          gap: "12px",
+                        }}
+                        className="management-grid"
+                      >
+                        {company.Managmant_Roles_past.map((person) => (
                           <div
                             key={person.id}
-                            style={{ marginBottom: "8px", fontSize: "14px" }}
+                            style={{
+                              padding: "12px",
+                              border: "1px solid #e2e8f0",
+                              borderRadius: "8px",
+                              backgroundColor: "#f9fafb",
+                              transition: "all 0.2s ease",
+                              cursor: "pointer",
+                            }}
+                            className="management-card"
+                            onClick={() => {
+                              window.location.href = `/individual/${person.individuals_id}`;
+                            }}
                           >
-                            {createClickableElement(
-                              `/individual/${person.individuals_id}`,
-                              `${person.Individual_text}: ${(
-                                person.job_titles_id || []
-                              )
+                            <div
+                              style={{
+                                fontSize: "14px",
+                                fontWeight: 600,
+                                color: "#0075df",
+                                marginBottom: "4px",
+                              }}
+                            >
+                              {person.Individual_text}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: "13px",
+                                color: "#4a5568",
+                                lineHeight: "1.4",
+                              }}
+                            >
+                              {(person.job_titles_id || [])
                                 .map((job) => job?.job_title)
                                 .filter(Boolean)
-                                .join(", ")}`
-                            )}
+                                .join(", ") || "No title"}
+                            </div>
                           </div>
-                        ))
-                      ) : (
-                        <div style={{ color: "#6b7280", fontSize: "14px" }}>
-                          Not available
-                        </div>
-                      )}
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* No management data */}
+                  {(!company.Managmant_Roles_current ||
+                    company.Managmant_Roles_current.length === 0) &&
+                    (!company.Managmant_Roles_past ||
+                      company.Managmant_Roles_past.length === 0) && (
+                      <div style={{ color: "#6b7280", fontSize: "14px" }}>
+                        Not available
+                      </div>
+                    )}
                 </div>
               )}
 
