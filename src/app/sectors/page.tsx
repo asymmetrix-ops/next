@@ -22,6 +22,7 @@ interface Sector {
 type SortField =
   | "sector_name"
   | "Number_of_Companies"
+  | "Number_of_Sub_Sectors"
   | "Number_of_Public"
   | "Number_of_PE"
   | "Number_of_VC"
@@ -270,8 +271,8 @@ const SectorsSection = () => {
 
   // Sort sectors
   const sortedSectors = [...sectors].sort((a, b) => {
-    let aValue: string | number = a[sortField];
-    let bValue: string | number = b[sortField];
+    let aValue: string | number = a[sortField] ?? 0;
+    let bValue: string | number = b[sortField] ?? 0;
 
     if (typeof aValue === "string") {
       aValue = aValue.toLowerCase();
@@ -498,6 +499,7 @@ const SectorsSection = () => {
         },
         React.createElement("option", { value: "sector_name" }, "Sector Name"),
         React.createElement("option", { value: "Number_of_Companies" }, "Number of Companies"),
+        React.createElement("option", { value: "Number_of_Sub_Sectors" }, "Number of Sub-Sectors"),
         React.createElement("option", { value: "Number_of_Public" }, "Public Companies"),
         React.createElement("option", { value: "Number_of_PE" }, "PE-owned Companies"),
         React.createElement("option", { value: "Number_of_VC" }, "VC-backed Companies"),
