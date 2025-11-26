@@ -548,7 +548,8 @@ function EmailsTab() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | "">("");
 
   function loadHtmlIntoEditor(rawHtml: string) {
-    const inst = unlayerRef.current as {
+    const editorRef = unlayerRef.current as {
+      editor?: { loadDesign?: (design: unknown) => void };
       loadDesign?: (design: unknown) => void;
     } | null;
     const design = {
@@ -571,7 +572,9 @@ function EmailsTab() {
         values: { backgroundColor: "#ffffff", contentWidth: "600px" },
       },
     };
-    inst?.loadDesign?.(design as unknown);
+    // Try editor property first (standard react-email-editor pattern), then direct
+    const loadFn = editorRef?.editor?.loadDesign ?? editorRef?.loadDesign;
+    loadFn?.(design as unknown);
   }
 
   useEffect(() => {
@@ -611,10 +614,12 @@ function EmailsTab() {
 
   const handleExport = async () => {
     const exported = await new Promise<{ html?: string }>((resolve) => {
-      const inst = unlayerRef.current as {
+      const editorRef = unlayerRef.current as {
+        editor?: { exportHtml?: (cb: (d: { html?: string }) => void) => void };
         exportHtml?: (cb: (d: { html?: string }) => void) => void;
       } | null;
-      inst?.exportHtml?.((d) => resolve(d));
+      const exportFn = editorRef?.editor?.exportHtml ?? editorRef?.exportHtml;
+      exportFn?.((d) => resolve(d));
     });
     const rawHtml = exported?.html || "";
     const sanitized = sanitizeHtml(rawHtml);
@@ -745,10 +750,12 @@ function EmailsTab() {
               // Build sanitized HTML body from current text and wrap with brand template
               const exported = await new Promise<{ html?: string }>(
                 (resolve) => {
-                  const inst = unlayerRef.current as {
+                  const editorRef = unlayerRef.current as {
+                    editor?: { exportHtml?: (cb: (d: { html?: string }) => void) => void };
                     exportHtml?: (cb: (d: { html?: string }) => void) => void;
                   } | null;
-                  inst?.exportHtml?.((d) => resolve(d));
+                  const exportFn = editorRef?.editor?.exportHtml ?? editorRef?.exportHtml;
+                  exportFn?.((d) => resolve(d));
                 }
               );
               const rawHtml = exported?.html || "";
@@ -800,10 +807,12 @@ function EmailsTab() {
               if (!subjectTrimmed) return;
               const exported = await new Promise<{ html?: string }>(
                 (resolve) => {
-                  const inst = unlayerRef.current as {
+                  const editorRef = unlayerRef.current as {
+                    editor?: { exportHtml?: (cb: (d: { html?: string }) => void) => void };
                     exportHtml?: (cb: (d: { html?: string }) => void) => void;
                   } | null;
-                  inst?.exportHtml?.((d) => resolve(d));
+                  const exportFn = editorRef?.editor?.exportHtml ?? editorRef?.exportHtml;
+                  exportFn?.((d) => resolve(d));
                 }
               );
               const rawHtml = exported?.html || "";
@@ -994,10 +1003,12 @@ function ContentTab() {
   const [generatedJson, setGeneratedJson] = useState<string>("");
   const generatePayload = async () => {
     const exported = await new Promise<{ html?: string }>((resolve) => {
-      const inst = contentUnlayerRef.current as {
+      const editorRef = contentUnlayerRef.current as {
+        editor?: { exportHtml?: (cb: (d: { html?: string }) => void) => void };
         exportHtml?: (cb: (d: { html?: string }) => void) => void;
       } | null;
-      inst?.exportHtml?.((d) => resolve(d));
+      const exportFn = editorRef?.editor?.exportHtml ?? editorRef?.exportHtml;
+      exportFn?.((d) => resolve(d));
     });
     const rawHtml = exported?.html || "";
     const sanitized = sanitizeHtml(rawHtml);
@@ -1025,10 +1036,12 @@ function ContentTab() {
       setSubmittingContent(true);
       // export HTML from builder
       const exported = await new Promise<{ html?: string }>((resolve) => {
-        const inst = contentUnlayerRef.current as {
+        const editorRef = contentUnlayerRef.current as {
+          editor?: { exportHtml?: (cb: (d: { html?: string }) => void) => void };
           exportHtml?: (cb: (d: { html?: string }) => void) => void;
         } | null;
-        inst?.exportHtml?.((d) => resolve(d));
+        const exportFn = editorRef?.editor?.exportHtml ?? editorRef?.exportHtml;
+        exportFn?.((d) => resolve(d));
       });
       const rawHtml = exported?.html || "";
       const sanitized = sanitizeHtml(rawHtml);
@@ -1182,10 +1195,12 @@ function ContentTab() {
               g?.registerCallback?.("image", uploadCb);
 
               // Also register on the instance as a fallback
-              const inst = contentUnlayerRef.current as {
+              const editorRef = contentUnlayerRef.current as {
+                editor?: { registerCallback?: (name: string, cb: typeof uploadCb) => void };
                 registerCallback?: (name: string, cb: typeof uploadCb) => void;
               } | null;
-              inst?.registerCallback?.("image", uploadCb);
+              const registerFn = editorRef?.editor?.registerCallback ?? editorRef?.registerCallback;
+              registerFn?.("image", uploadCb);
             } catch {}
           }}
         />
