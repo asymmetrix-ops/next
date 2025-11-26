@@ -824,7 +824,7 @@ const ArticleDetailPage = () => {
               }
               return (
                 <div style={styles.section}>
-                  <h2 style={styles.sectionTitle}>Related Corporate Event</h2>
+                  <h2 style={styles.sectionTitle}>Related Corporate Events</h2>
                   <div style={styles.tagContainer}>
                     {events.map((ev, idx) => {
                       const id = ev?.id;
