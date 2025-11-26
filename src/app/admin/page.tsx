@@ -793,11 +793,69 @@ function EmailsTab() {
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | "">("");
 
-  function loadHtmlIntoEditor(rawHtml: string) {
-    const editorRef = unlayerRef.current as {
-      editor?: { loadDesign?: (design: unknown) => void };
-      loadDesign?: (design: unknown) => void;
-    } | null;
+  function extractInnerContent(fullHtml: string): string {
+    // If it's a full HTML document, extract the inner content
+    // Look for the content inside the container table/td
+    try {
+      // Create a temporary DOM parser to extract content safely
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(fullHtml, 'text/html');
+      
+      // Try to find the container table
+      const container = doc.querySelector('table.container, .container table, table[class*="container"]');
+      if (container) {
+        const td = container.querySelector('td');
+        if (td) {
+          return td.innerHTML.trim();
+        }
+      }
+      
+      // Try to find any div inside body
+      const bodyDiv = doc.body?.querySelector('div');
+      if (bodyDiv) {
+        return bodyDiv.innerHTML.trim();
+      }
+      
+      // If no wrapper found, return body content or as-is
+      return doc.body?.innerHTML.trim() || fullHtml;
+    } catch {
+      // Fallback: regex extraction
+      const containerMatch = fullHtml.match(/<table[^>]*class="container"[^>]*>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<\/table>/i);
+      if (containerMatch && containerMatch[1]) {
+        return containerMatch[1].trim();
+      }
+      const divMatch = fullHtml.match(/<body[^>]*>[\s\S]*?<div[^>]*>([\s\S]*?)<\/div>[\s\S]*?<\/body>/i);
+      if (divMatch && divMatch[1]) {
+        return divMatch[1].trim();
+      }
+      return fullHtml;
+    }
+  }
+
+  function waitForEditorLoadDesignReady(
+    retries: number = 10,
+    interval: number = 500
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      const check = () => {
+        const editor = (unlayerRef.current as { editor?: unknown } | null)
+          ?.editor as { loadDesign?: (design: unknown) => void } | undefined;
+        if (editor && typeof editor.loadDesign === "function") {
+          resolve();
+        } else if (attempts < retries) {
+          attempts += 1;
+          setTimeout(check, interval);
+        } else {
+          reject(new Error("Editor loadDesign method not ready after retries"));
+        }
+      };
+      check();
+    });
+  }
+
+  async function loadHtmlIntoEditorSafe(rawHtml: string): Promise<void> {
+    const innerHtml = extractInnerContent(rawHtml);
     const design = {
       body: {
         rows: [
@@ -808,7 +866,7 @@ function EmailsTab() {
                 contents: [
                   {
                     type: "html",
-                    values: { html: rawHtml },
+                    values: { html: innerHtml },
                   },
                 ],
               },
@@ -818,9 +876,20 @@ function EmailsTab() {
         values: { backgroundColor: "#ffffff", contentWidth: "600px" },
       },
     };
-    // Try editor property first (standard react-email-editor pattern), then direct
-    const loadFn = editorRef?.editor?.loadDesign ?? editorRef?.loadDesign;
-    loadFn?.(design as unknown);
+
+    try {
+      await waitForEditorLoadDesignReady();
+      const editor = (unlayerRef.current as { editor?: unknown } | null)
+        ?.editor as { loadDesign?: (design: unknown) => void } | undefined;
+      editor?.loadDesign?.(design as unknown);
+    } catch (err) {
+      console.error("Failed to load design:", err);
+    }
+  }
+
+  // Wrapper to keep existing call sites simple
+  function loadHtmlIntoEditor(rawHtml: string) {
+    void loadHtmlIntoEditorSafe(rawHtml);
   }
 
   useEffect(() => {
@@ -960,7 +1029,17 @@ function EmailsTab() {
         <EmailEditor
           ref={unlayerRef as unknown as never}
           minHeight={500}
-          onReady={() => setEditorReady(true)}
+          onReady={() => {
+            // Wait a bit more for the editor iframe to be fully initialized
+            setTimeout(() => {
+              setEditorReady(true);
+              // If there's pending HTML, try to load it now
+              if (pendingHtml) {
+                loadHtmlIntoEditor(pendingHtml);
+                setPendingHtml(null);
+              }
+            }, 1000);
+          }}
         />
       </div>
 
