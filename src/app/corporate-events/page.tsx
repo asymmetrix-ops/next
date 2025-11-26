@@ -389,19 +389,50 @@ const CorporateEventsTable = ({
         </div>
         <div className="corporate-event-card-info">
           <div className="corporate-event-card-info-item">
-            <span className="corporate-event-card-info-label">Target:</span>
-            {target && targetCounterpartyId ? (
-              <a
-                href={`/company/${targetCounterpartyId}`}
-                className="corporate-event-card-info-value-link"
-              >
-                {(target as unknown as { name?: string })?.name || "N/A"}
-              </a>
-            ) : (
-              <span className="corporate-event-card-info-value">
-                Not available
-              </span>
-            )}
+            <span className="corporate-event-card-info-label">
+              {event.target_label || (isPartnership ? "Target(s)" : "Target")}:
+            </span>
+            {(() => {
+              // Use new targets array if available
+              if (Array.isArray(event.targets) && event.targets.length > 0) {
+                const displayTargets = isPartnership
+                  ? event.targets
+                  : event.targets.slice(0, 1);
+                return displayTargets.map((tgt, i, arr) => {
+                  const href =
+                    tgt.route === "investor" || tgt.route === "investors"
+                      ? `/investors/${tgt.id}`
+                      : `/company/${tgt.id}`;
+                  return (
+                    <span key={`tgt-${tgt.id}`}>
+                      <a
+                        href={href}
+                        className="corporate-event-card-info-value-link"
+                      >
+                        {tgt.name}
+                      </a>
+                      {i < arr.length - 1 && ", "}
+                    </span>
+                  );
+                });
+              }
+              // Fallback to legacy target_counterparty
+              if (target && targetCounterpartyId) {
+                return (
+                  <a
+                    href={`/company/${targetCounterpartyId}`}
+                    className="corporate-event-card-info-value-link"
+                  >
+                    {(target as unknown as { name?: string })?.name || "N/A"}
+                  </a>
+                );
+              }
+              return (
+                <span className="corporate-event-card-info-value">
+                  Not available
+                </span>
+              );
+            })()}
           </div>
           <div className="corporate-event-card-info-item">
             <span className="corporate-event-card-info-label">Type:</span>
@@ -762,14 +793,46 @@ const CorporateEventsTable = ({
                 {/* Parties */}
                 <td>
                   <div className="muted-row">
-                    <strong>Target:</strong>{" "}
-                    {targetHref ? (
-                      <a href={targetHref} className="link-blue">
-                        {targetName}
-                      </a>
-                    ) : (
-                      <span>{targetName}</span>
-                    )}
+                    <strong>
+                      {event.target_label ||
+                        (isPartnership ? "Target(s)" : "Target")}
+                      :
+                    </strong>{" "}
+                    {(() => {
+                      // Use new targets array if available
+                      if (
+                        Array.isArray(event.targets) &&
+                        event.targets.length > 0
+                      ) {
+                        const displayTargets = isPartnership
+                          ? event.targets
+                          : event.targets.slice(0, 1);
+                        return displayTargets.map((tgt, i, arr) => {
+                          const href =
+                            tgt.route === "investor" ||
+                            tgt.route === "investors"
+                              ? `/investors/${tgt.id}`
+                              : `/company/${tgt.id}`;
+                          return (
+                            <span key={`tgt-${tgt.id}`}>
+                              <a href={href} className="link-blue">
+                                {tgt.name}
+                              </a>
+                              {i < arr.length - 1 && ", "}
+                            </span>
+                          );
+                        });
+                      }
+                      // Fallback to legacy target_counterparty
+                      if (targetHref) {
+                        return (
+                          <a href={targetHref} className="link-blue">
+                            {targetName}
+                          </a>
+                        );
+                      }
+                      return <span>{targetName}</span>;
+                    })()}
                   </div>
                   {(() => {
                     const dealType = (event.deal_type || "").toLowerCase();

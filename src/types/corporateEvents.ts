@@ -104,6 +104,15 @@ export interface Advisor {
   };
 }
 
+// Target entity reference for the new targets array
+export interface TargetEntity {
+  id: number;
+  name: string;
+  path: string;
+  route: string;
+  entity_type: string;
+}
+
 export interface CorporateEvent {
   id: number;
   description: string;
@@ -114,6 +123,10 @@ export interface CorporateEvent {
   ev_data: EnterpriseValueData;
   other_counterparties: OtherCounterparty[];
   advisors: Advisor[];
+  // New API fields for targets
+  targets?: TargetEntity[];
+  target_label?: string;
+  buyer_investor_label?: string | null;
 }
 
 export interface CorporateEventsResponse {
