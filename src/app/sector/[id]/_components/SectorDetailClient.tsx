@@ -4024,17 +4024,58 @@ const SectorDetailPage = ({
                       {/* Parties */}
                       <td className="p-3 align-top break-words">
                         <div className="mb-1 text-xs text-slate-600">
-                          <strong>Target:</strong>{" "}
-                          {targetHref ? (
-                            <a
-                              href={targetHref}
-                              className="text-blue-600 underline hover:text-blue-800"
-                            >
-                              {targetName}
-                            </a>
-                          ) : (
-                            <span>{targetName}</span>
-                          )}
+                          <strong>
+                            {(event as { target_label?: string }).target_label ||
+                              (isPartnership ? "Target(s)" : "Target")}
+                            :
+                          </strong>{" "}
+                          {(() => {
+                            // Use new targets array if available
+                            const targets = (
+                              event as {
+                                targets?: Array<{
+                                  id: number;
+                                  name: string;
+                                  route: string;
+                                }>;
+                              }
+                            ).targets;
+                            if (Array.isArray(targets) && targets.length > 0) {
+                              const displayTargets = isPartnership
+                                ? targets
+                                : targets.slice(0, 1);
+                              return displayTargets.map((tgt, i, arr) => {
+                                const href =
+                                  tgt.route === "investor" ||
+                                  tgt.route === "investors"
+                                    ? `/investors/${tgt.id}`
+                                    : `/company/${tgt.id}`;
+                                return (
+                                  <span key={`tgt-${tgt.id}`}>
+                                    <a
+                                      href={href}
+                                      className="text-blue-600 underline hover:text-blue-800"
+                                    >
+                                      {tgt.name}
+                                    </a>
+                                    {i < arr.length - 1 && ", "}
+                                  </span>
+                                );
+                              });
+                            }
+                            // Fallback to legacy target_counterparty
+                            if (targetHref) {
+                              return (
+                                <a
+                                  href={targetHref}
+                                  className="text-blue-600 underline hover:text-blue-800"
+                                >
+                                  {targetName}
+                                </a>
+                              );
+                            }
+                            return <span>{targetName}</span>;
+                          })()}
                         </div>
                         {!isPartnership && (
                           <div className="text-xs text-slate-600">

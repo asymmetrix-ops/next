@@ -115,7 +115,46 @@ interface CorporateEvent {
   ev_data?: {
     enterprise_value_m?: number;
     ev_band?: string;
+    currency?: { Currency?: string };
   };
+  investment_data?: {
+    investment_amount_m?: string;
+    Funding_stage?: string;
+    funding_stage?: string;
+    currency?: { Currency?: string };
+  };
+  // New API fields for targets
+  targets?: Array<{
+    id: number;
+    name: string;
+    path?: string;
+    route?: string;
+    entity_type?: string;
+  }>;
+  target_label?: string;
+  target_counterparty?: {
+    new_company_counterparty?: number;
+    new_company?: {
+      id?: number;
+      name?: string;
+      _location?: { Country?: string };
+    };
+    _new_company?: {
+      id?: number;
+      name?: string;
+      _location?: { Country?: string };
+    };
+  };
+  other_counterparties?: Array<{
+    _new_company?: {
+      id?: number;
+      name?: string;
+      _is_that_investor?: boolean;
+    };
+    _counterparty_type?: {
+      counterparty_status?: string;
+    };
+  }>;
   "0"?: Array<{
     _new_company?: {
       id?: number;
@@ -1066,47 +1105,6 @@ const InvestorDetailPage = () => {
   }, ${Investor._locations?.Country || ""}`
     .replace(/^,\s*/, "")
     .replace(/,\s*$/, "");
-
-  // Map corporate events for display
-  const mappedCorporateEvents = corporateEvents.map((event, index) => {
-    const counterparties = event["0"] || [];
-
-    // Build other counterparties with id and investor flag for proper routing
-    const otherCounterparties = counterparties
-      .filter((c) => c._new_company?.name)
-      .map((c) => ({
-        id: c._new_company?.id as number | undefined,
-        name: c._new_company?.name || "",
-        isInvestor: Boolean(c._new_company?._is_that_investor),
-      }))
-      .filter((c) => Boolean(c.name));
-
-    // Get advisors if present in index "1"
-    const advisorEntries = event["1"] || [];
-    const advisorList = advisorEntries
-      .map((a) => ({
-        id: a._new_company?.id,
-        name: a._new_company?.name || "",
-      }))
-      .filter((a) => Boolean(a.name));
-
-    return {
-      id: event.id,
-      originalIndex: index, // Fallback for navigation if no ID
-      description: event.description,
-      announcement_date: event.announcement_date,
-      type: event.deal_type,
-      counterparty_status:
-        event.counterparty_status?.counterparty_syayus?.counterparty_status ||
-        "—",
-      other_counterparties:
-        otherCounterparties.length > 0 ? otherCounterparties : "—",
-      enterprise_value: event.ev_data?.enterprise_value_m
-        ? `$${Number(event.ev_data.enterprise_value_m).toLocaleString()}m`
-        : event.ev_data?.ev_band || "—",
-      advisors: advisorList.length > 0 ? advisorList : "—",
-    };
-  });
 
   const style = `
     .investor-detail-page {
@@ -2243,7 +2241,7 @@ const InvestorDetailPage = () => {
                             borderBottom: "1px solid #e2e8f0",
                           }}
                         >
-                          Description
+                          Event Details
                         </th>
                         <th
                           style={{
@@ -2252,7 +2250,7 @@ const InvestorDetailPage = () => {
                             borderBottom: "1px solid #e2e8f0",
                           }}
                         >
-                          Date Announced
+                          Parties
                         </th>
                         <th
                           style={{
@@ -2261,34 +2259,7 @@ const InvestorDetailPage = () => {
                             borderBottom: "1px solid #e2e8f0",
                           }}
                         >
-                          Type
-                        </th>
-                        <th
-                          style={{
-                            padding: "12px",
-                            textAlign: "left",
-                            borderBottom: "1px solid #e2e8f0",
-                          }}
-                        >
-                          Counterparty Status
-                        </th>
-                        <th
-                          style={{
-                            padding: "12px",
-                            textAlign: "left",
-                            borderBottom: "1px solid #e2e8f0",
-                          }}
-                        >
-                          Other Counterparties
-                        </th>
-                        <th
-                          style={{
-                            padding: "12px",
-                            textAlign: "left",
-                            borderBottom: "1px solid #e2e8f0",
-                          }}
-                        >
-                          Enterprise Value
+                          Deal Details
                         </th>
                         <th
                           style={{
@@ -2302,153 +2273,335 @@ const InvestorDetailPage = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {mappedCorporateEvents.length > 0 ? (
-                        mappedCorporateEvents.map((event, index) => (
-                          <tr
-                            key={index}
-                            style={{ borderBottom: "1px solid #e2e8f0" }}
-                          >
-                            <td style={{ padding: "12px" }}>
-                              <div style={{ maxWidth: "520px" }}>
-                                <a
-                                  href={
-                                    event.id
-                                      ? `/corporate-event/${event.id}`
-                                      : "#"
-                                  }
+                      {corporateEvents.length > 0 ? (
+                        corporateEvents.map((event, index) => {
+                          const isPartnership = /partnership/i.test(
+                            event.deal_type || ""
+                          );
+
+                          // Extract target info - prefer new targets array
+                          const targets = event.targets;
+                          const legacyTarget =
+                            event.target_counterparty?.new_company ||
+                            event.target_counterparty?._new_company;
+                          const legacyTargetId =
+                            event.target_counterparty?.new_company_counterparty;
+                          const targetCountry =
+                            legacyTarget?._location?.Country || "Not Available";
+
+                          // Get advisors from either format
+                          const advisorEntries = event["1"] || [];
+                          const advisorList = advisorEntries
+                            .map((a) => ({
+                              id: a._new_company?.id,
+                              name: a._new_company?.name || "",
+                            }))
+                            .filter((a) => Boolean(a.name));
+
+                          // Format currency helper
+                          const formatCurrency = (
+                            amount: string | undefined,
+                            currency: string | undefined
+                          ) => {
+                            if (!amount || !currency) return "Not available";
+                            const n = Number(amount);
+                            if (Number.isNaN(n)) return "Not available";
+                            return `${currency}${n.toLocaleString(undefined, {
+                              maximumFractionDigits: 3,
+                            })}`;
+                          };
+
+                          const fundingStage = (
+                            event.investment_data?.Funding_stage ||
+                            event.investment_data?.funding_stage ||
+                            ""
+                          ).trim();
+
+                          return (
+                            <tr
+                              key={event.id || index}
+                              style={{ borderBottom: "1px solid #e2e8f0" }}
+                            >
+                              {/* Event Details */}
+                              <td
+                                style={{
+                                  padding: "12px",
+                                  verticalAlign: "top",
+                                }}
+                              >
+                                <div style={{ maxWidth: "300px" }}>
+                                  <a
+                                    href={
+                                      event.id
+                                        ? `/corporate-event/${event.id}`
+                                        : "#"
+                                    }
+                                    style={{
+                                      color: "#3b82f6",
+                                      textDecoration: "underline",
+                                      fontWeight: "500",
+                                      cursor: "pointer",
+                                      lineHeight: 1.4,
+                                    }}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      handleCorporateEventDescriptionClick(
+                                        event.id,
+                                        event.description
+                                      );
+                                    }}
+                                  >
+                                    {
+                                      truncateDescription(
+                                        event.description,
+                                        180
+                                      ).text
+                                    }
+                                  </a>
+                                </div>
+                                <div
                                   style={{
-                                    color: "#3b82f6",
-                                    textDecoration: "underline",
-                                    fontWeight: "500",
-                                    cursor: "pointer",
-                                    wordBreak: "keep-all",
-                                    overflowWrap: "normal",
-                                    hyphens: "none",
-                                    whiteSpace: "normal",
-                                    lineHeight: 1.4,
-                                    display: "inline",
+                                    fontSize: "12px",
+                                    color: "#64748b",
+                                    marginTop: "4px",
                                   }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    handleCorporateEventDescriptionClick(
-                                      event.id,
-                                      event.description
-                                    );
+                                >
+                                  Date:{" "}
+                                  {event.announcement_date
+                                    ? formatDate(event.announcement_date)
+                                    : "Not available"}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: "12px",
+                                    color: "#64748b",
                                   }}
-                                  onContextMenu={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    if (event.id) {
-                                      window.open(
-                                        `/corporate-event/${event.id}`,
-                                        "_blank",
-                                        "noopener,noreferrer"
+                                >
+                                  Target HQ: {targetCountry}
+                                </div>
+                              </td>
+
+                              {/* Parties */}
+                              <td
+                                style={{
+                                  padding: "12px",
+                                  verticalAlign: "top",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                <div style={{ marginBottom: "4px" }}>
+                                  <strong>
+                                    {event.target_label ||
+                                      (isPartnership ? "Target(s)" : "Target")}
+                                    :
+                                  </strong>{" "}
+                                  {(() => {
+                                    // Use new targets array if available
+                                    if (
+                                      Array.isArray(targets) &&
+                                      targets.length > 0
+                                    ) {
+                                      const displayTargets = isPartnership
+                                        ? targets
+                                        : targets.slice(0, 1);
+                                      return displayTargets.map(
+                                        (tgt, i, arr) => {
+                                          const href =
+                                            tgt.route === "investor" ||
+                                            tgt.route === "investors"
+                                              ? `/investors/${tgt.id}`
+                                              : `/company/${tgt.id}`;
+                                          return (
+                                            <span key={`tgt-${tgt.id}`}>
+                                              <a
+                                                href={href}
+                                                style={{
+                                                  color: "#3b82f6",
+                                                  textDecoration: "underline",
+                                                }}
+                                              >
+                                                {tgt.name}
+                                              </a>
+                                              {i < arr.length - 1 && ", "}
+                                            </span>
+                                          );
+                                        }
                                       );
                                     }
-                                  }}
-                                  title="Open event"
-                                >
-                                  {
-                                    truncateDescription(event.description, 220)
-                                      .text
-                                  }
-                                </a>
-                              </div>
-                            </td>
-                            <td style={{ padding: "12px" }}>
-                              {event.announcement_date
-                                ? formatDate(event.announcement_date)
-                                : "—"}
-                            </td>
-                            <td style={{ padding: "12px" }}>
-                              {event.type || "—"}
-                            </td>
-                            <td style={{ padding: "12px" }}>
-                              {event.counterparty_status}
-                            </td>
-                            <td
-                              style={{
-                                padding: "12px",
-                                maxWidth: "150px",
-                                fontSize: "12px",
-                              }}
-                            >
-                              {Array.isArray(event.other_counterparties)
-                                ? event.other_counterparties.map((cp, idx) => (
-                                    <span key={`${cp.id ?? cp.name}-${idx}`}>
-                                      {createClickableElement(
-                                        cp?.isInvestor && cp.id
-                                          ? `/investors/${cp.id}`
-                                          : cp.id
-                                          ? `/company/${cp.id}`
-                                          : `/companies?search=${encodeURIComponent(
-                                              cp.name || ""
-                                            )}`,
-                                        cp.name || "Unknown",
-                                        undefined,
-                                        { fontSize: "12px" }
-                                      )}
-                                      {idx <
-                                      event.other_counterparties.length - 1
-                                        ? ", "
-                                        : ""}
-                                    </span>
-                                  ))
-                                : "—"}
-                            </td>
-                            <td style={{ padding: "12px" }}>
-                              {event.enterprise_value}
-                            </td>
-                            <td
-                              style={{
-                                padding: "12px",
-                                maxWidth: "150px",
-                                fontSize: "12px",
-                              }}
-                            >
-                              {Array.isArray(event.advisors)
-                                ? event.advisors.map((advisor, index) => (
-                                    <span
-                                      key={
-                                        advisor.id ?? `${advisor.name}-${index}`
-                                      }
-                                    >
+                                    // Fallback to legacy target
+                                    if (legacyTarget?.name && legacyTargetId) {
+                                      return (
+                                        <a
+                                          href={`/company/${legacyTargetId}`}
+                                          style={{
+                                            color: "#3b82f6",
+                                            textDecoration: "underline",
+                                          }}
+                                        >
+                                          {legacyTarget.name}
+                                        </a>
+                                      );
+                                    }
+                                    return "Not Available";
+                                  })()}
+                                </div>
+                                {!isPartnership && (
+                                  <div style={{ marginBottom: "4px" }}>
+                                    <strong>Buyer(s) / Investor(s):</strong>{" "}
+                                    {(() => {
+                                      // Use legacy format from event["0"]
+                                      const legacyList = (event["0"] || [])
+                                        .filter((c) => c._new_company?.name)
+                                        .slice(0, 5);
+                                      if (legacyList.length === 0)
+                                        return "Not Available";
+                                      return legacyList.map((c, idx) => (
+                                        <span
+                                          key={`cp-${
+                                            c._new_company?.id || idx
+                                          }`}
+                                        >
+                                          {c._new_company?.id ? (
+                                            <a
+                                              href={
+                                                c._new_company?._is_that_investor
+                                                  ? `/investors/${c._new_company.id}`
+                                                  : `/company/${c._new_company.id}`
+                                              }
+                                              style={{
+                                                color: "#3b82f6",
+                                                textDecoration: "underline",
+                                              }}
+                                            >
+                                              {c._new_company?.name}
+                                            </a>
+                                          ) : (
+                                            c._new_company?.name
+                                          )}
+                                          {idx < legacyList.length - 1 && ", "}
+                                        </span>
+                                      ));
+                                    })()}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Deal Details */}
+                              <td
+                                style={{
+                                  padding: "12px",
+                                  verticalAlign: "top",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                <div style={{ marginBottom: "4px" }}>
+                                  <strong>Deal Type:</strong>{" "}
+                                  {event.deal_type ? (
+                                    <>
                                       <span
                                         style={{
-                                          color: "#3b82f6",
-                                          textDecoration: "none",
-                                          fontWeight: "500",
-                                          cursor: "pointer",
+                                          display: "inline-block",
+                                          padding: "2px 8px",
+                                          backgroundColor: "#dbeafe",
+                                          color: "#1e40af",
+                                          borderRadius: "4px",
+                                          fontSize: "11px",
                                         }}
-                                        onClick={() => {
-                                          if (advisor.id) {
-                                            router.push(
-                                              `/advisor/${advisor.id}`
-                                            );
-                                          } else if (advisor.name) {
-                                            handleAdvisorClick(advisor.name);
-                                          }
-                                        }}
-                                        onContextMenu={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                        }}
-                                        title="Click to navigate to advisor page"
                                       >
-                                        {advisor.name}
+                                        {event.deal_type}
                                       </span>
-                                      {index < event.advisors.length - 1 &&
-                                        ", "}
-                                    </span>
-                                  ))
-                                : "—"}
-                            </td>
-                          </tr>
-                        ))
+                                      {fundingStage && (
+                                        <span
+                                          style={{
+                                            display: "inline-block",
+                                            padding: "2px 8px",
+                                            backgroundColor: "#dcfce7",
+                                            color: "#166534",
+                                            borderRadius: "4px",
+                                            fontSize: "11px",
+                                            marginLeft: "4px",
+                                          }}
+                                        >
+                                          {fundingStage}
+                                        </span>
+                                      )}
+                                    </>
+                                  ) : (
+                                    "Not Available"
+                                  )}
+                                </div>
+                                {!isPartnership && (
+                                  <>
+                                    <div style={{ marginBottom: "4px" }}>
+                                      <strong>Amount (m):</strong>{" "}
+                                      {formatCurrency(
+                                        event.investment_data
+                                          ?.investment_amount_m,
+                                        event.investment_data?.currency?.Currency
+                                      )}
+                                    </div>
+                                    <div>
+                                      <strong>EV (m):</strong>{" "}
+                                      {event.ev_data?.enterprise_value_m
+                                        ? formatCurrency(
+                                            String(
+                                              event.ev_data.enterprise_value_m
+                                            ),
+                                            event.ev_data?.currency?.Currency ||
+                                              "USD"
+                                          )
+                                        : event.ev_data?.ev_band ||
+                                          "Not available"}
+                                    </div>
+                                  </>
+                                )}
+                              </td>
+
+                              {/* Advisors */}
+                              <td
+                                style={{
+                                  padding: "12px",
+                                  verticalAlign: "top",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                {advisorList.length > 0
+                                  ? advisorList.map((advisor, idx) => (
+                                      <span
+                                        key={
+                                          advisor.id ??
+                                          `${advisor.name}-${idx}`
+                                        }
+                                      >
+                                        <span
+                                          style={{
+                                            color: "#3b82f6",
+                                            cursor: "pointer",
+                                          }}
+                                          onClick={() => {
+                                            if (advisor.id) {
+                                              router.push(
+                                                `/advisor/${advisor.id}`
+                                              );
+                                            } else if (advisor.name) {
+                                              handleAdvisorClick(advisor.name);
+                                            }
+                                          }}
+                                        >
+                                          {advisor.name}
+                                        </span>
+                                        {idx < advisorList.length - 1 && ", "}
+                                      </span>
+                                    ))
+                                  : "—"}
+                              </td>
+                            </tr>
+                          );
+                        })
                       ) : (
                         <tr>
                           <td
-                            colSpan={7}
+                            colSpan={4}
                             style={{
                               padding: "24px",
                               textAlign: "center",
