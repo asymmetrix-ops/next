@@ -1828,10 +1828,29 @@ const CompanyDetail = () => {
 
   // Currency suffix to show once in heading
   const metricsCurrencyCode =
+    // 1) Prefer explicit display strings from Xano metrics payload when present
+    normalizeCurrency(
+      (financialMetrics as unknown as { Revenue_currency_display?: string | null })
+        ?.Revenue_currency_display
+    ) ||
+    normalizeCurrency(
+      (financialMetrics as unknown as { EBITDA_currency_display?: string | null })
+        ?.EBITDA_currency_display
+    ) ||
+    normalizeCurrency(
+      (financialMetrics as unknown as { EV_currency_display?: string | null })
+        ?.EV_currency_display
+    ) ||
+    normalizeCurrency(
+      (financialMetrics as unknown as { EBIT_currency_display?: string | null })
+        ?.EBIT_currency_display
+    ) ||
+    // 2) Then fall back to structured currency objects
     normalizeCurrency(
       (financialMetrics as unknown as { _currency?: { Currency?: string } })
         ?._currency
     ) ||
+    // 3) Finally, consider legacy numeric/string codes and page-level fallbacks
     normalizeCurrency(financialMetrics?.Rev_Currency) ||
     normalizeCurrency(financialMetrics?.EBITDA_currency) ||
     normalizeCurrency(financialMetrics?.EV_currency) ||
