@@ -883,36 +883,89 @@ export default function HomeUserPage() {
                               {formatDate(event.announcement_date)}
                             </div>
                             <div>
-                              <strong>Target:</strong>{" "}
                               {(() => {
-                                const tgtVal = (
-                                  event as unknown as {
-                                    target?: unknown;
-                                  }
-                                ).target;
-                                const tgtObj =
-                                  (typeof tgtVal === "string"
-                                    ? safeParseJson<EntityRef>(tgtVal)
-                                    : typeof tgtVal === "object"
-                                    ? (tgtVal as EntityRef)
-                                    : null) || null;
-                                const name =
-                                  tgtObj?.name ||
-                                  event.Target_Counterparty?.new_company?.name;
-                                const href = tgtObj
-                                  ? normalizeEntityHref(tgtObj)
-                                  : "";
-                                if (!name) return <span>Not Available</span>;
-                                return href ? (
-                                  <a
-                                    href={href}
-                                    className="text-blue-600 underline hover:text-blue-800"
-                                    style={{ fontWeight: "500" }}
-                                  >
-                                    {name}
-                                  </a>
-                                ) : (
-                                  <span>{name}</span>
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev = event as any;
+                                const isPartnership =
+                                  (ev.deal_type || "")
+                                    .toLowerCase()
+                                    .trim() === "partnership";
+
+                                // New API: targets (plural) as JSON string array
+                                const targetsArr =
+                                  parseEntityArray<EntityRef>(ev.targets);
+
+                                // Fallback: legacy single target field or nested object
+                                if (targetsArr.length === 0) {
+                                  const tgtVal = ev.target;
+                                  const tgtObj =
+                                    (typeof tgtVal === "string"
+                                      ? safeParseJson<EntityRef>(tgtVal)
+                                      : typeof tgtVal === "object"
+                                      ? (tgtVal as EntityRef)
+                                      : null) || null;
+                                  const name =
+                                    tgtObj?.name ||
+                                    event.Target_Counterparty?.new_company
+                                      ?.name;
+                                  const href = tgtObj
+                                    ? normalizeEntityHref(tgtObj)
+                                    : "";
+                                  return (
+                                    <>
+                                      <strong>
+                                        {isPartnership ? "Target(s):" : "Target:"}
+                                      </strong>{" "}
+                                      {name ? (
+                                        href ? (
+                                          <a
+                                            href={href}
+                                            className="text-blue-600 underline hover:text-blue-800"
+                                            style={{ fontWeight: "500" }}
+                                          >
+                                            {name}
+                                          </a>
+                                        ) : (
+                                          <span>{name}</span>
+                                        )
+                                      ) : (
+                                        <span>Not Available</span>
+                                      )}
+                                    </>
+                                  );
+                                }
+
+                                // For partnerships: show all targets; otherwise show first only
+                                const displayTargets = isPartnership
+                                  ? dedupeById(targetsArr)
+                                  : dedupeById(targetsArr).slice(0, 1);
+
+                                return (
+                                  <>
+                                    <strong>
+                                      {isPartnership ? "Target(s):" : "Target:"}
+                                    </strong>{" "}
+                                    {displayTargets.map((tgt, i, arr) => {
+                                      const href = normalizeEntityHref(tgt);
+                                      const name = tgt?.name || "Unknown";
+                                      return (
+                                        <span key={`tgt-${tgt?.id ?? i}`}>
+                                          {href ? (
+                                            <a
+                                              href={href}
+                                              className="text-blue-600 underline hover:text-blue-800"
+                                              style={{ fontWeight: "500" }}
+                                            >
+                                              {name}
+                                            </a>
+                                          ) : (
+                                            <span>{name}</span>
+                                          )}
+                                          {i < arr.length - 1 && ", "}
+                                        </span>
+                                      );
+                                    })}
+                                  </>
                                 );
                               })()}
                             </div>
@@ -1016,8 +1069,17 @@ export default function HomeUserPage() {
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 const ev: any = event as any;
 
-                                // Target
-                                // `target` may be a JSON string of an object with {id,name,path,route,entity_type}
+                                // Check if deal is a partnership
+                                const isPartnership =
+                                  (ev.deal_type || "")
+                                    .toLowerCase()
+                                    .trim() === "partnership";
+
+                                // New API: targets (plural) as JSON string array
+                                const targetsArr =
+                                  parseEntityArray<EntityRef>(ev.targets);
+
+                                // Fallback: legacy single target field
                                 const targetObj = (safeParseJson<EntityRef>(
                                   ev.target
                                 ) ||
@@ -1026,11 +1088,6 @@ export default function HomeUserPage() {
                                     : null)) as EntityRef | null;
                                 const targetLegacyName =
                                   event.Target_Counterparty?.new_company?.name;
-                                const targetName =
-                                  targetObj?.name || targetLegacyName;
-                                const targetHref = targetObj
-                                  ? normalizeEntityHref(targetObj)
-                                  : "";
 
                                 // Buyers and Investors come separately on the new API
                                 const buyersArr = parseEntityArray<EntityRef>(
@@ -1078,11 +1135,59 @@ export default function HomeUserPage() {
                                   .map((a) => a._new_company?.name)
                                   .filter(Boolean);
 
+                                // Determine targets to display
+                                const displayTargets =
+                                  targetsArr.length > 0
+                                    ? isPartnership
+                                      ? dedupeById(targetsArr)
+                                      : dedupeById(targetsArr).slice(0, 1)
+                                    : [];
+
+                                // Fallback target name for legacy data
+                                const targetName =
+                                  targetObj?.name || targetLegacyName;
+                                const targetHref = targetObj
+                                  ? normalizeEntityHref(targetObj)
+                                  : "";
+
                                 return (
                                   <div className="space-y-1">
-                                    {targetName && (
+                                    {/* Targets row */}
+                                    {displayTargets.length > 0 ? (
                                       <div className="text-xs text-gray-500">
-                                        <strong>Target:</strong>{" "}
+                                        <strong>
+                                          {isPartnership
+                                            ? "Target(s):"
+                                            : "Target:"}
+                                        </strong>{" "}
+                                        {displayTargets.map((tgt, i, arr) => {
+                                          const href = normalizeEntityHref(tgt);
+                                          const name = tgt?.name || "Unknown";
+                                          return (
+                                            <span key={`tgt-${tgt?.id ?? i}`}>
+                                              {href ? (
+                                                <a
+                                                  href={href}
+                                                  className="text-blue-600 underline hover:text-blue-800"
+                                                  style={{ fontWeight: "500" }}
+                                                >
+                                                  {name}
+                                                </a>
+                                              ) : (
+                                                <span>{name}</span>
+                                              )}
+                                              {i < arr.length - 1 && ", "}
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : targetName ? (
+                                      <div className="text-xs text-gray-500">
+                                        <strong>
+                                          {isPartnership
+                                            ? "Target(s):"
+                                            : "Target:"}
+                                        </strong>{" "}
                                         {targetHref ? (
                                           <a
                                             href={targetHref}
@@ -1095,7 +1200,7 @@ export default function HomeUserPage() {
                                           <span>{targetName}</span>
                                         )}
                                       </div>
-                                    )}
+                                    ) : null}
 
                                     {buyersArr.length > 0 && (
                                       <div className="text-xs text-gray-500">
