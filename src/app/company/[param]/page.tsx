@@ -274,9 +274,31 @@ interface NewAdvisorMinimal {
   _new_company?: { id: number; name: string };
 }
 
+interface NewTargetEntity {
+  id: number;
+  name: string;
+  page_type?: string;
+  counterparty_announcement_url?: string;
+}
+
+interface NewOtherCounterparty {
+  id: number;
+  name: string;
+  page_type?: string;
+  counterparty_id?: number;
+  is_data_analytics?: boolean;
+  counterparty_status?: string;
+  counterparty_type_id?: number;
+  counterparty_announcement_url?: string | null;
+}
+
 interface NewCorporateEvent {
   id?: number;
   target_company?: NewTargetCompanyMinimal;
+  // New API fields for targets array
+  targets?: NewTargetEntity[];
+  target_label?: string;
+  buyer_investor_label?: string | null;
   advisors?: NewAdvisorMinimal[];
   advisors_names?: string[];
   // New Xano payload fields for counterparties
@@ -292,7 +314,7 @@ interface NewCorporateEvent {
   announcement_date?: string;
   investment_display?: string;
   this_company_status?: string;
-  other_counterparties?: NewCounterpartyMinimal[];
+  other_counterparties?: NewOtherCounterparty[];
 }
 
 type CompanyCorporateEvent = LegacyCorporateEvent | NewCorporateEvent;
@@ -2835,12 +2857,42 @@ const CompanyDetail = () => {
                                   {/* Parties */}
                                   <td>
                                     <div className="muted-row">
-                                      <strong>Target:</strong>{" "}
+                                      <strong>
+                                        {(() => {
+                                          const n = event as NewCorporateEvent;
+                                          // Use target_label from API if available
+                                          if (n?.target_label) return n.target_label + ":";
+                                          // Fallback: check if Partnership
+                                          const isPartnership = /partnership/i.test(n?.deal_type || "");
+                                          return isPartnership ? "Target(s):" : "Target:";
+                                        })()}
+                                      </strong>{" "}
                                       {(() => {
                                         const n = event as NewCorporateEvent;
                                         const legacy =
                                           event as LegacyCorporateEvent;
-                                        // Prefer explicit target_company from new API
+                                        const isPartnership = /partnership/i.test(n?.deal_type || "");
+
+                                        // Prefer new targets array from API
+                                        if (Array.isArray(n?.targets) && n.targets.length > 0) {
+                                          const displayTargets = isPartnership
+                                            ? n.targets
+                                            : n.targets.slice(0, 1);
+                                          return displayTargets.map((tgt, i, arr) => {
+                                            const pageType = tgt.page_type === "investor" ? "investors" : "company";
+                                            const href = `/${pageType}/${tgt.id}`;
+                                            return (
+                                              <span key={`tgt-${tgt.id}`}>
+                                                <a href={href} className="link-blue">
+                                                  {tgt.name}
+                                                </a>
+                                                {i < arr.length - 1 && ", "}
+                                              </span>
+                                            );
+                                          });
+                                        }
+
+                                        // Fallback to target_company
                                         const targetName =
                                           n?.target_company?.name ||
                                           (Array.isArray(legacy["0"]) &&
@@ -2883,15 +2935,49 @@ const CompanyDetail = () => {
                                     </div>
                                     {(() => {
                                       const newEvent = event as NewCorporateEvent;
-                                      // Prefer explicit `buyers` from new API;
-                                      // fall back to legacy `buyers_investors`
-                                      // or `other_counterparties`.
+                                      const isPartnership = /partnership/i.test(newEvent?.deal_type || "");
+                                      
+                                      // Skip Buyer(s)/Investor(s) for Partnerships
+                                      if (isPartnership) return null;
+
+                                      // Use buyer_investor_label from API if available
+                                      const label = newEvent?.buyer_investor_label || "Buyer(s) / Investor(s)";
+
+                                      // Prefer new other_counterparties with counterparty_status
+                                      if (Array.isArray(newEvent.other_counterparties) && newEvent.other_counterparties.length > 0) {
+                                        // Filter for buyers/investors (not divestors/targets)
+                                        const buyersInvestors = newEvent.other_counterparties.filter(
+                                          (cp) => cp.counterparty_status && 
+                                            /acquirer|buyer|investor/i.test(cp.counterparty_status)
+                                        );
+                                        
+                                        if (buyersInvestors.length === 0) return null;
+                                        
+                                        return (
+                                          <div className="muted-row">
+                                            <strong>{label}:</strong>{" "}
+                                            {buyersInvestors.map((cp, idx) => {
+                                              const href = cp.page_type === "investor"
+                                                ? `/investors/${cp.id}`
+                                                : `/company/${cp.id}`;
+                                              return (
+                                                <span key={`cp-${cp.id}-${idx}`}>
+                                                  <a href={href} className="link-blue">
+                                                    {cp.name}
+                                                  </a>
+                                                  {idx < buyersInvestors.length - 1 && ", "}
+                                                </span>
+                                              );
+                                            })}
+                                          </div>
+                                        );
+                                      }
+
+                                      // Fallback to legacy format
                                       const candidates = Array.isArray(newEvent.buyers)
                                         ? newEvent.buyers
                                         : Array.isArray(newEvent.buyers_investors)
                                         ? newEvent.buyers_investors
-                                        : Array.isArray(newEvent.other_counterparties)
-                                        ? newEvent.other_counterparties
                                         : [];
                                       const legacy = event as LegacyCorporateEvent;
                                       const legacyItems = (legacy["0"] || []).filter(
@@ -2913,8 +2999,7 @@ const CompanyDetail = () => {
                                           if (
                                             c &&
                                             typeof c.id === "number" &&
-                                            c.name &&
-                                            c.page_type !== "investor"
+                                            c.name
                                           ) {
                                             list.push({
                                               id: c.id,
@@ -2941,7 +3026,7 @@ const CompanyDetail = () => {
 
                                       return (
                                         <div className="muted-row">
-                                          <strong>Buyer(s):</strong>{" "}
+                                          <strong>{label}:</strong>{" "}
                                           {list.map((c, idx) => (
                                             <span key={`${c.id ?? c.name}-${idx}`}>
                                               {c.href ? (
@@ -2962,17 +3047,23 @@ const CompanyDetail = () => {
                                     })()}
                                     {(() => {
                                       const newEvent = event as NewCorporateEvent;
-                                      // Prefer explicit `investors` from new API;
-                                      // fall back to legacy `buyers_investors`
-                                      // or `other_counterparties`.
-                                      const candidates = Array.isArray(
-                                        newEvent.investors
-                                      )
+                                      const isPartnership = /partnership/i.test(newEvent?.deal_type || "");
+                                      
+                                      // Skip for Partnerships
+                                      if (isPartnership) return null;
+                                      
+                                      // Skip if using new API format (already handled above)
+                                      if (Array.isArray(newEvent.other_counterparties) && 
+                                          newEvent.other_counterparties.length > 0 &&
+                                          newEvent.other_counterparties.some(cp => cp.counterparty_status)) {
+                                        return null;
+                                      }
+
+                                      // Handle legacy format only
+                                      const candidates = Array.isArray(newEvent.investors)
                                         ? newEvent.investors
                                         : Array.isArray(newEvent.buyers_investors)
                                         ? newEvent.buyers_investors
-                                        : Array.isArray(newEvent.other_counterparties)
-                                        ? newEvent.other_counterparties
                                         : [];
                                       const legacy = event as LegacyCorporateEvent;
                                       const legacyItems = (legacy["0"] || []).filter(
@@ -5011,10 +5102,39 @@ const CompanyDetail = () => {
                             {/* Parties */}
                             <td>
                               <div className="muted-row">
-                                <strong>Target:</strong>{" "}
+                                <strong>
+                                  {(() => {
+                                    const n = event as NewCorporateEvent;
+                                    // Use target_label from API if available
+                                    if (n?.target_label) return n.target_label + ":";
+                                    // Fallback: check if Partnership
+                                    return isPartnership ? "Target(s):" : "Target:";
+                                  })()}
+                                </strong>{" "}
                                 {(() => {
                                   const n = event as NewCorporateEvent;
                                   const legacy = event as LegacyCorporateEvent;
+
+                                  // Prefer new targets array from API
+                                  if (Array.isArray(n?.targets) && n.targets.length > 0) {
+                                    const displayTargets = isPartnership
+                                      ? n.targets
+                                      : n.targets.slice(0, 1);
+                                    return displayTargets.map((tgt, i, arr) => {
+                                      const pageType = tgt.page_type === "investor" ? "investors" : "company";
+                                      const href = `/${pageType}/${tgt.id}`;
+                                      return (
+                                        <span key={`tgt-${tgt.id}`}>
+                                          <a href={href} className="link-blue">
+                                            {tgt.name}
+                                          </a>
+                                          {i < arr.length - 1 && ", "}
+                                        </span>
+                                      );
+                                    });
+                                  }
+
+                                  // Fallback to target_company
                                   const targetName =
                                     n?.target_company?.name ||
                                     (Array.isArray(legacy["0"]) &&
@@ -5049,150 +5169,105 @@ const CompanyDetail = () => {
                                   );
                                 })()}
                               </div>
-                              <div className="muted-row">
-                                <strong>Buyer(s):</strong>{" "}
-                                {(() => {
-                                  const newEvent = event as NewCorporateEvent;
-                                  const candidates = Array.isArray(
-                                    newEvent.buyers_investors
-                                  )
-                                    ? newEvent.buyers_investors
-                                    : Array.isArray(
-                                        newEvent.other_counterparties
-                                      )
-                                    ? newEvent.other_counterparties
-                                    : [];
-                                  if (Array.isArray(candidates)) {
-                                    const list = candidates.filter(
-                                      (c) =>
-                                        c &&
-                                        typeof c.id === "number" &&
-                                        c.name &&
-                                        c.page_type !== "investor"
-                                    );
-                                    if (list.length === 0)
-                                      return <span>Not Available</span>;
-                                    return list.map((c, idx) => {
-                                      const href =
-                                        c.page_type === "investor"
-                                          ? `/investors/${c.id}`
-                                          : `/company/${c.id}`;
-                                      return (
-                                        <span key={`${c.id}-${idx}`}>
-                                          <a href={href} className="link-blue">
-                                            {c.name}
-                                          </a>
-                                          {idx < list.length - 1 && ", "}
-                                        </span>
+                              {!isPartnership && (
+                                <div className="muted-row">
+                                  <strong>
+                                    {(() => {
+                                      const newEvent = event as NewCorporateEvent;
+                                      return (newEvent?.buyer_investor_label || "Buyer(s) / Investor(s)") + ":";
+                                    })()}
+                                  </strong>{" "}
+                                  {(() => {
+                                    const newEvent = event as NewCorporateEvent;
+
+                                    // Prefer new other_counterparties with counterparty_status
+                                    if (Array.isArray(newEvent.other_counterparties) && newEvent.other_counterparties.length > 0) {
+                                      // Filter for buyers/investors (not divestors/targets)
+                                      const buyersInvestors = newEvent.other_counterparties.filter(
+                                        (cp) => cp.counterparty_status && 
+                                          /acquirer|buyer|investor/i.test(cp.counterparty_status)
                                       );
-                                    });
-                                  }
-                                  const legacy = event as LegacyCorporateEvent;
-                                  const items = (legacy["0"] || []).filter(
-                                    (it) =>
-                                      it &&
-                                      it._new_company &&
-                                      it._new_company.name &&
-                                      !it._new_company?._is_that_investor
-                                  );
-                                  if (items.length === 0)
-                                    return <span>Not Available</span>;
-                                  return items.map((it, idx) => {
-                                    const id = it._new_company?.id;
-                                    const href = `/company/${id}`;
-                                    if (!id) {
+                                      
+                                      if (buyersInvestors.length === 0) return <span>Not Available</span>;
+                                      
+                                      return buyersInvestors.map((cp, idx) => {
+                                        const href = cp.page_type === "investor"
+                                          ? `/investors/${cp.id}`
+                                          : `/company/${cp.id}`;
+                                        return (
+                                          <span key={`cp-${cp.id}-${idx}`}>
+                                            <a href={href} className="link-blue">
+                                              {cp.name}
+                                            </a>
+                                            {idx < buyersInvestors.length - 1 && ", "}
+                                          </span>
+                                        );
+                                      });
+                                    }
+
+                                    // Fallback to legacy format
+                                    const candidates = Array.isArray(newEvent.buyers_investors)
+                                      ? newEvent.buyers_investors
+                                      : [];
+                                    if (Array.isArray(candidates) && candidates.length > 0) {
+                                      const list = candidates.filter(
+                                        (c) =>
+                                          c &&
+                                          typeof c.id === "number" &&
+                                          c.name
+                                      );
+                                      if (list.length === 0)
+                                        return <span>Not Available</span>;
+                                      return list.map((c, idx) => {
+                                        const href =
+                                          c.page_type === "investor"
+                                            ? `/investors/${c.id}`
+                                            : `/company/${c.id}`;
+                                        return (
+                                          <span key={`${c.id}-${idx}`}>
+                                            <a href={href} className="link-blue">
+                                              {c.name}
+                                            </a>
+                                            {idx < list.length - 1 && ", "}
+                                          </span>
+                                        );
+                                      });
+                                    }
+                                    const legacy = event as LegacyCorporateEvent;
+                                    const items = (legacy["0"] || []).filter(
+                                      (it) =>
+                                        it &&
+                                        it._new_company &&
+                                        it._new_company.name
+                                    );
+                                    if (items.length === 0)
+                                      return <span>Not Available</span>;
+                                    return items.map((it, idx) => {
+                                      const id = it._new_company?.id;
+                                      const isInvestor = it._new_company?._is_that_investor;
+                                      const href = isInvestor ? `/investors/${id}` : `/company/${id}`;
+                                      if (!id) {
+                                        return (
+                                          <span
+                                            key={`${it._new_company?.name}-${idx}`}
+                                          >
+                                            {it._new_company?.name}
+                                            {idx < items.length - 1 && ", "}
+                                          </span>
+                                        );
+                                      }
                                       return (
-                                        <span
-                                          key={`${it._new_company?.name}-${idx}`}
-                                        >
-                                          {it._new_company?.name}
+                                        <span key={`${id}-${idx}`}>
+                                          <a href={href} className="link-blue">
+                                            {it._new_company!.name}
+                                          </a>
                                           {idx < items.length - 1 && ", "}
                                         </span>
                                       );
-                                    }
-                                    return (
-                                      <span key={`${id}-${idx}`}>
-                                        <a href={href} className="link-blue">
-                                          {it._new_company!.name}
-                                        </a>
-                                        {idx < items.length - 1 && ", "}
-                                      </span>
-                                    );
-                                  });
-                                })()}
-                              </div>
-                              <div className="muted-row">
-                                <strong>Investor(s):</strong>{" "}
-                                {(() => {
-                                  const newEvent = event as NewCorporateEvent;
-                                  const candidates = Array.isArray(
-                                    newEvent.buyers_investors
-                                  )
-                                    ? newEvent.buyers_investors
-                                    : Array.isArray(
-                                        newEvent.other_counterparties
-                                      )
-                                    ? newEvent.other_counterparties
-                                    : [];
-                                  if (Array.isArray(candidates)) {
-                                    const list = candidates.filter(
-                                      (c) =>
-                                        c &&
-                                        typeof c.id === "number" &&
-                                        c.name &&
-                                        c.page_type === "investor"
-                                    );
-                                    if (list.length === 0)
-                                      return <span>Not Available</span>;
-                                    return list.map((c, idx) => {
-                                      const href =
-                                        c.page_type === "investor"
-                                          ? `/investors/${c.id}`
-                                          : `/company/${c.id}`;
-                                      return (
-                                        <span key={`${c.id}-${idx}`}>
-                                          <a href={href} className="link-blue">
-                                            {c.name}
-                                          </a>
-                                          {idx < list.length - 1 && ", "}
-                                        </span>
-                                      );
                                     });
-                                  }
-                                  const legacy = event as LegacyCorporateEvent;
-                                  const items = (legacy["0"] || []).filter(
-                                    (it) =>
-                                      it &&
-                                      it._new_company &&
-                                      it._new_company.name &&
-                                      it._new_company?._is_that_investor
-                                  );
-                                  if (items.length === 0)
-                                    return <span>Not Available</span>;
-                                  return items.map((it, idx) => {
-                                    const id = it._new_company?.id;
-                                    const href = `/investors/${id}`;
-                                    if (!id) {
-                                      return (
-                                        <span
-                                          key={`${it._new_company?.name}-${idx}`}
-                                        >
-                                          {it._new_company?.name}
-                                          {idx < items.length - 1 && ", "}
-                                        </span>
-                                      );
-                                    }
-                                    return (
-                                      <span key={`${id}-${idx}`}>
-                                        <a href={href} className="link-blue">
-                                          {it._new_company!.name}
-                                        </a>
-                                        {idx < items.length - 1 && ", "}
-                                      </span>
-                                    );
-                                  });
-                                })()}
-                              </div>
+                                  })()}
+                                </div>
+                              )}
                             </td>
                             {/* Deal Details */}
                                   <td>
