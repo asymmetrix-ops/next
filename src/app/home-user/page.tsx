@@ -1504,20 +1504,51 @@ export default function HomeUserPage() {
                                   Primary?: string[];
                                   Secondary?: string[];
                                 }>(ev.sectors);
-                                const primaryFromNew = Array.isArray(
-                                  sectors?.Primary
-                                )
-                                  ? (sectors!.Primary as string[])
-                                      .filter(Boolean)
-                                      .join(", ")
-                                  : "";
-                                const secondaryFromNew = Array.isArray(
-                                  sectors?.Secondary
-                                )
-                                  ? (sectors!.Secondary as string[])
-                                      .filter(Boolean)
-                                      .slice(0, 3)
+
+                                // Start with raw arrays from the new API
+                                let primaryNewArr = Array.isArray(sectors?.Primary)
+                                  ? (sectors!.Primary as string[]).filter(Boolean)
                                   : [];
+                                let secondaryNewArr = Array.isArray(sectors?.Secondary)
+                                  ? (sectors!.Secondary as string[]).filter(Boolean)
+                                  : [];
+
+                                // Special handling: "Location" is modelled as a secondary sector.
+                                // If it appears in Primary from the API, move it to Secondary so it
+                                // shows under Secondary row and uses the secondary-sector links.
+                                const movedFromPrimary = primaryNewArr.filter(
+                                  (name) =>
+                                    normalizeSectorName(name) === "location"
+                                );
+                                primaryNewArr = primaryNewArr.filter(
+                                  (name) =>
+                                    normalizeSectorName(name) !== "location"
+                                );
+                                secondaryNewArr = [
+                                  ...secondaryNewArr,
+                                  ...movedFromPrimary,
+                                ];
+
+                                // Deduplicate secondary sectors by normalized name
+                                secondaryNewArr = secondaryNewArr.filter(
+                                  (name, idx, arr) => {
+                                    const norm = normalizeSectorName(name);
+                                    return (
+                                      norm &&
+                                      idx ===
+                                        arr.findIndex(
+                                          (n) =>
+                                            normalizeSectorName(n) === norm
+                                        )
+                                    );
+                                  }
+                                );
+
+                                // Limit secondary list length for UI
+                                secondaryNewArr = secondaryNewArr.slice(0, 3);
+
+                                const primaryFromNew = primaryNewArr.join(", ");
+                                const secondaryFromNew = secondaryNewArr;
 
                                 const primary =
                                   primaryFromNew ||
@@ -1535,8 +1566,8 @@ export default function HomeUserPage() {
                                   .filter(Boolean)
                                   .slice(0, 3);
                                 const secondary =
-                                  (secondaryFromNew as string[]).length > 0
-                                    ? (secondaryFromNew as string[])
+                                  secondaryFromNew.length > 0
+                                    ? secondaryFromNew
                                     : secondaryLegacy;
                                 return (
                                   <div className="space-y-1">
