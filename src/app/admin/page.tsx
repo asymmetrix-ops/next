@@ -832,31 +832,46 @@ function EmailsTab() {
     }
   }
 
-  function waitForEditorLoadDesignReady(
-    retries: number = 10,
-    interval: number = 500
-  ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      let attempts = 0;
-      const check = () => {
-        const editor = (unlayerRef.current as { editor?: unknown } | null)
-          ?.editor as { loadDesign?: (design: unknown) => void } | undefined;
-        if (editor && typeof editor.loadDesign === "function") {
-          resolve();
-        } else if (attempts < retries) {
-          attempts += 1;
-          setTimeout(check, interval);
-        } else {
-          reject(new Error("Editor loadDesign method not ready after retries"));
-        }
-      };
-      check();
-    });
+  const readyResolveRef = useRef<(() => void) | null>(null);
+  const readyP = useRef<Promise<void> | null>(null);
+  if (!readyP.current) {
+    readyP.current = new Promise<void>(
+      (res) => (readyResolveRef.current = res)
+    );
   }
 
-  async function loadHtmlIntoEditorSafe(rawHtml: string): Promise<void> {
+  async function getEditorApi() {
+    await readyP.current;
+    type EditorRef = {
+      editor?: {
+        exportHtml?: (cb: (d: { html?: string }) => void) => void;
+        loadDesign?: (design: unknown) => void;
+      };
+    };
+    const ref = unlayerRef.current as EditorRef | null;
+    const api = ref?.editor as
+      | {
+          exportHtml?: (cb: (d: { html?: string }) => void) => void;
+          loadDesign?: (design: unknown) => void;
+        }
+      | undefined;
+    if (!api?.exportHtml || !api?.loadDesign) {
+      throw new Error("Email editor API not available yet.");
+    }
+    return api;
+  }
+
+  async function safeExportHtml(): Promise<{ html?: string }> {
+    const api = await getEditorApi();
+    return await new Promise<{ html?: string }>((resolve) =>
+      api.exportHtml?.((d: { html?: string }) => resolve(d))
+    );
+  }
+
+  async function safeLoadHtml(rawHtml: string): Promise<void> {
     const innerHtml = extractInnerContent(rawHtml);
-    const design = {
+    const api = await getEditorApi();
+    api.loadDesign?.({
       body: {
         rows: [
           {
@@ -875,29 +890,8 @@ function EmailsTab() {
         ],
         values: { backgroundColor: "#ffffff", contentWidth: "600px" },
       },
-    };
-
-    try {
-      await waitForEditorLoadDesignReady();
-      const editor = (unlayerRef.current as { editor?: unknown } | null)
-        ?.editor as { loadDesign?: (design: unknown) => void } | undefined;
-      editor?.loadDesign?.(design as unknown);
-    } catch (err) {
-      console.error("Failed to load design:", err);
-    }
+    } as unknown);
   }
-
-  // Wrapper to keep existing call sites simple
-  function loadHtmlIntoEditor(rawHtml: string) {
-    void loadHtmlIntoEditorSafe(rawHtml);
-  }
-
-  useEffect(() => {
-    if (editorReady && pendingHtml) {
-      loadHtmlIntoEditor(pendingHtml);
-      setPendingHtml(null);
-    }
-  }, [editorReady, pendingHtml]);
 
   useEffect(() => {
     let cancelled = false;
@@ -925,21 +919,19 @@ function EmailsTab() {
   }, []);
 
   const handleExport = async () => {
-    const exported = await new Promise<{ html?: string }>((resolve) => {
-      const editorRef = unlayerRef.current as {
-        editor?: { exportHtml?: (cb: (d: { html?: string }) => void) => void };
-        exportHtml?: (cb: (d: { html?: string }) => void) => void;
-      } | null;
-      const exportFn = editorRef?.editor?.exportHtml ?? editorRef?.exportHtml;
-      exportFn?.((d) => resolve(d));
-    });
-    const rawHtml = exported?.html || "";
-    const sanitized = sanitizeHtml(rawHtml);
-    const branded = buildBrandedEmailHtml({
-      bodyHtml: `<div>${sanitized}</div>`,
-      subject,
-    });
-    setHtml(branded);
+    try {
+      const exported = await safeExportHtml();
+      const rawHtml = exported?.html || "";
+      const sanitized = sanitizeHtml(rawHtml);
+      const branded = buildBrandedEmailHtml({
+        bodyHtml: `<div>${sanitized}</div>`,
+        subject,
+      });
+      setHtml(branded);
+    } catch (err) {
+      console.error("Failed to export HTML:", err);
+      alert("Email editor is not ready yet. Try again in a few seconds.");
+    }
   };
 
   const handleCopy = async () => {
@@ -995,7 +987,7 @@ function EmailsTab() {
               if (t.Body) {
                 const bodyHtml = String(t.Body);
                 if (editorReady) {
-                  loadHtmlIntoEditor(bodyHtml);
+                  void safeLoadHtml(bodyHtml);
                 } else {
                   setPendingHtml(bodyHtml);
                 }
@@ -1030,15 +1022,12 @@ function EmailsTab() {
           ref={unlayerRef as unknown as never}
           minHeight={500}
           onReady={() => {
-            // Wait a bit more for the editor iframe to be fully initialized
-            setTimeout(() => {
-              setEditorReady(true);
-              // If there's pending HTML, try to load it now
-              if (pendingHtml) {
-                loadHtmlIntoEditor(pendingHtml);
-                setPendingHtml(null);
-              }
-            }, 1000);
+            readyResolveRef.current?.();
+            setEditorReady(true);
+            if (pendingHtml) {
+              void safeLoadHtml(pendingHtml);
+              setPendingHtml(null);
+            }
           }}
         />
       </div>
@@ -1065,16 +1054,17 @@ function EmailsTab() {
               const subjectTrimmed = subject.trim();
               if (!subjectTrimmed) return;
 
-              const exported = await new Promise<{ html?: string }>(
-                (resolve) => {
-                  const editorRef = unlayerRef.current as {
-                    editor?: { exportHtml?: (cb: (d: { html?: string }) => void) => void };
-                    exportHtml?: (cb: (d: { html?: string }) => void) => void;
-                  } | null;
-                  const exportFn = editorRef?.editor?.exportHtml ?? editorRef?.exportHtml;
-                  exportFn?.((d) => resolve(d));
-                }
-              );
+              let exported: { html?: string };
+              try {
+                exported = await safeExportHtml();
+              } catch (err) {
+                console.error("Failed to export HTML:", err);
+                alert(
+                  "Email editor is not ready yet. Try again in a few seconds."
+                );
+                return;
+              }
+
               const rawHtml = exported?.html || "";
               const sanitized = sanitizeHtml(rawHtml);
               const bodyHtml = `<div>${sanitized}</div>`;
@@ -1122,16 +1112,18 @@ function EmailsTab() {
               if (!idNum) return;
               const subjectTrimmed = subject.trim();
               if (!subjectTrimmed) return;
-              const exported = await new Promise<{ html?: string }>(
-                (resolve) => {
-                  const editorRef = unlayerRef.current as {
-                    editor?: { exportHtml?: (cb: (d: { html?: string }) => void) => void };
-                    exportHtml?: (cb: (d: { html?: string }) => void) => void;
-                  } | null;
-                  const exportFn = editorRef?.editor?.exportHtml ?? editorRef?.exportHtml;
-                  exportFn?.((d) => resolve(d));
-                }
-              );
+
+              let exported: { html?: string };
+              try {
+                exported = await safeExportHtml();
+              } catch (err) {
+                console.error("Failed to export HTML:", err);
+                alert(
+                  "Email editor is not ready yet. Try again in a few seconds."
+                );
+                return;
+              }
+
               const rawHtml = exported?.html || "";
               const sanitized = sanitizeHtml(rawHtml);
               const bodyHtml = `<div>${sanitized}</div>`;
