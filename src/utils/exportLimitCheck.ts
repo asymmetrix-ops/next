@@ -2,7 +2,7 @@ import { authService } from "@/lib/auth";
 
 // exported_companies_files is read from /auth/me response
 
-const EXPORT_LIMIT = 4;
+const EXPORT_LIMIT = 10;
 
 export const checkExportLimit = async (): Promise<{
   canExport: boolean;
@@ -52,6 +52,19 @@ export const checkExportLimit = async (): Promise<{
         (anyData["exported_compamies_fiels"] as number | undefined) ??
         0
     );
+
+    // Check if user is admin - admins get unlimited exports
+    const userStatus = (anyData["Status"] as string | undefined) ?? "";
+    const isAdmin = userStatus.toLowerCase().includes("admin");
+
+    if (isAdmin) {
+      return {
+        canExport: true,
+        exportsLeft: EXPORT_LIMIT, // Show full limit for display purposes
+        exportedFiles,
+      };
+    }
+
     const exportsLeft = EXPORT_LIMIT - exportedFiles;
 
     return {
