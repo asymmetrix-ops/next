@@ -98,8 +98,10 @@ export interface OtherCounterparty {
 }
 
 export interface Advisor {
+  id: number;
+  new_company_advised: number;
   _new_company: {
-    id: number;
+    id?: number;
     name: string;
   };
 }

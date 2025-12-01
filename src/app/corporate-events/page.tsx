@@ -1037,17 +1037,14 @@ const CorporateEventsTable = ({
                     <strong>Advisors:</strong>{" "}
                     {Array.isArray(event.advisors) && event.advisors.length > 0
                       ? event.advisors.map((advisor, subIndex) => {
-                          const nc = advisor._new_company as
-                            | { id?: number; name?: string }
-                            | undefined;
-                          const name = (nc?.name || "Unknown").trim();
-                          const id =
-                            typeof nc?.id === "number" ? nc!.id : undefined;
+                          const nc = advisor._new_company;
+                          const name = nc?.name || "Unknown";
+                          const id = advisor.new_company_advised;
                           return (
                             <span key={subIndex}>
                               {id ? (
                                 <a
-                                  href={`/advisor/${id}`}
+                                  href={`/company/${id}`}
                                   className="link-blue"
                                 >
                                   {name}
