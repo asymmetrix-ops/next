@@ -82,6 +82,47 @@ interface Filters {
   linkedinMembersMin: number | null;
   linkedinMembersMax: number | null;
   searchQuery: string;
+  // Financial Metrics
+  revenueMin: number | null;
+  revenueMax: number | null;
+  revenueSearch: string;
+  ebitdaMin: number | null;
+  ebitdaMax: number | null;
+  ebitdaSearch: string;
+  enterpriseValueMin: number | null;
+  enterpriseValueMax: number | null;
+  enterpriseValueSearch: string;
+  revenueMultipleMin: number | null;
+  revenueMultipleMax: number | null;
+  revenueMultipleSearch: string;
+  revenueGrowthMin: number | null;
+  revenueGrowthMax: number | null;
+  revenueGrowthSearch: string;
+  ebitdaMarginMin: number | null;
+  ebitdaMarginMax: number | null;
+  ebitdaMarginSearch: string;
+  ruleOf40Min: number | null;
+  ruleOf40Max: number | null;
+  ruleOf40Search: string;
+  // Subscription Metrics
+  recurringRevenueMin: number | null;
+  recurringRevenueMax: number | null;
+  recurringRevenueSearch: string;
+  arrMin: number | null;
+  arrMax: number | null;
+  arrSearch: string;
+  churnMin: number | null;
+  churnMax: number | null;
+  churnSearch: string;
+  grrMin: number | null;
+  grrMax: number | null;
+  grrSearch: string;
+  nrrMin: number | null;
+  nrrMax: number | null;
+  nrrSearch: string;
+  newClientsRevenueGrowthMin: number | null;
+  newClientsRevenueGrowthMax: number | null;
+  newClientsRevenueGrowthSearch: string;
 }
 
 interface CompaniesResponse {
@@ -188,7 +229,7 @@ const styles = {
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
+    gridTemplateColumns: "repeat(5, 1fr)",
     gap: "16px 40px",
     marginBottom: "20px",
   },
@@ -386,6 +427,165 @@ const useCompaniesAPI = () => {
             "Max_linkedin_members",
             (filtersToUse.linkedinMembersMax ?? 0).toString()
           );
+
+          // Financial Metrics
+          params.append(
+            "Min_revenue",
+            (filtersToUse.revenueMin ?? 0).toString()
+          );
+          params.append(
+            "Max_revenue",
+            (filtersToUse.revenueMax ?? 0).toString()
+          );
+          if (filtersToUse.revenueSearch) {
+            params.append("revenue_search", filtersToUse.revenueSearch);
+          }
+
+          params.append(
+            "Min_ebitda",
+            (filtersToUse.ebitdaMin ?? 0).toString()
+          );
+          params.append(
+            "Max_ebitda",
+            (filtersToUse.ebitdaMax ?? 0).toString()
+          );
+          if (filtersToUse.ebitdaSearch) {
+            params.append("ebitda_search", filtersToUse.ebitdaSearch);
+          }
+
+          params.append(
+            "Min_enterprise_value",
+            (filtersToUse.enterpriseValueMin ?? 0).toString()
+          );
+          params.append(
+            "Max_enterprise_value",
+            (filtersToUse.enterpriseValueMax ?? 0).toString()
+          );
+          if (filtersToUse.enterpriseValueSearch) {
+            params.append("enterprise_value_search", filtersToUse.enterpriseValueSearch);
+          }
+
+          params.append(
+            "Min_revenue_multiple",
+            (filtersToUse.revenueMultipleMin ?? 0).toString()
+          );
+          params.append(
+            "Max_revenue_multiple",
+            (filtersToUse.revenueMultipleMax ?? 0).toString()
+          );
+          if (filtersToUse.revenueMultipleSearch) {
+            params.append("revenue_multiple_search", filtersToUse.revenueMultipleSearch);
+          }
+
+          params.append(
+            "Min_revenue_growth",
+            (filtersToUse.revenueGrowthMin ?? 0).toString()
+          );
+          params.append(
+            "Max_revenue_growth",
+            (filtersToUse.revenueGrowthMax ?? 0).toString()
+          );
+          if (filtersToUse.revenueGrowthSearch) {
+            params.append("revenue_growth_search", filtersToUse.revenueGrowthSearch);
+          }
+
+          params.append(
+            "Min_ebitda_margin",
+            (filtersToUse.ebitdaMarginMin ?? 0).toString()
+          );
+          params.append(
+            "Max_ebitda_margin",
+            (filtersToUse.ebitdaMarginMax ?? 0).toString()
+          );
+          if (filtersToUse.ebitdaMarginSearch) {
+            params.append("ebitda_margin_search", filtersToUse.ebitdaMarginSearch);
+          }
+
+          params.append(
+            "Min_rule_of_40",
+            (filtersToUse.ruleOf40Min ?? 0).toString()
+          );
+          params.append(
+            "Max_rule_of_40",
+            (filtersToUse.ruleOf40Max ?? 0).toString()
+          );
+          if (filtersToUse.ruleOf40Search) {
+            params.append("rule_of_40_search", filtersToUse.ruleOf40Search);
+          }
+
+          // Subscription Metrics
+          params.append(
+            "Min_recurring_revenue",
+            (filtersToUse.recurringRevenueMin ?? 0).toString()
+          );
+          params.append(
+            "Max_recurring_revenue",
+            (filtersToUse.recurringRevenueMax ?? 0).toString()
+          );
+          if (filtersToUse.recurringRevenueSearch) {
+            params.append("recurring_revenue_search", filtersToUse.recurringRevenueSearch);
+          }
+
+          params.append(
+            "Min_arr",
+            (filtersToUse.arrMin ?? 0).toString()
+          );
+          params.append(
+            "Max_arr",
+            (filtersToUse.arrMax ?? 0).toString()
+          );
+          if (filtersToUse.arrSearch) {
+            params.append("arr_search", filtersToUse.arrSearch);
+          }
+
+          params.append(
+            "Min_churn",
+            (filtersToUse.churnMin ?? 0).toString()
+          );
+          params.append(
+            "Max_churn",
+            (filtersToUse.churnMax ?? 0).toString()
+          );
+          if (filtersToUse.churnSearch) {
+            params.append("churn_search", filtersToUse.churnSearch);
+          }
+
+          params.append(
+            "Min_grr",
+            (filtersToUse.grrMin ?? 0).toString()
+          );
+          params.append(
+            "Max_grr",
+            (filtersToUse.grrMax ?? 0).toString()
+          );
+          if (filtersToUse.grrSearch) {
+            params.append("grr_search", filtersToUse.grrSearch);
+          }
+
+          params.append(
+            "Min_nrr",
+            (filtersToUse.nrrMin ?? 0).toString()
+          );
+          params.append(
+            "Max_nrr",
+            (filtersToUse.nrrMax ?? 0).toString()
+          );
+          if (filtersToUse.nrrSearch) {
+            params.append("nrr_search", filtersToUse.nrrSearch);
+          }
+
+          params.append(
+            "Min_new_clients_revenue_growth",
+            (filtersToUse.newClientsRevenueGrowthMin ?? 0).toString()
+          );
+          params.append(
+            "Max_new_clients_revenue_growth",
+            (filtersToUse.newClientsRevenueGrowthMax ?? 0).toString()
+          );
+          if (filtersToUse.newClientsRevenueGrowthSearch) {
+            params.append("new_clients_revenue_growth_search", filtersToUse.newClientsRevenueGrowthSearch);
+          }
+
           if (filtersToUse.searchQuery) {
             params.append("query", filtersToUse.searchQuery);
           }
@@ -394,6 +594,36 @@ const useCompaniesAPI = () => {
           params.append("Min_linkedin_members", "0");
           params.append("Max_linkedin_members", "0");
           params.append("Horizontals_ids", "");
+
+          // Financial Metrics defaults
+          params.append("Min_revenue", "0");
+          params.append("Max_revenue", "0");
+          params.append("Min_ebitda", "0");
+          params.append("Max_ebitda", "0");
+          params.append("Min_enterprise_value", "0");
+          params.append("Max_enterprise_value", "0");
+          params.append("Min_revenue_multiple", "0");
+          params.append("Max_revenue_multiple", "0");
+          params.append("Min_revenue_growth", "0");
+          params.append("Max_revenue_growth", "0");
+          params.append("Min_ebitda_margin", "0");
+          params.append("Max_ebitda_margin", "0");
+          params.append("Min_rule_of_40", "0");
+          params.append("Max_rule_of_40", "0");
+
+          // Subscription Metrics defaults
+          params.append("Min_recurring_revenue", "0");
+          params.append("Max_recurring_revenue", "0");
+          params.append("Min_arr", "0");
+          params.append("Max_arr", "0");
+          params.append("Min_churn", "0");
+          params.append("Max_churn", "0");
+          params.append("Min_grr", "0");
+          params.append("Max_grr", "0");
+          params.append("Min_nrr", "0");
+          params.append("Max_nrr", "0");
+          params.append("Min_new_clients_revenue_growth", "0");
+          params.append("Max_new_clients_revenue_growth", "0");
         }
 
         const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
@@ -866,6 +1096,49 @@ const CompanyDashboard = ({
     null
   );
 
+  // Financial Metrics state
+  const [revenueMin, setRevenueMin] = useState<number | null>(null);
+  const [revenueMax, setRevenueMax] = useState<number | null>(null);
+  const [revenueSearch, setRevenueSearch] = useState<string>("");
+  const [ebitdaMin, setEbitdaMin] = useState<number | null>(null);
+  const [ebitdaMax, setEbitdaMax] = useState<number | null>(null);
+  const [ebitdaSearch, setEbitdaSearch] = useState<string>("");
+  const [enterpriseValueMin, setEnterpriseValueMin] = useState<number | null>(null);
+  const [enterpriseValueMax, setEnterpriseValueMax] = useState<number | null>(null);
+  const [enterpriseValueSearch, setEnterpriseValueSearch] = useState<string>("");
+  const [revenueMultipleMin, setRevenueMultipleMin] = useState<number | null>(null);
+  const [revenueMultipleMax, setRevenueMultipleMax] = useState<number | null>(null);
+  const [revenueMultipleSearch, setRevenueMultipleSearch] = useState<string>("");
+  const [revenueGrowthMin, setRevenueGrowthMin] = useState<number | null>(null);
+  const [revenueGrowthMax, setRevenueGrowthMax] = useState<number | null>(null);
+  const [revenueGrowthSearch, setRevenueGrowthSearch] = useState<string>("");
+  const [ebitdaMarginMin, setEbitdaMarginMin] = useState<number | null>(null);
+  const [ebitdaMarginMax, setEbitdaMarginMax] = useState<number | null>(null);
+  const [ebitdaMarginSearch, setEbitdaMarginSearch] = useState<string>("");
+  const [ruleOf40Min, setRuleOf40Min] = useState<number | null>(null);
+  const [ruleOf40Max, setRuleOf40Max] = useState<number | null>(null);
+  const [ruleOf40Search, setRuleOf40Search] = useState<string>("");
+
+  // Subscription Metrics state
+  const [recurringRevenueMin, setRecurringRevenueMin] = useState<number | null>(null);
+  const [recurringRevenueMax, setRecurringRevenueMax] = useState<number | null>(null);
+  const [recurringRevenueSearch, setRecurringRevenueSearch] = useState<string>("");
+  const [arrMin, setArrMin] = useState<number | null>(null);
+  const [arrMax, setArrMax] = useState<number | null>(null);
+  const [arrSearch, setArrSearch] = useState<string>("");
+  const [churnMin, setChurnMin] = useState<number | null>(null);
+  const [churnMax, setChurnMax] = useState<number | null>(null);
+  const [churnSearch, setChurnSearch] = useState<string>("");
+  const [grrMin, setGrrMin] = useState<number | null>(null);
+  const [grrMax, setGrrMax] = useState<number | null>(null);
+  const [grrSearch, setGrrSearch] = useState<string>("");
+  const [nrrMin, setNrrMin] = useState<number | null>(null);
+  const [nrrMax, setNrrMax] = useState<number | null>(null);
+  const [nrrSearch, setNrrSearch] = useState<string>("");
+  const [newClientsRevenueGrowthMin, setNewClientsRevenueGrowthMin] = useState<number | null>(null);
+  const [newClientsRevenueGrowthMax, setNewClientsRevenueGrowthMax] = useState<number | null>(null);
+  const [newClientsRevenueGrowthSearch, setNewClientsRevenueGrowthSearch] = useState<string>("");
+
   // Loading states
   const [loadingCountries, setLoadingCountries] = useState(false);
   const [loadingProvinces, setLoadingProvinces] = useState(false);
@@ -1090,6 +1363,47 @@ const CompanyDashboard = ({
       linkedinMembersMin,
       linkedinMembersMax,
       searchQuery: searchTerm,
+      // Financial Metrics
+      revenueMin,
+      revenueMax,
+      revenueSearch,
+      ebitdaMin,
+      ebitdaMax,
+      ebitdaSearch,
+      enterpriseValueMin,
+      enterpriseValueMax,
+      enterpriseValueSearch,
+      revenueMultipleMin,
+      revenueMultipleMax,
+      revenueMultipleSearch,
+      revenueGrowthMin,
+      revenueGrowthMax,
+      revenueGrowthSearch,
+      ebitdaMarginMin,
+      ebitdaMarginMax,
+      ebitdaMarginSearch,
+      ruleOf40Min,
+      ruleOf40Max,
+      ruleOf40Search,
+      // Subscription Metrics
+      recurringRevenueMin,
+      recurringRevenueMax,
+      recurringRevenueSearch,
+      arrMin,
+      arrMax,
+      arrSearch,
+      churnMin,
+      churnMax,
+      churnSearch,
+      grrMin,
+      grrMax,
+      grrSearch,
+      nrrMin,
+      nrrMax,
+      nrrSearch,
+      newClientsRevenueGrowthMin,
+      newClientsRevenueGrowthMax,
+      newClientsRevenueGrowthSearch,
     };
     console.log("Searching with filters:", filters);
 
@@ -1111,6 +1425,47 @@ const CompanyDashboard = ({
     linkedinMembersMin,
     linkedinMembersMax,
     searchTerm,
+    // Financial Metrics
+    revenueMin,
+    revenueMax,
+    revenueSearch,
+    ebitdaMin,
+    ebitdaMax,
+    ebitdaSearch,
+    enterpriseValueMin,
+    enterpriseValueMax,
+    enterpriseValueSearch,
+    revenueMultipleMin,
+    revenueMultipleMax,
+    revenueMultipleSearch,
+    revenueGrowthMin,
+    revenueGrowthMax,
+    revenueGrowthSearch,
+    ebitdaMarginMin,
+    ebitdaMarginMax,
+    ebitdaMarginSearch,
+    ruleOf40Min,
+    ruleOf40Max,
+    ruleOf40Search,
+    // Subscription Metrics
+    recurringRevenueMin,
+    recurringRevenueMax,
+    recurringRevenueSearch,
+    arrMin,
+    arrMax,
+    arrSearch,
+    churnMin,
+    churnMax,
+    churnSearch,
+    grrMin,
+    grrMax,
+    grrSearch,
+    nrrMin,
+    nrrMax,
+    nrrSearch,
+    newClientsRevenueGrowthMin,
+    newClientsRevenueGrowthMax,
+    newClientsRevenueGrowthSearch,
   ]);
 
   // Auto-run search if initialSearch prop is provided
@@ -1722,6 +2077,443 @@ const CompanyDashboard = ({
               </div>
               <div style={styles.gridItem}>
                 <h3 style={styles.subHeading} className="filters-sub-heading">
+                  Financial Metrics
+                </h3>
+                <span style={styles.label}>Revenue</span>
+                <div style={{ display: "flex", gap: "14px", marginBottom: "8px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={revenueMin || ""}
+                    onChange={(e) =>
+                      setRevenueMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={revenueMax || ""}
+                    onChange={(e) =>
+                      setRevenueMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search revenue..."
+                  value={revenueSearch}
+                  onChange={(e) => setRevenueSearch(e.target.value)}
+                  style={{ ...styles.input, marginBottom: "8px" }}
+                />
+
+                <span style={styles.label}>EBITDA</span>
+                <div style={{ display: "flex", gap: "14px", marginBottom: "8px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={ebitdaMin || ""}
+                    onChange={(e) =>
+                      setEbitdaMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={ebitdaMax || ""}
+                    onChange={(e) =>
+                      setEbitdaMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search EBITDA..."
+                  value={ebitdaSearch}
+                  onChange={(e) => setEbitdaSearch(e.target.value)}
+                  style={{ ...styles.input, marginBottom: "8px" }}
+                />
+
+                <span style={styles.label}>Enterprise Value</span>
+                <div style={{ display: "flex", gap: "14px", marginBottom: "8px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={enterpriseValueMin || ""}
+                    onChange={(e) =>
+                      setEnterpriseValueMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={enterpriseValueMax || ""}
+                    onChange={(e) =>
+                      setEnterpriseValueMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search enterprise value..."
+                  value={enterpriseValueSearch}
+                  onChange={(e) => setEnterpriseValueSearch(e.target.value)}
+                  style={{ ...styles.input, marginBottom: "8px" }}
+                />
+
+                <span style={styles.label}>Revenue Multiple</span>
+                <div style={{ display: "flex", gap: "14px", marginBottom: "8px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={revenueMultipleMin || ""}
+                    onChange={(e) =>
+                      setRevenueMultipleMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={revenueMultipleMax || ""}
+                    onChange={(e) =>
+                      setRevenueMultipleMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search revenue multiple..."
+                  value={revenueMultipleSearch}
+                  onChange={(e) => setRevenueMultipleSearch(e.target.value)}
+                  style={{ ...styles.input, marginBottom: "8px" }}
+                />
+
+                <span style={styles.label}>Revenue Growth</span>
+                <div style={{ display: "flex", gap: "14px", marginBottom: "8px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={revenueGrowthMin || ""}
+                    onChange={(e) =>
+                      setRevenueGrowthMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={revenueGrowthMax || ""}
+                    onChange={(e) =>
+                      setRevenueGrowthMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search revenue growth..."
+                  value={revenueGrowthSearch}
+                  onChange={(e) => setRevenueGrowthSearch(e.target.value)}
+                  style={{ ...styles.input, marginBottom: "8px" }}
+                />
+
+                <span style={styles.label}>EBITDA Margin</span>
+                <div style={{ display: "flex", gap: "14px", marginBottom: "8px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={ebitdaMarginMin || ""}
+                    onChange={(e) =>
+                      setEbitdaMarginMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={ebitdaMarginMax || ""}
+                    onChange={(e) =>
+                      setEbitdaMarginMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search EBITDA margin..."
+                  value={ebitdaMarginSearch}
+                  onChange={(e) => setEbitdaMarginSearch(e.target.value)}
+                  style={{ ...styles.input, marginBottom: "8px" }}
+                />
+
+                <span style={styles.label}>Rule of 40</span>
+                <div style={{ display: "flex", gap: "14px", marginBottom: "8px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={ruleOf40Min || ""}
+                    onChange={(e) =>
+                      setRuleOf40Min(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={ruleOf40Max || ""}
+                    onChange={(e) =>
+                      setRuleOf40Max(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search rule of 40..."
+                  value={ruleOf40Search}
+                  onChange={(e) => setRuleOf40Search(e.target.value)}
+                  style={{ ...styles.input, marginBottom: "8px" }}
+                />
+              </div>
+              <div style={styles.gridItem}>
+                <h3 style={styles.subHeading} className="filters-sub-heading">
+                  Subscription Metrics
+                </h3>
+                <span style={styles.label}>Recurring Revenue</span>
+                <div style={{ display: "flex", gap: "14px", marginBottom: "8px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={recurringRevenueMin || ""}
+                    onChange={(e) =>
+                      setRecurringRevenueMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={recurringRevenueMax || ""}
+                    onChange={(e) =>
+                      setRecurringRevenueMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search recurring revenue..."
+                  value={recurringRevenueSearch}
+                  onChange={(e) => setRecurringRevenueSearch(e.target.value)}
+                  style={{ ...styles.input, marginBottom: "8px" }}
+                />
+
+                <span style={styles.label}>ARR</span>
+                <div style={{ display: "flex", gap: "14px", marginBottom: "8px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={arrMin || ""}
+                    onChange={(e) =>
+                      setArrMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={arrMax || ""}
+                    onChange={(e) =>
+                      setArrMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search ARR..."
+                  value={arrSearch}
+                  onChange={(e) => setArrSearch(e.target.value)}
+                  style={{ ...styles.input, marginBottom: "8px" }}
+                />
+
+                <span style={styles.label}>Churn</span>
+                <div style={{ display: "flex", gap: "14px", marginBottom: "8px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={churnMin || ""}
+                    onChange={(e) =>
+                      setChurnMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={churnMax || ""}
+                    onChange={(e) =>
+                      setChurnMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search churn..."
+                  value={churnSearch}
+                  onChange={(e) => setChurnSearch(e.target.value)}
+                  style={{ ...styles.input, marginBottom: "8px" }}
+                />
+
+                <span style={styles.label}>GRR</span>
+                <div style={{ display: "flex", gap: "14px", marginBottom: "8px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={grrMin || ""}
+                    onChange={(e) =>
+                      setGrrMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={grrMax || ""}
+                    onChange={(e) =>
+                      setGrrMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search GRR..."
+                  value={grrSearch}
+                  onChange={(e) => setGrrSearch(e.target.value)}
+                  style={{ ...styles.input, marginBottom: "8px" }}
+                />
+
+                <span style={styles.label}>NRR</span>
+                <div style={{ display: "flex", gap: "14px", marginBottom: "8px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={nrrMin || ""}
+                    onChange={(e) =>
+                      setNrrMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={nrrMax || ""}
+                    onChange={(e) =>
+                      setNrrMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search NRR..."
+                  value={nrrSearch}
+                  onChange={(e) => setNrrSearch(e.target.value)}
+                  style={{ ...styles.input, marginBottom: "8px" }}
+                />
+
+                <span style={styles.label}>New Clients Revenue Growth</span>
+                <div style={{ display: "flex", gap: "14px", marginBottom: "8px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={newClientsRevenueGrowthMin || ""}
+                    onChange={(e) =>
+                      setNewClientsRevenueGrowthMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={newClientsRevenueGrowthMax || ""}
+                    onChange={(e) =>
+                      setNewClientsRevenueGrowthMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search new clients revenue growth..."
+                  value={newClientsRevenueGrowthSearch}
+                  onChange={(e) => setNewClientsRevenueGrowthSearch(e.target.value)}
+                  style={{ ...styles.input, marginBottom: "8px" }}
+                />
+              </div>
+              <div style={styles.gridItem}>
+                <h3 style={styles.subHeading} className="filters-sub-heading">
                   Company Details
                 </h3>
                 <span style={styles.label}>By Ownership Type</span>
@@ -1960,7 +2752,48 @@ const CompanySection = ({
       currentFilters.ownershipTypes.length > 0 ||
       currentFilters.linkedinMembersMin !== null ||
       currentFilters.linkedinMembersMax !== null ||
-      currentFilters.searchQuery.trim() !== ""
+      currentFilters.searchQuery.trim() !== "" ||
+      // Financial Metrics
+      currentFilters.revenueMin !== null ||
+      currentFilters.revenueMax !== null ||
+      currentFilters.revenueSearch.trim() !== "" ||
+      currentFilters.ebitdaMin !== null ||
+      currentFilters.ebitdaMax !== null ||
+      currentFilters.ebitdaSearch.trim() !== "" ||
+      currentFilters.enterpriseValueMin !== null ||
+      currentFilters.enterpriseValueMax !== null ||
+      currentFilters.enterpriseValueSearch.trim() !== "" ||
+      currentFilters.revenueMultipleMin !== null ||
+      currentFilters.revenueMultipleMax !== null ||
+      currentFilters.revenueMultipleSearch.trim() !== "" ||
+      currentFilters.revenueGrowthMin !== null ||
+      currentFilters.revenueGrowthMax !== null ||
+      currentFilters.revenueGrowthSearch.trim() !== "" ||
+      currentFilters.ebitdaMarginMin !== null ||
+      currentFilters.ebitdaMarginMax !== null ||
+      currentFilters.ebitdaMarginSearch.trim() !== "" ||
+      currentFilters.ruleOf40Min !== null ||
+      currentFilters.ruleOf40Max !== null ||
+      currentFilters.ruleOf40Search.trim() !== "" ||
+      // Subscription Metrics
+      currentFilters.recurringRevenueMin !== null ||
+      currentFilters.recurringRevenueMax !== null ||
+      currentFilters.recurringRevenueSearch.trim() !== "" ||
+      currentFilters.arrMin !== null ||
+      currentFilters.arrMax !== null ||
+      currentFilters.arrSearch.trim() !== "" ||
+      currentFilters.churnMin !== null ||
+      currentFilters.churnMax !== null ||
+      currentFilters.churnSearch.trim() !== "" ||
+      currentFilters.grrMin !== null ||
+      currentFilters.grrMax !== null ||
+      currentFilters.grrSearch.trim() !== "" ||
+      currentFilters.nrrMin !== null ||
+      currentFilters.nrrMax !== null ||
+      currentFilters.nrrSearch.trim() !== "" ||
+      currentFilters.newClientsRevenueGrowthMin !== null ||
+      currentFilters.newClientsRevenueGrowthMax !== null ||
+      currentFilters.newClientsRevenueGrowthSearch.trim() !== ""
     );
   };
 
@@ -2017,6 +2850,139 @@ const CompanySection = ({
           "Max_linkedin_members",
           String(f.linkedinMembersMax ?? 0)
         );
+
+        // Financial Metrics
+        params.append(
+          "Min_revenue",
+          String(f.revenueMin ?? 0)
+        );
+        params.append(
+          "Max_revenue",
+          String(f.revenueMax ?? 0)
+        );
+        if (f.revenueSearch) params.append("revenue_search", f.revenueSearch);
+
+        params.append(
+          "Min_ebitda",
+          String(f.ebitdaMin ?? 0)
+        );
+        params.append(
+          "Max_ebitda",
+          String(f.ebitdaMax ?? 0)
+        );
+        if (f.ebitdaSearch) params.append("ebitda_search", f.ebitdaSearch);
+
+        params.append(
+          "Min_enterprise_value",
+          String(f.enterpriseValueMin ?? 0)
+        );
+        params.append(
+          "Max_enterprise_value",
+          String(f.enterpriseValueMax ?? 0)
+        );
+        if (f.enterpriseValueSearch) params.append("enterprise_value_search", f.enterpriseValueSearch);
+
+        params.append(
+          "Min_revenue_multiple",
+          String(f.revenueMultipleMin ?? 0)
+        );
+        params.append(
+          "Max_revenue_multiple",
+          String(f.revenueMultipleMax ?? 0)
+        );
+        if (f.revenueMultipleSearch) params.append("revenue_multiple_search", f.revenueMultipleSearch);
+
+        params.append(
+          "Min_revenue_growth",
+          String(f.revenueGrowthMin ?? 0)
+        );
+        params.append(
+          "Max_revenue_growth",
+          String(f.revenueGrowthMax ?? 0)
+        );
+        if (f.revenueGrowthSearch) params.append("revenue_growth_search", f.revenueGrowthSearch);
+
+        params.append(
+          "Min_ebitda_margin",
+          String(f.ebitdaMarginMin ?? 0)
+        );
+        params.append(
+          "Max_ebitda_margin",
+          String(f.ebitdaMarginMax ?? 0)
+        );
+        if (f.ebitdaMarginSearch) params.append("ebitda_margin_search", f.ebitdaMarginSearch);
+
+        params.append(
+          "Min_rule_of_40",
+          String(f.ruleOf40Min ?? 0)
+        );
+        params.append(
+          "Max_rule_of_40",
+          String(f.ruleOf40Max ?? 0)
+        );
+        if (f.ruleOf40Search) params.append("rule_of_40_search", f.ruleOf40Search);
+
+        // Subscription Metrics
+        params.append(
+          "Min_recurring_revenue",
+          String(f.recurringRevenueMin ?? 0)
+        );
+        params.append(
+          "Max_recurring_revenue",
+          String(f.recurringRevenueMax ?? 0)
+        );
+        if (f.recurringRevenueSearch) params.append("recurring_revenue_search", f.recurringRevenueSearch);
+
+        params.append(
+          "Min_arr",
+          String(f.arrMin ?? 0)
+        );
+        params.append(
+          "Max_arr",
+          String(f.arrMax ?? 0)
+        );
+        if (f.arrSearch) params.append("arr_search", f.arrSearch);
+
+        params.append(
+          "Min_churn",
+          String(f.churnMin ?? 0)
+        );
+        params.append(
+          "Max_churn",
+          String(f.churnMax ?? 0)
+        );
+        if (f.churnSearch) params.append("churn_search", f.churnSearch);
+
+        params.append(
+          "Min_grr",
+          String(f.grrMin ?? 0)
+        );
+        params.append(
+          "Max_grr",
+          String(f.grrMax ?? 0)
+        );
+        if (f.grrSearch) params.append("grr_search", f.grrSearch);
+
+        params.append(
+          "Min_nrr",
+          String(f.nrrMin ?? 0)
+        );
+        params.append(
+          "Max_nrr",
+          String(f.nrrMax ?? 0)
+        );
+        if (f.nrrSearch) params.append("nrr_search", f.nrrSearch);
+
+        params.append(
+          "Min_new_clients_revenue_growth",
+          String(f.newClientsRevenueGrowthMin ?? 0)
+        );
+        params.append(
+          "Max_new_clients_revenue_growth",
+          String(f.newClientsRevenueGrowthMax ?? 0)
+        );
+        if (f.newClientsRevenueGrowthSearch) params.append("new_clients_revenue_growth_search", f.newClientsRevenueGrowthSearch);
+
         if (f.searchQuery) params.append("query", f.searchQuery);
       } else {
         params.append("Min_linkedin_members", "0");
@@ -2627,6 +3593,9 @@ const CompanySection = ({
         display: grid !important;
         grid-template-columns: 1fr !important;
         gap: 16px !important;
+      }
+      .filters-card {
+        padding: 12px !important;
       }
       .filters-card {
         padding: 12px !important;
