@@ -1986,6 +1986,112 @@ const CompanyDashboard = ({
               </div>
               <div style={styles.gridItem}>
                 <h3 style={styles.subHeading} className="filters-sub-heading">
+                  Company Details
+                </h3>
+                <span style={styles.label}>By Ownership Type</span>
+                <SearchableSelect
+                  options={ownershipTypes.map((ownershipType) => ({
+                    value: ownershipType.id,
+                    label: ownershipType.ownership,
+                  }))}
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "number" &&
+                      value &&
+                      !selectedOwnershipTypes.includes(value)
+                    ) {
+                      setSelectedOwnershipTypes([
+                        ...selectedOwnershipTypes,
+                        value,
+                      ]);
+                    }
+                  }}
+                  placeholder={
+                    loadingOwnershipTypes
+                      ? "Loading ownership types..."
+                      : "Select Ownership Type"
+                  }
+                  disabled={loadingOwnershipTypes}
+                  style={styles.select}
+                />
+
+                {/* Selected Ownership Types Tags */}
+                {selectedOwnershipTypes.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    }}
+                  >
+                    {selectedOwnershipTypes.map((ownershipTypeId) => {
+                      const ownershipType = ownershipTypes.find(
+                        (o) => o.id === ownershipTypeId
+                      );
+                      return (
+                        <span
+                          key={ownershipTypeId}
+                          style={{
+                            backgroundColor: "#f3e5f5",
+                            color: "#7b1fa2",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {ownershipType?.ownership ||
+                            `Ownership ${ownershipTypeId}`}
+                          <button
+                            onClick={() => removeOwnershipType(ownershipTypeId)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#7b1fa2",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                <span style={styles.label}>LinkedIn Members Range</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={linkedinMembersMin || ""}
+                    onChange={(e) =>
+                      setLinkedinMembersMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={linkedinMembersMax || ""}
+                    onChange={(e) =>
+                      setLinkedinMembersMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+              </div>
+              <div style={styles.gridItem}>
+                <h3 style={styles.subHeading} className="filters-sub-heading">
                   Financial Metrics
                 </h3>
                 <span style={styles.label}>Revenue</span>
@@ -2324,112 +2430,6 @@ const CompanyDashboard = ({
                     value={newClientsRevenueGrowthMax || ""}
                     onChange={(e) =>
                       setNewClientsRevenueGrowthMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-              </div>
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Company Details
-                </h3>
-                <span style={styles.label}>By Ownership Type</span>
-                <SearchableSelect
-                  options={ownershipTypes.map((ownershipType) => ({
-                    value: ownershipType.id,
-                    label: ownershipType.ownership,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "number" &&
-                      value &&
-                      !selectedOwnershipTypes.includes(value)
-                    ) {
-                      setSelectedOwnershipTypes([
-                        ...selectedOwnershipTypes,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder={
-                    loadingOwnershipTypes
-                      ? "Loading ownership types..."
-                      : "Select Ownership Type"
-                  }
-                  disabled={loadingOwnershipTypes}
-                  style={styles.select}
-                />
-
-                {/* Selected Ownership Types Tags */}
-                {selectedOwnershipTypes.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedOwnershipTypes.map((ownershipTypeId) => {
-                      const ownershipType = ownershipTypes.find(
-                        (o) => o.id === ownershipTypeId
-                      );
-                      return (
-                        <span
-                          key={ownershipTypeId}
-                          style={{
-                            backgroundColor: "#f3e5f5",
-                            color: "#7b1fa2",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            fontSize: "12px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          {ownershipType?.ownership ||
-                            `Ownership ${ownershipTypeId}`}
-                          <button
-                            onClick={() => removeOwnershipType(ownershipTypeId)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#7b1fa2",
-                              cursor: "pointer",
-                              fontWeight: "bold",
-                              fontSize: "14px",
-                            }}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-                <span style={styles.label}>LinkedIn Members Range</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    placeholder="Min"
-                    value={linkedinMembersMin || ""}
-                    onChange={(e) =>
-                      setLinkedinMembersMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    placeholder="Max"
-                    value={linkedinMembersMax || ""}
-                    onChange={(e) =>
-                      setLinkedinMembersMax(
                         e.target.value ? Number(e.target.value) : null
                       )
                     }
