@@ -3297,40 +3297,74 @@ const CompanyDetail = () => {
                                         const namesFromObjects = Array.isArray(
                                           newEvent.advisors
                                         )
-                                          ? newEvent.advisors
-                                              .map(
-                                                (a) =>
-                                                  a?.advisor_company?.name ||
-                                                  a?._new_company?.name ||
-                                                  ""
-                                              )
-                                              .filter(
-                                                (n) => n && n.trim().length > 0
-                                              )
+                                          ? newEvent.advisors.map((a) => {
+                                              const name = a?.advisor_company?.name ||
+                                                           a?._new_company?.name || "";
+                                              // Use advisor company ID for linking to company pages
+                                              const id = a?.advisor_company?.id ||
+                                                         a?.new_company_advised ||
+                                                         a?._new_company?.id ||
+                                                         a?.id; // Fallback to advisor record ID
+                                              return { name, id };
+                                            })
                                           : [];
-                                        let combined = [
-                                          ...namesFromArray,
-                                          ...namesFromString,
-                                          ...namesFromObjects,
-                                        ];
+                                        // Prioritize namesFromObjects (which has IDs) over plain string names
+                                        // Only use string names if no objects with IDs are available
+                                        let combined: Array<{name: string, id: number | undefined}>;
+                                        
+                                        if (namesFromObjects.length > 0) {
+                                          // Use objects with IDs when available
+                                          combined = namesFromObjects.filter(item => item.name && item.name.trim().length > 0);
+                                        } else {
+                                          // Fallback to string names without IDs
+                                          const namesFromArrayObjects = namesFromArray.map(name => ({ name, id: undefined as number | undefined }));
+                                          const namesFromStringObjects = namesFromString.map(name => ({ name, id: undefined as number | undefined }));
+                                          combined = [
+                                            ...namesFromArrayObjects,
+                                            ...namesFromStringObjects,
+                                          ];
+                                        }
                                         if (combined.length === 0) {
                                           const legacy =
                                             event as LegacyCorporateEvent;
                                           const legacyNames = (
                                             (legacy["1"] || []).map(
-                                              (item) =>
-                                                item._new_company?.name || ""
-                                            ) as Array<string>
+                                              (item) => ({
+                                                name: item._new_company?.name || "",
+                                                id: undefined as number | undefined // Legacy "1" array doesn't have IDs
+                                              })
+                                            ) as Array<{name: string, id: number | undefined}>
                                           ).filter(
-                                            (n) => n && n.trim().length > 0
+                                            (item) => item.name && item.name.trim().length > 0
                                           );
                                           combined = legacyNames;
                                         }
-                                        const unique = Array.from(
-                                          new Set(combined.map((n) => n.trim()))
+                                        // Remove duplicates by name
+                                        const unique = combined.filter((item, index, arr) =>
+                                          arr.findIndex(i => i.name.trim() === item.name.trim()) === index
                                         );
                                         return unique.length > 0
-                                          ? unique.join(", ")
+                                          ? unique.map((item, idx) => {
+                                              const separator = idx < unique.length - 1 ? ", " : "";
+                                              if (item.id) {
+                                                return (
+                                                  <span key={`${item.name}-${idx}`}>
+                                                    <a
+                                                      href={`/company/${item.id}`}
+                                                      className="link-blue"
+                                                    >
+                                                      {item.name}
+                                                    </a>
+                                                    {separator}
+                                                  </span>
+                                                );
+                                              }
+                                              return (
+                                                <span key={`${item.name}-${idx}`}>
+                                                  {item.name}{separator}
+                                                </span>
+                                              );
+                                            })
                                           : "Not Available";
                                       })()}
                                     </div>
