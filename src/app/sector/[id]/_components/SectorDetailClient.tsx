@@ -447,10 +447,16 @@ function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
     c: Record<string, unknown>,
     bucketHint?: string
   ): SectorCompany => {
-    const idVal =
-      (c.id as number | undefined) ||
-      (c as { original_new_company_id?: number }).original_new_company_id ||
-      0;
+    // Handle ID extraction - could be number or string
+    let idVal: number = 0;
+    if (typeof c.id === "number") {
+      idVal = c.id;
+    } else if (typeof c.id === "string") {
+      const parsed = parseInt(c.id, 10);
+      idVal = isNaN(parsed) ? 0 : parsed;
+    } else if ((c as { original_new_company_id?: number }).original_new_company_id) {
+      idVal = (c as { original_new_company_id?: number }).original_new_company_id!;
+    }
     const ownership = toStringSafe(c.ownership);
     const primarySectors = Array.isArray(
       (c as { primary_sectors?: string[] }).primary_sectors
@@ -458,7 +464,7 @@ function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
       ? ((c as { primary_sectors?: string[] }).primary_sectors as string[])
       : [];
     const company = {
-      id: typeof idVal === "number" ? idVal : 0,
+      id: idVal,
       name: toStringSafe(c.name ?? c.company_name),
       locations_id: 0,
       url: toStringSafe(c.url),
@@ -655,7 +661,7 @@ function SectorThesisCard({
       : thesisHtml;
     
     if (result.includes('<ul>') || result.includes('<li>')) {
-      console.log('🧪 [Thesis] HTML contains ul/li tags, first 200 chars:', result.slice(0, 200));
+      // HTML contains ul/li tags
     }
     
     return result;
@@ -1438,18 +1444,9 @@ const SectorDetailPage = ({
         const flatThesis = first.Sector_thesis;
         const nestedThesis = first.Sector?.Sector_thesis;
 
-        console.log('🧪 [Client] INITIAL Sector thesis debug (from server):', {
-          hasData: Boolean(initialSectorData),
-          isArray: Array.isArray(initialSectorData),
-          flatThesisSample:
-            typeof flatThesis === 'string' ? flatThesis.slice(0, 300) : flatThesis,
-          nestedThesisSample:
-            typeof nestedThesis === 'string'
-              ? nestedThesis.slice(0, 300)
-              : nestedThesis,
-        });
+        // Debug: Sector thesis data available from server
       } catch (e) {
-        console.log('🧪 [Client] INITIAL Sector thesis debug failed', e);
+        // Debug: Sector thesis debug failed
       }
     }
   }, [initialSectorData]);
@@ -1674,7 +1671,6 @@ const SectorDetailPage = ({
       setCompaniesLoading(true);
       const perPageToUse = perPageOverride || selectedPerPage;
       const startTime = performance.now();
-      console.log('🚀 [Sector] Starting fetchCompanies...');
 
       try {
         const token = localStorage.getItem("asymmetrix_auth_token");
@@ -1832,7 +1828,6 @@ const SectorDetailPage = ({
             ),
         });
         const endTime = performance.now();
-        console.log(`✅ [Sector] fetchCompanies completed in ${(endTime - startTime).toFixed(0)}ms`);
       } catch (err) {
         console.error("Error fetching companies:", err);
       } finally {
@@ -2175,8 +2170,6 @@ const SectorDetailPage = ({
 
   // Fetch each dataset independently from Xano - updates UI as soon as each responds (progressive rendering)
   const fetchOverviewDataProgressive = useCallback(async () => {
-    console.log('🎬 [Client] Fetching overview data progressively (each card renders as data arrives)...');
-    console.log('🧪 [Client] Will log thesis data when sector fetch completes...');
     
     const token = typeof window !== 'undefined' ? localStorage.getItem('asymmetrix_auth_token') : null;
     if (!token) {
@@ -2216,22 +2209,12 @@ const SectorDetailPage = ({
             const flatThesis = first.Sector_thesis;
             const nestedThesis = first.Sector?.Sector_thesis;
 
-            console.log('🧪 [Client] Sector thesis debug:', {
-              hasData: Boolean(data),
-              isArray: Array.isArray(data),
-              flatThesisSample:
-                typeof flatThesis === 'string' ? flatThesis.slice(0, 300) : flatThesis,
-              nestedThesisSample:
-                typeof nestedThesis === 'string'
-                  ? nestedThesis.slice(0, 300)
-                  : nestedThesis,
-            });
+            // Debug: Sector thesis data available
           } catch (e) {
-            console.log('🧪 [Client] Sector thesis debug failed to inspect data', e);
+            // Debug: Sector thesis debug failed to inspect data
           }
 
           setSectorData(data as SectorStatistics);
-          console.log(`✅ Sector loaded in ${(performance.now() - sectorStart).toFixed(0)}ms`);
         }
       })
       .catch(err => console.error('❌ Sector failed:', err));
@@ -2249,7 +2232,6 @@ const SectorDetailPage = ({
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         setSplitMarketMapRaw(data);
-        console.log(`✅ Market Map loaded in ${(performance.now() - mmStart).toFixed(0)}ms`);
       })
       .catch(err => console.error('❌ Market Map failed:', err));
 
@@ -2263,7 +2245,6 @@ const SectorDetailPage = ({
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         setSplitStrategicRaw(data);
-        console.log(`✅ Strategic Acquirers loaded in ${(performance.now() - stratStart).toFixed(0)}ms`);
       })
       .catch(err => console.error('❌ Strategic Acquirers failed:', err));
 
@@ -2277,7 +2258,6 @@ const SectorDetailPage = ({
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         setSplitPERaw(data);
-        console.log(`✅ PE Investors loaded in ${(performance.now() - peStart).toFixed(0)}ms`);
       })
       .catch(err => console.error('❌ PE Investors failed:', err));
 
@@ -2291,12 +2271,8 @@ const SectorDetailPage = ({
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         setSplitRecentRaw(data);
-        console.log(`✅ Recent Transactions loaded in ${(performance.now() - recentStart).toFixed(0)}ms`);
       })
       .catch(err => console.error('❌ Recent Transactions failed:', err));
-
-    console.log('💡 [Client] All 5 APIs fired independently - UI updates as each responds');
-    console.log('💡 [Client] Other tabs (All Companies, Public, Transactions, etc.) will load when clicked');
   }, [sectorId]);
 
   // Kick off ONLY overview tab data load on initial mount (lazy load other tabs)
@@ -2305,12 +2281,8 @@ const SectorDetailPage = ({
     if (!sectorId) return;
     // Only fetch if we don't have initial data
     const hasInitialData = initialSectorData && initialMarketMap && initialStrategicAcquirers && initialPEInvestors && initialRecentTransactions;
-    console.log('🧪 [Client] useEffect check - hasInitialData:', hasInitialData, 'will fetch:', !hasInitialData);
     if (!hasInitialData) {
-      console.log('🧪 [Client] Calling fetchOverviewDataProgressive...');
       fetchOverviewDataProgressive();
-    } else {
-      console.log('🧪 [Client] Skipping fetchOverviewDataProgressive - using initial data');
     }
   }, [sectorId, fetchOverviewDataProgressive, initialSectorData, initialMarketMap, initialStrategicAcquirers, initialPEInvestors, initialRecentTransactions]);
 
