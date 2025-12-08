@@ -2128,7 +2128,7 @@ const CompanyDashboard = ({
                 <h3 style={styles.subHeading} className="filters-sub-heading">
                   Financial Metrics
                 </h3>
-                <span style={styles.label}>Revenue</span>
+                <span style={styles.label}>Revenue ($m)</span>
                 <input
                   type="text"
                   placeholder="e.g., 50, 10-50, <50, >50, >=50, <=50"
@@ -2137,7 +2137,7 @@ const CompanyDashboard = ({
                   style={styles.input}
                 />
 
-                <span style={styles.label}>EBITDA</span>
+                <span style={styles.label}>EBITDA ($m)</span>
                 <input
                   type="text"
                   placeholder="e.g., 50, 10-50, <50, >50, >=50, <=50"
@@ -2146,7 +2146,7 @@ const CompanyDashboard = ({
                   style={styles.input}
                 />
 
-                <span style={styles.label}>Enterprise Value</span>
+                <span style={styles.label}>Enterprise Value ($m)</span>
                 <input
                   type="text"
                   placeholder="e.g., 50, 10-50, <50, >50, >=50, <=50"
@@ -2155,7 +2155,7 @@ const CompanyDashboard = ({
                   style={styles.input}
                 />
 
-                <span style={styles.label}>Revenue Multiple</span>
+                <span style={styles.label}>Revenue Multiple (x)</span>
                 <input
                   type="text"
                   placeholder="e.g., 50, 10-50, <50, >50, >=50, <=50"
@@ -2164,7 +2164,7 @@ const CompanyDashboard = ({
                   style={styles.input}
                 />
 
-                <span style={styles.label}>Revenue Growth</span>
+                <span style={styles.label}>Revenue Growth (%)</span>
                 <input
                   type="text"
                   placeholder="e.g., 50, 10-50, <50, >50, >=50, <=50"
@@ -2173,7 +2173,7 @@ const CompanyDashboard = ({
                   style={styles.input}
                 />
 
-                <span style={styles.label}>EBITDA Margin</span>
+                <span style={styles.label}>EBITDA Margin (%)</span>
                 <input
                   type="text"
                   placeholder="e.g., 50, 10-50, <50, >50, >=50, <=50"
@@ -2182,7 +2182,7 @@ const CompanyDashboard = ({
                   style={styles.input}
                 />
 
-                <span style={styles.label}>Rule of 40</span>
+                <span style={styles.label}>Rule of 40 (%)</span>
                 <input
                   type="text"
                   placeholder="e.g., 50, 10-50, <50, >50, >=50, <=50"
@@ -2195,7 +2195,7 @@ const CompanyDashboard = ({
                 <h3 style={styles.subHeading} className="filters-sub-heading">
                   Subscription Metrics
                 </h3>
-                <span style={styles.label}>Recurring Revenue</span>
+                <span style={styles.label}>Recurring Revenue (%)</span>
                 <input
                   type="text"
                   placeholder="e.g., 50, 10-50, <50, >50, >=50, <=50"
@@ -2204,7 +2204,7 @@ const CompanyDashboard = ({
                   style={styles.input}
                 />
 
-                <span style={styles.label}>ARR</span>
+                <span style={styles.label}>ARR ($m)</span>
                 <input
                   type="text"
                   placeholder="e.g., 50, 10-50, <50, >50, >=50, <=50"
@@ -2213,7 +2213,7 @@ const CompanyDashboard = ({
                   style={styles.input}
                 />
 
-                <span style={styles.label}>Churn</span>
+                <span style={styles.label}>Churn (%)</span>
                 <input
                   type="text"
                   placeholder="e.g., 50, 10-50, <50, >50, >=50, <=50"
@@ -2222,7 +2222,7 @@ const CompanyDashboard = ({
                   style={styles.input}
                 />
 
-                <span style={styles.label}>GRR</span>
+                <span style={styles.label}>GRR (%)</span>
                 <input
                   type="text"
                   placeholder="e.g., 50, 10-50, <50, >50, >=50, <=50"
@@ -2231,7 +2231,7 @@ const CompanyDashboard = ({
                   style={styles.input}
                 />
 
-                <span style={styles.label}>NRR</span>
+                <span style={styles.label}>NRR (%)</span>
                 <input
                   type="text"
                   placeholder="e.g., 50, 10-50, <50, >50, >=50, <=50"
@@ -2240,7 +2240,7 @@ const CompanyDashboard = ({
                   style={styles.input}
                 />
 
-                <span style={styles.label}>New Clients Revenue Growth</span>
+                <span style={styles.label}>New Clients Revenue Growth (%)</span>
                 <input
                   type="text"
                   placeholder="e.g., 50, 10-50, <50, >50, >=50, <=50"
