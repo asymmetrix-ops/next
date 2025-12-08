@@ -54,6 +54,56 @@ interface ArticleDetail {
   }>;
 }
 
+interface CompanyOfFocusOverview {
+  management?: Array<{
+    id?: number;
+    name?: string;
+    job_titles?: string[];
+    linkedin_url?: string;
+    status?: string;
+  }>;
+  hq_location?: {
+    id?: number;
+    city?: string;
+    state_province_county?: string;
+    country?: string;
+    lat?: string;
+    lng?: string;
+  };
+  year_founded?: number | string | null;
+  employee_count?: number | null;
+  ownership_type?: string | null;
+  investors_owners?: Array<{
+    id?: number;
+    name?: string;
+    url?: string;
+  }>;
+}
+
+interface CompanyOfFocusFinancialOverview {
+  arr_m?: number | string | null;
+  ebitda_m?: number | string | null;
+  revenue_m?: number | string | null;
+  enterprise_value_m?: number | string | null;
+  revenue_multiple?: number | string | null;
+  revenue_growth_pc?: number | string | null;
+  rule_of_40?: number | string | null;
+  ev_currency?: string | null;
+  ebitda_currency?: string | null;
+  revenue_currency?: string | null;
+}
+
+interface CompanyOfFocusApiItem {
+  id: number;
+  name: string;
+  url?: string;
+  description?: string;
+  logo?: string;
+  linkedin_url?: string;
+  company_overview?: CompanyOfFocusOverview;
+  financial_overview?: CompanyOfFocusFinancialOverview;
+}
+
 // Shared styles object
 const styles = {
   container: {
@@ -186,6 +236,36 @@ const styles = {
     alignItems: "center",
     gap: "8px",
   },
+  infoRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "12px",
+    padding: "4px 0",
+    fontSize: "14px",
+  },
+  label: {
+    flex: "0 0 45%",
+    fontWeight: 600,
+    color: "#4b5563",
+  },
+  value: {
+    flex: "1",
+    textAlign: "right" as const,
+    color: "#111827",
+  },
+};
+
+// Safe JSON-or-array parser used for multiple payload shapes
+const tryParse = <T,>(val: unknown): T | undefined => {
+  if (Array.isArray(val)) return val as unknown as T;
+  if (typeof val === "string" && val.trim()) {
+    try {
+      return JSON.parse(val) as T;
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
 };
 
 const ArticleDetailPage = () => {
@@ -194,6 +274,9 @@ const ArticleDetailPage = () => {
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [companyOfFocus, setCompanyOfFocus] =
+    useState<CompanyOfFocusApiItem | null>(null);
+  const [companyOfFocusLoading, setCompanyOfFocusLoading] = useState(false);
   // Guard against rare runtime cases where search params may be unavailable during hydration
   const searchParams = useSearchParams() as unknown as {
     get?: (key: string) => string | null;
@@ -237,18 +320,6 @@ const ArticleDetailPage = () => {
         setError("Article not found");
         return;
       }
-      const tryParse = <T,>(val: unknown): T | undefined => {
-        if (Array.isArray(val)) return val as unknown as T;
-        if (typeof val === "string" && val.trim()) {
-          try {
-            return JSON.parse(val) as T;
-          } catch {
-            return undefined;
-          }
-        }
-        return undefined;
-      };
-
       const normalized = {
         ...raw,
         sectors:
@@ -313,6 +384,111 @@ const ArticleDetailPage = () => {
       fetchArticle();
     }
   }, [articleId]);
+
+  // Fetch Company_of_Focus details for Company Analysis content
+  useEffect(() => {
+    const fetchCompanyOfFocus = async () => {
+      if (!article) {
+        setCompanyOfFocus(null);
+        return;
+      }
+
+      const contentType = (
+        article.Content_Type ||
+        article.content_type ||
+        article.Content?.Content_type ||
+        article.Content?.Content_Type ||
+        ""
+      ).trim();
+
+      const isCompanyAnalysis = /^company\s*analysis$/i.test(contentType);
+      const hasCompanyOfFocus =
+        (article as unknown as { Company_of_Focus?: unknown })
+          .Company_of_Focus != null;
+
+      if (!isCompanyAnalysis || !hasCompanyOfFocus) {
+        setCompanyOfFocus(null);
+        return;
+      }
+
+      try {
+        setCompanyOfFocusLoading(true);
+
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) {
+          return;
+        }
+
+        const response = await fetch(
+          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/aritcle_company_of_focus?content_id=${encodeURIComponent(
+            articleId
+          )}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const json: unknown = await response.json();
+        const arr = Array.isArray(json) ? json : [];
+        const rawItem = (arr[0] ?? null) as
+          | {
+              id?: number;
+              name?: string;
+              url?: string;
+              description?: string;
+              logo?: string;
+              linkedin_url?: string;
+              company_overview?: unknown;
+              financial_overview?: unknown;
+            }
+          | null;
+
+        if (!rawItem) {
+          setCompanyOfFocus(null);
+          return;
+        }
+
+        const overview =
+          typeof rawItem.company_overview === "string"
+            ? tryParse<CompanyOfFocusOverview>(rawItem.company_overview)
+            : (rawItem.company_overview as CompanyOfFocusOverview | undefined);
+
+        const financial =
+          typeof rawItem.financial_overview === "string"
+            ? tryParse<CompanyOfFocusFinancialOverview>(
+                rawItem.financial_overview
+              )
+            : (rawItem.financial_overview as
+                | CompanyOfFocusFinancialOverview
+                | undefined);
+
+        setCompanyOfFocus({
+          id: rawItem.id ?? 0,
+          name: rawItem.name || "",
+          url: rawItem.url || "",
+          description: rawItem.description || "",
+          logo: rawItem.logo || "",
+          linkedin_url: rawItem.linkedin_url || "",
+          company_overview: overview,
+          financial_overview: financial,
+        });
+      } catch (err) {
+        console.error("Error fetching company of focus:", err);
+      } finally {
+        setCompanyOfFocusLoading(false);
+      }
+    };
+
+    fetchCompanyOfFocus();
+  }, [article, articleId]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "Not available";
@@ -473,6 +649,50 @@ const ArticleDetailPage = () => {
     if (doc.type && doc.type.startsWith("image/")) return true;
     const nameOrUrl = `${doc.name || ""} ${doc.url || ""}`;
     return /(\.(png|jpe?g|gif|webp|svg))($|\?)/i.test(nameOrUrl);
+  };
+
+  const formatCompanyOfFocusYearFounded = (candidate: unknown): string => {
+    if (candidate === null || candidate === undefined) return "Not available";
+    const n = Number(candidate);
+    const currentYear = new Date().getFullYear();
+    if (Number.isFinite(n) && n >= 1800 && n <= currentYear) {
+      return String(n);
+    }
+    return "Not available";
+  };
+
+  const formatMillionsWithCurrency = (
+    value: unknown,
+    currency?: string | null
+  ): string => {
+    if (value === null || value === undefined || value === "") {
+      return "Not available";
+    }
+    const num = Number(value);
+    if (!Number.isFinite(num)) return "Not available";
+    const formatted = num.toLocaleString("en-US", {
+      maximumFractionDigits: 1,
+    });
+    const cur = (currency || "").toString().trim();
+    return cur ? `${cur} ${formatted}m` : `${formatted}m`;
+  };
+
+  const formatMultiple = (value: unknown): string => {
+    if (value === null || value === undefined || value === "") {
+      return "Not available";
+    }
+    const num = Number(value);
+    if (!Number.isFinite(num)) return "Not available";
+    return `${num.toFixed(1)}x`;
+  };
+
+  const formatPercent = (value: unknown): string => {
+    if (value === null || value === undefined || value === "") {
+      return "Not available";
+    }
+    const num = Number(value);
+    if (!Number.isFinite(num)) return "Not available";
+    return `${num.toFixed(0)}%`;
   };
 
   if (loading) {
@@ -747,6 +967,238 @@ const ArticleDetailPage = () => {
                 </div>
               </div>
             )}
+            {/* Company of Focus: Company Overview & Financial Overview (single column layout) */}
+            {(() => {
+              if (!article || !companyOfFocus || companyOfFocusLoading) {
+                return null;
+              }
+
+              const ct = (
+                article.Content_Type ||
+                article.content_type ||
+                article.Content?.Content_type ||
+                article.Content?.Content_Type ||
+                ""
+              ).trim();
+              const isCompanyAnalysis = /^company\s*analysis$/i.test(ct);
+              if (!isCompanyAnalysis) return null;
+
+              const overview = companyOfFocus.company_overview;
+              const financial = companyOfFocus.financial_overview;
+
+              if (!overview && !financial) return null;
+
+              const hqLocation = overview?.hq_location
+                ? [
+                    overview.hq_location.city,
+                    overview.hq_location.state_province_county,
+                    overview.hq_location.country,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")
+                : "Not available";
+
+              const yearFounded = formatCompanyOfFocusYearFounded(
+                overview?.year_founded
+              );
+
+              const ownership =
+                overview?.ownership_type || "Not available";
+
+              const investors =
+                overview?.investors_owners && overview.investors_owners.length
+                  ? overview.investors_owners
+                      .map((inv) => inv.name)
+                      .filter(Boolean)
+                      .join(", ")
+                  : "Not available";
+
+              const managementEntries =
+                overview?.management && overview.management.length
+                  ? overview.management.filter((m) => {
+                      const titles = m.job_titles || [];
+                      const hasTitle = titles.some((t) =>
+                        /ceo|founder/i.test((t || "").toString())
+                      );
+                      const status = (m.status || "").toString().trim();
+                      const isCurrent =
+                        !status || /^current$/i.test(status);
+                      return hasTitle && isCurrent;
+                    })
+                  : [];
+
+              const management =
+                managementEntries.length > 0
+                  ? managementEntries
+                      .map((m) => {
+                        const titles = (m.job_titles || []).join(" / ");
+                        return titles ? `${m.name} (${titles})` : m.name;
+                      })
+                      .filter(Boolean)
+                      .join(", ")
+                  : "Not available";
+
+              const employeeCount =
+                typeof overview?.employee_count === "number"
+                  ? overview.employee_count.toLocaleString("en-US")
+                  : "Not available";
+
+              const currencyForHeader =
+                (financial?.ev_currency ||
+                  financial?.revenue_currency ||
+                  financial?.ebitda_currency ||
+                  "") || "";
+
+              const financialHeader = currencyForHeader
+                ? `Financial Overview (${currencyForHeader})`
+                : "Financial Overview";
+
+              const revenueDisplay = financial
+                ? formatMillionsWithCurrency(
+                    financial.revenue_m,
+                    financial.revenue_currency
+                  )
+                : "Not available";
+
+              const arrDisplay = financial
+                ? formatMillionsWithCurrency(
+                    financial.arr_m,
+                    financial.revenue_currency
+                  )
+                : "Not available";
+
+              const ebitdaDisplay = financial
+                ? formatMillionsWithCurrency(
+                    financial.ebitda_m,
+                    financial.ebitda_currency
+                  )
+                : "Not available";
+
+              const evDisplay = financial
+                ? formatMillionsWithCurrency(
+                    financial.enterprise_value_m,
+                    financial.ev_currency
+                  )
+                : "Not available";
+
+              const revenueMultipleDisplay = financial
+                ? formatMultiple(financial.revenue_multiple)
+                : "Not available";
+
+              const revenueGrowthDisplay = financial
+                ? formatPercent(financial.revenue_growth_pc)
+                : "Not available";
+
+              const ruleOf40Display = financial
+                ? formatPercent(financial.rule_of_40)
+                : "Not available";
+
+              return (
+                <>
+                  {overview && (
+                    <div style={styles.section}>
+                      <h2 style={styles.sectionTitle}>Company Overview</h2>
+                      <div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>HQ Location</span>
+                          <span style={styles.value}>{hqLocation}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Year Founded</span>
+                          <span style={styles.value}>{yearFounded}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Ownership Type</span>
+                          <span style={styles.value}>{ownership}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Investor(s) / Owner(s)</span>
+                          <span style={styles.value}>{investors}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Management</span>
+                          <span style={styles.value}>{management}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Employee Count</span>
+                          <span style={styles.value}>{employeeCount}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {financial && (
+                    <div style={styles.section}>
+                      <h2 style={styles.sectionTitle}>{financialHeader}</h2>
+                      <div>
+                        <div style={styles.infoRow}>
+                          <span
+                            style={styles.label}
+                            title="Revenue (in millions)"
+                          >
+                            Revenue (m)
+                          </span>
+                          <span style={styles.value}>{revenueDisplay}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span
+                            style={styles.label}
+                            title="Annual Recurring Revenue (in millions)"
+                          >
+                            ARR (m)
+                          </span>
+                          <span style={styles.value}>{arrDisplay}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span
+                            style={styles.label}
+                            title="EBITDA (in millions)"
+                          >
+                            EBITDA (m)
+                          </span>
+                          <span style={styles.value}>{ebitdaDisplay}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span
+                            style={styles.label}
+                            title="Enterprise Value (in millions)"
+                          >
+                            Enterprise Value (m)
+                          </span>
+                          <span style={styles.value}>{evDisplay}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span
+                            style={styles.label}
+                            title="Enterprise Value divided by Revenue"
+                          >
+                            Revenue Multiple (x)
+                          </span>
+                          <span style={styles.value}>{revenueMultipleDisplay}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span
+                            style={styles.label}
+                            title="Year-over-year Revenue Growth"
+                          >
+                            Revenue Growth (%)
+                          </span>
+                          <span style={styles.value}>{revenueGrowthDisplay}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span
+                            style={styles.label}
+                            title="Revenue Growth + EBITDA Margin"
+                          >
+                            Rule of 40 (%)
+                          </span>
+                          <span style={styles.value}>{ruleOf40Display}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
             {(() => {
               const ct = (
                 article.Content_Type ||
