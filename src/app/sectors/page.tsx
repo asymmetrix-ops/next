@@ -262,6 +262,7 @@ const SectorsSection = () => {
   const [error, setError] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>("sector_name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [searchTerm, setSearchTerm] = useState<string>("");
   // Preload mapping for potential downstream use; currently not used directly on this page
   const [, setSecondaryToPrimaryMap] = useState<Record<string, string>>({});
 
@@ -287,14 +288,23 @@ const SectorsSection = () => {
   });
 
   // Fetch sectors data
-  const fetchSectors = async () => {
+  const fetchSectors = async (options?: { useSearch?: boolean }) => {
     setLoading(true);
     setError(null);
 
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Primary_sectors_with_companies_counts`;
+      const baseUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Primary_sectors_with_companies_counts`;
+
+      let url = baseUrl;
+      if (options?.useSearch && searchTerm.trim()) {
+        const params = new URLSearchParams();
+        // Backend expects these fields: { sort, search }
+        params.set("sort", "");
+        params.set("search", searchTerm.trim());
+        url = `${baseUrl}?${params.toString()}`;
+      }
 
       const response = await fetch(url, {
         method: "GET",
@@ -343,6 +353,7 @@ const SectorsSection = () => {
         // best-effort; ignore mapping load errors here
       }
     })();
+    // Initial load without search params to preserve original behavior
     fetchSectors();
   }, []);
 
@@ -463,6 +474,52 @@ const SectorsSection = () => {
           maxWidth: "100%",
         }
       },
+      React.createElement(
+        "div",
+        {
+          style: {
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            flexGrow: 1,
+            minWidth: "240px",
+          },
+        },
+        React.createElement("input", {
+          type: "text",
+          value: searchTerm,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+            setSearchTerm(e.target.value),
+          placeholder: "Search sectors or sub-sectors",
+          style: {
+            padding: "8px 12px",
+            borderRadius: "8px",
+            border: "1px solid #e2e8f0",
+            backgroundColor: "white",
+            fontSize: "14px",
+            flexGrow: 1,
+            minWidth: "0",
+          },
+        }),
+        React.createElement(
+          "button",
+          {
+            onClick: () => fetchSectors({ useSearch: true }),
+            style: {
+              padding: "8px 16px",
+              borderRadius: "8px",
+              border: "1px solid #e2e8f0",
+              backgroundColor: "#0075df",
+              color: "white",
+              fontSize: "14px",
+              cursor: "pointer",
+              fontWeight: "500",
+              whiteSpace: "nowrap",
+            },
+          },
+          "Search"
+        )
+      ),
       React.createElement(
         "span",
         { 

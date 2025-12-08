@@ -184,59 +184,6 @@ class DashboardApiService {
     };
   }
 
-  async getSectorsOverview(): Promise<ApiResponse<Record<string, unknown>>> {
-    // Use the same authentication method as dashboard API calls
-    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
-    const endpoint = "/sectors_overview";
-
-    const authHeaders = authService.getAuthHeaders();
-
-    // Debug: Log the auth headers to see what's being sent
-    console.log("Sectors Overview API - Auth headers:", authHeaders);
-    console.log("Sectors Overview API - Token:", authService.getToken());
-
-    const headers = {
-      "Content-Type": "application/json",
-      ...authHeaders,
-    };
-
-    const options: RequestInit = {
-      method: "GET",
-      headers,
-    };
-
-    console.log(
-      "Sectors Overview API - Making request to:",
-      `${sectorsBaseUrl}${endpoint}`
-    );
-
-    const response = await fetch(`${sectorsBaseUrl}${endpoint}`, options);
-
-    console.log("Sectors Overview API - Response status:", response.status);
-    console.log(
-      "Sectors Overview API - Response headers:",
-      Object.fromEntries(response.headers.entries())
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Sectors Overview API - Error response:", errorText);
-      if (response.status === 401) {
-        throw new Error("Authentication required");
-      }
-      throw new Error(`API request failed: ${response.statusText}`);
-    }
-
-    const responseData = await response.json();
-
-    // Wrap the response in the expected ApiResponse format
-    return {
-      data: responseData,
-      error: undefined,
-      total: undefined,
-    };
-  }
-
   async getSectorDetails(
     sectorId: number
   ): Promise<ApiResponse<Record<string, unknown>>> {

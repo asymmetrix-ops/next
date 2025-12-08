@@ -64,10 +64,6 @@ export class ServerDashboardApiService {
     return response.json();
   }
 
-  async getSectorsOverview() {
-    return this.request("/sectors_overview");
-  }
-
   async getPrimarySectorsWithCompanyCounts() {
     return this.request("/Primary_sectors_with_companies_counts");
   }
