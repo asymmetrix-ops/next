@@ -1441,11 +1441,12 @@ const SectorDetailPage = ({
           : ([initialSectorData] as SectorApiItem[]);
 
         const first = items[0] ?? {};
-        const flatThesis = first.Sector_thesis;
-        const nestedThesis = first.Sector?.Sector_thesis;
-
         // Debug: Sector thesis data available from server
-      } catch (e) {
+        console.debug("Sector thesis sample (client effect):", {
+          flatThesis: first.Sector_thesis,
+          nestedThesis: first.Sector?.Sector_thesis,
+        });
+      } catch {
         // Debug: Sector thesis debug failed
       }
     }
@@ -1670,7 +1671,6 @@ const SectorDetailPage = ({
     async (page: number = 1, perPageOverride?: number) => {
       setCompaniesLoading(true);
       const perPageToUse = perPageOverride || selectedPerPage;
-      const startTime = performance.now();
 
       try {
         const token = localStorage.getItem("asymmetrix_auth_token");
@@ -1827,7 +1827,6 @@ const SectorDetailPage = ({
               Math.ceil((overallCount || adapted.length) / computedPerPage)
             ),
         });
-        const endTime = performance.now();
       } catch (err) {
         console.error("Error fetching companies:", err);
       } finally {
@@ -2185,7 +2184,6 @@ const SectorDetailPage = ({
     // Fire all 5 APIs independently - each updates state immediately when it responds
     
     // 1. Sector metadata (name + thesis) - fastest (~69ms via server, direct should be similar)
-    const sectorStart = performance.now();
     fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors/${sectorId}`, { 
       method: 'GET',
       headers,
@@ -2206,11 +2204,13 @@ const SectorDetailPage = ({
               : ([data] as SectorApiItem[]);
 
             const first = items[0] ?? {};
-            const flatThesis = first.Sector_thesis;
-            const nestedThesis = first.Sector?.Sector_thesis;
 
             // Debug: Sector thesis data available
-          } catch (e) {
+            console.debug("Sector thesis sample (overview fetch):", {
+              flatThesis: first.Sector_thesis,
+              nestedThesis: first.Sector?.Sector_thesis,
+            });
+          } catch {
             // Debug: Sector thesis debug failed to inspect data
           }
 
@@ -2223,7 +2223,6 @@ const SectorDetailPage = ({
     qs.append('Sector_id', parseInt(sectorId, 10).toString());
 
     // 2. Market Map
-    const mmStart = performance.now();
     fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map?${qs.toString()}`, { 
       method: 'GET',
       headers,
@@ -2236,7 +2235,6 @@ const SectorDetailPage = ({
       .catch(err => console.error('❌ Market Map failed:', err));
 
     // 3. Strategic Acquirers
-    const stratStart = performance.now();
     fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_strategic_acquirers?${qs.toString()}`, { 
       method: 'GET',
       headers,
@@ -2249,7 +2247,6 @@ const SectorDetailPage = ({
       .catch(err => console.error('❌ Strategic Acquirers failed:', err));
 
     // 4. PE Investors
-    const peStart = performance.now();
     fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_pe_investors?${qs.toString()}`, { 
       method: 'GET',
       headers,
@@ -2262,7 +2259,6 @@ const SectorDetailPage = ({
       .catch(err => console.error('❌ PE Investors failed:', err));
 
     // 5. Recent Transactions
-    const recentStart = performance.now();
     fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${qs.toString()}&top_15=true`, { 
       method: 'GET',
       headers,
