@@ -395,7 +395,7 @@ const ArticleDetailPage = () => {
     }
   }, [articleId]);
 
-  // Fetch Company_of_Focus details for Company Analysis content
+  // Fetch Company_of_Focus details for Company Analysis & Executive Interview content
   useEffect(() => {
     const fetchCompanyOfFocus = async () => {
       if (!article) {
@@ -411,12 +411,15 @@ const ArticleDetailPage = () => {
         ""
       ).trim();
 
-      const isCompanyAnalysis = /^company\s*analysis$/i.test(contentType);
+      const isCompanyAnalysisOrExecInterview = /^(company\s*analysis|executive\s*interview)$/i.test(
+        contentType
+      );
+
       const hasCompanyOfFocus =
         (article as unknown as { Company_of_Focus?: unknown })
           .Company_of_Focus != null;
 
-      if (!isCompanyAnalysis || !hasCompanyOfFocus) {
+      if (!isCompanyAnalysisOrExecInterview || !hasCompanyOfFocus) {
         setCompanyOfFocus(null);
         return;
       }
@@ -697,8 +700,8 @@ const ArticleDetailPage = () => {
     }
     const num = Number(value);
     if (!Number.isFinite(num)) return "Not available";
-    // Show plain multiple without "x" suffix to match Company Profile metrics
-    return num.toFixed(1);
+    const rounded = Math.round(num * 10) / 10;
+    return `${rounded.toLocaleString()}x`;
   };
 
   const formatPercent = (value: unknown): string => {
@@ -707,8 +710,7 @@ const ArticleDetailPage = () => {
     }
     const num = Number(value);
     if (!Number.isFinite(num)) return "Not available";
-    // Show plain percent number without "%" suffix to match Company Profile metrics
-    return num.toFixed(0);
+    return `${Math.round(num)}%`;
   };
 
   const getFinancialSourceTooltip = (
@@ -1005,8 +1007,10 @@ const ArticleDetailPage = () => {
                 article.Content?.Content_Type ||
                 ""
               ).trim();
-              const isCompanyAnalysis = /^company\s*analysis$/i.test(ct);
-              if (!isCompanyAnalysis) return null;
+              const isCompanyAnalysisOrExecInterview = /^(company\s*analysis|executive\s*interview)$/i.test(
+                ct
+              );
+              if (!isCompanyAnalysisOrExecInterview) return null;
 
               const overview = companyOfFocus.company_overview;
               const financial = companyOfFocus.financial_overview;
@@ -1066,7 +1070,15 @@ const ArticleDetailPage = () => {
                   ? overview.employee_count.toLocaleString("en-US")
                   : "Not available";
 
-              const financialHeader = "Financial Snapshot";
+              const currencyForHeader =
+                (financial?.ev_currency ||
+                  financial?.revenue_currency ||
+                  financial?.ebitda_currency ||
+                  "") || "";
+
+              const financialHeader = currencyForHeader
+                ? `Financial Snapshot (${currencyForHeader})`
+                : "Financial Snapshot";
 
               const revenueDisplay = financial
                 ? formatPlainNumber(financial.revenue_m)
@@ -1146,14 +1158,42 @@ const ArticleDetailPage = () => {
                                 .filter((inv) => inv && inv.name)
                                 .map((inv, idx) => {
                                   const name = inv.name || "";
-                                  const href = inv.url || "";
+                                  const id =
+                                    typeof inv.id === "number" ? inv.id : null;
+                                  const internalHref =
+                                    id && id > 0 ? `/investors/${id}` : "";
+                                  const href = internalHref || inv.url || "";
                                   const baseStyle = {
                                     ...styles.companyTag,
                                     textDecoration: "none",
                                     display: "inline-block",
                                     marginBottom: 4,
                                   } as React.CSSProperties;
-                                  return href ? (
+                                  if (!href) {
+                                    return (
+                                      <span
+                                        key={`${name}-${idx}`}
+                                        style={baseStyle}
+                                      >
+                                        {name}
+                                      </span>
+                                    );
+                                  }
+
+                                  if (internalHref) {
+                                    return (
+                                      <Link
+                                        key={`${name}-${idx}`}
+                                        href={internalHref}
+                                        style={baseStyle}
+                                        prefetch={false}
+                                      >
+                                        {name}
+                                      </Link>
+                                    );
+                                  }
+
+                                  return (
                                     <a
                                       key={`${name}-${idx}`}
                                       href={href}
@@ -1163,13 +1203,6 @@ const ArticleDetailPage = () => {
                                     >
                                       {name}
                                     </a>
-                                  ) : (
-                                    <span
-                                      key={`${name}-${idx}`}
-                                      style={baseStyle}
-                                    >
-                                      {name}
-                                    </span>
                                   );
                                 })
                             ) : (
@@ -1276,7 +1309,7 @@ const ArticleDetailPage = () => {
                       </h2>
                       <div>
                         <div style={styles.infoRow}>
-                          <span style={styles.label}>Revenue</span>
+                          <span style={styles.label}>Revenue (m)</span>
                           <span
                             style={styles.value}
                             title={getFinancialSourceTooltip(
@@ -1287,7 +1320,7 @@ const ArticleDetailPage = () => {
                           </span>
                         </div>
                         <div style={styles.infoRow}>
-                          <span style={styles.label}>ARR</span>
+                          <span style={styles.label}>ARR (m)</span>
                           <span
                             style={styles.value}
                             title={getFinancialSourceTooltip(
@@ -1298,7 +1331,7 @@ const ArticleDetailPage = () => {
                           </span>
                         </div>
                         <div style={styles.infoRow}>
-                          <span style={styles.label}>EBITDA</span>
+                          <span style={styles.label}>EBITDA (m)</span>
                           <span
                             style={styles.value}
                             title={getFinancialSourceTooltip(
@@ -1309,7 +1342,7 @@ const ArticleDetailPage = () => {
                           </span>
                         </div>
                         <div style={styles.infoRow}>
-                          <span style={styles.label}>Enterprise Value</span>
+                          <span style={styles.label}>Enterprise Value (m)</span>
                           <span
                             style={styles.value}
                             title={getFinancialSourceTooltip(
@@ -1320,7 +1353,7 @@ const ArticleDetailPage = () => {
                           </span>
                         </div>
                         <div style={styles.infoRow}>
-                          <span style={styles.label}>Revenue Multiple</span>
+                          <span style={styles.label}>Revenue Multiple (x)</span>
                           <span
                             style={styles.value}
                             title={getFinancialSourceTooltip(
@@ -1331,7 +1364,7 @@ const ArticleDetailPage = () => {
                           </span>
                         </div>
                         <div style={styles.infoRow}>
-                          <span style={styles.label}>Revenue Growth</span>
+                          <span style={styles.label}>Revenue Growth (%)</span>
                           <span
                             style={styles.value}
                             title={getFinancialSourceTooltip(
@@ -1342,7 +1375,7 @@ const ArticleDetailPage = () => {
                           </span>
                         </div>
                         <div style={styles.infoRow}>
-                          <span style={styles.label}>Rule of 40</span>
+                          <span style={styles.label}>Rule of 40 (%)</span>
                           <span
                             style={styles.value}
                             title={getFinancialSourceTooltip(
