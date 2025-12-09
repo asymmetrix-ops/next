@@ -60,6 +60,7 @@ interface CompanyOfFocusOverview {
     name?: string;
     job_titles?: string[];
     linkedin_url?: string;
+    individual_id?: number;
     status?: string;
   }>;
   hq_location?: {
@@ -237,21 +238,22 @@ const styles = {
     gap: "8px",
   },
   infoRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: "12px",
-    padding: "4px 0",
-    fontSize: "14px",
+    display: "grid",
+    gridTemplateColumns: "minmax(140px, 1.4fr) 2fr",
+    alignItems: "center",
+    columnGap: "8px",
+    padding: "8px 0",
+    borderBottom: "1px solid #e5e7eb",
+    fontSize: "15px",
   },
   label: {
-    flex: "0 0 45%",
     fontWeight: 600,
     color: "#4b5563",
   },
   value: {
-    flex: "1",
     textAlign: "right" as const,
     color: "#111827",
+    fontWeight: 500,
   },
 };
 
@@ -1005,9 +1007,10 @@ const ArticleDetailPage = () => {
               const ownership =
                 overview?.ownership_type || "Not available";
 
+              const investorItems = overview?.investors_owners || [];
               const investors =
-                overview?.investors_owners && overview.investors_owners.length
-                  ? overview.investors_owners
+                investorItems && investorItems.length
+                  ? investorItems
                       .map((inv) => inv.name)
                       .filter(Boolean)
                       .join(", ")
@@ -1030,10 +1033,7 @@ const ArticleDetailPage = () => {
               const management =
                 managementEntries.length > 0
                   ? managementEntries
-                      .map((m) => {
-                        const titles = (m.job_titles || []).join(" / ");
-                        return titles ? `${m.name} (${titles})` : m.name;
-                      })
+                      .map((m) => m.name)
                       .filter(Boolean)
                       .join(", ")
                   : "Not available";
@@ -1050,8 +1050,8 @@ const ArticleDetailPage = () => {
                   "") || "";
 
               const financialHeader = currencyForHeader
-                ? `Financial Overview (${currencyForHeader})`
-                : "Financial Overview";
+                ? `Financial Snapshot (${currencyForHeader})`
+                : "Financial Snapshot";
 
               const revenueDisplay = financial
                 ? formatMillionsWithCurrency(
@@ -1096,8 +1096,23 @@ const ArticleDetailPage = () => {
               return (
                 <>
                   {overview && (
-                    <div style={styles.section}>
-                      <h2 style={styles.sectionTitle}>Company Overview</h2>
+                    <div
+                      style={{
+                        ...styles.section,
+                        borderRadius: 8,
+                        border: "1px solid #e5e7eb",
+                        padding: "16px 16px 12px",
+                        backgroundColor: "#f9fafb",
+                      }}
+                    >
+                      <h2
+                        style={{
+                          ...styles.sectionTitle,
+                          marginBottom: "12px",
+                        }}
+                      >
+                        Company Overview
+                      </h2>
                       <div>
                         <div style={styles.infoRow}>
                           <span style={styles.label}>HQ Location</span>
@@ -1113,22 +1128,147 @@ const ArticleDetailPage = () => {
                         </div>
                         <div style={styles.infoRow}>
                           <span style={styles.label}>Investor(s) / Owner(s)</span>
-                          <span style={styles.value}>{investors}</span>
+                          <span
+                            style={{
+                              ...styles.value,
+                              display: "flex",
+                              flexWrap: "wrap",
+                              justifyContent: "flex-end",
+                              gap: "6px",
+                            }}
+                          >
+                            {investorItems && investorItems.length ? (
+                              investorItems
+                                .filter((inv) => inv && inv.name)
+                                .map((inv, idx) => {
+                                  const name = inv.name || "";
+                                  const href = inv.url || "";
+                                  const baseStyle = {
+                                    ...styles.companyTag,
+                                    textDecoration: "none",
+                                    display: "inline-block",
+                                    marginBottom: 4,
+                                  } as React.CSSProperties;
+                                  return href ? (
+                                    <a
+                                      key={`${name}-${idx}`}
+                                      href={href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={baseStyle}
+                                    >
+                                      {name}
+                                    </a>
+                                  ) : (
+                                    <span
+                                      key={`${name}-${idx}`}
+                                      style={baseStyle}
+                                    >
+                                      {name}
+                                    </span>
+                                  );
+                                })
+                            ) : (
+                              <span>{investors}</span>
+                            )}
+                          </span>
                         </div>
                         <div style={styles.infoRow}>
                           <span style={styles.label}>Management</span>
-                          <span style={styles.value}>{management}</span>
+                          <span
+                            style={{
+                              ...styles.value,
+                              display: "flex",
+                              flexWrap: "wrap",
+                              justifyContent: "flex-end",
+                              gap: "6px",
+                            }}
+                          >
+                            {managementEntries && managementEntries.length ? (
+                              managementEntries.map((m, idx) => {
+                                const name = m.name || "";
+                                const label = name;
+                                const individualId =
+                                  (m as { individual_id?: number })
+                                    .individual_id ??
+                                  (typeof m.id === "number" ? m.id : undefined);
+                                const internalHref = individualId
+                                  ? `/individual/${individualId}`
+                                  : "";
+                                const href = internalHref || m.linkedin_url || "";
+                                const baseStyle = {
+                                  ...styles.companyTag,
+                                  textDecoration: "none",
+                                  display: "inline-block",
+                                  marginBottom: 4,
+                                } as React.CSSProperties;
+                                if (!href) {
+                                  return (
+                                    <span
+                                      key={`${name}-${idx}`}
+                                      style={baseStyle}
+                                    >
+                                      {label}
+                                    </span>
+                                  );
+                                }
+
+                                // Prefer internal dynamic individual page when possible
+                                if (internalHref) {
+                                  return (
+                                    <Link
+                                      key={`${name}-${idx}`}
+                                      href={internalHref}
+                                      style={baseStyle}
+                                      prefetch={false}
+                                    >
+                                      {label}
+                                    </Link>
+                                  );
+                                }
+
+                                return (
+                                  <a
+                                    key={`${name}-${idx}`}
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={baseStyle}
+                                  >
+                                    {label}
+                                  </a>
+                                );
+                              })
+                            ) : (
+                              <span>{management}</span>
+                            )}
+                          </span>
                         </div>
                         <div style={styles.infoRow}>
-                          <span style={styles.label}>Employee Count</span>
+                          <span style={styles.label}>Number of Employees</span>
                           <span style={styles.value}>{employeeCount}</span>
                         </div>
                       </div>
                     </div>
                   )}
                   {financial && (
-                    <div style={styles.section}>
-                      <h2 style={styles.sectionTitle}>{financialHeader}</h2>
+                    <div
+                      style={{
+                        ...styles.section,
+                        borderRadius: 8,
+                        border: "1px solid #e5e7eb",
+                        padding: "16px 16px 12px",
+                        backgroundColor: "#f9fafb",
+                      }}
+                    >
+                      <h2
+                        style={{
+                          ...styles.sectionTitle,
+                          marginBottom: "12px",
+                        }}
+                      >
+                        {financialHeader}
+                      </h2>
                       <div>
                         <div style={styles.infoRow}>
                           <span
