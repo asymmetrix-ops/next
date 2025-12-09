@@ -1034,10 +1034,12 @@ const CompanyDetail = () => {
 
         // Removed additional verbose logging
 
-        // Use actual investor data from API
+        // Use actual investor data from API and normalize to array
         const enrichedCompany = {
           ...data.Company,
-          investors: data.Company.investors_new_company || [],
+          investors: Array.isArray(data.Company.investors_new_company)
+            ? data.Company.investors_new_company
+            : [],
           // Add the actual API fields - THESE ARE AT ROOT LEVEL, NOT IN data.Company!
           Managmant_Roles_current: data.Managmant_Roles_current || [],
           Managmant_Roles_past: data.Managmant_Roles_past || [],
@@ -1184,13 +1186,14 @@ const CompanyDetail = () => {
     const signal = controller.signal;
     const run = async () => {
       try {
-        const list = (
-          [
-            ...(company?.investors || []),
-            ...newInvestorsCurrent,
-            ...newInvestorsPast,
-          ] as CompanyInvestor[]
-        ).filter((v): v is CompanyInvestor =>
+        const baseInvestors = Array.isArray(company?.investors)
+          ? (company?.investors as CompanyInvestor[])
+          : [];
+        const list = [
+          ...baseInvestors,
+          ...newInvestorsCurrent,
+          ...newInvestorsPast,
+        ].filter((v): v is CompanyInvestor =>
           Boolean(v && typeof v.id === "number")
         );
         if (list.length === 0) return;
@@ -1252,9 +1255,7 @@ const CompanyDetail = () => {
     if (!company) return;
 
     // Start with existing investors from the company payload
-    const existingInvestors: CompanyInvestor[] = Array.isArray(
-      company.investors
-    )
+    const existingInvestors: CompanyInvestor[] = Array.isArray(company.investors)
       ? (company.investors as CompanyInvestor[])
       : [];
 
@@ -1270,9 +1271,11 @@ const CompanyDetail = () => {
 
     const merged = Array.from(investorMap.values());
     // If nothing changed, avoid re-render churn
-    const prevIdsArray = (company.investors || [])
-      .map((i) => (i ? (i as CompanyInvestor).id : undefined))
-      .filter((v): v is number => typeof v === "number");
+    const prevIdsArray = Array.isArray(company.investors)
+      ? (company.investors as CompanyInvestor[])
+          .map((i) => (i ? i.id : undefined))
+          .filter((v): v is number => typeof v === "number")
+      : [];
     const mergedIdsArray = merged.map((i) => i.id);
     const prevIdsSet = new Set(prevIdsArray);
     const mergedIdsSet = new Set(mergedIdsArray);
@@ -1596,10 +1599,68 @@ const CompanyDetail = () => {
 
   // Process employee data
   const employeeData = company._companies_employees_count_monthly || [];
-  const currentEmployeeCount =
-    employeeData.length > 0
-      ? employeeData[employeeData.length - 1].employees_count
-      : 0;
+
+  // Prefer latest snapshot from _linkedin_data_of_new_company (array or object)
+  const rawLinkedInData = (
+    company as unknown as { _linkedin_data_of_new_company?: unknown }
+  )._linkedin_data_of_new_company;
+
+  let currentEmployeesFromLinkedIn: number | null = null;
+  let employeesLastUpdated: string | null = null;
+
+  if (Array.isArray(rawLinkedInData) && rawLinkedInData.length > 0) {
+    const first = rawLinkedInData[0] as {
+      linkedin_employee?: unknown;
+      linkedin_emp_date?: unknown;
+      LinkedIn_Employee?: unknown;
+      LinkedIn_Emp__Date?: unknown;
+    };
+    const emp =
+      typeof first.linkedin_employee === "number"
+        ? first.linkedin_employee
+        : typeof first.LinkedIn_Employee === "number"
+        ? first.LinkedIn_Employee
+        : null;
+    if (emp !== null) currentEmployeesFromLinkedIn = emp;
+
+    const dateVal =
+      typeof first.linkedin_emp_date === "string"
+        ? first.linkedin_emp_date
+        : typeof first.LinkedIn_Emp__Date === "string"
+        ? first.LinkedIn_Emp__Date
+        : null;
+    if (dateVal) employeesLastUpdated = dateVal;
+  } else if (
+    rawLinkedInData &&
+    typeof rawLinkedInData === "object"
+  ) {
+    const obj = rawLinkedInData as {
+      linkedin_employee?: unknown;
+      linkedin_emp_date?: unknown;
+      LinkedIn_Employee?: unknown;
+      LinkedIn_Emp__Date?: unknown;
+    };
+    const emp =
+      typeof obj.linkedin_employee === "number"
+        ? obj.linkedin_employee
+        : typeof obj.LinkedIn_Employee === "number"
+        ? obj.LinkedIn_Employee
+        : null;
+    if (emp !== null) currentEmployeesFromLinkedIn = emp;
+
+    const dateVal =
+      typeof obj.linkedin_emp_date === "string"
+        ? obj.linkedin_emp_date
+        : typeof obj.LinkedIn_Emp__Date === "string"
+        ? obj.LinkedIn_Emp__Date
+        : null;
+    if (dateVal) employeesLastUpdated = dateVal;
+  }
+
+  const currentEmployeesDisplay =
+    typeof currentEmployeesFromLinkedIn === "number"
+      ? `${currentEmployeesFromLinkedIn.toLocaleString("en-US")} employees`
+      : "Not available";
 
   // Determine if there are subsidiaries to display
   const hasSubsidiaries = Boolean(
@@ -2392,8 +2453,23 @@ const CompanyDetail = () => {
               <div style={styles.chartContainer} className="chartContainer">
                 <div style={styles.chartTitle}>LinkedIn Employee Count</div>
                 <div style={styles.currentCount}>
-                  {formatNumber(currentEmployeeCount)} employees
+                  {currentEmployeesDisplay}
                 </div>
+                {employeesLastUpdated && (
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#6b7280",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    As of{" "}
+                    {new Date(employeesLastUpdated).toLocaleDateString(
+                      "en-US",
+                      { year: "numeric", month: "short" }
+                    )}
+                  </div>
+                )}
                 {employeeData.length > 0 ? (
                   <EmployeeChart data={employeeData} />
                 ) : (
@@ -2610,9 +2686,22 @@ const CompanyDetail = () => {
               )}
               <div style={styles.chartContainer}>
                 <div style={styles.chartTitle}>LinkedIn Employee Count</div>
-                <div style={styles.currentCount}>
-                  {formatNumber(currentEmployeeCount)} employees
-                </div>
+                <div style={styles.currentCount}>{currentEmployeesDisplay}</div>
+                {employeesLastUpdated && (
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#6b7280",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    As of{" "}
+                    {new Date(employeesLastUpdated).toLocaleDateString(
+                      "en-US",
+                      { year: "numeric", month: "short" }
+                    )}
+                  </div>
+                )}
                 {employeeData.length > 0 ? (
                   <EmployeeChart data={employeeData} />
                 ) : (
