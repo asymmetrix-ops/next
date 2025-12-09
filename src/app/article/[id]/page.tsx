@@ -190,7 +190,12 @@ const styles = {
 
 // Derive Xano file host/origin from the public API URL so we can turn `path`
 // values like `/vault/...` into fully-qualified URLs for downloads.
-const XANO_API_URL = process.env.NEXT_PUBLIC_XANO_API_URL || "";
+// NOTE: We include a hardcoded fallback so that even if the env var is missing,
+// we still prepend the Xano base URL (and not the front-end domain) to `/vault` paths.
+const DEFAULT_XANO_API_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6"; // Xano project base (host only is used)
+const XANO_API_URL =
+  process.env.NEXT_PUBLIC_XANO_API_URL || DEFAULT_XANO_API_URL;
 const XANO_ORIGIN = (() => {
   if (!XANO_API_URL) return "";
   try {
