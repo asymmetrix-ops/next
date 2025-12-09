@@ -92,6 +92,14 @@ interface CompanyOfFocusFinancialOverview {
   ev_currency?: string | null;
   ebitda_currency?: string | null;
   revenue_currency?: string | null;
+  // Source fields for financial metrics (e.g., "Estimate")
+  revenue_source?: string | null;
+  arr_source?: string | null;
+  ebitda_source?: string | null;
+  ev_source?: string | null;
+  revenue_multiple_source?: string | null;
+  revenue_growth_source?: string | null;
+  rule_of_40_source?: string | null;
 }
 
 interface CompanyOfFocusApiItem {
@@ -663,20 +671,24 @@ const ArticleDetailPage = () => {
     return "Not available";
   };
 
-  const formatMillionsWithCurrency = (
-    value: unknown,
-    currency?: string | null
+  // Plain number formatter copied from Company Profile (no currency, preserve decimals)
+  const formatPlainNumber = (
+    value?: number | string | null
   ): string => {
-    if (value === null || value === undefined || value === "") {
-      return "Not available";
+    if (value === undefined || value === null) return "Not available";
+    if (typeof value === "number") {
+      return value.toLocaleString("en-US", { maximumFractionDigits: 10 });
     }
-    const num = Number(value);
-    if (!Number.isFinite(num)) return "Not available";
-    const formatted = num.toLocaleString("en-US", {
-      maximumFractionDigits: 1,
+    const trimmed = String(value).trim();
+    if (trimmed.length === 0) return "Not available";
+    const num = Number(trimmed.replace(/,/g, ""));
+    if (!Number.isFinite(num)) return trimmed;
+    const match = trimmed.match(/\.([0-9]+)/);
+    const frac = match ? Math.min(10, match[1].length) : 0;
+    return num.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: frac,
     });
-    const cur = (currency || "").toString().trim();
-    return cur ? `${cur} ${formatted}m` : `${formatted}m`;
   };
 
   const formatMultiple = (value: unknown): string => {
@@ -685,7 +697,8 @@ const ArticleDetailPage = () => {
     }
     const num = Number(value);
     if (!Number.isFinite(num)) return "Not available";
-    return `${num.toFixed(1)}x`;
+    // Show plain multiple without "x" suffix to match Company Profile metrics
+    return num.toFixed(1);
   };
 
   const formatPercent = (value: unknown): string => {
@@ -694,7 +707,17 @@ const ArticleDetailPage = () => {
     }
     const num = Number(value);
     if (!Number.isFinite(num)) return "Not available";
-    return `${num.toFixed(0)}%`;
+    // Show plain percent number without "%" suffix to match Company Profile metrics
+    return num.toFixed(0);
+  };
+
+  const getFinancialSourceTooltip = (
+    source?: string | null
+  ): string | undefined => {
+    if (!source) return undefined;
+    const trimmed = source.toString().trim();
+    if (!trimmed) return undefined;
+    return `Source: ${trimmed}`;
   };
 
   if (loading) {
@@ -1043,42 +1066,22 @@ const ArticleDetailPage = () => {
                   ? overview.employee_count.toLocaleString("en-US")
                   : "Not available";
 
-              const currencyForHeader =
-                (financial?.ev_currency ||
-                  financial?.revenue_currency ||
-                  financial?.ebitda_currency ||
-                  "") || "";
-
-              const financialHeader = currencyForHeader
-                ? `Financial Snapshot (${currencyForHeader})`
-                : "Financial Snapshot";
+              const financialHeader = "Financial Snapshot";
 
               const revenueDisplay = financial
-                ? formatMillionsWithCurrency(
-                    financial.revenue_m,
-                    financial.revenue_currency
-                  )
+                ? formatPlainNumber(financial.revenue_m)
                 : "Not available";
 
               const arrDisplay = financial
-                ? formatMillionsWithCurrency(
-                    financial.arr_m,
-                    financial.revenue_currency
-                  )
+                ? formatPlainNumber(financial.arr_m)
                 : "Not available";
 
               const ebitdaDisplay = financial
-                ? formatMillionsWithCurrency(
-                    financial.ebitda_m,
-                    financial.ebitda_currency
-                  )
+                ? formatPlainNumber(financial.ebitda_m)
                 : "Not available";
 
               const evDisplay = financial
-                ? formatMillionsWithCurrency(
-                    financial.enterprise_value_m,
-                    financial.ev_currency
-                  )
+                ? formatPlainNumber(financial.enterprise_value_m)
                 : "Not available";
 
               const revenueMultipleDisplay = financial
@@ -1104,6 +1107,7 @@ const ArticleDetailPage = () => {
                         padding: "16px 16px 12px",
                         backgroundColor: "#f9fafb",
                       }}
+                      className="article-financial-metrics"
                     >
                       <h2
                         style={{
@@ -1253,6 +1257,7 @@ const ArticleDetailPage = () => {
                   )}
                   {financial && (
                     <div
+                      className="article-financial-metrics"
                       style={{
                         ...styles.section,
                         borderRadius: 8,
@@ -1271,67 +1276,81 @@ const ArticleDetailPage = () => {
                       </h2>
                       <div>
                         <div style={styles.infoRow}>
+                          <span style={styles.label}>Revenue</span>
                           <span
-                            style={styles.label}
-                            title="Revenue (in millions)"
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.revenue_source
+                            )}
                           >
-                            Revenue (m)
+                            {revenueDisplay}
                           </span>
-                          <span style={styles.value}>{revenueDisplay}</span>
                         </div>
                         <div style={styles.infoRow}>
+                          <span style={styles.label}>ARR</span>
                           <span
-                            style={styles.label}
-                            title="Annual Recurring Revenue (in millions)"
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.arr_source
+                            )}
                           >
-                            ARR (m)
+                            {arrDisplay}
                           </span>
-                          <span style={styles.value}>{arrDisplay}</span>
                         </div>
                         <div style={styles.infoRow}>
+                          <span style={styles.label}>EBITDA</span>
                           <span
-                            style={styles.label}
-                            title="EBITDA (in millions)"
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.ebitda_source
+                            )}
                           >
-                            EBITDA (m)
+                            {ebitdaDisplay}
                           </span>
-                          <span style={styles.value}>{ebitdaDisplay}</span>
                         </div>
                         <div style={styles.infoRow}>
+                          <span style={styles.label}>Enterprise Value</span>
                           <span
-                            style={styles.label}
-                            title="Enterprise Value (in millions)"
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.ev_source
+                            )}
                           >
-                            Enterprise Value (m)
+                            {evDisplay}
                           </span>
-                          <span style={styles.value}>{evDisplay}</span>
                         </div>
                         <div style={styles.infoRow}>
+                          <span style={styles.label}>Revenue Multiple</span>
                           <span
-                            style={styles.label}
-                            title="Enterprise Value divided by Revenue"
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.revenue_multiple_source
+                            )}
                           >
-                            Revenue Multiple (x)
+                            {revenueMultipleDisplay}
                           </span>
-                          <span style={styles.value}>{revenueMultipleDisplay}</span>
                         </div>
                         <div style={styles.infoRow}>
+                          <span style={styles.label}>Revenue Growth</span>
                           <span
-                            style={styles.label}
-                            title="Year-over-year Revenue Growth"
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.revenue_growth_source
+                            )}
                           >
-                            Revenue Growth (%)
+                            {revenueGrowthDisplay}
                           </span>
-                          <span style={styles.value}>{revenueGrowthDisplay}</span>
                         </div>
                         <div style={styles.infoRow}>
+                          <span style={styles.label}>Rule of 40</span>
                           <span
-                            style={styles.label}
-                            title="Revenue Growth + EBITDA Margin"
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.rule_of_40_source
+                            )}
                           >
-                            Rule of 40 (%)
+                            {ruleOf40Display}
                           </span>
-                          <span style={styles.value}>{ruleOf40Display}</span>
                         </div>
                       </div>
                     </div>
@@ -1406,6 +1425,40 @@ const ArticleDetailPage = () => {
           .article-body figure { margin: 1rem 0; }
           .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem; }
           .article-inline-image { margin: 1.25rem 0; }
+          /* Hover tooltips for metric values using title attribute (align like company page) */
+          .article-financial-metrics {
+            overflow: visible !important;
+          }
+          .article-financial-metrics span[title] {
+            position: relative;
+            cursor: help;
+          }
+          .article-financial-metrics span[title]:hover::after {
+            content: attr(title);
+            position: absolute;
+            right: 0;
+            bottom: 100%;
+            transform: translateY(-6px);
+            background: rgba(17, 24, 39, 0.95);
+            color: #fff;
+            font-size: 12px;
+            line-height: 1.2;
+            padding: 6px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            z-index: 20;
+            pointer-events: none;
+          }
+          .article-financial-metrics span[title]:hover::before {
+            content: '';
+            position: absolute;
+            right: 8px;
+            bottom: calc(100% - 2px);
+            border: 6px solid transparent;
+            border-top-color: rgba(17, 24, 39, 0.95);
+            z-index: 21;
+            pointer-events: none;
+          }
         `,
         }}
       />
