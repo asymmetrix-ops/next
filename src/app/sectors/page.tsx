@@ -45,9 +45,11 @@ interface SectorsResponse {
 const SectorCard = ({
   sector,
   onClick,
+  href,
 }: {
   sector: Sector;
   onClick: () => void;
+  href: string;
 }) => {
   const formatNumber = (num: number | undefined) => {
     if (num === undefined || num === null) return "0";
@@ -86,7 +88,7 @@ const SectorCard = ({
       React.createElement(
         "a",
         {
-          href: `/sector/${sector.id}`,
+          href,
           style: {
             fontSize: "16px",
             fontWeight: "700",
@@ -267,7 +269,10 @@ const SectorsSection = () => {
   const [, setSecondaryToPrimaryMap] = useState<Record<string, string>>({});
 
   const handleSectorClick = (sectorId: number) => {
-    router.push(`/sector/${sectorId}`);
+    const basePath = `/sector/${sectorId}`;
+    const href =
+      searchTerm.trim().length > 0 ? `${basePath}?tab=subsectors` : basePath;
+    router.push(href);
   };
 
   // Sort sectors
@@ -288,7 +293,7 @@ const SectorsSection = () => {
   });
 
   // Fetch sectors data
-  const fetchSectors = async (options?: { useSearch?: boolean }) => {
+  const fetchSectors = async () => {
     setLoading(true);
     setError(null);
 
@@ -297,14 +302,10 @@ const SectorsSection = () => {
 
       const baseUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Primary_sectors_with_companies_counts`;
 
-      let url = baseUrl;
-      if (options?.useSearch && searchTerm.trim()) {
-        const params = new URLSearchParams();
-        // Backend expects these fields: { sort, search }
-        params.set("sort", "");
-        params.set("search", searchTerm.trim());
-        url = `${baseUrl}?${params.toString()}`;
-      }
+      const url =
+        searchTerm.trim().length > 0
+          ? `${baseUrl}?search=${encodeURIComponent(searchTerm.trim())}&sort=`
+          : baseUrl;
 
       const response = await fetch(url, {
         method: "GET",
@@ -353,7 +354,6 @@ const SectorsSection = () => {
         // best-effort; ignore mapping load errors here
       }
     })();
-    // Initial load without search params to preserve original behavior
     fetchSectors();
   }, []);
 
@@ -459,10 +459,10 @@ const SectorsSection = () => {
   return React.createElement(
     "div",
     { className: "sectors-section" },
-    // Sort Controls
+    // Search + Sort Controls
     React.createElement(
       "div",
-      { 
+      {
         className: "sort-controls",
         style: {
           marginBottom: "24px",
@@ -472,8 +472,9 @@ const SectorsSection = () => {
           flexWrap: "wrap" as const,
           width: "100%",
           maxWidth: "100%",
-        }
+        },
       },
+      // Search input
       React.createElement(
         "div",
         {
@@ -490,6 +491,11 @@ const SectorsSection = () => {
           value: searchTerm,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
             setSearchTerm(e.target.value),
+          onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+            if (e.key === "Enter") {
+              fetchSectors();
+            }
+          },
           placeholder: "Search sectors or sub-sectors",
           style: {
             padding: "8px 12px",
@@ -504,7 +510,7 @@ const SectorsSection = () => {
         React.createElement(
           "button",
           {
-            onClick: () => fetchSectors({ useSearch: true }),
+            onClick: () => fetchSectors(),
             style: {
               padding: "8px 16px",
               borderRadius: "8px",
@@ -520,14 +526,15 @@ const SectorsSection = () => {
           "Search"
         )
       ),
+      // Sort controls
       React.createElement(
         "span",
-        { 
-          style: { 
-            fontSize: "14px", 
+        {
+          style: {
+            fontSize: "14px",
             fontWeight: "600",
-            color: "#4a5568"
-          } 
+            color: "#4a5568",
+          },
         },
         "Sort by:"
       ),
@@ -552,20 +559,45 @@ const SectorsSection = () => {
             fontSize: "14px",
             cursor: "pointer",
             outline: "none",
-          }
+          },
         },
         React.createElement("option", { value: "sector_name" }, "Sector Name"),
-        React.createElement("option", { value: "Number_of_Companies" }, "Number of Companies"),
-        React.createElement("option", { value: "Number_of_Sub_Sectors" }, "Number of Sub-Sectors"),
-        React.createElement("option", { value: "Number_of_Public" }, "Public Companies"),
-        React.createElement("option", { value: "Number_of_PE" }, "PE-owned Companies"),
-        React.createElement("option", { value: "Number_of_VC" }, "VC-backed Companies"),
-        React.createElement("option", { value: "Number_of_Private" }, "Private Companies")
+        React.createElement(
+          "option",
+          { value: "Number_of_Companies" },
+          "Number of Companies"
+        ),
+        React.createElement(
+          "option",
+          { value: "Number_of_Sub_Sectors" },
+          "Number of Sub-Sectors"
+        ),
+        React.createElement(
+          "option",
+          { value: "Number_of_Public" },
+          "Public Companies"
+        ),
+        React.createElement(
+          "option",
+          { value: "Number_of_PE" },
+          "PE-owned Companies"
+        ),
+        React.createElement(
+          "option",
+          { value: "Number_of_VC" },
+          "VC-backed Companies"
+        ),
+        React.createElement(
+          "option",
+          { value: "Number_of_Private" },
+          "Private Companies"
+        )
       ),
       React.createElement(
         "button",
         {
-          onClick: () => setSortDirection(sortDirection === "asc" ? "desc" : "asc"),
+          onClick: () =>
+            setSortDirection(sortDirection === "asc" ? "desc" : "asc"),
           style: {
             padding: "8px 16px",
             borderRadius: "8px",
@@ -577,7 +609,7 @@ const SectorsSection = () => {
             alignItems: "center",
             gap: "4px",
             fontWeight: "500",
-          }
+          },
         },
         sortDirection === "asc" ? "↑ Ascending" : "↓ Descending"
       )
@@ -590,6 +622,10 @@ const SectorsSection = () => {
         React.createElement(SectorCard, {
           key: sector.id,
           sector,
+          href:
+            searchTerm.trim().length > 0
+              ? `/sector/${sector.id}?tab=subsectors`
+              : `/sector/${sector.id}`,
           onClick: () => handleSectorClick(sector.id),
         })
       )
