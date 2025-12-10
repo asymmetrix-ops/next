@@ -54,6 +54,65 @@ interface ArticleDetail {
   }>;
 }
 
+interface CompanyOfFocusOverview {
+  management?: Array<{
+    id?: number;
+    name?: string;
+    job_titles?: string[];
+    linkedin_url?: string;
+    individual_id?: number;
+    status?: string;
+  }>;
+  hq_location?: {
+    id?: number;
+    city?: string;
+    state_province_county?: string;
+    country?: string;
+    lat?: string;
+    lng?: string;
+  };
+  year_founded?: number | string | null;
+  employee_count?: number | null;
+  ownership_type?: string | null;
+  investors_owners?: Array<{
+    id?: number;
+    name?: string;
+    url?: string;
+  }>;
+}
+
+interface CompanyOfFocusFinancialOverview {
+  arr_m?: number | string | null;
+  ebitda_m?: number | string | null;
+  revenue_m?: number | string | null;
+  enterprise_value_m?: number | string | null;
+  revenue_multiple?: number | string | null;
+  revenue_growth_pc?: number | string | null;
+  rule_of_40?: number | string | null;
+  ev_currency?: string | null;
+  ebitda_currency?: string | null;
+  revenue_currency?: string | null;
+  // Source fields for financial metrics (e.g., "Estimate")
+  revenue_source?: string | null;
+  arr_source?: string | null;
+  ebitda_source?: string | null;
+  ev_source?: string | null;
+  revenue_multiple_source?: string | null;
+  revenue_growth_source?: string | null;
+  rule_of_40_source?: string | null;
+}
+
+interface CompanyOfFocusApiItem {
+  id: number;
+  name: string;
+  url?: string;
+  description?: string;
+  logo?: string;
+  linkedin_url?: string;
+  company_overview?: CompanyOfFocusOverview;
+  financial_overview?: CompanyOfFocusFinancialOverview;
+}
+
 // Shared styles object
 const styles = {
   container: {
@@ -186,48 +245,36 @@ const styles = {
     alignItems: "center",
     gap: "8px",
   },
+  infoRow: {
+    display: "grid",
+    gridTemplateColumns: "minmax(140px, 1.4fr) 2fr",
+    alignItems: "center",
+    columnGap: "8px",
+    padding: "8px 0",
+    borderBottom: "1px solid #e5e7eb",
+    fontSize: "15px",
+  },
+  label: {
+    fontWeight: 600,
+    color: "#4b5563",
+  },
+  value: {
+    textAlign: "right" as const,
+    color: "#111827",
+    fontWeight: 500,
+  },
 };
 
-// Derive Xano file host/origin from the public API URL so we can turn `path`
-// values like `/vault/...` into fully-qualified URLs for downloads.
-// NOTE: We include a hardcoded fallback so that even if the env var is missing,
-// we still prepend the Xano base URL (and not the front-end domain) to `/vault` paths.
-const DEFAULT_XANO_API_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6"; // Xano project base (host only is used)
-const XANO_API_URL =
-  process.env.NEXT_PUBLIC_XANO_API_URL || DEFAULT_XANO_API_URL;
-const XANO_ORIGIN = (() => {
-  if (!XANO_API_URL) return "";
-  try {
-    const u = new URL(XANO_API_URL);
-    return `${u.protocol}//${u.host}`;
-  } catch {
-    // Fallback: strip trailing /api:... segment if present
-    return XANO_API_URL.replace(/\/api:[^/]+\/?$/, "");
+// Safe JSON-or-array parser used for multiple payload shapes
+const tryParse = <T,>(val: unknown): T | undefined => {
+  if (Array.isArray(val)) return val as unknown as T;
+  if (typeof val === "string" && val.trim()) {
+    try {
+      return JSON.parse(val) as T;
+    } catch {
+      return undefined;
+    }
   }
-})();
-
-// Safely resolve a document URL from either an absolute url or a Xano `path`
-const getDocumentUrl = (
-  doc: { url?: unknown; path?: unknown } | null | undefined
-) => {
-  if (!doc || typeof doc !== "object") return undefined;
-
-  const normalize = (value: unknown): string | undefined => {
-    if (typeof value !== "string") return undefined;
-    const v = value.trim();
-    if (!v) return undefined;
-    if (/^https?:\/\//i.test(v)) return v;
-    if (XANO_ORIGIN && v.startsWith("/")) return `${XANO_ORIGIN}${v}`;
-    return v;
-  };
-
-  const fromUrl = normalize((doc as { url?: unknown }).url);
-  if (fromUrl) return fromUrl;
-
-  const fromPath = normalize((doc as { path?: unknown }).path);
-  if (fromPath) return fromPath;
-
   return undefined;
 };
 
@@ -237,6 +284,9 @@ const ArticleDetailPage = () => {
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [companyOfFocus, setCompanyOfFocus] =
+    useState<CompanyOfFocusApiItem | null>(null);
+  const [companyOfFocusLoading, setCompanyOfFocusLoading] = useState(false);
   // Guard against rare runtime cases where search params may be unavailable during hydration
   const searchParams = useSearchParams() as unknown as {
     get?: (key: string) => string | null;
@@ -280,44 +330,6 @@ const ArticleDetailPage = () => {
         setError("Article not found");
         return;
       }
-      const tryParse = <T,>(val: unknown): T | undefined => {
-        if (Array.isArray(val)) return val as unknown as T;
-        if (typeof val === "string" && val.trim()) {
-          try {
-            return JSON.parse(val) as T;
-          } catch {
-            return undefined;
-          }
-        }
-        return undefined;
-      };
-
-      const rawRelatedDocs =
-        tryParse<
-          Array<{
-            access: string;
-            path: string;
-            name: string;
-            type: string;
-            size: number;
-            mime: string;
-            meta: { validated: boolean };
-            url?: string;
-          }>
-        >(raw.Related_Documents) || [];
-
-      const normalizedRelatedDocs = (Array.isArray(rawRelatedDocs)
-        ? rawRelatedDocs
-        : []
-      ).map((doc) => {
-        const resolvedUrl = getDocumentUrl(doc);
-        return {
-          ...doc,
-          // Ensure downstream code always has a string `url` to work with
-          url: resolvedUrl || String((doc as { url?: unknown }).url || ""),
-        };
-      });
-
       const normalized = {
         ...raw,
         sectors:
@@ -351,7 +363,19 @@ const ArticleDetailPage = () => {
               secondary_sectors?: Array<{ id?: number; sector_name?: string }>;
             }>
           >(raw.Related_Corporate_Event) || [],
-        Related_Documents: normalizedRelatedDocs,
+        Related_Documents:
+          tryParse<
+            Array<{
+              access: string;
+              path: string;
+              name: string;
+              type: string;
+              size: number;
+              mime: string;
+              meta: { validated: boolean };
+              url: string;
+            }>
+          >(raw.Related_Documents) || [],
       } as ArticleDetail;
 
       setArticle(normalized);
@@ -370,6 +394,114 @@ const ArticleDetailPage = () => {
       fetchArticle();
     }
   }, [articleId]);
+
+  // Fetch Company_of_Focus details for Company Analysis & Executive Interview content
+  useEffect(() => {
+    const fetchCompanyOfFocus = async () => {
+      if (!article) {
+        setCompanyOfFocus(null);
+        return;
+      }
+
+      const contentType = (
+        article.Content_Type ||
+        article.content_type ||
+        article.Content?.Content_type ||
+        article.Content?.Content_Type ||
+        ""
+      ).trim();
+
+      const isCompanyAnalysisOrExecInterview = /^(company\s*analysis|executive\s*interview)$/i.test(
+        contentType
+      );
+
+      const hasCompanyOfFocus =
+        (article as unknown as { Company_of_Focus?: unknown })
+          .Company_of_Focus != null;
+
+      if (!isCompanyAnalysisOrExecInterview || !hasCompanyOfFocus) {
+        setCompanyOfFocus(null);
+        return;
+      }
+
+      try {
+        setCompanyOfFocusLoading(true);
+
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) {
+          return;
+        }
+
+        const response = await fetch(
+          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/aritcle_company_of_focus?content_id=${encodeURIComponent(
+            articleId
+          )}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const json: unknown = await response.json();
+        const arr = Array.isArray(json) ? json : [];
+        const rawItem = (arr[0] ?? null) as
+          | {
+              id?: number;
+              name?: string;
+              url?: string;
+              description?: string;
+              logo?: string;
+              linkedin_url?: string;
+              company_overview?: unknown;
+              financial_overview?: unknown;
+            }
+          | null;
+
+        if (!rawItem) {
+          setCompanyOfFocus(null);
+          return;
+        }
+
+        const overview =
+          typeof rawItem.company_overview === "string"
+            ? tryParse<CompanyOfFocusOverview>(rawItem.company_overview)
+            : (rawItem.company_overview as CompanyOfFocusOverview | undefined);
+
+        const financial =
+          typeof rawItem.financial_overview === "string"
+            ? tryParse<CompanyOfFocusFinancialOverview>(
+                rawItem.financial_overview
+              )
+            : (rawItem.financial_overview as
+                | CompanyOfFocusFinancialOverview
+                | undefined);
+
+        setCompanyOfFocus({
+          id: rawItem.id ?? 0,
+          name: rawItem.name || "",
+          url: rawItem.url || "",
+          description: rawItem.description || "",
+          logo: rawItem.logo || "",
+          linkedin_url: rawItem.linkedin_url || "",
+          company_overview: overview,
+          financial_overview: financial,
+        });
+      } catch (err) {
+        console.error("Error fetching company of focus:", err);
+      } finally {
+        setCompanyOfFocusLoading(false);
+      }
+    };
+
+    fetchCompanyOfFocus();
+  }, [article, articleId]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "Not available";
@@ -439,14 +571,11 @@ const ArticleDetailPage = () => {
         return _match;
       }
       used.add(idx);
-      const doc = imageDocs[idx] as
-        | { url?: string; path?: string; name?: string }
-        | undefined;
-      const url = doc ? getDocumentUrl(doc) : undefined;
-      if (!doc || !url) {
+      const doc = imageDocs[idx] as { url?: string; name?: string } | undefined;
+      if (!doc || !doc.url) {
         return _match;
       }
-      return buildFigureHtml(url, doc.name || "");
+      return buildFigureHtml(doc.url, doc.name || "");
     });
 
     return { html: replaced, usedIndices: used };
@@ -473,13 +602,14 @@ const ArticleDetailPage = () => {
       // No clear paragraphs; append all images at the end of the body
       const figures = imageDocs
         .filter(Boolean)
-        .map((doc) => {
-          if (!doc) return "";
-          const url = getDocumentUrl(doc as { url?: string; path?: string });
-          if (!url) return "";
-          const name = (doc as { name?: string }).name || "";
-          return buildFigureHtml(url, name);
-        })
+        .map((doc) =>
+          doc && (doc as { url?: string; name?: string }).url
+            ? buildFigureHtml(
+                (doc as { url: string }).url,
+                (doc as { name?: string }).name || ""
+              )
+            : ""
+        )
         .filter(Boolean)
         .join("");
       return { html: `${bodyHtml}${figures}`, injected: true };
@@ -506,13 +636,10 @@ const ArticleDetailPage = () => {
         if (insertionMap.has(p)) {
           const imgIdx = insertionMap.get(p)!;
           const doc = imageDocs[imgIdx] as
-            | { url?: string; path?: string; name?: string }
+            | { url?: string; name?: string }
             | undefined;
-          if (doc) {
-            const url = getDocumentUrl(doc);
-            if (url) {
-              result += buildFigureHtml(url, doc.name || "");
-            }
+          if (doc && doc.url) {
+            result += buildFigureHtml(doc.url, doc.name || "");
           }
         }
       } else {
@@ -527,16 +654,72 @@ const ArticleDetailPage = () => {
   const isImageDoc = (doc: {
     mime?: string;
     type?: string;
-    url?: string;
-    path?: string;
-    name?: string;
+    url: string;
+    name: string;
   }) => {
     if (!doc) return false;
     if (doc.mime && doc.mime.startsWith("image/")) return true;
     if (doc.type && doc.type.startsWith("image/")) return true;
-    const url = getDocumentUrl(doc);
-    const nameOrUrl = `${doc.name || ""} ${url || ""}`;
+    const nameOrUrl = `${doc.name || ""} ${doc.url || ""}`;
     return /(\.(png|jpe?g|gif|webp|svg))($|\?)/i.test(nameOrUrl);
+  };
+
+  const formatCompanyOfFocusYearFounded = (candidate: unknown): string => {
+    if (candidate === null || candidate === undefined) return "Not available";
+    const n = Number(candidate);
+    const currentYear = new Date().getFullYear();
+    if (Number.isFinite(n) && n >= 1800 && n <= currentYear) {
+      return String(n);
+    }
+    return "Not available";
+  };
+
+  // Plain number formatter copied from Company Profile (no currency, preserve decimals)
+  const formatPlainNumber = (
+    value?: number | string | null
+  ): string => {
+    if (value === undefined || value === null) return "Not available";
+    if (typeof value === "number") {
+      return value.toLocaleString("en-US", { maximumFractionDigits: 10 });
+    }
+    const trimmed = String(value).trim();
+    if (trimmed.length === 0) return "Not available";
+    const num = Number(trimmed.replace(/,/g, ""));
+    if (!Number.isFinite(num)) return trimmed;
+    const match = trimmed.match(/\.([0-9]+)/);
+    const frac = match ? Math.min(10, match[1].length) : 0;
+    return num.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: frac,
+    });
+  };
+
+  const formatMultiple = (value: unknown): string => {
+    if (value === null || value === undefined || value === "") {
+      return "Not available";
+    }
+    const num = Number(value);
+    if (!Number.isFinite(num)) return "Not available";
+    const rounded = Math.round(num * 10) / 10;
+    return `${rounded.toLocaleString()}x`;
+  };
+
+  const formatPercent = (value: unknown): string => {
+    if (value === null || value === undefined || value === "") {
+      return "Not available";
+    }
+    const num = Number(value);
+    if (!Number.isFinite(num)) return "Not available";
+    return `${Math.round(num)}%`;
+  };
+
+  const getFinancialSourceTooltip = (
+    source?: string | null
+  ): string | undefined => {
+    if (!source) return undefined;
+    const trimmed = source.toString().trim();
+    if (!trimmed) return undefined;
+    return `Source: ${trimmed}`;
   };
 
   if (loading) {
@@ -651,19 +834,12 @@ const ArticleDetailPage = () => {
                     {(article.Related_Documents || [])
                       .filter(Boolean)
                       .filter(isImageDoc)
-                      .map((doc, idx) => {
-                        const url = getDocumentUrl(
-                          doc as { url?: string; path?: string }
-                        );
-                        const name = (doc as { name?: string }).name || "";
-                        if (!url) return null;
-                        return (
-                          <figure key={`${url}-${idx}`} style={{ margin: 0 }}>
-                            <img src={url} alt={name} />
-                            <figcaption>{name}</figcaption>
-                          </figure>
-                        );
-                      })}
+                      .map((doc, idx) => (
+                        <figure key={`${doc.url}-${idx}`} style={{ margin: 0 }}>
+                          <img src={doc.url || ""} alt={doc.name || ""} />
+                          <figcaption>{doc.name || ""}</figcaption>
+                        </figure>
+                      ))}
                   </div>
                 </div>
               )}
@@ -680,9 +856,7 @@ const ArticleDetailPage = () => {
                       .filter(Boolean)
                       .filter((d) => !isImageDoc(d))
                       .map((doc, index) => {
-                        const url = getDocumentUrl(
-                          doc as { url?: string; path?: string }
-                        );
+                        const url = (doc as unknown as { url?: string })?.url;
                         const name = (doc as unknown as { name?: string })
                           ?.name;
                         if (!url) {
@@ -789,12 +963,10 @@ const ArticleDetailPage = () => {
                   {article.sectors.map((sector) => {
                     const sid = getSectorId(sector);
                     if (!sid) return null;
-                    const isPrimary = sector.Sector_importance === "Primary";
-                    const linkPath = isPrimary ? `/sector/${sid}` : `/sub-sector/${sid}`;
                     return (
                       <Link
                         key={sid}
-                        href={linkPath}
+                        href={`/sector/${sid}`}
                         style={{
                           ...styles.sectorTag,
                           cursor: "pointer",
@@ -815,21 +987,453 @@ const ArticleDetailPage = () => {
                         prefetch={false}
                       >
                         {sector.sector_name}
-                        {isPrimary && " (Primary)"}
+                        {sector.Sector_importance === "Primary" && " (Primary)"}
                       </Link>
                     );
                   })}
                 </div>
               </div>
             )}
+            {/* Company of Focus: Company Overview & Financial Overview (single column layout) */}
             {(() => {
+              if (!article || !companyOfFocus || companyOfFocusLoading) {
+                return null;
+              }
+
+              const ct = (
+                article.Content_Type ||
+                article.content_type ||
+                article.Content?.Content_type ||
+                article.Content?.Content_Type ||
+                ""
+              ).trim();
+              const isCompanyAnalysisOrExecInterview = /^(company\s*analysis|executive\s*interview)$/i.test(
+                ct
+              );
+              if (!isCompanyAnalysisOrExecInterview) return null;
+
+              const overview = companyOfFocus.company_overview;
+              const financial = companyOfFocus.financial_overview;
+
+              if (!overview && !financial) return null;
+
+              const hqLocation = overview?.hq_location
+                ? [
+                    overview.hq_location.city,
+                    overview.hq_location.state_province_county,
+                    overview.hq_location.country,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")
+                : "Not available";
+
+              const yearFounded = formatCompanyOfFocusYearFounded(
+                overview?.year_founded
+              );
+
+              const ownership =
+                overview?.ownership_type || "Not available";
+
+              const investorItems = overview?.investors_owners || [];
+              const investors =
+                investorItems && investorItems.length
+                  ? investorItems
+                      .map((inv) => inv.name)
+                      .filter(Boolean)
+                      .join(", ")
+                  : "Not available";
+
+              const managementEntries =
+                overview?.management && overview.management.length
+                  ? overview.management.filter((m) => {
+                      const titles = m.job_titles || [];
+                      const hasTitle = titles.some((t) =>
+                        /ceo|founder/i.test((t || "").toString())
+                      );
+                      const status = (m.status || "").toString().trim();
+                      const isCurrent =
+                        !status || /^current$/i.test(status);
+                      return hasTitle && isCurrent;
+                    })
+                  : [];
+
+              const management =
+                managementEntries.length > 0
+                  ? managementEntries
+                      .map((m) => m.name)
+                      .filter(Boolean)
+                      .join(", ")
+                  : "Not available";
+
+              const employeeCount =
+                typeof overview?.employee_count === "number"
+                  ? overview.employee_count.toLocaleString("en-US")
+                  : "Not available";
+
+              const currencyForHeader =
+                (financial?.ev_currency ||
+                  financial?.revenue_currency ||
+                  financial?.ebitda_currency ||
+                  "") || "";
+
+              const financialHeader = currencyForHeader
+                ? `Financial Snapshot (${currencyForHeader})`
+                : "Financial Snapshot";
+
+              const revenueDisplay = financial
+                ? formatPlainNumber(financial.revenue_m)
+                : "Not available";
+
+              const arrDisplay = financial
+                ? formatPlainNumber(financial.arr_m)
+                : "Not available";
+
+              const ebitdaDisplay = financial
+                ? formatPlainNumber(financial.ebitda_m)
+                : "Not available";
+
+              const evDisplay = financial
+                ? formatPlainNumber(financial.enterprise_value_m)
+                : "Not available";
+
+              const revenueMultipleDisplay = financial
+                ? formatMultiple(financial.revenue_multiple)
+                : "Not available";
+
+              const revenueGrowthDisplay = financial
+                ? formatPercent(financial.revenue_growth_pc)
+                : "Not available";
+
+              const ruleOf40Display = financial
+                ? formatPercent(financial.rule_of_40)
+                : "Not available";
+
+              return (
+                <>
+                  {overview && (
+                    <div
+                      style={{
+                        ...styles.section,
+                        borderRadius: 8,
+                        border: "1px solid #e5e7eb",
+                        padding: "16px 16px 12px",
+                        backgroundColor: "#f9fafb",
+                      }}
+                      className="article-financial-metrics"
+                    >
+                      <h2
+                        style={{
+                          ...styles.sectionTitle,
+                          marginBottom: "12px",
+                        }}
+                      >
+                        Company Overview
+                      </h2>
+                      <div>
+                        {companyOfFocus?.id && companyOfFocus?.name && (
+                          <div style={styles.infoRow}>
+                            <span style={styles.label}>Company</span>
+                            <span
+                              style={{
+                                ...styles.value,
+                                display: "flex",
+                                flexWrap: "wrap",
+                                justifyContent: "flex-end",
+                                gap: "6px",
+                              }}
+                            >
+                              <Link
+                                href={`/company/${companyOfFocus.id}`}
+                                style={{
+                                  ...styles.companyTag,
+                                  textDecoration: "none",
+                                  display: "inline-block",
+                                  marginBottom: 4,
+                                }}
+                                prefetch={false}
+                              >
+                                {companyOfFocus.name}
+                              </Link>
+                            </span>
+                          </div>
+                        )}
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>HQ Location</span>
+                          <span style={styles.value}>{hqLocation}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Year Founded</span>
+                          <span style={styles.value}>{yearFounded}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Ownership Type</span>
+                          <span style={styles.value}>{ownership}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Investor(s) / Owner(s)</span>
+                          <span
+                            style={{
+                              ...styles.value,
+                              display: "flex",
+                              flexWrap: "wrap",
+                              justifyContent: "flex-end",
+                              gap: "6px",
+                            }}
+                          >
+                            {investorItems && investorItems.length ? (
+                              investorItems
+                                .filter((inv) => inv && inv.name)
+                                .map((inv, idx) => {
+                                  const name = inv.name || "";
+                                  const id =
+                                    typeof inv.id === "number" ? inv.id : null;
+                                  const internalHref =
+                                    id && id > 0 ? `/investors/${id}` : "";
+                                  const href = internalHref || inv.url || "";
+                                  const baseStyle = {
+                                    ...styles.companyTag,
+                                    textDecoration: "none",
+                                    display: "inline-block",
+                                    marginBottom: 4,
+                                  } as React.CSSProperties;
+                                  if (!href) {
+                                    return (
+                                      <span
+                                        key={`${name}-${idx}`}
+                                        style={baseStyle}
+                                      >
+                                        {name}
+                                      </span>
+                                    );
+                                  }
+
+                                  if (internalHref) {
+                                    return (
+                                      <Link
+                                        key={`${name}-${idx}`}
+                                        href={internalHref}
+                                        style={baseStyle}
+                                        prefetch={false}
+                                      >
+                                        {name}
+                                      </Link>
+                                    );
+                                  }
+
+                                  return (
+                                    <a
+                                      key={`${name}-${idx}`}
+                                      href={href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={baseStyle}
+                                    >
+                                      {name}
+                                    </a>
+                                  );
+                                })
+                            ) : (
+                              <span>{investors}</span>
+                            )}
+                          </span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Management</span>
+                          <span
+                            style={{
+                              ...styles.value,
+                              display: "flex",
+                              flexWrap: "wrap",
+                              justifyContent: "flex-end",
+                              gap: "6px",
+                            }}
+                          >
+                            {managementEntries && managementEntries.length ? (
+                              managementEntries.map((m, idx) => {
+                                const name = m.name || "";
+                                const label = name;
+                                const individualId =
+                                  (m as { individual_id?: number })
+                                    .individual_id ??
+                                  (typeof m.id === "number" ? m.id : undefined);
+                                const internalHref = individualId
+                                  ? `/individual/${individualId}`
+                                  : "";
+                                const href = internalHref || m.linkedin_url || "";
+                                const baseStyle = {
+                                  ...styles.companyTag,
+                                  textDecoration: "none",
+                                  display: "inline-block",
+                                  marginBottom: 4,
+                                } as React.CSSProperties;
+                                if (!href) {
+                                  return (
+                                    <span
+                                      key={`${name}-${idx}`}
+                                      style={baseStyle}
+                                    >
+                                      {label}
+                                    </span>
+                                  );
+                                }
+
+                                // Prefer internal dynamic individual page when possible
+                                if (internalHref) {
+                                  return (
+                                    <Link
+                                      key={`${name}-${idx}`}
+                                      href={internalHref}
+                                      style={baseStyle}
+                                      prefetch={false}
+                                    >
+                                      {label}
+                                    </Link>
+                                  );
+                                }
+
+                                return (
+                                  <a
+                                    key={`${name}-${idx}`}
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={baseStyle}
+                                  >
+                                    {label}
+                                  </a>
+                                );
+                              })
+                            ) : (
+                              <span>{management}</span>
+                            )}
+                          </span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Number of Employees</span>
+                          <span style={styles.value}>{employeeCount}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {financial && (
+                    <div
+                      className="article-financial-metrics"
+                      style={{
+                        ...styles.section,
+                        borderRadius: 8,
+                        border: "1px solid #e5e7eb",
+                        padding: "16px 16px 12px",
+                        backgroundColor: "#f9fafb",
+                      }}
+                    >
+                      <h2
+                        style={{
+                          ...styles.sectionTitle,
+                          marginBottom: "12px",
+                        }}
+                      >
+                        {financialHeader}
+                      </h2>
+                      <div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Revenue (m)</span>
+                          <span
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.revenue_source
+                            )}
+                          >
+                            {revenueDisplay}
+                          </span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>ARR (m)</span>
+                          <span
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.arr_source
+                            )}
+                          >
+                            {arrDisplay}
+                          </span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>EBITDA (m)</span>
+                          <span
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.ebitda_source
+                            )}
+                          >
+                            {ebitdaDisplay}
+                          </span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Enterprise Value (m)</span>
+                          <span
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.ev_source
+                            )}
+                          >
+                            {evDisplay}
+                          </span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Revenue Multiple (x)</span>
+                          <span
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.revenue_multiple_source
+                            )}
+                          >
+                            {revenueMultipleDisplay}
+                          </span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Revenue Growth (%)</span>
+                          <span
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.revenue_growth_source
+                            )}
+                          >
+                            {revenueGrowthDisplay}
+                          </span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Rule of 40 (%)</span>
+                          <span
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.rule_of_40_source
+                            )}
+                          >
+                            {ruleOf40Display}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+            {(() => {
+              const ct = (
+                article.Content_Type ||
+                article.content_type ||
+                article.Content?.Content_type ||
+                article.Content?.Content_Type ||
+                ""
+              ).trim();
+              const isHotTake = /^(hot\s*take)$/i.test(ct);
               const events = article.Related_Corporate_Event || [];
-              if (!Array.isArray(events) || events.length === 0) {
+              if (!isHotTake || !Array.isArray(events) || events.length === 0) {
                 return null;
               }
               return (
                 <div style={styles.section}>
-                  <h2 style={styles.sectionTitle}>Related Corporate Events</h2>
+                  <h2 style={styles.sectionTitle}>Related Corporate Event</h2>
                   <div style={styles.tagContainer}>
                     {events.map((ev, idx) => {
                       const id = ev?.id;
@@ -881,6 +1485,40 @@ const ArticleDetailPage = () => {
           .article-body figure { margin: 1rem 0; }
           .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem; }
           .article-inline-image { margin: 1.25rem 0; }
+          /* Hover tooltips for metric values using title attribute (align like company page) */
+          .article-financial-metrics {
+            overflow: visible !important;
+          }
+          .article-financial-metrics span[title] {
+            position: relative;
+            cursor: help;
+          }
+          .article-financial-metrics span[title]:hover::after {
+            content: attr(title);
+            position: absolute;
+            right: 0;
+            bottom: 100%;
+            transform: translateY(-6px);
+            background: rgba(17, 24, 39, 0.95);
+            color: #fff;
+            font-size: 12px;
+            line-height: 1.2;
+            padding: 6px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            z-index: 20;
+            pointer-events: none;
+          }
+          .article-financial-metrics span[title]:hover::before {
+            content: '';
+            position: absolute;
+            right: 8px;
+            bottom: calc(100% - 2px);
+            border: 6px solid transparent;
+            border-top-color: rgba(17, 24, 39, 0.95);
+            z-index: 21;
+            pointer-events: none;
+          }
         `,
         }}
       />

@@ -1,4 +1,5 @@
 export interface ExportableArticle {
+  id?: number;
   Headline?: string;
   Strapline?: string;
   Publication_Date?: string;
@@ -6,6 +7,7 @@ export interface ExportableArticle {
   content_type?: string;
   Content?: { Content_type?: string; Content_Type?: string };
   Body?: string;
+  Company_of_Focus?: unknown;
   sectors?:
     | Array<{
         id?: number | string;
@@ -149,11 +151,17 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
       return undefined;
     };
 
+    // Determine if Company_of_Focus is populated (convert to boolean)
+    const hasCompanyOfFocus =
+      article.Company_of_Focus != null && article.Company_of_Focus !== "";
+
     const payload = {
+      id: article.id,
       Headline: article.Headline || "",
       Strapline: article.Strapline || undefined,
       Publication_Date: article.Publication_Date || "",
       Content_Type: ct,
+      Company_of_Focus: hasCompanyOfFocus,
       Body: article.Body || "",
       companies_mentioned: companies
         .map((c) => ({ id: c?.id, name: c?.name }))
