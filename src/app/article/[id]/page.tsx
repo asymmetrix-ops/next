@@ -795,424 +795,6 @@ const ArticleDetailPage = () => {
               ) : null;
             })()}
 
-            {/* Company of Focus: Company Overview & Financial Overview */}
-            {(() => {
-              if (!article || !companyOfFocus || companyOfFocusLoading) {
-                return null;
-              }
-
-              const ct = (
-                article.Content_Type ||
-                article.content_type ||
-                article.Content?.Content_type ||
-                article.Content?.Content_Type ||
-                ""
-              ).trim();
-              const isCompanyAnalysisOrExecInterview = /^(company\s*analysis|executive\s*interview)$/i.test(
-                ct
-              );
-              if (!isCompanyAnalysisOrExecInterview) return null;
-
-              const overview = companyOfFocus.company_overview;
-              const financial = companyOfFocus.financial_overview;
-
-              if (!overview && !financial) return null;
-
-              const hqLocation = overview?.hq_location
-                ? [
-                    overview.hq_location.city,
-                    overview.hq_location.state_province_county,
-                    overview.hq_location.country,
-                  ]
-                    .filter(Boolean)
-                    .join(", ")
-                : "Not available";
-
-              const yearFounded = formatCompanyOfFocusYearFounded(
-                overview?.year_founded
-              );
-
-              const ownership =
-                overview?.ownership_type || "Not available";
-
-              const investorItems = overview?.investors_owners || [];
-              const investors =
-                investorItems && investorItems.length
-                  ? investorItems
-                      .map((inv) => inv.name)
-                      .filter(Boolean)
-                      .join(", ")
-                  : "Not available";
-
-              const managementEntries =
-                overview?.management && overview.management.length
-                  ? overview.management.filter((m) => {
-                      const titles = m.job_titles || [];
-                      const hasTitle = titles.some((t) =>
-                        /ceo|founder/i.test((t || "").toString())
-                      );
-                      const status = (m.status || "").toString().trim();
-                      const isCurrent =
-                        !status || /^current$/i.test(status);
-                      return hasTitle && isCurrent;
-                    })
-                  : [];
-
-              const management =
-                managementEntries.length > 0
-                  ? managementEntries
-                      .map((m) => m.name)
-                      .filter(Boolean)
-                      .join(", ")
-                  : "Not available";
-
-              const employeeCount =
-                typeof overview?.employee_count === "number"
-                  ? overview.employee_count.toLocaleString("en-US")
-                  : "Not available";
-
-              const currencyForHeader =
-                (financial?.ev_currency ||
-                  financial?.revenue_currency ||
-                  financial?.ebitda_currency ||
-                  "") || "";
-
-              const financialHeader = currencyForHeader
-                ? `Financial Snapshot (${currencyForHeader})`
-                : "Financial Snapshot";
-
-              const revenueDisplay = financial
-                ? formatPlainNumber(financial.revenue_m)
-                : "Not available";
-
-              const arrDisplay = financial
-                ? formatPlainNumber(financial.arr_m)
-                : "Not available";
-
-              const ebitdaDisplay = financial
-                ? formatPlainNumber(financial.ebitda_m)
-                : "Not available";
-
-              const evDisplay = financial
-                ? formatPlainNumber(financial.enterprise_value_m)
-                : "Not available";
-
-              const revenueMultipleDisplay = financial
-                ? formatMultiple(financial.revenue_multiple)
-                : "Not available";
-
-              const revenueGrowthDisplay = financial
-                ? formatPercent(financial.revenue_growth_pc)
-                : "Not available";
-
-              const ruleOf40Display = financial
-                ? formatPercent(financial.rule_of_40)
-                : "Not available";
-
-              return (
-                <>
-                  {overview && (
-                    <div
-                      style={{
-                        ...styles.section,
-                        borderRadius: 8,
-                        border: "1px solid #e5e7eb",
-                        padding: "16px 16px 12px",
-                        backgroundColor: "#f9fafb",
-                        marginBottom: "24px",
-                      }}
-                      className="article-financial-metrics"
-                    >
-                      <h2
-                        style={{
-                          ...styles.sectionTitle,
-                          marginBottom: "12px",
-                        }}
-                      >
-                        Company Overview
-                      </h2>
-                      <div>
-                        {companyOfFocus?.id && companyOfFocus?.name && (
-                          <div style={styles.infoRow}>
-                            <span style={styles.label}>Company</span>
-                            <span style={styles.value}>
-                              <Link
-                                href={`/company/${companyOfFocus.id}`}
-                                style={{
-                                  color: "#0075df",
-                                  textDecoration: "underline",
-                                  fontWeight: 600,
-                                }}
-                                prefetch={false}
-                              >
-                                {companyOfFocus.name}
-                              </Link>
-                            </span>
-                          </div>
-                        )}
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>HQ Location</span>
-                          <span style={styles.value}>{hqLocation}</span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Year Founded</span>
-                          <span style={styles.value}>{yearFounded}</span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Ownership Type</span>
-                          <span style={styles.value}>{ownership}</span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Investor(s) / Owner(s)</span>
-                          <span
-                            style={{
-                              ...styles.value,
-                              display: "flex",
-                              flexWrap: "wrap",
-                              justifyContent: "flex-end",
-                              gap: "6px",
-                            }}
-                          >
-                            {investorItems && investorItems.length ? (
-                              investorItems
-                                .filter((inv) => inv && inv.name)
-                                .map((inv, idx) => {
-                                  const name = inv.name || "";
-                                  const id =
-                                    typeof inv.id === "number" ? inv.id : null;
-                                  const internalHref =
-                                    id && id > 0 ? `/investors/${id}` : "";
-                                  const href = internalHref || inv.url || "";
-                                  const baseStyle = {
-                                    ...styles.companyTag,
-                                    textDecoration: "none",
-                                    display: "inline-block",
-                                    marginBottom: 4,
-                                  } as React.CSSProperties;
-                                  if (!href) {
-                                    return (
-                                      <span
-                                        key={`${name}-${idx}`}
-                                        style={baseStyle}
-                                      >
-                                        {name}
-                                      </span>
-                                    );
-                                  }
-
-                                  if (internalHref) {
-                                    return (
-                                      <Link
-                                        key={`${name}-${idx}`}
-                                        href={internalHref}
-                                        style={baseStyle}
-                                        prefetch={false}
-                                      >
-                                        {name}
-                                      </Link>
-                                    );
-                                  }
-
-                                  return (
-                                    <a
-                                      key={`${name}-${idx}`}
-                                      href={href}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      style={baseStyle}
-                                    >
-                                      {name}
-                                    </a>
-                                  );
-                                })
-                            ) : (
-                              <span>{investors}</span>
-                            )}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Management</span>
-                          <span
-                            style={{
-                              ...styles.value,
-                              display: "flex",
-                              flexWrap: "wrap",
-                              justifyContent: "flex-end",
-                              gap: "6px",
-                            }}
-                          >
-                            {managementEntries && managementEntries.length ? (
-                              managementEntries.map((m, idx) => {
-                                const name = m.name || "";
-                                const label = name;
-                                const individualId =
-                                  (m as { individual_id?: number })
-                                    .individual_id ??
-                                  (typeof m.id === "number" ? m.id : undefined);
-                                const internalHref = individualId
-                                  ? `/individual/${individualId}`
-                                  : "";
-                                const href = internalHref || m.linkedin_url || "";
-                                const baseStyle = {
-                                  ...styles.companyTag,
-                                  textDecoration: "none",
-                                  display: "inline-block",
-                                  marginBottom: 4,
-                                } as React.CSSProperties;
-                                if (!href) {
-                                  return (
-                                    <span
-                                      key={`${name}-${idx}`}
-                                      style={baseStyle}
-                                    >
-                                      {label}
-                                    </span>
-                                  );
-                                }
-
-                                // Prefer internal dynamic individual page when possible
-                                if (internalHref) {
-                                  return (
-                                    <Link
-                                      key={`${name}-${idx}`}
-                                      href={internalHref}
-                                      style={baseStyle}
-                                      prefetch={false}
-                                    >
-                                      {label}
-                                    </Link>
-                                  );
-                                }
-
-                                return (
-                                  <a
-                                    key={`${name}-${idx}`}
-                                    href={href}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={baseStyle}
-                                  >
-                                    {label}
-                                  </a>
-                                );
-                              })
-                            ) : (
-                              <span>{management}</span>
-                            )}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Number of Employees</span>
-                          <span style={styles.value}>{employeeCount}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  {financial && (
-                    <div
-                      className="article-financial-metrics"
-                      style={{
-                        ...styles.section,
-                        borderRadius: 8,
-                        border: "1px solid #e5e7eb",
-                        padding: "16px 16px 12px",
-                        backgroundColor: "#f9fafb",
-                        marginBottom: "24px",
-                      }}
-                    >
-                      <h2
-                        style={{
-                          ...styles.sectionTitle,
-                          marginBottom: "12px",
-                        }}
-                      >
-                        {financialHeader}
-                      </h2>
-                      <div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Revenue (m)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.revenue_source
-                            )}
-                          >
-                            {revenueDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>ARR (m)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.arr_source
-                            )}
-                          >
-                            {arrDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>EBITDA (m)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.ebitda_source
-                            )}
-                          >
-                            {ebitdaDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Enterprise Value (m)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.ev_source
-                            )}
-                          >
-                            {evDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Revenue Multiple (x)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.revenue_multiple_source
-                            )}
-                          >
-                            {revenueMultipleDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Revenue Growth (%)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.revenue_growth_source
-                            )}
-                          >
-                            {revenueGrowthDisplay}
-                          </span>
-                        </div>
-                        <div style={styles.infoRow}>
-                          <span style={styles.label}>Rule of 40 (%)</span>
-                          <span
-                            style={styles.value}
-                            title={getFinancialSourceTooltip(
-                              financial.rule_of_40_source
-                            )}
-                          >
-                            {ruleOf40Display}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-
             {/* Article Body with embedded images from attachments */}
             {(() => {
               const allImageDocs = (article.Related_Documents || []).filter(
@@ -1412,6 +994,430 @@ const ArticleDetailPage = () => {
                 </div>
               </div>
             )}
+            {/* Company of Focus: Company Overview & Financial Overview (single column layout) */}
+            {(() => {
+              if (!article || !companyOfFocus || companyOfFocusLoading) {
+                return null;
+              }
+
+              const ct = (
+                article.Content_Type ||
+                article.content_type ||
+                article.Content?.Content_type ||
+                article.Content?.Content_Type ||
+                ""
+              ).trim();
+              const isCompanyAnalysisOrExecInterview = /^(company\s*analysis|executive\s*interview)$/i.test(
+                ct
+              );
+              if (!isCompanyAnalysisOrExecInterview) return null;
+
+              const overview = companyOfFocus.company_overview;
+              const financial = companyOfFocus.financial_overview;
+
+              if (!overview && !financial) return null;
+
+              const hqLocation = overview?.hq_location
+                ? [
+                    overview.hq_location.city,
+                    overview.hq_location.state_province_county,
+                    overview.hq_location.country,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")
+                : "Not available";
+
+              const yearFounded = formatCompanyOfFocusYearFounded(
+                overview?.year_founded
+              );
+
+              const ownership =
+                overview?.ownership_type || "Not available";
+
+              const investorItems = overview?.investors_owners || [];
+              const investors =
+                investorItems && investorItems.length
+                  ? investorItems
+                      .map((inv) => inv.name)
+                      .filter(Boolean)
+                      .join(", ")
+                  : "Not available";
+
+              const managementEntries =
+                overview?.management && overview.management.length
+                  ? overview.management.filter((m) => {
+                      const titles = m.job_titles || [];
+                      const hasTitle = titles.some((t) =>
+                        /ceo|founder/i.test((t || "").toString())
+                      );
+                      const status = (m.status || "").toString().trim();
+                      const isCurrent =
+                        !status || /^current$/i.test(status);
+                      return hasTitle && isCurrent;
+                    })
+                  : [];
+
+              const management =
+                managementEntries.length > 0
+                  ? managementEntries
+                      .map((m) => m.name)
+                      .filter(Boolean)
+                      .join(", ")
+                  : "Not available";
+
+              const employeeCount =
+                typeof overview?.employee_count === "number"
+                  ? overview.employee_count.toLocaleString("en-US")
+                  : "Not available";
+
+              const currencyForHeader =
+                (financial?.ev_currency ||
+                  financial?.revenue_currency ||
+                  financial?.ebitda_currency ||
+                  "") || "";
+
+              const financialHeader = currencyForHeader
+                ? `Financial Snapshot (${currencyForHeader})`
+                : "Financial Snapshot";
+
+              const revenueDisplay = financial
+                ? formatPlainNumber(financial.revenue_m)
+                : "Not available";
+
+              const arrDisplay = financial
+                ? formatPlainNumber(financial.arr_m)
+                : "Not available";
+
+              const ebitdaDisplay = financial
+                ? formatPlainNumber(financial.ebitda_m)
+                : "Not available";
+
+              const evDisplay = financial
+                ? formatPlainNumber(financial.enterprise_value_m)
+                : "Not available";
+
+              const revenueMultipleDisplay = financial
+                ? formatMultiple(financial.revenue_multiple)
+                : "Not available";
+
+              const revenueGrowthDisplay = financial
+                ? formatPercent(financial.revenue_growth_pc)
+                : "Not available";
+
+              const ruleOf40Display = financial
+                ? formatPercent(financial.rule_of_40)
+                : "Not available";
+
+              return (
+                <>
+                  {overview && (
+                    <div
+                      style={{
+                        ...styles.section,
+                        borderRadius: 8,
+                        border: "1px solid #e5e7eb",
+                        padding: "16px 16px 12px",
+                        backgroundColor: "#f9fafb",
+                      }}
+                      className="article-financial-metrics"
+                    >
+                      <h2
+                        style={{
+                          ...styles.sectionTitle,
+                          marginBottom: "12px",
+                        }}
+                      >
+                        Company Overview
+                      </h2>
+                      <div>
+                        {companyOfFocus?.id && companyOfFocus?.name && (
+                          <div style={styles.infoRow}>
+                            <span style={styles.label}>Company</span>
+                            <span
+                              style={{
+                                ...styles.value,
+                                display: "flex",
+                                flexWrap: "wrap",
+                                justifyContent: "flex-end",
+                                gap: "6px",
+                              }}
+                            >
+                              <Link
+                                href={`/company/${companyOfFocus.id}`}
+                                style={{
+                                  ...styles.companyTag,
+                                  textDecoration: "none",
+                                  display: "inline-block",
+                                  marginBottom: 4,
+                                }}
+                                prefetch={false}
+                              >
+                                {companyOfFocus.name}
+                              </Link>
+                            </span>
+                          </div>
+                        )}
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>HQ Location</span>
+                          <span style={styles.value}>{hqLocation}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Year Founded</span>
+                          <span style={styles.value}>{yearFounded}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Ownership Type</span>
+                          <span style={styles.value}>{ownership}</span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Investor(s) / Owner(s)</span>
+                          <span
+                            style={{
+                              ...styles.value,
+                              display: "flex",
+                              flexWrap: "wrap",
+                              justifyContent: "flex-end",
+                              gap: "6px",
+                            }}
+                          >
+                            {investorItems && investorItems.length ? (
+                              investorItems
+                                .filter((inv) => inv && inv.name)
+                                .map((inv, idx) => {
+                                  const name = inv.name || "";
+                                  const id =
+                                    typeof inv.id === "number" ? inv.id : null;
+                                  const internalHref =
+                                    id && id > 0 ? `/investors/${id}` : "";
+                                  const href = internalHref || inv.url || "";
+                                  const baseStyle = {
+                                    ...styles.companyTag,
+                                    textDecoration: "none",
+                                    display: "inline-block",
+                                    marginBottom: 4,
+                                  } as React.CSSProperties;
+                                  if (!href) {
+                                    return (
+                                      <span
+                                        key={`${name}-${idx}`}
+                                        style={baseStyle}
+                                      >
+                                        {name}
+                                      </span>
+                                    );
+                                  }
+
+                                  if (internalHref) {
+                                    return (
+                                      <Link
+                                        key={`${name}-${idx}`}
+                                        href={internalHref}
+                                        style={baseStyle}
+                                        prefetch={false}
+                                      >
+                                        {name}
+                                      </Link>
+                                    );
+                                  }
+
+                                  return (
+                                    <a
+                                      key={`${name}-${idx}`}
+                                      href={href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={baseStyle}
+                                    >
+                                      {name}
+                                    </a>
+                                  );
+                                })
+                            ) : (
+                              <span>{investors}</span>
+                            )}
+                          </span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Management</span>
+                          <span
+                            style={{
+                              ...styles.value,
+                              display: "flex",
+                              flexWrap: "wrap",
+                              justifyContent: "flex-end",
+                              gap: "6px",
+                            }}
+                          >
+                            {managementEntries && managementEntries.length ? (
+                              managementEntries.map((m, idx) => {
+                                const name = m.name || "";
+                                const label = name;
+                                const individualId =
+                                  (m as { individual_id?: number })
+                                    .individual_id ??
+                                  (typeof m.id === "number" ? m.id : undefined);
+                                const internalHref = individualId
+                                  ? `/individual/${individualId}`
+                                  : "";
+                                const href = internalHref || m.linkedin_url || "";
+                                const baseStyle = {
+                                  ...styles.companyTag,
+                                  textDecoration: "none",
+                                  display: "inline-block",
+                                  marginBottom: 4,
+                                } as React.CSSProperties;
+                                if (!href) {
+                                  return (
+                                    <span
+                                      key={`${name}-${idx}`}
+                                      style={baseStyle}
+                                    >
+                                      {label}
+                                    </span>
+                                  );
+                                }
+
+                                // Prefer internal dynamic individual page when possible
+                                if (internalHref) {
+                                  return (
+                                    <Link
+                                      key={`${name}-${idx}`}
+                                      href={internalHref}
+                                      style={baseStyle}
+                                      prefetch={false}
+                                    >
+                                      {label}
+                                    </Link>
+                                  );
+                                }
+
+                                return (
+                                  <a
+                                    key={`${name}-${idx}`}
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={baseStyle}
+                                  >
+                                    {label}
+                                  </a>
+                                );
+                              })
+                            ) : (
+                              <span>{management}</span>
+                            )}
+                          </span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Number of Employees</span>
+                          <span style={styles.value}>{employeeCount}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {financial && (
+                    <div
+                      className="article-financial-metrics"
+                      style={{
+                        ...styles.section,
+                        borderRadius: 8,
+                        border: "1px solid #e5e7eb",
+                        padding: "16px 16px 12px",
+                        backgroundColor: "#f9fafb",
+                      }}
+                    >
+                      <h2
+                        style={{
+                          ...styles.sectionTitle,
+                          marginBottom: "12px",
+                        }}
+                      >
+                        {financialHeader}
+                      </h2>
+                      <div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Revenue (m)</span>
+                          <span
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.revenue_source
+                            )}
+                          >
+                            {revenueDisplay}
+                          </span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>ARR (m)</span>
+                          <span
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.arr_source
+                            )}
+                          >
+                            {arrDisplay}
+                          </span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>EBITDA (m)</span>
+                          <span
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.ebitda_source
+                            )}
+                          >
+                            {ebitdaDisplay}
+                          </span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Enterprise Value (m)</span>
+                          <span
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.ev_source
+                            )}
+                          >
+                            {evDisplay}
+                          </span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Revenue Multiple (x)</span>
+                          <span
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.revenue_multiple_source
+                            )}
+                          >
+                            {revenueMultipleDisplay}
+                          </span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Revenue Growth (%)</span>
+                          <span
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.revenue_growth_source
+                            )}
+                          >
+                            {revenueGrowthDisplay}
+                          </span>
+                        </div>
+                        <div style={styles.infoRow}>
+                          <span style={styles.label}>Rule of 40 (%)</span>
+                          <span
+                            style={styles.value}
+                            title={getFinancialSourceTooltip(
+                              financial.rule_of_40_source
+                            )}
+                          >
+                            {ruleOf40Display}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
             {(() => {
               const ct = (
                 article.Content_Type ||
