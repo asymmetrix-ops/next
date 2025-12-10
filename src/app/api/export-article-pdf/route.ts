@@ -6,12 +6,14 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   try {
     const article = (await req.json()) as {
+      id?: number;
       Headline?: string;
       Strapline?: string;
       Publication_Date?: string;
       Content_Type?: string;
       content_type?: string;
       Content?: { Content_type?: string; Content_Type?: string };
+      Company_of_Focus?: boolean;
       Body?: string;
       sectors?:
         | Array<{ sector_name?: string; Sector_importance?: string }>
