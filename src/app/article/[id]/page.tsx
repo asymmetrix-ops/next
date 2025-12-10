@@ -340,10 +340,31 @@ const ArticleDetailPage = () => {
               Sector_importance: string;
             }>
           >(raw.sectors) || [],
-        companies_mentioned:
-          tryParse<Array<{ id: number; name: string }>>(
+        companies_mentioned: (() => {
+          // Handle null/undefined
+          if (!raw.companies_mentioned) return [];
+          // If it's already an array, use it directly
+          if (Array.isArray(raw.companies_mentioned)) {
+            return raw.companies_mentioned.filter(
+              (c: unknown) =>
+                c &&
+                typeof c === "object" &&
+                "id" in c &&
+                "name" in c &&
+                typeof (c as { id: unknown }).id === "number" &&
+                (c as { name: unknown }).name &&
+                String((c as { name: unknown }).name).trim()
+            ) as Array<{ id: number; name: string }>;
+          }
+          // Otherwise try to parse it
+          const parsed = tryParse<Array<{ id: number; name: string }>>(
             raw.companies_mentioned
-          ) || [],
+          );
+          // Filter out invalid entries and ensure we have valid companies
+          return (parsed || []).filter(
+            (c) => c && typeof c.id === "number" && c.name && String(c.name).trim()
+          );
+        })(),
         Related_Corporate_Event:
           tryParse<
             Array<{
@@ -856,16 +877,29 @@ const ArticleDetailPage = () => {
                       .filter(Boolean)
                       .filter((d) => !isImageDoc(d))
                       .map((doc, index) => {
-                        const url = (doc as unknown as { url?: string })?.url;
-                        const name = (doc as unknown as { name?: string })
-                          ?.name;
+                        const docAny = doc as unknown as {
+                          url?: string;
+                          path?: string;
+                          name?: string;
+                        };
+                        // Use url if available, otherwise fall back to path
+                        const url = docAny?.url || docAny?.path;
+                        const name = docAny?.name;
                         if (!url) {
                           return null;
                         }
+                        // If url is already a full URL (starts with http:// or https://), use it as-is
+                        // Otherwise, if it's a relative path, construct full URL
+                        const finalUrl =
+                          url.startsWith("http://") || url.startsWith("https://")
+                            ? url
+                            : url.startsWith("/") && !url.startsWith("//")
+                            ? `https://xdil-abvj-o7rq.e2.xano.io${url}`
+                            : url;
                         return (
                           <a
                             key={index}
-                            href={url}
+                            href={finalUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{
@@ -923,34 +957,43 @@ const ArticleDetailPage = () => {
 
             {/* Companies Section */}
             {article.companies_mentioned &&
+              Array.isArray(article.companies_mentioned) &&
               article.companies_mentioned.length > 0 && (
                 <div style={styles.section}>
                   <h2 style={styles.sectionTitle}>Companies</h2>
                   <div style={styles.tagContainer}>
-                    {article.companies_mentioned.map((company) => (
-                      <Link
-                        key={company.id}
-                        href={`/company/${company.id}`}
-                        style={{
-                          ...styles.companyTag,
-                          textDecoration: "none",
-                          display: "inline-block",
-                        }}
-                        onMouseEnter={(e) => {
-                          (
-                            e.currentTarget as HTMLAnchorElement
-                          ).style.backgroundColor = "#c8e6c9";
-                        }}
-                        onMouseLeave={(e) => {
-                          (
-                            e.currentTarget as HTMLAnchorElement
-                          ).style.backgroundColor = "#e8f5e8";
-                        }}
-                        prefetch={false}
-                      >
-                        {company.name}
-                      </Link>
-                    ))}
+                    {article.companies_mentioned
+                      .filter(
+                        (company) =>
+                          company &&
+                          typeof company.id === "number" &&
+                          company.name &&
+                          String(company.name).trim()
+                      )
+                      .map((company) => (
+                        <Link
+                          key={company.id}
+                          href={`/company/${company.id}`}
+                          style={{
+                            ...styles.companyTag,
+                            textDecoration: "none",
+                            display: "inline-block",
+                          }}
+                          onMouseEnter={(e) => {
+                            (
+                              e.currentTarget as HTMLAnchorElement
+                            ).style.backgroundColor = "#c8e6c9";
+                          }}
+                          onMouseLeave={(e) => {
+                            (
+                              e.currentTarget as HTMLAnchorElement
+                            ).style.backgroundColor = "#e8f5e8";
+                          }}
+                          prefetch={false}
+                        >
+                          {company.name}
+                        </Link>
+                      ))}
                   </div>
                 </div>
               )}
