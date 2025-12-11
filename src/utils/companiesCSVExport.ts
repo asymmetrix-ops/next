@@ -86,6 +86,23 @@ export class CompaniesCSVExporter {
     return `${pct.toFixed(decimals)}%`;
   }
 
+  /**
+   * NRR appears to come back from the API in basis points (e.g. 10200 for 102%).
+   * We normalise very large values by dividing by 100 before formatting.
+   */
+  static formatNRR(
+    value: number | string | undefined
+  ): string {
+    if (value === undefined || value === null || value === "") return "N/A";
+    const num =
+      typeof value === "number"
+        ? value
+        : Number(String(value).replace(/[^0-9.-]/g, ""));
+    if (!isFinite(num)) return "N/A";
+    const normalised = Math.abs(num) > 1000 ? num / 100 : num;
+    return this.formatPercent(normalised);
+  }
+
   static convertToCSVData(companies: Company[]): CompanyCSVRow[] {
     return companies.map((company) => {
       // Generate the company link
