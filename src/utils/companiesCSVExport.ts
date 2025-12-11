@@ -22,7 +22,6 @@ export interface CompanyCSVRow {
   Ownership: string;
   "LinkedIn Members": string;
   Country: string;
-  "Company Link": string;
   "Company URL": string;
   // Optional Financial Metrics
   Revenue?: string;
@@ -172,8 +171,7 @@ export class CompaniesCSVExporter {
           company.linkedin_members
         ),
         Country: company.country || "N/A",
-        "Company Link": companyLink,
-        "Company URL": "",
+        "Company URL": companyLink,
       };
     });
   }

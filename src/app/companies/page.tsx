@@ -2878,7 +2878,6 @@ const CompanySection = ({
                 : Number(it.linkedin_members)
             ),
             Country: it.country ?? "N/A",
-            "Company Link": it.asymmetrix_url ?? "",
             "Company URL": it.company_link ?? "",
             // Financial Metrics - exact field names from API
             Revenue: it.Revenue_m && it.Revenue_m !== "" 
