@@ -18,12 +18,11 @@ export interface CompanyCSVRow {
   Name: string;
   Description: string;
   "Primary Sector(s)": string;
-  "Secondary Sector(s)": string;
+  Sectors: string;
   Ownership: string;
   "LinkedIn Members": string;
-  HQ: string;
-  "Company Link"?: string;
-  "Company URL": string;
+  Country: string;
+  "Company Link": string;
   // Optional Financial Metrics
   Revenue?: string;
   EBITDA?: string;
@@ -33,6 +32,8 @@ export interface CompanyCSVRow {
   "EBITDA Margin"?: string;
   "Rule of 40"?: string;
   // Optional Subscription Metrics
+  "Recurring Revenue"?: string;
+  ARR?: string;
   Churn?: string;
   GRR?: string;
   NRR?: string;
@@ -40,35 +41,29 @@ export interface CompanyCSVRow {
 }
 
 export class CompaniesCSVExporter {
-  static asNumberOrString(value: unknown): number | string | undefined {
-    return typeof value === "number" || typeof value === "string"
-      ? value
-      : undefined;
-  }
-
   static formatLinkedinMembers(members: number | undefined): string {
     if (members === undefined || members === null) return "0";
     return members.toLocaleString();
   }
 
   static formatSectors(sectors: string[] | undefined): string {
-    if (!sectors || sectors.length === 0) return "-";
+    if (!sectors || sectors.length === 0) return "N/A";
     return sectors.join(", ");
   }
 
   /**
-   * Format values that represent millions (e.g. revenue_m, ebitda_m).
+   * Format values that represent millions (e.g. revenue_m, ebitda_m, arr_m).
    * We keep one decimal place and append "M", e.g. 50 -> "50.0M", 2.25 -> "2.3M".
    */
   static formatMillions(
     value: number | string | undefined
   ): string {
-    if (value === undefined || value === null || value === "") return "-";
+    if (value === undefined || value === null || value === "") return "N/A";
     const num =
       typeof value === "number"
         ? value
         : Number(String(value).replace(/[^0-9.-]/g, ""));
-    if (!isFinite(num)) return "-";
+    if (!isFinite(num)) return "N/A";
     return `${num.toFixed(1)}M`;
   }
 
@@ -80,58 +75,15 @@ export class CompaniesCSVExporter {
   static formatPercent(
     value: number | string | undefined
   ): string {
-    if (value === undefined || value === null || value === "") return "-";
+    if (value === undefined || value === null || value === "") return "N/A";
     const num =
       typeof value === "number"
         ? value
         : Number(String(value).replace(/[^0-9.-]/g, ""));
-    if (!isFinite(num)) return "-";
+    if (!isFinite(num)) return "N/A";
     const pct = Math.abs(num) <= 1 ? num * 100 : num;
     const decimals = Math.abs(pct) % 1 === 0 ? 0 : 1;
     return `${pct.toFixed(decimals)}%`;
-  }
-
-  /**
-   * Fix NRR basis points issue: "10500%" -> "105%", "10300%" -> "103%"
-   * Other percentage fields already have correct format, so pass through
-   */
-  static fixNRR(
-    value: number | string | undefined
-  ): string {
-    if (value === undefined || value === null || value === "") return "-";
-    const str = String(value).trim();
-    if (str === "-" || str === "") return "-";
-
-    // If it has %, extract the number
-    if (str.includes("%")) {
-      const num = Number(str.replace(/[^0-9.-]/g, ""));
-      if (!isNaN(num) && Math.abs(num) > 1000) {
-        // Divide by 100 and add % back
-        const normalized = num / 100;
-        const decimals = Math.abs(normalized) % 1 === 0 ? 0 : 1;
-        return `${normalized.toFixed(decimals)}%`;
-      }
-    }
-
-    // Return as-is (already formatted correctly)
-    return str;
-  }
-
-  /**
-   * Format Rule of 40 which comes as a plain number without %
-   */
-  static formatRuleOf40(
-    value: number | string | undefined
-  ): string {
-    if (value === undefined || value === null || value === "") return "-";
-    const str = String(value).trim();
-    if (str === "-" || str === "") return "-";
-
-    // If it already has %, return as-is
-    if (str.includes("%")) return str;
-
-    // Otherwise add %
-    return `${str}%`;
   }
 
   static convertToCSVData(companies: Company[]): CompanyCSVRow[] {
@@ -143,17 +95,16 @@ export class CompaniesCSVExporter {
           : `/company/${company.id}`;
 
       return {
-        Name: company.name || "-",
-        Description: company.description || "-",
+        Name: company.name || "N/A",
+        Description: company.description || "N/A",
         "Primary Sector(s)": this.formatSectors(company.primary_sectors),
-        "Secondary Sector(s)": this.formatSectors(company.secondary_sectors),
-        Ownership: company.ownership || "-",
+        Sectors: this.formatSectors(company.secondary_sectors),
+        Ownership: company.ownership || "N/A",
         "LinkedIn Members": this.formatLinkedinMembers(
           company.linkedin_members
         ),
-        HQ: company.country || "-",
+        Country: company.country || "N/A",
         "Company Link": companyLink,
-        "Company URL": "",
       };
     });
   }

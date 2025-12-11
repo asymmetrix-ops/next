@@ -2085,7 +2085,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Min"
-                    value={linkedinMembersMin || ""}
+                    value={linkedinMembersMin ?? ""}
                     onChange={(e) =>
                       setLinkedinMembersMin(
                         e.target.value ? Number(e.target.value) : null
@@ -2096,7 +2096,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Max"
-                    value={linkedinMembersMax || ""}
+                    value={linkedinMembersMax ?? ""}
                     onChange={(e) =>
                       setLinkedinMembersMax(
                         e.target.value ? Number(e.target.value) : null
@@ -2115,7 +2115,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Min"
-                    value={revenueMin || ""}
+                    value={revenueMin ?? ""}
                     onChange={(e) =>
                       setRevenueMin(
                         e.target.value ? Number(e.target.value) : null
@@ -2126,7 +2126,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Max"
-                    value={revenueMax || ""}
+                    value={revenueMax ?? ""}
                     onChange={(e) =>
                       setRevenueMax(
                         e.target.value ? Number(e.target.value) : null
@@ -2141,7 +2141,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Min"
-                    value={ebitdaMin || ""}
+                    value={ebitdaMin ?? ""}
                     onChange={(e) =>
                       setEbitdaMin(
                         e.target.value ? Number(e.target.value) : null
@@ -2152,7 +2152,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Max"
-                    value={ebitdaMax || ""}
+                    value={ebitdaMax ?? ""}
                     onChange={(e) =>
                       setEbitdaMax(
                         e.target.value ? Number(e.target.value) : null
@@ -2167,7 +2167,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Min"
-                    value={enterpriseValueMin || ""}
+                    value={enterpriseValueMin ?? ""}
                     onChange={(e) =>
                       setEnterpriseValueMin(
                         e.target.value ? Number(e.target.value) : null
@@ -2178,7 +2178,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Max"
-                    value={enterpriseValueMax || ""}
+                    value={enterpriseValueMax ?? ""}
                     onChange={(e) =>
                       setEnterpriseValueMax(
                         e.target.value ? Number(e.target.value) : null
@@ -2193,7 +2193,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Min"
-                    value={revenueMultipleMin || ""}
+                    value={revenueMultipleMin ?? ""}
                     onChange={(e) =>
                       setRevenueMultipleMin(
                         e.target.value ? Number(e.target.value) : null
@@ -2204,7 +2204,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Max"
-                    value={revenueMultipleMax || ""}
+                    value={revenueMultipleMax ?? ""}
                     onChange={(e) =>
                       setRevenueMultipleMax(
                         e.target.value ? Number(e.target.value) : null
@@ -2219,7 +2219,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Min"
-                    value={revenueGrowthMin || ""}
+                    value={revenueGrowthMin ?? ""}
                     onChange={(e) =>
                       setRevenueGrowthMin(
                         e.target.value ? Number(e.target.value) : null
@@ -2230,7 +2230,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Max"
-                    value={revenueGrowthMax || ""}
+                    value={revenueGrowthMax ?? ""}
                     onChange={(e) =>
                       setRevenueGrowthMax(
                         e.target.value ? Number(e.target.value) : null
@@ -2245,7 +2245,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Min"
-                    value={ebitdaMarginMin || ""}
+                    value={ebitdaMarginMin ?? ""}
                     onChange={(e) =>
                       setEbitdaMarginMin(
                         e.target.value ? Number(e.target.value) : null
@@ -2256,7 +2256,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Max"
-                    value={ebitdaMarginMax || ""}
+                    value={ebitdaMarginMax ?? ""}
                     onChange={(e) =>
                       setEbitdaMarginMax(
                         e.target.value ? Number(e.target.value) : null
@@ -2271,7 +2271,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Min"
-                    value={ruleOf40Min || ""}
+                    value={ruleOf40Min ?? ""}
                     onChange={(e) =>
                       setRuleOf40Min(
                         e.target.value ? Number(e.target.value) : null
@@ -2282,7 +2282,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Max"
-                    value={ruleOf40Max || ""}
+                    value={ruleOf40Max ?? ""}
                     onChange={(e) =>
                       setRuleOf40Max(
                         e.target.value ? Number(e.target.value) : null
@@ -2301,7 +2301,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Min"
-                    value={recurringRevenueMin || ""}
+                    value={recurringRevenueMin ?? ""}
                     onChange={(e) =>
                       setRecurringRevenueMin(
                         e.target.value ? Number(e.target.value) : null
@@ -2312,7 +2312,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Max"
-                    value={recurringRevenueMax || ""}
+                    value={recurringRevenueMax ?? ""}
                     onChange={(e) =>
                       setRecurringRevenueMax(
                         e.target.value ? Number(e.target.value) : null
@@ -2327,7 +2327,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Min"
-                    value={arrMin || ""}
+                    value={arrMin ?? ""}
                     onChange={(e) =>
                       setArrMin(
                         e.target.value ? Number(e.target.value) : null
@@ -2338,7 +2338,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Max"
-                    value={arrMax || ""}
+                    value={arrMax ?? ""}
                     onChange={(e) =>
                       setArrMax(
                         e.target.value ? Number(e.target.value) : null
@@ -2353,7 +2353,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Min"
-                    value={churnMin || ""}
+                    value={churnMin ?? ""}
                     onChange={(e) =>
                       setChurnMin(
                         e.target.value ? Number(e.target.value) : null
@@ -2364,7 +2364,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Max"
-                    value={churnMax || ""}
+                    value={churnMax ?? ""}
                     onChange={(e) =>
                       setChurnMax(
                         e.target.value ? Number(e.target.value) : null
@@ -2379,7 +2379,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Min"
-                    value={grrMin || ""}
+                    value={grrMin ?? ""}
                     onChange={(e) =>
                       setGrrMin(
                         e.target.value ? Number(e.target.value) : null
@@ -2390,7 +2390,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Max"
-                    value={grrMax || ""}
+                    value={grrMax ?? ""}
                     onChange={(e) =>
                       setGrrMax(
                         e.target.value ? Number(e.target.value) : null
@@ -2405,7 +2405,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Min"
-                    value={nrrMin || ""}
+                    value={nrrMin ?? ""}
                     onChange={(e) =>
                       setNrrMin(
                         e.target.value ? Number(e.target.value) : null
@@ -2416,7 +2416,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Max"
-                    value={nrrMax || ""}
+                    value={nrrMax ?? ""}
                     onChange={(e) =>
                       setNrrMax(
                         e.target.value ? Number(e.target.value) : null
@@ -2431,7 +2431,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Min"
-                    value={newClientsRevenueGrowthMin || ""}
+                    value={newClientsRevenueGrowthMin ?? ""}
                     onChange={(e) =>
                       setNewClientsRevenueGrowthMin(
                         e.target.value ? Number(e.target.value) : null
@@ -2442,7 +2442,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Max"
-                    value={newClientsRevenueGrowthMax || ""}
+                    value={newClientsRevenueGrowthMax ?? ""}
                     onChange={(e) =>
                       setNewClientsRevenueGrowthMax(
                         e.target.value ? Number(e.target.value) : null
@@ -2878,20 +2878,30 @@ const CompanySection = ({
             Country: it.country ?? "N/A",
             "Company Link": it.asymmetrix_url ?? "",
             // Financial Metrics
-            Revenue: it.revenue_m ? String(it.revenue_m) : "N/A",
-            EBITDA: it.ebitda_m ? String(it.ebitda_m) : "N/A",
-            "Enterprise Value": it.enterprise_value_m ? String(it.enterprise_value_m) : "N/A",
-            "Revenue Multiple": it.revenue_multiple ? String(it.revenue_multiple) : "N/A",
-            "Revenue Growth": it.revenue_growth_pc ? String(it.revenue_growth_pc) : "N/A",
-            "EBITDA Margin": it.ebitda_margin_pc ? String(it.ebitda_margin_pc) : "N/A",
-            "Rule of 40": it.rule_of_40 ? String(it.rule_of_40) : "N/A",
+            Revenue: CompaniesCSVExporter.formatMillions(it.revenue_m),
+            EBITDA: CompaniesCSVExporter.formatMillions(it.ebitda_m),
+            "Enterprise Value": CompaniesCSVExporter.formatMillions(
+              it.enterprise_value_m
+            ),
+            "Revenue Multiple": it.revenue_multiple
+              ? String(it.revenue_multiple)
+              : "N/A",
+            "Revenue Growth": CompaniesCSVExporter.formatPercent(
+              it.revenue_growth_pc
+            ),
+            "EBITDA Margin": CompaniesCSVExporter.formatPercent(
+              it.ebitda_margin_pc
+            ),
+            "Rule of 40": CompaniesCSVExporter.formatPercent(it.rule_of_40),
             // Subscription Metrics
-            "Recurring Revenue": it.arr_m ? String(it.arr_m) : "N/A",
-            ARR: it.arr_m ? String(it.arr_m) : "N/A",
-            Churn: it.churn_pc ? String(it.churn_pc) : "N/A",
-            GRR: it.grr_pc ? String(it.grr_pc) : "N/A",
-            NRR: it.nrr ? String(it.nrr) : "N/A",
-            "New Clients Revenue Growth": it.new_client_growth_pc ? String(it.new_client_growth_pc) : "N/A",
+            "Recurring Revenue": CompaniesCSVExporter.formatMillions(it.arr_m),
+            ARR: CompaniesCSVExporter.formatMillions(it.arr_m),
+            Churn: CompaniesCSVExporter.formatPercent(it.churn_pc),
+            GRR: CompaniesCSVExporter.formatPercent(it.grr_pc),
+            NRR: CompaniesCSVExporter.formatPercent(it.nrr),
+            "New Clients Revenue Growth": CompaniesCSVExporter.formatPercent(
+              it.new_client_growth_pc
+            ),
           };
         });
         const csv = CompaniesCSVExporter.convertToCSV(rows);
