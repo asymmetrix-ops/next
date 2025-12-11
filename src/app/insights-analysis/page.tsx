@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -11,6 +10,7 @@ import {
   InsightsAnalysisFilters,
 } from "../../types/insightsAnalysis";
 import { locationsService } from "@/lib/locationsService";
+import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
 
 // Shared styles object
 const styles = {
@@ -260,7 +260,7 @@ const generatePaginationButtons = (
   return buttons;
 };
 
-// Insights Analysis Cards Component
+// Insights Analysis Cards Component (uses shared card)
 const InsightsAnalysisCards = ({
   articles,
   loading,
@@ -268,12 +268,6 @@ const InsightsAnalysisCards = ({
   articles: ContentArticle[];
   loading: boolean;
 }) => {
-  const router = useRouter();
-
-  const handleArticleClick = (articleId: number) => {
-    router.push(`/article/${articleId}`);
-  };
-
   if (loading) {
     return <div className="loading">Loading articles...</div>;
   }
@@ -282,112 +276,14 @@ const InsightsAnalysisCards = ({
     return <div className="loading">No articles found.</div>;
   }
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "Not available";
-    try {
-      return new Date(dateString).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-    } catch {
-      return "Invalid date";
-    }
-  };
-
-  const formatSectors = (
-    sectors: Array<Array<{ sector_name: string }>> | undefined
-  ) => {
-    if (!Array.isArray(sectors) || sectors.length === 0) return "Not available";
-    const allSectors = sectors
-      .filter(Boolean)
-      .flat()
-      .filter(Boolean)
-      .map((s) => s?.sector_name)
-      .filter((name): name is string => Boolean(name && name.trim().length));
-    return allSectors.length ? allSectors.join(", ") : "Not available";
-  };
-
-  const formatCompanies = (
-    companies: ContentArticle["companies_mentioned"] | undefined
-  ) => {
-    if (!Array.isArray(companies) || companies.length === 0)
-      return "Not available";
-    const names = companies
-      .filter(Boolean)
-      .map((c) => c?.name)
-      .filter((name): name is string => Boolean(name && name.trim().length));
-    return names.length ? names.join(", ") : "Not available";
-  };
-
-  const badgeClassFor = (contentType?: string): string => {
-    const t = (contentType || "").toLowerCase();
-    if (t === "company analysis") return "badge badge-company-analysis";
-    if (t === "deal analysis") return "badge badge-deal-analysis";
-    if (t === "sector analysis") return "badge badge-sector-analysis";
-    if (t === "hot take") return "badge badge-hot-take";
-    if (t === "executive interview") return "badge badge-executive-interview";
-    return "badge";
-  };
-
   return (
     <div className="insights-analysis-cards">
-      {articles.map((article: ContentArticle, index: number) => (
-        <a
-          key={article.id || index}
-          href={`/article/${article.id}`}
-          className="article-card"
-          onClick={(e) => {
-            if (
-              e.defaultPrevented ||
-              e.button !== 0 ||
-              e.metaKey ||
-              e.ctrlKey ||
-              e.shiftKey ||
-              e.altKey
-            )
-              return;
-            e.preventDefault();
-            handleArticleClick(article.id);
-          }}
-        >
-          {/* Article Title */}
-          <h3 className="article-title">
-            {article.Headline || "Not Available"}
-          </h3>
-
-          {/* Date */}
-          <p className="article-date">{formatDate(article.Publication_Date)}</p>
-          {/* Content Type Badge below date */}
-          {article.Content_Type && (
-            <div className="article-badge-row">
-              <span className={badgeClassFor(article.Content_Type)}>
-                {article.Content_Type}
-              </span>
-            </div>
-          )}
-
-          {/* Strapline/Summary */}
-          <p className="article-summary">
-            {article.Strapline || "No summary available"}
-          </p>
-
-          {/* Companies Section */}
-          <div className="article-meta">
-            <span className="article-meta-label">Companies:</span>
-            <span className="article-meta-value">
-              {formatCompanies(article.companies_mentioned)}
-            </span>
-          </div>
-
-          {/* Sectors Section */}
-          <div className="article-meta">
-            <span className="article-meta-label">Sectors:</span>
-            <span className="article-meta-value">
-              {formatSectors(article.sectors)}
-            </span>
-          </div>
-        </a>
+      {articles.map((article: ContentArticle) => (
+        <InsightsAnalysisCard
+          key={article.id}
+          article={article}
+          showMeta={true}
+        />
       ))}
     </div>
   );

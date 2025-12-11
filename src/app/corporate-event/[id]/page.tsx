@@ -11,6 +11,7 @@ import {
 } from "../../../types/corporateEvents";
 import { useRightClick } from "@/hooks/useRightClick";
 import { ContentArticle } from "@/types/insightsAnalysis";
+import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
 
 // Type-safe check for Data & Analytics company flag
 const isDataAnalyticsCompany = (candidate: unknown): boolean => {
@@ -763,51 +764,17 @@ const CorporateEventDetail = ({
             ) : (
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
+                  display: "flex",
+                  flexDirection: "column",
                   gap: "16px",
                 }}
               >
                 {eventArticles.slice(0, 4).map((article) => (
-                  <a
+                  <InsightsAnalysisCard
                     key={article.id}
-                    href={`/article/${article.id}`}
-                    style={{
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                      padding: "12px 12px",
-                      background: "#fff",
-                      display: "block",
-                      textDecoration: "none",
-                      color: "inherit",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        marginBottom: 6,
-                        color: "#1a202c",
-                      }}
-                    >
-                      {article.Headline || "Untitled"}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "#6b7280",
-                        marginBottom: 8,
-                      }}
-                    >
-                      {article.Publication_Date
-                        ? new Date(
-                            article.Publication_Date
-                          ).toLocaleDateString()
-                        : ""}
-                    </div>
-                    <div style={{ fontSize: 14, color: "#374151" }}>
-                      {article.Strapline || ""}
-                    </div>
-                  </a>
+                    article={article}
+                    showMeta={false}
+                  />
                 ))}
               </div>
             )}
