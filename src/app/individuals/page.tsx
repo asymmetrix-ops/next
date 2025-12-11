@@ -723,20 +723,8 @@ const IndividualsPage = () => {
   const fetchJobTitles = async () => {
     try {
       setLoadingJobTitles(true);
-      const response = await fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/get_all_job_titles",
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem(
-              "asymmetrix_auth_token"
-            )}`,
-          },
-        }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setJobTitles(data);
-      }
+      const data = await locationsService.getJobTitles();
+      setJobTitles(data);
     } catch (error) {
       console.error("Error fetching job titles:", error);
     } finally {

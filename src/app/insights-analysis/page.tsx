@@ -10,6 +10,7 @@ import {
   InsightsAnalysisResponse,
   InsightsAnalysisFilters,
 } from "../../types/insightsAnalysis";
+import { locationsService } from "@/lib/locationsService";
 
 // Shared styles object
 const styles = {
@@ -555,33 +556,11 @@ const InsightsAnalysisPage = () => {
     fetchInsightsAnalysis(filters);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch content type options
+  // Fetch content type options (cached via locationsService)
   useEffect(() => {
     const run = async () => {
       try {
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        if (!token) return;
-        const resp = await fetch(
-          "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/content_types_for_articles",
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        if (!resp.ok) return;
-        const data = (await resp.json()) as Array<{
-          Content_Content_Type1: string;
-        }>;
-        const values = Array.from(
-          new Set(
-            (Array.isArray(data) ? data : [])
-              .map((d) => (d?.Content_Content_Type1 || "").trim())
-              .filter(Boolean)
-          )
-        );
+        const values = await locationsService.getContentTypesForArticles();
         setContentTypes(values);
       } catch {
         // ignore

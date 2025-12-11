@@ -2858,22 +2858,8 @@ const SectorDetailPage = ({
     const fetchFundingStages = async () => {
       try {
         setLoadingFundingStages(true);
-        const response = await fetch(
-          "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/funding_stage_options"
-        );
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch funding stages: ${response.status}`
-          );
-        }
-        const data: unknown = await response.json();
-        if (Array.isArray(data)) {
-          setFundingStages(
-            data
-              .map((v) => (typeof v === "string" ? v : ""))
-              .filter((v): v is string => Boolean(v))
-          );
-        }
+        const stages = await locationsService.getFundingStages();
+        setFundingStages(stages);
       } catch (error) {
         console.error("Error fetching funding stages:", error);
       } finally {
@@ -4452,33 +4438,11 @@ const SectorDetailPage = ({
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sectorId]);
 
-    // Fetch content types
+    // Fetch content types (cached via locationsService)
     useEffect(() => {
       const run = async () => {
         try {
-          const token = localStorage.getItem("asymmetrix_auth_token");
-          if (!token) return;
-          const resp = await fetch(
-            "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/content_types_for_articles",
-            {
-              method: "GET",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-          if (!resp.ok) return;
-          const data = (await resp.json()) as Array<{
-            Content_Content_Type1: string;
-          }>;
-          const values = Array.from(
-            new Set(
-              (Array.isArray(data) ? data : [])
-                .map((d) => (d?.Content_Content_Type1 || "").trim())
-                .filter(Boolean)
-            )
-          );
+          const values = await locationsService.getContentTypesForArticles();
           setContentTypes(values);
         } catch {
           // ignore

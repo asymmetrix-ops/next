@@ -307,20 +307,8 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
   const fetchFundingStages = async () => {
     try {
       setLoadingFundingStages(true);
-      const response = await fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/funding_stage_options"
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to fetch funding stages: ${response.status}`);
-      }
-      const data: unknown = await response.json();
-      if (Array.isArray(data)) {
-        setFundingStages(
-          data
-            .map((v) => (typeof v === "string" ? v : ""))
-            .filter((v): v is string => Boolean(v))
-        );
-      }
+      const stages = await locationsService.getFundingStages();
+      setFundingStages(stages);
     } catch {
       // ignore
     } finally {

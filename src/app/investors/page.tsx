@@ -331,30 +331,11 @@ const InvestorsPage = () => {
     }
   };
 
-  // Fetch investor types from API
+  // Fetch investor types from API (cached via locationsService)
   const fetchInvestorTypes = useCallback(async () => {
     setLoadingInvestorTypes(true);
     try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const response = await fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/Get_investor_types_for_filter",
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch investor types: ${response.statusText}`
-        );
-      }
-
-      const data = await response.json();
-      console.log("Investor types API response:", data);
+      const data = await locationsService.getInvestorTypes();
       setInvestorTypes(data);
     } catch (err) {
       console.error("Error fetching investor types:", err);
