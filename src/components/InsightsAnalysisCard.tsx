@@ -27,19 +27,6 @@ const formatDate = (dateString: string) => {
   }
 };
 
-const formatSectors = (
-  sectors: Array<Array<{ sector_name: string }>> | undefined
-) => {
-  if (!Array.isArray(sectors) || sectors.length === 0) return "Not available";
-  const allSectors = sectors
-    .filter(Boolean)
-    .flat()
-    .filter(Boolean)
-    .map((s) => s?.sector_name)
-    .filter((name): name is string => Boolean(name && name.trim().length));
-  return allSectors.length ? allSectors.join(", ") : "Not available";
-};
-
 const decodeHtmlEntities = (input: string): string => {
   if (!input) return "";
 
@@ -62,9 +49,23 @@ const decodeHtmlEntities = (input: string): string => {
 
 const stripHtmlToText = (html: string | undefined | null): string => {
   if (!html) return "";
-  // First decode entities, then collapse whitespace
+  // First decode entities, then strip tags and collapse whitespace
   const decoded = decodeHtmlEntities(html);
-  return decoded.replace(/\s+/g, " ").trim();
+  const withoutTags = decoded.replace(/<[^>]*>/g, " ");
+  return withoutTags.replace(/\s+/g, " ").trim();
+};
+
+const formatSectors = (
+  sectors: Array<Array<{ sector_name: string }>> | undefined
+) => {
+  if (!Array.isArray(sectors) || sectors.length === 0) return "Not available";
+  const allSectors = sectors
+    .filter(Boolean)
+    .flat()
+    .filter(Boolean)
+    .map((s) => decodeHtmlEntities(s?.sector_name || ""))
+    .filter((name): name is string => Boolean(name && name.trim().length));
+  return allSectors.length ? allSectors.join(", ") : "Not available";
 };
 
 const formatCompanies = (
@@ -74,7 +75,7 @@ const formatCompanies = (
     return "Not available";
   const names = companies
     .filter(Boolean)
-    .map((c) => c?.name)
+    .map((c) => decodeHtmlEntities(c?.name || ""))
     .filter((name): name is string => Boolean(name && name.trim().length));
   return names.length ? names.join(", ") : "Not available";
 };
@@ -146,6 +147,16 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
 }) => {
   const router = useRouter();
 
+  const plainHeadline = React.useMemo(
+    () => decodeHtmlEntities(article.Headline),
+    [article.Headline]
+  );
+
+  const plainStrapline = React.useMemo(
+    () => decodeHtmlEntities(article.Strapline),
+    [article.Strapline]
+  );
+
   const plainBody = React.useMemo(
     () => stripHtmlToText(article.Body),
     [article.Body]
@@ -213,7 +224,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
             flex: 1,
           }}
         >
-          {article.Headline || "Not available"}
+          {plainHeadline || "Not available"}
         </h3>
         {article.Content_Type && (
           <span style={badgeClassFor(article.Content_Type)}>
@@ -235,7 +246,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
       </p>
 
       {/* Strapline */}
-      {article.Strapline && (
+      {plainStrapline && (
         <p
           style={{
             fontSize: 14,
@@ -245,7 +256,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
             fontWeight: 500,
           }}
         >
-          {article.Strapline}
+          {plainStrapline}
         </p>
       )}
 
