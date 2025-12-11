@@ -40,11 +40,31 @@ const formatSectors = (
   return allSectors.length ? allSectors.join(", ") : "Not available";
 };
 
+const decodeHtmlEntities = (input: string): string => {
+  if (!input) return "";
+
+  // Prefer DOM-based decoding when running in the browser
+  if (typeof window !== "undefined") {
+    const div = document.createElement("div");
+    div.innerHTML = input;
+    return (div.textContent || div.innerText || "").trim();
+  }
+
+  // Fallback for server-side: handle common entities
+  return input
+    .replace(/&amp;/g, "&")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'");
+};
+
 const stripHtmlToText = (html: string | undefined | null): string => {
   if (!html) return "";
-  // Remove all HTML tags and collapse whitespace to a single space
-  const withoutTags = html.replace(/<[^>]*>/g, " ");
-  return withoutTags.replace(/\s+/g, " ").trim();
+  // First decode entities, then collapse whitespace
+  const decoded = decodeHtmlEntities(html);
+  return decoded.replace(/\s+/g, " ").trim();
 };
 
 const formatCompanies = (
