@@ -151,6 +151,7 @@ interface ExportCompanyJson {
   ebitda_margin_pc?: number | string;
   rule_of_40?: number | string;
   // Subscription Metrics (actual API field names from response)
+  recurring_revenue_pc?: number | string;
   arr_m?: number | string;
   churn_pc?: number | string;
   grr_pc?: number | string;
@@ -2880,9 +2881,10 @@ const CompanySection = ({
             // Financial Metrics
             Revenue: CompaniesCSVExporter.formatMillions(it.revenue_m),
             EBITDA: CompaniesCSVExporter.formatMillions(it.ebitda_m),
-            "Enterprise Value": CompaniesCSVExporter.formatMillions(
-              it.enterprise_value_m
-            ),
+            // Use raw Enterprise Value from API to avoid scaling/rounding issues
+            "Enterprise Value": it.enterprise_value_m
+              ? String(it.enterprise_value_m)
+              : "N/A",
             "Revenue Multiple": it.revenue_multiple
               ? String(it.revenue_multiple)
               : "N/A",
@@ -2894,11 +2896,14 @@ const CompanySection = ({
             ),
             "Rule of 40": CompaniesCSVExporter.formatPercent(it.rule_of_40),
             // Subscription Metrics
-            "Recurring Revenue": CompaniesCSVExporter.formatMillions(it.arr_m),
+            // Recurring Revenue should be a percentage, not a $ amount
+            "Recurring Revenue": CompaniesCSVExporter.formatPercent(
+              it.recurring_revenue_pc
+            ),
             ARR: CompaniesCSVExporter.formatMillions(it.arr_m),
             Churn: CompaniesCSVExporter.formatPercent(it.churn_pc),
             GRR: CompaniesCSVExporter.formatPercent(it.grr_pc),
-            NRR: CompaniesCSVExporter.formatPercent(it.nrr),
+            NRR: CompaniesCSVExporter.formatNRR(it.nrr),
             "New Clients Revenue Growth": CompaniesCSVExporter.formatPercent(
               it.new_client_growth_pc
             ),
