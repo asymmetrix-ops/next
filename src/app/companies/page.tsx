@@ -2667,6 +2667,14 @@ const CompanySection = ({
                 .map((s: string) => s.trim())
                 .filter(Boolean)
             : [];
+
+          // Some payloads use `arr_pc` while others use `ARR_pc`
+          const arrPcRaw =
+            (it as unknown as Record<string, unknown>)["arr_pc"] ?? it.ARR_pc;
+          const arrPc =
+            typeof arrPcRaw === "number" || typeof arrPcRaw === "string"
+              ? arrPcRaw
+              : undefined;
           
           // Construct company URL from ID, or fall back to API-provided URLs
           let companyLink = "";
@@ -2697,6 +2705,50 @@ const CompanySection = ({
             ),
             Country: it.country ?? "N/A",
             "Company Link": companyLink || "N/A",
+            "Company URL": it.company_link ?? "",
+            // Financial Metrics - exact field names from API
+            Revenue:
+              it.Revenue_m != null && it.Revenue_m !== ""
+                ? `${it.Revenue_m}M`
+                : "N/A",
+            EBITDA:
+              it.EBITDA_m != null && it.EBITDA_m !== ""
+                ? `${it.EBITDA_m}M`
+                : "N/A",
+            "Enterprise Value":
+              it.EV != null && it.EV !== "" ? `${it.EV}M` : "N/A",
+            "Revenue Multiple":
+              it.Revenue_multiple != null && it.Revenue_multiple !== ""
+                ? String(it.Revenue_multiple)
+                : "N/A",
+            "Revenue Growth":
+              it.Rev_Growth_PC != null && it.Rev_Growth_PC !== ""
+                ? `${it.Rev_Growth_PC}%`
+                : "N/A",
+            "EBITDA Margin":
+              it.EBITDA_margin != null && it.EBITDA_margin !== ""
+                ? `${it.EBITDA_margin}%`
+                : "N/A",
+            "Rule of 40":
+              it.Rule_of_40 != null && it.Rule_of_40 !== ""
+                ? String(it.Rule_of_40)
+                : "N/A",
+            // Subscription Metrics - exact field names from API
+            "Recurring Revenue": CompaniesCSVExporter.formatPercent(arrPc),
+            ARR: it.ARR_m != null && it.ARR_m !== "" ? `${it.ARR_m}M` : "N/A",
+            Churn:
+              it.Churn_pc != null && it.Churn_pc !== ""
+                ? `${it.Churn_pc}%`
+                : "N/A",
+            GRR:
+              it.GRR_pc != null && it.GRR_pc !== ""
+                ? `${it.GRR_pc}%`
+                : "N/A",
+            NRR: it.NRR != null && it.NRR !== "" ? `${it.NRR}%` : "N/A",
+            "New Clients Revenue Growth":
+              it.New_client_growth_pc != null && it.New_client_growth_pc !== ""
+                ? `${it.New_client_growth_pc}%`
+                : "N/A",
           };
           return row;
         });
