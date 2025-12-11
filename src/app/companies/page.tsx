@@ -142,22 +142,23 @@ interface ExportCompanyJson {
   linkedin_members?: number | string;
   country?: string;
   asymmetrix_url?: string;
-  // Financial Metrics (actual API field names from response)
-  revenue_m?: number | string;
-  ebitda_m?: number | string;
-  enterprise_value_m?: number | string;
-  revenue_multiple?: number | string;
-  revenue_growth_pc?: number | string;
-  ebitda_margin_pc?: number | string;
-  rule_of_40?: number | string;
-  // Subscription Metrics (actual API field names from response)
-  recurring_revenue_pc?: number | string;
-  arr_m?: number | string;
-  churn_pc?: number | string;
-  grr_pc?: number | string;
-  nrr?: number | string;
-  new_client_growth_pc?: number | string;
-  financial_year?: number | string;
+  company_link?: string;
+  // Financial Metrics (exact API field names)
+  Revenue_m?: number | string;
+  EBITDA_m?: number | string;
+  EV?: number | string;
+  Revenue_multiple?: number | string;
+  Rev_Growth_PC?: number | string;
+  EBITDA_margin?: number | string;
+  Rule_of_40?: number | string;
+  // Subscription Metrics (exact API field names)
+  ARR_pc?: number | string; // Recurring Revenue percentage
+  ARR_m?: number | string;
+  Churn_pc?: number | string;
+  GRR_pc?: number | string;
+  NRR?: number | string;
+  New_client_growth_pc?: number | string;
+  Financial_Year?: number | string;
 }
 
 // Shared styles object
@@ -2878,35 +2879,40 @@ const CompanySection = ({
             ),
             Country: it.country ?? "N/A",
             "Company Link": it.asymmetrix_url ?? "",
-            // Financial Metrics
-            Revenue: CompaniesCSVExporter.formatMillions(it.revenue_m),
-            EBITDA: CompaniesCSVExporter.formatMillions(it.ebitda_m),
-            // Use raw Enterprise Value from API to avoid scaling/rounding issues
-            "Enterprise Value": it.enterprise_value_m
-              ? String(it.enterprise_value_m)
+            "Company URL": it.company_link ?? "",
+            // Financial Metrics - exact field names from API
+            Revenue: it.Revenue_m && it.Revenue_m !== "" 
+              ? `${it.Revenue_m}M`
               : "N/A",
-            "Revenue Multiple": it.revenue_multiple
-              ? String(it.revenue_multiple)
+            EBITDA: it.EBITDA_m && it.EBITDA_m !== ""
+              ? `${it.EBITDA_m}M`
               : "N/A",
-            "Revenue Growth": CompaniesCSVExporter.formatPercent(
-              it.revenue_growth_pc
-            ),
-            "EBITDA Margin": CompaniesCSVExporter.formatPercent(
-              it.ebitda_margin_pc
-            ),
-            "Rule of 40": CompaniesCSVExporter.formatPercent(it.rule_of_40),
-            // Subscription Metrics
-            // Recurring Revenue should be a percentage, not a $ amount
-            "Recurring Revenue": CompaniesCSVExporter.formatPercent(
-              it.recurring_revenue_pc
-            ),
-            ARR: CompaniesCSVExporter.formatMillions(it.arr_m),
-            Churn: CompaniesCSVExporter.formatPercent(it.churn_pc),
-            GRR: CompaniesCSVExporter.formatPercent(it.grr_pc),
-            NRR: CompaniesCSVExporter.formatNRR(it.nrr),
-            "New Clients Revenue Growth": CompaniesCSVExporter.formatPercent(
-              it.new_client_growth_pc
-            ),
+            "Enterprise Value": it.EV && it.EV !== ""
+              ? `${it.EV}M`
+              : "N/A",
+            "Revenue Multiple": it.Revenue_multiple && it.Revenue_multiple !== ""
+              ? String(it.Revenue_multiple)
+              : "N/A",
+            "Revenue Growth": it.Rev_Growth_PC && it.Rev_Growth_PC !== ""
+              ? `${it.Rev_Growth_PC}%`
+              : "N/A",
+            "EBITDA Margin": it.EBITDA_margin && it.EBITDA_margin !== ""
+              ? `${it.EBITDA_margin}%`
+              : "N/A",
+            "Rule of 40": it.Rule_of_40 && it.Rule_of_40 !== ""
+              ? String(it.Rule_of_40)
+              : "N/A",
+            // Subscription Metrics - exact field names from API
+            "Recurring Revenue": it.ARR_pc != null && it.ARR_pc !== ""
+              ? `${it.ARR_pc}%`
+              : "N/A",
+            ARR: it.ARR_m ? `${it.ARR_m}M` : "N/A",
+            Churn: it.Churn_pc ? `${it.Churn_pc}%` : "N/A",
+            GRR: it.GRR_pc ? `${it.GRR_pc}%` : "N/A",
+            NRR: it.NRR ? `${it.NRR}%` : "N/A",
+            "New Clients Revenue Growth": it.New_client_growth_pc
+              ? `${it.New_client_growth_pc}%`
+              : "N/A",
           };
         });
         const csv = CompaniesCSVExporter.convertToCSV(rows);

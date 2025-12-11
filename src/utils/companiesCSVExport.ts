@@ -23,6 +23,7 @@ export interface CompanyCSVRow {
   "LinkedIn Members": string;
   Country: string;
   "Company Link": string;
+  "Company URL": string;
   // Optional Financial Metrics
   Revenue?: string;
   EBITDA?: string;
@@ -87,20 +88,70 @@ export class CompaniesCSVExporter {
   }
 
   /**
-   * NRR appears to come back from the API in basis points (e.g. 10200 for 102%).
-   * We normalise very large values by dividing by 100 before formatting.
+   * Clean ARR values that come as "8 EURM", "8.5 GBPM" etc.
+   * Returns just the numeric part with M: "8.0M", "8.5M"
    */
-  static formatNRR(
+  static cleanARR(
     value: number | string | undefined
   ): string {
     if (value === undefined || value === null || value === "") return "N/A";
-    const num =
-      typeof value === "number"
-        ? value
-        : Number(String(value).replace(/[^0-9.-]/g, ""));
-    if (!isFinite(num)) return "N/A";
-    const normalised = Math.abs(num) > 1000 ? num / 100 : num;
-    return this.formatPercent(normalised);
+    const str = String(value).trim();
+    if (str === "N/A" || str === "") return "N/A";
+    
+    // Extract just the numeric part from "8 EURM" or "8.5 GBPM"
+    // Match the number (with optional decimal) before any text
+    const match = str.match(/^([\d.]+)/);
+    if (match) {
+      const num = parseFloat(match[1]);
+      if (!isNaN(num)) {
+        return `${num.toFixed(1)}M`;
+      }
+    }
+    
+    return "N/A";
+  }
+  
+  /**
+   * Fix NRR basis points issue: "10500%" -> "105%", "10300%" -> "103%"
+   * Other percentage fields already have correct format, so pass through
+   */
+  static fixNRR(
+    value: number | string | undefined
+  ): string {
+    if (value === undefined || value === null || value === "") return "N/A";
+    const str = String(value).trim();
+    if (str === "N/A" || str === "") return "N/A";
+    
+    // If it has %, extract the number
+    if (str.includes("%")) {
+      const num = Number(str.replace(/[^0-9.-]/g, ""));
+      if (!isNaN(num) && Math.abs(num) > 1000) {
+        // Divide by 100 and add % back
+        const normalized = num / 100;
+        const decimals = Math.abs(normalized) % 1 === 0 ? 0 : 1;
+        return `${normalized.toFixed(decimals)}%`;
+      }
+    }
+    
+    // Return as-is (already formatted correctly)
+    return str;
+  }
+  
+  /**
+   * Format Rule of 40 which comes as a plain number without %
+   */
+  static formatRuleOf40(
+    value: number | string | undefined
+  ): string {
+    if (value === undefined || value === null || value === "") return "N/A";
+    const str = String(value).trim();
+    if (str === "N/A" || str === "") return "N/A";
+    
+    // If it already has %, return as-is
+    if (str.includes("%")) return str;
+    
+    // Otherwise add %
+    return `${str}%`;
   }
 
   static convertToCSVData(companies: Company[]): CompanyCSVRow[] {
@@ -122,6 +173,7 @@ export class CompaniesCSVExporter {
         ),
         Country: company.country || "N/A",
         "Company Link": companyLink,
+        "Company URL": "",
       };
     });
   }
