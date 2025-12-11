@@ -23,6 +23,21 @@ export interface CompanyCSVRow {
   "LinkedIn Members": string;
   Country: string;
   "Company Link": string;
+  // Optional Financial Metrics
+  Revenue?: string;
+  EBITDA?: string;
+  "Enterprise Value"?: string;
+  "Revenue Multiple"?: string;
+  "Revenue Growth"?: string;
+  "EBITDA Margin"?: string;
+  "Rule of 40"?: string;
+  // Optional Subscription Metrics
+  "Recurring Revenue"?: string;
+  ARR?: string;
+  Churn?: string;
+  GRR?: string;
+  NRR?: string;
+  "New Clients Revenue Growth"?: string;
 }
 
 export class CompaniesCSVExporter {
@@ -34,6 +49,41 @@ export class CompaniesCSVExporter {
   static formatSectors(sectors: string[] | undefined): string {
     if (!sectors || sectors.length === 0) return "N/A";
     return sectors.join(", ");
+  }
+
+  /**
+   * Format values that represent millions (e.g. revenue_m, ebitda_m, arr_m).
+   * We keep one decimal place and append "M", e.g. 50 -> "50.0M", 2.25 -> "2.3M".
+   */
+  static formatMillions(
+    value: number | string | undefined
+  ): string {
+    if (value === undefined || value === null || value === "") return "N/A";
+    const num =
+      typeof value === "number"
+        ? value
+        : Number(String(value).replace(/[^0-9.-]/g, ""));
+    if (!isFinite(num)) return "N/A";
+    return `${num.toFixed(1)}M`;
+  }
+
+  /**
+   * Format percentage-like values (e.g. *_pc, nrr, rule_of_40).
+   * If the magnitude is <= 1 we treat it as a fraction (0.27 -> 27%),
+   * otherwise we treat it as already in percent units (27 -> 27%).
+   */
+  static formatPercent(
+    value: number | string | undefined
+  ): string {
+    if (value === undefined || value === null || value === "") return "N/A";
+    const num =
+      typeof value === "number"
+        ? value
+        : Number(String(value).replace(/[^0-9.-]/g, ""));
+    if (!isFinite(num)) return "N/A";
+    const pct = Math.abs(num) <= 1 ? num * 100 : num;
+    const decimals = Math.abs(pct) % 1 === 0 ? 0 : 1;
+    return `${pct.toFixed(decimals)}%`;
   }
 
   static convertToCSVData(companies: Company[]): CompanyCSVRow[] {
