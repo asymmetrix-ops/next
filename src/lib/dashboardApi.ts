@@ -58,6 +58,14 @@ class DashboardApiService {
     return this.request<Record<string, unknown>[]>("/corporate_events");
   }
 
+  // New home page corporate events endpoint (returns a raw array, not { data: ... })
+  async getCorporateEventsForHomePage(): Promise<Record<string, unknown>[]> {
+    return this.request<Record<string, unknown>[]>("/corporate_event_for_home_page") as unknown as Record<
+      string,
+      unknown
+    >[];
+  }
+
   async getRecentlyAddedCompanies(): Promise<
     ApiResponse<Record<string, unknown>[]>
   > {
