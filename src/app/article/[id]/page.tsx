@@ -887,36 +887,46 @@ const ArticleDetailPage = () => {
             {/* Publication Date */}
             <div style={styles.section}>
               <h2 style={styles.sectionTitle}>Published</h2>
-              <p style={styles.date}>{formatDate(article.Publication_Date)}</p>
-              {/* Export PDF Button */}
-              {ENABLE_PDF_EXPORT && (
-                <button
-                  onClick={() => openArticlePdfWindow(article)}
-                  style={{
-                    backgroundColor: "#38a169",
-                    color: "white",
-                    fontWeight: 600,
-                    padding: "10px 14px",
-                    borderRadius: 6,
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: 13,
-                    width: "100%",
-                    textAlign: "center",
-                    marginTop: "12px",
-                  }}
-                  onMouseOver={(e) =>
-                    ((e.target as HTMLButtonElement).style.backgroundColor =
-                      "#2f855a")
-                  }
-                  onMouseOut={(e) =>
-                    ((e.target as HTMLButtonElement).style.backgroundColor =
-                      "#38a169")
-                  }
-                >
-                  Export PDF
-                </button>
-              )}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <p style={{ ...styles.date, marginBottom: 0 }}>
+                  {formatDate(article.Publication_Date)}
+                </p>
+                {/* Export PDF Button */}
+                {ENABLE_PDF_EXPORT && (
+                  <button
+                    onClick={() => openArticlePdfWindow(article)}
+                    style={{
+                      backgroundColor: "#38a169",
+                      color: "white",
+                      fontWeight: 600,
+                      padding: "10px 14px",
+                      borderRadius: 6,
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      textAlign: "center",
+                      whiteSpace: "nowrap",
+                    }}
+                    onMouseOver={(e) =>
+                      ((e.target as HTMLButtonElement).style.backgroundColor =
+                        "#2f855a")
+                    }
+                    onMouseOut={(e) =>
+                      ((e.target as HTMLButtonElement).style.backgroundColor =
+                        "#38a169")
+                    }
+                  >
+                    Export PDF
+                  </button>
+                )}
+              </div>
             </div>
             {/* Company of Focus: Company Overview & Financial Overview (single column layout) */}
             {(() => {
