@@ -166,47 +166,6 @@ export default function HomeUserPage() {
     }
   };
 
-  // Parse strings that look like "{A,B,\"C D\"}" into ["A","B","C D"]
-  const parseBraceList = (value?: unknown): string[] => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value.map(String).filter(Boolean);
-    if (typeof value === "object") {
-      // Sometimes APIs accidentally return an object; best-effort flatten
-      try {
-        return Object.values(value as Record<string, unknown>)
-          .map(String)
-          .map((s) => s.trim())
-          .filter(Boolean);
-      } catch {
-        return [];
-      }
-    }
-    if (typeof value !== "string") return [];
-
-    const raw = value.trim();
-    if (!raw || raw === "{}" || raw === "{ }") return [];
-
-    // Try JSON first (e.g. '["A","B"]' or '{"a":"A"}')
-    const parsed = safeParseJson<unknown>(raw);
-    if (Array.isArray(parsed))
-      return (parsed as unknown[]).map(String).map((s) => s.trim()).filter(Boolean);
-    if (parsed && typeof parsed === "object") {
-      return Object.values(parsed as Record<string, unknown>)
-        .map(String)
-        .map((s) => s.trim())
-        .filter(Boolean);
-    }
-
-    // Strip outer braces if present
-    const stripped = raw.replace(/^\{/, "").replace(/\}$/, "").trim();
-    if (!stripped) return [];
-    return stripped
-      .split(",")
-      .map((s) => s.trim())
-      .map((s) => s.replace(/^"(.*)"$/, "$1"))
-      .filter(Boolean);
-  };
-
   type SectorRef = { id: number; name: string };
   const parseSectorRefs = (value?: unknown): SectorRef[] => {
     if (!value) return [];
@@ -473,7 +432,7 @@ export default function HomeUserPage() {
         dashboardApiService.getHeroScreenStatisticSectors(),
         dashboardApiService.getHeroScreenStatisticAdvisorsCount(),
         dashboardApiService.getHeroScreenStatisticInvestors(),
-        dashboardApiService.getCorporateEventsForHomePage(),
+        dashboardApiService.getCorporateEvents(),
         dashboardApiService.getAllContentArticlesHome(),
       ]);
 
@@ -794,7 +753,7 @@ export default function HomeUserPage() {
 
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 xl:grid-cols-[repeat(20,minmax(0,1fr))]">
           {/* Asymmetrix Data */}
-          <div className="bg-white rounded-lg shadow order-3 lg:col-span-2 xl:col-span-7">
+          <div className="bg-white rounded-lg shadow order-1 lg:col-span-2 xl:col-span-4">
             <div className="p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-2">
                 <img
@@ -842,7 +801,7 @@ export default function HomeUserPage() {
           </div>
 
           {/* Insights & Analysis */}
-          <div className="bg-white rounded-lg shadow order-1 lg:col-span-1 xl:col-span-6">
+          <div className="bg-white rounded-lg shadow border-2 border-blue-200 order-2 lg:col-span-1 xl:col-span-8">
             <div className="flex items-center gap-3 p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700">
                 <svg
@@ -951,14 +910,27 @@ export default function HomeUserPage() {
           </div>
 
           {/* Corporate Events */}
-          <div className="bg-white rounded-lg shadow order-2 lg:col-span-1 xl:col-span-7">
+          <div className="bg-white rounded-lg shadow order-3 lg:col-span-1 xl:col-span-8">
             <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-2">
-                <img
-                  src="/icons/logo.svg"
-                  alt="Asymmetrix"
-                  className="w-5 h-5"
-                />
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-700">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
                 <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
                   Corporate Events
                 </h2>
@@ -1170,341 +1142,600 @@ export default function HomeUserPage() {
                   </div>
 
                   {/* Desktop view - table */}
-                  <div className="hidden lg:block p-4">
-                    <div className="space-y-4 max-h-[800px] overflow-y-auto pr-1">
-                      {corporateEvents.slice(0, 25).map((event, idx) => {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const ev: any = event as any;
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const eid = getCorporateEventId(event as any);
-                        const desc = event.description;
+                  <div className="hidden lg:block overflow-x-auto max-h-[800px]">
+                    <table className="w-full min-w-max table-fixed">
+                      <colgroup>
+                        <col />
+                        <col style={{ width: "22%" }} />
+                        <col />
+                        <col />
+                      </colgroup>
+                      <thead className="sticky top-0 bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            Event Details
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            Parties
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            Deal Details
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                            Sectors
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {corporateEvents.slice(0, 25).map((event, idx) => {
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          const eid = getCorporateEventId(event as any);
+                          const desc = event.description;
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          const ev: any = event as any;
 
-                        // Target (new endpoint: target or all_targets; old endpoint: Target_Counterparty)
-                        const targetObj =
-                          (safeParseJson<EntityRef>(ev.target) ||
-                            (typeof ev.target === "object"
-                              ? (ev.target as Record<string, unknown>)
-                              : null)) as EntityRef | null;
-                        const allTargets = parseEntityArray<EntityRef>(ev.all_targets);
-                        const targetObjFallback =
-                          !targetObj && allTargets.length > 0 ? allTargets[0] : null;
-                        const targetLegacyName =
-                          event.Target_Counterparty?.new_company?.name;
-                        const targetName =
-                          targetObj?.name ||
-                          targetObjFallback?.name ||
-                          targetLegacyName;
-                        const targetHref = targetObj
-                          ? normalizeEntityHref(targetObj)
-                          : targetObjFallback
-                          ? normalizeEntityHref(targetObjFallback)
-                          : "";
-
-                        // Investors (new endpoint: investors; fallback: buyers (for acquisitions) or old buyers_investors)
-                        const investorsNew = parseEntityArray<EntityRef>(ev.investors);
-                        const buyersNew = parseEntityArray<EntityRef>(
-                          ev.buyers || ev.buyers_investors
-                        );
-                        const buyersFromLegacy = (
-                          event.Other_Counterparties_of_Corporate_Event || []
-                        )
-                          .map((cp) => cp._new_company?.name)
-                          .filter((v): v is string => Boolean(v));
-
-                        // Deal details
-                        const details = safeParseJson<{
-                          Type?: string;
-                          Amount?: string;
-                        }>(ev.deal_details);
-                        const dealType =
-                          details?.Type || event.deal_type || ev.type || "";
-                        const rawAmount = (details?.Amount || "")
-                          .toString()
-                          .trim();
-                        const cleanedAmount = rawAmount.replace(
-                          /^amount:\s*/i,
-                          ""
-                        );
-                        const formatAmount = (value: string): string => {
-                          const v = (value || "").trim();
-                          if (!v) return "";
-                          const m1 = v.match(
-                            /^(?:Currency:)?\s*([A-Z]{3})\s*([0-9]+(?:[.,][0-9]+)?)/i
-                          ); // USD 1900
-                          if (m1) return `${m1[1].toUpperCase()}${m1[2]}`;
-                          const m2 = v.match(
-                            /^([0-9]+(?:[.,][0-9]+)?)\s*([A-Z]{3})$/i
-                          ); // 1900 USD
-                          if (m2) return `${m2[2].toUpperCase()}${m2[1]}`;
-                          const m3 = v.match(/^([A-Z]{3})([0-9].*)$/i); // USD1900
-                          if (m3) return `${m3[1].toUpperCase()}${m3[2]}`;
-                          return v;
-                        };
-                        const amountFromDetails = formatAmount(cleanedAmount);
-                        const amountFromNew = (() => {
-                          // new endpoint: amount is a JSON string like {"value":15,"currency":"USD","formatted":"15 USD"}
-                          const parsed = safeParseJson<{
-                            formatted?: string;
-                            currency?: string;
-                            value?: string | number;
-                          }>(ev.amount);
-                          if (parsed?.formatted) return String(parsed.formatted).trim();
-                          if (
-                            parsed &&
-                            parsed.currency &&
-                            (parsed.value !== undefined && parsed.value !== null)
-                          ) {
-                            return `${String(parsed.value)} ${String(parsed.currency)}`.trim();
-                          }
-                          return "";
-                        })();
-                        const amount =
-                          amountFromDetails ||
-                          amountFromNew ||
-                          (event.investment_data?.investment_amount_m &&
-                          event.investment_data?.currrency?.Currency
-                            ? `${String(
-                                event.investment_data.currrency.Currency
-                              )}${String(
-                                event.investment_data.investment_amount_m
-                              )}`
-                            : "");
-
-                        // Sectors
-                        const sectors = safeParseJson<{
-                          Primary?: string[];
-                          Secondary?: string[];
-                        }>(ev.sectors);
-                        const primaryFromNewJson = Array.isArray(sectors?.Primary)
-                          ? (sectors!.Primary as string[])
-                              .filter(Boolean)
-                              .join(", ")
-                          : "";
-                        const secondaryFromNewJson = Array.isArray(sectors?.Secondary)
-                          ? (sectors!.Secondary as string[]).filter(Boolean)
-                          : [];
-
-                        // new endpoint: primary/secondary are JSON arrays of {id,name} (stringified)
-                        const primaryRefs = parseSectorRefs(ev.primary);
-                        const secondaryRefs = parseSectorRefs(ev.secondary);
-
-                        // backward compat (older endpoint previously returned "{A,B}" strings)
-                        const primaryFromBrace = parseBraceList(ev.primary).join(", ");
-                        const secondaryFromBraceArr = parseBraceList(ev.secondary);
-
-                        const primary =
-                          primaryFromNewJson ||
-                          (primaryRefs.length > 0
-                            ? primaryRefs.map((s) => s.name).join(", ")
-                            : "") ||
-                          primaryFromBrace ||
-                          getEventPrimarySectors(event);
-                        const list =
-                          event.Target_Counterparty?.new_company?._sectors_objects
-                            ?.sectors_id || [];
-                        const secondaryLegacy = list
-                          .filter(
-                            (sector) =>
-                              sector && sector.Sector_importance !== "Primary"
-                          )
-                          .map((sector) => sector.sector_name)
-                          .filter(Boolean);
-                        const secondary =
-                          secondaryFromNewJson.length > 0
-                            ? secondaryFromNewJson
-                            : secondaryRefs.length > 0
-                            ? secondaryRefs.map((s) => s.name)
-                            : secondaryFromBraceArr.length > 0
-                            ? secondaryFromBraceArr
-                            : secondaryLegacy;
-
-                        const investorEntities: EntityRef[] =
-                          investorsNew.length > 0
-                            ? dedupeById(investorsNew)
-                            : buyersNew.length > 0
-                            ? dedupeById(buyersNew)
-                            : [];
-                        const investorNames: string[] =
-                          investorEntities.length > 0 ? [] : buyersFromLegacy;
-
-                        return (
-                          <div
-                            key={eid ?? `ev-row-${idx}`}
-                            className="p-4 rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow transition-shadow"
-                          >
-                            <div className="mb-3">
-                              <a
-                                href={
-                                  eid
-                                    ? `/corporate-event/${eid}`
-                                    : desc
-                                    ? `/corporate-events?search=${encodeURIComponent(
-                                        desc
-                                      )}`
-                                    : "#"
-                                }
-                                className="text-sm font-semibold text-blue-700 hover:text-blue-900"
-                                onClick={(e) => {
-                                  if (
-                                    e.defaultPrevented ||
-                                    e.button !== 0 ||
-                                    e.metaKey ||
-                                    e.ctrlKey ||
-                                    e.shiftKey ||
-                                    e.altKey
-                                  )
-                                    return;
-                                  e.preventDefault();
-                                  handleCorporateEventClick(eid, desc);
-                                }}
-                              >
-                                {desc}
-                              </a>
-                            </div>
-
-                            <div className="space-y-2 text-sm">
-                              <div className="flex gap-3">
-                                <div className="w-28 text-gray-500">Target</div>
-                                <div className="flex-1 font-medium text-gray-900">
-                                  {targetName ? (
-                                    targetHref ? (
+                          return (
+                            <tr
+                              key={eid ?? `ev-row-${idx}`}
+                              className="hover:bg-gray-50"
+                            >
+                              <td className="px-4 py-4 max-w-xs text-xs text-gray-900">
+                                <div className="mb-2">
+                                  {(() => {
+                                    const safeHref = eid
+                                      ? `/corporate-event/${eid}`
+                                      : desc
+                                      ? `/corporate-events?search=${encodeURIComponent(
+                                          desc
+                                        )}`
+                                      : "#";
+                                    return (
                                       <a
-                                        href={targetHref}
-                                        className="text-blue-700 hover:text-blue-900"
+                                        href={safeHref}
+                                        className="font-medium text-blue-600 underline break-words hover:text-blue-800"
+                                        style={{
+                                          textDecoration: "underline",
+                                          color: "#0075df",
+                                          fontWeight: "500",
+                                        }}
+                                        onClick={(e) => {
+                                          if (
+                                            e.defaultPrevented ||
+                                            e.button !== 0 ||
+                                            e.metaKey ||
+                                            e.ctrlKey ||
+                                            e.shiftKey ||
+                                            e.altKey
+                                          )
+                                            return;
+                                          e.preventDefault();
+                                          handleCorporateEventClick(eid, desc);
+                                        }}
                                       >
-                                        {targetName}
+                                        {event.description}
                                       </a>
-                                    ) : (
-                                      <span>{targetName}</span>
-                                    )
-                                  ) : (
-                                    <span className="text-gray-400">
-                                      Not Available
-                                    </span>
+                                    );
+                                  })()}
+                                </div>
+                                <div className="mb-1 text-xs text-gray-500">
+                                  Date: {formatDate(
+                                    ev.date || event.announcement_date
                                   )}
                                 </div>
-                              </div>
+                              </td>
+                              <td className="px-4 py-4 text-xs text-gray-900">
+                                {/* Parties column */}
+                                {(() => {
+                                  const isPartnership =
+                                    (ev.deal_type || "")
+                                      .toLowerCase()
+                                      .trim() === "partnership";
 
-                              <div className="flex gap-3">
-                                <div className="w-28 text-gray-500">
-                                  Investor(s)
-                                </div>
-                                <div className="flex-1 font-medium text-gray-900">
-                                  {investorEntities.length > 0 ? (
-                                    investorEntities.map((b, i, arr) => {
-                                      const href = normalizeEntityHref(b);
-                                      const name = b?.name || "Unknown";
-                                      return (
-                                        <span key={`investor-${i}`}>
-                                          {href ? (
+                                  const targetsArr =
+                                    parseEntityArray<EntityRef>(ev.targets);
+
+                                  const targetObj = (safeParseJson<EntityRef>(
+                                    ev.target
+                                  ) ||
+                                    (typeof ev.target === "object"
+                                      ? (ev.target as Record<string, unknown>)
+                                      : null)) as EntityRef | null;
+                                  const targetLegacyName =
+                                    event.Target_Counterparty?.new_company?.name;
+
+                                  const buyersArr = parseEntityArray<EntityRef>(
+                                    (ev as { buyers?: unknown }).buyers
+                                  );
+                                  const investorsArr =
+                                    parseEntityArray<EntityRef>(
+                                      (ev as { investors?: unknown }).investors
+                                    );
+                                  const buyersInvestorsCombined =
+                                    parseEntityArray<EntityRef>(
+                                      (ev as { buyers_investors?: unknown })
+                                        .buyers_investors
+                                    );
+                                  type LegacyCounterparty = {
+                                    _new_company?: {
+                                      name?: string;
+                                      _is_that_investor?: boolean;
+                                    };
+                                    _counterparty_type?: {
+                                      counterparty_status?: string;
+                                    };
+                                  };
+                                  const legacyCounterparties: LegacyCounterparty[] =
+                                    event.Other_Counterparties_of_Corporate_Event ||
+                                    [];
+                                  const legacyCombinedNames = legacyCounterparties
+                                    .map((cp) => cp?._new_company?.name)
+                                    .filter(Boolean) as string[];
+
+                                  const sellersNew = parseEntityArray<EntityRef>(
+                                    ev.sales
+                                  );
+
+                                  const advisors = (
+                                    event.Advisors_of_Corporate_Event || []
+                                  )
+                                    .map((a) => a._new_company?.name)
+                                    .filter(Boolean);
+
+                                  const displayTargets =
+                                    targetsArr.length > 0
+                                      ? isPartnership
+                                        ? dedupeById(targetsArr)
+                                        : dedupeById(targetsArr).slice(0, 1)
+                                      : [];
+
+                                  const targetName =
+                                    targetObj?.name || targetLegacyName;
+                                  const targetHref = targetObj
+                                    ? normalizeEntityHref(targetObj)
+                                    : "";
+
+                                  return (
+                                    <div className="space-y-1">
+                                      {displayTargets.length > 0 ? (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>
+                                            {isPartnership
+                                              ? "Target(s):"
+                                              : "Target:"}
+                                          </strong>{" "}
+                                          {displayTargets.map((tgt, i, arr) => {
+                                            const href = normalizeEntityHref(tgt);
+                                            const name = tgt?.name || "Unknown";
+                                            return (
+                                              <span key={`tgt-${tgt?.id ?? i}`}>
+                                                {href ? (
+                                                  <a
+                                                    href={href}
+                                                    className="text-blue-600 underline hover:text-blue-800"
+                                                    style={{ fontWeight: "500" }}
+                                                  >
+                                                    {name}
+                                                  </a>
+                                                ) : (
+                                                  <span>{name}</span>
+                                                )}
+                                                {i < arr.length - 1 && ", "}
+                                              </span>
+                                            );
+                                          })}
+                                        </div>
+                                      ) : targetName ? (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>
+                                            {isPartnership
+                                              ? "Target(s):"
+                                              : "Target:"}
+                                          </strong>{" "}
+                                          {targetHref ? (
                                             <a
-                                              href={href}
-                                              className="text-blue-700 hover:text-blue-900"
+                                              href={targetHref}
+                                              className="text-blue-600 underline hover:text-blue-800"
+                                              style={{ fontWeight: "500" }}
                                             >
-                                              {name}
+                                              {targetName}
                                             </a>
                                           ) : (
-                                            <span>{name}</span>
+                                            <span>{targetName}</span>
                                           )}
-                                          {i < arr.length - 1 && ", "}
-                                        </span>
-                                      );
-                                    })
-                                  ) : investorNames.length > 0 ? (
-                                    <span>{investorNames.join(", ")}</span>
-                                  ) : (
-                                    <span className="text-gray-400">
-                                      Not Available
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
+                                        </div>
+                                      ) : null}
 
-                              <div className="flex gap-3">
-                                <div className="w-28 text-gray-500">Type</div>
-                                <div className="flex-1 font-medium text-gray-900">
-                                  {dealType || (
-                                    <span className="text-gray-400">
-                                      Not Available
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
+                                      {buyersArr.length > 0 && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Buyer(s):</strong>{" "}
+                                          {dedupeById(buyersArr).map(
+                                            (b, i, arr) => {
+                                              const href = normalizeEntityHref(b);
+                                              const name = b?.name || "Unknown";
+                                              return (
+                                                <span key={`buyer-${i}`}>
+                                                  {href ? (
+                                                    <a
+                                                      href={href}
+                                                      className="text-blue-600 underline hover:text-blue-800"
+                                                      style={{
+                                                        fontWeight: "500",
+                                                      }}
+                                                    >
+                                                      {name}
+                                                    </a>
+                                                  ) : (
+                                                    <span>{name}</span>
+                                                  )}
+                                                  {i < arr.length - 1 && ", "}
+                                                </span>
+                                              );
+                                            }
+                                          )}
+                                        </div>
+                                      )}
 
-                              <div className="flex gap-3">
-                                <div className="w-28 text-gray-500">Amount</div>
-                                <div className="flex-1 font-medium text-gray-900">
-                                  {amount || (
-                                    <span className="text-gray-400">
-                                      Not Available
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
+                                      {investorsArr.length > 0 && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Investor(s):</strong>{" "}
+                                          {dedupeById(investorsArr).map(
+                                            (inv, i, arr) => {
+                                              const href =
+                                                normalizeEntityHref(inv);
+                                              const name = inv?.name || "Unknown";
+                                              return (
+                                                <span key={`investor-${i}`}>
+                                                  {href ? (
+                                                    <a
+                                                      href={href}
+                                                      className="text-blue-600 underline hover:text-blue-800"
+                                                      style={{
+                                                        fontWeight: "500",
+                                                      }}
+                                                    >
+                                                      {name}
+                                                    </a>
+                                                  ) : (
+                                                    <span>{name}</span>
+                                                  )}
+                                                  {i < arr.length - 1 && ", "}
+                                                </span>
+                                              );
+                                            }
+                                          )}
+                                        </div>
+                                      )}
 
-                              <div className="flex gap-3">
-                                <div className="w-28 text-gray-500">Primary</div>
-                                <div className="flex-1 font-medium text-gray-900">
-                                  {primaryRefs.length > 0 ? (
-                                    primaryRefs.map((s, i, arr) => (
-                                      <span key={`primary-${s.id}`}>
-                                        <a
-                                          href={`/sector/${s.id}`}
-                                          className="text-blue-700 hover:text-blue-900"
-                                        >
-                                          {s.name}
-                                        </a>
-                                        {i < arr.length - 1 && ", "}
-                                      </span>
-                                    ))
-                                  ) : primary && primary !== "Not Available" ? (
-                                    <span>{primary}</span>
-                                  ) : (
-                                    <span className="text-gray-400">
-                                      Not Available
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
+                                      {buyersArr.length === 0 &&
+                                        investorsArr.length === 0 &&
+                                        (buyersInvestorsCombined.length > 0 ||
+                                          legacyCombinedNames.length > 0) && (
+                                          <div className="text-xs text-gray-500">
+                                            <strong>
+                                              Buyer(s) / Investor(s):
+                                            </strong>{" "}
+                                            {buyersInvestorsCombined.length > 0
+                                              ? dedupeById(
+                                                  buyersInvestorsCombined
+                                                ).map((b, i, arr) => {
+                                                  const href =
+                                                    normalizeEntityHref(b);
+                                                  const name =
+                                                    b?.name || "Unknown";
+                                                  return (
+                                                    <span key={`bi-${i}`}>
+                                                      {href ? (
+                                                        <a
+                                                          href={href}
+                                                          className="text-blue-600 underline hover:text-blue-800"
+                                                          style={{
+                                                            fontWeight: "500",
+                                                          }}
+                                                        >
+                                                          {name}
+                                                        </a>
+                                                      ) : (
+                                                        <span>{name}</span>
+                                                      )}
+                                                      {i < arr.length - 1 && ", "}
+                                                    </span>
+                                                  );
+                                                })
+                                              : legacyCombinedNames.join(", ")}
+                                          </div>
+                                        )}
 
-                              <div className="flex gap-3">
-                                <div className="w-28 text-gray-500">
-                                  Secondary
-                                </div>
-                                <div className="flex-1 font-medium text-gray-900">
-                                  {secondaryRefs.length > 0 ? (
-                                    secondaryRefs.map((s, i, arr) => (
-                                      <span key={`secondary-${s.id}`}>
-                                        <a
-                                          href={`/sub-sector/${s.id}`}
-                                          className="text-blue-700 hover:text-blue-900"
-                                        >
-                                          {s.name}
-                                        </a>
-                                        {i < arr.length - 1 && ", "}
-                                      </span>
-                                    ))
-                                  ) : secondary.length > 0 ? (
-                                    <span>{secondary.join(", ")}</span>
-                                  ) : (
-                                    <span className="text-gray-400">
-                                      Not Available
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
+                                      {sellersNew.length > 0 && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Seller(s):</strong>{" "}
+                                          {dedupeById(sellersNew).map(
+                                            (s, i, arr) => {
+                                              const href = normalizeEntityHref(s);
+                                              const name = s?.name || "Unknown";
+                                              return (
+                                                <span key={`seller-${i}`}>
+                                                  {href ? (
+                                                    <a
+                                                      href={href}
+                                                      className="text-blue-600 underline hover:text-blue-800"
+                                                      style={{
+                                                        fontWeight: "500",
+                                                      }}
+                                                    >
+                                                      {name}
+                                                    </a>
+                                                  ) : (
+                                                    <span>{name}</span>
+                                                  )}
+                                                  {i < arr.length - 1 && ", "}
+                                                </span>
+                                              );
+                                            }
+                                          )}
+                                        </div>
+                                      )}
 
-                              <div className="pt-2 mt-1 border-t border-gray-100 text-sm">
-                                <span className="text-gray-500">Date:</span>{" "}
-                                <span className="text-gray-700">
-                                  {formatDate(ev.date || event.announcement_date)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                                      {advisors.length > 0 && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Advisor(s):</strong>{" "}
+                                          {advisors.join(", ")}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </td>
+                              <td className="px-4 py-4 text-xs text-gray-900">
+                                {/* Deal Details column */}
+                                {(() => {
+                                  const details = safeParseJson<{
+                                    Type?: string;
+                                    Funding_Stage?: string;
+                                    Amount?: string;
+                                    Investment_Amount?: {
+                                      value?: number;
+                                      currency?: string;
+                                      formatted?: string;
+                                    };
+                                    Enterprise_Value?: {
+                                      value?: number;
+                                      currency?: string;
+                                      formatted?: string;
+                                    } | null;
+                                  }>(ev.deal_details);
+
+                                  const dealType =
+                                    details?.Type || event.deal_type;
+
+                                  const fundingStage = (
+                                    (details?.Funding_Stage ||
+                                      (event as {
+                                        investment_data?: {
+                                          Funding_stage?: string;
+                                          funding_stage?: string;
+                                        };
+                                      }).investment_data?.Funding_stage ||
+                                      (event as {
+                                        investment_data?: {
+                                          Funding_stage?: string;
+                                          funding_stage?: string;
+                                        };
+                                      }).investment_data?.funding_stage ||
+                                      "") as string
+                                  ).trim();
+
+                                  const rawAmount = (details?.Amount || "")
+                                    .toString()
+                                    .trim();
+                                  const cleanedAmount = rawAmount.replace(
+                                    /^amount:\s*/i,
+                                    ""
+                                  );
+                                  const formatAmountString = (
+                                    value: string
+                                  ): string => {
+                                    const v = (value || "").trim();
+                                    if (!v) return "";
+                                    const m1 = v.match(
+                                      /^(?:Currency:)?\s*([A-Z]{3})\s*([0-9]+(?:[.,][0-9]+)?)/i
+                                    );
+                                    if (m1)
+                                      return `${m1[1].toUpperCase()}${m1[2]}`;
+                                    const m2 = v.match(
+                                      /^([0-9]+(?:[.,][0-9]+)?)\s*([A-Z]{3})$/i
+                                    );
+                                    if (m2)
+                                      return `${m2[2].toUpperCase()}${m2[1]}`;
+                                    const m3 = v.match(/^([A-Z]{3})([0-9].*)$/i);
+                                    if (m3)
+                                      return `${m3[1].toUpperCase()}${m3[2]}`;
+                                    return v;
+                                  };
+
+                                  const formatAmountObject = (opts?: {
+                                    value?: number;
+                                    currency?: string;
+                                    formatted?: string;
+                                  }): string => {
+                                    if (!opts) return "";
+                                    const { value, currency, formatted } = opts;
+                                    if (formatted && formatted.trim()) {
+                                      return formatted.trim();
+                                    }
+                                    if (
+                                      typeof value === "number" &&
+                                      typeof currency === "string" &&
+                                      currency.trim()
+                                    ) {
+                                      return `${currency.trim().toUpperCase()}${value}`;
+                                    }
+                                    return "";
+                                  };
+
+                                  const amountFromDetailsObject =
+                                    formatAmountObject(details?.Investment_Amount);
+                                  const amountFromDetailsString =
+                                    formatAmountString(cleanedAmount);
+
+                                  const amount =
+                                    amountFromDetailsObject ||
+                                    amountFromDetailsString ||
+                                    (event.investment_data?.investment_amount_m &&
+                                    event.investment_data?.currrency?.Currency
+                                      ? `${String(
+                                          event.investment_data.currrency.Currency
+                                        )}${String(
+                                          event.investment_data
+                                            .investment_amount_m
+                                        )}`
+                                      : "");
+
+                                  const valuationFromDetails =
+                                    formatAmountObject(
+                                      details?.Enterprise_Value ?? undefined
+                                    );
+                                  const valuationFallback =
+                                    event.ev_data?.enterprise_value_m &&
+                                    event.ev_data?.Currency
+                                      ? `${event.ev_data.enterprise_value_m} ${event.ev_data.Currency}`
+                                      : "";
+                                  const valuation =
+                                    valuationFromDetails || valuationFallback;
+
+                                  return (
+                                    <div className="space-y-1">
+                                      {dealType && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Type:</strong> {dealType}
+                                        </div>
+                                      )}
+                                      {fundingStage && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Deal Stage:</strong>{" "}
+                                          <span className="inline-block px-2 py-0.5 ml-1 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">
+                                            {fundingStage}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {amount && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Amount (m):</strong> {amount}
+                                        </div>
+                                      )}
+                                      {valuation && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>EV:</strong> {valuation}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </td>
+                              <td className="px-4 py-4 text-xs text-gray-900">
+                                {/* Sectors column */}
+                                {(() => {
+                                  const sectors = safeParseJson<{
+                                    Primary?: string[];
+                                    Secondary?: string[];
+                                  }>(ev.sectors);
+
+                                  const primaryNewArr = Array.isArray(sectors?.Primary)
+                                    ? (sectors!.Primary as string[]).filter(Boolean)
+                                    : [];
+                                  const secondaryNewArr = Array.isArray(sectors?.Secondary)
+                                    ? (sectors!.Secondary as string[]).filter(Boolean)
+                                    : [];
+
+                                  const primaryRefs = parseSectorRefs(ev.primary);
+                                  const secondaryRefs = parseSectorRefs(ev.secondary);
+
+                                  const primaryFromNew = primaryNewArr.join(", ");
+                                  const secondaryFromNew = secondaryNewArr.slice(0, 3);
+
+                                  const primary =
+                                    primaryFromNew ||
+                                    (primaryRefs.length > 0
+                                      ? primaryRefs.map((s) => s.name).join(", ")
+                                      : "") ||
+                                    getEventPrimarySectors(event);
+                                  const list =
+                                    event.Target_Counterparty?.new_company
+                                      ?._sectors_objects?.sectors_id || [];
+                                  const secondaryLegacy = list
+                                    .filter(
+                                      (sector) =>
+                                        sector &&
+                                        sector.Sector_importance !== "Primary"
+                                    )
+                                    .map((sector) => sector.sector_name)
+                                    .filter(Boolean)
+                                    .slice(0, 3);
+                                  const secondary =
+                                    secondaryFromNew.length > 0
+                                      ? secondaryFromNew
+                                      : secondaryRefs.length > 0
+                                      ? secondaryRefs.slice(0, 3).map((s) => s.name)
+                                      : secondaryLegacy;
+                                  return (
+                                    <div className="space-y-1">
+                                      {primary && primary !== "Not Available" && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Primary:</strong>{" "}
+                                          {primaryRefs.length > 0
+                                            ? primaryRefs.map((s, idx, arr) => (
+                                                <span key={`primary-${s.id}`}>
+                                                  <a
+                                                    href={`/sector/${s.id}`}
+                                                    className="text-blue-600 underline hover:text-blue-800"
+                                                  >
+                                                    {s.name}
+                                                  </a>
+                                                  {idx < arr.length - 1 && ", "}
+                                                </span>
+                                              ))
+                                            : primary.split(",").map((name, idx, arr) => {
+                                                const trimmed = name.trim();
+                                                return (
+                                                  <span key={`primary-${idx}`}>
+                                                    {trimmed}
+                                                    {idx < arr.length - 1 && ", "}
+                                                  </span>
+                                                );
+                                              })}
+                                        </div>
+                                      )}
+                                      {secondary.length > 0 && (
+                                        <div className="text-xs text-gray-500">
+                                          <strong>Secondary:</strong>{" "}
+                                          {secondaryRefs.length > 0
+                                            ? secondaryRefs.slice(0, 3).map((s, idx, arr) => (
+                                                <span key={`secondary-${s.id}`}>
+                                                  <a
+                                                    href={`/sub-sector/${s.id}`}
+                                                    className="text-blue-600 underline hover:text-blue-800"
+                                                  >
+                                                    {s.name}
+                                                  </a>
+                                                  {idx < arr.length - 1 && ", "}
+                                                </span>
+                                              ))
+                                            : secondary.map((name, idx, arr) => (
+                                                <span key={`secondary-${idx}`}>
+                                                  {name}
+                                                  {idx < arr.length - 1 && ", "}
+                                                </span>
+                                              ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               ) : (
