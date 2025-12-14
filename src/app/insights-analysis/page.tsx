@@ -283,6 +283,7 @@ const InsightsAnalysisCards = ({
           key={article.id}
           article={article}
           showMeta={true}
+          badgeBelowDate={true}
         />
       ))}
     </div>

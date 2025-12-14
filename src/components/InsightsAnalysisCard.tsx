@@ -12,6 +12,11 @@ interface InsightsAnalysisCardProps {
    * we typically hide this to keep the card compact.
    */
   showMeta?: boolean;
+  /**
+   * When true, places the content type badge below the publication date
+   * instead of in the header row. This allows the title to span full width.
+   */
+  badgeBelowDate?: boolean;
 }
 
 const formatDate = (dateString: string) => {
@@ -144,6 +149,7 @@ const badgeClassFor = (contentType?: string): React.CSSProperties => {
 export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
   article,
   showMeta = true,
+  badgeBelowDate = false,
 }) => {
   const router = useRouter();
 
@@ -204,46 +210,86 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
           "0 4px 10px rgba(15, 23, 42, 0.08)";
       }}
     >
-      {/* Header row: Title + Badge */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          gap: 12,
-          marginBottom: 8,
-        }}
-      >
-        <h3
-          style={{
-            fontSize: 18,
-            fontWeight: 700,
-            color: "#111827",
-            margin: 0,
-            lineHeight: 1.3,
-            flex: 1,
-          }}
-        >
-          {plainHeadline || "Not available"}
-        </h3>
-        {article.Content_Type && (
-          <span style={badgeClassFor(article.Content_Type)}>
-            {article.Content_Type}
-          </span>
-        )}
-      </div>
+      {badgeBelowDate ? (
+        <>
+          {/* Title (full width) */}
+          <h3
+            style={{
+              fontSize: 18,
+              fontWeight: 700,
+              color: "#111827",
+              margin: "0 0 8px 0",
+              lineHeight: 1.3,
+            }}
+          >
+            {plainHeadline || "Not available"}
+          </h3>
 
-      {/* Date */}
-      <p
-        style={{
-          fontSize: 13,
-          color: "#6b7280",
-          margin: "0 0 10px 0",
-          fontWeight: 500,
-        }}
-      >
-        {formatDate(article.Publication_Date)}
-      </p>
+          {/* Date */}
+          <p
+            style={{
+              fontSize: 13,
+              color: "#6b7280",
+              margin: "0 0 10px 0",
+              fontWeight: 500,
+            }}
+          >
+            {formatDate(article.Publication_Date)}
+          </p>
+
+          {/* Badge (below date) */}
+          {article.Content_Type && (
+            <div style={{ marginBottom: 10 }}>
+              <span style={badgeClassFor(article.Content_Type)}>
+                {article.Content_Type}
+              </span>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Header row: Title + Badge */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              gap: 12,
+              marginBottom: 8,
+            }}
+          >
+            <h3
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: "#111827",
+                margin: 0,
+                lineHeight: 1.3,
+                flex: 1,
+              }}
+            >
+              {plainHeadline || "Not available"}
+            </h3>
+            {article.Content_Type && (
+              <span style={badgeClassFor(article.Content_Type)}>
+                {article.Content_Type}
+              </span>
+            )}
+          </div>
+
+          {/* Date */}
+          <p
+            style={{
+              fontSize: 13,
+              color: "#6b7280",
+              margin: "0 0 10px 0",
+              fontWeight: 500,
+            }}
+          >
+            {formatDate(article.Publication_Date)}
+          </p>
+        </>
+      )}
 
       {/* Strapline */}
       {plainStrapline && (
