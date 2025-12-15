@@ -17,7 +17,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ContentArticle } from "@/types/insightsAnalysis";
-import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
+import { InsightsAnalysisCard } from "@/components/InsightsAnalysisCard";
 // import { locationsService } from "@/lib/locationsService"; // removed: sectors normalization not used anymore
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
@@ -1940,9 +1940,6 @@ const CompanyDetail = () => {
       (company.Managmant_Roles_past && company.Managmant_Roles_past.length > 0)
   );
 
-  // Determine if there are articles to display
-  const hasArticles = companyArticles.length > 0;
-
   // Market Overview removed: no TradingView symbols computation
 
   // Build a readable former name string if present
@@ -3541,63 +3538,6 @@ const CompanyDetail = () => {
                 </>
               )}
 
-              {/* Divider between Corporate Events and Insights */}
-              {hasArticles &&
-                (corporateEventsLoading || corporateEvents.length > 0) && (
-                  <div
-                    style={{ borderTop: "1px solid #e2e8f0", margin: "16px 0" }}
-                  />
-                )}
-
-              {/* Insights & Analysis moved into Overview */}
-              {(articlesLoading || companyArticles.length > 0) && (
-                <>
-                  <div style={{ marginTop: "8px" }}>
-                    <h3
-                      style={{
-                        ...styles.sectionTitle,
-                        fontSize: "17px",
-                        marginBottom: "12px",
-                      }}
-                    >
-                      Insights & Analysis{" "}
-                    </h3>
-                    {articlesLoading ? (
-                      <div
-                        style={{
-                          textAlign: "center",
-                          padding: "20px",
-                          color: "#666",
-                          fontSize: "14px",
-                        }}
-                      >
-                        Loading content...
-                      </div>
-                    ) : companyArticles.length > 0 ? (
-                      <div className="insights-grid">
-                        {companyArticles.map((article) => (
-                          <InsightsAnalysisCard
-                            key={article.id}
-                            article={article}
-                            showMeta={false}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div
-                        style={{
-                          textAlign: "center",
-                          padding: "20px",
-                          color: "#666",
-                          fontSize: "14px",
-                        }}
-                      >
-                        No related content found
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
             </div>
 
             {/* Desktop Financial Metrics */}
@@ -4234,6 +4174,48 @@ const CompanyDetail = () => {
 
             {/* Market Overview removed */}
           </div>
+
+          {/* Insights & Analysis - Full Width Section */}
+          {(articlesLoading || companyArticles.length > 0) && (
+            <div style={{ ...styles.card, marginTop: "24px" }}>
+              <h2 style={styles.sectionTitle}>
+                Insights & Analysis
+              </h2>
+              {articlesLoading ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "20px",
+                    color: "#666",
+                    fontSize: "14px",
+                  }}
+                >
+                  Loading content...
+                </div>
+              ) : companyArticles.length > 0 ? (
+                <div className="insights-grid">
+                  {companyArticles.map((article) => (
+                    <InsightsAnalysisCard
+                      key={article.id}
+                      article={article}
+                      showMeta={false}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "20px",
+                    color: "#666",
+                    fontSize: "14px",
+                  }}
+                >
+                  No related content found
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Mobile Financial Metrics */}
           <div
