@@ -802,28 +802,37 @@ export default function HomeUserPage() {
 
           {/* Insights & Analysis */}
           <div className="bg-white rounded-lg shadow border-2 border-blue-200 order-2 lg:col-span-1 xl:col-span-8">
-            <div className="flex items-center gap-3 p-3 border-b border-gray-200 sm:p-4">
-              <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M9 21h6M10 17h4M8.5 14.6c-1.9-1.3-3.1-3.4-3.1-5.7C5.4 5.6 8.4 3 12 3s6.6 2.6 6.6 5.9c0 2.3-1.2 4.4-3.1 5.7-.8.5-1.3 1.4-1.3 2.4V18H9.8v-1c0-1-.5-1.9-1.3-2.4Z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M9 21h6M10 17h4M8.5 14.6c-1.9-1.3-3.1-3.4-3.1-5.7C5.4 5.6 8.4 3 12 3s6.6 2.6 6.6 5.9c0 2.3-1.2 4.4-3.1 5.7-.8.5-1.3 1.4-1.3 2.4V18H9.8v-1c0-1-.5-1.9-1.3-2.4Z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+                <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
+                  Insights &amp; Analysis
+                </h2>
               </div>
-              <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
-                Insights &amp; Analysis
-              </h2>
+              <a
+                href="/insights-analysis"
+                className="text-xs font-medium text-blue-600 underline hover:text-blue-800"
+                style={{ fontWeight: "500" }}
+              >
+                View all
+              </a>
             </div>
             <div className="p-3 sm:p-4">
               {insightsArticles.length > 0 ? (
@@ -998,69 +1007,215 @@ export default function HomeUserPage() {
                           <div className="space-y-1 text-xs text-gray-500">
                             <div>
                               <strong>Date:</strong>{" "}
-                              {formatDate(
+                              {(() => {
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                (event as any)?.date || event.announcement_date
-                              )}
+                                const ev: any = event as any;
+                                return formatDate(ev.date || event.announcement_date);
+                              })()}
                             </div>
                             <div>
                               <strong>Target:</strong>{" "}
                               {(() => {
-                                const tgtVal = (
-                                  event as unknown as {
-                                    target?: unknown;
-                                    all_targets?: unknown;
-                                  }
-                                ).target;
-                                const allTargets = parseEntityArray<EntityRef>(
-                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                  (event as any)?.all_targets
-                                );
-                                const tgtObj =
-                                  (typeof tgtVal === "string"
-                                    ? safeParseJson<EntityRef>(tgtVal)
-                                    : typeof tgtVal === "object"
-                                    ? (tgtVal as EntityRef)
-                                    : null) || null;
-                                const tgtFallback =
-                                  !tgtObj && allTargets.length > 0
-                                    ? allTargets[0]
-                                    : null;
-                                const name =
-                                  tgtObj?.name ||
-                                  tgtFallback?.name ||
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
+                                const isPartnership =
+                                  (ev.deal_type || "")
+                                    .toLowerCase()
+                                    .trim() === "partnership";
+
+                                const targetsArr =
+                                  parseEntityArray<EntityRef>(ev.targets);
+
+                                const targetObj = (safeParseJson<EntityRef>(
+                                  ev.target
+                                ) ||
+                                  (typeof ev.target === "object"
+                                    ? (ev.target as Record<string, unknown>)
+                                    : null)) as EntityRef | null;
+                                const targetLegacyName =
                                   event.Target_Counterparty?.new_company?.name;
-                                const href = tgtObj
-                                  ? normalizeEntityHref(tgtObj)
-                                  : tgtFallback
-                                  ? normalizeEntityHref(tgtFallback)
+
+                                const displayTargets =
+                                  targetsArr.length > 0
+                                    ? isPartnership
+                                      ? dedupeById(targetsArr)
+                                      : dedupeById(targetsArr).slice(0, 1)
+                                    : [];
+
+                                const targetName =
+                                  targetObj?.name || targetLegacyName;
+                                const targetHref = targetObj
+                                  ? normalizeEntityHref(targetObj)
                                   : "";
-                                if (!name) return <span>Not Available</span>;
-                                return href ? (
-                                  <a
-                                    href={href}
-                                    className="text-blue-600 underline hover:text-blue-800"
-                                    style={{ fontWeight: "500" }}
-                                  >
-                                    {name}
-                                  </a>
-                                ) : (
-                                  <span>{name}</span>
-                                );
+
+                                if (displayTargets.length > 0) {
+                                  return (
+                                    <>
+                                      {displayTargets.map((tgt, i, arr) => {
+                                        const href = normalizeEntityHref(tgt);
+                                        const name = tgt?.name || "Unknown";
+                                        return (
+                                          <span key={`m-tgt-${tgt?.id ?? i}`}>
+                                            {href ? (
+                                              <a
+                                                href={href}
+                                                className="text-blue-600 underline hover:text-blue-800"
+                                                style={{ fontWeight: "500" }}
+                                              >
+                                                {name}
+                                              </a>
+                                            ) : (
+                                              <span>{name}</span>
+                                            )}
+                                            {i < arr.length - 1 && ", "}
+                                          </span>
+                                        );
+                                      })}
+                                    </>
+                                  );
+                                } else if (targetName) {
+                                  return targetHref ? (
+                                    <a
+                                      href={targetHref}
+                                      className="text-blue-600 underline hover:text-blue-800"
+                                      style={{ fontWeight: "500" }}
+                                    >
+                                      {targetName}
+                                    </a>
+                                  ) : (
+                                    <span>{targetName}</span>
+                                  );
+                                }
+                                return <span>Not Available</span>;
                               })()}
                             </div>
                             <div>
                               <strong>Type:</strong>{" "}
-                              {
+                              {(() => {
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                (event as any)?.type ||
-                                  event.deal_type ||
-                                  "Not Available"
-                              }
+                                const ev: any = event as any;
+                                const details = safeParseJson<{
+                                  Type?: string;
+                                  Funding_Stage?: string;
+                                  Amount?: string;
+                                  Investment_Amount?: {
+                                    value?: number;
+                                    currency?: string;
+                                    formatted?: string;
+                                  };
+                                  Enterprise_Value?: {
+                                    value?: number;
+                                    currency?: string;
+                                    formatted?: string;
+                                  } | null;
+                                }>(ev.deal_details);
+
+                                const dealType =
+                                  details?.Type || ev.deal_type || ev.type;
+                                return dealType || "Not Available";
+                              })()}
+                            </div>
+                            <div>
+                              <strong>Deal Stage:</strong>{" "}
+                              {(() => {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
+                                const details = safeParseJson<{
+                                  Funding_Stage?: string;
+                                }>(ev.deal_details);
+
+                                const fundingStage = (
+                                  (details?.Funding_Stage ||
+                                    (event as {
+                                      investment_data?: {
+                                        Funding_stage?: string;
+                                        funding_stage?: string;
+                                      };
+                                    }).investment_data?.Funding_stage ||
+                                    (event as {
+                                      investment_data?: {
+                                        Funding_stage?: string;
+                                        funding_stage?: string;
+                                      };
+                                    }).investment_data?.funding_stage ||
+                                    "") as string
+                                ).trim();
+
+                                if (!fundingStage) return "Not Available";
+                                return (
+                                  <span className="inline-block px-2 py-0.5 ml-1 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">
+                                    {fundingStage}
+                                  </span>
+                                );
+                              })()}
                             </div>
                             <div>
                               <strong>Amount (m):</strong>{" "}
                               {(() => {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
+                                const details = safeParseJson<{
+                                  Amount?: string;
+                                  Investment_Amount?: {
+                                    value?: number;
+                                    currency?: string;
+                                    formatted?: string;
+                                  };
+                                }>(ev.deal_details);
+
+                                const rawAmount = (details?.Amount || "")
+                                  .toString()
+                                  .trim();
+                                const cleanedAmount = rawAmount.replace(
+                                  /^amount:\s*/i,
+                                  ""
+                                );
+                                const formatAmountString = (
+                                  value: string
+                                ): string => {
+                                  const v = (value || "").trim();
+                                  if (!v) return "";
+                                  const m1 = v.match(
+                                    /^(?:Currency:)?\s*([A-Z]{3})\s*([0-9]+(?:[.,][0-9]+)?)/i
+                                  );
+                                  if (m1)
+                                    return `${m1[1].toUpperCase()}${m1[2]}`;
+                                  const m2 = v.match(
+                                    /^([0-9]+(?:[.,][0-9]+)?)\s*([A-Z]{3})$/i
+                                  );
+                                  if (m2)
+                                    return `${m2[2].toUpperCase()}${m2[1]}`;
+                                  const m3 = v.match(/^([A-Z]{3})([0-9].*)$/i);
+                                  if (m3)
+                                    return `${m3[1].toUpperCase()}${m3[2]}`;
+                                  return v;
+                                };
+
+                                const formatAmountObject = (opts?: {
+                                  value?: number;
+                                  currency?: string;
+                                  formatted?: string;
+                                }): string => {
+                                  if (!opts) return "";
+                                  const { value, currency, formatted } = opts;
+                                  if (formatted && formatted.trim()) {
+                                    return formatted.trim();
+                                  }
+                                  if (
+                                    typeof value === "number" &&
+                                    typeof currency === "string" &&
+                                    currency.trim()
+                                  ) {
+                                    return `${currency.trim().toUpperCase()}${value}`;
+                                  }
+                                  return "";
+                                };
+
+                                const amountFromDetailsObject =
+                                  formatAmountObject(details?.Investment_Amount);
+                                const amountFromDetailsString =
+                                  formatAmountString(cleanedAmount);
+
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 const amountRaw = (event as any)?.amount;
                                 const parsed = safeParseJson<{
@@ -1077,25 +1232,99 @@ export default function HomeUserPage() {
                                         parsed.currency
                                       )}`
                                     : "");
-                                if (fromNew) return fromNew;
-                                if (
-                                  event.investment_data?.investment_amount_m &&
+
+                                const amount =
+                                  amountFromDetailsObject ||
+                                  amountFromDetailsString ||
+                                  fromNew ||
+                                  (event.investment_data?.investment_amount_m &&
                                   event.investment_data?.currrency?.Currency
-                                ) {
-                                  return `${event.investment_data.currrency.Currency}${event.investment_data.investment_amount_m}`;
-                                }
-                                return "Not Available";
+                                    ? `${event.investment_data.currrency.Currency}${event.investment_data.investment_amount_m}`
+                                    : "");
+
+                                return amount || "Not Available";
+                              })()}
+                            </div>
+                            <div>
+                              <strong>EV:</strong>{" "}
+                              {(() => {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
+                                const details = safeParseJson<{
+                                  Enterprise_Value?: {
+                                    value?: number;
+                                    currency?: string;
+                                    formatted?: string;
+                                  } | null;
+                                }>(ev.deal_details);
+
+                                const formatAmountObject = (opts?: {
+                                  value?: number;
+                                  currency?: string;
+                                  formatted?: string;
+                                }): string => {
+                                  if (!opts) return "";
+                                  const { value, currency, formatted } = opts;
+                                  if (formatted && formatted.trim()) {
+                                    return formatted.trim();
+                                  }
+                                  if (
+                                    typeof value === "number" &&
+                                    typeof currency === "string" &&
+                                    currency.trim()
+                                  ) {
+                                    return `${currency.trim().toUpperCase()}${value}`;
+                                  }
+                                  return "";
+                                };
+
+                                const valuationFromDetails =
+                                  formatAmountObject(
+                                    details?.Enterprise_Value ?? undefined
+                                  );
+                                const valuationFallback =
+                                  event.ev_data?.enterprise_value_m &&
+                                  event.ev_data?.Currency
+                                    ? `${event.ev_data.enterprise_value_m} ${event.ev_data.Currency}`
+                                    : "";
+                                const valuation =
+                                  valuationFromDetails || valuationFallback;
+
+                                return valuation || "Not Available";
                               })()}
                             </div>
                             <div>
                               <strong>Primary:</strong>{" "}
                               {(() => {
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                const primaryRefs = parseSectorRefs((event as any)?.primary);
-                                if (primaryRefs.length === 0) return "Not Available";
-                                return (
+                                const ev: any = event as any;
+                                const sectors = safeParseJson<{
+                                  Primary?: string[];
+                                  Secondary?: string[];
+                                }>(ev.sectors);
+
+                                const primaryNewArr = Array.isArray(sectors?.Primary)
+                                  ? (sectors!.Primary as string[]).filter(Boolean)
+                                  : [];
+
+                                const primaryRefs = parseSectorRefs(ev.primary);
+
+                                const primaryFromNew = primaryNewArr.join(", ");
+
+                                const primary =
+                                  primaryFromNew ||
+                                  (primaryRefs.length > 0
+                                    ? primaryRefs.map((s) => s.name).join(", ")
+                                    : "") ||
+                                  getEventPrimarySectors(event);
+
+                                if (!primary || primary === "Not Available") {
+                                  return "Not Available";
+                                }
+
+                                return primaryRefs.length > 0 ? (
                                   <>
-                                    {primaryRefs.map((s, i, arr) => (
+                                    {primaryRefs.map((s, idx, arr) => (
                                       <span key={`m-primary-${s.id}`}>
                                         <a
                                           href={`/sector/${s.id}`}
@@ -1104,9 +1333,21 @@ export default function HomeUserPage() {
                                         >
                                           {s.name}
                                         </a>
-                                        {i < arr.length - 1 && ", "}
+                                        {idx < arr.length - 1 && ", "}
                                       </span>
                                     ))}
+                                  </>
+                                ) : (
+                                  <>
+                                    {primary.split(",").map((name, idx, arr) => {
+                                      const trimmed = name.trim();
+                                      return (
+                                        <span key={`m-primary-str-${idx}`}>
+                                          {trimmed}
+                                          {idx < arr.length - 1 && ", "}
+                                        </span>
+                                      );
+                                    })}
                                   </>
                                 );
                               })()}
@@ -1115,11 +1356,46 @@ export default function HomeUserPage() {
                               <strong>Secondary:</strong>{" "}
                               {(() => {
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                const secondaryRefs = parseSectorRefs((event as any)?.secondary);
-                                if (secondaryRefs.length === 0) return "Not Available";
-                                return (
+                                const ev: any = event as any;
+                                const sectors = safeParseJson<{
+                                  Primary?: string[];
+                                  Secondary?: string[];
+                                }>(ev.sectors);
+
+                                const secondaryNewArr = Array.isArray(sectors?.Secondary)
+                                  ? (sectors!.Secondary as string[]).filter(Boolean)
+                                  : [];
+
+                                const secondaryRefs = parseSectorRefs(ev.secondary);
+
+                                const secondaryFromNew = secondaryNewArr.slice(0, 3);
+
+                                const list =
+                                  event.Target_Counterparty?.new_company
+                                    ?._sectors_objects?.sectors_id || [];
+                                const secondaryLegacy = list
+                                  .filter(
+                                    (sector) =>
+                                      sector &&
+                                      sector.Sector_importance !== "Primary"
+                                  )
+                                  .map((sector) => sector.sector_name)
+                                  .filter(Boolean)
+                                  .slice(0, 3);
+                                const secondary =
+                                  secondaryFromNew.length > 0
+                                    ? secondaryFromNew
+                                    : secondaryRefs.length > 0
+                                    ? secondaryRefs.slice(0, 3).map((s) => s.name)
+                                    : secondaryLegacy;
+
+                                if (secondary.length === 0) {
+                                  return "Not Available";
+                                }
+
+                                return secondaryRefs.length > 0 ? (
                                   <>
-                                    {secondaryRefs.map((s, i, arr) => (
+                                    {secondaryRefs.slice(0, 3).map((s, idx, arr) => (
                                       <span key={`m-secondary-${s.id}`}>
                                         <a
                                           href={`/sub-sector/${s.id}`}
@@ -1128,7 +1404,16 @@ export default function HomeUserPage() {
                                         >
                                           {s.name}
                                         </a>
-                                        {i < arr.length - 1 && ", "}
+                                        {idx < arr.length - 1 && ", "}
+                                      </span>
+                                    ))}
+                                  </>
+                                ) : (
+                                  <>
+                                    {secondary.map((name, idx, arr) => (
+                                      <span key={`m-secondary-str-${idx}`}>
+                                        {name}
+                                        {idx < arr.length - 1 && ", "}
                                       </span>
                                     ))}
                                   </>
