@@ -102,6 +102,8 @@ interface Filters {
   recurringRevenueMax: number | null;
   arrMin: number | null;
   arrMax: number | null;
+  arrPcMin: number | null;
+  arrPcMax: number | null;
   churnMin: number | null;
   churnMax: number | null;
   grrMin: number | null;
@@ -516,6 +518,15 @@ const useCompaniesAPI = () => {
           );
 
           params.append(
+            "ARR_pc_min",
+            (filtersToUse.arrPcMin ?? null)?.toString() ?? ""
+          );
+          params.append(
+            "ARR_pc_max",
+            (filtersToUse.arrPcMax ?? null)?.toString() ?? ""
+          );
+
+          params.append(
             "Churn_min",
             (filtersToUse.churnMin ?? null)?.toString() ?? ""
           );
@@ -581,6 +592,8 @@ const useCompaniesAPI = () => {
           params.append("Recurring_Revenue_max", "");
           params.append("ARR_min", "");
           params.append("ARR_max", "");
+          params.append("ARR_pc_min", "");
+          params.append("ARR_pc_max", "");
           params.append("Churn_min", "");
           params.append("Churn_max", "");
           params.append("GRR_min", "");
@@ -1082,6 +1095,8 @@ const CompanyDashboard = ({
   const [recurringRevenueMax, setRecurringRevenueMax] = useState<number | null>(null);
   const [arrMin, setArrMin] = useState<number | null>(null);
   const [arrMax, setArrMax] = useState<number | null>(null);
+  const [arrPcMin, setArrPcMin] = useState<number | null>(null);
+  const [arrPcMax, setArrPcMax] = useState<number | null>(null);
   const [churnMin, setChurnMin] = useState<number | null>(null);
   const [churnMax, setChurnMax] = useState<number | null>(null);
   const [grrMin, setGrrMin] = useState<number | null>(null);
@@ -1335,6 +1350,8 @@ const CompanyDashboard = ({
       recurringRevenueMax,
       arrMin,
       arrMax,
+      arrPcMin,
+      arrPcMax,
       churnMin,
       churnMax,
       grrMin,
@@ -1384,6 +1401,8 @@ const CompanyDashboard = ({
     recurringRevenueMax,
     arrMin,
     arrMax,
+    arrPcMin,
+    arrPcMax,
     churnMin,
     churnMax,
     grrMin,
@@ -2349,6 +2368,32 @@ const CompanyDashboard = ({
                   />
                 </div>
 
+                <span style={styles.label}>ARR (%)</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={arrPcMin ?? ""}
+                    onChange={(e) =>
+                      setArrPcMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={arrPcMax ?? ""}
+                    onChange={(e) =>
+                      setArrPcMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
                 <span style={styles.label}>Churn (%)</span>
                 <div style={{ display: "flex", gap: "14px" }}>
                   <input
@@ -2608,6 +2653,8 @@ const CompanySection = ({
       currentFilters.recurringRevenueMax !== null ||
       currentFilters.arrMin !== null ||
       currentFilters.arrMax !== null ||
+      currentFilters.arrPcMin !== null ||
+      currentFilters.arrPcMax !== null ||
       currentFilters.churnMin !== null ||
       currentFilters.churnMax !== null ||
       currentFilters.grrMin !== null ||
@@ -2754,6 +2801,15 @@ const CompanySection = ({
         params.append(
           "ARR_max",
           (f.arrMax ?? null)?.toString() ?? ""
+        );
+
+        params.append(
+          "ARR_pc_min",
+          (f.arrPcMin ?? null)?.toString() ?? ""
+        );
+        params.append(
+          "ARR_pc_max",
+          (f.arrPcMax ?? null)?.toString() ?? ""
         );
 
         params.append(
