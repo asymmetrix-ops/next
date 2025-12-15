@@ -4411,13 +4411,13 @@ const CompanyDetail = () => {
             </div>
 
             {/* Market Overview removed */}
-          </div>
+          </div>чч
 
           {/* Asymmetrix Insights & Analysis - Full Width Section */}
           {(articlesLoading || companyArticles.length > 0) && (
             <div style={{ ...styles.card, marginTop: "24px" }}>
               <h2 style={styles.sectionTitle}>
-                Asymmetrix Insights & Analysis
+                Insights & Analysis
               </h2>
               {articlesLoading ? (
                 <div
