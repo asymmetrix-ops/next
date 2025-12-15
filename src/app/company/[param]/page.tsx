@@ -2283,7 +2283,17 @@ const CompanyDetail = () => {
       transform: translateY(-2px);
       box-shadow: 0 4px 6px rgba(0, 117, 223, 0.1);
     }
+    /* Insights & Analysis responsive grid */
+    .insights-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
     @media (max-width: 768px) {
+      .insights-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+      }
       .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
       .desktop-financial-metrics { display: none !important; }
       .mobile-financial-metrics { display: block !important; }
@@ -2338,6 +2348,9 @@ const CompanyDetail = () => {
             {/* Overview card */}
             <div style={styles.card} className="card overview-card">
               <h2 style={styles.sectionTitle}>Overview</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }} className="overview-grid">
+                {/* Left column: Basic fields */}
+                <div>
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
                   Primary Sector(s):
@@ -2612,12 +2625,30 @@ const CompanyDetail = () => {
                   </span>
                 </div>
               )}
-              <div style={styles.infoRowLast} className="info-row">
-                <span style={styles.label} className="info-label">
-                  Description:
-                </span>
-                <div style={styles.value} className="info-value">
-                  {company.description || "No description available"}
+                </div>
+                {/* Right column: Description */}
+                <div style={{ 
+                  padding: '16px', 
+                  backgroundColor: '#f9fafb', 
+                  borderRadius: '8px',
+                  border: '1px solid #e2e8f0'
+                }}>
+                  <h3 style={{ 
+                    fontSize: '14px', 
+                    fontWeight: '600', 
+                    color: '#4a5568',
+                    marginBottom: '12px',
+                    marginTop: '0'
+                  }}>
+                    Description:
+                  </h3>
+                  <div style={{ 
+                    fontSize: '14px', 
+                    color: '#1a202c', 
+                    lineHeight: '1.6' 
+                  }}>
+                    {company.description || "No description available"}
+                  </div>
                 </div>
               </div>
               {/* Management moved into Overview */}
@@ -3518,7 +3549,7 @@ const CompanyDetail = () => {
                   />
                 )}
 
-              {/* Asymmetrix Insights & Analysis moved into Overview */}
+              {/* Insights & Analysis moved into Overview */}
               {(articlesLoading || companyArticles.length > 0) && (
                 <>
                   <div style={{ marginTop: "8px" }}>
@@ -3529,7 +3560,7 @@ const CompanyDetail = () => {
                         marginBottom: "12px",
                       }}
                     >
-                      Asymmetrix Insights & Analysis{" "}
+                      Insights & Analysis{" "}
                     </h3>
                     {articlesLoading ? (
                       <div
@@ -3543,14 +3574,8 @@ const CompanyDetail = () => {
                         Loading content...
                       </div>
                     ) : companyArticles.length > 0 ? (
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "16px",
-                        }}
-                      >
-                        {companyArticles.slice(0, 4).map((article) => (
+                      <div className="insights-grid">
+                        {companyArticles.map((article) => (
                           <InsightsAnalysisCard
                             key={article.id}
                             article={article}
@@ -5582,62 +5607,6 @@ const CompanyDetail = () => {
             </div>
           )}
 
-          {/* Asymmetrix Content moved into Overview above */}
-          {hasArticles && (
-            <div style={{ display: "none" }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "24px",
-                }}
-              >
-                <h2 style={styles.sectionTitle}>
-                  Asymmetrix Insights & Analysis
-                </h2>
-              </div>
-              {articlesLoading ? (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "40px",
-                    color: "#666",
-                    fontSize: "14px",
-                  }}
-                >
-                  Loading content...
-                </div>
-              ) : companyArticles.length > 0 ? (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                  }}
-                >
-                  {companyArticles.slice(0, 4).map((article) => (
-                    <InsightsAnalysisCard
-                      key={article.id}
-                      article={article}
-                      showMeta={false}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "40px",
-                    color: "#666",
-                    fontSize: "14px",
-                  }}
-                >
-                  No related content found
-                </div>
-              )}
-            </div>
-          )}
         </div>
         <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />
       </main>
