@@ -831,6 +831,7 @@ const CompanyDetail = () => {
   const [newInvestorsPast, setNewInvestorsPast] = useState<CompanyInvestor[]>(
     []
   );
+  const [exportingPdf, setExportingPdf] = useState(false);
   // Computed routing targets for investor/company entities referenced in Investors section
   const [investorRouteTargetById, setInvestorRouteTargetById] = useState<
     Record<number, string>
@@ -1590,6 +1591,50 @@ const CompanyDetail = () => {
     }
   }, [company?.name]);
 
+  // Handle PDF export
+  const handleExportPdf = useCallback(async () => {
+    if (!company?.id) {
+      console.error("Company ID not available");
+      return;
+    }
+
+    try {
+      setExportingPdf(true);
+      const response = await fetch(
+        "https://asymmetrix-pdf-service.fly.dev/api/export-company-pdf",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ company_id: company.id }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`PDF export failed: ${response.statusText}`);
+      }
+
+      // Get the PDF blob
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `company-${company.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      alert("Failed to export PDF. Please try again.");
+    } finally {
+      setExportingPdf(false);
+    }
+  }, [company?.id]);
+
   if (loading) {
     return (
       <div className="min-h-screen">
@@ -2330,6 +2375,19 @@ const CompanyDetail = () => {
               </div>
             </div>
             <div style={styles.headerRight}>
+              <button
+                onClick={handleExportPdf}
+                disabled={exportingPdf || !company?.id}
+                style={{
+                  ...styles.reportButton,
+                  backgroundColor: exportingPdf ? "#9ca3af" : "#0075df",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  cursor: exportingPdf || !company?.id ? "not-allowed" : "pointer",
+                }}
+              >
+                {exportingPdf ? "Exporting..." : "Export PDF"}
+              </button>
               <a
                 style={{
                   ...styles.reportButton,

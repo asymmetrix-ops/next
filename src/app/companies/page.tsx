@@ -98,8 +98,6 @@ interface Filters {
   ruleOf40Min: number | null;
   ruleOf40Max: number | null;
   // Subscription Metrics
-  recurringRevenueMin: number | null;
-  recurringRevenueMax: number | null;
   arrMin: number | null;
   arrMax: number | null;
   arrPcMin: number | null;
@@ -500,15 +498,6 @@ const useCompaniesAPI = () => {
 
           // Subscription Metrics min/max
           params.append(
-            "Recurring_Revenue_min",
-            (filtersToUse.recurringRevenueMin ?? null)?.toString() ?? ""
-          );
-          params.append(
-            "Recurring_Revenue_max",
-            (filtersToUse.recurringRevenueMax ?? null)?.toString() ?? ""
-          );
-
-          params.append(
             "ARR_min",
             (filtersToUse.arrMin ?? null)?.toString() ?? ""
           );
@@ -588,8 +577,6 @@ const useCompaniesAPI = () => {
           params.append("Rule_of_40_max", "");
 
           // Subscription Metrics defaults
-          params.append("Recurring_Revenue_min", "");
-          params.append("Recurring_Revenue_max", "");
           params.append("ARR_min", "");
           params.append("ARR_max", "");
           params.append("ARR_pc_min", "");
@@ -1091,8 +1078,6 @@ const CompanyDashboard = ({
   const [ruleOf40Max, setRuleOf40Max] = useState<number | null>(null);
 
   // Subscription Metrics min/max
-  const [recurringRevenueMin, setRecurringRevenueMin] = useState<number | null>(null);
-  const [recurringRevenueMax, setRecurringRevenueMax] = useState<number | null>(null);
   const [arrMin, setArrMin] = useState<number | null>(null);
   const [arrMax, setArrMax] = useState<number | null>(null);
   const [arrPcMin, setArrPcMin] = useState<number | null>(null);
@@ -1346,8 +1331,6 @@ const CompanyDashboard = ({
       ruleOf40Min,
       ruleOf40Max,
       // Subscription Metrics min/max
-      recurringRevenueMin,
-      recurringRevenueMax,
       arrMin,
       arrMax,
       arrPcMin,
@@ -1397,8 +1380,6 @@ const CompanyDashboard = ({
     ruleOf40Min,
     ruleOf40Max,
     // Subscription Metrics min/max
-    recurringRevenueMin,
-    recurringRevenueMax,
     arrMin,
     arrMax,
     arrPcMin,
@@ -2316,32 +2297,6 @@ const CompanyDashboard = ({
                 <h3 style={styles.subHeading} className="filters-sub-heading">
                   Subscription Metrics
                 </h3>
-                <span style={styles.label}>Recurring Revenue (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    placeholder="Min"
-                    value={recurringRevenueMin ?? ""}
-                    onChange={(e) =>
-                      setRecurringRevenueMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    placeholder="Max"
-                    value={recurringRevenueMax ?? ""}
-                    onChange={(e) =>
-                      setRecurringRevenueMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
                 <span style={styles.label}>ARR ($m)</span>
                 <div style={{ display: "flex", gap: "14px" }}>
                   <input
@@ -2649,8 +2604,6 @@ const CompanySection = ({
       currentFilters.ruleOf40Min !== null ||
       currentFilters.ruleOf40Max !== null ||
       // Subscription Metrics
-      currentFilters.recurringRevenueMin !== null ||
-      currentFilters.recurringRevenueMax !== null ||
       currentFilters.arrMin !== null ||
       currentFilters.arrMax !== null ||
       currentFilters.arrPcMin !== null ||
@@ -2739,8 +2692,6 @@ const CompanySection = ({
         appendIfValue("Rule_of_40_max", f.ruleOf40Max);
 
         // Subscription Metrics min/max for export
-        appendIfValue("Recurring_Revenue_min", f.recurringRevenueMin);
-        appendIfValue("Recurring_Revenue_max", f.recurringRevenueMax);
         appendIfValue("ARR_min", f.arrMin);
         appendIfValue("ARR_max", f.arrMax);
         appendIfValue("ARR_pc_min", f.arrPcMin);
