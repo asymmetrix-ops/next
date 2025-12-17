@@ -179,20 +179,44 @@ export class CompaniesCSVExporter {
   static convertToCSV(data: CompanyCSVRow[]): string {
     if (data.length === 0) return "";
 
-    // Get headers from the first object keys
-    const headers = Object.keys(data[0]);
+    // Define all possible headers in order to ensure all columns are included
+    const allHeaders: (keyof CompanyCSVRow)[] = [
+      "Name",
+      "Description",
+      "Primary Sector(s)",
+      "Sectors",
+      "Ownership",
+      "LinkedIn Members",
+      "Country",
+      "Company URL",
+      // Financial Metrics
+      "Revenue",
+      "EBITDA",
+      "Enterprise Value",
+      "Revenue Multiple",
+      "Revenue Growth",
+      "EBITDA Margin",
+      "Rule of 40",
+      // Subscription Metrics
+      "Recurring Revenue",
+      "ARR",
+      "Churn",
+      "GRR",
+      "NRR",
+      "New Clients Revenue Growth",
+    ];
 
     // Create CSV content
     const csvBody = [
       // Headers row
-      headers.map((header) => `"${header}"`).join(","),
+      allHeaders.map((header) => `"${header}"`).join(","),
       // Data rows
       ...data.map((row) =>
-        headers
+        allHeaders
           .map((header) => {
-            const value = row[header as keyof CompanyCSVRow];
-            // Escape quotes and wrap in quotes
-            return `"${String(value).replace(/"/g, '""')}"`;
+            const value = row[header];
+            // Escape quotes and wrap in quotes, default to empty string if undefined
+            return `"${String(value ?? "").replace(/"/g, '""')}"`;
           })
           .join(",")
       ),
