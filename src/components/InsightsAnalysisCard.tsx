@@ -85,6 +85,33 @@ const formatCompanies = (
   return names.length ? names.join(", ") : "Not available";
 };
 
+const normalizeContentTypeLabel = (raw: unknown): string | undefined => {
+  if (typeof raw !== "string") return undefined;
+  const trimmed = decodeHtmlEntities(raw).trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+// Corporate event content sometimes omits `Content_Type`; infer it from the headline prefix
+// (e.g. "Company Analysis – Premialab") so styling matches the company page cards.
+const inferContentTypeFromHeadline = (headline: unknown): string | undefined => {
+  const h = normalizeContentTypeLabel(headline);
+  if (!h) return undefined;
+
+  // Split on en dash/em dash/hyphen with surrounding spaces (common editorial patterns)
+  const parts = h.split(/\s*[–—-]\s*/);
+  const candidate = (parts[0] || "").trim();
+  const c = candidate.toLowerCase();
+
+  const known = new Map<string, string>([
+    ["company analysis", "Company Analysis"],
+    ["deal analysis", "Deal Analysis"],
+    ["sector analysis", "Sector Analysis"],
+    ["hot take", "Hot Take"],
+    ["executive interview", "Executive Interview"],
+  ]);
+  return known.get(c) || undefined;
+};
+
 const badgeClassFor = (contentType?: string): React.CSSProperties => {
   const base: React.CSSProperties = {
     display: "inline-block",
@@ -152,6 +179,19 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
   badgeBelowDate = false,
 }) => {
   const router = useRouter();
+
+  // Robust content type detection across backend shapes
+  const effectiveContentType = React.useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anyA = article as any;
+    return (
+      normalizeContentTypeLabel(anyA?.Content_Type) ||
+      normalizeContentTypeLabel(anyA?.content_type) ||
+      normalizeContentTypeLabel(anyA?.ContentType) ||
+      normalizeContentTypeLabel(anyA?.contentType) ||
+      inferContentTypeFromHeadline(anyA?.Headline)
+    );
+  }, [article]);
 
   const plainHeadline = React.useMemo(
     () => decodeHtmlEntities(article.Headline),
@@ -238,10 +278,10 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
           </p>
 
           {/* Badge (below date) */}
-          {article.Content_Type && (
+          {effectiveContentType && (
             <div style={{ marginBottom: 10 }}>
-              <span style={badgeClassFor(article.Content_Type)}>
-                {article.Content_Type}
+              <span style={badgeClassFor(effectiveContentType)}>
+                {effectiveContentType}
               </span>
             </div>
           )}
@@ -270,9 +310,9 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
             >
               {plainHeadline || "Not available"}
             </h3>
-            {article.Content_Type && (
-              <span style={badgeClassFor(article.Content_Type)}>
-                {article.Content_Type}
+            {effectiveContentType && (
+              <span style={badgeClassFor(effectiveContentType)}>
+                {effectiveContentType}
               </span>
             )}
           </div>

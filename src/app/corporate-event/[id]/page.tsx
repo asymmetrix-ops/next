@@ -11,7 +11,7 @@ import {
 } from "../../../types/corporateEvents";
 import { useRightClick } from "@/hooks/useRightClick";
 import { ContentArticle } from "@/types/insightsAnalysis";
-import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
+import { InsightsAnalysisCard } from "@/components/InsightsAnalysisCard";
 
 // Type-safe check for Data & Analytics company flag
 const isDataAnalyticsCompany = (candidate: unknown): boolean => {
@@ -276,7 +276,74 @@ const CorporateEventDetail = ({
           count: Array.isArray(data) ? data.length : undefined,
           payload: data,
         });
-        setEventArticles(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? (data as ContentArticle[]) : [];
+        setEventArticles(list);
+
+        // The corporate-event content list endpoint may omit full `Body` / `Content_Type`.
+        // To match the company page cards (badge + 3-line excerpt), hydrate missing fields
+        // using the authenticated content detail endpoint when a token is available.
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("asymmetrix_auth_token")
+            : null;
+        if (!token || list.length === 0) return;
+
+        const needsHydration = (a: ContentArticle): boolean => {
+          const body = (a as unknown as { Body?: unknown })?.Body;
+          const ct = (a as unknown as { Content_Type?: unknown })?.Content_Type;
+          return (
+            typeof body !== "string" ||
+            body.trim().length === 0 ||
+            (ct != null && typeof ct !== "string")
+          );
+        };
+
+        const toHydrate = list.filter(needsHydration);
+        if (toHydrate.length === 0) return;
+
+        const fetchDetail = async (
+          contentId: number
+        ): Promise<Partial<ContentArticle> | null> => {
+          try {
+            const r = await fetch(
+              `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/${contentId}`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            );
+            if (!r.ok) return null;
+            const json: unknown = await r.json();
+            const raw = (Array.isArray(json) ? (json[0] as unknown) : json) as
+              | Partial<ContentArticle>
+              | undefined;
+            if (!raw || typeof raw !== "object") return null;
+            return raw;
+          } catch {
+            return null;
+          }
+        };
+
+        const details = await Promise.all(
+          toHydrate
+            .filter((a) => typeof a?.id === "number")
+            .map((a) => fetchDetail(a.id))
+        );
+
+        // Merge hydrated fields back into the list (keep existing fields if detail is missing)
+        const byId = new Map<number, ContentArticle>(
+          list.map((a) => [a.id, a])
+        );
+        for (const d of details) {
+          if (!d || typeof d.id !== "number") continue;
+          const prev = byId.get(d.id);
+          if (!prev) continue;
+          byId.set(d.id, { ...(prev as ContentArticle), ...(d as ContentArticle) });
+        }
+        setEventArticles(Array.from(byId.values()));
       } catch (error) {
         console.error("[Insights & Analysis] fetch error", error);
         setEventArticles([]);
@@ -486,8 +553,18 @@ const CorporateEventDetail = ({
     .counterparty-card-full-width {
       grid-column: 1 / -1;
     }
+    /* Insights & Analysis responsive grid */
+    .insights-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
 
     @media (max-width: 768px) {
+      .insights-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+      }
       .corporate-event-content {
         padding: 16px !important;
         gap: 16px !important;
@@ -744,38 +821,53 @@ const CorporateEventDetail = ({
           </p>
         </div>
 
-        {/* Asymmetrix Content (Insights & Analysis) related to this corporate event */}
-        {eventArticles.length > 0 && (
+        {/* Insights & Analysis content related to this corporate event */}
+        {(eventArticlesLoading || eventArticles.length > 0) && (
           <div className="corporate-event-card">
             <h2 className="corporate-event-subtitle">
-              Asymmetrix Insights & Analysis
+              Insights & Analysis
             </h2>
             {eventArticlesLoading ? (
               <div
                 style={{
                   textAlign: "center",
-                  padding: "40px",
+                  padding: "20px",
                   color: "#666",
                   fontSize: "14px",
                 }}
               >
                 Loading content...
               </div>
+            ) : eventArticles.length > 0 ? (
+              <div className="insights-grid">
+                {[...eventArticles]
+                  .sort((a, b) => {
+                    const dateA = a.Publication_Date
+                      ? new Date(a.Publication_Date).getTime()
+                      : 0;
+                    const dateB = b.Publication_Date
+                      ? new Date(b.Publication_Date).getTime()
+                      : 0;
+                    return dateB - dateA; // Most recent first (descending)
+                  })
+                  .map((article) => (
+                    <InsightsAnalysisCard
+                      key={article.id}
+                      article={article}
+                      showMeta={false}
+                    />
+                  ))}
+              </div>
             ) : (
               <div
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "16px",
+                  textAlign: "center",
+                  padding: "20px",
+                  color: "#666",
+                  fontSize: "14px",
                 }}
               >
-                {eventArticles.slice(0, 4).map((article) => (
-                  <InsightsAnalysisCard
-                    key={article.id}
-                    article={article}
-                    showMeta={false}
-                  />
-                ))}
+                No related content found
               </div>
             )}
           </div>

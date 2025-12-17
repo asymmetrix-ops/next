@@ -3995,13 +3995,23 @@ const CompanyDetail = () => {
                 </div>
               ) : companyArticles.length > 0 ? (
                 <div className="insights-grid">
-                  {companyArticles.map((article) => (
-                    <InsightsAnalysisCard
-                      key={article.id}
-                      article={article}
-                      showMeta={false}
-                    />
-                  ))}
+                  {[...companyArticles]
+                    .sort((a, b) => {
+                      const dateA = a.Publication_Date
+                        ? new Date(a.Publication_Date).getTime()
+                        : 0;
+                      const dateB = b.Publication_Date
+                        ? new Date(b.Publication_Date).getTime()
+                        : 0;
+                      return dateB - dateA; // Most recent first (descending)
+                    })
+                    .map((article) => (
+                      <InsightsAnalysisCard
+                        key={article.id}
+                        article={article}
+                        showMeta={false}
+                      />
+                    ))}
                 </div>
               ) : (
                 <div
