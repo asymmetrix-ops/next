@@ -2711,147 +2711,52 @@ const CompanySection = ({
           params.append("Hybrid_Data_ids[]", String(id))
         );
 
-        params.append(
-          "Min_linkedin_members",
-          (f.linkedinMembersMin ?? null)?.toString() ?? ""
-        );
-        params.append(
-          "Max_linkedin_members",
-          (f.linkedinMembersMax ?? null)?.toString() ?? ""
-        );
+        // Helper function to only append if value exists
+        const appendIfValue = (key: string, value: number | null | undefined) => {
+          if (value != null && value !== undefined) {
+            params.append(key, value.toString());
+          }
+        };
+
+        // LinkedIn Members
+        appendIfValue("Min_linkedin_members", f.linkedinMembersMin);
+        appendIfValue("Max_linkedin_members", f.linkedinMembersMax);
 
         // Financial Metrics min/max for export
-        params.append(
-          "Revenue_min",
-          (f.revenueMin ?? null)?.toString() ?? ""
-        );
-        params.append(
-          "Revenue_max",
-          (f.revenueMax ?? null)?.toString() ?? ""
-        );
-
-        params.append(
-          "EBITDA_min",
-          (f.ebitdaMin ?? null)?.toString() ?? ""
-        );
-        params.append(
-          "EBITDA_max",
-          (f.ebitdaMax ?? null)?.toString() ?? ""
-        );
-
-        params.append(
-          "Enterprise_Value_min",
-          (f.enterpriseValueMin ?? null)?.toString() ?? ""
-        );
-        params.append(
-          "Enterprise_Value_max",
-          (f.enterpriseValueMax ?? null)?.toString() ?? ""
-        );
-
-        params.append(
-          "Revenue_Multiple_min",
-          (f.revenueMultipleMin ?? null)?.toString() ?? ""
-        );
-        params.append(
-          "Revenue_Multiple_max",
-          (f.revenueMultipleMax ?? null)?.toString() ?? ""
-        );
-
-        params.append(
-          "Revenue_Growth_min",
-          (f.revenueGrowthMin ?? null)?.toString() ?? ""
-        );
-        params.append(
-          "Revenue_Growth_max",
-          (f.revenueGrowthMax ?? null)?.toString() ?? ""
-        );
-
-        params.append(
-          "EBITDA_Margin_min",
-          (f.ebitdaMarginMin ?? null)?.toString() ?? ""
-        );
-        params.append(
-          "EBITDA_Margin_max",
-          (f.ebitdaMarginMax ?? null)?.toString() ?? ""
-        );
-
-        params.append(
-          "Rule_of_40_min",
-          (f.ruleOf40Min ?? null)?.toString() ?? ""
-        );
-        params.append(
-          "Rule_of_40_max",
-          (f.ruleOf40Max ?? null)?.toString() ?? ""
-        );
+        appendIfValue("Revenue_min", f.revenueMin);
+        appendIfValue("Revenue_max", f.revenueMax);
+        appendIfValue("EBITDA_min", f.ebitdaMin);
+        appendIfValue("EBITDA_max", f.ebitdaMax);
+        appendIfValue("Enterprise_Value_min", f.enterpriseValueMin);
+        appendIfValue("Enterprise_Value_max", f.enterpriseValueMax);
+        appendIfValue("Revenue_Multiple_min", f.revenueMultipleMin);
+        appendIfValue("Revenue_Multiple_max", f.revenueMultipleMax);
+        appendIfValue("Revenue_Growth_min", f.revenueGrowthMin);
+        appendIfValue("Revenue_Growth_max", f.revenueGrowthMax);
+        appendIfValue("EBITDA_Margin_min", f.ebitdaMarginMin);
+        appendIfValue("EBITDA_Margin_max", f.ebitdaMarginMax);
+        appendIfValue("Rule_of_40_min", f.ruleOf40Min);
+        appendIfValue("Rule_of_40_max", f.ruleOf40Max);
 
         // Subscription Metrics min/max for export
-        params.append(
-          "Recurring_Revenue_min",
-          (f.recurringRevenueMin ?? null)?.toString() ?? ""
-        );
-        params.append(
-          "Recurring_Revenue_max",
-          (f.recurringRevenueMax ?? null)?.toString() ?? ""
-        );
+        appendIfValue("Recurring_Revenue_min", f.recurringRevenueMin);
+        appendIfValue("Recurring_Revenue_max", f.recurringRevenueMax);
+        appendIfValue("ARR_min", f.arrMin);
+        appendIfValue("ARR_max", f.arrMax);
+        appendIfValue("ARR_pc_min", f.arrPcMin);
+        appendIfValue("ARR_pc_max", f.arrPcMax);
+        appendIfValue("Churn_min", f.churnMin);
+        appendIfValue("Churn_max", f.churnMax);
+        appendIfValue("GRR_min", f.grrMin);
+        appendIfValue("GRR_max", f.grrMax);
+        appendIfValue("NRR_min", f.nrrMin);
+        appendIfValue("NRR_max", f.nrrMax);
+        appendIfValue("New_Clients_Revenue_Growth_min", f.newClientsRevenueGrowthMin);
+        appendIfValue("New_Clients_Revenue_Growth_max", f.newClientsRevenueGrowthMax);
 
-        params.append(
-          "ARR_min",
-          (f.arrMin ?? null)?.toString() ?? ""
-        );
-        params.append(
-          "ARR_max",
-          (f.arrMax ?? null)?.toString() ?? ""
-        );
-
-        params.append(
-          "ARR_pc_min",
-          (f.arrPcMin ?? null)?.toString() ?? ""
-        );
-        params.append(
-          "ARR_pc_max",
-          (f.arrPcMax ?? null)?.toString() ?? ""
-        );
-
-        params.append(
-          "Churn_min",
-          (f.churnMin ?? null)?.toString() ?? ""
-        );
-        params.append(
-          "Churn_max",
-          (f.churnMax ?? null)?.toString() ?? ""
-        );
-
-        params.append(
-          "GRR_min",
-          (f.grrMin ?? null)?.toString() ?? ""
-        );
-        params.append(
-          "GRR_max",
-          (f.grrMax ?? null)?.toString() ?? ""
-        );
-
-        params.append(
-          "NRR_min",
-          (f.nrrMin ?? null)?.toString() ?? ""
-        );
-        params.append(
-          "NRR_max",
-          (f.nrrMax ?? null)?.toString() ?? ""
-        );
-
-        params.append(
-          "New_Clients_Revenue_Growth_min",
-          (f.newClientsRevenueGrowthMin ?? null)?.toString() ?? ""
-        );
-        params.append(
-          "New_Clients_Revenue_Growth_max",
-          (f.newClientsRevenueGrowthMax ?? null)?.toString() ?? ""
-        );
-
-        if (f.searchQuery) params.append("query", f.searchQuery);
-      } else {
-        params.append("Min_linkedin_members", "0");
-        params.append("Max_linkedin_members", "0");
+        if (f.searchQuery && f.searchQuery.trim()) {
+          params.append("query", f.searchQuery.trim());
+        }
       }
 
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${params.toString()}`;
@@ -2860,6 +2765,7 @@ const CompanySection = ({
         method: "GET",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         credentials: "include",
@@ -2877,18 +2783,21 @@ const CompanySection = ({
           `Export failed: ${resp.status} ${resp.statusText} - ${errText}`
         );
       }
-      const contentType = resp.headers?.get?.("content-type") || "";
-      if (
-        contentType.includes("application/json") ||
-        contentType.includes("text/json")
-      ) {
-        const text = await resp.text();
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(text);
-        } catch {
-          throw new Error("Export returned invalid JSON");
-        }
+      // Always try to parse as JSON first to ensure all columns are included
+      // This ensures we always get the financial metrics columns
+      const text = await resp.text();
+      let parsed: unknown;
+      let isJson = false;
+      
+      try {
+        parsed = JSON.parse(text);
+        isJson = true;
+      } catch {
+        // If parsing fails, it's likely CSV - we'll handle that below
+        isJson = false;
+      }
+
+      if (isJson) {
         const itemsUnknown: unknown[] = Array.isArray(parsed)
           ? (parsed as unknown[])
           : parsed &&
@@ -2901,6 +2810,8 @@ const CompanySection = ({
         if (!Array.isArray(items) || items.length === 0) {
           throw new Error("Export returned empty JSON data");
         }
+        
+        // Ensure all rows have all columns by creating a base row structure
         const rows: CompanyCSVRow[] = items.map((it: ExportCompanyJson) => {
           const primaryVal = it.primary_sectors ?? "";
           const secondaryVal = it.secondary_sectors ?? "";
@@ -2922,7 +2833,9 @@ const CompanySection = ({
                 .map((s: string) => s.trim())
                 .filter(Boolean)
             : [];
-          return {
+          
+          // Create row with ALL columns always present
+          const row: CompanyCSVRow = {
             Name: it.name ?? "N/A",
             Description: it.description ?? "N/A",
             "Primary Sector(s)": CompaniesCSVExporter.formatSectors(primary),
@@ -2935,47 +2848,58 @@ const CompanySection = ({
             ),
             Country: it.country ?? "N/A",
             "Company URL": it.company_link ?? "",
-            // Financial Metrics - exact field names from API
-            Revenue: it.Revenue_m && it.Revenue_m !== "" 
+            // Financial Metrics - always include all fields
+            Revenue: (it.Revenue_m != null && it.Revenue_m !== "") 
               ? `${it.Revenue_m}M`
               : "N/A",
-            EBITDA: it.EBITDA_m && it.EBITDA_m !== ""
+            EBITDA: (it.EBITDA_m != null && it.EBITDA_m !== "")
               ? `${it.EBITDA_m}M`
               : "N/A",
-            "Enterprise Value": it.EV && it.EV !== ""
+            "Enterprise Value": (it.EV != null && it.EV !== "")
               ? `${it.EV}M`
               : "N/A",
-            "Revenue Multiple": it.Revenue_multiple && it.Revenue_multiple !== ""
+            "Revenue Multiple": (it.Revenue_multiple != null && it.Revenue_multiple !== "")
               ? String(it.Revenue_multiple)
               : "N/A",
-            "Revenue Growth": it.Rev_Growth_PC && it.Rev_Growth_PC !== ""
+            "Revenue Growth": (it.Rev_Growth_PC != null && it.Rev_Growth_PC !== "")
               ? `${it.Rev_Growth_PC}%`
               : "N/A",
-            "EBITDA Margin": it.EBITDA_margin && it.EBITDA_margin !== ""
+            "EBITDA Margin": (it.EBITDA_margin != null && it.EBITDA_margin !== "")
               ? `${it.EBITDA_margin}%`
               : "N/A",
-            "Rule of 40": it.Rule_of_40 && it.Rule_of_40 !== ""
+            "Rule of 40": (it.Rule_of_40 != null && it.Rule_of_40 !== "")
               ? String(it.Rule_of_40)
               : "N/A",
-            // Subscription Metrics - exact field names from API
-            "Recurring Revenue": it.ARR_pc != null && it.ARR_pc !== ""
+            // Subscription Metrics - always include all fields
+            "Recurring Revenue": (it.ARR_pc != null && it.ARR_pc !== "")
               ? `${it.ARR_pc}%`
               : "N/A",
-            ARR: it.ARR_m ? `${it.ARR_m}M` : "N/A",
-            Churn: it.Churn_pc ? `${it.Churn_pc}%` : "N/A",
-            GRR: it.GRR_pc ? `${it.GRR_pc}%` : "N/A",
-            NRR: it.NRR ? `${it.NRR}%` : "N/A",
-            "New Clients Revenue Growth": it.New_client_growth_pc
+            ARR: (it.ARR_m != null && it.ARR_m !== "")
+              ? `${it.ARR_m}M`
+              : "N/A",
+            Churn: (it.Churn_pc != null && it.Churn_pc !== "")
+              ? `${it.Churn_pc}%`
+              : "N/A",
+            GRR: (it.GRR_pc != null && it.GRR_pc !== "")
+              ? `${it.GRR_pc}%`
+              : "N/A",
+            NRR: (it.NRR != null && it.NRR !== "")
+              ? `${it.NRR}%`
+              : "N/A",
+            "New Clients Revenue Growth": (it.New_client_growth_pc != null && it.New_client_growth_pc !== "")
               ? `${it.New_client_growth_pc}%`
               : "N/A",
           };
+          return row;
         });
+        
         const csv = CompaniesCSVExporter.convertToCSV(rows);
         CompaniesCSVExporter.downloadCSV(csv, "companies_filtered");
       } else {
-        // Normalize server CSV to CRLF with BOM
-        const serverText = await resp.text();
-        const normalized = serverText.replace(/\r?\n/g, "\r\n");
+        // Fallback: If API returns CSV directly, use it as-is
+        // Note: This may not include all financial columns if the server CSV is incomplete
+        console.warn("API returned CSV directly - financial columns may be missing");
+        const normalized = text.replace(/\r?\n/g, "\r\n");
         const contentWithBOM = "\uFEFF" + normalized;
         const blob = new Blob([contentWithBOM], {
           type: "text/csv;charset=utf-8;",
