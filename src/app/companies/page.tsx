@@ -554,42 +554,8 @@ const useCompaniesAPI = () => {
           if (filtersToUse.searchQuery) {
             params.append("query", filtersToUse.searchQuery);
           }
-        } else {
-          // Defaults when no filters present
-          params.append("Min_linkedin_members", "");
-          params.append("Max_linkedin_members", "");
-          params.append("Horizontals_ids", "");
-
-          // Financial Metrics defaults
-          params.append("Revenue_min", "");
-          params.append("Revenue_max", "");
-          params.append("EBITDA_min", "");
-          params.append("EBITDA_max", "");
-          params.append("Enterprise_Value_min", "");
-          params.append("Enterprise_Value_max", "");
-          params.append("Revenue_Multiple_min", "");
-          params.append("Revenue_Multiple_max", "");
-          params.append("Revenue_Growth_min", "");
-          params.append("Revenue_Growth_max", "");
-          params.append("EBITDA_Margin_min", "");
-          params.append("EBITDA_Margin_max", "");
-          params.append("Rule_of_40_min", "");
-          params.append("Rule_of_40_max", "");
-
-          // Subscription Metrics defaults
-          params.append("ARR_min", "");
-          params.append("ARR_max", "");
-          params.append("ARR_pc_min", "");
-          params.append("ARR_pc_max", "");
-          params.append("Churn_min", "");
-          params.append("Churn_max", "");
-          params.append("GRR_min", "");
-          params.append("GRR_max", "");
-          params.append("NRR_min", "");
-          params.append("NRR_max", "");
-          params.append("New_Clients_Revenue_Growth_min", "");
-          params.append("New_Clients_Revenue_Growth_max", "");
         }
+        // When no filters are present, only send Offset and Per_page
 
         const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
         console.log("[Companies] Fetch URL:", url);
@@ -662,6 +628,12 @@ const useCompaniesAPI = () => {
     },
     [currentFilters]
   );
+
+  // Initial fetch on mount
+  useEffect(() => {
+    fetchCompanies(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   return {
     companies,
@@ -2886,10 +2858,6 @@ const CompanySection = ({
     },
     [fetchCompanies, currentFilters]
   );
-
-  useEffect(() => {
-    fetchCompanies(1);
-  }, [fetchCompanies]);
 
   const tableRows = useMemo(
     () =>
