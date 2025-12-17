@@ -419,140 +419,110 @@ const useCompaniesAPI = () => {
               params.append("Hybrid_Data_ids[]", focusId.toString());
             });
           }
-          // Optional: Horizontals_ids
-          params.append("Horizontals_ids", "");
 
-          // Always send min/max as numbers (default null)
-          params.append(
-            "Min_linkedin_members",
-            (filtersToUse.linkedinMembersMin ?? null)?.toString() ?? ""
-          );
-          params.append(
-            "Max_linkedin_members",
-            (filtersToUse.linkedinMembersMax ?? null)?.toString() ?? ""
-          );
+          // Only send min/max parameters when they have actual values
+          if (filtersToUse.linkedinMembersMin != null) {
+            params.append("Min_linkedin_members", filtersToUse.linkedinMembersMin.toString());
+          }
+          if (filtersToUse.linkedinMembersMax != null) {
+            params.append("Max_linkedin_members", filtersToUse.linkedinMembersMax.toString());
+          }
 
-          // Financial Metrics min/max
-          params.append(
-            "Revenue_min",
-            (filtersToUse.revenueMin ?? null)?.toString() ?? ""
-          );
-          params.append(
-            "Revenue_max",
-            (filtersToUse.revenueMax ?? null)?.toString() ?? ""
-          );
+          // Financial Metrics min/max - only send when values are present
+          if (filtersToUse.revenueMin != null) {
+            params.append("Revenue_min", filtersToUse.revenueMin.toString());
+          }
+          if (filtersToUse.revenueMax != null) {
+            params.append("Revenue_max", filtersToUse.revenueMax.toString());
+          }
 
-          params.append(
-            "EBITDA_min",
-            (filtersToUse.ebitdaMin ?? null)?.toString() ?? ""
-          );
-          params.append(
-            "EBITDA_max",
-            (filtersToUse.ebitdaMax ?? null)?.toString() ?? ""
-          );
+          if (filtersToUse.ebitdaMin != null) {
+            params.append("EBITDA_min", filtersToUse.ebitdaMin.toString());
+          }
+          if (filtersToUse.ebitdaMax != null) {
+            params.append("EBITDA_max", filtersToUse.ebitdaMax.toString());
+          }
 
-          params.append(
-            "Enterprise_Value_min",
-            (filtersToUse.enterpriseValueMin ?? null)?.toString() ?? ""
-          );
-          params.append(
-            "Enterprise_Value_max",
-            (filtersToUse.enterpriseValueMax ?? null)?.toString() ?? ""
-          );
+          if (filtersToUse.enterpriseValueMin != null) {
+            params.append("Enterprise_Value_min", filtersToUse.enterpriseValueMin.toString());
+          }
+          if (filtersToUse.enterpriseValueMax != null) {
+            params.append("Enterprise_Value_max", filtersToUse.enterpriseValueMax.toString());
+          }
 
-          params.append(
-            "Revenue_Multiple_min",
-            (filtersToUse.revenueMultipleMin ?? null)?.toString() ?? ""
-          );
-          params.append(
-            "Revenue_Multiple_max",
-            (filtersToUse.revenueMultipleMax ?? null)?.toString() ?? ""
-          );
+          if (filtersToUse.revenueMultipleMin != null) {
+            params.append("Revenue_Multiple_min", filtersToUse.revenueMultipleMin.toString());
+          }
+          if (filtersToUse.revenueMultipleMax != null) {
+            params.append("Revenue_Multiple_max", filtersToUse.revenueMultipleMax.toString());
+          }
 
-          params.append(
-            "Revenue_Growth_min",
-            (filtersToUse.revenueGrowthMin ?? null)?.toString() ?? ""
-          );
-          params.append(
-            "Revenue_Growth_max",
-            (filtersToUse.revenueGrowthMax ?? null)?.toString() ?? ""
-          );
+          if (filtersToUse.revenueGrowthMin != null) {
+            params.append("Revenue_Growth_min", filtersToUse.revenueGrowthMin.toString());
+          }
+          if (filtersToUse.revenueGrowthMax != null) {
+            params.append("Revenue_Growth_max", filtersToUse.revenueGrowthMax.toString());
+          }
 
-          params.append(
-            "EBITDA_Margin_min",
-            (filtersToUse.ebitdaMarginMin ?? null)?.toString() ?? ""
-          );
-          params.append(
-            "EBITDA_Margin_max",
-            (filtersToUse.ebitdaMarginMax ?? null)?.toString() ?? ""
-          );
+          if (filtersToUse.ebitdaMarginMin != null) {
+            params.append("EBITDA_Margin_min", filtersToUse.ebitdaMarginMin.toString());
+          }
+          if (filtersToUse.ebitdaMarginMax != null) {
+            params.append("EBITDA_Margin_max", filtersToUse.ebitdaMarginMax.toString());
+          }
 
-          params.append(
-            "Rule_of_40_min",
-            (filtersToUse.ruleOf40Min ?? null)?.toString() ?? ""
-          );
-          params.append(
-            "Rule_of_40_max",
-            (filtersToUse.ruleOf40Max ?? null)?.toString() ?? ""
-          );
+          if (filtersToUse.ruleOf40Min != null) {
+            params.append("Rule_of_40_min", filtersToUse.ruleOf40Min.toString());
+          }
+          if (filtersToUse.ruleOf40Max != null) {
+            params.append("Rule_of_40_max", filtersToUse.ruleOf40Max.toString());
+          }
 
-          // Subscription Metrics min/max
-          params.append(
-            "ARR_min",
-            (filtersToUse.arrMin ?? null)?.toString() ?? ""
-          );
-          params.append(
-            "ARR_max",
-            (filtersToUse.arrMax ?? null)?.toString() ?? ""
-          );
+          // Subscription Metrics min/max - only send when values are present
+          if (filtersToUse.arrMin != null) {
+            params.append("ARR_min", filtersToUse.arrMin.toString());
+          }
+          if (filtersToUse.arrMax != null) {
+            params.append("ARR_max", filtersToUse.arrMax.toString());
+          }
 
-          params.append(
-            "ARR_pc_min",
-            (filtersToUse.arrPcMin ?? null)?.toString() ?? ""
-          );
-          params.append(
-            "ARR_pc_max",
-            (filtersToUse.arrPcMax ?? null)?.toString() ?? ""
-          );
+          if (filtersToUse.arrPcMin != null) {
+            params.append("ARR_pc_min", filtersToUse.arrPcMin.toString());
+          }
+          if (filtersToUse.arrPcMax != null) {
+            params.append("ARR_pc_max", filtersToUse.arrPcMax.toString());
+          }
 
-          params.append(
-            "Churn_min",
-            (filtersToUse.churnMin ?? null)?.toString() ?? ""
-          );
-          params.append(
-            "Churn_max",
-            (filtersToUse.churnMax ?? null)?.toString() ?? ""
-          );
+          if (filtersToUse.churnMin != null) {
+            params.append("Churn_min", filtersToUse.churnMin.toString());
+          }
+          if (filtersToUse.churnMax != null) {
+            params.append("Churn_max", filtersToUse.churnMax.toString());
+          }
 
-          params.append(
-            "GRR_min",
-            (filtersToUse.grrMin ?? null)?.toString() ?? ""
-          );
-          params.append(
-            "GRR_max",
-            (filtersToUse.grrMax ?? null)?.toString() ?? ""
-          );
+          if (filtersToUse.grrMin != null) {
+            params.append("GRR_min", filtersToUse.grrMin.toString());
+          }
+          if (filtersToUse.grrMax != null) {
+            params.append("GRR_max", filtersToUse.grrMax.toString());
+          }
 
-          params.append(
-            "NRR_min",
-            (filtersToUse.nrrMin ?? null)?.toString() ?? ""
-          );
-          params.append(
-            "NRR_max",
-            (filtersToUse.nrrMax ?? null)?.toString() ?? ""
-          );
+          if (filtersToUse.nrrMin != null) {
+            params.append("NRR_min", filtersToUse.nrrMin.toString());
+          }
+          if (filtersToUse.nrrMax != null) {
+            params.append("NRR_max", filtersToUse.nrrMax.toString());
+          }
 
-          params.append(
-            "New_Clients_Revenue_Growth_min",
-            (filtersToUse.newClientsRevenueGrowthMin ?? null)?.toString() ?? ""
-          );
-          params.append(
-            "New_Clients_Revenue_Growth_max",
-            (filtersToUse.newClientsRevenueGrowthMax ?? null)?.toString() ?? ""
-          );
+          if (filtersToUse.newClientsRevenueGrowthMin != null) {
+            params.append("New_Clients_Revenue_Growth_min", filtersToUse.newClientsRevenueGrowthMin.toString());
+          }
+          if (filtersToUse.newClientsRevenueGrowthMax != null) {
+            params.append("New_Clients_Revenue_Growth_max", filtersToUse.newClientsRevenueGrowthMax.toString());
+          }
 
-          if (filtersToUse.searchQuery) {
-            params.append("query", filtersToUse.searchQuery);
+          if (filtersToUse.searchQuery && filtersToUse.searchQuery.trim()) {
+            params.append("query", filtersToUse.searchQuery.trim());
           }
         }
         // When no filters are present, only send Offset and Per_page
@@ -2682,9 +2652,14 @@ const CompanySection = ({
         }
       }
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${params.toString()}`;
-
-      const resp = await fetch(url, {
+      // First, fetch page 1 to get total page count
+      const baseParams = new URLSearchParams(params.toString());
+      baseParams.append("Offset", "1");
+      baseParams.append("Per_page", "25");
+      
+      const firstPageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${baseParams.toString()}`;
+      
+      const firstResp = await fetch(firstPageUrl, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -2693,46 +2668,122 @@ const CompanySection = ({
         },
         credentials: "include",
       });
-      if (!resp.ok) {
+      
+      if (!firstResp.ok) {
         // Check if it's an export limit error
-        if (resp.status === 403 || resp.status === 429) {
+        if (firstResp.status === 403 || firstResp.status === 429) {
           const limitCheck = await checkExportLimit();
           setExportsLeft(limitCheck.exportsLeft);
           setShowExportLimitModal(true);
           return;
         }
-        const errText = await resp.text();
+        const errText = await firstResp.text();
         throw new Error(
-          `Export failed: ${resp.status} ${resp.statusText} - ${errText}`
+          `Export failed: ${firstResp.status} ${firstResp.statusText} - ${errText}`
         );
       }
-      // Always try to parse as JSON first to ensure all columns are included
-      // This ensures we always get the financial metrics columns
-      const text = await resp.text();
-      let parsed: unknown;
+      
+      // Parse first page to get pagination info
+      const firstPageText = await firstResp.text();
+      let firstPageParsed: unknown;
       let isJson = false;
+      let totalPages = 1;
       
       try {
-        parsed = JSON.parse(text);
+        firstPageParsed = JSON.parse(firstPageText);
         isJson = true;
+        // Check if response has pagination info
+        if (
+          firstPageParsed &&
+          typeof firstPageParsed === "object" &&
+          "pageTotal" in (firstPageParsed as Record<string, unknown>)
+        ) {
+          totalPages = (firstPageParsed as { pageTotal?: number }).pageTotal || 1;
+        } else if (
+          firstPageParsed &&
+          typeof firstPageParsed === "object" &&
+          "result1" in (firstPageParsed as Record<string, unknown>)
+        ) {
+          const result1 = (firstPageParsed as { result1?: { pageTotal?: number } }).result1;
+          totalPages = result1?.pageTotal || 1;
+        }
       } catch {
-        // If parsing fails, it's likely CSV - we'll handle that below
         isJson = false;
       }
-
+      
+      // Collect all items from all pages
+      let allItems: ExportCompanyJson[] = [];
+      
+      // Process first page
       if (isJson) {
-        const itemsUnknown: unknown[] = Array.isArray(parsed)
-          ? (parsed as unknown[])
-          : parsed &&
-            typeof parsed === "object" &&
-            Array.isArray((parsed as { items?: unknown[] }).items)
-          ? ((parsed as { items?: unknown[] }).items as unknown[])
+        const itemsUnknown: unknown[] = Array.isArray(firstPageParsed)
+          ? (firstPageParsed as unknown[])
+          : firstPageParsed &&
+            typeof firstPageParsed === "object" &&
+            Array.isArray((firstPageParsed as { items?: unknown[] }).items)
+          ? ((firstPageParsed as { items?: unknown[] }).items as unknown[])
+          : firstPageParsed &&
+            typeof firstPageParsed === "object" &&
+            "result1" in (firstPageParsed as Record<string, unknown>) &&
+            Array.isArray((firstPageParsed as { result1?: { items?: unknown[] } }).result1?.items)
+          ? ((firstPageParsed as { result1?: { items?: unknown[] } }).result1?.items as unknown[])
           : [];
-        const items: ExportCompanyJson[] =
-          itemsUnknown.filter(isExportCompanyJson);
-        if (!Array.isArray(items) || items.length === 0) {
-          throw new Error("Export returned empty JSON data");
+        allItems = itemsUnknown.filter(isExportCompanyJson);
+      }
+      
+      // Fetch remaining pages if there are more
+      if (totalPages > 1) {
+        for (let page = 2; page <= totalPages; page++) {
+          const pageParams = new URLSearchParams(params.toString());
+          pageParams.append("Offset", page.toString());
+          pageParams.append("Per_page", "25");
+          
+          const pageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${pageParams.toString()}`;
+          
+          const pageResp = await fetch(pageUrl, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            credentials: "include",
+          });
+          
+          if (!pageResp.ok) {
+            console.warn(`Failed to fetch page ${page}, continuing with available data`);
+            continue;
+          }
+          
+          const pageText = await pageResp.text();
+          try {
+            const pageParsed = JSON.parse(pageText);
+            const pageItemsUnknown: unknown[] = Array.isArray(pageParsed)
+              ? (pageParsed as unknown[])
+              : pageParsed &&
+                typeof pageParsed === "object" &&
+                Array.isArray((pageParsed as { items?: unknown[] }).items)
+              ? ((pageParsed as { items?: unknown[] }).items as unknown[])
+              : pageParsed &&
+                typeof pageParsed === "object" &&
+                "result1" in (pageParsed as Record<string, unknown>) &&
+                Array.isArray((pageParsed as { result1?: { items?: unknown[] } }).result1?.items)
+              ? ((pageParsed as { result1?: { items?: unknown[] } }).result1?.items as unknown[])
+              : [];
+            const pageItems = pageItemsUnknown.filter(isExportCompanyJson);
+            allItems = [...allItems, ...pageItems];
+          } catch (e) {
+            console.warn(`Failed to parse page ${page}, continuing with available data`, e);
+          }
         }
+      }
+      
+      if (allItems.length === 0) {
+        throw new Error("Export returned empty data");
+      }
+      
+      if (isJson) {
+        const items = allItems;
         
         // Ensure all rows have all columns by creating a base row structure
         const rows: CompanyCSVRow[] = items.map((it: ExportCompanyJson) => {
@@ -2794,9 +2845,6 @@ const CompanySection = ({
               ? String(it.Rule_of_40)
               : "N/A",
             // Subscription Metrics - always include all fields
-            "Recurring Revenue": (it.ARR_pc != null && it.ARR_pc !== "")
-              ? `${it.ARR_pc}%`
-              : "N/A",
             ARR: (it.ARR_m != null && it.ARR_m !== "")
               ? `${it.ARR_m}M`
               : "N/A",
@@ -2821,8 +2869,9 @@ const CompanySection = ({
       } else {
         // Fallback: If API returns CSV directly, use it as-is
         // Note: This may not include all financial columns if the server CSV is incomplete
-        console.warn("API returned CSV directly - financial columns may be missing");
-        const normalized = text.replace(/\r?\n/g, "\r\n");
+        // Also note: CSV format doesn't support pagination, so only first page will be exported
+        console.warn("API returned CSV directly - financial columns may be missing and only first page will be exported");
+        const normalized = firstPageText.replace(/\r?\n/g, "\r\n");
         const contentWithBOM = "\uFEFF" + normalized;
         const blob = new Blob([contentWithBOM], {
           type: "text/csv;charset=utf-8;",
