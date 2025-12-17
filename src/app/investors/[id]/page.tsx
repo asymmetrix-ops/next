@@ -87,7 +87,8 @@ interface PortfolioCompany {
   };
   related_to_investor_individuals?: Array<{
     id: number;
-    advisor_individuals: string;
+    name: string;
+    job_titles?: string[];
   }>;
 }
 
@@ -512,9 +513,32 @@ const InvestorDetailPage = () => {
       linkedin_logo?: string;
     }>(obj["linkedin_data"], {});
 
-    const relatedIndividuals = safeParseJSON<
-      Array<{ id: number; advisor_individuals: string; linkedin_URL?: string }>
+    // API returns stringified JSON: [{ id, name, job_titles: string[] }]
+    // Keep backwards compatibility if legacy field `advisor_individuals` exists.
+    const relatedIndividualsRaw = safeParseJSON<
+      Array<{
+        id?: number;
+        name?: string;
+        advisor_individuals?: string;
+        job_titles?: unknown;
+      }>
     >(obj["related_to_investor_individuals"], []);
+
+    const relatedIndividuals = (Array.isArray(relatedIndividualsRaw)
+      ? relatedIndividualsRaw
+      : []
+    )
+      .map((ri) => {
+        const id = Number(ri?.id);
+        const name = String(
+          (ri?.name || ri?.advisor_individuals || "").trim()
+        );
+        const jobTitles = Array.isArray(ri?.job_titles)
+          ? (ri.job_titles as unknown[]).map((t) => String(t)).filter(Boolean)
+          : [];
+        return { id, name, job_titles: jobTitles };
+      })
+      .filter((ri) => Number.isFinite(ri.id) && ri.id > 0 && ri.name.length > 0);
 
     return {
       id: Number(obj["id"]),
@@ -1734,7 +1758,7 @@ const InvestorDetailPage = () => {
                                         <span key={individual.id}>
                                           {createClickableElement(
                                             `/individual/${individual.id}`,
-                                            individual.advisor_individuals,
+                                            individual.name,
                                             undefined,
                                             {
                                               textDecoration: "none",
@@ -1854,7 +1878,7 @@ const InvestorDetailPage = () => {
                                         <span key={individual.id}>
                                           {createClickableElement(
                                             `/individual/${individual.id}`,
-                                            individual.advisor_individuals,
+                                            individual.name,
                                             undefined,
                                             {
                                               textDecoration: "none",
@@ -2074,7 +2098,7 @@ const InvestorDetailPage = () => {
                                         <span key={individual.id}>
                                           {createClickableElement(
                                             `/individual/${individual.id}`,
-                                            individual.advisor_individuals,
+                                            individual.name,
                                             undefined,
                                             {
                                               textDecoration: "none",
