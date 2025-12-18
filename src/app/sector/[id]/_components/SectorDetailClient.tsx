@@ -2617,6 +2617,27 @@ const SectorDetailPage = ({
 
   // Removed statistics card; keep totals only when needed elsewhere
 
+  // Type for target company from API response (with _new_company structure)
+  interface TargetCompanyWithLocation {
+    id?: number;
+    name?: string;
+    country?: string;
+    primary_sectors?: Array<string | { sector_name?: string; id?: number }>;
+    secondary_sectors?: Array<string | { sector_name?: string; id?: number }>;
+    _location?: {
+      Country?: string;
+    };
+    _sectors_primary?: Array<{ sector_name?: string; id?: number }>;
+    _sectors_secondary?: Array<{ sector_name?: string; id?: number }>;
+  }
+
+  interface TargetCounterpartyWithUnderscore {
+    _new_company?: TargetCompanyWithLocation;
+    new_company?: TargetCompanyWithLocation;
+    new_company_counterparty?: number;
+    id?: number;
+  }
+
   // Comprehensive Transactions Tab Component
   function SectorTransactionsTab({ sectorId }: { sectorId: string }) {
     const hasInitialLoaded = useRef(false);
@@ -3846,14 +3867,19 @@ const SectorDetailPage = ({
               </thead>
               <tbody>
                 {corporateEvents.map((event: CorporateEvent, index: number) => {
-                  const target = event.target_counterparty?.new_company;
+                  // API returns _new_company (with underscore), not new_company
+                  const targetCounterparty = event.target_counterparty as unknown as TargetCounterpartyWithUnderscore;
+                  const target: TargetCompanyWithLocation | undefined = 
+                    targetCounterparty?._new_company ?? 
+                    targetCounterparty?.new_company;
                   const targetCounterpartyId =
                     event.target_counterparty?.new_company_counterparty;
                   const targetName = target?.name || "Not Available";
                   const targetHref = targetCounterpartyId
                     ? `/company/${targetCounterpartyId}`
                     : "";
-                  const targetCountry = target?.country || "Not Available";
+                  const targetCountry = (target?._location?.Country ?? 
+                                        target?.country) || "Not Available";
 
                   const formatDate = (dateString: string) => {
                     if (!dateString) return "Not available";
