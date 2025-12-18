@@ -1488,9 +1488,11 @@ const CorporateEventsPage = () => {
         });
       }
 
-      // Add event types as comma-separated values
+      // Add event types as array params (API expects bracketed keys)
       if (filters.deal_types.length > 0) {
-        params.append("deal_types", filters.deal_types.join(","));
+        filters.deal_types.forEach((dealType) => {
+          params.append("deal_types[]", dealType);
+        });
       }
 
       // Add deal statuses as comma-separated values

@@ -49,8 +49,11 @@ class CorporateEventsService {
         queryParams.append("Secondary_sectors_ids[]", id.toString());
       }
     }
+    // Add deal types as array params (API expects bracketed keys)
     if (filters.deal_types && filters.deal_types.length > 0) {
-      queryParams.append("deal_types", filters.deal_types.join(","));
+      for (const dealType of filters.deal_types) {
+        queryParams.append("deal_types[]", dealType);
+      }
     }
     if (
       filters.Buyer_Investor_Types &&

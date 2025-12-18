@@ -369,8 +369,11 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
         params.append("Secondary_sectors_ids[]", id.toString())
       );
 
+      // Add event types as array params (API expects bracketed keys)
       if (nextFilters.deal_types.length > 0) {
-        params.append("deal_types", nextFilters.deal_types.join(","));
+        nextFilters.deal_types.forEach((dealType) => {
+          params.append("deal_types[]", dealType);
+        });
       }
       if (nextFilters.Deal_Status.length > 0) {
         params.append("Deal_Status", nextFilters.Deal_Status.join(","));
@@ -2580,7 +2583,7 @@ const SubSectorPage = () => {
                             Ownership
                           </th>
                           <th className="py-3 font-semibold text-center text-slate-700 w-[14%]">
-                            Investors
+                            Investor(s)
                           </th>
                           <th className="py-3 font-semibold text-center text-slate-700 w-[14%]">
                             HQ

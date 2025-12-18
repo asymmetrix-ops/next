@@ -2913,7 +2913,7 @@ const CompanySection = ({
           React.createElement("th", null, "Name"),
           React.createElement("th", null, "Description"),
           React.createElement("th", null, "Primary Sector(s)"),
-          React.createElement("th", null, "Sector(s)"),
+          React.createElement("th", null, "Sub-Sector(s)"),
           React.createElement("th", null, "Ownership"),
           React.createElement("th", null, "LinkedIn Members"),
           React.createElement("th", null, "Country")
