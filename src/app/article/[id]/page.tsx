@@ -891,6 +891,7 @@ const ArticleDetailPage = () => {
                 style={{
                   display: "flex",
                   alignItems: "center",
+                  justifyContent: "space-between",
                   gap: "12px",
                   flexWrap: "wrap",
                 }}
@@ -913,6 +914,7 @@ const ArticleDetailPage = () => {
                       fontSize: 13,
                       textAlign: "center",
                       whiteSpace: "nowrap",
+                      marginLeft: "auto",
                     }}
                     onMouseOver={(e) =>
                       ((e.target as HTMLButtonElement).style.backgroundColor =
