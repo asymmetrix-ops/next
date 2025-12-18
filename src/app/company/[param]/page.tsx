@@ -794,9 +794,6 @@ const CompanyDetail = () => {
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(
-    new Set()
-  );
 
   const [isMobile, setIsMobile] = useState(false);
   const [showAllPrimarySectors, setShowAllPrimarySectors] = useState(false);
@@ -970,17 +967,6 @@ const CompanyDetail = () => {
     }
   };
 
-  const toggleDescription = (subsidiaryId: number) => {
-    setExpandedDescriptions((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(subsidiaryId)) {
-        newSet.delete(subsidiaryId);
-      } else {
-        newSet.add(subsidiaryId);
-      }
-      return newSet;
-    });
-  };
 
   // Fetch company with intelligent fallbacks (GET first, then POST with common payload keys)
   const requestCompany = useCallback(
@@ -1634,6 +1620,221 @@ const CompanyDetail = () => {
       setExportingPdf(false);
     }
   }, [company?.id]);
+
+  // Helper function to get acquisition date for a subsidiary
+  // Returns the date when the current company acquired the subsidiary, or null if:
+  // - No acquisition event found
+  // - Subsidiary was acquired by someone else more recently
+  // 
+  // Expected data structure:
+  // - Corporate events should have targets array or target_company with the subsidiary ID
+  // - this_company_status should be "Acquirer" or "Buyer" when current company acquired the target
+  // - Or other_counterparties should include current company with counterparty_status = "Acquirer"/"Buyer"
+  const getAcquisitionDate = useCallback((subsidiaryId: number): string | null => {
+    if (!corporateEvents || corporateEvents.length === 0 || !company?.id) {
+      return null;
+    }
+
+    // Debug: Uncomment to see what events are being checked
+    // console.log('Checking acquisition date for subsidiary:', subsidiaryId, 'Company:', company.id, 'Events:', corporateEvents.length);
+
+    // Find events where:
+    // 1. Subsidiary is a target (in targets array or target_company)
+    // 2. Current company is an acquirer (this_company_status = "Acquirer" or "Buyer", or in buyers/other_counterparties)
+    const acquisitionEvents: Array<{ date: string; timestamp: number }> = [];
+
+    for (const event of corporateEvents) {
+      const newEvent = event as NewCorporateEvent;
+      const legacyEvent = event as LegacyCorporateEvent;
+      const announcementDate = newEvent.announcement_date || legacyEvent.announcement_date;
+      if (!announcementDate) continue;
+
+      // Check if subsidiary is a target
+      let isSubsidiaryTarget = false;
+      
+      // Check new format: targets array
+      if (Array.isArray(newEvent.targets) && newEvent.targets.length > 0) {
+        isSubsidiaryTarget = newEvent.targets.some(
+          (tgt) => tgt.id === subsidiaryId
+        );
+      }
+      
+      // Check new format: target_company
+      if (!isSubsidiaryTarget && newEvent.target_company?.id === subsidiaryId) {
+        isSubsidiaryTarget = true;
+      }
+
+      // Check legacy format for target (in "0" array, not an investor)
+      if (!isSubsidiaryTarget && Array.isArray(legacyEvent["0"])) {
+        isSubsidiaryTarget = legacyEvent["0"].some(
+          (item) =>
+            item?._new_company?.id === subsidiaryId &&
+            !item._new_company?._is_that_investor
+        );
+      }
+
+      if (!isSubsidiaryTarget) continue;
+
+      // Check if current company is an acquirer
+      let isCurrentCompanyAcquirer = false;
+
+      // First, check this_company_status (simplest and most reliable)
+      const thisCompanyStatus = newEvent.this_company_status?.toLowerCase() || "";
+      if (/acquirer|buyer/i.test(thisCompanyStatus)) {
+        isCurrentCompanyAcquirer = true;
+      }
+
+      // If not found via this_company_status, check other_counterparties
+      if (!isCurrentCompanyAcquirer && Array.isArray(newEvent.other_counterparties) && newEvent.other_counterparties.length > 0) {
+        isCurrentCompanyAcquirer = newEvent.other_counterparties.some(
+          (cp) =>
+            cp.id === company.id &&
+            cp.counterparty_status &&
+            /acquirer|buyer/i.test(cp.counterparty_status)
+        );
+      }
+
+      // Check buyers array
+      if (!isCurrentCompanyAcquirer && Array.isArray(newEvent.buyers) && newEvent.buyers.length > 0) {
+        isCurrentCompanyAcquirer = newEvent.buyers.some(
+          (buyer) => buyer.id === company.id
+        );
+      }
+
+      // Check buyers_investors array (legacy)
+      if (!isCurrentCompanyAcquirer && Array.isArray(newEvent.buyers_investors) && newEvent.buyers_investors.length > 0) {
+        isCurrentCompanyAcquirer = newEvent.buyers_investors.some(
+          (bi) => bi.id === company.id
+        );
+      }
+
+      // Check legacy format for acquirer (in "0" array, not an investor)
+      if (!isCurrentCompanyAcquirer && Array.isArray(legacyEvent["0"])) {
+        isCurrentCompanyAcquirer = legacyEvent["0"].some(
+          (item) =>
+            item?._new_company?.id === company.id &&
+            !item._new_company?._is_that_investor
+        );
+      }
+
+      if (isSubsidiaryTarget && isCurrentCompanyAcquirer) {
+        try {
+          const timestamp = new Date(announcementDate).getTime();
+          if (!Number.isNaN(timestamp)) {
+            acquisitionEvents.push({ date: announcementDate, timestamp });
+          }
+        } catch {
+          // Invalid date, skip
+        }
+      }
+    }
+
+    if (acquisitionEvents.length === 0) {
+      return null;
+    }
+
+    // Get the most recent acquisition event
+    const mostRecentAcquisition = acquisitionEvents.sort(
+      (a, b) => b.timestamp - a.timestamp
+    )[0];
+
+    // Check if there's a more recent event where the subsidiary was acquired by someone else
+    for (const event of corporateEvents) {
+      const newEvent = event as NewCorporateEvent;
+      const legacyEvent = event as LegacyCorporateEvent;
+      const announcementDate = newEvent.announcement_date || legacyEvent.announcement_date;
+      if (!announcementDate) continue;
+
+      try {
+        const eventTimestamp = new Date(announcementDate).getTime();
+        if (Number.isNaN(eventTimestamp)) continue;
+
+        // Only check events more recent than the acquisition
+        if (eventTimestamp <= mostRecentAcquisition.timestamp) continue;
+
+        // Check if subsidiary is a target in this more recent event
+        let isSubsidiaryTarget = false;
+        if (Array.isArray(newEvent.targets) && newEvent.targets.length > 0) {
+          isSubsidiaryTarget = newEvent.targets.some(
+            (tgt) => tgt.id === subsidiaryId
+          );
+        } else if (newEvent.target_company?.id === subsidiaryId) {
+          isSubsidiaryTarget = true;
+        }
+
+        // Check legacy format
+        if (!isSubsidiaryTarget && Array.isArray(legacyEvent["0"])) {
+          isSubsidiaryTarget = legacyEvent["0"].some(
+            (item) =>
+              item?._new_company?.id === subsidiaryId &&
+              !item._new_company?._is_that_investor
+          );
+        }
+
+        if (isSubsidiaryTarget) {
+          // Check if current company is NOT the acquirer (meaning someone else acquired it)
+          let isCurrentCompanyAcquirer = false;
+
+          // Check this_company_status first
+          const thisCompanyStatus = newEvent.this_company_status?.toLowerCase() || "";
+          if (/acquirer|buyer/i.test(thisCompanyStatus)) {
+            isCurrentCompanyAcquirer = true;
+          }
+
+          // Check other_counterparties
+          if (!isCurrentCompanyAcquirer && Array.isArray(newEvent.other_counterparties) && newEvent.other_counterparties.length > 0) {
+            isCurrentCompanyAcquirer = newEvent.other_counterparties.some(
+              (cp) =>
+                cp.id === company.id &&
+                cp.counterparty_status &&
+                /acquirer|buyer/i.test(cp.counterparty_status)
+            );
+          }
+
+          // Check buyers array
+          if (!isCurrentCompanyAcquirer && Array.isArray(newEvent.buyers) && newEvent.buyers.length > 0) {
+            isCurrentCompanyAcquirer = newEvent.buyers.some(
+              (buyer) => buyer.id === company.id
+            );
+          }
+
+          // Check buyers_investors array
+          if (!isCurrentCompanyAcquirer && Array.isArray(newEvent.buyers_investors) && newEvent.buyers_investors.length > 0) {
+            isCurrentCompanyAcquirer = newEvent.buyers_investors.some(
+              (bi) => bi.id === company.id
+            );
+          }
+
+          // Check legacy format
+          if (!isCurrentCompanyAcquirer && Array.isArray(legacyEvent["0"])) {
+            isCurrentCompanyAcquirer = legacyEvent["0"].some(
+              (item) =>
+                item?._new_company?.id === company.id &&
+                !item._new_company?._is_that_investor
+            );
+          }
+
+          // If current company is not the acquirer, ownership has changed
+          if (!isCurrentCompanyAcquirer) {
+            return null; // Don't show date if ownership changed
+          }
+        }
+      } catch {
+        // Invalid date, skip
+      }
+    }
+
+    // Format the date
+    try {
+      return new Date(mostRecentAcquisition.date).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return null;
+    }
+  }, [corporateEvents, company?.id]);
 
   if (loading) {
     return (
@@ -3631,11 +3832,10 @@ const CompanyDetail = () => {
                         <thead>
                           <tr>
                             {[
-                              "Logo",
                               "Name",
                               "Description",
-                              "Sectors",
-                              "LinkedIn Members",
+                              "Sub-sector(s)",
+                              "Date Acquired",
                               "Country",
                             ].map((header) => (
                               <th
@@ -3675,42 +3875,6 @@ const CompanyDetail = () => {
                                     borderBottom: "1px solid #e2e8f0",
                                   }}
                                 >
-                                  {subsidiary._linkedin_data_of_new_company
-                                    ?.linkedin_logo ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                      src={`data:image/jpeg;base64,${subsidiary._linkedin_data_of_new_company.linkedin_logo}`}
-                                      alt={`${subsidiary.name} logo`}
-                                      style={{
-                                        width: "40px",
-                                        height: "30px",
-                                        objectFit: "contain",
-                                      }}
-                                    />
-                                  ) : (
-                                    <div
-                                      style={{
-                                        width: "40px",
-                                        height: "30px",
-                                        backgroundColor: "#f7fafc",
-                                        borderRadius: "4px",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        fontSize: "10px",
-                                        color: "#718096",
-                                      }}
-                                    >
-                                      N/A
-                                    </div>
-                                  )}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: "12px 8px",
-                                    borderBottom: "1px solid #e2e8f0",
-                                  }}
-                                >
                                   {createClickableElement(
                                     `/company/${subsidiary.id}`,
                                     subsidiary.name
@@ -3724,39 +3888,56 @@ const CompanyDetail = () => {
                                     maxWidth: "250px",
                                     wordBreak: "break-word" as const,
                                     overflowWrap: "break-word" as const,
+                                    whiteSpace: "nowrap" as const,
+                                    overflow: "hidden" as const,
+                                    textOverflow: "ellipsis" as const,
+                                  }}
+                                  title={subsidiary.description || undefined}
+                                >
+                                  {subsidiary.description || "N/A"}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: "12px 8px",
+                                    borderBottom: "1px solid #e2e8f0",
+                                    fontSize: "14px",
                                   }}
                                 >
-                                  {subsidiary.description ? (
-                                    <div>
-                                      {expandedDescriptions.has(subsidiary.id) ||
-                                      subsidiary.description.length <= 100
-                                        ? subsidiary.description
-                                        : `${subsidiary.description.substring(
-                                            0,
-                                            100
-                                          )}...`}
-                                      {subsidiary.description.length > 100 && (
-                                        <button
-                                          onClick={() =>
-                                            toggleDescription(subsidiary.id)
-                                          }
-                                          style={{
-                                            background: "none",
-                                            border: "none",
-                                            color: "#0075df",
-                                            cursor: "pointer",
-                                            fontSize: "12px",
-                                            textDecoration: "underline",
-                                            marginLeft: "4px",
-                                            padding: "0",
-                                          }}
-                                        >
-                                          {expandedDescriptions.has(subsidiary.id)
-                                            ? "Show less"
-                                            : "Expand description"}
-                                        </button>
-                                      )}
-                                    </div>
+                                  {subsidiary.sectors_id &&
+                                  subsidiary.sectors_id.length > 0 ? (
+                                    subsidiary.sectors_id
+                                      .filter(
+                                        (s) => s && typeof s.sector_name === "string"
+                                      )
+                                      .map((sector, index, arr) => {
+                                        const id = getSectorId(sector);
+                                        const name = sector.sector_name || "";
+                                        if (!name) return null;
+                                        
+                                        const content = id ? (
+                                          <a
+                                            href={`/sub-sector/${id}`}
+                                            className="link-blue"
+                                            style={{
+                                              color: "#0075df",
+                                              textDecoration: "underline",
+                                              cursor: "pointer",
+                                              fontWeight: "500",
+                                            }}
+                                          >
+                                            {name}
+                                          </a>
+                                        ) : (
+                                          <span>{name}</span>
+                                        );
+                                        
+                                        return (
+                                          <span key={`sub-sector-${id || name}-${index}`}>
+                                            {content}
+                                            {index < arr.length - 1 && ", "}
+                                          </span>
+                                        );
+                                      })
                                   ) : (
                                     "N/A"
                                   )}
@@ -3768,31 +3949,7 @@ const CompanyDetail = () => {
                                     fontSize: "14px",
                                   }}
                                 >
-                                  {subsidiary.sectors_id
-                                    ?.filter(
-                                      (s) => s && typeof s.sector_name === "string"
-                                    )
-                                    .map((sector) => sector.sector_name)
-                                    .join(", ") || "N/A"}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: "12px 8px",
-                                    borderBottom: "1px solid #e2e8f0",
-                                    fontSize: "14px",
-                                    textAlign: "center",
-                                  }}
-                                >
-                                  {subsidiary._linkedin_data_of_new_company &&
-                                  subsidiary._linkedin_data_of_new_company
-                                    .linkedin_employee !== undefined &&
-                                  subsidiary._linkedin_data_of_new_company
-                                    .linkedin_employee !== null
-                                    ? formatNumber(
-                                        subsidiary._linkedin_data_of_new_company
-                                          .linkedin_employee
-                                      )
-                                    : "N/A"}
+                                  {getAcquisitionDate(subsidiary.id) || "N/A"}
                                 </td>
                                 <td
                                   style={{
@@ -4469,7 +4626,7 @@ const CompanyDetail = () => {
             </div>
 
             {/* Market Overview removed */}
-          </div>чч
+          </div>
 
           {/* Asymmetrix Insights & Analysis - Full Width Section */}
           {(articlesLoading || companyArticles.length > 0) && (
