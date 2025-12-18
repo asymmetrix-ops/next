@@ -1246,7 +1246,7 @@ export default function HomeUserPage() {
                               })()}
                             </div>
                             <div>
-                              <strong>EV:</strong>{" "}
+                              <strong>EV (m):</strong>{" "}
                               {(() => {
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 const ev: any = event as any;
@@ -1909,7 +1909,7 @@ export default function HomeUserPage() {
                                       )}
                                       {valuation && (
                                         <div className="text-xs text-gray-500">
-                                          <strong>EV:</strong> {valuation}
+                                          <strong>EV (m):</strong> {valuation}
                                         </div>
                                       )}
                                     </div>
