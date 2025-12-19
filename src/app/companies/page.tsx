@@ -15,11 +15,27 @@ import { locationsService } from "@/lib/locationsService";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import {
   CompaniesCSVExporter,
-  CompanyCSVRow,
+  CompanyCSVRow as BaseCompanyCSVRow,
 } from "@/utils/companiesCSVExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { useAuth } from "@/components/providers/AuthProvider";
+
+// Extended CSV row type that includes financial and subscription metrics
+interface CompanyCSVRow extends BaseCompanyCSVRow {
+  Revenue?: string;
+  EBITDA?: string;
+  "Enterprise Value"?: string;
+  "Revenue Multiple"?: string;
+  "Revenue Growth"?: string;
+  "EBITDA Margin"?: string;
+  "Rule of 40"?: string;
+  ARR?: string;
+  Churn?: string;
+  GRR?: string;
+  NRR?: string;
+  "New Clients Revenue Growth"?: string;
+}
 
 // Types for API integration
 interface Company {
@@ -82,6 +98,34 @@ interface Filters {
   linkedinMembersMin: number | null;
   linkedinMembersMax: number | null;
   searchQuery: string;
+  // Financial Metrics
+  revenueMin: number | null;
+  revenueMax: number | null;
+  ebitdaMin: number | null;
+  ebitdaMax: number | null;
+  enterpriseValueMin: number | null;
+  enterpriseValueMax: number | null;
+  revenueMultipleMin: number | null;
+  revenueMultipleMax: number | null;
+  revenueGrowthMin: number | null;
+  revenueGrowthMax: number | null;
+  ebitdaMarginMin: number | null;
+  ebitdaMarginMax: number | null;
+  ruleOf40Min: number | null;
+  ruleOf40Max: number | null;
+  // Subscription Metrics
+  arrMin: number | null;
+  arrMax: number | null;
+  arrPcMin: number | null;
+  arrPcMax: number | null;
+  churnMin: number | null;
+  churnMax: number | null;
+  grrMin: number | null;
+  grrMax: number | null;
+  nrrMin: number | null;
+  nrrMax: number | null;
+  newClientsRevenueGrowthMin: number | null;
+  newClientsRevenueGrowthMax: number | null;
 }
 
 interface CompaniesResponse {
@@ -106,6 +150,7 @@ interface CompaniesResponse {
 
 // Shape returned by export API when sending JSON instead of CSV
 interface ExportCompanyJson {
+  id?: number | string;
   name?: string;
   description?: string;
   primary_sectors?: string | string[];
@@ -114,6 +159,23 @@ interface ExportCompanyJson {
   linkedin_members?: number | string;
   country?: string;
   asymmetrix_url?: string;
+  company_link?: string;
+  // Financial Metrics (exact API field names)
+  Revenue_m?: number | string;
+  EBITDA_m?: number | string;
+  EV?: number | string;
+  Revenue_multiple?: number | string;
+  Rev_Growth_PC?: number | string;
+  EBITDA_margin?: number | string;
+  Rule_of_40?: number | string;
+  // Subscription Metrics (exact API field names)
+  ARR_pc?: number | string; // Recurring Revenue percentage
+  ARR_m?: number | string;
+  Churn_pc?: number | string;
+  GRR_pc?: number | string;
+  NRR?: number | string;
+  New_client_growth_pc?: number | string;
+  Financial_Year?: number | string;
 }
 
 // Shared styles object
@@ -188,7 +250,7 @@ const styles = {
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
+    gridTemplateColumns: "repeat(5, 1fr)",
     gap: "16px 40px",
     marginBottom: "20px",
   },
@@ -374,27 +436,113 @@ const useCompaniesAPI = () => {
               params.append("Hybrid_Data_ids[]", focusId.toString());
             });
           }
-          // Optional: Horizontals_ids
-          params.append("Horizontals_ids", "");
 
-          // Always send min/max as numbers (default 0)
-          params.append(
-            "Min_linkedin_members",
-            (filtersToUse.linkedinMembersMin ?? 0).toString()
-          );
-          params.append(
-            "Max_linkedin_members",
-            (filtersToUse.linkedinMembersMax ?? 0).toString()
-          );
-          if (filtersToUse.searchQuery) {
-            params.append("query", filtersToUse.searchQuery);
+          // Only send min/max parameters when they have actual values
+          if (filtersToUse.linkedinMembersMin != null) {
+            params.append("Min_linkedin_members", filtersToUse.linkedinMembersMin.toString());
           }
-        } else {
-          // Defaults when no filters present
-          params.append("Min_linkedin_members", "0");
-          params.append("Max_linkedin_members", "0");
-          params.append("Horizontals_ids", "");
+          if (filtersToUse.linkedinMembersMax != null) {
+            params.append("Max_linkedin_members", filtersToUse.linkedinMembersMax.toString());
+          }
+
+          // Financial Metrics min/max - only send when values are present
+          if (filtersToUse.revenueMin != null) {
+            params.append("Revenue_min", filtersToUse.revenueMin.toString());
+          }
+          if (filtersToUse.revenueMax != null) {
+            params.append("Revenue_max", filtersToUse.revenueMax.toString());
+          }
+
+          if (filtersToUse.ebitdaMin != null) {
+            params.append("EBITDA_min", filtersToUse.ebitdaMin.toString());
+          }
+          if (filtersToUse.ebitdaMax != null) {
+            params.append("EBITDA_max", filtersToUse.ebitdaMax.toString());
+          }
+
+          if (filtersToUse.enterpriseValueMin != null) {
+            params.append("Enterprise_Value_min", filtersToUse.enterpriseValueMin.toString());
+          }
+          if (filtersToUse.enterpriseValueMax != null) {
+            params.append("Enterprise_Value_max", filtersToUse.enterpriseValueMax.toString());
+          }
+
+          if (filtersToUse.revenueMultipleMin != null) {
+            params.append("Revenue_Multiple_min", filtersToUse.revenueMultipleMin.toString());
+          }
+          if (filtersToUse.revenueMultipleMax != null) {
+            params.append("Revenue_Multiple_max", filtersToUse.revenueMultipleMax.toString());
+          }
+
+          if (filtersToUse.revenueGrowthMin != null) {
+            params.append("Revenue_Growth_min", filtersToUse.revenueGrowthMin.toString());
+          }
+          if (filtersToUse.revenueGrowthMax != null) {
+            params.append("Revenue_Growth_max", filtersToUse.revenueGrowthMax.toString());
+          }
+
+          if (filtersToUse.ebitdaMarginMin != null) {
+            params.append("EBITDA_Margin_min", filtersToUse.ebitdaMarginMin.toString());
+          }
+          if (filtersToUse.ebitdaMarginMax != null) {
+            params.append("EBITDA_Margin_max", filtersToUse.ebitdaMarginMax.toString());
+          }
+
+          if (filtersToUse.ruleOf40Min != null) {
+            params.append("Rule_of_40_min", filtersToUse.ruleOf40Min.toString());
+          }
+          if (filtersToUse.ruleOf40Max != null) {
+            params.append("Rule_of_40_max", filtersToUse.ruleOf40Max.toString());
+          }
+
+          // Subscription Metrics min/max - only send when values are present
+          if (filtersToUse.arrMin != null) {
+            params.append("ARR_min", filtersToUse.arrMin.toString());
+          }
+          if (filtersToUse.arrMax != null) {
+            params.append("ARR_max", filtersToUse.arrMax.toString());
+          }
+
+          if (filtersToUse.arrPcMin != null) {
+            params.append("ARR_pc_min", filtersToUse.arrPcMin.toString());
+          }
+          if (filtersToUse.arrPcMax != null) {
+            params.append("ARR_pc_max", filtersToUse.arrPcMax.toString());
+          }
+
+          if (filtersToUse.churnMin != null) {
+            params.append("Churn_min", filtersToUse.churnMin.toString());
+          }
+          if (filtersToUse.churnMax != null) {
+            params.append("Churn_max", filtersToUse.churnMax.toString());
+          }
+
+          if (filtersToUse.grrMin != null) {
+            params.append("GRR_min", filtersToUse.grrMin.toString());
+          }
+          if (filtersToUse.grrMax != null) {
+            params.append("GRR_max", filtersToUse.grrMax.toString());
+          }
+
+          if (filtersToUse.nrrMin != null) {
+            params.append("NRR_min", filtersToUse.nrrMin.toString());
+          }
+          if (filtersToUse.nrrMax != null) {
+            params.append("NRR_max", filtersToUse.nrrMax.toString());
+          }
+
+          if (filtersToUse.newClientsRevenueGrowthMin != null) {
+            params.append("New_Clients_Revenue_Growth_min", filtersToUse.newClientsRevenueGrowthMin.toString());
+          }
+          if (filtersToUse.newClientsRevenueGrowthMax != null) {
+            params.append("New_Clients_Revenue_Growth_max", filtersToUse.newClientsRevenueGrowthMax.toString());
+          }
+
+          if (filtersToUse.searchQuery && filtersToUse.searchQuery.trim()) {
+            params.append("query", filtersToUse.searchQuery.trim());
+          }
         }
+        // When no filters are present, only send Offset and Per_page
 
         const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
         console.log("[Companies] Fetch URL:", url);
@@ -467,6 +615,12 @@ const useCompaniesAPI = () => {
     },
     [currentFilters]
   );
+
+  // Initial fetch on mount
+  useEffect(() => {
+    fetchCompanies(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   return {
     companies,
@@ -866,6 +1020,36 @@ const CompanyDashboard = ({
     null
   );
 
+  // Financial Metrics min/max
+  const [revenueMin, setRevenueMin] = useState<number | null>(null);
+  const [revenueMax, setRevenueMax] = useState<number | null>(null);
+  const [ebitdaMin, setEbitdaMin] = useState<number | null>(null);
+  const [ebitdaMax, setEbitdaMax] = useState<number | null>(null);
+  const [enterpriseValueMin, setEnterpriseValueMin] = useState<number | null>(null);
+  const [enterpriseValueMax, setEnterpriseValueMax] = useState<number | null>(null);
+  const [revenueMultipleMin, setRevenueMultipleMin] = useState<number | null>(null);
+  const [revenueMultipleMax, setRevenueMultipleMax] = useState<number | null>(null);
+  const [revenueGrowthMin, setRevenueGrowthMin] = useState<number | null>(null);
+  const [revenueGrowthMax, setRevenueGrowthMax] = useState<number | null>(null);
+  const [ebitdaMarginMin, setEbitdaMarginMin] = useState<number | null>(null);
+  const [ebitdaMarginMax, setEbitdaMarginMax] = useState<number | null>(null);
+  const [ruleOf40Min, setRuleOf40Min] = useState<number | null>(null);
+  const [ruleOf40Max, setRuleOf40Max] = useState<number | null>(null);
+
+  // Subscription Metrics min/max
+  const [arrMin, setArrMin] = useState<number | null>(null);
+  const [arrMax, setArrMax] = useState<number | null>(null);
+  const [arrPcMin, setArrPcMin] = useState<number | null>(null);
+  const [arrPcMax, setArrPcMax] = useState<number | null>(null);
+  const [churnMin, setChurnMin] = useState<number | null>(null);
+  const [churnMax, setChurnMax] = useState<number | null>(null);
+  const [grrMin, setGrrMin] = useState<number | null>(null);
+  const [grrMax, setGrrMax] = useState<number | null>(null);
+  const [nrrMin, setNrrMin] = useState<number | null>(null);
+  const [nrrMax, setNrrMax] = useState<number | null>(null);
+  const [newClientsRevenueGrowthMin, setNewClientsRevenueGrowthMin] = useState<number | null>(null);
+  const [newClientsRevenueGrowthMax, setNewClientsRevenueGrowthMax] = useState<number | null>(null);
+
   // Loading states
   const [loadingCountries, setLoadingCountries] = useState(false);
   const [loadingProvinces, setLoadingProvinces] = useState(false);
@@ -1090,6 +1274,34 @@ const CompanyDashboard = ({
       linkedinMembersMin,
       linkedinMembersMax,
       searchQuery: searchTerm,
+      // Financial Metrics min/max
+      revenueMin,
+      revenueMax,
+      ebitdaMin,
+      ebitdaMax,
+      enterpriseValueMin,
+      enterpriseValueMax,
+      revenueMultipleMin,
+      revenueMultipleMax,
+      revenueGrowthMin,
+      revenueGrowthMax,
+      ebitdaMarginMin,
+      ebitdaMarginMax,
+      ruleOf40Min,
+      ruleOf40Max,
+      // Subscription Metrics min/max
+      arrMin,
+      arrMax,
+      arrPcMin,
+      arrPcMax,
+      churnMin,
+      churnMax,
+      grrMin,
+      grrMax,
+      nrrMin,
+      nrrMax,
+      newClientsRevenueGrowthMin,
+      newClientsRevenueGrowthMax,
     };
     console.log("Searching with filters:", filters);
 
@@ -1111,6 +1323,34 @@ const CompanyDashboard = ({
     linkedinMembersMin,
     linkedinMembersMax,
     searchTerm,
+    // Financial Metrics min/max
+    revenueMin,
+    revenueMax,
+    ebitdaMin,
+    ebitdaMax,
+    enterpriseValueMin,
+    enterpriseValueMax,
+    revenueMultipleMin,
+    revenueMultipleMax,
+    revenueGrowthMin,
+    revenueGrowthMax,
+    ebitdaMarginMin,
+    ebitdaMarginMax,
+    ruleOf40Min,
+    ruleOf40Max,
+    // Subscription Metrics min/max
+    arrMin,
+    arrMax,
+    arrPcMin,
+    arrPcMax,
+    churnMin,
+    churnMax,
+    grrMin,
+    grrMax,
+    nrrMin,
+    nrrMax,
+    newClientsRevenueGrowthMin,
+    newClientsRevenueGrowthMax,
   ]);
 
   // Auto-run search if initialSearch prop is provided
@@ -1806,7 +2046,7 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Min"
-                    value={linkedinMembersMin || ""}
+                    value={linkedinMembersMin ?? ""}
                     onChange={(e) =>
                       setLinkedinMembersMin(
                         e.target.value ? Number(e.target.value) : null
@@ -1817,9 +2057,355 @@ const CompanyDashboard = ({
                     type="number"
                     style={styles.rangeInput}
                     placeholder="Max"
-                    value={linkedinMembersMax || ""}
+                    value={linkedinMembersMax ?? ""}
                     onChange={(e) =>
                       setLinkedinMembersMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+              </div>
+              <div style={styles.gridItem}>
+                <h3 style={styles.subHeading} className="filters-sub-heading">
+                  Financial Metrics
+                </h3>
+                <span style={styles.label}>Revenue ($m)</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={revenueMin ?? ""}
+                    onChange={(e) =>
+                      setRevenueMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={revenueMax ?? ""}
+                    onChange={(e) =>
+                      setRevenueMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
+                <span style={styles.label}>EBITDA ($m)</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={ebitdaMin ?? ""}
+                    onChange={(e) =>
+                      setEbitdaMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={ebitdaMax ?? ""}
+                    onChange={(e) =>
+                      setEbitdaMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
+                <span style={styles.label}>Enterprise Value ($m)</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={enterpriseValueMin ?? ""}
+                    onChange={(e) =>
+                      setEnterpriseValueMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={enterpriseValueMax ?? ""}
+                    onChange={(e) =>
+                      setEnterpriseValueMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
+                <span style={styles.label}>Revenue Multiple (x)</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={revenueMultipleMin ?? ""}
+                    onChange={(e) =>
+                      setRevenueMultipleMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={revenueMultipleMax ?? ""}
+                    onChange={(e) =>
+                      setRevenueMultipleMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
+                <span style={styles.label}>Revenue Growth (%)</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={revenueGrowthMin ?? ""}
+                    onChange={(e) =>
+                      setRevenueGrowthMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={revenueGrowthMax ?? ""}
+                    onChange={(e) =>
+                      setRevenueGrowthMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
+                <span style={styles.label}>EBITDA Margin (%)</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={ebitdaMarginMin ?? ""}
+                    onChange={(e) =>
+                      setEbitdaMarginMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={ebitdaMarginMax ?? ""}
+                    onChange={(e) =>
+                      setEbitdaMarginMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
+                <span style={styles.label}>Rule of 40 (%)</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={ruleOf40Min ?? ""}
+                    onChange={(e) =>
+                      setRuleOf40Min(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={ruleOf40Max ?? ""}
+                    onChange={(e) =>
+                      setRuleOf40Max(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+              </div>
+              <div style={styles.gridItem}>
+                <h3 style={styles.subHeading} className="filters-sub-heading">
+                  Subscription Metrics
+                </h3>
+                <span style={styles.label}>ARR ($m)</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={arrMin ?? ""}
+                    onChange={(e) =>
+                      setArrMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={arrMax ?? ""}
+                    onChange={(e) =>
+                      setArrMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
+                <span style={styles.label}>ARR (%)</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={arrPcMin ?? ""}
+                    onChange={(e) =>
+                      setArrPcMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={arrPcMax ?? ""}
+                    onChange={(e) =>
+                      setArrPcMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
+                <span style={styles.label}>Churn (%)</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={churnMin ?? ""}
+                    onChange={(e) =>
+                      setChurnMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={churnMax ?? ""}
+                    onChange={(e) =>
+                      setChurnMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
+                <span style={styles.label}>GRR (%)</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={grrMin ?? ""}
+                    onChange={(e) =>
+                      setGrrMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={grrMax ?? ""}
+                    onChange={(e) =>
+                      setGrrMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
+                <span style={styles.label}>NRR (%)</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={nrrMin ?? ""}
+                    onChange={(e) =>
+                      setNrrMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={nrrMax ?? ""}
+                    onChange={(e) =>
+                      setNrrMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
+                <span style={styles.label}>New Clients Revenue Growth (%)</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min"
+                    value={newClientsRevenueGrowthMin ?? ""}
+                    onChange={(e) =>
+                      setNewClientsRevenueGrowthMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max"
+                    value={newClientsRevenueGrowthMax ?? ""}
+                    onChange={(e) =>
+                      setNewClientsRevenueGrowthMax(
                         e.target.value ? Number(e.target.value) : null
                       )
                     }
@@ -1836,7 +2422,7 @@ const CompanyDashboard = ({
             <div style={styles.searchDiv}>
               <input
                 type="text"
-                placeholder="by name / keyword"
+                placeholder="Enter company name here"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 style={styles.input}
@@ -1960,7 +2546,35 @@ const CompanySection = ({
       currentFilters.ownershipTypes.length > 0 ||
       currentFilters.linkedinMembersMin !== null ||
       currentFilters.linkedinMembersMax !== null ||
-      currentFilters.searchQuery.trim() !== ""
+      currentFilters.searchQuery.trim() !== "" ||
+      // Financial Metrics
+      currentFilters.revenueMin !== null ||
+      currentFilters.revenueMax !== null ||
+      currentFilters.ebitdaMin !== null ||
+      currentFilters.ebitdaMax !== null ||
+      currentFilters.enterpriseValueMin !== null ||
+      currentFilters.enterpriseValueMax !== null ||
+      currentFilters.revenueMultipleMin !== null ||
+      currentFilters.revenueMultipleMax !== null ||
+      currentFilters.revenueGrowthMin !== null ||
+      currentFilters.revenueGrowthMax !== null ||
+      currentFilters.ebitdaMarginMin !== null ||
+      currentFilters.ebitdaMarginMax !== null ||
+      currentFilters.ruleOf40Min !== null ||
+      currentFilters.ruleOf40Max !== null ||
+      // Subscription Metrics
+      currentFilters.arrMin !== null ||
+      currentFilters.arrMax !== null ||
+      currentFilters.arrPcMin !== null ||
+      currentFilters.arrPcMax !== null ||
+      currentFilters.churnMin !== null ||
+      currentFilters.churnMax !== null ||
+      currentFilters.grrMin !== null ||
+      currentFilters.grrMax !== null ||
+      currentFilters.nrrMin !== null ||
+      currentFilters.nrrMax !== null ||
+      currentFilters.newClientsRevenueGrowthMin !== null ||
+      currentFilters.newClientsRevenueGrowthMax !== null
     );
   };
 
@@ -2009,67 +2623,186 @@ const CompanySection = ({
           params.append("Hybrid_Data_ids[]", String(id))
         );
 
-        params.append(
-          "Min_linkedin_members",
-          String(f.linkedinMembersMin ?? 0)
-        );
-        params.append(
-          "Max_linkedin_members",
-          String(f.linkedinMembersMax ?? 0)
-        );
-        if (f.searchQuery) params.append("query", f.searchQuery);
-      } else {
-        params.append("Min_linkedin_members", "0");
-        params.append("Max_linkedin_members", "0");
+        // Helper function to only append if value exists
+        const appendIfValue = (key: string, value: number | null | undefined) => {
+          if (value != null && value !== undefined) {
+            params.append(key, value.toString());
+          }
+        };
+
+        // LinkedIn Members
+        appendIfValue("Min_linkedin_members", f.linkedinMembersMin);
+        appendIfValue("Max_linkedin_members", f.linkedinMembersMax);
+
+        // Financial Metrics min/max for export
+        appendIfValue("Revenue_min", f.revenueMin);
+        appendIfValue("Revenue_max", f.revenueMax);
+        appendIfValue("EBITDA_min", f.ebitdaMin);
+        appendIfValue("EBITDA_max", f.ebitdaMax);
+        appendIfValue("Enterprise_Value_min", f.enterpriseValueMin);
+        appendIfValue("Enterprise_Value_max", f.enterpriseValueMax);
+        appendIfValue("Revenue_Multiple_min", f.revenueMultipleMin);
+        appendIfValue("Revenue_Multiple_max", f.revenueMultipleMax);
+        appendIfValue("Revenue_Growth_min", f.revenueGrowthMin);
+        appendIfValue("Revenue_Growth_max", f.revenueGrowthMax);
+        appendIfValue("EBITDA_Margin_min", f.ebitdaMarginMin);
+        appendIfValue("EBITDA_Margin_max", f.ebitdaMarginMax);
+        appendIfValue("Rule_of_40_min", f.ruleOf40Min);
+        appendIfValue("Rule_of_40_max", f.ruleOf40Max);
+
+        // Subscription Metrics min/max for export
+        appendIfValue("ARR_min", f.arrMin);
+        appendIfValue("ARR_max", f.arrMax);
+        appendIfValue("ARR_pc_min", f.arrPcMin);
+        appendIfValue("ARR_pc_max", f.arrPcMax);
+        appendIfValue("Churn_min", f.churnMin);
+        appendIfValue("Churn_max", f.churnMax);
+        appendIfValue("GRR_min", f.grrMin);
+        appendIfValue("GRR_max", f.grrMax);
+        appendIfValue("NRR_min", f.nrrMin);
+        appendIfValue("NRR_max", f.nrrMax);
+        appendIfValue("New_Clients_Revenue_Growth_min", f.newClientsRevenueGrowthMin);
+        appendIfValue("New_Clients_Revenue_Growth_max", f.newClientsRevenueGrowthMax);
+
+        if (f.searchQuery && f.searchQuery.trim()) {
+          params.append("query", f.searchQuery.trim());
+        }
       }
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${params.toString()}`;
-
-      const resp = await fetch(url, {
+      // First, fetch page 1 to get total page count
+      const baseParams = new URLSearchParams(params.toString());
+      baseParams.append("Offset", "1");
+      baseParams.append("Per_page", "25");
+      
+      const firstPageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${baseParams.toString()}`;
+      
+      const firstResp = await fetch(firstPageUrl, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         credentials: "include",
       });
-      if (!resp.ok) {
+      
+      if (!firstResp.ok) {
         // Check if it's an export limit error
-        if (resp.status === 403 || resp.status === 429) {
+        if (firstResp.status === 403 || firstResp.status === 429) {
           const limitCheck = await checkExportLimit();
           setExportsLeft(limitCheck.exportsLeft);
           setShowExportLimitModal(true);
           return;
         }
-        const errText = await resp.text();
+        const errText = await firstResp.text();
         throw new Error(
-          `Export failed: ${resp.status} ${resp.statusText} - ${errText}`
+          `Export failed: ${firstResp.status} ${firstResp.statusText} - ${errText}`
         );
       }
-      const contentType = resp.headers?.get?.("content-type") || "";
-      if (
-        contentType.includes("application/json") ||
-        contentType.includes("text/json")
-      ) {
-        const text = await resp.text();
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(text);
-        } catch {
-          throw new Error("Export returned invalid JSON");
+      
+      // Parse first page to get pagination info
+      const firstPageText = await firstResp.text();
+      let firstPageParsed: unknown;
+      let isJson = false;
+      let totalPages = 1;
+      
+      try {
+        firstPageParsed = JSON.parse(firstPageText);
+        isJson = true;
+        // Check if response has pagination info
+        if (
+          firstPageParsed &&
+          typeof firstPageParsed === "object" &&
+          "pageTotal" in (firstPageParsed as Record<string, unknown>)
+        ) {
+          totalPages = (firstPageParsed as { pageTotal?: number }).pageTotal || 1;
+        } else if (
+          firstPageParsed &&
+          typeof firstPageParsed === "object" &&
+          "result1" in (firstPageParsed as Record<string, unknown>)
+        ) {
+          const result1 = (firstPageParsed as { result1?: { pageTotal?: number } }).result1;
+          totalPages = result1?.pageTotal || 1;
         }
-        const itemsUnknown: unknown[] = Array.isArray(parsed)
-          ? (parsed as unknown[])
-          : parsed &&
-            typeof parsed === "object" &&
-            Array.isArray((parsed as { items?: unknown[] }).items)
-          ? ((parsed as { items?: unknown[] }).items as unknown[])
+      } catch {
+        isJson = false;
+      }
+      
+      // Collect all items from all pages
+      let allItems: ExportCompanyJson[] = [];
+      
+      // Process first page
+      if (isJson) {
+        const itemsUnknown: unknown[] = Array.isArray(firstPageParsed)
+          ? (firstPageParsed as unknown[])
+          : firstPageParsed &&
+            typeof firstPageParsed === "object" &&
+            Array.isArray((firstPageParsed as { items?: unknown[] }).items)
+          ? ((firstPageParsed as { items?: unknown[] }).items as unknown[])
+          : firstPageParsed &&
+            typeof firstPageParsed === "object" &&
+            "result1" in (firstPageParsed as Record<string, unknown>) &&
+            Array.isArray((firstPageParsed as { result1?: { items?: unknown[] } }).result1?.items)
+          ? ((firstPageParsed as { result1?: { items?: unknown[] } }).result1?.items as unknown[])
           : [];
-        const items: ExportCompanyJson[] =
-          itemsUnknown.filter(isExportCompanyJson);
-        if (!Array.isArray(items) || items.length === 0) {
-          throw new Error("Export returned empty JSON data");
+        allItems = itemsUnknown.filter(isExportCompanyJson);
+      }
+      
+      // Fetch remaining pages if there are more
+      if (totalPages > 1) {
+        for (let page = 2; page <= totalPages; page++) {
+          const pageParams = new URLSearchParams(params.toString());
+          pageParams.append("Offset", page.toString());
+          pageParams.append("Per_page", "25");
+          
+          const pageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${pageParams.toString()}`;
+          
+          const pageResp = await fetch(pageUrl, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            credentials: "include",
+          });
+          
+          if (!pageResp.ok) {
+            console.warn(`Failed to fetch page ${page}, continuing with available data`);
+            continue;
+          }
+          
+          const pageText = await pageResp.text();
+          try {
+            const pageParsed = JSON.parse(pageText);
+            const pageItemsUnknown: unknown[] = Array.isArray(pageParsed)
+              ? (pageParsed as unknown[])
+              : pageParsed &&
+                typeof pageParsed === "object" &&
+                Array.isArray((pageParsed as { items?: unknown[] }).items)
+              ? ((pageParsed as { items?: unknown[] }).items as unknown[])
+              : pageParsed &&
+                typeof pageParsed === "object" &&
+                "result1" in (pageParsed as Record<string, unknown>) &&
+                Array.isArray((pageParsed as { result1?: { items?: unknown[] } }).result1?.items)
+              ? ((pageParsed as { result1?: { items?: unknown[] } }).result1?.items as unknown[])
+              : [];
+            const pageItems = pageItemsUnknown.filter(isExportCompanyJson);
+            allItems = [...allItems, ...pageItems];
+          } catch (e) {
+            console.warn(`Failed to parse page ${page}, continuing with available data`, e);
+          }
         }
+      }
+      
+      if (allItems.length === 0) {
+        throw new Error("Export returned empty data");
+      }
+      
+      if (isJson) {
+        const items = allItems;
+        
+        // Ensure all rows have all columns by creating a base row structure
         const rows: CompanyCSVRow[] = items.map((it: ExportCompanyJson) => {
           const primaryVal = it.primary_sectors ?? "";
           const secondaryVal = it.secondary_sectors ?? "";
@@ -2091,7 +2824,24 @@ const CompanySection = ({
                 .map((s: string) => s.trim())
                 .filter(Boolean)
             : [];
-          return {
+          
+          // Construct company URL from ID, or fall back to API-provided URLs
+          let companyLink = "";
+          if (it.id != null) {
+            const companyId = typeof it.id === "number" ? it.id : Number(it.id);
+            if (!isNaN(companyId)) {
+              companyLink = `https://www.asymmetrixintelligence.com/company/${companyId}`;
+            }
+          }
+          if (!companyLink && it.company_link) {
+            companyLink = it.company_link;
+          }
+          if (!companyLink && it.asymmetrix_url) {
+            companyLink = it.asymmetrix_url;
+          }
+          
+          // Create row with ALL columns always present
+          const row: CompanyCSVRow = {
             Name: it.name ?? "N/A",
             Description: it.description ?? "N/A",
             "Primary Sector(s)": CompaniesCSVExporter.formatSectors(primary),
@@ -2103,15 +2853,19 @@ const CompanySection = ({
                 : Number(it.linkedin_members)
             ),
             Country: it.country ?? "N/A",
-            "Company Link": it.asymmetrix_url ?? "",
+            "Company Link": companyLink || "N/A",
           };
+          return row;
         });
+        
         const csv = CompaniesCSVExporter.convertToCSV(rows);
         CompaniesCSVExporter.downloadCSV(csv, "companies_filtered");
       } else {
-        // Normalize server CSV to CRLF with BOM
-        const serverText = await resp.text();
-        const normalized = serverText.replace(/\r?\n/g, "\r\n");
+        // Fallback: If API returns CSV directly, use it as-is
+        // Note: This may not include all financial columns if the server CSV is incomplete
+        // Also note: CSV format doesn't support pagination, so only first page will be exported
+        console.warn("API returned CSV directly - financial columns may be missing and only first page will be exported");
+        const normalized = firstPageText.replace(/\r?\n/g, "\r\n");
         const contentWithBOM = "\uFEFF" + normalized;
         const blob = new Blob([contentWithBOM], {
           type: "text/csv;charset=utf-8;",
@@ -2147,10 +2901,6 @@ const CompanySection = ({
     },
     [fetchCompanies, currentFilters]
   );
-
-  useEffect(() => {
-    fetchCompanies(1);
-  }, [fetchCompanies]);
 
   const tableRows = useMemo(
     () =>
@@ -2631,6 +3381,9 @@ const CompanySection = ({
       .filters-card {
         padding: 12px !important;
       }
+      .filters-card {
+        padding: 12px !important;
+      }
       .filters-heading {
         font-size: 18px !important;
         margin-bottom: 8px !important;
@@ -2913,7 +3666,7 @@ const CompanySection = ({
           React.createElement("th", null, "Name"),
           React.createElement("th", null, "Description"),
           React.createElement("th", null, "Primary Sector(s)"),
-          React.createElement("th", null, "Sub-Sector(s)"),
+          React.createElement("th", null, "Sectors"),
           React.createElement("th", null, "Ownership"),
           React.createElement("th", null, "LinkedIn Members"),
           React.createElement("th", null, "Country")
