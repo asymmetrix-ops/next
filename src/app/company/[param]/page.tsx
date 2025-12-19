@@ -66,6 +66,9 @@ interface CompanyFinancialMetrics {
   new_company_id: number;
   Financial_Year?: number | null;
   FY_YE_Month_Dec_default?: string | null;
+  // Xano convenience fields (preferred for display)
+  financial_year_text?: string | null; // e.g. "2025"
+  period_display?: string | null; // e.g. "December-2025"
   Rev_Currency?: unknown;
   Revenue_m?: number | null;
   Revenue_source_label?: string | null;
@@ -653,6 +656,61 @@ const extractValidYear = (candidate: unknown): number | null => {
   return null;
 };
 
+// Format the financial metrics period for display as "Dec-2025", "Jul-2024", etc.
+const formatFinancialMetricsPeriod = (
+  metrics: CompanyFinancialMetrics | null
+): string | null => {
+  if (!metrics) return null;
+
+  const monthMap: Record<string, string> = {
+    january: "Jan",
+    february: "Feb",
+    march: "Mar",
+    april: "Apr",
+    may: "May",
+    june: "Jun",
+    july: "Jul",
+    august: "Aug",
+    september: "Sep",
+    october: "Oct",
+    november: "Nov",
+    december: "Dec",
+  };
+
+  const clean = (v: unknown): string => String(v ?? "").trim();
+  const period = clean(metrics.period_display);
+
+  // 1) Prefer API-provided period_display (e.g. "December-2025", sometimes "Dec-2025")
+  if (period) {
+    const parts = period.split(/[-/]/).map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      const monthRaw = parts[0];
+      const yearRaw = parts.find((p) => extractValidYear(p) !== null) || parts[1];
+      const year = extractValidYear(yearRaw);
+      if (year !== null) {
+        const key = monthRaw.toLowerCase();
+        const monthShort =
+          monthMap[key] ||
+          // already short like "Dec"
+          (monthRaw.length >= 3 ? monthRaw.slice(0, 3) : monthRaw);
+        return `${monthShort}-${year}`;
+      }
+    }
+  }
+
+  // 2) Fallback to (FY month + financial_year_text)
+  const monthRaw = clean(metrics.FY_YE_Month_Dec_default);
+  const year = extractValidYear(metrics.financial_year_text ?? metrics.Financial_Year);
+  if (monthRaw && year !== null) {
+    const key = monthRaw.toLowerCase();
+    const monthShort =
+      monthMap[key] || (monthRaw.length >= 3 ? monthRaw.slice(0, 3) : monthRaw);
+    return `${monthShort}-${year}`;
+  }
+
+  return null;
+};
+
 // Determines Year Founded using multiple fallbacks
 const getYearFoundedDisplay = (company: Company): string => {
   const candidates: Array<unknown> = [
@@ -1156,34 +1214,20 @@ const CompanyDetail = () => {
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
       const headers: Record<string, string> = {
-        "Content-Type": "application/json",
         Accept: "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
       const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_investors`;
-      
-      // Try POST with body first (as payload suggests POST)
-      let res = await fetch(endpoint, {
-        method: "POST",
+
+      // GET with query param (required by backend)
+      const params = new URLSearchParams();
+      params.append("new_company_id", String(id));
+      const res = await fetch(`${endpoint}?${params.toString()}`, {
+        method: "GET",
         headers,
         credentials: "include",
-        body: JSON.stringify({ new_company_id: Number(id) }),
       });
-
-      // If POST fails, try GET with query param as fallback
-      if (!res.ok) {
-        const params = new URLSearchParams();
-        params.append("new_company_id", String(id));
-        const getRes = await fetch(`${endpoint}?${params.toString()}`, {
-          method: "GET",
-          headers,
-          credentials: "include",
-        });
-        if (getRes.ok) {
-          res = getRes;
-        }
-      }
 
       if (!res.ok) {
         setApiInvestors([]);
@@ -1710,6 +1754,8 @@ const CompanyDetail = () => {
   const metricsCurrencySuffix = metricsCurrencyCode
     ? ` (${metricsCurrencyCode})`
     : "";
+
+  const financialMetricsPeriodDisplay = formatFinancialMetricsPeriod(financialMetrics);
 
   // Extract last 3 income statement rows (public companies only)
   const isPublicOwnership = (company._ownership_type?.ownership || "")
@@ -3346,6 +3392,19 @@ const CompanyDetail = () => {
               <h2 style={styles.sectionTitle}>
                 Financial Metrics{metricsCurrencySuffix}
               </h2>
+              {financialMetricsPeriodDisplay && (
+                <div
+                  style={{
+                    marginTop: "-12px",
+                    marginBottom: "12px",
+                    fontSize: "13px",
+                    color: "#6b7280",
+                    fontWeight: 500,
+                  }}
+                >
+                  {financialMetricsPeriodDisplay}
+                </div>
+              )}
               {!hasIncomeStatementData && (
                 <div style={styles.infoRow}>
                   <span style={styles.label}>Revenue (m):</span>
@@ -4043,6 +4102,19 @@ const CompanyDetail = () => {
               <h2 style={styles.sectionTitle}>
                 Financial Metrics{metricsCurrencySuffix}
               </h2>
+              {financialMetricsPeriodDisplay && (
+                <div
+                  style={{
+                    marginTop: "-10px",
+                    marginBottom: "10px",
+                    fontSize: "13px",
+                    color: "#6b7280",
+                    fontWeight: 500,
+                  }}
+                >
+                  {financialMetricsPeriodDisplay}
+                </div>
+              )}
               {!hasIncomeStatementData && (
                 <div style={styles.infoRow}>
                   <span style={styles.label}>Revenue (m):</span>
