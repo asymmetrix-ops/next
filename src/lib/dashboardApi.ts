@@ -11,159 +11,21 @@ export type FinancialMetricsRow = {
   num_companies: number;
   range_order?: number;
 
-  // Financial Metrics - Mean
-  mean_revenue_m?: string | number | null;
-  mean_ebitda_m?: string | number | null;
+  mean_arr_percent?: string | number | null;
+  mean_ebitda_margin?: string | number | null;
   mean_enterprise_value_m?: string | number | null;
   mean_ev_rev_multiple?: string | number | null;
   mean_revenue_growth?: string | number | null;
-  mean_ebitda_margin?: string | number | null;
-  mean_rule_of_40?: string | number | null;
-  mean_ebit?: string | number | null;
-  mean_num_clients?: string | number | null;
-  mean_revenue_per_client?: string | number | null;
-  mean_num_employees?: string | number | null;
-  mean_revenue_per_employee?: string | number | null;
-
-  // Subscription Metrics - Mean
-  mean_churn_pc?: string | number | null;
-  mean_grr?: string | number | null;
-  mean_upsell_pc?: string | number | null;
-  mean_cross_sell_pc?: string | number | null;
-  mean_price_increase_pc?: string | number | null;
-  mean_rev_expansion_pc?: string | number | null;
   mean_nrr?: string | number | null;
-  mean_new_client_growth_pc?: string | number | null;
+  mean_grr?: string | number | null;
 
-  // Financial Metrics - Median
-  median_revenue_m?: string | number | null;
-  median_ebitda_m?: string | number | null;
+  median_arr_percent?: string | number | null;
+  median_ebitda_margin?: string | number | null;
   median_enterprise_value_m?: string | number | null;
   median_ev_rev_multiple?: string | number | null;
   median_revenue_growth?: string | number | null;
-  median_ebitda_margin?: string | number | null;
-  median_rule_of_40?: string | number | null;
-  median_ebit?: string | number | null;
-  median_num_clients?: string | number | null;
-  median_revenue_per_client?: string | number | null;
-  median_num_employees?: string | number | null;
-  median_revenue_per_employee?: string | number | null;
-
-  // Subscription Metrics - Median
-  median_churn_pc?: string | number | null;
-  median_grr?: string | number | null;
-  median_upsell_pc?: string | number | null;
-  median_cross_sell_pc?: string | number | null;
-  median_price_increase_pc?: string | number | null;
-  median_rev_expansion_pc?: string | number | null;
   median_nrr?: string | number | null;
-  median_new_client_growth_pc?: string | number | null;
-};
-
-export type DealRadarApiItem = {
-  company_id: number;
-  name: string;
-  hq_country_iso2?: string | null;
-  transaction_status_id?: number;
-  transaction_status: string;
-  last_updated_at: string;
-  primary_sectors: unknown;
-  latest_content: {
-    id: number;
-    headline: string;
-    content_type: string;
-    publication_date: string;
-    is_news?: boolean;
-    cta_label?: string;
-  } | null;
-};
-
-export type DealRadarListResponse = {
-  items: DealRadarApiItem[];
-  limit: number;
-  offset: number;
-  current_page: number;
-  total_pages: number;
-  total_items: number;
-  /** Next request `offset` from the API (`pagination.next_offset`). */
-  next_offset: number | null;
-  next_page: number | null;
-  has_next_page: boolean;
-};
-
-const readDealRadarNumber = (value: unknown): number | null => {
-  const n = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(n) ? n : null;
-};
-
-/** API returns pagination under `pagination`; normalize for callers. */
-export const normalizeDealRadarResponse = (
-  raw: unknown
-): DealRadarListResponse => {
-  const obj =
-    raw && typeof raw === "object"
-      ? (raw as Record<string, unknown>)
-      : {};
-  const pag =
-    obj.pagination && typeof obj.pagination === "object"
-      ? (obj.pagination as Record<string, unknown>)
-      : null;
-
-  const items = Array.isArray(obj.items)
-    ? (obj.items as DealRadarApiItem[])
-    : [];
-
-  const limit =
-    readDealRadarNumber(pag?.page_size) ??
-    readDealRadarNumber(obj.limit) ??
-    readDealRadarNumber(pag?.limit) ??
-    25;
-  const offset =
-    readDealRadarNumber(pag?.offset) ??
-    readDealRadarNumber(obj.offset) ??
-    0;
-  const current_page =
-    readDealRadarNumber(pag?.current_page) ??
-    readDealRadarNumber(obj.current_page) ??
-    1;
-  const total_pages =
-    readDealRadarNumber(pag?.total_pages) ??
-    readDealRadarNumber(obj.total_pages) ??
-    0;
-  const total_items =
-    readDealRadarNumber(pag?.total_items) ??
-    readDealRadarNumber(obj.total) ??
-    readDealRadarNumber(obj.total_items) ??
-    items.length;
-
-  const next_page =
-    readDealRadarNumber(pag?.next_page) ??
-    readDealRadarNumber(obj.next_page);
-  let next_offset =
-    readDealRadarNumber(pag?.next_offset) ??
-    readDealRadarNumber(obj.next_offset);
-  const has_next_page =
-    pag?.has_next_page === true ||
-    obj.has_next_page === true ||
-    next_offset != null ||
-    next_page != null;
-
-  // API uses 0-based row cursors (page 2 → offset 25 when page_size is 25).
-  if (next_offset == null && next_page != null && next_page > current_page) {
-    next_offset = (next_page - 1) * limit;
-  }
-
-  return {
-    items,
-    limit,
-    offset,
-    current_page,
-    total_pages,
-    total_items,
-    next_offset,
-    next_page,
-    has_next_page,
-  };
+  median_grr?: string | number | null;
 };
 
 class DashboardApiService {
@@ -185,7 +47,6 @@ class DashboardApiService {
   ): Promise<ApiResponse<T>> {
     const headers = {
       "Content-Type": "application/json",
-      "X-Data-Source": "live",
       ...authService.getAuthHeaders(),
       ...options.headers,
     };
@@ -193,7 +54,6 @@ class DashboardApiService {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       ...options,
       headers,
-      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -208,73 +68,16 @@ class DashboardApiService {
   }
 
   // Dashboard specific endpoints
-  async getAllContentArticlesHome(): Promise<unknown> {
-    const url =
-      "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/All_Content_Articles_home";
-
-    const headers = {
-      "Content-Type": "application/json",
-      "X-Data-Source": "live",
-      ...authService.getAuthHeaders(),
-    };
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers,
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error("Authentication required");
-      }
-      throw new Error(`API request failed: ${response.statusText}`);
-    }
-
-    return response.json();
+  async getAllContentArticlesHome(): Promise<
+    ApiResponse<Record<string, unknown>[]>
+  > {
+    return this.request<Record<string, unknown>[]>(
+      "/All_Content_Articles_home"
+    );
   }
 
-  async getCorporateEvents(filters?: {
-    showFollowed?: boolean;
-    userId?: number | null;
-  }): Promise<ApiResponse<Record<string, unknown>[]>> {
-    const params = new URLSearchParams();
-    const shouldShowFollowed = Boolean(filters?.showFollowed);
-
-    params.append("show_followed", String(shouldShowFollowed));
-
-    if (
-      shouldShowFollowed &&
-      typeof filters?.userId === "number" &&
-      Number.isFinite(filters.userId)
-    ) {
-      params.append("user_id", String(filters.userId));
-    }
-
-    const headers = {
-      "Content-Type": "application/json",
-      ...authService.getAuthHeaders(),
-    };
-
-    const response = await fetch(
-      `/api/home-corporate-events?${params.toString()}`,
-      {
-        method: "GET",
-        headers,
-        cache: "no-store",
-        credentials: "include",
-      }
-    );
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error("Authentication required");
-      }
-      throw new Error(`API request failed: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data as ApiResponse<Record<string, unknown>[]>;
+  async getCorporateEvents(): Promise<ApiResponse<Record<string, unknown>[]>> {
+    return this.request<Record<string, unknown>[]>("/corporate_events");
   }
 
   // New home page corporate events endpoint (returns a raw array, not { data: ... })
@@ -286,56 +89,13 @@ class DashboardApiService {
   }
 
   // Financial metrics by revenue band (mean + median). Returns a raw array from Xano.
-  async getFinancialMetrics(filters?: {
-    Countries?: string[];
-    Provinces?: string[];
-    Cities?: string[];
-    Primary_sectors_ids?: number[];
-    Secondary_sectors_ids?: number[];
-  }): Promise<FinancialMetricsRow[]> {
+  async getFinancialMetrics(): Promise<FinancialMetricsRow[]> {
     const headers = {
       "Content-Type": "application/json",
       ...authService.getAuthHeaders(),
     };
 
-    // Build query parameters for GET request
-    const params = new URLSearchParams();
-    
-    if (filters) {
-      if (filters.Countries && filters.Countries.length > 0) {
-        filters.Countries.forEach((country) => {
-          params.append("Countries[]", country);
-        });
-      }
-      if (filters.Provinces && filters.Provinces.length > 0) {
-        filters.Provinces.forEach((province) => {
-          params.append("Provinces[]", province);
-        });
-      }
-      if (filters.Cities && filters.Cities.length > 0) {
-        filters.Cities.forEach((city) => {
-          params.append("Cities[]", city);
-        });
-      }
-      if (filters.Primary_sectors_ids && filters.Primary_sectors_ids.length > 0) {
-        filters.Primary_sectors_ids.forEach((id) => {
-          params.append("Primary_sectors_ids[]", id.toString());
-        });
-      }
-      if (filters.Secondary_sectors_ids && filters.Secondary_sectors_ids.length > 0) {
-        filters.Secondary_sectors_ids.forEach((id) => {
-          params.append("Secondary_sectors_ids[]", id.toString());
-        });
-      }
-    }
-
-    // Always use GET method with query parameters
-    const queryString = params.toString();
-    const url = queryString 
-      ? `${this.baseUrl}/mean?${queryString}`
-      : `${this.baseUrl}/mean`;
-
-    const response = await fetch(url, {
+    const response = await fetch(`${this.baseUrl}/mean`, {
       method: "GET",
       headers,
       cache: "no-store",
@@ -345,21 +105,12 @@ class DashboardApiService {
       if (response.status === 401) {
         throw new Error("Authentication required");
       }
-      const errorText = await response.text();
-      throw new Error(`API request failed: ${response.statusText} - ${errorText}`);
+      throw new Error(`API request failed: ${response.statusText}`);
     }
 
     // The /mean endpoint returns a raw array, not wrapped in ApiResponse
     const data = await response.json();
     return Array.isArray(data) ? data : [];
-  }
-
-  // New home page corporate events endpoint (returns a raw array, not { data: ... })
-  async getCorporateEventsForHomePage(): Promise<Record<string, unknown>[]> {
-    return this.request<Record<string, unknown>[]>("/corporate_event_for_home_page") as unknown as Record<
-      string,
-      unknown
-    >[];
   }
 
   async getRecentlyAddedCompanies(): Promise<
@@ -376,34 +127,12 @@ class DashboardApiService {
     );
   }
 
-  async getHeroScreenStatisticEventsCount(): Promise<number> {
-    const token = authService.getToken();
-    if (!token) {
-      throw new Error("Authentication required");
-    }
-
-    const response = await fetch(
-      `${this.baseUrl}/get_corporate_events_counts_home_page`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Data-Source": "live",
-          Authorization: `Bearer ${token}`,
-        },
-        cache: "no-store",
-      }
+  async getHeroScreenStatisticEventsCount(): Promise<
+    ApiResponse<Record<string, unknown>>
+  > {
+    return this.request<Record<string, unknown>>(
+      "/hero_screen_statistic_Events_count"
     );
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error("Authentication required");
-      }
-      throw new Error(`API request failed: ${response.statusText}`);
-    }
-
-    const data = (await response.json()) as { total_rows?: number };
-    return Number(data.total_rows) || 0;
   }
 
   async getHeroScreenStatisticSectors(): Promise<
@@ -414,41 +143,12 @@ class DashboardApiService {
     );
   }
 
-  async getHeroScreenStatisticAdvisorsCount(): Promise<{
-    Advisorc_companies_count: number;
-  }> {
-    const token = authService.getToken();
-    if (!token) {
-      throw new Error("Authentication required");
-    }
-
-    const response = await fetch(
-      `${this.baseUrl}/hero_screen_statistic_Advisors_counr`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Data-Source": "live",
-          Authorization: `Bearer ${token}`,
-        },
-        cache: "no-store",
-      }
+  async getHeroScreenStatisticAdvisorsCount(): Promise<
+    ApiResponse<Record<string, unknown>>
+  > {
+    return this.request<Record<string, unknown>>(
+      "/hero_screen_statistic_Advisors_counr"
     );
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error("Authentication required");
-      }
-      throw new Error(`API request failed: ${response.statusText}`);
-    }
-
-    const data = (await response.json()) as {
-      Advisorc_companies_count?: number;
-    };
-
-    return {
-      Advisorc_companies_count: Number(data.Advisorc_companies_count) || 0,
-    };
   }
 
   async getHeroScreenStatisticInvestors(): Promise<
@@ -645,39 +345,6 @@ class DashboardApiService {
       error: undefined,
       total: undefined,
     };
-  }
-
-  // Deal Radar endpoint: `offset` is the API row cursor (`pagination.next_offset` for follow-up pages)
-  async getDealRadar(params: {
-    limit: number;
-    offset: number;
-    signal?: AbortSignal;
-  }): Promise<DealRadarListResponse> {
-    const query = new URLSearchParams({
-      limit: String(params.limit),
-      offset: String(params.offset),
-    });
-
-    const headers = {
-      "Content-Type": "application/json",
-      ...authService.getAuthHeaders(),
-    };
-
-    const response = await fetch(`/api/deal-radar?${query.toString()}`, {
-      method: "GET",
-      headers,
-      cache: "no-store",
-      credentials: "include",
-      signal: params.signal,
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) throw new Error("Authentication required");
-      throw new Error(`Deal Radar API failed: ${response.statusText}`);
-    }
-
-    const raw: unknown = await response.json();
-    return normalizeDealRadarResponse(raw);
   }
 
   // Clear cache method for manual cache invalidation

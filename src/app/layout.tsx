@@ -135,7 +135,7 @@ export default function RootLayout({
               <div className="fixed bottom-3 right-3 z-[9999] pointer-events-none">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-full border shadow-sm bg-amber-100/95 text-amber-900 border-amber-200">
                   <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
-                  Test Environment{branch ? ` — ${branch}` : ""}
+                  Test Environment{branch ? ` - ${branch}` : ""}
                 </div>
               </div>
             )}
