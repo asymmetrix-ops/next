@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
-import FinancialMetricsTable from "@/components/financial-metrics/FinancialMetricsTable";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 // import { useRightClick } from "@/hooks/useRightClick";
@@ -2106,11 +2105,6 @@ export default function HomeUserPage() {
             </div>
 
           </div>
-
-        {/* Financial Metrics - Full Width Section */}
-        <div className="mt-4 sm:mt-6">
-          <FinancialMetricsTable />
-        </div>
       </main>
       <Footer />
     </div>
