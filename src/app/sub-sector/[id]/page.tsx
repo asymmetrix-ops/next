@@ -46,6 +46,7 @@ interface CompanyItem {
   }>;
   linkedin_logo?: string; // base64
   linkedin_members?: number;
+  annual_revenue_m?: number | null; // Annual Revenue from Financial Metrics (in millions)
 }
 
 interface AllCompaniesFilters {
@@ -2537,25 +2538,28 @@ const SubSectorPage = () => {
                     <table className="w-full text-sm table-fixed">
                       <thead className="bg-slate-50/80">
                         <tr className="hover:bg-slate-50/80">
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[8%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[7%]">
                             Logo
                           </th>
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[18%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[15%]">
                             Name
                           </th>
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[26%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[22%]">
                             Description
                           </th>
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[12%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[10%]">
                             Ownership
                           </th>
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[14%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[12%]">
                             Investors
                           </th>
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[14%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[10%]">
                             HQ
                           </th>
-                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[8%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[12%]">
+                            Annual Revenue
+                          </th>
+                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[10%]">
                             LinkedIn Members
                           </th>
                         </tr>
@@ -2629,6 +2633,14 @@ const SubSectorPage = () => {
                             </td>
                             <td className="py-3 pr-4 align-middle text-center whitespace-normal break-words text-slate-700">
                               {c.country || "N/A"}
+                            </td>
+                            <td className="py-3 pr-4 align-middle text-center text-slate-700">
+                              {c.annual_revenue_m !== null &&
+                              c.annual_revenue_m !== undefined
+                                ? c.annual_revenue_m >= 1000
+                                  ? `$${(c.annual_revenue_m / 1000).toFixed(1)}B`
+                                  : `$${c.annual_revenue_m.toFixed(1)}M`
+                                : "N/A"}
                             </td>
                             <td className="py-3 pr-4 text-center text-slate-700">
                               {typeof c.linkedin_members === "number"
