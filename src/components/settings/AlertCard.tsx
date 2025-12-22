@@ -50,15 +50,10 @@ export function AlertCard({
     return option?.label || alert.content_type;
   };
 
-  const formatTime = (timeValue: string | null) => {
-    if (!timeValue) return "";
-    // If it's already in HH:mm format, return as-is
-    if (/^\d{2}:\d{2}$/.test(timeValue)) {
-      return timeValue;
-    }
-    // Otherwise, try to parse as timestamp (for backward compatibility)
+  const formatTime = (timestamp: string | null) => {
+    if (!timestamp) return "";
     try {
-      const date = new Date(timeValue);
+      const date = new Date(timestamp);
       return date.toLocaleTimeString("en-US", {
         hour: "2-digit",
         minute: "2-digit",
@@ -72,7 +67,7 @@ export function AlertCard({
   const buildDescription = () => {
     const parts: string[] = [];
     parts.push(getItemTypeLabel());
-    parts.push("-");
+    parts.push("—");
     
     // Build frequency part with optional details
     if (alert.email_frequency === "as_added") {
@@ -85,7 +80,7 @@ export function AlertCard({
       ) {
         const contentTypeLabel = getContentTypeLabel();
         if (contentTypeLabel) {
-          parts.push("-");
+          parts.push("—");
           parts.push(contentTypeLabel);
         }
       }
@@ -140,20 +135,8 @@ export function AlertCard({
       parts.push(getFrequencyLabel());
     }
 
-    parts.push("-");
+    parts.push("—");
     parts.push(alert.is_active ? "Active" : "Inactive");
-
-    const f = alert.filters;
-    const filterParts: string[] = [];
-    if (f?.companies?.length) filterParts.push(`${f.companies.length} companies`);
-    if (f?.sectors?.length) filterParts.push(`${f.sectors.length} sectors`);
-    if (f?.individuals?.length) filterParts.push(`${f.individuals.length} individuals`);
-    if (f?.investors?.length) filterParts.push(`${f.investors.length} investors`);
-    if (f?.advisors?.length) filterParts.push(`${f.advisors.length} advisors`);
-    parts.push("-");
-    parts.push(
-      filterParts.length === 0 ? "Filter: All" : `Filter: ${filterParts.join(", ")}`
-    );
 
     return parts.join(" ");
   };

@@ -1,141 +1,7 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback } from "react";
-import type { EmailAlert, EmailAlertsMeta, EmailAlertFilters, EntityFilterKey } from "@/types/emailAlerts";
-import { computeNextRunAtUtcIso } from "@/utils/emailAlertSchedule";
-import { fetchUserPortfolioData, fetchPortfolioDataFromXano } from "@/lib/portfolioData";
-import { fetchUserListsFromXano } from "@/lib/userLists";
-
-type PortfolioEntityType = "company" | "advisor" | "investor" | "individual" | "sector" | string;
-type PortfolioRow = { entity: PortfolioEntityType; id: number; name: string };
-
-const ENTITY_TO_FILTER_KEY: Record<string, EntityFilterKey> = {
-  company: "companies",
-  advisor: "advisors",
-  investor: "investors",
-  individual: "individuals",
-  sector: "sectors",
-};
-
-const FILTER_KEY_LABEL: Record<EntityFilterKey, string> = {
-  companies: "Companies",
-  sectors: "Sectors",
-  individuals: "Individuals",
-  investors: "Investors",
-  advisors: "Advisors",
-};
-
-// ---------------------------------------------------------------------------
-// EntityCheckboxPanel — reusable grouped checkbox list for portfolio/list rows
-// ---------------------------------------------------------------------------
-
-const FILTER_KEYS: EntityFilterKey[] = [
-  "companies",
-  "sectors",
-  "individuals",
-  "investors",
-  "advisors",
-];
-
-function EntityCheckboxPanel({
-  loading,
-  byKey,
-  emptyMessage,
-  isEntitySelected,
-  toggleEntity,
-  areAllInGroupSelected,
-  toggleAllInGroup,
-}: {
-  loading: boolean;
-  byKey: Partial<Record<EntityFilterKey, PortfolioRow[]>>;
-  emptyMessage: string;
-  isEntitySelected: (entityType: string, id: number) => boolean;
-  toggleEntity: (entityType: string, id: number) => void;
-  areAllInGroupSelected: (key: EntityFilterKey, rows: PortfolioRow[]) => boolean;
-  toggleAllInGroup: (key: EntityFilterKey, rows: PortfolioRow[]) => void;
-}) {
-  const hasAny = FILTER_KEYS.some((k) => (byKey[k]?.length ?? 0) > 0);
-
-  return (
-    <div className="mt-1 border border-gray-200 rounded-lg p-3 bg-gray-50 max-h-52 overflow-y-auto">
-      {loading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
-      ) : !hasAny ? (
-        <p className="text-sm text-gray-500">{emptyMessage}</p>
-      ) : (
-        <div className="space-y-3">
-          {FILTER_KEYS.map((key) => {
-            const rows = byKey[key] ?? [];
-            if (rows.length === 0) return null;
-            const allSelected = areAllInGroupSelected(key, rows);
-            return (
-              <div key={key}>
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
-                    {FILTER_KEY_LABEL[key]}
-                  </p>
-                  {rows.length > 1 && (
-                    <label className="flex items-center gap-1 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={allSelected}
-                        onChange={() => toggleAllInGroup(key, rows)}
-                        className="w-3.5 h-3.5 text-blue-600 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-xs text-blue-600 font-medium">
-                        {allSelected ? "Deselect all" : "Select all"}
-                      </span>
-                    </label>
-                  )}
-                </div>
-                <ul className="space-y-1">
-                  {rows.map((row) => (
-                    <li key={`${String(row.entity)}-${row.id}`}>
-                      <label className="flex items-center gap-2 cursor-pointer text-sm">
-                        <input
-                          type="checkbox"
-                          checked={isEntitySelected(String(row.entity), row.id)}
-                          onChange={() => toggleEntity(String(row.entity), row.id)}
-                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                        />
-                        <span className="text-gray-800 truncate">{row.name}</span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Normalize filters from API (ensure each key is number[]) and return a clean copy. */
-function normalizeFilters(raw: EmailAlertFilters | null | undefined): EmailAlertFilters {
-  const keys: EntityFilterKey[] = [
-    "companies",
-    "sectors",
-    "individuals",
-    "investors",
-    "advisors",
-  ];
-  const out: EmailAlertFilters = {};
-  for (const key of keys) {
-    const val = raw?.[key];
-    out[key] = Array.isArray(val)
-      ? val.filter((n): n is number => typeof n === "number" && Number.isFinite(n))
-      : [];
-  }
-  out.deal_types = Array.isArray(raw?.deal_types)
-    ? raw.deal_types.filter((v): v is string => typeof v === "string" && v.trim().length > 0)
-    : [];
-  out.funding_stages = Array.isArray(raw?.funding_stages)
-    ? raw.funding_stages.filter((v): v is string => typeof v === "string" && v.trim().length > 0)
-    : [];
-  return out;
-}
+import { useState, useEffect } from "react";
+import type { EmailAlert, EmailAlertsMeta } from "@/types/emailAlerts";
 
 interface EditAlertModalProps {
   alert: EmailAlert;
@@ -146,58 +12,6 @@ interface EditAlertModalProps {
   onSave: (alert: EmailAlert) => void;
 }
 
-// Common timezones with user-friendly labels, sorted by UTC offset (west to east)
-const COMMON_TIMEZONES = [
-  // UTC
-  { value: "UTC", label: "UTC" },
-  
-  // UTC-8 to UTC-5 (Americas - Pacific to Eastern)
-  { value: "America/Los_Angeles", label: "Los Angeles (PST/PDT)" },
-  { value: "America/Vancouver", label: "Vancouver (PST/PDT)" },
-  { value: "America/Denver", label: "Denver (MST/MDT)" },
-  { value: "America/Chicago", label: "Chicago (CST/CDT)" },
-  { value: "America/Mexico_City", label: "Mexico City (CST/CDT)" },
-  { value: "America/New_York", label: "New York (EST/EDT)" },
-  { value: "America/Toronto", label: "Toronto (EST/EDT)" },
-  
-  // UTC-3 (South America)
-  { value: "America/Sao_Paulo", label: "São Paulo (BRT/BRST)" },
-  
-  // UTC+0 (Europe/Africa)
-  { value: "Europe/London", label: "London (GMT/BST)" },
-  { value: "Europe/Dublin", label: "Dublin (GMT/IST)" },
-  
-  // UTC+1 (Europe)
-  { value: "Europe/Paris", label: "Paris (CET/CEST)" },
-  { value: "Europe/Berlin", label: "Berlin (CET/CEST)" },
-  { value: "Europe/Rome", label: "Rome (CET/CEST)" },
-  { value: "Europe/Madrid", label: "Madrid (CET/CEST)" },
-  { value: "Europe/Amsterdam", label: "Amsterdam (CET/CEST)" },
-  { value: "Europe/Zurich", label: "Zurich (CET/CEST)" },
-  { value: "Europe/Stockholm", label: "Stockholm (CET/CEST)" },
-  
-  // UTC+2 (Europe/Africa/Middle East)
-  { value: "Africa/Johannesburg", label: "Johannesburg (SAST)" },
-  { value: "Asia/Jerusalem", label: "Jerusalem (IST/IDT)" },
-  
-  // UTC+3 to UTC+5 (Asia)
-  { value: "Asia/Dubai", label: "Dubai (GST)" },
-  { value: "Asia/Mumbai", label: "Mumbai (IST)" },
-  
-  // UTC+6 to UTC+9 (Asia)
-  { value: "Asia/Bangkok", label: "Bangkok (ICT)" },
-  { value: "Asia/Shanghai", label: "Shanghai (CST)" },
-  { value: "Asia/Singapore", label: "Singapore (SGT)" },
-  { value: "Asia/Hong_Kong", label: "Hong Kong (HKT)" },
-  { value: "Asia/Seoul", label: "Seoul (KST)" },
-  { value: "Asia/Tokyo", label: "Tokyo (JST)" },
-  
-  // UTC+10 to UTC+13 (Australia/Pacific)
-  { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" },
-  { value: "Australia/Melbourne", label: "Melbourne (AEDT/AEST)" },
-  { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" },
-];
-
 export function EditAlertModal({
   alert,
   meta,
@@ -206,227 +20,34 @@ export function EditAlertModal({
   onClose,
   onSave,
 }: EditAlertModalProps) {
-  // Helper to convert timestamp to HH:mm if needed
-  const normalizeTime = (timeValue: string | null | undefined): string | null => {
-    if (!timeValue) return null;
-    // If already in HH:mm format, return as-is
-    if (/^\d{2}:\d{2}$/.test(timeValue)) {
-      return timeValue;
-    }
-    // Otherwise, try to parse as timestamp
-    try {
-      const date = new Date(timeValue);
-      return date.toTimeString().slice(0, 5); // Convert to HH:mm
-    } catch {
-      return null;
-    }
-  };
-
-  const initialFilters = normalizeFilters(alert.filters);
-  const hasInitialFilters = Object.values(initialFilters).some(
-    (arr) => arr.length > 0
-  );
-
-  const [formData, setFormData] = useState<Partial<EmailAlert>>(() => {
-    const defaultTime = normalizeTime(meta.defaults.daily_send_time_local) || "09:00";
-    return {
-      item_type: alert.item_type,
-      email_frequency: alert.email_frequency,
-      day_of_week: alert.day_of_week || "",
-      timezone: alert.timezone || "Europe/London",
-      content_type: alert.content_type || "",
-      is_active: alert.is_active,
-      send_time_local: normalizeTime(alert.send_time_local) || defaultTime,
-      filters: { ...initialFilters },
-    };
+  const [formData, setFormData] = useState<Partial<EmailAlert>>({
+    item_type: alert.item_type,
+    email_frequency: alert.email_frequency,
+    day_of_week: alert.day_of_week || "",
+    timezone: alert.timezone || meta.defaults.timezone,
+    content_type: alert.content_type || "",
+    is_active: alert.is_active,
+    send_time_local: alert.send_time_local || meta.defaults.daily_send_time_local,
   });
-
-  type FilterSource = "all" | "portfolio" | "list";
-
-  const [portfolioRows, setPortfolioRows] = useState<PortfolioRow[]>([]);
-  const [portfolioLoading, setPortfolioLoading] = useState(false);
-
-  // "all" | "portfolio" | "list"
-  const [filterSource, setFilterSource] = useState<FilterSource>(hasInitialFilters ? "portfolio" : "all");
-  // When source != "all": true = include all entities from source, false = pick specific
-  const [useAllFromSource, setUseAllFromSource] = useState(false);
-
-  // List picker state
-  const [listItems, setListItems] = useState<Array<{ id: number; label: string }>>([]);
-  const [listItemsLoading, setListItemsLoading] = useState(false);
-  const [selectedListId, setSelectedListId] = useState<number | null>(null);
-  const [listRows, setListRows] = useState<PortfolioRow[]>([]);
-  const [listRowsLoading, setListRowsLoading] = useState(false);
-
-  const fetchPortfolio = useCallback(async () => {
-    setPortfolioLoading(true);
-    try {
-      const { items } = await fetchUserPortfolioData();
-      setPortfolioRows(items as PortfolioRow[]);
-    } catch {
-      setPortfolioRows([]);
-    } finally {
-      setPortfolioLoading(false);
-    }
-  }, []);
-
-  // Load portfolio + lists when modal opens
-  useEffect(() => {
-    if (!isOpen) return;
-    fetchPortfolio();
-
-    setListItemsLoading(true);
-    fetchUserListsFromXano()
-      .then((raw) => {
-        const arr = Array.isArray(raw) ? raw : [];
-        const parsed = (arr as Record<string, unknown>[])
-          .map((item) => {
-            const id = Number(item.id);
-            const label =
-              (typeof item.portfolio_label === "string" && item.portfolio_label.trim()) ||
-              `List ${id}`;
-            return { id, label };
-          })
-          .filter((item) => Number.isFinite(item.id) && item.id > 0);
-        setListItems(parsed);
-      })
-      .catch(() => setListItems([]))
-      .finally(() => setListItemsLoading(false));
-  }, [isOpen, fetchPortfolio]);
-
-  // Load list entities when a list is selected
-  useEffect(() => {
-    if (filterSource !== "list" || selectedListId == null) {
-      setListRows([]);
-      return;
-    }
-    setListRowsLoading(true);
-    fetchPortfolioDataFromXano({ userListId: selectedListId })
-      .then(({ items }) => setListRows(items as PortfolioRow[]))
-      .catch(() => setListRows([]))
-      .finally(() => setListRowsLoading(false));
-  }, [filterSource, selectedListId]);
 
   useEffect(() => {
     if (isOpen) {
-      const defaultTime = normalizeTime(meta.defaults.daily_send_time_local) || "09:00";
-      const filters = normalizeFilters(alert.filters);
-      const hasFilters = Object.values(filters).some((arr) => arr.length > 0);
-      setFilterSource(hasFilters ? "portfolio" : "all");
-      setUseAllFromSource(false);
-      setSelectedListId(null);
-      setListRows([]);
       setFormData({
         item_type: alert.item_type,
         email_frequency: alert.email_frequency,
         day_of_week: alert.day_of_week || "",
-        timezone: alert.timezone || "Europe/London",
+        timezone: alert.timezone || meta.defaults.timezone,
         content_type: alert.content_type || "",
         is_active: alert.is_active,
-        send_time_local: normalizeTime(alert.send_time_local) || defaultTime,
-        filters: {
-          companies: [...(filters.companies ?? [])],
-          sectors: [...(filters.sectors ?? [])],
-          individuals: [...(filters.individuals ?? [])],
-          investors: [...(filters.investors ?? [])],
-          advisors: [...(filters.advisors ?? [])],
-        },
+        send_time_local: alert.send_time_local || meta.defaults.daily_send_time_local,
       });
     }
-  }, [isOpen, alert, meta]);
-
-  const londonTimeHint = useMemo(() => {
-    if (!formData.email_frequency || formData.email_frequency === "as_added") return null;
-    if (!formData.send_time_local || !formData.timezone) return null;
-
-    const iso = computeNextRunAtUtcIso({
-      email_frequency: formData.email_frequency as EmailAlert["email_frequency"],
-      day_of_week: (formData.day_of_week || "") as EmailAlert["day_of_week"],
-      timezone: formData.timezone,
-      send_time_local: formData.send_time_local,
-    });
-    if (!iso) return null;
-    const dt = new Date(iso);
-    const london = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Europe/London",
-      weekday: "short",
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    }).format(dt);
-    return london;
-  }, [
-    formData.day_of_week,
-    formData.email_frequency,
-    formData.send_time_local,
-    formData.timezone,
-  ]);
-
-  const portfolioByKey = useMemo(() => {
-    const map: Partial<Record<EntityFilterKey, PortfolioRow[]>> = {};
-    for (const row of portfolioRows) {
-      const key = ENTITY_TO_FILTER_KEY[String(row.entity).toLowerCase()];
-      if (key) {
-        if (!map[key]) map[key] = [];
-        map[key]!.push(row);
-      }
-    }
-    return map;
-  }, [portfolioRows]);
-
-  const listRowsByKey = useMemo(() => {
-    const map: Partial<Record<EntityFilterKey, PortfolioRow[]>> = {};
-    for (const row of listRows) {
-      const key = ENTITY_TO_FILTER_KEY[String(row.entity).toLowerCase()];
-      if (key) {
-        if (!map[key]) map[key] = [];
-        map[key]!.push(row);
-      }
-    }
-    return map;
-  }, [listRows]);
-
-  function buildFiltersFromRows(rows: PortfolioRow[]): EmailAlertFilters {
-    const out: EmailAlertFilters = { companies: [], sectors: [], individuals: [], investors: [], advisors: [] };
-    for (const row of rows) {
-      const key = ENTITY_TO_FILTER_KEY[String(row.entity).toLowerCase()];
-      if (key) (out[key] as number[]).push(row.id);
-    }
-    return out;
-  }
+  }, [alert, meta, isOpen]);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    let filters: EmailAlertFilters;
-    if (filterSource === "all") {
-      filters = {};
-    } else if (filterSource === "portfolio") {
-      filters = useAllFromSource
-        ? buildFiltersFromRows(portfolioRows)
-        : {
-            companies: formData.filters?.companies ?? [],
-            sectors: formData.filters?.sectors ?? [],
-            individuals: formData.filters?.individuals ?? [],
-            investors: formData.filters?.investors ?? [],
-            advisors: formData.filters?.advisors ?? [],
-          };
-    } else {
-      // list
-      filters = useAllFromSource
-        ? buildFiltersFromRows(listRows)
-        : {
-            companies: formData.filters?.companies ?? [],
-            sectors: formData.filters?.sectors ?? [],
-            individuals: formData.filters?.individuals ?? [],
-            investors: formData.filters?.investors ?? [],
-            advisors: formData.filters?.advisors ?? [],
-          };
-    }
     const updatedAlert: EmailAlert = {
       ...alert,
       ...formData,
@@ -434,60 +55,14 @@ export function EditAlertModal({
       timezone: formData.timezone || "",
       content_type: formData.content_type || "",
       send_time_local: formData.send_time_local || null,
-      filters,
     } as EmailAlert;
     onSave(updatedAlert);
   };
 
-  const toggleEntityInFilters = (entityType: string, id: number) => {
-    const key = ENTITY_TO_FILTER_KEY[entityType.toLowerCase()];
-    if (!key) return;
-    setFormData((prev) => {
-      const current = (prev.filters?.[key] ?? []) as number[];
-      const next = current.includes(id)
-        ? current.filter((x) => x !== id)
-        : [...current, id];
-      return {
-        ...prev,
-        filters: { ...prev.filters, [key]: next },
-      };
-    });
-  };
-
-  const isEntitySelected = (entityType: string, id: number): boolean => {
-    const key = ENTITY_TO_FILTER_KEY[entityType.toLowerCase()];
-    if (!key) return false;
-    const arr = (formData.filters?.[key] ?? []) as number[];
-    return arr.includes(id);
-  };
-
-  const areAllInGroupSelected = (key: EntityFilterKey, rows: PortfolioRow[]): boolean => {
-    if (rows.length === 0) return false;
-    const selected = (formData.filters?.[key] ?? []) as number[];
-    return rows.every((r) => selected.includes(r.id));
-  };
-
-  const toggleAllInGroup = (key: EntityFilterKey, rows: PortfolioRow[]) => {
-    setFormData((prev) => {
-      const allIds = rows.map((r) => r.id);
-      const current = (prev.filters?.[key] ?? []) as number[];
-      const allSelected = allIds.every((id) => current.includes(id));
-      const next = allSelected
-        ? current.filter((id) => !allIds.includes(id))
-        : Array.from(new Set([...current, ...allIds]));
-      return { ...prev, filters: { ...prev.filters, [key]: next } };
-    });
-  };
-
-  const formatTimeForInput = (timeValue: string | null) => {
-    if (!timeValue) return "";
-    // If it's already in HH:mm format, return as-is
-    if (/^\d{2}:\d{2}$/.test(timeValue)) {
-      return timeValue;
-    }
-    // Otherwise, try to parse as timestamp (for backward compatibility)
+  const formatTimeForInput = (timestamp: string | null) => {
+    if (!timestamp) return "";
     try {
-      const date = new Date(timeValue);
+      const date = new Date(timestamp);
       return date.toTimeString().slice(0, 5); // HH:mm format
     } catch {
       return "";
@@ -499,23 +74,21 @@ export function EditAlertModal({
       setFormData((prev) => ({ ...prev, send_time_local: null }));
       return;
     }
-    // Store directly as HH:mm format (e.g., "10:00")
+    // Convert HH:mm to ISO timestamp (using dummy date)
+    const [hours, minutes] = timeString.split(":").map(Number);
+    const date = new Date("1970-01-01T00:00:00Z");
+    date.setUTCHours(hours);
+    date.setUTCMinutes(minutes);
     setFormData((prev) => ({
       ...prev,
-      send_time_local: timeString,
+      send_time_local: date.toISOString(),
     }));
   };
 
-  const isDigest = formData.item_type === "digest";
   const showDayOfWeek = formData.email_frequency === "weekly";
   const isAsAdded = formData.email_frequency === "as_added";
   const showContentType =
-    formData.item_type === "insights_analysis" && isAsAdded && !isDigest;
-  
-  // Filter frequency options: digest only allows daily/weekly
-  const availableFrequencies = isDigest
-    ? meta.enums.email_frequency.filter((f) => f.value !== "as_added")
-    : meta.enums.email_frequency;
+    formData.item_type === "insights_analysis" && isAsAdded;
 
   return (
     <div
@@ -574,17 +147,12 @@ export function EditAlertModal({
                       ...prev,
                       item_type: newItemType,
                     };
-                    // Clear content_type if not insights_analysis or not as_added, or if digest
+                    // Clear content_type if not insights_analysis or not as_added
                     if (
-                      newItemType === "digest" ||
                       newItemType !== "insights_analysis" ||
                       prev.email_frequency !== "as_added"
                     ) {
                       newData.content_type = "";
-                    }
-                    // If switching to digest and currently on as_added, switch to daily
-                    if (newItemType === "digest" && prev.email_frequency === "as_added") {
-                      newData.email_frequency = "daily";
                     }
                     return newData;
                   });
@@ -598,153 +166,6 @@ export function EditAlertModal({
                   </option>
                 ))}
               </select>
-            </div>
-
-            {/* Filter by followed entities */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Filter by entities
-              </label>
-              <div className="flex flex-col gap-2">
-
-                {/* Source: All */}
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="filter_source"
-                    checked={filterSource === "all"}
-                    onChange={() => setFilterSource("all")}
-                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-gray-700">All (no filter)</span>
-                </label>
-
-                {/* Source: Portfolio */}
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="filter_source"
-                    checked={filterSource === "portfolio"}
-                    onChange={() => { setFilterSource("portfolio"); setUseAllFromSource(false); }}
-                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-gray-700">My portfolio</span>
-                </label>
-
-                {filterSource === "portfolio" && (
-                  <div className="pl-6 flex flex-col gap-2">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm">
-                      <input
-                        type="radio"
-                        name="portfolio_scope"
-                        checked={useAllFromSource}
-                        onChange={() => setUseAllFromSource(true)}
-                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-gray-700">Entire portfolio</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer text-sm">
-                      <input
-                        type="radio"
-                        name="portfolio_scope"
-                        checked={!useAllFromSource}
-                        onChange={() => setUseAllFromSource(false)}
-                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-gray-700">Select specific entities</span>
-                    </label>
-                    {!useAllFromSource && (
-                      <EntityCheckboxPanel
-                        loading={portfolioLoading}
-                        byKey={portfolioByKey}
-                        emptyMessage="No followed entities. Add some from My Portfolio."
-                        isEntitySelected={isEntitySelected}
-                        toggleEntity={toggleEntityInFilters}
-                        areAllInGroupSelected={areAllInGroupSelected}
-                        toggleAllInGroup={toggleAllInGroup}
-                      />
-                    )}
-                  </div>
-                )}
-
-                {/* Source: List */}
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="filter_source"
-                    checked={filterSource === "list"}
-                    onChange={() => { setFilterSource("list"); setUseAllFromSource(false); setSelectedListId(null); }}
-                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-gray-700">From a list</span>
-                </label>
-
-                {filterSource === "list" && (
-                  <div className="pl-6 flex flex-col gap-3">
-                    {listItemsLoading ? (
-                      <p className="text-sm text-gray-500">Loading lists…</p>
-                    ) : listItems.length === 0 ? (
-                      <p className="text-sm text-gray-500">No lists yet. Create one from My Portfolio.</p>
-                    ) : (
-                      <select
-                        value={selectedListId ?? ""}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setSelectedListId(val ? Number(val) : null);
-                          setUseAllFromSource(false);
-                          setFormData((prev) => ({
-                            ...prev,
-                            filters: { companies: [], sectors: [], individuals: [], investors: [], advisors: [] },
-                          }));
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="">Select a list…</option>
-                        {listItems.map((l) => (
-                          <option key={l.id} value={l.id}>{l.label}</option>
-                        ))}
-                      </select>
-                    )}
-
-                    {selectedListId != null && (
-                      <div className="flex flex-col gap-2">
-                        <label className="flex items-center gap-2 cursor-pointer text-sm">
-                          <input
-                            type="radio"
-                            name="list_scope"
-                            checked={useAllFromSource}
-                            onChange={() => setUseAllFromSource(true)}
-                            className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="text-gray-700">Entire list</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer text-sm">
-                          <input
-                            type="radio"
-                            name="list_scope"
-                            checked={!useAllFromSource}
-                            onChange={() => setUseAllFromSource(false)}
-                            className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="text-gray-700">Select specific entities</span>
-                        </label>
-                        {!useAllFromSource && (
-                          <EntityCheckboxPanel
-                            loading={listRowsLoading}
-                            byKey={listRowsByKey}
-                            emptyMessage="This list has no entities yet."
-                            isEntitySelected={isEntitySelected}
-                            toggleEntity={toggleEntityInFilters}
-                            areAllInGroupSelected={areAllInGroupSelected}
-                            toggleAllInGroup={toggleAllInGroup}
-                          />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-              </div>
             </div>
 
             {/* Email Frequency */}
@@ -782,7 +203,7 @@ export function EditAlertModal({
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 required
               >
-                {availableFrequencies.map((option) => (
+                {meta.enums.email_frequency.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -837,26 +258,16 @@ export function EditAlertModal({
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Timezone
               </label>
-              <select
+              <input
+                type="text"
                 value={formData.timezone}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, timezone: e.target.value }))
                 }
+                placeholder="e.g., Europe/London"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 required
-              >
-                {COMMON_TIMEZONES.map((tz) => (
-                  <option key={tz.value} value={tz.value}>
-                    {tz.label}
-                  </option>
-                ))}
-              </select>
-              {londonTimeHint && (
-                <p className="text-xs text-gray-500 mt-1">
-                  London equivalent for next run:{" "}
-                  <span className="font-medium text-gray-700">{londonTimeHint}</span>
-                </p>
-              )}
+              />
             </div>
 
             {/* Content Type (only for insights_analysis + as_added) */}

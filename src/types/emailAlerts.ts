@@ -1,43 +1,14 @@
-/** Entity ID filter keys (portfolio / list entities). */
-export type EntityFilterKey =
-  | "companies"
-  | "sectors"
-  | "individuals"
-  | "investors"
-  | "advisors";
-
-/** Entity filter arrays by type; each key is an array of entity IDs. */
-export interface EmailAlertFilters {
-  companies?: number[];
-  sectors?: number[];
-  individuals?: number[];
-  investors?: number[];
-  advisors?: number[];
-  deal_types?: string[];
-  funding_stages?: string[];
-}
-
 export interface EmailAlert {
   id: number;
   created_at: number;
   user_id: number;
-  item_type:
-    | "corporate_events"
-    | "insights_analysis"
-    | "deal_radar"
-    | "news"
-    | "digest";
+  item_type: "corporate_events" | "insights_analysis";
   email_frequency: "as_added" | "daily" | "weekly";
   day_of_week: string;
   timezone: string;
   content_type: string;
   is_active: boolean;
   send_time_local: string | null;
-  next_run_at_utc?: string | number | null;
-  last_sent_at_utc?: string | number | null;
-  status?: string;
-  /** Filter alert to these followed entities; empty or absent = all. */
-  filters?: EmailAlertFilters;
 }
 
 export interface EnumOption {
