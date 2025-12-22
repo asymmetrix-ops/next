@@ -47,10 +47,10 @@ interface ArticleDetail {
     type: string;
     size: number;
     mime: string;
-    meta: {
-      validated: boolean;
-    };
-    url: string;
+    // meta can include validated flag, or audio metadata (duration, codec, etc)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    meta: any;
+    url?: string;
   }>;
 }
 
@@ -546,6 +546,45 @@ const ArticleDetailPage = () => {
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
 
+  // Resolve attachment URL. Some API responses provide only `path` (e.g. `/vault/...`) and omit `url`.
+  const resolveDocumentUrl = (doc: {
+    url?: string;
+    path?: string;
+    access?: string;
+  }): string => {
+    const candidate = String(doc?.url || doc?.path || "").trim();
+    if (!candidate) return "";
+    if (/^https?:\/\//i.test(candidate)) return candidate;
+    if (candidate.startsWith("/")) {
+      // Xano file/vault URLs are typically served from the Xano domain root.
+      return `https://xdil-abvj-o7rq.e2.xano.io${candidate}`;
+    }
+    return candidate;
+  };
+
+  const formatBytes = (bytes?: number): string => {
+    const n = typeof bytes === "number" ? bytes : Number(bytes);
+    if (!Number.isFinite(n) || n <= 0) return "";
+    const kb = 1024;
+    const mb = kb * 1024;
+    const gb = mb * 1024;
+    if (n >= gb) return `${(n / gb).toFixed(2)} GB`;
+    if (n >= mb) return `${(n / mb).toFixed(1)} MB`;
+    if (n >= kb) return `${Math.round(n / kb)} KB`;
+    return `${Math.round(n)} B`;
+  };
+
+  const formatDuration = (seconds?: number): string => {
+    const s = typeof seconds === "number" ? seconds : Number(seconds);
+    if (!Number.isFinite(s) || s <= 0) return "";
+    const total = Math.round(s);
+    const hh = Math.floor(total / 3600);
+    const mm = Math.floor((total % 3600) / 60);
+    const ss = total % 60;
+    if (hh > 0) return `${hh}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+    return `${mm}:${String(ss).padStart(2, "0")}`;
+  };
+
   const buildFigureHtml = (url: string, name: string) =>
     `<figure class="article-inline-image"><img src="${escapeHtml(
       url
@@ -654,14 +693,29 @@ const ArticleDetailPage = () => {
   const isImageDoc = (doc: {
     mime?: string;
     type?: string;
-    url: string;
-    name: string;
+    url?: string;
+    path?: string;
+    name?: string;
   }) => {
     if (!doc) return false;
     if (doc.mime && doc.mime.startsWith("image/")) return true;
     if (doc.type && doc.type.startsWith("image/")) return true;
-    const nameOrUrl = `${doc.name || ""} ${doc.url || ""}`;
+    const nameOrUrl = `${doc.name || ""} ${doc.url || ""} ${doc.path || ""}`;
     return /(\.(png|jpe?g|gif|webp|svg))($|\?)/i.test(nameOrUrl);
+  };
+
+  const isAudioDoc = (doc: {
+    mime?: string;
+    type?: string;
+    url?: string;
+    path?: string;
+    name?: string;
+  }) => {
+    if (!doc) return false;
+    if (doc.mime && doc.mime.startsWith("audio/")) return true;
+    if (doc.type && /^audio$/i.test(doc.type)) return true;
+    const nameOrUrl = `${doc.name || ""} ${doc.url || ""} ${doc.path || ""}`;
+    return /(\.(mp3|m4a|aac|wav|ogg|oga|opus|flac))($|\?)/i.test(nameOrUrl);
   };
 
   const formatCompanyOfFocusYearFounded = (candidate: unknown): string => {
@@ -797,9 +851,16 @@ const ArticleDetailPage = () => {
 
             {/* Article Body with embedded images from attachments */}
             {(() => {
-              const allImageDocs = (article.Related_Documents || []).filter(
-                isImageDoc
-              );
+              const allImageDocs = (article.Related_Documents || [])
+                .filter(Boolean)
+                .filter(isImageDoc)
+                .map((d) => ({
+                  url: resolveDocumentUrl(d),
+                  name: (d as { name?: string })?.name || "",
+                  mime: (d as { mime?: string })?.mime,
+                  type: (d as { type?: string })?.type,
+                }))
+                .filter((d) => Boolean(d.url));
               const { html: withPlaceholders, usedIndices } =
                 replaceImagePlaceholders(article.Body, allImageDocs);
               const remainingImages = allImageDocs.filter(
@@ -836,7 +897,10 @@ const ArticleDetailPage = () => {
                       .filter(isImageDoc)
                       .map((doc, idx) => (
                         <figure key={`${doc.url}-${idx}`} style={{ margin: 0 }}>
-                          <img src={doc.url || ""} alt={doc.name || ""} />
+                          <img
+                            src={resolveDocumentUrl(doc) || ""}
+                            alt={(doc as { name?: string })?.name || ""}
+                          />
                           <figcaption>{doc.name || ""}</figcaption>
                         </figure>
                       ))}
@@ -851,33 +915,110 @@ const ArticleDetailPage = () => {
                 .filter((d) => !isImageDoc(d)).length > 0 && (
                 <div style={styles.section}>
                   <h2 style={styles.sectionTitle}>Related Documents</h2>
-                  <div style={styles.tagContainer}>
-                    {(article.Related_Documents || [])
+                  {(() => {
+                    const nonImage = (article.Related_Documents || [])
                       .filter(Boolean)
-                      .filter((d) => !isImageDoc(d))
-                      .map((doc, index) => {
-                        const url = (doc as unknown as { url?: string })?.url;
-                        const name = (doc as unknown as { name?: string })
-                          ?.name;
-                        if (!url) {
-                          return null;
-                        }
-                        return (
-                          <a
-                            key={index}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              ...styles.tag,
-                              textDecoration: "none",
-                            }}
-                          >
-                            {name || "Document"}
-                          </a>
-                        );
-                      })}
-                  </div>
+                      .filter((d) => !isImageDoc(d));
+
+                    const audioDocs = nonImage.filter(isAudioDoc);
+                    const otherDocs = nonImage.filter((d) => !isAudioDoc(d));
+
+                    return (
+                      <>
+                        {audioDocs.length > 0 && (
+                          <div className="article-audio-list">
+                            {audioDocs.map((doc, idx) => {
+                              const url = resolveDocumentUrl(doc);
+                              const name =
+                                (doc as { name?: string })?.name ||
+                                "Audio file";
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                              const metaAny = (doc as any)?.meta;
+                              const durationSeconds =
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                (metaAny as any)?.duration ??
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                (metaAny as any)?.audio?.duration;
+                              const duration = formatDuration(durationSeconds);
+                              const size = formatBytes(
+                                (doc as { size?: number })?.size
+                              );
+
+                              return (
+                                <div
+                                  key={`${name}-${idx}`}
+                                  className="article-audio-card"
+                                >
+                                  <div className="article-audio-top">
+                                    <div className="article-audio-title">
+                                      {name}
+                                    </div>
+                                    {url ? (
+                                      <a
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="article-audio-link"
+                                        title="Open / download audio"
+                                      >
+                                        Open
+                                      </a>
+                                    ) : null}
+                                  </div>
+
+                                  {url ? (
+                                    <audio
+                                      className="article-audio-player"
+                                      controls
+                                      preload="metadata"
+                                      src={url}
+                                    />
+                                  ) : (
+                                    <div className="article-audio-missing">
+                                      Audio attachment is available but no
+                                      playable URL was provided.
+                                    </div>
+                                  )}
+
+                                  {(size || duration) && (
+                                    <div className="article-audio-meta">
+                                      {[size, duration]
+                                        .filter(Boolean)
+                                        .join(" • ")}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {otherDocs.length > 0 && (
+                          <div style={styles.tagContainer}>
+                            {otherDocs.map((doc, index) => {
+                              const url = resolveDocumentUrl(doc);
+                              const name = (doc as { name?: string })?.name;
+                              if (!url) return null;
+                              return (
+                                <a
+                                  key={index}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    ...styles.tag,
+                                    textDecoration: "none",
+                                  }}
+                                >
+                                  {name || "Document"}
+                                </a>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
           </div>
@@ -1494,6 +1635,48 @@ const ArticleDetailPage = () => {
           .article-body figure { margin: 1rem 0; }
           .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem; }
           .article-inline-image { margin: 1.25rem 0; }
+          /* Audio attachments (WhatsApp-style card) */
+          .article-audio-list { display: grid; gap: 12px; margin-bottom: 16px; }
+          .article-audio-card {
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 12px;
+          }
+          .article-audio-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+          }
+          .article-audio-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #111827;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .article-audio-link {
+            font-size: 12px;
+            font-weight: 600;
+            color: #2563eb;
+            text-decoration: none;
+            white-space: nowrap;
+          }
+          .article-audio-link:hover { text-decoration: underline; }
+          .article-audio-player { width: 100%; height: 36px; }
+          .article-audio-meta {
+            margin-top: 6px;
+            font-size: 12px;
+            color: #6b7280;
+          }
+          .article-audio-missing {
+            font-size: 13px;
+            color: #6b7280;
+            padding: 8px 0;
+          }
           /* Hover tooltips for metric values using title attribute (align like company page) */
           .article-financial-metrics {
             overflow: visible !important;

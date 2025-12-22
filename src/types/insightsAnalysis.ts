@@ -32,10 +32,10 @@ export interface ContentArticle {
     type: string;
     size: number;
     mime: string;
-    meta: {
-      validated: boolean;
-    };
-    url: string;
+    // Meta varies by file type; may contain validated flag or audio duration/codec metadata.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    meta: any;
+    url?: string;
   }>;
 }
 
