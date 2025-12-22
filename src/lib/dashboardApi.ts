@@ -6,6 +6,28 @@ interface ApiResponse<T> {
   total?: number;
 }
 
+export type FinancialMetricsRow = {
+  revenue_range: string;
+  num_companies: number;
+  range_order?: number;
+
+  mean_arr_percent?: string | number | null;
+  mean_ebitda_margin?: string | number | null;
+  mean_enterprise_value_m?: string | number | null;
+  mean_ev_rev_multiple?: string | number | null;
+  mean_revenue_growth?: string | number | null;
+  mean_nrr?: string | number | null;
+  mean_grr?: string | number | null;
+
+  median_arr_percent?: string | number | null;
+  median_ebitda_margin?: string | number | null;
+  median_enterprise_value_m?: string | number | null;
+  median_ev_rev_multiple?: string | number | null;
+  median_revenue_growth?: string | number | null;
+  median_nrr?: string | number | null;
+  median_grr?: string | number | null;
+};
+
 class DashboardApiService {
   private baseUrl: string;
   private sectorsCache: {
@@ -64,6 +86,31 @@ class DashboardApiService {
       string,
       unknown
     >[];
+  }
+
+  // Financial metrics by revenue band (mean + median). Returns a raw array from Xano.
+  async getFinancialMetrics(): Promise<FinancialMetricsRow[]> {
+    const headers = {
+      "Content-Type": "application/json",
+      ...authService.getAuthHeaders(),
+    };
+
+    const response = await fetch(`${this.baseUrl}/mean`, {
+      method: "GET",
+      headers,
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Authentication required");
+      }
+      throw new Error(`API request failed: ${response.statusText}`);
+    }
+
+    // The /mean endpoint returns a raw array, not wrapped in ApiResponse
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
   }
 
   async getRecentlyAddedCompanies(): Promise<
