@@ -11,6 +11,12 @@ import {
 } from "../../../types/corporateEvents";
 import { useRightClick } from "@/hooks/useRightClick";
 import { ContentArticle } from "@/types/insightsAnalysis";
+import TransactionHero from "@/components/transaction/TransactionHero";
+import DealMetrics from "@/components/transaction/DealMetrics";
+import InsightsSection from "@/components/transaction/InsightsSection";
+import CounterpartiesSection from "@/components/transaction/CounterpartiesSection";
+import AdvisorsSection from "@/components/transaction/AdvisorsSection";
+import { Button } from "@/components/ui/button";
 
 // Type-safe check for Data & Analytics company flag
 const isDataAnalyticsCompany = (candidate: unknown): boolean => {
@@ -21,11 +27,9 @@ const isDataAnalyticsCompany = (candidate: unknown): boolean => {
     : false;
 };
 
-// Company Logo Component
-const CompanyLogo = ({ logo, name }: { logo?: string; name: string }) => {
+// Helper function to process logo URLs
   const buildLogoSrc = (raw?: string): string | undefined => {
     if (!raw) return undefined;
-    // Normalize by trimming and removing whitespace/newlines often present in base64 blobs
     const value = String(raw).trim();
     const compact = value.replace(/\s+/g, "");
     if (!value) return undefined;
@@ -34,7 +38,6 @@ const CompanyLogo = ({ logo, name }: { logo?: string; name: string }) => {
       try {
         const u = new URL(value);
         const host = u.hostname.toLowerCase();
-        // Skip LinkedIn CDN/hosts to avoid frequent 403s; prefer base64 for those
         if (host.endsWith("licdn.com") || host.endsWith("linkedin.com")) {
           return undefined;
         }
@@ -43,28 +46,10 @@ const CompanyLogo = ({ logo, name }: { logo?: string; name: string }) => {
         return undefined;
       }
     }
-    // Heuristic: treat as base64 when it does not look like a URL
     if (/^[A-Za-z0-9+/=]+$/.test(compact)) {
       return `data:image/jpeg;base64,${compact}`;
     }
     return undefined;
-  };
-
-  const src = buildLogoSrc(logo);
-  if (src) {
-    return (
-      <>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={`${name} logo`} className="company-logo" />
-      </>
-    );
-  }
-
-  return (
-    <div className="placeholder-logo">
-      {(name || "").charAt(0).toUpperCase()}
-    </div>
-  );
 };
 
 // Corporate Event Detail Component
@@ -99,7 +84,7 @@ const CorporateEventDetail = ({
     ? data.Event_advisors
     : [];
 
-  // Fast lookup for counterparties by id (to map advisor->advised company and announcement URL)
+  // Fast lookup for counterparties by id
   const counterpartiesById = React.useMemo(() => {
     const map = new Map<number, (typeof counterparties)[number]>();
     for (const cp of counterparties) {
@@ -108,13 +93,12 @@ const CorporateEventDetail = ({
     return map;
   }, [counterparties]);
 
-  // Fallback logo cache for investor counterparties when logo not present in payload
+  // Fallback logo cache for investor counterparties
   const [logoMap, setLogoMap] = useState<Record<number, string | undefined>>(
     {}
   );
 
   useEffect(() => {
-    // Identify investor counterparties missing logos
     const ids = (Array.isArray(counterparties) ? counterparties : [])
       .filter((cp) => {
         const nc = cp?._new_company;
@@ -195,13 +179,11 @@ const CorporateEventDetail = ({
     return `${currency}${formatted}m`;
   };
 
-  // Prefer investment currency if present; otherwise fall back to EV currency
   const getInvestmentCurrency = (): string | undefined => {
     const inv = event?.investment_data as
       | { _currency?: { Currency?: string }; currency?: { Currency?: string } }
       | undefined;
     const fromInvestment = inv?.currency?.Currency || inv?._currency?.Currency;
-    // Fallbacks: top-level investment/EV currency when backend sends flattened fields
     const flatEvent = (event ?? {}) as FlatEventFields;
     const topLevelCurrency =
       flatEvent.investment_currency || flatEvent.enterprise_value_currency;
@@ -213,7 +195,6 @@ const CorporateEventDetail = ({
     );
   };
 
-  // Prefer nested investment amount; fallback to top-level fields when present
   const getInvestmentAmount = (): string | undefined => {
     const nested = event?.investment_data?.investment_amount_m;
     if (nested) return nested;
@@ -232,18 +213,7 @@ const CorporateEventDetail = ({
     return currency ? formatCurrency(amount, currency) : "Not available";
   };
 
-  // Removed navigation helpers in favor of createClickableElement to support right-click
-
-  // const handleIndividualClick = (individualId: number) => {
-  //   try {
-  //     router.push(`/individual/${individualId}`);
-  //   } catch (error) {
-  //     console.error("Navigation error:", error);
-  //   }
-  // };
-
   const [eventArticles, setEventArticles] = useState<ContentArticle[]>([]);
-  const [eventArticlesLoading, setEventArticlesLoading] = useState(false);
 
   useEffect(() => {
     const run = async () => {
@@ -254,7 +224,6 @@ const CorporateEventDetail = ({
         console.log("[Insights & Analysis] fetch start", {
           corporate_event_id: evId,
         });
-        setEventArticlesLoading(true);
         const qs = new URLSearchParams({ corporate_event_id: String(evId) });
         const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/content?${qs.toString()}`;
         console.log("[Insights & Analysis] GET URL", url);
@@ -281,458 +250,23 @@ const CorporateEventDetail = ({
         console.log("[Insights & Analysis] fetch finished", {
           ms: Date.now() - startedAt,
         });
-        setEventArticlesLoading(false);
       }
     };
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event?.id]);
 
-  const style = `
-    .corporate-event-container {
-      background-color: #f9fafb;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    }
-    .corporate-event-content {
-      padding: 32px;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-    }
-    .corporate-event-card {
-      background-color: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      padding: 32px 24px;
-      margin-bottom: 0;
-    }
-    .corporate-event-header {
-      position: relative;
-    }
-    .corporate-event-title {
-      font-size: 24px;
-      font-weight: 700;
-      color: #1a202c;
-      margin-bottom: 8px;
-      margin-top: 0px;
-    }
-    .corporate-event-subtitle {
-      font-size: 20px;
-      font-weight: 600;
-      color: #1a202c;
-      margin-bottom: 12px;
-    }
-    .report-button {
-      background-color: #dc2626;
-      color: white;
-      font-weight: 600;
-      padding: 8px 16px;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-      font-size: 14px;
-      float: right;
-    }
-    .info-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-      margin-top: 24px;
-    }
-    .info-column {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .info-item {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .info-label {
-      font-size: 14px;
-      color: #6b7280;
-      font-weight: 500;
-    }
-    .info-value {
-      font-size: 16px;
-      color: #1a202c;
-      font-weight: 600;
-    }
-    /* Names: keep words intact, no mid-word splits */
-    .corporate-event-link {
-      color: #2563eb;
-      text-decoration: underline;
-      cursor: pointer;
-      word-break: keep-all;
-      overflow-wrap: normal;
-      white-space: normal;
-      hyphens: none;
-      display: inline;
-    }
-    /* URLs: allow breaking anywhere to avoid overflow */
-    .corporate-event-link-url {
-      color: #2563eb;
-      text-decoration: underline;
-      cursor: pointer;
-      word-break: break-word;
-      overflow-wrap: anywhere;
-      white-space: normal;
-      line-break: anywhere;
-      display: inline;
-    }
-    .info-item a.corporate-event-link-url,
-    .advisors-table td a.corporate-event-link-url,
-    .counterparties-table td a.corporate-event-link-url {
-      word-break: break-word;
-      overflow-wrap: anywhere;
-      white-space: normal;
-      line-break: anywhere;
-    }
-    .corporate-event-description {
-      font-size: 16px;
-      color: #374151;
-      line-height: 1.6;
-      margin-top: 24px;
-    }
-    .counterparties-table-container {
-      overflow-x: auto;
-    }
-    .counterparties-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 16px;
-    }
-    .counterparties-table th {
-      background-color: #f9fafb;
-      border-bottom: 2px solid #e5e7eb;
-      padding: 12px 16px;
-      text-align: left;
-      font-weight: 600;
-      font-size: 14px;
-      color: #374151;
-    }
-    .counterparties-table td {
-      padding: 12px 16px;
-      border-bottom: 1px solid #e5e7eb;
-      font-size: 14px;
-      color: #374151;
-    }
-    .company-logo {
-      width: 40px;
-      height: 40px;
-      border-radius: 4px;
-      object-fit: cover;
-    }
-    .placeholder-logo {
-      width: 40px;
-      height: 40px;
-      background-color: #e5e7eb;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      color: #6b7280;
-    }
-    .counterparties-cards { display: none; }
-    .advisors-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-    .advisors-table th { background-color: #f9fafb; border-bottom: 2px solid #e5e7eb; padding: 12px 16px; text-align: left; font-weight: 600; font-size: 14px; color: #374151; }
-    .advisors-table td { padding: 12px 16px; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #374151; }
-    .advisors-cards { display: none; }
-    .counterparty-card {
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 12px;
-    }
-    .counterparty-card-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-    .counterparty-card-name {
-      font-size: 16px;
-      font-weight: 600;
-      color: #2563eb;
-      cursor: pointer;
-      text-decoration: underline;
-    }
-    .counterparty-card-info {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      font-size: 14px;
-    }
-    .counterparty-card-info-item {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .counterparty-card-info-label {
-      font-weight: 600;
-      color: #374151;
-      font-size: 12px;
-    }
-    .counterparty-card-info-value {
-      color: #6b7280;
-      font-size: 12px;
-    }
-    .counterparty-card-full-width {
-      grid-column: 1 / -1;
-    }
+  // Transform data for components
+  const transactionData = {
+    title: event?.description || "Corporate Event",
+    subtitle: event?.long_description || undefined,
+  };
 
-    @media (max-width: 768px) {
-      .corporate-event-content {
-        padding: 16px !important;
-        gap: 16px !important;
-      }
-      .corporate-event-card {
-        padding: 16px !important;
-        border-radius: 8px !important;
-      }
-      .corporate-event-header {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 12px !important;
-      }
-      .corporate-event-title {
-        font-size: 20px !important;
-        margin-bottom: 0 !important;
-      }
-      .corporate-event-subtitle {
-        font-size: 18px !important;
-        margin-bottom: 8px !important;
-      }
-      .report-button {
-        float: none !important;
-        align-self: flex-start !important;
-        width: fit-content !important;
-      }
-      .info-grid {
-        grid-template-columns: 1fr !important;
-        gap: 16px !important;
-        margin-top: 16px !important;
-      }
-      .info-column {
-        gap: 12px !important;
-      }
-      .info-label {
-        font-size: 13px !important;
-      }
-      .info-value {
-        font-size: 15px !important;
-      }
-      .corporate-event-link {
-        font-size: 14px !important;
-      }
-      .corporate-event-description {
-        font-size: 15px !important;
-        margin-top: 16px !important;
-      }
-      .counterparties-table-container { display: none !important; }
-      .counterparties-cards { display: block !important; margin-top: 16px !important; }
-      .advisors-cards { display: block !important; margin-top: 16px !important; }
-      .advisors-table { display: none !important; }
-    }
-
-    @media (min-width: 769px) {
-      .counterparties-cards { display: none !important; }
-      .counterparties-table-container { display: block !important; }
-      .advisors-cards { display: none !important; }
-      .advisors-table { display: table !important; }
-    }
-  `;
-
-  return (
-    <div className="corporate-event-container">
-      <div className="corporate-event-content">
-        {/* Event Details Card */}
-        <div className="corporate-event-card">
-          <div className="corporate-event-header">
-            <h1 className="corporate-event-title">
-              {event?.description || "Not available"}
-            </h1>
-            <a
-              className="report-button"
-              href={`mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
-                `Report Incorrect Corporate Event Data – ${
-                  event?.description ?? "Unknown"
-                } (ID ${event?.id ?? "Unknown"})`
-              )}&body=${encodeURIComponent(
-                "Please describe the issue you found for this corporate event page."
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Report Incorrect Data
-            </a>
-          </div>
-
-          <div className="info-grid">
-            <div className="info-column">
-              <div className="info-item">
-                <span className="info-label">Deal Type:</span>
-                <span className="info-value">
-                  {event?.deal_type || "Not available"}
-                </span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Date Announced:</span>
-                <span className="info-value">
-                  {event?.announcement_date
-                    ? formatDate(event.announcement_date)
-                    : "Not available"}
-                </span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Date Closed:</span>
-                <span className="info-value">
-                  {event?.closed_date
-                    ? formatDate(event.closed_date)
-                    : "Not available"}
-                </span>
-              </div>
-            </div>
-            <div className="info-column">
-              <div className="info-item">
-                <span className="info-label">Investment Amount:</span>
-                <span className="info-value">{formatInvestmentAmount()}</span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Enterprise Value:</span>
-                <span className="info-value">
-                  {(() => {
-                    const flatEvent = (event ?? {}) as FlatEventFields;
-                    const amountRaw =
-                      event?.ev_data?.enterprise_value_m ??
-                      flatEvent.enterprise_value_m ??
-                      "";
-                    const amount =
-                      typeof amountRaw === "number"
-                        ? String(amountRaw)
-                        : amountRaw;
-                    const currency =
-                      event?.ev_data?._currency?.Currency ||
-                      flatEvent.enterprise_value_currency ||
-                      "";
-                    return amount && currency
-                      ? formatCurrency(amount, currency)
-                      : "Not available";
-                  })()}
-                </span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">EV Source:</span>
-                {event?.ev_data?.ev_source ? (
-                  <a
-                    href={event.ev_data.ev_source}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="corporate-event-link"
-                  >
-                    {event.ev_data.ev_source}
-                  </a>
-                ) : (
-                  <span className="info-value">Not available</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <p className="corporate-event-description">
-            {event?.long_description || "Not available"}
-          </p>
-        </div>
-
-        {/* Asymmetrix Content (Insights & Analysis) related to this corporate event */}
-        {eventArticles.length > 0 && (
-          <div className="corporate-event-card">
-            <h2 className="corporate-event-subtitle">
-              Asymmetrix Insights & Analysis
-            </h2>
-            {eventArticlesLoading ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "40px",
-                  color: "#666",
-                  fontSize: "14px",
-                }}
-              >
-                Loading content...
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                }}
-              >
-                {eventArticles.slice(0, 4).map((article) => (
-                  <a
-                    key={article.id}
-                    href={`/article/${article.id}`}
-                    style={{
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                      padding: "12px 12px",
-                      background: "#fff",
-                      display: "block",
-                      textDecoration: "none",
-                      color: "inherit",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        marginBottom: 6,
-                        color: "#1a202c",
-                      }}
-                    >
-                      {article.Headline || "Untitled"}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "#6b7280",
-                        marginBottom: 8,
-                      }}
-                    >
-                      {article.Publication_Date
-                        ? new Date(
-                            article.Publication_Date
-                          ).toLocaleDateString()
-                        : ""}
-                    </div>
-                    <div style={{ fontSize: 14, color: "#374151" }}>
-                      {article.Strapline || ""}
-                    </div>
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Sectors Card */}
-        <div className="corporate-event-card">
-          <h2 className="corporate-event-subtitle">Sectors</h2>
-          <div className="info-grid">
-            <div className="info-column">
-              <div className="info-item">
-                <span className="info-label">Primary Sectors:</span>
-                <span className="info-value">
-                  {(() => {
-                    // Derive primary sectors from sub-sectors mapping when needed
+  // Get primary sectors
+  const primarySectors = (() => {
                     const existing = Array.isArray(data.Primary_sectors)
                       ? data.Primary_sectors.map((s) => s.sector_name)
                       : [];
-                    // Support both legacy single object `related_primary_sector`
-                    // and new array `related_primary_sectors` on sub-sectors
                     const derived = Array.isArray(subSectors)
                       ? subSectors
                           .flatMap((s) => {
@@ -758,305 +292,126 @@ const CorporateEventDetail = ({
                           })
                           .filter((v): v is string => Boolean(v))
                       : [];
-                    const combined = Array.from(
-                      new Set([...existing, ...derived])
-                    );
-                    return combined.length > 0
-                      ? combined.join(", ")
-                      : "Not available";
-                  })()}
-                </span>
-              </div>
-            </div>
-            <div className="info-column">
-              <div className="info-item">
-                <span className="info-label">Sub-Sector(s):</span>
-                <span className="info-value">
-                  {subSectors.length > 0
+    return Array.from(new Set([...existing, ...derived]));
+  })();
+
+  const metricsData = {
+    sector: primarySectors.length > 0 ? primarySectors.join(", ") : undefined,
+    subSector:
+      subSectors.length > 0
                     ? subSectors.map((s) => s.sector_name).join(", ")
-                    : "Not available"}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+        : undefined,
+    dateAnnounced: event?.announcement_date
+      ? formatDate(event.announcement_date)
+      : undefined,
+    dateClosed: event?.closed_date ? formatDate(event.closed_date) : undefined,
+    dealType: event?.deal_type || undefined,
+    dealStage: undefined, // Not available in current data
+    investmentAmount: formatInvestmentAmount(),
+    currency: getInvestmentCurrency(),
+    enterpriseValue: (() => {
+      const flatEvent = (event ?? {}) as FlatEventFields;
+      const amountRaw =
+        event?.ev_data?.enterprise_value_m ??
+        flatEvent.enterprise_value_m ??
+        "";
+      const amount =
+        typeof amountRaw === "number"
+          ? String(amountRaw)
+          : amountRaw;
+      const currency =
+        event?.ev_data?._currency?.Currency ||
+        flatEvent.enterprise_value_currency ||
+        "";
+      return amount && currency
+        ? formatCurrency(amount, currency)
+        : undefined;
+    })(),
+  };
 
-        {/* Counterparties Card */}
-        <div className="corporate-event-card">
-          <h2 className="corporate-event-subtitle">Counterparties</h2>
+  const insightsData = eventArticles.map((article) => ({
+    id: article.id,
+    tag: "Article",
+    date: article.Publication_Date
+      ? new Date(article.Publication_Date).toLocaleDateString()
+      : undefined,
+    title: article.Headline || "Untitled",
+    content: article.Strapline || "",
+  }));
 
-          {/* Desktop Table View */}
-          <div className="counterparties-table-container">
-            <table className="counterparties-table">
-              <thead>
-                <tr>
-                  <th>Logo</th>
-                  <th>Company</th>
-                  <th>Counterparty type</th>
-                  <th>Announcement URL</th>
-                  <th>Individuals</th>
-                </tr>
-              </thead>
-              <tbody>
-                {counterparties.map((counterparty) => (
-                  <tr key={counterparty.id}>
-                    <td>
-                      <CompanyLogo
-                        logo={
-                          counterparty._new_company
-                            ._linkedin_data_of_new_company?.linkedin_logo ||
-                          counterparty._new_company.linkedin_data
-                            ?.linkedin_logo ||
-                          logoMap[counterparty._new_company.id]
-                        }
-                        name={counterparty._new_company.name}
-                      />
-                    </td>
-                    <td>
-                      {(() => {
+  const counterpartiesData = counterparties.map((counterparty) => {
                         const nc = counterparty._new_company;
                         const isInvestor = Boolean(nc?._is_that_investor);
-                        // Treat as Data & Analytics company only if backend flag is present
                         const isDA = isDataAnalyticsCompany(nc);
                         const href = isInvestor
                           ? `/investors/${counterparty.new_company_counterparty}`
                           : isDA
                           ? `/company/${Number(nc?.id)}`
                           : undefined;
-                        if (href) {
-                          return createClickableElement(
-                            href,
-                            nc?.name ?? "N/A",
-                            "corporate-event-link"
-                          );
-                        }
-                        return (
-                          <span style={{ color: "#000" }}>
-                            {nc?.name ?? "N/A"}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    <td>
-                      {counterparty._counterpartys_type?.counterparty_status ||
-                        counterparty._counterparty_type?.counterparty_status ||
-                        "N/A"}
-                    </td>
-                    <td>
-                      {counterparty.counterparty_announcement_url ? (
-                        <a
-                          href={counterparty.counterparty_announcement_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="corporate-event-link-url"
-                        >
-                          {counterparty.counterparty_announcement_url}
-                        </a>
-                      ) : (
-                        "Not available"
-                      )}
-                    </td>
-                    <td>
-                      {Array.isArray(counterparty.counterparty_individuals) &&
+
+    const rawLogo =
+      nc?._linkedin_data_of_new_company?.linkedin_logo ||
+      nc?.linkedin_data?.linkedin_logo ||
+      logoMap[nc?.id];
+    const logo = buildLogoSrc(rawLogo);
+
+    const individuals =
+      Array.isArray(counterparty.counterparty_individuals) &&
                       counterparty.counterparty_individuals.length > 0
-                        ? counterparty.counterparty_individuals.map(
-                            (individual, idx) => (
+        ? counterparty.counterparty_individuals.map((individual, idx) => (
                               <span key={individual.id}>
                                 <a
                                   href={`/individual/${individual.individuals_id}`}
-                                  className="corporate-event-link"
+                className="text-blue-600 hover:underline"
                                 >
                                   {individual.advisor_individuals}
                                 </a>
-                                {idx <
-                                  counterparty.counterparty_individuals.length -
-                                    1 && ", "}
+              {idx < counterparty.counterparty_individuals.length - 1 && ", "}
                               </span>
-                            )
-                          )
-                        : "Not available"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          ))
+        : "Not available";
 
-          {/* Mobile Cards View */}
-          <div className="counterparties-cards">
-            {counterparties.map((counterparty) => (
-              <div key={counterparty.id} className="counterparty-card">
-                <div className="counterparty-card-header">
-                  <CompanyLogo
-                    logo={
-                      counterparty._new_company._linkedin_data_of_new_company
-                        ?.linkedin_logo ||
-                      counterparty._new_company.linkedin_data?.linkedin_logo ||
-                      logoMap[counterparty._new_company.id]
-                    }
-                    name={counterparty._new_company.name}
-                  />
-                  <div className="counterparty-card-name">
-                    {(() => {
-                      const nc = counterparty._new_company;
-                      const isInvestor = Boolean(nc?._is_that_investor);
-                      const isDA = isDataAnalyticsCompany(nc);
-                      const href = isInvestor
-                        ? `/investors/${counterparty.new_company_counterparty}`
-                        : isDA
-                        ? `/company/${Number(nc?.id)}`
-                        : undefined;
-                      if (href) {
-                        return createClickableElement(href, nc?.name ?? "N/A");
-                      }
-                      return (
-                        <span
-                          style={{ color: "#2563eb", textDecoration: "none" }}
-                        >
-                          {nc?.name ?? "N/A"}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                </div>
-                <div className="counterparty-card-info">
-                  <div className="counterparty-card-info-item">
-                    <span className="counterparty-card-info-label">Type:</span>
-                    <span className="counterparty-card-info-value">
-                      {counterparty._counterpartys_type?.counterparty_status ||
+    return {
+      id: counterparty.id,
+      name: nc?.name ?? "N/A",
+      role:
+        counterparty._counterpartys_type?.counterparty_status ||
                         counterparty._counterparty_type?.counterparty_status ||
-                        "N/A"}
-                    </span>
-                  </div>
-                  <div className="counterparty-card-info-item">
-                    <span className="counterparty-card-info-label">
-                      Individuals:
-                    </span>
-                    <span className="counterparty-card-info-value">
-                      {Array.isArray(counterparty.counterparty_individuals) &&
-                      counterparty.counterparty_individuals.length > 0
-                        ? counterparty.counterparty_individuals.map(
-                            (individual, idx) => (
-                              <span key={individual.id}>
-                                <a
-                                  href={`/individual/${individual.individuals_id}`}
-                                  className="corporate-event-link"
-                                >
-                                  {individual.advisor_individuals}
-                                </a>
-                                {idx <
-                                  counterparty.counterparty_individuals.length -
-                                    1 && ", "}
-                              </span>
-                            )
-                          )
-                        : "Not available"}
-                    </span>
-                  </div>
-                  {counterparty.counterparty_announcement_url && (
-                    <div className="counterparty-card-info-item counterparty-card-full-width">
-                      <span className="counterparty-card-info-label">
-                        Announcement URL:
-                      </span>
-                      <a
-                        href={counterparty.counterparty_announcement_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="corporate-event-link"
-                        style={{ fontSize: "12px" }}
-                      >
-                        {counterparty.counterparty_announcement_url}
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        "N/A",
+      logo,
+      individuals,
+      announcementUrl: counterparty.counterparty_announcement_url || undefined,
+      href,
+    };
+  });
 
-        {/* Advisors Card */}
-        <div className="corporate-event-card">
-          <h2 className="corporate-event-subtitle">Advisors</h2>
-          {/* Desktop Table */}
-          <table className="advisors-table">
-            <thead>
-              <tr>
-                <th>Logo</th>
-                <th>Advisor</th>
-                <th>Role</th>
-                <th>Advising</th>
-                <th>Individuals</th>
-                <th>Announcement URL</th>
-              </tr>
-            </thead>
-            <tbody>
-              {advisors.length > 0 ? (
-                advisors.map((a) => (
-                  <tr key={a.id}>
-                    <td>
-                      <CompanyLogo
-                        logo={
-                          // Prefer nested linkedin logo if present
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          (a as any)?._new_company
-                            ?._linkedin_data_of_new_company?.linkedin_logo ||
-                          // Fallback to direct linkedin_data
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          (a as any)?._new_company?.linkedin_data?.linkedin_logo
-                        }
-                        name={
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          ((a as any)?._new_company?.name as string) ||
-                          "Advisor"
-                        }
-                      />
-                    </td>
-                    <td>
-                      {createClickableElement(
-                        `/advisor/${a._new_company.id}`,
-                        a._new_company.name,
-                        "corporate-event-link"
-                      )}
-                    </td>
-                    <td>{a._advisor_role?.counterparty_status || "Advisor"}</td>
-                    <td>
-                      {(() => {
-                        // Prefer using counterparty_advised id to resolve advised entity
+  const advisorsData = advisors.map((a) => {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const anyA = a as any;
-                        const advisedId: number | undefined =
-                          anyA?.counterparty_advised;
-                        const cp = advisedId
-                          ? counterpartiesById?.get?.(advisedId)
-                          : undefined;
+    const rawLogo =
+      anyA?._new_company?._linkedin_data_of_new_company?.linkedin_logo ||
+      anyA?._new_company?.linkedin_data?.linkedin_logo;
+    const logo = buildLogoSrc(rawLogo);
+
+    const advisedId: number | undefined = anyA?.counterparty_advised;
+    const cp = advisedId ? counterpartiesById?.get?.(advisedId) : undefined;
                         const nc = cp?._new_company;
                         const isInvestor = Boolean(nc?._is_that_investor);
                         const isDA = isDataAnalyticsCompany(nc);
-                        const href = isInvestor
+    const advisingHref = isInvestor
                           ? `/investors/${cp?.new_company_counterparty}`
                           : isDA
                           ? `/company/${Number(nc?.id)}`
                           : undefined;
-                        if (href) {
-                          return createClickableElement(
-                            href,
+
+    const advising = advisingHref
+      ? createClickableElement(
+          advisingHref,
                             nc?.name || "N/A",
-                            "corporate-event-link"
-                          );
-                        }
-                        return (
-                          <span style={{ color: "#000" }}>
-                            {nc?.name || "N/A"}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    <td>
-                      {(() => {
-                        // Strictly use advisor-attached individuals from Event_advisors; no fallbacks
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const anyA = a as any;
+          "text-blue-600 hover:underline"
+        )
+      : nc?.name || "N/A";
+
                         const advisorList = Array.isArray(anyA?.individuals)
                           ? (anyA.individuals as Array<{
                               id: number;
@@ -1064,202 +419,87 @@ const CorporateEventDetail = ({
                               advisor_individuals: string;
                             }>)
                           : undefined;
-                        const list = advisorList;
-                        return Array.isArray(list) && list.length > 0
-                          ? list.map((ind, idx) => (
+
+    const individuals =
+      Array.isArray(advisorList) && advisorList.length > 0
+        ? advisorList.map((ind, idx) => (
                               <span key={ind.id}>
                                 {typeof ind.individuals_id === "number" ? (
                                   <a
                                     href={`/individual/${ind.individuals_id}`}
-                                    className="corporate-event-link"
+                  className="text-blue-600 hover:underline"
                                   >
                                     {ind.advisor_individuals}
                                   </a>
                                 ) : (
                                   <span>{ind.advisor_individuals}</span>
                                 )}
-                                {idx < list.length - 1 && ", "}
+              {idx < advisorList.length - 1 && ", "}
                               </span>
                             ))
                           : "Not available";
-                      })()}
-                    </td>
-                    <td>
-                      {(() => {
-                        // Advisor-only URL; empty string means no link
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const anyA = a as any;
-                        const raw =
-                          (anyA?.announcement_url as string | undefined) ?? "";
-                        const url = raw.trim();
-                        return url ? (
-                          <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="corporate-event-link-url"
-                          >
-                            {url}
-                          </a>
-                        ) : (
-                          "Not available"
-                        );
-                      })()}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4}>Not available</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
 
-          {/* Mobile Cards */}
-          <div className="advisors-cards">
-            {advisors.length > 0 ? (
-              advisors.map((a) => (
-                <div key={a.id} className="counterparty-card">
-                  <div
-                    className="counterparty-card-header"
-                    style={{ marginBottom: 8 }}
-                  >
-                    <CompanyLogo
-                      logo={
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        (a as any)?._new_company?._linkedin_data_of_new_company
-                          ?.linkedin_logo ||
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        (a as any)?._new_company?.linkedin_data?.linkedin_logo
-                      }
-                      name={a._new_company.name}
-                    />
-                    <div className="counterparty-card-name">
-                      {createClickableElement(
-                        `/advisor/${a._new_company.id}`,
-                        a._new_company.name
-                      )}
-                    </div>
-                  </div>
-                  <div className="counterparty-card-info">
-                    <div className="counterparty-card-info-item">
-                      <span className="counterparty-card-info-label">
-                        Role:
-                      </span>
-                      <span className="counterparty-card-info-value">
-                        {a._advisor_role?.counterparty_status || "Advisor"}
-                      </span>
-                    </div>
-                    <div className="counterparty-card-info-item">
-                      <span className="counterparty-card-info-label">
-                        Advising:
-                      </span>
-                      <span className="counterparty-card-info-value">
-                        {(() => {
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          const anyA = a as any;
-                          const advisedId: number | undefined =
-                            anyA?.counterparty_advised;
-                          const cp = advisedId
-                            ? counterpartiesById?.get?.(advisedId)
-                            : undefined;
-                          const nc = cp?._new_company;
-                          const isInvestor = Boolean(nc?._is_that_investor);
-                          const isDA = isDataAnalyticsCompany(nc);
-                          const href = isInvestor
-                            ? `/investors/${cp?.new_company_counterparty}`
-                            : isDA
-                            ? `/company/${Number(nc?.id)}`
-                            : undefined;
-                          if (href) {
-                            return createClickableElement(
-                              href,
-                              nc?.name || "N/A",
-                              "corporate-event-link"
-                            );
-                          }
-                          return (
-                            <span style={{ color: "#000" }}>
-                              {nc?.name || "N/A"}
-                            </span>
-                          );
-                        })()}
-                      </span>
-                    </div>
-                    <div className="counterparty-card-info-item">
-                      <span className="counterparty-card-info-label">
-                        Individuals:
-                      </span>
-                      <span className="counterparty-card-info-value">
-                        {(() => {
-                          // Strictly use advisor-attached individuals from Event_advisors; no fallbacks
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          const anyA = a as any;
-                          const advisorList = Array.isArray(anyA?.individuals)
-                            ? (anyA.individuals as Array<{
-                                id: number;
-                                individuals_id?: number;
-                                advisor_individuals: string;
-                              }>)
-                            : undefined;
-                          const list = advisorList;
-                          return Array.isArray(list) && list.length > 0
-                            ? list.map((ind, idx) => (
-                                <span key={ind.id}>
-                                  {typeof ind.individuals_id === "number" ? (
-                                    <a
-                                      href={`/individual/${ind.individuals_id}`}
-                                      className="corporate-event-link"
-                                    >
-                                      {ind.advisor_individuals}
-                                    </a>
-                                  ) : (
-                                    <span>{ind.advisor_individuals}</span>
-                                  )}
-                                  {idx < list.length - 1 && ", "}
-                                </span>
-                              ))
-                            : "Not available";
-                        })()}
-                      </span>
-                    </div>
-                    {(() => {
-                      // Advisor-only URL on mobile; empty means no section
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      const anyA = a as any;
-                      const raw =
-                        (anyA?.announcement_url as string | undefined) ?? "";
-                      const url = raw.trim();
-                      return url ? (
-                        <div className="counterparty-card-info-item counterparty-card-full-width">
-                          <span className="counterparty-card-info-label">
-                            Announcement URL:
-                          </span>
-                          <a
-                            href={url}
+    const raw = (anyA?.announcement_url as string | undefined) ?? "";
+                        const url = raw.trim();
+
+    return {
+      id: a.id,
+      name: a._new_company.name,
+      logo,
+      role: a._advisor_role?.counterparty_status || "Advisor",
+      advising,
+      individuals,
+      announcementUrl: url || undefined,
+      href: `/advisor/${a._new_company.id}`,
+    };
+  });
+
+  const reportButton = (
+    <Button
+      asChild
+      variant="destructive"
+      size="sm"
+      className="shadow-md"
+    >
+      <a
+        href={`mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
+          `Report Incorrect Corporate Event Data – ${
+            event?.description ?? "Unknown"
+          } (ID ${event?.id ?? "Unknown"})`
+        )}&body=${encodeURIComponent(
+          "Please describe the issue you found for this corporate event page."
+        )}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="corporate-event-link"
-                            style={{ fontSize: 12 }}
-                          >
-                            {url}
-                          </a>
-                        </div>
-                      ) : null;
-                    })()}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div style={{ color: "#6b7280", fontSize: 14 }}>
-                Not available
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      <style dangerouslySetInnerHTML={{ __html: style }} />
+      >
+        Report Incorrect Data
+      </a>
+    </Button>
+  );
+
+  return (
+    <div className="bg-slate-50 min-h-screen">
+      <TransactionHero transaction={transactionData} reportButton={reportButton} />
+
+      <DealMetrics metrics={metricsData} />
+
+      {insightsData.length > 0 && (
+        <InsightsSection insights={insightsData} />
+      )}
+
+      {counterpartiesData.length > 0 && (
+        <CounterpartiesSection
+          counterparties={counterpartiesData}
+          createClickableElement={createClickableElement}
+        />
+      )}
+
+      {advisorsData.length > 0 && (
+        <AdvisorsSection
+          advisors={advisorsData}
+          createClickableElement={createClickableElement}
+        />
+      )}
     </div>
   );
 };
@@ -1279,7 +519,6 @@ const CorporateEventDetailPage = () => {
 
       const corporateEventId = params.id as string;
 
-      // Safety check for missing ID
       if (!corporateEventId) {
         throw new Error("Corporate event ID is required");
       }
@@ -1292,7 +531,6 @@ const CorporateEventDetailPage = () => {
       const errorMessage =
         err instanceof Error ? err.message : "An error occurred";
 
-      // Handle authentication errors by redirecting to login
       if (
         errorMessage === "Authentication required" ||
         errorMessage.includes("Authentication token not found")
@@ -1317,9 +555,9 @@ const CorporateEventDetailPage = () => {
     return (
       <div className="min-h-screen">
         <Header />
-        <div style={{ padding: "32px 24px" }}>
-          <div style={{ textAlign: "center", padding: "40px" }}>
-            <div style={{ fontSize: "18px", color: "#4a5568" }}>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="text-lg text-slate-600">
               Loading corporate event details...
             </div>
           </div>
@@ -1333,18 +571,9 @@ const CorporateEventDetailPage = () => {
     return (
       <div className="min-h-screen">
         <Header />
-        <div style={{ padding: "32px 24px" }}>
-          <div
-            style={{
-              textAlign: "center",
-              padding: "20px",
-              color: "#e53e3e",
-              backgroundColor: "#fed7d7",
-              borderRadius: "6px",
-              marginBottom: "16px",
-            }}
-          >
-            {error}
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <div className="text-red-800 font-medium">{error}</div>
           </div>
         </div>
         <Footer />
@@ -1356,18 +585,9 @@ const CorporateEventDetailPage = () => {
     return (
       <div className="min-h-screen">
         <Header />
-        <div style={{ padding: "32px 24px" }}>
-          <div
-            style={{
-              textAlign: "center",
-              padding: "20px",
-              color: "#666",
-              backgroundColor: "#f7fafc",
-              borderRadius: "6px",
-              marginBottom: "16px",
-            }}
-          >
-            Corporate event not found
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 text-center">
+            <div className="text-slate-600">Corporate event not found</div>
           </div>
         </div>
         <Footer />
@@ -1385,5 +605,3 @@ const CorporateEventDetailPage = () => {
 };
 
 export default CorporateEventDetailPage;
-
-//

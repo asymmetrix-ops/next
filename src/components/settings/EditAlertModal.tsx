@@ -20,18 +20,38 @@ export function EditAlertModal({
   onClose,
   onSave,
 }: EditAlertModalProps) {
-  const [formData, setFormData] = useState<Partial<EmailAlert>>({
-    item_type: alert.item_type,
-    email_frequency: alert.email_frequency,
-    day_of_week: alert.day_of_week || "",
-    timezone: alert.timezone || meta.defaults.timezone,
-    content_type: alert.content_type || "",
-    is_active: alert.is_active,
-    send_time_local: alert.send_time_local || meta.defaults.daily_send_time_local,
+  // Helper to convert timestamp to HH:mm if needed
+  const normalizeTime = (timeValue: string | null | undefined): string | null => {
+    if (!timeValue) return null;
+    // If already in HH:mm format, return as-is
+    if (/^\d{2}:\d{2}$/.test(timeValue)) {
+      return timeValue;
+    }
+    // Otherwise, try to parse as timestamp
+    try {
+      const date = new Date(timeValue);
+      return date.toTimeString().slice(0, 5); // Convert to HH:mm
+    } catch {
+      return null;
+    }
+  };
+
+  const [formData, setFormData] = useState<Partial<EmailAlert>>(() => {
+    const defaultTime = normalizeTime(meta.defaults.daily_send_time_local) || "09:00";
+    return {
+      item_type: alert.item_type,
+      email_frequency: alert.email_frequency,
+      day_of_week: alert.day_of_week || "",
+      timezone: alert.timezone || meta.defaults.timezone,
+      content_type: alert.content_type || "",
+      is_active: alert.is_active,
+      send_time_local: normalizeTime(alert.send_time_local) || defaultTime,
+    };
   });
 
   useEffect(() => {
     if (isOpen) {
+      const defaultTime = normalizeTime(meta.defaults.daily_send_time_local) || "09:00";
       setFormData({
         item_type: alert.item_type,
         email_frequency: alert.email_frequency,
@@ -39,7 +59,7 @@ export function EditAlertModal({
         timezone: alert.timezone || meta.defaults.timezone,
         content_type: alert.content_type || "",
         is_active: alert.is_active,
-        send_time_local: alert.send_time_local || meta.defaults.daily_send_time_local,
+        send_time_local: normalizeTime(alert.send_time_local) || defaultTime,
       });
     }
   }, [alert, meta, isOpen]);
@@ -59,10 +79,15 @@ export function EditAlertModal({
     onSave(updatedAlert);
   };
 
-  const formatTimeForInput = (timestamp: string | null) => {
-    if (!timestamp) return "";
+  const formatTimeForInput = (timeValue: string | null) => {
+    if (!timeValue) return "";
+    // If it's already in HH:mm format, return as-is
+    if (/^\d{2}:\d{2}$/.test(timeValue)) {
+      return timeValue;
+    }
+    // Otherwise, try to parse as timestamp (for backward compatibility)
     try {
-      const date = new Date(timestamp);
+      const date = new Date(timeValue);
       return date.toTimeString().slice(0, 5); // HH:mm format
     } catch {
       return "";
@@ -74,14 +99,10 @@ export function EditAlertModal({
       setFormData((prev) => ({ ...prev, send_time_local: null }));
       return;
     }
-    // Convert HH:mm to ISO timestamp (using dummy date)
-    const [hours, minutes] = timeString.split(":").map(Number);
-    const date = new Date("1970-01-01T00:00:00Z");
-    date.setUTCHours(hours);
-    date.setUTCMinutes(minutes);
+    // Store directly as HH:mm format (e.g., "10:00")
     setFormData((prev) => ({
       ...prev,
-      send_time_local: date.toISOString(),
+      send_time_local: timeString,
     }));
   };
 

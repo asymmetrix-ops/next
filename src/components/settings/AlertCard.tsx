@@ -50,10 +50,15 @@ export function AlertCard({
     return option?.label || alert.content_type;
   };
 
-  const formatTime = (timestamp: string | null) => {
-    if (!timestamp) return "";
+  const formatTime = (timeValue: string | null) => {
+    if (!timeValue) return "";
+    // If it's already in HH:mm format, return as-is
+    if (/^\d{2}:\d{2}$/.test(timeValue)) {
+      return timeValue;
+    }
+    // Otherwise, try to parse as timestamp (for backward compatibility)
     try {
-      const date = new Date(timestamp);
+      const date = new Date(timeValue);
       return date.toLocaleTimeString("en-US", {
         hour: "2-digit",
         minute: "2-digit",

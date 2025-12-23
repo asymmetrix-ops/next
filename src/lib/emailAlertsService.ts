@@ -136,6 +136,31 @@ class EmailAlertsService {
     return response;
   }
 
+  // Update an email alert
+  async updateEmailAlert(alert: EmailAlert): Promise<EmailAlert> {
+    const body: Record<string, unknown> = {
+      user_email_alerts_id: alert.id,
+      user_id: alert.user_id,
+      item_type: alert.item_type,
+      email_frequency: alert.email_frequency,
+      day_of_week: alert.day_of_week || "",
+      timezone: alert.timezone || "Europe/London",
+      content_type: alert.content_type || "",
+      is_active: alert.is_active,
+      send_time_local: alert.send_time_local || null,
+    };
+
+    const response = await this.request<EmailAlert>(
+      `/user_email_alerts/${alert.id}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }
+    );
+
+    return response;
+  }
+
   // Delete an email alert
   async deleteEmailAlert(alertId: number): Promise<void> {
     await this.request<void>(`/user_email_alerts/${alertId}`, {

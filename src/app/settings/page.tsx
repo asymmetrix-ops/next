@@ -102,13 +102,20 @@ export default function SettingsPage() {
         );
       }
     } else {
-      // TODO: Implement PATCH when endpoint is ready
-      console.log("Update alert:", updatedAlert);
-      // For now, just update local state optimistically
-      setAlerts((prev) =>
-        prev.map((a) => (a.id === updatedAlert.id ? updatedAlert : a))
-      );
-      setEditingAlert(null);
+      try {
+        setError(null);
+        // Wait for PATCH request to complete
+        await emailAlertsService.updateEmailAlert(updatedAlert);
+        // Only after PATCH responds, refresh alerts list from server (without showing loading spinner)
+        await loadAlerts(false);
+        // Close modal only after both PATCH and GET complete
+        setEditingAlert(null);
+      } catch (err) {
+        console.error("Error updating alert:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to update email alert"
+        );
+      }
     }
   };
 
@@ -180,18 +187,30 @@ export default function SettingsPage() {
           <EditAlertModal
             alert={
               editingAlert ||
-              ({
-                id: 0,
-                created_at: Date.now(),
-                user_id: Number.parseInt(user?.id || "0", 10),
-                item_type: "corporate_events",
-                email_frequency: "daily",
-                day_of_week: "",
-                timezone: meta.defaults.timezone,
-                content_type: "",
-                is_active: true,
-                send_time_local: meta.defaults.daily_send_time_local,
-              } as EmailAlert)
+              (() => {
+                // Convert default timestamp to HH:mm if needed
+                let defaultTime = meta.defaults.daily_send_time_local;
+                if (defaultTime && !/^\d{2}:\d{2}$/.test(defaultTime)) {
+                  try {
+                    const date = new Date(defaultTime);
+                    defaultTime = date.toTimeString().slice(0, 5); // Convert to HH:mm
+                  } catch {
+                    defaultTime = "09:00"; // Fallback
+                  }
+                }
+                return {
+                  id: 0,
+                  created_at: Date.now(),
+                  user_id: Number.parseInt(user?.id || "0", 10),
+                  item_type: "corporate_events",
+                  email_frequency: "daily",
+                  day_of_week: "",
+                  timezone: meta.defaults.timezone,
+                  content_type: "",
+                  is_active: true,
+                  send_time_local: defaultTime,
+                } as EmailAlert;
+              })()
             }
             meta={meta}
             isOpen={!!editingAlert || isCreating}
