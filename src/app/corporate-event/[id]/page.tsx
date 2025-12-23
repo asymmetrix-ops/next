@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -397,12 +397,6 @@ const CorporateEventDetail = ({
       return db - da;
     });
 
-  const insightsForEventIds = new Set(
-    insightsForEventRaw
-      .map((a) => a?.id)
-      .filter((id): id is number => typeof id === "number")
-  );
-
   const insightsForEvent = insightsForEventRaw.map((article) => ({
     id: article.id,
     tag: (article.Content_Type || "Article").trim() || "Article",
@@ -412,6 +406,15 @@ const CorporateEventDetail = ({
     title: article.Headline || "Untitled",
     content: article.Strapline || "",
   }));
+
+  // Memoize primary sector IDs string to prevent infinite loops
+  const primarySectorIdsString = useMemo(() => {
+    return primarySectors
+      .map((s) => s.id)
+      .filter((id): id is number => typeof id === "number")
+      .sort((a, b) => a - b)
+      .join(",");
+  }, [primarySectors]);
 
   const counterpartiesData = counterparties.map((counterparty) => {
                       const nc = counterparty._new_company;
@@ -601,26 +604,79 @@ const CorporateEventDetail = ({
           });
         setRelatedTransactions(filtered);
 
-        // Related Insights & Analysis (by primary sector), excluding any already shown above.
+        // Sector Insights & Analysis (by primary sector), excluding any already shown above.
+        // Uses api:Z3F6JUiu/articles_based_on_sectors to fetch 5 most recent articles
+        // whose Primary Sector(s) match the corporate event's primary sector(s)
+
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("asymmetrix_auth_token")
+            : null;
+        if (!token) return;
+
+        // Get all primary sector IDs
+        const primarySectorIds = primarySectors
+          .map((s) => s.id)
+          .filter((id): id is number => typeof id === "number");
+
+        if (primarySectorIds.length === 0) {
+          setRelatedInsights([]);
+          return;
+        }
+
+        // Compute IDs of articles already shown in "Insights & Analysis" section
+        const eventArticleIds = new Set(
+          eventArticles
+            .filter((article) => {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const relatedEvents = (article as any)?.Related_Corporate_Event || [];
+              if (!Array.isArray(relatedEvents) || typeof corporateEventId !== "number") {
+                return false;
+              }
+              return relatedEvents.some((ev: number | { id?: number } | undefined) => {
+                if (typeof ev === "number") {
+                  return ev === corporateEventId;
+                }
+                if (ev && typeof ev === "object" && "id" in ev) {
+                  return ev.id === corporateEventId;
+                }
+                return false;
+              });
+            })
+            .map((a) => a?.id)
+            .filter((id): id is number => typeof id === "number")
+        );
 
         const params = new URLSearchParams();
-        params.append("primary_sectors_ids", String(primarySectorId));
-        params.append("Per_page", "4");
-        params.append("Offset", "0");
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/content?${params.toString()}`;
+        // Add primary_sectors_ids as array parameters
+        primarySectorIds.forEach((id) => {
+          params.append("primary_sectors_ids[]", String(id));
+        });
+        // Add corporate_events_id
+        if (typeof corporateEventId === "number") {
+          params.append("corporate_events_id", String(corporateEventId));
+        }
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/articles_based_on_sectors?${params.toString()}`;
         const res = await fetch(url, {
           method: "GET",
           headers: {
+            Authorization: `Bearer ${token}`,
             Accept: "application/json",
           },
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          console.error("[Sector Insights] API error:", res.status, errorData);
+          setRelatedInsights([]);
+          return;
+        }
         const json = (await res.json()) as ContentArticle[] | { items?: ContentArticle[] };
+        // Handle both array response and object with items property
         const itemsIA = Array.isArray(json) ? json : (Array.isArray(json?.items) ? json.items : []);
         const filteredIA = itemsIA.filter(
-          (article) => !(typeof article?.id === "number" && insightsForEventIds.has(article.id))
+          (article) => !(typeof article?.id === "number" && eventArticleIds.has(article.id))
         );
-        const mapped = filteredIA.slice(0, 4).map((article) => ({
+        const mapped = filteredIA.slice(0, 5).map((article) => ({
           id: article.id,
           tag: (article.Content_Type || "Article").trim() || "Article",
           date: article.Publication_Date
@@ -635,7 +691,8 @@ const CorporateEventDetail = ({
       }
     };
     run();
-  }, [primarySectorId, corporateEventId, eventArticles]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primarySectorIdsString, corporateEventId, eventArticles.length]);
 
   const reportButton = (
     <Button
