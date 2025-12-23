@@ -16,8 +16,8 @@ export default function AdvisorsSection({ advisors, createClickableElement }: {
   createClickableElement?: (href: string, text: string, className?: string) => React.ReactNode;
 }) {
   return (
-    <section className="max-w-7xl mx-auto px-6 py-8 border-t border-slate-100">
-      <div className="mb-5">
+    <section className="max-w-7xl mx-auto px-6 py-12 border-t border-slate-100">
+      <div className="mb-8">
         <h2 className="text-2xl font-bold text-slate-900">Advisors</h2>
       </div>
      
@@ -30,12 +30,13 @@ export default function AdvisorsSection({ advisors, createClickableElement }: {
               <TableHead className="font-semibold text-slate-700">Role</TableHead>
               <TableHead className="font-semibold text-slate-700">Company Advised</TableHead>
               <TableHead className="font-semibold text-slate-700">Individuals</TableHead>
+              <TableHead className="font-semibold text-slate-700">Announcement URL</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {(!advisors || advisors.length === 0) ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-slate-400">
+                <TableCell colSpan={6} className="text-center py-8 text-slate-400">
                   No advisor information available for this transaction
                 </TableCell>
               </TableRow>
@@ -72,6 +73,20 @@ export default function AdvisorsSection({ advisors, createClickableElement }: {
                   </TableCell>
                   <TableCell className="text-slate-600">
                     {advisor.individuals || 'Not available'}
+                  </TableCell>
+                  <TableCell className="text-slate-600">
+                    {advisor.announcementUrl ? (
+                      <a
+                        href={advisor.announcementUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline break-words"
+                      >
+                        {advisor.announcementUrl}
+                      </a>
+                    ) : (
+                      'Not available'
+                    )}
                   </TableCell>
                 </TableRow>
               ))

@@ -15,8 +15,8 @@ export default function CounterpartiesSection({ counterparties, createClickableE
   createClickableElement?: (href: string, text: string, className?: string) => React.ReactNode;
 }) {
   return (
-    <section className="max-w-7xl mx-auto px-6 py-8">
-      <div className="mb-5">
+    <section className="max-w-7xl mx-auto px-6 py-12">
+      <div className="mb-8">
         <h2 className="text-2xl font-bold text-slate-900">Counterparties</h2>
       </div>
      
@@ -27,13 +27,14 @@ export default function CounterpartiesSection({ counterparties, createClickableE
               <TableHead className="font-semibold text-slate-700">Logo</TableHead>
               <TableHead className="font-semibold text-slate-700">Company</TableHead>
               <TableHead className="font-semibold text-slate-700">Counterparty type</TableHead>
+              <TableHead className="font-semibold text-slate-700">Announcement URL</TableHead>
               <TableHead className="font-semibold text-slate-700">Individuals</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {(!counterparties || counterparties.length === 0) ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-slate-400">
+                <TableCell colSpan={5} className="text-center py-8 text-slate-400">
                   No counterparty information available
                 </TableCell>
               </TableRow>
@@ -64,6 +65,20 @@ export default function CounterpartiesSection({ counterparties, createClickableE
                   </TableCell>
                   <TableCell className="text-slate-600">
                     {company.role || 'Not available'}
+                  </TableCell>
+                  <TableCell className="text-slate-600">
+                    {company.announcementUrl ? (
+                      <a
+                        href={company.announcementUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline break-words"
+                      >
+                        {company.announcementUrl}
+                      </a>
+                    ) : (
+                      'Not available'
+                    )}
                   </TableCell>
                   <TableCell className="text-slate-600">
                     {company.individuals || 'Not available'}
