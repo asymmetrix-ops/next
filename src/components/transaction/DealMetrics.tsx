@@ -103,7 +103,7 @@ export default function DealMetrics({ metrics }: {
             value={metrics.dealType}
           />
           <MetricCard
-            label="Investment Amount"
+            label="Investment Amount (m)"
             value={metrics.investmentAmount}
             subValue={metrics.currency}
           />
@@ -118,7 +118,7 @@ export default function DealMetrics({ metrics }: {
             value={metrics.dealStage}
           />
           <MetricCard
-            label="Enterprise Value"
+            label="Enterprise Value (m)"
             value={metrics.enterpriseValue}
             subValue={metrics.enterpriseValueCurrency}
           />

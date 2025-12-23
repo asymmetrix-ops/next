@@ -104,12 +104,21 @@ export interface Advisor {
   };
 }
 
+export interface Target {
+  id: number;
+  name: string;
+  path: string;
+  route: string;
+  entity_type: string;
+}
+
 export interface CorporateEvent {
   id: number;
   description: string;
   announcement_date: string;
   deal_type: string;
   target_counterparty: TargetCounterparty;
+  targets?: Target[];
   investment_data: InvestmentData;
   ev_data: EnterpriseValueData;
   other_counterparties: OtherCounterparty[];

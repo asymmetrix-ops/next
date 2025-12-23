@@ -14,7 +14,7 @@ export type RelatedTransactionRow = {
   title: string;
   date?: string;
   dealType?: string;
-  target?: string;
+  target?: string | React.ReactNode;
   investors?: string;
   advisors?: string;
 };
@@ -28,7 +28,7 @@ export default function RelatedTransactionsSection({
     <section className="max-w-7xl mx-auto px-6 py-12 border-t border-slate-100">
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-slate-900">
-          Related Transactions
+          Recent Sector Transactions
         </h2>
       </div>
 
