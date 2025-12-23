@@ -3385,6 +3385,241 @@ const CompanyDetail = () => {
                 </>
               )}
 
+              {/* Current Subsidiaries section */}
+              {hasSubsidiaries && (
+                <div
+                  style={{
+                    marginTop: "16px",
+                    paddingTop: "16px",
+                    borderTop: "1px solid #e2e8f0",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "24px",
+                    }}
+                  >
+                    <h3
+                      style={{
+                        ...styles.sectionTitle,
+                        fontSize: "17px",
+                        marginBottom: "0",
+                      }}
+                    >
+                      Current Subsidiaries
+                    </h3>
+                    {company.have_subsidiaries_companies?.Subsidiaries_companies &&
+                    company.have_subsidiaries_companies.Subsidiaries_companies
+                      .length > 3 ? (
+                      <button
+                        onClick={() => setShowAllSubsidiaries((prev) => !prev)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#0075df",
+                          fontSize: "14px",
+                          textDecoration: "underline",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {showAllSubsidiaries ? "Show less" : "See more"}
+                      </button>
+                    ) : null}
+                  </div>
+                  <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+                    <table
+                      style={{
+                        width: "100%",
+                        borderCollapse: "collapse",
+                        minWidth: "800px",
+                      }}
+                    >
+                      <thead>
+                        <tr>
+                          {[
+                            "Logo",
+                            "Name",
+                            "Description",
+                            "Sectors",
+                            "LinkedIn Members",
+                            "Country",
+                          ].map((header) => (
+                            <th
+                              key={header}
+                              style={{
+                                textAlign: "left",
+                                padding: "12px 8px",
+                                borderBottom: "1px solid #e2e8f0",
+                                fontSize: "14px",
+                                fontWeight: "600",
+                                color: "#4a5568",
+                              }}
+                            >
+                              {header}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(
+                          company.have_subsidiaries_companies
+                            ?.Subsidiaries_companies ?? []
+                        )
+                          .filter(
+                            // Ensure valid objects with numeric ids before rendering
+                            (s) =>
+                              typeof s === "object" &&
+                              s !== null &&
+                              typeof (s as { id?: unknown }).id === "number"
+                          )
+                          .slice(0, showAllSubsidiaries ? undefined : 3)
+                          .map((subsidiary) => (
+                            <tr key={subsidiary.id}>
+                              <td
+                                style={{
+                                  padding: "12px 8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                }}
+                              >
+                                {subsidiary._linkedin_data_of_new_company
+                                  ?.linkedin_logo ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={`data:image/jpeg;base64,${subsidiary._linkedin_data_of_new_company.linkedin_logo}`}
+                                    alt={`${subsidiary.name} logo`}
+                                    style={{
+                                      width: "40px",
+                                      height: "30px",
+                                      objectFit: "contain",
+                                    }}
+                                  />
+                                ) : (
+                                  <div
+                                    style={{
+                                      width: "40px",
+                                      height: "30px",
+                                      backgroundColor: "#f7fafc",
+                                      borderRadius: "4px",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      fontSize: "10px",
+                                      color: "#718096",
+                                    }}
+                                  >
+                                    N/A
+                                  </div>
+                                )}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "12px 8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                }}
+                              >
+                                {createClickableElement(
+                                  `/company/${subsidiary.id}`,
+                                  subsidiary.name
+                                )}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "12px 8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                  fontSize: "14px",
+                                  maxWidth: "250px",
+                                  wordBreak: "break-word" as const,
+                                  overflowWrap: "break-word" as const,
+                                }}
+                              >
+                                {subsidiary.description ? (
+                                  <div>
+                                    {expandedDescriptions.has(subsidiary.id) ||
+                                    subsidiary.description.length <= 100
+                                      ? subsidiary.description
+                                      : `${subsidiary.description.substring(
+                                          0,
+                                          100
+                                        )}...`}
+                                    {subsidiary.description.length > 100 && (
+                                      <button
+                                        onClick={() =>
+                                          toggleDescription(subsidiary.id)
+                                        }
+                                        style={{
+                                          background: "none",
+                                          border: "none",
+                                          color: "#0075df",
+                                          cursor: "pointer",
+                                          fontSize: "12px",
+                                          textDecoration: "underline",
+                                          marginLeft: "4px",
+                                          padding: "0",
+                                        }}
+                                      >
+                                        {expandedDescriptions.has(subsidiary.id)
+                                          ? "Show less"
+                                          : "Expand description"}
+                                      </button>
+                                    )}
+                                  </div>
+                                ) : (
+                                  "N/A"
+                                )}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "12px 8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                  fontSize: "14px",
+                                }}
+                              >
+                                {subsidiary.sectors_id
+                                  ?.filter(
+                                    (s) => s && typeof s.sector_name === "string"
+                                  )
+                                  .map((sector) => sector.sector_name)
+                                  .join(", ") || "N/A"}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "12px 8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                  fontSize: "14px",
+                                  textAlign: "center",
+                                }}
+                              >
+                                {subsidiary._linkedin_data_of_new_company &&
+                                subsidiary._linkedin_data_of_new_company
+                                  .linkedin_employee !== undefined &&
+                                subsidiary._linkedin_data_of_new_company
+                                  .linkedin_employee !== null
+                                  ? formatNumber(
+                                      subsidiary._linkedin_data_of_new_company
+                                        .linkedin_employee
+                                    )
+                                  : "N/A"}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "12px 8px",
+                                  borderBottom: "1px solid #e2e8f0",
+                                  fontSize: "14px",
+                                }}
+                              >
+                                {subsidiary._locations?.Country || "N/A"}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
             </div>
 
             {/* Desktop Financial Metrics */}
@@ -4706,227 +4941,6 @@ const CompanyDetail = () => {
           {/* LinkedIn section (desktop only) removed per request */}
 
           {/* Management section moved into Overview above */}
-
-          {/* Current Subsidiaries section */}
-          {hasSubsidiaries && (
-            <div style={{ ...styles.card, marginTop: "32px" }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "24px",
-                }}
-              >
-                <h2 style={styles.sectionTitle}>Current Subsidiaries</h2>
-                {company.have_subsidiaries_companies?.Subsidiaries_companies &&
-                company.have_subsidiaries_companies.Subsidiaries_companies
-                  .length > 3 ? (
-                  <button
-                    onClick={() => setShowAllSubsidiaries((prev) => !prev)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#0075df",
-                      fontSize: "14px",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {showAllSubsidiaries ? "Show less" : "See more"}
-                  </button>
-                ) : null}
-              </div>
-              <div style={{ overflowX: "auto", maxWidth: "100%" }}>
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    minWidth: "800px",
-                  }}
-                >
-                  <thead>
-                    <tr>
-                      {[
-                        "Logo",
-                        "Name",
-                        "Description",
-                        "Sectors",
-                        "LinkedIn Members",
-                        "Country",
-                      ].map((header) => (
-                        <th
-                          key={header}
-                          style={{
-                            textAlign: "left",
-                            padding: "12px 8px",
-                            borderBottom: "1px solid #e2e8f0",
-                            fontSize: "14px",
-                            fontWeight: "600",
-                            color: "#4a5568",
-                          }}
-                        >
-                          {header}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(
-                      company.have_subsidiaries_companies
-                        ?.Subsidiaries_companies ?? []
-                    )
-                      .filter(
-                        // Ensure valid objects with numeric ids before rendering
-                        (s) =>
-                          typeof s === "object" &&
-                          s !== null &&
-                          typeof (s as { id?: unknown }).id === "number"
-                      )
-                      .slice(0, showAllSubsidiaries ? undefined : 3)
-                      .map((subsidiary) => (
-                        <tr key={subsidiary.id}>
-                          <td
-                            style={{
-                              padding: "12px 8px",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            {subsidiary._linkedin_data_of_new_company
-                              ?.linkedin_logo ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={`data:image/jpeg;base64,${subsidiary._linkedin_data_of_new_company.linkedin_logo}`}
-                                alt={`${subsidiary.name} logo`}
-                                style={{
-                                  width: "40px",
-                                  height: "30px",
-                                  objectFit: "contain",
-                                }}
-                              />
-                            ) : (
-                              <div
-                                style={{
-                                  width: "40px",
-                                  height: "30px",
-                                  backgroundColor: "#f7fafc",
-                                  borderRadius: "4px",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  fontSize: "10px",
-                                  color: "#718096",
-                                }}
-                              >
-                                N/A
-                              </div>
-                            )}
-                          </td>
-                          <td
-                            style={{
-                              padding: "12px 8px",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            {createClickableElement(
-                              `/company/${subsidiary.id}`,
-                              subsidiary.name
-                            )}
-                          </td>
-                          <td
-                            style={{
-                              padding: "12px 8px",
-                              borderBottom: "1px solid #e2e8f0",
-                              fontSize: "14px",
-                              maxWidth: "250px",
-                              wordBreak: "break-word" as const,
-                              overflowWrap: "break-word" as const,
-                            }}
-                          >
-                            {subsidiary.description ? (
-                              <div>
-                                {expandedDescriptions.has(subsidiary.id) ||
-                                subsidiary.description.length <= 100
-                                  ? subsidiary.description
-                                  : `${subsidiary.description.substring(
-                                      0,
-                                      100
-                                    )}...`}
-                                {subsidiary.description.length > 100 && (
-                                  <button
-                                    onClick={() =>
-                                      toggleDescription(subsidiary.id)
-                                    }
-                                    style={{
-                                      background: "none",
-                                      border: "none",
-                                      color: "#0075df",
-                                      cursor: "pointer",
-                                      fontSize: "12px",
-                                      textDecoration: "underline",
-                                      marginLeft: "4px",
-                                      padding: "0",
-                                    }}
-                                  >
-                                    {expandedDescriptions.has(subsidiary.id)
-                                      ? "Show less"
-                                      : "Expand description"}
-                                  </button>
-                                )}
-                              </div>
-                            ) : (
-                              "N/A"
-                            )}
-                          </td>
-                          <td
-                            style={{
-                              padding: "12px 8px",
-                              borderBottom: "1px solid #e2e8f0",
-                              fontSize: "14px",
-                            }}
-                          >
-                            {subsidiary.sectors_id
-                              ?.filter(
-                                (s) => s && typeof s.sector_name === "string"
-                              )
-                              .map((sector) => sector.sector_name)
-                              .join(", ") || "N/A"}
-                          </td>
-                          <td
-                            style={{
-                              padding: "12px 8px",
-                              borderBottom: "1px solid #e2e8f0",
-                              fontSize: "14px",
-                              textAlign: "center",
-                            }}
-                          >
-                            {subsidiary._linkedin_data_of_new_company &&
-                            subsidiary._linkedin_data_of_new_company
-                              .linkedin_employee !== undefined &&
-                            subsidiary._linkedin_data_of_new_company
-                              .linkedin_employee !== null
-                              ? formatNumber(
-                                  subsidiary._linkedin_data_of_new_company
-                                    .linkedin_employee
-                                )
-                              : "N/A"}
-                          </td>
-                          <td
-                            style={{
-                              padding: "12px 8px",
-                              borderBottom: "1px solid #e2e8f0",
-                              fontSize: "14px",
-                            }}
-                          >
-                            {subsidiary._locations?.Country || "N/A"}
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
 
           {/* Corporate Events section moved into Overview above */}
           {(corporateEventsLoading || corporateEvents.length > 0) && (
