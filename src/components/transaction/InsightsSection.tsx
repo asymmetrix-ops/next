@@ -70,7 +70,13 @@ const InsightCard = ({ insight }: { insight: { tag?: string; date?: string; titl
   );
 };
 
-export default function InsightsSection({ insights }: { insights: Array<{ tag?: string; date?: string; title: string; content: string; id?: number }> }) {
+export default function InsightsSection({
+  insights,
+  title = "Insights & Analysis",
+}: {
+  insights: Array<{ tag?: string; date?: string; title: string; content: string; id?: number }>;
+  title?: string;
+}) {
   if (!insights || insights.length === 0) {
     return null;
   }
@@ -84,7 +90,7 @@ export default function InsightsSection({ insights }: { insights: Array<{ tag?: 
           </svg>
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Insights & Analysis</h2>
+          <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
         </div>
       </div>
      
