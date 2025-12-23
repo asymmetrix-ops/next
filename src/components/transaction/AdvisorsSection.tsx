@@ -16,8 +16,8 @@ export default function AdvisorsSection({ advisors, createClickableElement }: {
   createClickableElement?: (href: string, text: string, className?: string) => React.ReactNode;
 }) {
   return (
-    <section className="max-w-7xl mx-auto px-6 py-12 border-t border-slate-100">
-      <div className="mb-8">
+    <section className="max-w-7xl mx-auto px-6 py-8 border-t border-slate-100">
+      <div className="mb-5">
         <h2 className="text-2xl font-bold text-slate-900">Advisors</h2>
       </div>
      

@@ -17,19 +17,19 @@ export default function TransactionHero({
         }} />
       </div>
      
-      <div className="relative max-w-7xl mx-auto px-6 py-12 lg:py-16">
+      <div className="relative max-w-7xl mx-auto px-6 py-8 lg:py-10">
         {/* Report Button - positioned absolutely in top right */}
         {reportButton && (
-          <div className="absolute top-6 right-6">
+          <div className="absolute top-4 right-4">
             {reportButton}
           </div>
         )}
         
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
           {/* Left content */}
           <div className="flex-1 max-w-3xl">
             {/* Title */}
-            <h1 className="text-3xl lg:text-4xl xl:text-5xl font-bold text-white leading-tight mb-4">
+            <h1 className="text-3xl lg:text-4xl xl:text-5xl font-bold text-white leading-tight mb-3">
               {transaction.title}
             </h1>
            

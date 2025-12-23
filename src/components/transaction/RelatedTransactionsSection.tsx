@@ -25,8 +25,8 @@ export default function RelatedTransactionsSection({
   transactions: RelatedTransactionRow[];
 }) {
   return (
-    <section className="max-w-7xl mx-auto px-6 py-12 border-t border-slate-100">
-      <div className="mb-8">
+    <section className="max-w-7xl mx-auto px-6 py-8 border-t border-slate-100">
+      <div className="mb-5">
         <h2 className="text-2xl font-bold text-slate-900">
           Recent Sector Transactions
         </h2>
