@@ -15,8 +15,8 @@ export default function CounterpartiesSection({ counterparties, createClickableE
   createClickableElement?: (href: string, text: string, className?: string) => React.ReactNode;
 }) {
   return (
-    <section className="max-w-7xl mx-auto px-6 py-12">
-      <div className="mb-8">
+    <section className="max-w-7xl mx-auto px-6 py-8">
+      <div className="mb-5">
         <h2 className="text-2xl font-bold text-slate-900">Counterparties</h2>
       </div>
      
