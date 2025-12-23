@@ -8,7 +8,7 @@ export default function TransactionHero({
   reportButton?: React.ReactNode;
 }) {
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="relative overflow-hidden" style={{ background: 'var(--gradient-hero)' }}>
       {/* Subtle pattern overlay */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute inset-0" style={{
@@ -35,7 +35,7 @@ export default function TransactionHero({
            
             {/* Subtitle */}
             {transaction.subtitle && (
-              <p className="text-lg text-slate-400 leading-relaxed">
+              <p className="text-lg text-white/90 leading-relaxed">
                 {transaction.subtitle}
               </p>
             )}

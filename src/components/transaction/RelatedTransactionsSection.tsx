@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import React from "react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -15,8 +14,8 @@ export type RelatedTransactionRow = {
   title: string;
   date?: string;
   dealType?: string;
-  target?: string | React.ReactNode;
-  investors?: string | React.ReactNode;
+  target?: string;
+  investors?: string;
   advisors?: string;
 };
 
@@ -25,15 +24,11 @@ export default function RelatedTransactionsSection({
 }: {
   transactions: RelatedTransactionRow[];
 }) {
-  const [displayCount, setDisplayCount] = useState(5);
-  const displayedTransactions = transactions.slice(0, displayCount);
-  const hasMore = transactions.length > displayCount;
-
   return (
-    <section className="max-w-7xl mx-auto px-6 py-8 border-t border-slate-100">
-      <div className="mb-5">
+    <section className="max-w-7xl mx-auto px-6 py-12 border-t border-slate-100">
+      <div className="mb-8">
         <h2 className="text-2xl font-bold text-slate-900">
-          Recent Sector Transactions
+          Related Transactions
         </h2>
       </div>
 
@@ -67,7 +62,7 @@ export default function RelatedTransactionsSection({
                 </TableCell>
               </TableRow>
             ) : (
-              displayedTransactions.map((t) => (
+              transactions.map((t) => (
                 <TableRow key={t.id} className="hover:bg-slate-50">
                   <TableCell>
                     <a
@@ -87,13 +82,7 @@ export default function RelatedTransactionsSection({
                     {t.target || "Not available"}
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {(() => {
-                      const isPartnership = t.dealType?.toLowerCase() === "partnership";
-                      if (isPartnership) {
-                        return "-";
-                      }
-                      return t.investors || "Not available";
-                    })()}
+                    {t.investors || "Not available"}
                   </TableCell>
                 </TableRow>
               ))
@@ -101,18 +90,6 @@ export default function RelatedTransactionsSection({
           </TableBody>
         </Table>
       </Card>
-
-      {hasMore && (
-        <div className="mt-6 flex justify-center">
-          <Button
-            onClick={() => setDisplayCount((prev) => prev + 5)}
-            variant="outline"
-            className="border-slate-300 text-slate-700 hover:bg-slate-50"
-          >
-            Load More
-          </Button>
-        </div>
-      )}
     </section>
   );
 }
