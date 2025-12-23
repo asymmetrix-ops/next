@@ -8,6 +8,7 @@ import { corporateEventsService } from "../../../lib/corporateEventsService";
 import {
   CorporateEventDetailResponse,
   CorporateEventAdvisor,
+  Target,
 } from "../../../types/corporateEvents";
 import { useRightClick } from "@/hooks/useRightClick";
 import { ContentArticle } from "@/types/insightsAnalysis";
@@ -172,12 +173,12 @@ const CorporateEventDetail = ({
     });
   };
 
-  const formatCurrency = (amount: string, currency: string) => {
-    if (!amount || !currency) return "Not available";
-    const n = Number(amount);
-    if (Number.isNaN(n)) return "Not available";
-    const formatted = n.toLocaleString(undefined, { maximumFractionDigits: 3 });
-    return `${currency}${formatted}m`;
+  // Formats a "millions" number (already in millions) WITHOUT currency and WITHOUT the "m" suffix.
+  const formatMillionsValue = (amount: string | number): string | undefined => {
+    const raw = typeof amount === "number" ? String(amount) : amount;
+    const n = Number(String(raw).replace(/,/g, "").trim());
+    if (!Number.isFinite(n)) return undefined;
+    return n.toLocaleString(undefined, { maximumFractionDigits: 3 });
   };
 
   const getInvestmentCurrency = (): string | undefined => {
@@ -207,13 +208,6 @@ const CorporateEventDetail = ({
     return undefined;
   };
 
-  const formatInvestmentAmount = (): string => {
-    const amount = getInvestmentAmount();
-    if (!amount) return "Not available";
-    const currency = getInvestmentCurrency();
-    return currency ? formatCurrency(amount, currency) : "Not available";
-  };
-
   const [eventArticles, setEventArticles] = useState<ContentArticle[]>([]);
   const [relatedTransactions, setRelatedTransactions] = useState<
     Array<{
@@ -221,7 +215,7 @@ const CorporateEventDetail = ({
       title: string;
       date?: string;
       dealType?: string;
-      target?: string;
+      target?: string | React.ReactNode;
       investors?: string;
     }>
   >([]);
@@ -344,7 +338,11 @@ const CorporateEventDetail = ({
     dateClosed: event?.closed_date ? formatDate(event.closed_date) : undefined,
     dealType: event?.deal_type || undefined,
     dealStage: undefined, // Not available in current data
-    investmentAmount: formatInvestmentAmount(),
+    investmentAmount: (() => {
+      const amount = getInvestmentAmount();
+      if (!amount) return undefined;
+      return formatMillionsValue(amount);
+    })(),
     currency: getInvestmentCurrency(),
     enterpriseValue: (() => {
       const flatEvent = (event ?? {}) as FlatEventFields;
@@ -356,10 +354,8 @@ const CorporateEventDetail = ({
         typeof amountRaw === "number"
           ? String(amountRaw)
           : amountRaw;
-      const n = Number(amount);
-      if (!amount || Number.isNaN(n)) return undefined;
-      // EV displayed as numeric value (m). Currency code is shown separately.
-      return `${n.toLocaleString(undefined, { maximumFractionDigits: 3 })}m`;
+      const formatted = formatMillionsValue(amount);
+      return formatted || undefined;
     })(),
     enterpriseValueCurrency: (() => {
       const flatEvent = (event ?? {}) as FlatEventFields;
@@ -372,35 +368,50 @@ const CorporateEventDetail = ({
   };
 
   // Insights logic:
-  // - Show Insights & Analysis section ONLY if there is a Hot Take whose Related_Corporate_Event includes this corporate event.
-  // - Otherwise show Related Insights & Analysis at bottom (fetched by matching primary sector).
-  const hotTakeInsights = eventArticles
+  // - Always show an "Insights & Analysis" section for any articles explicitly tagged to this corporate event
+  //   via `Related_Corporate_Event`.
+  // - Always show a "Related Insights & Analysis" section (fetched by matching primary sector), but
+  //   NEVER duplicate articles already shown in the top section.
+  const insightsForEventRaw = eventArticles
     .filter((article) => {
-      const contentType = (article.Content_Type || "").trim();
-      const isHotTake = /^(hot\s*take)$/i.test(contentType);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const relatedEvents = (article as any)?.Related_Corporate_Event || [];
-      const hasThisEvent =
-        typeof corporateEventId === "number" &&
-        Array.isArray(relatedEvents) &&
-        relatedEvents.some((ev: { id?: number } | undefined) => ev?.id === corporateEventId);
-      return isHotTake && hasThisEvent;
+      if (!Array.isArray(relatedEvents) || typeof corporateEventId !== "number") {
+        return false;
+      }
+      // Handle both formats: array of numbers [3416] or array of objects [{id: 3416}]
+      const hasThisEvent = relatedEvents.some((ev: number | { id?: number } | undefined) => {
+        if (typeof ev === "number") {
+          return ev === corporateEventId;
+        }
+        if (ev && typeof ev === "object" && "id" in ev) {
+          return ev.id === corporateEventId;
+        }
+        return false;
+      });
+      return hasThisEvent;
     })
     .sort((a, b) => {
       const da = new Date(a.Publication_Date || 0).getTime();
       const db = new Date(b.Publication_Date || 0).getTime();
       return db - da;
-    })
-    .slice(0, 4)
-    .map((article) => ({
-      id: article.id,
-      tag: "Hot Take",
-      date: article.Publication_Date
-        ? new Date(article.Publication_Date).toLocaleDateString()
-        : undefined,
-      title: article.Headline || "Untitled",
-      content: article.Strapline || "",
-    }));
+    });
+
+  const insightsForEventIds = new Set(
+    insightsForEventRaw
+      .map((a) => a?.id)
+      .filter((id): id is number => typeof id === "number")
+  );
+
+  const insightsForEvent = insightsForEventRaw.map((article) => ({
+    id: article.id,
+    tag: (article.Content_Type || "Article").trim() || "Article",
+    date: article.Publication_Date
+      ? new Date(article.Publication_Date).toLocaleDateString()
+      : undefined,
+    title: article.Headline || "Untitled",
+    content: article.Strapline || "",
+  }));
 
   const counterpartiesData = counterparties.map((counterparty) => {
                       const nc = counterparty._new_company;
@@ -535,45 +546,81 @@ const CorporateEventDetail = ({
                   .slice(0, 3)
                   .join(", ")
               : "";
+            
+            // Extract targets from the targets array
+            const targets = Array.isArray(e?.targets) && e.targets.length > 0
+              ? e.targets.map((target: Target, idx: number) => {
+                  const targetName = target?.name || "";
+                  const targetId = target?.id;
+                  const targetPath = target?.path;
+                  const targetsArray = e.targets || [];
+                  
+                  if (targetId && targetPath) {
+                    return (
+                      <span key={targetId || idx}>
+                        <a
+                          href={targetPath}
+                          className="text-blue-600 hover:underline"
+                        >
+                          {targetName}
+                        </a>
+                        {idx < targetsArray.length - 1 && ", "}
+                      </span>
+                            );
+                          }
+                          return (
+                    <span key={idx}>
+                      {targetName}
+                      {idx < targetsArray.length - 1 && ", "}
+                            </span>
+                          );
+                })
+              : e?.target_counterparty?.new_company?.name 
+                ? (() => {
+                    const targetName = e.target_counterparty.new_company.name;
+                    const targetId = e.target_counterparty.new_company.id;
+                    return targetId ? (
+                      <a
+                        href={`/company/${targetId}`}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {targetName}
+                      </a>
+                    ) : targetName;
+                  })()
+                : undefined;
+            
             return {
               id: e.id,
               title: e.description || "View event",
               date: e.announcement_date ? formatDate(e.announcement_date) : undefined,
               dealType: e.deal_type || undefined,
-              target: e?.target_counterparty?.new_company?.name || undefined,
+              target: targets,
               investors: investors || undefined,
             };
           });
         setRelatedTransactions(filtered);
 
-        // Related Insights & Analysis (only if NO Hot Take is related to this corporate event)
-        if (hotTakeInsights.length > 0) {
-          setRelatedInsights([]);
-          return;
-        }
-
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : null;
-        if (!token) return;
+        // Related Insights & Analysis (by primary sector), excluding any already shown above.
 
         const params = new URLSearchParams();
-        params.append("Offset", "1");
-        params.append("Per_page", "4");
         params.append("primary_sectors_ids", String(primarySectorId));
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
+        params.append("Per_page", "4");
+        params.append("Offset", "0");
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/content?${params.toString()}`;
         const res = await fetch(url, {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
+            Accept: "application/json",
           },
         });
         if (!res.ok) return;
-        const json = (await res.json()) as { items?: ContentArticle[] };
-        const itemsIA = Array.isArray(json?.items) ? json.items : [];
-        const mapped = itemsIA.slice(0, 4).map((article) => ({
+        const json = (await res.json()) as ContentArticle[] | { items?: ContentArticle[] };
+        const itemsIA = Array.isArray(json) ? json : (Array.isArray(json?.items) ? json.items : []);
+        const filteredIA = itemsIA.filter(
+          (article) => !(typeof article?.id === "number" && insightsForEventIds.has(article.id))
+        );
+        const mapped = filteredIA.slice(0, 4).map((article) => ({
           id: article.id,
           tag: (article.Content_Type || "Article").trim() || "Article",
           date: article.Publication_Date
@@ -588,15 +635,13 @@ const CorporateEventDetail = ({
       }
     };
     run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [primarySectorId, corporateEventId, hotTakeInsights.length]);
+  }, [primarySectorId, corporateEventId, eventArticles]);
 
   const reportButton = (
     <Button
       asChild
-      variant="destructive"
       size="sm"
-      className="shadow-md"
+      className="shadow-md bg-emerald-600 hover:bg-emerald-700 text-white"
     >
       <a
         href={`mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
@@ -620,8 +665,8 @@ const CorporateEventDetail = ({
 
       <DealMetrics metrics={metricsData} />
 
-      {hotTakeInsights.length > 0 && (
-        <InsightsSection insights={hotTakeInsights} title="Insights & Analysis" />
+      {insightsForEvent.length > 0 && (
+        <InsightsSection insights={insightsForEvent} title="Insights & Analysis" />
       )}
 
       {counterpartiesData.length > 0 && (
@@ -645,7 +690,7 @@ const CorporateEventDetail = ({
       {relatedInsights.length > 0 && (
         <InsightsSection
           insights={relatedInsights}
-          title="Related Insights & Analysis"
+          title="Sector Insights & Analysis"
         />
       )}
     </div>
