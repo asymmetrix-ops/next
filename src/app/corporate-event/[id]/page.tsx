@@ -532,14 +532,14 @@ const CorporateEventDetail = ({
       try {
         if (!primarySectorId || typeof primarySectorId !== "number") return;
 
-        // Related transactions (4 most recent) in same primary sector, excluding current event id.
-        const tx = await corporateEventsService.getCorporateEvents(1, 10, {
+        // Related transactions in same primary sector, excluding current event id.
+        // Fetch more to allow for "Load More" functionality
+        const tx = await corporateEventsService.getCorporateEvents(1, 30, {
           primary_sectors_ids: [primarySectorId],
         });
         const items = Array.isArray(tx?.items) ? tx.items : [];
         const filtered = items
           .filter((e) => (typeof corporateEventId === "number" ? e?.id !== corporateEventId : true))
-          .slice(0, 4)
           .map((e) => {
             const investors = Array.isArray(e?.other_counterparties)
               ? e.other_counterparties

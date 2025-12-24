@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -24,6 +25,10 @@ export default function RelatedTransactionsSection({
 }: {
   transactions: RelatedTransactionRow[];
 }) {
+  const [displayCount, setDisplayCount] = useState(5);
+  const displayedTransactions = transactions.slice(0, displayCount);
+  const hasMore = transactions.length > displayCount;
+
   return (
     <section className="max-w-7xl mx-auto px-6 py-8 border-t border-slate-100">
       <div className="mb-5">
@@ -62,7 +67,7 @@ export default function RelatedTransactionsSection({
                 </TableCell>
               </TableRow>
             ) : (
-              transactions.map((t) => (
+              displayedTransactions.map((t) => (
                 <TableRow key={t.id} className="hover:bg-slate-50">
                   <TableCell>
                     <a
@@ -90,6 +95,18 @@ export default function RelatedTransactionsSection({
           </TableBody>
         </Table>
       </Card>
+
+      {hasMore && (
+        <div className="mt-6 flex justify-center">
+          <Button
+            onClick={() => setDisplayCount((prev) => prev + 5)}
+            variant="outline"
+            className="border-slate-300 text-slate-700 hover:bg-slate-50"
+          >
+            Load More
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
