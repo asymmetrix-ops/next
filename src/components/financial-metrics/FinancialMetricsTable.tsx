@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { dashboardApiService } from "@/lib/dashboardApi";
+import { locationsService } from "@/lib/locationsService";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 import CompaniesModal from "./CompaniesModal";
 
 type MetricView = "mean" | "median";
@@ -28,13 +30,9 @@ export type FinancialMetricsRow = {
   median_grr?: string | number | null;
 };
 
-const METRICS = [
-  { key: "arr_percent", label: "ARR (%)", format: "percent" as const },
-  {
-    key: "ebitda_margin",
-    label: "EBITDA Margin (%)",
-    format: "percent" as const,
-  },
+// All available metrics organized by category
+// Note: Only metrics that are actually returned by the API are included here
+const FINANCIAL_METRICS = [
   {
     key: "enterprise_value_m",
     label: "Enterprise Value ($M)",
@@ -46,8 +44,45 @@ const METRICS = [
     label: "Revenue Growth (%)",
     format: "percent" as const,
   },
+  {
+    key: "ebitda_margin",
+    label: "EBITDA Margin (%)",
+    format: "percent" as const,
+  },
+] as const;
+
+const SUBSCRIPTION_METRICS = [
+  { key: "arr_percent", label: "ARR (%)", format: "percent" as const },
   { key: "nrr", label: "NRR (%)", format: "percent" as const },
   { key: "grr", label: "GRR (%)", format: "percent" as const },
+] as const;
+
+type MetricDefinition = {
+  key: string;
+  label: string;
+  format: "percent" | "multiple" | "money_m" | "number";
+};
+
+const OTHER_METRICS: readonly MetricDefinition[] = [
+  // Add other metrics here if available
+];
+
+// Combined list of all metrics
+const ALL_METRICS = [
+  ...FINANCIAL_METRICS,
+  ...SUBSCRIPTION_METRICS,
+  ...OTHER_METRICS,
+] as const;
+
+// Default metrics to show (all available metrics)
+const DEFAULT_METRICS = [
+  "arr_percent",
+  "ebitda_margin",
+  "enterprise_value_m",
+  "ev_rev_multiple",
+  "revenue_growth",
+  "nrr",
+  "grr",
 ] as const;
 
 function toNumber(value: unknown): number | null {
@@ -64,7 +99,7 @@ function toNumber(value: unknown): number | null {
 
 function formatValue(
   value: unknown,
-  format: (typeof METRICS)[number]["format"]
+  format: (typeof ALL_METRICS)[number]["format"]
 ): string {
   const n = toNumber(value);
   if (n === null) return "—";
@@ -82,9 +117,20 @@ function formatValue(
       const decimalPart = parts[1] ? `.${parts[1]}` : "";
       const withCommas = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
       return `$${withCommas}${decimalPart}`;
+    case "number":
+      return n.toLocaleString();
     default:
       return String(n);
   }
+}
+
+interface FilterState {
+  countries: string[];
+  provinces: string[];
+  cities: string[];
+  primarySectors: number[];
+  secondarySectors: number[];
+  selectedMetrics: string[];
 }
 
 export default function FinancialMetricsTable() {
@@ -101,14 +147,182 @@ export default function FinancialMetricsTable() {
   const [selectedNumCompanies, setSelectedNumCompanies] = useState<number>(0);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Filter state
+  const [filters, setFilters] = useState<FilterState>({
+    countries: [],
+    provinces: [],
+    cities: [],
+    primarySectors: [],
+    secondarySectors: [],
+    selectedMetrics: [...DEFAULT_METRICS],
+  });
+
+  // Filter data state
+  const [countries, setCountries] = useState<Array<{ locations_Country: string }>>([]);
+  const [provinces, setProvinces] = useState<Array<{ State__Province__County: string }>>([]);
+  const [cities, setCities] = useState<Array<{ City: string }>>([]);
+  const [primarySectors, setPrimarySectors] = useState<Array<{ id: number; sector_name: string }>>([]);
+  const [secondarySectors, setSecondarySectors] = useState<Array<{ id: number; sector_name: string }>>([]);
+  const [loadingCountries, setLoadingCountries] = useState(false);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingPrimarySectors, setLoadingPrimarySectors] = useState(false);
+  const [loadingSecondarySectors, setLoadingSecondarySectors] = useState(false);
+
+  // Fetch filter options
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      try {
+        setLoadingCountries(true);
+        const countriesData = await locationsService.getCountries();
+        setCountries(countriesData);
+      } catch (error) {
+        console.error("Error fetching countries:", error);
+      } finally {
+        setLoadingCountries(false);
+      }
+
+      try {
+        setLoadingPrimarySectors(true);
+        const sectorsData = await locationsService.getPrimarySectors();
+        setPrimarySectors(sectorsData);
+      } catch (error) {
+        console.error("Error fetching primary sectors:", error);
+      } finally {
+        setLoadingPrimarySectors(false);
+      }
+    };
+
+    fetchFilterOptions();
+  }, []);
+
+  // Fetch provinces when countries are selected
+  useEffect(() => {
+    const fetchProvinces = async () => {
+      if (filters.countries.length === 0) {
+        setProvinces([]);
+        return;
+      }
+
+      try {
+        setLoadingProvinces(true);
+        const provincesData = await locationsService.getProvinces(filters.countries);
+        setProvinces(provincesData);
+      } catch (error) {
+        console.error("Error fetching provinces:", error);
+      } finally {
+        setLoadingProvinces(false);
+      }
+    };
+
+    fetchProvinces();
+  }, [filters.countries]);
+
+  // Fetch cities when countries or provinces are selected
+  useEffect(() => {
+    const fetchCities = async () => {
+      if (filters.countries.length === 0) {
+        setCities([]);
+        return;
+      }
+
+      try {
+        setLoadingCities(true);
+        const citiesData = await locationsService.getCities(
+          filters.countries,
+          filters.provinces
+        );
+        setCities(citiesData);
+      } catch (error) {
+        console.error("Error fetching cities:", error);
+      } finally {
+        setLoadingCities(false);
+      }
+    };
+
+    fetchCities();
+  }, [filters.countries, filters.provinces]);
+
+  // Fetch secondary sectors when primary sectors are selected
+  useEffect(() => {
+    const fetchSecondarySectors = async () => {
+      if (filters.primarySectors.length === 0) {
+        setSecondarySectors([]);
+        return;
+      }
+
+      try {
+        setLoadingSecondarySectors(true);
+        const secondarySectorsData = await locationsService.getSecondarySectors(
+          filters.primarySectors
+        );
+        setSecondarySectors(secondarySectorsData);
+      } catch (error) {
+        console.error("Error fetching secondary sectors:", error);
+      } finally {
+        setLoadingSecondarySectors(false);
+      }
+    };
+
+    fetchSecondarySectors();
+  }, [filters.primarySectors]);
 
   const fetchMetrics = useCallback(async () => {
     try {
       setError(null);
       setLoading(true);
-      const data = await dashboardApiService.getFinancialMetrics();
+      
+      // Build filter payload (only location and sector filters, no metrics)
+      const filterPayload: {
+        Countries?: string[];
+        Provinces?: string[];
+        Cities?: string[];
+        Primary_sectors_ids?: number[];
+        Secondary_sectors_ids?: number[];
+      } = {};
+
+      if (filters.countries.length > 0) {
+        filterPayload.Countries = filters.countries;
+      }
+      if (filters.provinces.length > 0) {
+        filterPayload.Provinces = filters.provinces;
+      }
+      if (filters.cities.length > 0) {
+        filterPayload.Cities = filters.cities;
+      }
+      if (filters.primarySectors.length > 0) {
+        filterPayload.Primary_sectors_ids = filters.primarySectors;
+      }
+      if (filters.secondarySectors.length > 0) {
+        filterPayload.Secondary_sectors_ids = filters.secondarySectors;
+      }
+
+      // Only send filters if at least one filter is applied
+      const hasFilters = 
+        (filterPayload.Countries?.length ?? 0) > 0 ||
+        (filterPayload.Provinces?.length ?? 0) > 0 ||
+        (filterPayload.Cities?.length ?? 0) > 0 ||
+        (filterPayload.Primary_sectors_ids?.length ?? 0) > 0 ||
+        (filterPayload.Secondary_sectors_ids?.length ?? 0) > 0;
+
+      const data = await dashboardApiService.getFinancialMetrics(
+        hasFilters ? filterPayload : undefined
+      );
       const normalized = Array.isArray(data) ? data : [];
       normalized.sort((a, b) => (a.range_order ?? 0) - (b.range_order ?? 0));
+      
+      // Debug: Log the first row to see what fields are actually returned
+      if (normalized.length > 0) {
+        console.log("[FinancialMetrics] Sample API response row:", {
+          revenue_range: normalized[0].revenue_range,
+          num_companies: normalized[0].num_companies,
+          allKeys: Object.keys(normalized[0] as Record<string, unknown>),
+          selectedMetrics: filters.selectedMetrics,
+        });
+      }
+      
       setRows(normalized);
       setLastUpdated(new Date());
       // Reset sorting when new data is loaded
@@ -121,7 +335,7 @@ export default function FinancialMetricsTable() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filters]);
 
   useEffect(() => {
     fetchMetrics();
@@ -131,6 +345,67 @@ export default function FinancialMetricsTable() {
   }, [fetchMetrics]);
 
   const viewPrefix = view === "mean" ? "mean_" : "median_";
+
+  // Get selected metrics to display
+  const selectedMetricsList = useMemo(() => {
+    return ALL_METRICS.filter((m) => filters.selectedMetrics.includes(m.key));
+  }, [filters.selectedMetrics]);
+
+  // Handle metric selection
+  const toggleMetric = useCallback((metricKey: string) => {
+    setFilters((prev) => {
+      const isSelected = prev.selectedMetrics.includes(metricKey);
+      if (isSelected) {
+        return {
+          ...prev,
+          selectedMetrics: prev.selectedMetrics.filter((k) => k !== metricKey),
+        };
+      } else {
+        return {
+          ...prev,
+          selectedMetrics: [...prev.selectedMetrics, metricKey],
+        };
+      }
+    });
+  }, []);
+
+  // Handle select all for a section
+  const selectAllSection = useCallback((section: "financial" | "subscription" | "other" | "all") => {
+    setFilters((prev) => {
+      let metricsToSelect: string[] = [];
+      if (section === "financial") {
+        metricsToSelect = FINANCIAL_METRICS.map((m) => m.key);
+      } else if (section === "subscription") {
+        metricsToSelect = SUBSCRIPTION_METRICS.map((m) => m.key);
+      } else if (section === "other") {
+        metricsToSelect = OTHER_METRICS.map((m) => m.key);
+      } else {
+        metricsToSelect = ALL_METRICS.map((m) => m.key);
+      }
+
+      const allSelected = metricsToSelect.every((key) => prev.selectedMetrics.includes(key));
+      
+      if (allSelected) {
+        // Deselect all in this section
+        return {
+          ...prev,
+          selectedMetrics: prev.selectedMetrics.filter((k) => !metricsToSelect.includes(k)),
+        };
+      } else {
+        // Select all in this section
+        const newMetrics = [...prev.selectedMetrics];
+        metricsToSelect.forEach((key) => {
+          if (!newMetrics.includes(key)) {
+            newMetrics.push(key);
+          }
+        });
+        return {
+          ...prev,
+          selectedMetrics: newMetrics,
+        };
+      }
+    });
+  }, []);
 
   // Handle column sorting
   const handleSort = useCallback((column: string) => {
@@ -146,15 +421,23 @@ export default function FinancialMetricsTable() {
 
   const tableRows = useMemo(() => {
     const mapped = rows.map((r) => {
-      const get = (key: (typeof METRICS)[number]["key"]) =>
+      const get = (key: string) => {
+        // The API returns fields with the pattern: mean_<metric_key> or median_<metric_key>
+        // We already have viewPrefix (mean_ or median_), so we just need the metric key
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (r as any)[`${viewPrefix}${key}`];
+        const rowAny = r as any;
+        const fullKey = `${viewPrefix}${key}`;
+        
+        // Direct access to the field
+        return rowAny[fullKey] ?? null;
+      };
+      
       return {
         revenue_range: r.revenue_range,
         num_companies: r.num_companies,
         range_order: r.range_order ?? 0,
-        rawValues: METRICS.map((m) => get(m.key)),
-        values: METRICS.map((m) => formatValue(get(m.key), m.format)),
+        rawValues: selectedMetricsList.map((m) => get(m.key)),
+        values: selectedMetricsList.map((m) => formatValue(get(m.key), m.format)),
       };
     });
 
@@ -174,7 +457,7 @@ export default function FinancialMetricsTable() {
         bValue = b.num_companies;
       } else {
         // Find the metric index
-        const metricIndex = METRICS.findIndex((m) => m.key === sortColumn);
+        const metricIndex = selectedMetricsList.findIndex((m) => m.key === sortColumn);
         if (metricIndex >= 0) {
           aValue = toNumber(a.rawValues[metricIndex]);
           bValue = toNumber(b.rawValues[metricIndex]);
@@ -196,7 +479,7 @@ export default function FinancialMetricsTable() {
 
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [rows, viewPrefix, sortColumn, sortDirection]);
+  }, [rows, viewPrefix, sortColumn, sortDirection, selectedMetricsList]);
 
   // Parse revenue range to get min/max values
   const parseRevenueRange = useCallback((range: string): { min: number | null; max: number | null } => {
@@ -252,7 +535,7 @@ export default function FinancialMetricsTable() {
       const headers = [
         "Revenue Range",
         "Companies",
-        ...METRICS.map((m) => m.label),
+        ...selectedMetricsList.map((m) => m.label),
       ];
 
       // Create CSV rows
@@ -296,7 +579,7 @@ export default function FinancialMetricsTable() {
     } finally {
       setExporting(false);
     }
-  }, [rows, tableRows, view]);
+  }, [rows, tableRows, view, selectedMetricsList]);
 
   return (
     <div className="bg-white rounded-lg shadow">
@@ -371,8 +654,373 @@ export default function FinancialMetricsTable() {
           >
             {exporting ? "Exporting..." : "Export CSV"}
           </button>
+
+          <button
+            type="button"
+            onClick={() => setShowFilters(!showFilters)}
+            className="px-3 py-2 text-xs font-medium text-gray-700 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100"
+          >
+            {showFilters ? "Hide Filters" : "Show Filters"}
+          </button>
         </div>
       </div>
+
+      {/* Filters Panel */}
+      {showFilters && (
+        <div className="p-4 border-b border-gray-200 bg-gray-50">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Location Filters */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Location</h3>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Country
+                  </label>
+                  <SearchableSelect
+                    options={countries.map((c) => ({
+                      value: c.locations_Country,
+                      label: c.locations_Country,
+                    }))}
+                    value=""
+                    onChange={(value) => {
+                      if (typeof value === "string" && value && !filters.countries.includes(value)) {
+                        setFilters((prev) => ({
+                          ...prev,
+                          countries: [...prev.countries, value],
+                          provinces: [], // Reset provinces when country changes
+                          cities: [], // Reset cities when country changes
+                        }));
+                      }
+                    }}
+                    placeholder={loadingCountries ? "Loading..." : "Select Country"}
+                    disabled={loadingCountries}
+                  />
+                  {filters.countries.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {filters.countries.map((country) => (
+                        <span
+                          key={country}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded"
+                        >
+                          {country}
+                          <button
+                            onClick={() =>
+                              setFilters((prev) => ({
+                                ...prev,
+                                countries: prev.countries.filter((c) => c !== country),
+                              }))
+                            }
+                            className="hover:text-blue-600"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Province/State
+                  </label>
+                  <SearchableSelect
+                    options={provinces.map((p) => ({
+                      value: p.State__Province__County,
+                      label: p.State__Province__County,
+                    }))}
+                    value=""
+                    onChange={(value) => {
+                      if (typeof value === "string" && value && !filters.provinces.includes(value)) {
+                        setFilters((prev) => ({
+                          ...prev,
+                          provinces: [...prev.provinces, value],
+                          cities: [], // Reset cities when province changes
+                        }));
+                      }
+                    }}
+                    placeholder={loadingProvinces ? "Loading..." : filters.countries.length === 0 ? "Select country first" : "Select Province"}
+                    disabled={loadingProvinces || filters.countries.length === 0}
+                  />
+                  {filters.provinces.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {filters.provinces.map((province) => (
+                        <span
+                          key={province}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-green-100 text-green-800 rounded"
+                        >
+                          {province}
+                          <button
+                            onClick={() =>
+                              setFilters((prev) => ({
+                                ...prev,
+                                provinces: prev.provinces.filter((p) => p !== province),
+                              }))
+                            }
+                            className="hover:text-green-600"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    City
+                  </label>
+                  <SearchableSelect
+                    options={cities.map((c) => ({
+                      value: c.City,
+                      label: c.City,
+                    }))}
+                    value=""
+                    onChange={(value) => {
+                      if (typeof value === "string" && value && !filters.cities.includes(value)) {
+                        setFilters((prev) => ({
+                          ...prev,
+                          cities: [...prev.cities, value],
+                        }));
+                      }
+                    }}
+                    placeholder={loadingCities ? "Loading..." : filters.countries.length === 0 ? "Select country first" : "Select City"}
+                    disabled={loadingCities || filters.countries.length === 0}
+                  />
+                  {filters.cities.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {filters.cities.map((city) => (
+                        <span
+                          key={city}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded"
+                        >
+                          {city}
+                          <button
+                            onClick={() =>
+                              setFilters((prev) => ({
+                                ...prev,
+                                cities: prev.cities.filter((c) => c !== city),
+                              }))
+                            }
+                            className="hover:text-orange-600"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Sector Filters */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Sectors</h3>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Primary Sector
+                  </label>
+                  <SearchableSelect
+                    options={primarySectors.map((s) => ({
+                      value: s.id,
+                      label: s.sector_name,
+                    }))}
+                    value=""
+                    onChange={(value) => {
+                      if (typeof value === "number" && value && !filters.primarySectors.includes(value)) {
+                        setFilters((prev) => ({
+                          ...prev,
+                          primarySectors: [...prev.primarySectors, value],
+                          secondarySectors: [], // Reset secondary sectors when primary sector changes
+                        }));
+                      }
+                    }}
+                    placeholder={loadingPrimarySectors ? "Loading..." : "Select Primary Sector"}
+                    disabled={loadingPrimarySectors}
+                  />
+                  {filters.primarySectors.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {filters.primarySectors.map((sectorId) => {
+                        const sector = primarySectors.find((s) => s.id === sectorId);
+                        return (
+                          <span
+                            key={sectorId}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded"
+                          >
+                            {sector?.sector_name || `Sector ${sectorId}`}
+                            <button
+                              onClick={() =>
+                                setFilters((prev) => ({
+                                  ...prev,
+                                  primarySectors: prev.primarySectors.filter((id) => id !== sectorId),
+                                }))
+                              }
+                              className="hover:text-purple-600"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Secondary Sector
+                  </label>
+                  <SearchableSelect
+                    options={secondarySectors.map((s) => ({
+                      value: s.id,
+                      label: s.sector_name,
+                    }))}
+                    value=""
+                    onChange={(value) => {
+                      if (typeof value === "number" && value && !filters.secondarySectors.includes(value)) {
+                        setFilters((prev) => ({
+                          ...prev,
+                          secondarySectors: [...prev.secondarySectors, value],
+                        }));
+                      }
+                    }}
+                    placeholder={loadingSecondarySectors ? "Loading..." : filters.primarySectors.length === 0 ? "Select primary sector first" : "Select Secondary Sector"}
+                    disabled={loadingSecondarySectors || filters.primarySectors.length === 0}
+                  />
+                  {filters.secondarySectors.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {filters.secondarySectors.map((sectorId) => {
+                        const sector = secondarySectors.find((s) => s.id === sectorId);
+                        return (
+                          <span
+                            key={sectorId}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-indigo-100 text-indigo-800 rounded"
+                          >
+                            {sector?.sector_name || `Sector ${sectorId}`}
+                            <button
+                              onClick={() =>
+                                setFilters((prev) => ({
+                                  ...prev,
+                                  secondarySectors: prev.secondarySectors.filter((id) => id !== sectorId),
+                                }))
+                              }
+                              className="hover:text-indigo-600"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Metrics Selection */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-gray-900">Metrics</h3>
+                <button
+                  type="button"
+                  onClick={() => selectAllSection("all")}
+                  className="text-xs text-blue-600 hover:text-blue-800 underline"
+                >
+                  Select All
+                </button>
+              </div>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {/* Financial Metrics */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className="text-xs font-semibold text-gray-700">Financial Metrics</h4>
+                    <button
+                      type="button"
+                      onClick={() => selectAllSection("financial")}
+                      className="text-xs text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Select All
+                    </button>
+                  </div>
+                  <div className="space-y-1 pl-2">
+                    {FINANCIAL_METRICS.map((metric) => (
+                      <label key={metric.key} className="flex items-center gap-2 text-xs text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={filters.selectedMetrics.includes(metric.key)}
+                          onChange={() => toggleMetric(metric.key)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span>{metric.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Subscription Metrics */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className="text-xs font-semibold text-gray-700">Subscription Metrics</h4>
+                    <button
+                      type="button"
+                      onClick={() => selectAllSection("subscription")}
+                      className="text-xs text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Select All
+                    </button>
+                  </div>
+                  <div className="space-y-1 pl-2">
+                    {SUBSCRIPTION_METRICS.map((metric) => (
+                      <label key={metric.key} className="flex items-center gap-2 text-xs text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={filters.selectedMetrics.includes(metric.key)}
+                          onChange={() => toggleMetric(metric.key)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span>{metric.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Other Metrics */}
+                {OTHER_METRICS.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <h4 className="text-xs font-semibold text-gray-700">Other Metrics</h4>
+                      <button
+                        type="button"
+                        onClick={() => selectAllSection("other")}
+                        className="text-xs text-blue-600 hover:text-blue-800 underline"
+                      >
+                        Select All
+                      </button>
+                    </div>
+                    <div className="space-y-1 pl-2">
+                      {OTHER_METRICS.map((metric) => (
+                        <label key={metric.key} className="flex items-center gap-2 text-xs text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={filters.selectedMetrics.includes(metric.key)}
+                            onChange={() => toggleMetric(metric.key)}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span>{metric.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="p-4">
         {loading ? (
@@ -420,7 +1068,7 @@ export default function FinancialMetricsTable() {
                       )}
                     </div>
                   </th>
-                  {METRICS.map((m) => (
+                  {selectedMetricsList.map((m) => (
                     <th
                       key={m.key}
                       className="px-4 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
@@ -480,6 +1128,11 @@ export default function FinancialMetricsTable() {
         revenueMin={selectedRevenueMin}
         revenueMax={selectedRevenueMax}
         numCompanies={selectedNumCompanies}
+        countries={filters.countries}
+        provinces={filters.provinces}
+        cities={filters.cities}
+        primarySectors={filters.primarySectors}
+        secondarySectors={filters.secondarySectors}
       />
     </div>
   );

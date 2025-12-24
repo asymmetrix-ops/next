@@ -30,6 +30,12 @@ interface CompaniesModalProps {
   revenueMin: number | null;
   revenueMax: number | null;
   numCompanies: number;
+  // Filters from FinancialMetricsTable
+  countries?: string[];
+  provinces?: string[];
+  cities?: string[];
+  primarySectors?: number[];
+  secondarySectors?: number[];
 }
 
 const METRICS = [
@@ -130,6 +136,11 @@ export default function CompaniesModal({
   revenueMin,
   revenueMax,
   numCompanies,
+  countries = [],
+  provinces = [],
+  cities = [],
+  primarySectors = [],
+  secondarySectors = [],
 }: CompaniesModalProps) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
@@ -166,26 +177,22 @@ export default function CompaniesModal({
 
   // Fetch companies when modal opens
   const fetchCompanies = useCallback(async () => {
-    if (!isOpen || realEstateSectorId === null) return;
+    if (!isOpen) return;
     if (revenueMin === null && revenueMax === null) return;
+
+    // Need either primarySectors from filters or realEstateSectorId
+    if (primarySectors.length === 0 && realEstateSectorId === null) return;
 
     setLoading(true);
     setError(null);
 
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
-      const params = new URLSearchParams();
-      
-      params.append("Offset", "1");
-      params.append("Per_page", "1000"); // Get all companies in this range
-      params.append("Primary_sectors_ids[]", realEstateSectorId.toString());
-      
-      if (revenueMin !== null) {
-        params.append("Revenue_min", revenueMin.toString());
-      }
-      if (revenueMax !== null) {
-        params.append("Revenue_max", revenueMax.toString());
-      }
+
+      // Build sector IDs - use primarySectors from filters if provided, otherwise use Real Estate
+      const sectorIds = primarySectors.length > 0 
+        ? primarySectors 
+        : (realEstateSectorId !== null ? [realEstateSectorId] : []);
 
       // Fetch all pages if needed
       let allItems: Company[] = [];
@@ -197,7 +204,35 @@ export default function CompaniesModal({
         const pageParams = new URLSearchParams();
         pageParams.append("Offset", currentPage.toString());
         pageParams.append("Per_page", perPage.toString());
-        pageParams.append("Primary_sectors_ids[]", realEstateSectorId.toString());
+        
+        // Add primary sectors
+        sectorIds.forEach((id) => {
+          pageParams.append("Primary_sectors_ids[]", id.toString());
+        });
+        
+        // Add secondary sectors if provided
+        if (secondarySectors.length > 0) {
+          secondarySectors.forEach((id) => {
+            pageParams.append("Secondary_sectors_ids[]", id.toString());
+          });
+        }
+        
+        // Add location filters
+        if (countries.length > 0) {
+          countries.forEach((country) => {
+            pageParams.append("Countries[]", country);
+          });
+        }
+        if (provinces.length > 0) {
+          provinces.forEach((province) => {
+            pageParams.append("Provinces[]", province);
+          });
+        }
+        if (cities.length > 0) {
+          cities.forEach((city) => {
+            pageParams.append("Cities[]", city);
+          });
+        }
         
         if (revenueMin !== null) {
           pageParams.append("Revenue_min", revenueMin.toString());
@@ -259,13 +294,14 @@ export default function CompaniesModal({
     } finally {
       setLoading(false);
     }
-  }, [isOpen, realEstateSectorId, revenueMin, revenueMax]);
+  }, [isOpen, realEstateSectorId, revenueMin, revenueMax, countries, provinces, cities, primarySectors, secondarySectors]);
 
   useEffect(() => {
-    if (isOpen && realEstateSectorId !== null) {
+    // Fetch companies when modal opens and we have either primarySectors or realEstateSectorId
+    if (isOpen && (primarySectors.length > 0 || realEstateSectorId !== null)) {
       fetchCompanies();
     }
-  }, [isOpen, realEstateSectorId, fetchCompanies]);
+  }, [isOpen, realEstateSectorId, primarySectors, fetchCompanies]);
 
   // Handle column sorting
   const handleSort = useCallback((column: string) => {

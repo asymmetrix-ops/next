@@ -11,21 +11,57 @@ export type FinancialMetricsRow = {
   num_companies: number;
   range_order?: number;
 
-  mean_arr_percent?: string | number | null;
-  mean_ebitda_margin?: string | number | null;
+  // Financial Metrics - Mean
+  mean_revenue_m?: string | number | null;
+  mean_ebitda_m?: string | number | null;
   mean_enterprise_value_m?: string | number | null;
   mean_ev_rev_multiple?: string | number | null;
   mean_revenue_growth?: string | number | null;
-  mean_nrr?: string | number | null;
-  mean_grr?: string | number | null;
+  mean_ebitda_margin?: string | number | null;
+  mean_rule_of_40?: string | number | null;
+  mean_ebit?: string | number | null;
+  mean_num_clients?: string | number | null;
+  mean_revenue_per_client?: string | number | null;
+  mean_num_employees?: string | number | null;
+  mean_revenue_per_employee?: string | number | null;
 
-  median_arr_percent?: string | number | null;
-  median_ebitda_margin?: string | number | null;
+  // Subscription Metrics - Mean
+  mean_arr_percent?: string | number | null;
+  mean_arr_m?: string | number | null;
+  mean_churn_pc?: string | number | null;
+  mean_grr?: string | number | null;
+  mean_upsell_pc?: string | number | null;
+  mean_cross_sell_pc?: string | number | null;
+  mean_price_increase_pc?: string | number | null;
+  mean_rev_expansion_pc?: string | number | null;
+  mean_nrr?: string | number | null;
+  mean_new_client_growth_pc?: string | number | null;
+
+  // Financial Metrics - Median
+  median_revenue_m?: string | number | null;
+  median_ebitda_m?: string | number | null;
   median_enterprise_value_m?: string | number | null;
   median_ev_rev_multiple?: string | number | null;
   median_revenue_growth?: string | number | null;
-  median_nrr?: string | number | null;
+  median_ebitda_margin?: string | number | null;
+  median_rule_of_40?: string | number | null;
+  median_ebit?: string | number | null;
+  median_num_clients?: string | number | null;
+  median_revenue_per_client?: string | number | null;
+  median_num_employees?: string | number | null;
+  median_revenue_per_employee?: string | number | null;
+
+  // Subscription Metrics - Median
+  median_arr_percent?: string | number | null;
+  median_arr_m?: string | number | null;
+  median_churn_pc?: string | number | null;
   median_grr?: string | number | null;
+  median_upsell_pc?: string | number | null;
+  median_cross_sell_pc?: string | number | null;
+  median_price_increase_pc?: string | number | null;
+  median_rev_expansion_pc?: string | number | null;
+  median_nrr?: string | number | null;
+  median_new_client_growth_pc?: string | number | null;
 };
 
 class DashboardApiService {
@@ -89,13 +125,56 @@ class DashboardApiService {
   }
 
   // Financial metrics by revenue band (mean + median). Returns a raw array from Xano.
-  async getFinancialMetrics(): Promise<FinancialMetricsRow[]> {
+  async getFinancialMetrics(filters?: {
+    Countries?: string[];
+    Provinces?: string[];
+    Cities?: string[];
+    Primary_sectors_ids?: number[];
+    Secondary_sectors_ids?: number[];
+  }): Promise<FinancialMetricsRow[]> {
     const headers = {
       "Content-Type": "application/json",
       ...authService.getAuthHeaders(),
     };
 
-    const response = await fetch(`${this.baseUrl}/mean`, {
+    // Build query parameters for GET request
+    const params = new URLSearchParams();
+    
+    if (filters) {
+      if (filters.Countries && filters.Countries.length > 0) {
+        filters.Countries.forEach((country) => {
+          params.append("Countries[]", country);
+        });
+      }
+      if (filters.Provinces && filters.Provinces.length > 0) {
+        filters.Provinces.forEach((province) => {
+          params.append("Provinces[]", province);
+        });
+      }
+      if (filters.Cities && filters.Cities.length > 0) {
+        filters.Cities.forEach((city) => {
+          params.append("Cities[]", city);
+        });
+      }
+      if (filters.Primary_sectors_ids && filters.Primary_sectors_ids.length > 0) {
+        filters.Primary_sectors_ids.forEach((id) => {
+          params.append("Primary_sectors_ids[]", id.toString());
+        });
+      }
+      if (filters.Secondary_sectors_ids && filters.Secondary_sectors_ids.length > 0) {
+        filters.Secondary_sectors_ids.forEach((id) => {
+          params.append("Secondary_sectors_ids[]", id.toString());
+        });
+      }
+    }
+
+    // Always use GET method with query parameters
+    const queryString = params.toString();
+    const url = queryString 
+      ? `${this.baseUrl}/mean?${queryString}`
+      : `${this.baseUrl}/mean`;
+
+    const response = await fetch(url, {
       method: "GET",
       headers,
       cache: "no-store",
@@ -105,7 +184,8 @@ class DashboardApiService {
       if (response.status === 401) {
         throw new Error("Authentication required");
       }
-      throw new Error(`API request failed: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`API request failed: ${response.statusText} - ${errorText}`);
     }
 
     // The /mean endpoint returns a raw array, not wrapped in ApiResponse
