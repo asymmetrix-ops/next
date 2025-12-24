@@ -177,7 +177,7 @@ const CorporateEventDetail = ({
   const formatMillionsValue = (amount: string | number): string | undefined => {
     const raw = typeof amount === "number" ? String(amount) : amount;
     const n = Number(String(raw).replace(/,/g, "").trim());
-    if (!Number.isFinite(n)) return undefined;
+    if (!Number.isFinite(n) || n === 0) return undefined;
     return n.toLocaleString(undefined, { maximumFractionDigits: 3 });
   };
 
@@ -216,7 +216,7 @@ const CorporateEventDetail = ({
       date?: string;
       dealType?: string;
       target?: string | React.ReactNode;
-      investors?: string;
+      investors?: string | React.ReactNode;
     }>
   >([]);
   const [relatedInsights, setRelatedInsights] = useState<
@@ -337,7 +337,13 @@ const CorporateEventDetail = ({
       : undefined,
     dateClosed: event?.closed_date ? formatDate(event.closed_date) : undefined,
     dealType: event?.deal_type || undefined,
-    dealStage: undefined, // Not available in current data
+    dealStage: (() => {
+      const fundingStage = event?.investment_data?.Funding_stage;
+      if (fundingStage && typeof fundingStage === "string" && fundingStage.trim().length > 0) {
+        return fundingStage.trim();
+      }
+      return undefined;
+    })(),
     investmentAmount: (() => {
       const amount = getInvestmentAmount();
       if (!amount) return undefined;
@@ -350,6 +356,10 @@ const CorporateEventDetail = ({
         event?.ev_data?.enterprise_value_m ??
         flatEvent.enterprise_value_m ??
         "";
+      // Check if the value is empty, null, or 0
+      if (amountRaw === null || amountRaw === undefined || amountRaw === "" || amountRaw === 0 || amountRaw === "0") {
+        return undefined;
+      }
       const amount =
         typeof amountRaw === "number"
           ? String(amountRaw)
@@ -542,13 +552,50 @@ const CorporateEventDetail = ({
           .filter((e) => (typeof corporateEventId === "number" ? e?.id !== corporateEventId : true))
           .map((e) => {
             const investors = Array.isArray(e?.other_counterparties)
-              ? e.other_counterparties
-                  .filter((c) => c?._new_company?.name)
-                  .map((c) => c._new_company.name)
-                  .filter(Boolean)
-                  .slice(0, 3)
-                  .join(", ")
-              : "";
+              ? (() => {
+                  const investorCounterparties = e.other_counterparties
+                    .filter((c) => {
+                      const nc = c?._new_company;
+                      return nc?.name && Boolean(nc?._is_that_investor);
+                    })
+                    .slice(0, 3);
+                  
+                  if (investorCounterparties.length === 0) {
+                    return undefined;
+                  }
+                  
+                  return (
+                    <>
+                      {investorCounterparties.map((c, idx) => {
+                        const nc = c._new_company;
+                        const investorName = nc?.name || "";
+                        const investorId = c?.new_company_counterparty;
+                        const investorsArray = investorCounterparties;
+                        
+                        if (investorId && typeof investorId === "number") {
+                          return (
+                            <span key={investorId || idx}>
+                              <a
+                                href={`/investors/${investorId}`}
+                                className="text-blue-600 hover:underline"
+                              >
+                                {investorName}
+                              </a>
+                              {idx < investorsArray.length - 1 && ", "}
+                      </span>
+                            );
+                          }
+                          return (
+                          <span key={idx}>
+                            {investorName}
+                            {idx < investorsArray.length - 1 && ", "}
+                            </span>
+                          );
+                      })}
+                    </>
+                  );
+                })()
+                            : undefined;
             
             // Extract targets from the targets array
             const targets = Array.isArray(e?.targets) && e.targets.length > 0
@@ -568,14 +615,14 @@ const CorporateEventDetail = ({
                           {targetName}
                         </a>
                         {idx < targetsArray.length - 1 && ", "}
-                      </span>
+                                </span>
                             );
                           }
                           return (
                     <span key={idx}>
                       {targetName}
                       {idx < targetsArray.length - 1 && ", "}
-                            </span>
+                      </span>
                           );
                 })
               : e?.target_counterparty?.new_company?.name 
@@ -701,7 +748,7 @@ const CorporateEventDetail = ({
       className="shadow-md bg-emerald-600 hover:bg-emerald-700 text-white"
     >
       <a
-        href={`mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
+        href={`mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
           `Report Incorrect Corporate Event Data – ${
             event?.description ?? "Unknown"
           } (ID ${event?.id ?? "Unknown"})`
@@ -748,6 +795,7 @@ const CorporateEventDetail = ({
         <InsightsSection
           insights={relatedInsights}
           title="Sector Insights & Analysis"
+          showIcon={false}
         />
       )}
     </div>

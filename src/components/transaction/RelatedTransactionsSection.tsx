@@ -16,7 +16,7 @@ export type RelatedTransactionRow = {
   date?: string;
   dealType?: string;
   target?: string | React.ReactNode;
-  investors?: string;
+  investors?: string | React.ReactNode;
   advisors?: string;
 };
 
@@ -87,7 +87,13 @@ export default function RelatedTransactionsSection({
                     {t.target || "Not available"}
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {t.investors || "Not available"}
+                    {(() => {
+                      const isPartnership = t.dealType?.toLowerCase() === "partnership";
+                      if (isPartnership) {
+                        return "-";
+                      }
+                      return t.investors || "Not available";
+                    })()}
                   </TableCell>
                 </TableRow>
               ))
