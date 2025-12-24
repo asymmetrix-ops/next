@@ -1,12 +1,20 @@
 import React from 'react';
 import { Card } from "@/components/ui/card";
 
-const MetricCard = ({ label, value, subValue }: { label: string; value: string | React.ReactNode; subValue?: string }) => (
+const MetricCard = ({ label, value, subValue, inlineSubValue }: { label: string; value: string | React.ReactNode; subValue?: string; inlineSubValue?: boolean }) => (
   <Card className="p-3 bg-white border-0 shadow-sm hover:shadow-md transition-shadow duration-300">
     <div>
       <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-lg font-normal text-slate-900">{value || 'Not available'}</p>
-      {subValue && <p className="text-sm text-slate-500 mt-0.5">{subValue}</p>}
+      {inlineSubValue && subValue ? (
+        <p className="text-lg font-normal text-slate-900">
+          {value || 'Not available'} <span className="text-sm text-slate-500 ml-1">{subValue}</span>
+        </p>
+      ) : (
+        <>
+          <p className="text-lg font-normal text-slate-900">{value || 'Not available'}</p>
+          {subValue && <p className="text-sm text-slate-500 mt-0.5">{subValue}</p>}
+        </>
+      )}
     </div>
   </Card>
 );
@@ -106,6 +114,7 @@ export default function DealMetrics({ metrics }: {
             label="Investment Amount (m)"
             value={metrics.investmentAmount}
             subValue={metrics.currency}
+            inlineSubValue={true}
           />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
