@@ -192,4 +192,86 @@ export class CSVExporter {
     const csvContent = this.convertToCSV(csvData);
     this.downloadCSV(csvContent, filename);
   }
+
+  // Convert export API response format to CSV format
+  static convertExportApiResponseToCSVData(
+    apiResponse: Array<{
+      description: string;
+      date: string;
+      target_name: string;
+      target_hq: string;
+      primary_sector: string;
+      secondary_sectors: string;
+      deal_type: string;
+      amount_m: number | null;
+      ev_m: number | null;
+      buyers_investors: string;
+      sellers: string;
+      advisors: string;
+      corporate_event_link: string;
+    }>
+  ): CorporateEventCSVRow[] {
+    return apiResponse.map((item) => {
+      // Format date
+      const formattedDate = item.date
+        ? this.formatDate(item.date)
+        : "Not available";
+
+      // Format amount
+      const formattedAmount =
+        item.amount_m !== null && item.amount_m !== undefined
+          ? `${item.amount_m.toLocaleString(undefined, {
+              maximumFractionDigits: 3,
+            })}m`
+          : "Not available";
+
+      // Format EV
+      const formattedEV =
+        item.ev_m !== null && item.ev_m !== undefined
+          ? `${item.ev_m.toLocaleString(undefined, {
+              maximumFractionDigits: 3,
+            })}m`
+          : "Not available";
+
+      return {
+        Description: item.description || "Not Available",
+        Date: formattedDate,
+        "Target Name": item.target_name || "Not Available",
+        "Target HQ": item.target_hq || "Not Available",
+        "Primary Sector": item.primary_sector || "Not Available",
+        "Secondary Sectors": item.secondary_sectors || "Not Available",
+        "Deal Type": item.deal_type || "Not Available",
+        "Amount (m)": formattedAmount,
+        "EV (m)": formattedEV,
+        "Buyer(s)/Investor(s)": item.buyers_investors || "Not Available",
+        "Seller(s)": item.sellers || "Not Available",
+        Advisors: item.advisors || "Not Available",
+        "Corporate Event Link": item.corporate_event_link || "Not Available",
+      };
+    });
+  }
+
+  // Export from API response format
+  static exportCorporateEventsFromApiResponse(
+    apiResponse: Array<{
+      description: string;
+      date: string;
+      target_name: string;
+      target_hq: string;
+      primary_sector: string;
+      secondary_sectors: string;
+      deal_type: string;
+      amount_m: number | null;
+      ev_m: number | null;
+      buyers_investors: string;
+      sellers: string;
+      advisors: string;
+      corporate_event_link: string;
+    }>,
+    filename?: string
+  ): void {
+    const csvData = this.convertExportApiResponseToCSVData(apiResponse);
+    const csvContent = this.convertToCSV(csvData);
+    this.downloadCSV(csvContent, filename);
+  }
 }

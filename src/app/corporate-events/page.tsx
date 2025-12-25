@@ -1230,6 +1230,7 @@ const CorporateEventsPage = () => {
     ipos: 0,
   });
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
   const [exportsLeft, setExportsLeft] = useState(0);
@@ -1657,9 +1658,87 @@ const CorporateEventsPage = () => {
 
   // Removed hasActiveFilters; export button now shows when results exist
 
-  // Handle CSV export
+  // Helper function to build filter parameters for API calls
+  const buildFilterParams = (): URLSearchParams => {
+    const params = new URLSearchParams();
+
+    // Add search query
+    if (searchTerm.trim()) {
+      params.append("search_query", searchTerm.trim());
+    }
+
+    // Add location filters as comma-separated values
+    if (selectedCountries.length > 0) {
+      params.append("Countries", selectedCountries.join(","));
+    }
+
+    if (selectedProvinces.length > 0) {
+      params.append("Provinces", selectedProvinces.join(","));
+    }
+
+    if (selectedCities.length > 0) {
+      params.append("Cities", selectedCities.join(","));
+    }
+
+    // Add region grouping filters
+    if (selectedContinentalRegions.length > 0) {
+      params.append("Continental_Region", selectedContinentalRegions.join(","));
+    }
+
+    if (selectedSubRegions.length > 0) {
+      params.append("geographical_sub_region", selectedSubRegions.join(","));
+    }
+
+    // Add sector filters as array params (API expects bracketed keys)
+    if (selectedPrimarySectors.length > 0) {
+      selectedPrimarySectors.forEach((id) => {
+        params.append("primary_sectors_ids[]", id.toString());
+      });
+    }
+
+    if (selectedSecondarySectors.length > 0) {
+      selectedSecondarySectors.forEach((id) => {
+        params.append("Secondary_sectors_ids[]", id.toString());
+      });
+    }
+
+    // Add event types as array params (API expects bracketed keys)
+    if (selectedEventTypes.length > 0) {
+      selectedEventTypes.forEach((dealType) => {
+        params.append("deal_types[]", dealType);
+      });
+    }
+
+    // Add deal statuses as comma-separated values
+    if (selectedDealStatuses.length > 0) {
+      params.append("Deal_Status", selectedDealStatuses.join(","));
+    }
+
+    // Add funding stages as comma-separated values
+    if (selectedFundingStages.length > 0) {
+      params.append("Funding_stage", selectedFundingStages.join(","));
+    }
+
+    // Add buyer / investor types
+    if (selectedBuyerInvestorTypes.length > 0) {
+      params.append("Buyer_Investor_Types", selectedBuyerInvestorTypes.join(","));
+    }
+
+    // Add date filters
+    if (dateStart) {
+      params.append("Date_start", dateStart);
+    }
+
+    if (dateEnd) {
+      params.append("Date_end", dateEnd);
+    }
+
+    return params;
+  };
+
+  // Handle CSV export - fetches all matching events from export API
   const handleExportCSV = async () => {
-    if (corporateEvents.length > 0) {
+    try {
       // Check export limit first
       const limitCheck = await checkExportLimit();
       if (!limitCheck.canExport) {
@@ -1668,10 +1747,57 @@ const CorporateEventsPage = () => {
         return;
       }
 
-      CSVExporter.exportCorporateEvents(
-        corporateEvents,
+      setExporting(true);
+
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) {
+        setError("Authentication required");
+        setExporting(false);
+        return;
+      }
+
+      // Build filter parameters
+      const params = buildFilterParams();
+
+      // Call the export API endpoint
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/export_corporate_events_csv?${params.toString()}`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        // Check if it's an export limit error
+        if (response.status === 403 || response.status === 429) {
+          const limitCheck = await checkExportLimit();
+          setExportsLeft(limitCheck.exportsLeft);
+          setShowExportLimitModal(true);
+          setExporting(false);
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Export the data using the CSV exporter
+      CSVExporter.exportCorporateEventsFromApiResponse(
+        data,
         "corporate_events_filtered"
       );
+    } catch (error) {
+      console.error("Error exporting corporate events:", error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to export corporate events"
+      );
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -2826,10 +2952,10 @@ const CorporateEventsPage = () => {
             <button
               onClick={handleExportCSV}
               className="export-button"
-              disabled={loading || isTrialActive}
+              disabled={loading || exporting || isTrialActive}
               title={isTrialActive ? "Export disabled during Trial" : undefined}
             >
-              {loading ? "Exporting..." : "Export CSV"}
+              {exporting ? "Exporting..." : "Export CSV"}
             </button>
           </div>
         )}
