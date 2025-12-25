@@ -749,11 +749,9 @@ const CorporateEventDetail = ({
     >
       <a
         href={`mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
-          `Report Incorrect Corporate Event Data – ${
-            event?.description ?? "Unknown"
-          } (ID ${event?.id ?? "Unknown"})`
+          `Contribute Data - ${event?.description ?? "Unknown"}`
         )}&body=${encodeURIComponent(
-          "Please describe the issue you found for this corporate event page."
+          "Please share the data you'd like to contribute for this corporate event page."
         )}`}
                             target="_blank"
                             rel="noopener noreferrer"
