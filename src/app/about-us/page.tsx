@@ -249,7 +249,7 @@ export default function AboutUs() {
                   </h4>
                   <p className="mb-4 text-gray-600">Research Intern</p>
                   <a
-                    href="#"
+                    href="https://www.linkedin.com/in/nina-brandler-605a922a1"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex justify-center items-center w-10 h-10 text-white bg-blue-600 rounded-lg transition-colors hover:bg-blue-700"
