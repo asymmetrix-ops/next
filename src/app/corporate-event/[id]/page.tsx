@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -8,10 +8,17 @@ import { corporateEventsService } from "../../../lib/corporateEventsService";
 import {
   CorporateEventDetailResponse,
   CorporateEventAdvisor,
+  Target,
 } from "../../../types/corporateEvents";
 import { useRightClick } from "@/hooks/useRightClick";
 import { ContentArticle } from "@/types/insightsAnalysis";
-import { InsightsAnalysisCard } from "@/components/InsightsAnalysisCard";
+import TransactionHero from "@/components/transaction/TransactionHero";
+import DealMetrics from "@/components/transaction/DealMetrics";
+import InsightsSection from "@/components/transaction/InsightsSection";
+import CounterpartiesSection from "@/components/transaction/CounterpartiesSection";
+import AdvisorsSection from "@/components/transaction/AdvisorsSection";
+import RelatedTransactionsSection from "@/components/transaction/RelatedTransactionsSection";
+import { Button } from "@/components/ui/button";
 
 // Type-safe check for Data & Analytics company flag
 const isDataAnalyticsCompany = (candidate: unknown): boolean => {
@@ -22,11 +29,9 @@ const isDataAnalyticsCompany = (candidate: unknown): boolean => {
     : false;
 };
 
-// Company Logo Component
-const CompanyLogo = ({ logo, name }: { logo?: string; name: string }) => {
+// Helper function to process logo URLs
   const buildLogoSrc = (raw?: string): string | undefined => {
     if (!raw) return undefined;
-    // Normalize by trimming and removing whitespace/newlines often present in base64 blobs
     const value = String(raw).trim();
     const compact = value.replace(/\s+/g, "");
     if (!value) return undefined;
@@ -35,7 +40,6 @@ const CompanyLogo = ({ logo, name }: { logo?: string; name: string }) => {
       try {
         const u = new URL(value);
         const host = u.hostname.toLowerCase();
-        // Skip LinkedIn CDN/hosts to avoid frequent 403s; prefer base64 for those
         if (host.endsWith("licdn.com") || host.endsWith("linkedin.com")) {
           return undefined;
         }
@@ -44,28 +48,10 @@ const CompanyLogo = ({ logo, name }: { logo?: string; name: string }) => {
         return undefined;
       }
     }
-    // Heuristic: treat as base64 when it does not look like a URL
     if (/^[A-Za-z0-9+/=]+$/.test(compact)) {
       return `data:image/jpeg;base64,${compact}`;
     }
     return undefined;
-  };
-
-  const src = buildLogoSrc(logo);
-  if (src) {
-    return (
-      <>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={`${name} logo`} className="company-logo" />
-      </>
-    );
-  }
-
-  return (
-    <div className="placeholder-logo">
-      {(name || "").charAt(0).toUpperCase()}
-    </div>
-  );
 };
 
 // Corporate Event Detail Component
@@ -100,7 +86,7 @@ const CorporateEventDetail = ({
     ? data.Event_advisors
     : [];
 
-  // Fast lookup for counterparties by id (to map advisor->advised company and announcement URL)
+  // Fast lookup for counterparties by id
   const counterpartiesById = React.useMemo(() => {
     const map = new Map<number, (typeof counterparties)[number]>();
     for (const cp of counterparties) {
@@ -109,13 +95,12 @@ const CorporateEventDetail = ({
     return map;
   }, [counterparties]);
 
-  // Fallback logo cache for investor counterparties when logo not present in payload
+  // Fallback logo cache for investor counterparties
   const [logoMap, setLogoMap] = useState<Record<number, string | undefined>>(
     {}
   );
 
   useEffect(() => {
-    // Identify investor counterparties missing logos
     const ids = (Array.isArray(counterparties) ? counterparties : [])
       .filter((cp) => {
         const nc = cp?._new_company;
@@ -188,23 +173,19 @@ const CorporateEventDetail = ({
     });
   };
 
-  const formatCurrency = (amount: string, currency: string) => {
-    if (!amount || !currency) return "Not available";
-    const n = Number(amount);
-    if (Number.isNaN(n)) return "Not available";
-    const formatted = n.toLocaleString(undefined, { maximumFractionDigits: 3 });
-    // Amounts are already in millions; the "(m)" indicator lives in the field
-    // label (e.g., "Amount (m)"), so we omit the trailing "m" here.
-    return `${currency}${formatted}`;
+  // Formats a "millions" number (already in millions) WITHOUT currency and WITHOUT the "m" suffix.
+  const formatMillionsValue = (amount: string | number): string | undefined => {
+    const raw = typeof amount === "number" ? String(amount) : amount;
+    const n = Number(String(raw).replace(/,/g, "").trim());
+    if (!Number.isFinite(n) || n === 0) return undefined;
+    return n.toLocaleString(undefined, { maximumFractionDigits: 3 });
   };
 
-  // Prefer investment currency if present; otherwise fall back to EV currency
   const getInvestmentCurrency = (): string | undefined => {
     const inv = event?.investment_data as
       | { _currency?: { Currency?: string }; currency?: { Currency?: string } }
       | undefined;
     const fromInvestment = inv?.currency?.Currency || inv?._currency?.Currency;
-    // Fallbacks: top-level investment/EV currency when backend sends flattened fields
     const flatEvent = (event ?? {}) as FlatEventFields;
     const topLevelCurrency =
       flatEvent.investment_currency || flatEvent.enterprise_value_currency;
@@ -216,7 +197,6 @@ const CorporateEventDetail = ({
     );
   };
 
-  // Prefer nested investment amount; fallback to top-level fields when present
   const getInvestmentAmount = (): string | undefined => {
     const nested = event?.investment_data?.investment_amount_m;
     if (nested) return nested;
@@ -228,25 +208,20 @@ const CorporateEventDetail = ({
     return undefined;
   };
 
-  const formatInvestmentAmount = (): string => {
-    const amount = getInvestmentAmount();
-    if (!amount) return "Not available";
-    const currency = getInvestmentCurrency();
-    return currency ? formatCurrency(amount, currency) : "Not available";
-  };
-
-  // Removed navigation helpers in favor of createClickableElement to support right-click
-
-  // const handleIndividualClick = (individualId: number) => {
-  //   try {
-  //     router.push(`/individual/${individualId}`);
-  //   } catch (error) {
-  //     console.error("Navigation error:", error);
-  //   }
-  // };
-
   const [eventArticles, setEventArticles] = useState<ContentArticle[]>([]);
-  const [eventArticlesLoading, setEventArticlesLoading] = useState(false);
+  const [relatedTransactions, setRelatedTransactions] = useState<
+    Array<{
+      id: number;
+      title: string;
+      date?: string;
+      dealType?: string;
+      target?: string | React.ReactNode;
+      investors?: string | React.ReactNode;
+    }>
+  >([]);
+  const [relatedInsights, setRelatedInsights] = useState<
+    Array<{ id?: number; tag?: string; date?: string; title: string; content: string }>
+  >([]);
 
   useEffect(() => {
     const run = async () => {
@@ -257,7 +232,6 @@ const CorporateEventDetail = ({
         console.log("[Insights & Analysis] fetch start", {
           corporate_event_id: evId,
         });
-        setEventArticlesLoading(true);
         const qs = new URLSearchParams({ corporate_event_id: String(evId) });
         const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/content?${qs.toString()}`;
         console.log("[Insights & Analysis] GET URL", url);
@@ -276,74 +250,7 @@ const CorporateEventDetail = ({
           count: Array.isArray(data) ? data.length : undefined,
           payload: data,
         });
-        const list = Array.isArray(data) ? (data as ContentArticle[]) : [];
-        setEventArticles(list);
-
-        // The corporate-event content list endpoint may omit full `Body` / `Content_Type`.
-        // To match the company page cards (badge + 3-line excerpt), hydrate missing fields
-        // using the authenticated content detail endpoint when a token is available.
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : null;
-        if (!token || list.length === 0) return;
-
-        const needsHydration = (a: ContentArticle): boolean => {
-          const body = (a as unknown as { Body?: unknown })?.Body;
-          const ct = (a as unknown as { Content_Type?: unknown })?.Content_Type;
-          return (
-            typeof body !== "string" ||
-            body.trim().length === 0 ||
-            (ct != null && typeof ct !== "string")
-          );
-        };
-
-        const toHydrate = list.filter(needsHydration);
-        if (toHydrate.length === 0) return;
-
-        const fetchDetail = async (
-          contentId: number
-        ): Promise<Partial<ContentArticle> | null> => {
-          try {
-            const r = await fetch(
-              `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/${contentId}`,
-              {
-                method: "GET",
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  "Content-Type": "application/json",
-                },
-              }
-            );
-            if (!r.ok) return null;
-            const json: unknown = await r.json();
-            const raw = (Array.isArray(json) ? (json[0] as unknown) : json) as
-              | Partial<ContentArticle>
-              | undefined;
-            if (!raw || typeof raw !== "object") return null;
-            return raw;
-          } catch {
-            return null;
-          }
-        };
-
-        const details = await Promise.all(
-          toHydrate
-            .filter((a) => typeof a?.id === "number")
-            .map((a) => fetchDetail(a.id))
-        );
-
-        // Merge hydrated fields back into the list (keep existing fields if detail is missing)
-        const byId = new Map<number, ContentArticle>(
-          list.map((a) => [a.id, a])
-        );
-        for (const d of details) {
-          if (!d || typeof d.id !== "number") continue;
-          const prev = byId.get(d.id);
-          if (!prev) continue;
-          byId.set(d.id, { ...(prev as ContentArticle), ...(d as ContentArticle) });
-        }
-        setEventArticles(Array.from(byId.values()));
+        setEventArticles(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("[Insights & Analysis] fetch error", error);
         setEventArticles([]);
@@ -351,407 +258,29 @@ const CorporateEventDetail = ({
         console.log("[Insights & Analysis] fetch finished", {
           ms: Date.now() - startedAt,
         });
-        setEventArticlesLoading(false);
       }
     };
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event?.id]);
 
-  const style = `
-    .corporate-event-container {
-      background-color: #f9fafb;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    }
-    .corporate-event-content {
-      padding: 32px;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-    }
-    .corporate-event-card {
-      background-color: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      padding: 32px 24px;
-      margin-bottom: 0;
-    }
-    .corporate-event-header {
-      position: relative;
-    }
-    .corporate-event-title {
-      font-size: 24px;
-      font-weight: 700;
-      color: #1a202c;
-      margin-bottom: 8px;
-      margin-top: 0px;
-    }
-    .corporate-event-subtitle {
-      font-size: 20px;
-      font-weight: 600;
-      color: #1a202c;
-      margin-bottom: 12px;
-    }
-    .report-button {
-      background-color: #16a34a;
-      color: white;
-      font-weight: 600;
-      padding: 8px 16px;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-      font-size: 14px;
-      float: right;
-    }
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 24px;
-      margin-top: 24px;
-    }
-    .info-column {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .info-item {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .info-label {
-      font-size: 14px;
-      color: #6b7280;
-      font-weight: 500;
-    }
-    .info-value {
-      font-size: 16px;
-      color: #1a202c;
-      font-weight: 600;
-    }
-    /* Names: keep words intact, no mid-word splits */
-    .corporate-event-link {
-      color: #2563eb;
-      text-decoration: underline;
-      cursor: pointer;
-      word-break: keep-all;
-      overflow-wrap: normal;
-      white-space: normal;
-      hyphens: none;
-      display: inline;
-    }
-    /* URLs: allow breaking anywhere to avoid overflow */
-    .corporate-event-link-url {
-      color: #2563eb;
-      text-decoration: underline;
-      cursor: pointer;
-      word-break: break-word;
-      overflow-wrap: anywhere;
-      white-space: normal;
-      line-break: anywhere;
-      display: inline;
-    }
-    .info-item a.corporate-event-link-url,
-    .advisors-table td a.corporate-event-link-url,
-    .counterparties-table td a.corporate-event-link-url {
-      word-break: break-word;
-      overflow-wrap: anywhere;
-      white-space: normal;
-      line-break: anywhere;
-    }
-    .corporate-event-description {
-      font-size: 16px;
-      color: #374151;
-      line-height: 1.6;
-      margin-top: 24px;
-    }
-    .counterparties-table-container {
-      overflow-x: auto;
-    }
-    .counterparties-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 16px;
-    }
-    .counterparties-table th {
-      background-color: #f9fafb;
-      border-bottom: 2px solid #e5e7eb;
-      padding: 12px 16px;
-      text-align: left;
-      font-weight: 600;
-      font-size: 14px;
-      color: #374151;
-    }
-    .counterparties-table td {
-      padding: 12px 16px;
-      border-bottom: 1px solid #e5e7eb;
-      font-size: 14px;
-      color: #374151;
-    }
-    .company-logo {
-      width: 40px;
-      height: 40px;
-      border-radius: 4px;
-      object-fit: cover;
-    }
-    .placeholder-logo {
-      width: 40px;
-      height: 40px;
-      background-color: #e5e7eb;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      color: #6b7280;
-    }
-    .counterparties-cards { display: none; }
-    .advisors-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-    .advisors-table th { background-color: #f9fafb; border-bottom: 2px solid #e5e7eb; padding: 12px 16px; text-align: left; font-weight: 600; font-size: 14px; color: #374151; }
-    .advisors-table td { padding: 12px 16px; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #374151; }
-    .advisors-cards { display: none; }
-    .counterparty-card {
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 12px;
-    }
-    .counterparty-card-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-    .counterparty-card-name {
-      font-size: 16px;
-      font-weight: 600;
-      color: #2563eb;
-      cursor: pointer;
-      text-decoration: underline;
-    }
-    .counterparty-card-info {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      font-size: 14px;
-    }
-    .counterparty-card-info-item {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .counterparty-card-info-label {
-      font-weight: 600;
-      color: #374151;
-      font-size: 12px;
-    }
-    .counterparty-card-info-value {
-      color: #6b7280;
-      font-size: 12px;
-    }
-    .counterparty-card-full-width {
-      grid-column: 1 / -1;
-    }
-    /* Insights & Analysis responsive grid */
-    .insights-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 16px;
-    }
+  // Transform data for components
+  const transactionData = {
+    title: event?.description || "Corporate Event",
+    subtitle: event?.long_description || undefined,
+  };
 
-    @media (max-width: 768px) {
-      .insights-grid {
-        grid-template-columns: 1fr !important;
-        gap: 12px !important;
-      }
-      .corporate-event-content {
-        padding: 16px !important;
-        gap: 16px !important;
-      }
-      .corporate-event-card {
-        padding: 16px !important;
-        border-radius: 8px !important;
-      }
-      .corporate-event-header {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 12px !important;
-      }
-      .corporate-event-title {
-        font-size: 20px !important;
-        margin-bottom: 0 !important;
-      }
-      .corporate-event-subtitle {
-        font-size: 18px !important;
-        margin-bottom: 8px !important;
-      }
-      .report-button {
-        float: none !important;
-        align-self: flex-start !important;
-        width: fit-content !important;
-      }
-      .info-grid {
-        grid-template-columns: 1fr !important;
-        gap: 16px !important;
-        margin-top: 16px !important;
-      }
-      .info-column {
-        gap: 12px !important;
-      }
-      .info-label {
-        font-size: 13px !important;
-      }
-      .info-value {
-        font-size: 15px !important;
-      }
-      .corporate-event-link {
-        font-size: 14px !important;
-      }
-      .corporate-event-description {
-        font-size: 15px !important;
-        margin-top: 16px !important;
-      }
-      .counterparties-table-container { display: none !important; }
-      .counterparties-cards { display: block !important; margin-top: 16px !important; }
-      .advisors-cards { display: block !important; margin-top: 16px !important; }
-      .advisors-table { display: none !important; }
-    }
+  const corporateEventId = typeof event?.id === "number" ? event.id : undefined;
 
-    @media (min-width: 769px) {
-      .counterparties-cards { display: none !important; }
-      .counterparties-table-container { display: block !important; }
-      .advisors-cards { display: none !important; }
-      .advisors-table { display: table !important; }
-    }
-  `;
-
-  return (
-    <div className="corporate-event-container">
-      <div className="corporate-event-content">
-        {/* Event Details Card */}
-        <div className="corporate-event-card">
-          <div className="corporate-event-header">
-            <h1 className="corporate-event-title">
-              {event?.description || "Not available"}
-            </h1>
-            <a
-              className="report-button"
-              href={`mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
-                `Contribute Corporate Event Data – ${
-                  event?.description ?? "Unknown"
-                } (ID ${event?.id ?? "Unknown"})`
-              )}&body=${encodeURIComponent(
-                "Please describe the data you would like to contribute for this corporate event page."
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Contribute Data
-            </a>
-          </div>
-
-          <div className="info-grid">
-            {/* Column 1: Dates */}
-            <div className="info-column">
-              <div className="info-item">
-                <span className="info-label">Date Announced:</span>
-                <span className="info-value">
-                  {event?.announcement_date
-                    ? formatDate(event.announcement_date)
-                    : "Not available"}
-                </span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Date Closed:</span>
-                <span className="info-value">
-                  {event?.closed_date
-                    ? formatDate(event.closed_date)
-                    : "Not available"}
-                </span>
-              </div>
-            </div>
-
-            {/* Column 2: Deal details */}
-            <div className="info-column">
-              <div className="info-item">
-                <span className="info-label">Deal Type:</span>
-                <span className="info-value">
-                  {event?.deal_type || "Not available"}
-                </span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Deal Stage:</span>
-                <span className="info-value">
-                  {event?.investment_data?.Funding_stage || "Not available"}
-                </span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Deal Status:</span>
-                <span className="info-value">
-                  {event?.deal_status || "Not available"}
-                </span>
-              </div>
-            </div>
-
-            {/* Column 3: Investment & EV */}
-            <div className="info-column">
-              <div className="info-item">
-                <span className="info-label">Investment Amount (m):</span>
-                <span className="info-value">{formatInvestmentAmount()}</span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Enterprise Value (m):</span>
-                <span className="info-value">
-                  {(() => {
-                    const flatEvent = (event ?? {}) as FlatEventFields;
-                    const amountRaw =
-                      event?.ev_data?.enterprise_value_m ??
-                      flatEvent.enterprise_value_m ??
-                      "";
-                    const amount =
-                      typeof amountRaw === "number"
-                        ? String(amountRaw)
-                        : amountRaw;
-                    const currency =
-                      event?.ev_data?._currency?.Currency ||
-                      flatEvent.enterprise_value_currency ||
-                      "";
-                    return amount && currency
-                      ? formatCurrency(amount, currency)
-                      : "Not available";
-                  })()}
-                </span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">EV Source:</span>
-                {event?.ev_data?.ev_source ? (
-                  <a
-                    href={event.ev_data.ev_source}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="corporate-event-link"
-                  >
-                    {event.ev_data.ev_source}
-                  </a>
-                ) : (
-                  <span className="info-value">Not available</span>
-                )}
-              </div>
-            </div>
-
-            {/* Column 4: Sectors */}
-            <div className="info-column">
-              <div className="info-item">
-                <span className="info-label">Primary Sector(s):</span>
-                <span className="info-value">
-                  {(() => {
-                    // Derive primary sectors from sub-sectors mapping when needed
+  // Get primary sectors with IDs
+  const primarySectors = (() => {
                     const existing = Array.isArray(data.Primary_sectors)
-                      ? data.Primary_sectors.map((s) => s.sector_name)
-                      : [];
-                    // Support both legacy single object `related_primary_sector`
-                    // and new array `related_primary_sectors` on sub-sectors
+      ? data.Primary_sectors.map((s) => ({
+          name: s.sector_name,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          id: (s as any)?.id || (s as any)?.sector_id || undefined,
+        }))
+      : [];
                     const derived = Array.isArray(subSectors)
                       ? subSectors
                           .flatMap((s) => {
@@ -762,234 +291,142 @@ const CorporateEventDetail = ({
                             if (Array.isArray(many)) {
                               return many
                                 .map(
-                                  (x: { sector_name?: string }) =>
-                                    x?.sector_name
-                                )
-                                .filter(
-                                  (v: unknown): v is string =>
-                                    typeof v === "string" && v.length > 0
-                                );
+                  (x: { sector_name?: string; id?: number; sector_id?: number }) => ({
+                    name: x?.sector_name || "",
+                    id: x?.id || x?.sector_id || undefined,
+                  })
+                )
+                .filter((v) => v.name && v.name.length > 0);
                             }
                             const name: unknown = single?.sector_name;
+            const id: unknown = (single as { id?: number; sector_id?: number })?.id || 
+                               (single as { id?: number; sector_id?: number })?.sector_id;
                             return typeof name === "string" && name.length > 0
-                              ? [name]
+              ? [{ name, id: typeof id === "number" ? id : undefined }]
                               : [];
                           })
-                          .filter((v): v is string => Boolean(v))
-                      : [];
-                    const combined = Array.from(
-                      new Set([...existing, ...derived])
-                    );
-                    return combined.length > 0
-                      ? combined.join(", ")
-                      : "Not available";
-                  })()}
-                </span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Sub-Sector(s):</span>
-                <span className="info-value">
-                  {subSectors.length > 0
-                    ? subSectors.map((s, idx) => {
-                        const name = s.sector_name || "";
-                        const id = (s as { id?: number }).id;
-                        if (!name) return null;
+          .filter((v) => v.name && v.name.length > 0)
+      : [];
+    // Deduplicate by name
+    const seen = new Set<string>();
+    const combined = [...existing, ...derived].filter((s) => {
+      if (seen.has(s.name)) return false;
+      seen.add(s.name);
+      return true;
+    });
+    return combined;
+  })();
+
+  // Get sub-sectors with IDs
+  const subSectorsWithIds = subSectors.map((s) => ({
+    name: s.sector_name,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    id: (s as any)?.id || (s as any)?.sector_id || (s as any)?.sub_sector_id || undefined,
+  }));
+
+  const primarySectorId =
+    primarySectors.find((s) => typeof s.id === "number")?.id ??
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ((data.Primary_sectors?.[0] as any)?.id as number | undefined);
+
+  const metricsData = {
+    sectors: primarySectors.length > 0 ? primarySectors : undefined,
+    subSectors: subSectorsWithIds.length > 0 ? subSectorsWithIds : undefined,
+    dateAnnounced: event?.announcement_date
+      ? formatDate(event.announcement_date)
+      : undefined,
+    dateClosed: event?.closed_date ? formatDate(event.closed_date) : undefined,
+    dealType: event?.deal_type || undefined,
+    dealStage: (() => {
+      const fundingStage = event?.investment_data?.Funding_stage;
+      if (fundingStage && typeof fundingStage === "string" && fundingStage.trim().length > 0) {
+        return fundingStage.trim();
+      }
+      return undefined;
+    })(),
+    investmentAmount: (() => {
+      const amount = getInvestmentAmount();
+      if (!amount) return undefined;
+      return formatMillionsValue(amount);
+    })(),
+    currency: getInvestmentCurrency(),
+    enterpriseValue: (() => {
+      const flatEvent = (event ?? {}) as FlatEventFields;
+      const amountRaw =
+        event?.ev_data?.enterprise_value_m ??
+        flatEvent.enterprise_value_m ??
+        "";
+      // Check if the value is empty, null, or 0
+      if (amountRaw === null || amountRaw === undefined || amountRaw === "" || amountRaw === 0 || amountRaw === "0") {
+        return undefined;
+      }
+      const amount =
+        typeof amountRaw === "number"
+          ? String(amountRaw)
+          : amountRaw;
+      const formatted = formatMillionsValue(amount);
+      return formatted || undefined;
+    })(),
+    enterpriseValueCurrency: (() => {
+      const flatEvent = (event ?? {}) as FlatEventFields;
                         return (
-                          <React.Fragment key={`subsector-${id ?? idx}`}>
-                            {typeof id === "number" ? (
-                              <a
-                                href={`/sub-sector/${id}`}
-                                className="link-blue"
-                              >
-                                {name}
-                              </a>
-                            ) : (
-                              <span>{name}</span>
-                            )}
-                            {idx < subSectors.length - 1 && ", "}
-                          </React.Fragment>
-                        );
-                      })
-                    : "Not available"}
-                </span>
-              </div>
-            </div>
-          </div>
+        event?.ev_data?._currency?.Currency ||
+        flatEvent.enterprise_value_currency ||
+        undefined
+      );
+    })(),
+  };
 
-          <p className="corporate-event-description">
-            {event?.long_description || "Not available"}
-          </p>
-        </div>
+  // Insights logic:
+  // - Always show an "Insights & Analysis" section for any articles explicitly tagged to this corporate event
+  //   via `Related_Corporate_Event`.
+  // - Always show a "Related Insights & Analysis" section (fetched by matching primary sector), but
+  //   NEVER duplicate articles already shown in the top section.
+  const insightsForEventRaw = eventArticles
+    .filter((article) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const relatedEvents = (article as any)?.Related_Corporate_Event || [];
+      if (!Array.isArray(relatedEvents) || typeof corporateEventId !== "number") {
+        return false;
+      }
+      // Handle both formats: array of numbers [3416] or array of objects [{id: 3416}]
+      const hasThisEvent = relatedEvents.some((ev: number | { id?: number } | undefined) => {
+        if (typeof ev === "number") {
+          return ev === corporateEventId;
+        }
+        if (ev && typeof ev === "object" && "id" in ev) {
+          return ev.id === corporateEventId;
+        }
+        return false;
+      });
+      return hasThisEvent;
+    })
+    .sort((a, b) => {
+      const da = new Date(a.Publication_Date || 0).getTime();
+      const db = new Date(b.Publication_Date || 0).getTime();
+      return db - da;
+    });
 
-        {/* Insights & Analysis content related to this corporate event */}
-        {(eventArticlesLoading || eventArticles.length > 0) && (
-          <div className="corporate-event-card">
-            <h2 className="corporate-event-subtitle">
-              Insights & Analysis
-            </h2>
-            {eventArticlesLoading ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "20px",
-                  color: "#666",
-                  fontSize: "14px",
-                }}
-              >
-                Loading content...
-              </div>
-            ) : eventArticles.length > 0 ? (
-              <div className="insights-grid">
-                {[...eventArticles]
-                  .sort((a, b) => {
-                    const dateA = a.Publication_Date
-                      ? new Date(a.Publication_Date).getTime()
-                      : 0;
-                    const dateB = b.Publication_Date
-                      ? new Date(b.Publication_Date).getTime()
-                      : 0;
-                    return dateB - dateA; // Most recent first (descending)
-                  })
-                  .map((article) => (
-                    <InsightsAnalysisCard
-                      key={article.id}
-                      article={article}
-                      showMeta={false}
-                    />
-                  ))}
-              </div>
-            ) : (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "20px",
-                  color: "#666",
-                  fontSize: "14px",
-                }}
-              >
-                No related content found
-              </div>
-            )}
-          </div>
-        )}
+  const insightsForEvent = insightsForEventRaw.map((article) => ({
+    id: article.id,
+    tag: (article.Content_Type || "Article").trim() || "Article",
+    date: article.Publication_Date
+      ? new Date(article.Publication_Date).toLocaleDateString()
+      : undefined,
+    title: article.Headline || "Untitled",
+    content: article.Strapline || "",
+  }));
 
-        {/* Counterparties Card */}
-        <div className="corporate-event-card">
-          <h2 className="corporate-event-subtitle">Counterparties</h2>
+  // Memoize primary sector IDs string to prevent infinite loops
+  const primarySectorIdsString = useMemo(() => {
+    return primarySectors
+      .map((s) => s.id)
+      .filter((id): id is number => typeof id === "number")
+      .sort((a, b) => a - b)
+      .join(",");
+  }, [primarySectors]);
 
-          {/* Desktop Table View */}
-          <div className="counterparties-table-container">
-            <table className="counterparties-table">
-              <thead>
-                <tr>
-                  <th>Logo</th>
-                  <th>Company</th>
-                  <th>Counterparty type</th>
-                  <th>Announcement URL</th>
-                  <th>Individuals</th>
-                </tr>
-              </thead>
-              <tbody>
-                {counterparties.map((counterparty) => (
-                  <tr key={counterparty.id}>
-                    <td>
-                      <CompanyLogo
-                        logo={
-                          counterparty._new_company
-                            ._linkedin_data_of_new_company?.linkedin_logo ||
-                          counterparty._new_company.linkedin_data
-                            ?.linkedin_logo ||
-                          logoMap[counterparty._new_company.id]
-                        }
-                        name={counterparty._new_company.name}
-                      />
-                    </td>
-                    <td>
-                      {(() => {
-                        const nc = counterparty._new_company;
-                        const isInvestor = Boolean(nc?._is_that_investor);
-                        // Treat as Data & Analytics company only if backend flag is present
-                        const isDA = isDataAnalyticsCompany(nc);
-                        const href = isInvestor
-                          ? `/investors/${counterparty.new_company_counterparty}`
-                          : isDA
-                          ? `/company/${Number(nc?.id)}`
-                          : undefined;
-                        if (href) {
-                          return createClickableElement(
-                            href,
-                            nc?.name ?? "N/A",
-                            "corporate-event-link"
-                          );
-                        }
-                        return (
-                          <span style={{ color: "#000" }}>
-                            {nc?.name ?? "N/A"}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    <td>
-                      {counterparty._counterpartys_type?.counterparty_status ||
-                        counterparty._counterparty_type?.counterparty_status ||
-                        "N/A"}
-                    </td>
-                    <td>
-                      {counterparty.counterparty_announcement_url ? (
-                        <a
-                          href={counterparty.counterparty_announcement_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="corporate-event-link-url"
-                        >
-                          {counterparty.counterparty_announcement_url}
-                        </a>
-                      ) : (
-                        "Not available"
-                      )}
-                    </td>
-                    <td>
-                      {Array.isArray(counterparty.counterparty_individuals) &&
-                      counterparty.counterparty_individuals.length > 0
-                        ? counterparty.counterparty_individuals.map(
-                            (individual, idx) => (
-                              <span key={individual.id}>
-                                <a
-                                  href={`/individual/${individual.individuals_id}`}
-                                  className="corporate-event-link"
-                                >
-                                  {individual.advisor_individuals}
-                                </a>
-                                {idx <
-                                  counterparty.counterparty_individuals.length -
-                                    1 && ", "}
-                              </span>
-                            )
-                          )
-                        : "Not available"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Cards View */}
-          <div className="counterparties-cards">
-            {counterparties.map((counterparty) => (
-              <div key={counterparty.id} className="counterparty-card">
-                <div className="counterparty-card-header">
-                  <CompanyLogo
-                    logo={
-                      counterparty._new_company._linkedin_data_of_new_company
-                        ?.linkedin_logo ||
-                      counterparty._new_company.linkedin_data?.linkedin_logo ||
-                      logoMap[counterparty._new_company.id]
-                    }
-                    name={counterparty._new_company.name}
-                  />
-                  <div className="counterparty-card-name">
-                    {(() => {
+  const counterpartiesData = counterparties.map((counterparty) => {
                       const nc = counterparty._new_company;
                       const isInvestor = Boolean(nc?._is_that_investor);
                       const isDA = isDataAnalyticsCompany(nc);
@@ -998,157 +435,69 @@ const CorporateEventDetail = ({
                         : isDA
                         ? `/company/${Number(nc?.id)}`
                         : undefined;
-                      if (href) {
-                        return createClickableElement(href, nc?.name ?? "N/A");
-                      }
-                      return (
-                        <span
-                          style={{ color: "#2563eb", textDecoration: "none" }}
-                        >
-                          {nc?.name ?? "N/A"}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                </div>
-                <div className="counterparty-card-info">
-                  <div className="counterparty-card-info-item">
-                    <span className="counterparty-card-info-label">Type:</span>
-                    <span className="counterparty-card-info-value">
-                      {counterparty._counterpartys_type?.counterparty_status ||
-                        counterparty._counterparty_type?.counterparty_status ||
-                        "N/A"}
-                    </span>
-                  </div>
-                  <div className="counterparty-card-info-item">
-                    <span className="counterparty-card-info-label">
-                      Individuals:
-                    </span>
-                    <span className="counterparty-card-info-value">
-                      {Array.isArray(counterparty.counterparty_individuals) &&
+
+    const rawLogo =
+      nc?._linkedin_data_of_new_company?.linkedin_logo ||
+      nc?.linkedin_data?.linkedin_logo ||
+      logoMap[nc?.id];
+    const logo = buildLogoSrc(rawLogo);
+
+    const individuals =
+      Array.isArray(counterparty.counterparty_individuals) &&
                       counterparty.counterparty_individuals.length > 0
-                        ? counterparty.counterparty_individuals.map(
-                            (individual, idx) => (
+        ? counterparty.counterparty_individuals.map((individual, idx) => (
                               <span key={individual.id}>
                                 <a
                                   href={`/individual/${individual.individuals_id}`}
-                                  className="corporate-event-link"
+                className="text-blue-600 hover:underline"
                                 >
                                   {individual.advisor_individuals}
                                 </a>
-                                {idx <
-                                  counterparty.counterparty_individuals.length -
-                                    1 && ", "}
+              {idx < counterparty.counterparty_individuals.length - 1 && ", "}
                               </span>
-                            )
-                          )
-                        : "Not available"}
-                    </span>
-                  </div>
-                  {counterparty.counterparty_announcement_url && (
-                    <div className="counterparty-card-info-item counterparty-card-full-width">
-                      <span className="counterparty-card-info-label">
-                        Announcement URL:
-                      </span>
-                      <a
-                        href={counterparty.counterparty_announcement_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="corporate-event-link"
-                        style={{ fontSize: "12px" }}
-                      >
-                        {counterparty.counterparty_announcement_url}
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+          ))
+        : "Not available";
 
-        {/* Advisors Card */}
-        <div className="corporate-event-card">
-          <h2 className="corporate-event-subtitle">Advisors</h2>
-          {/* Desktop Table */}
-          <table className="advisors-table">
-            <thead>
-              <tr>
-                <th>Logo</th>
-                <th>Advisor</th>
-                <th>Role</th>
-                <th>Advising</th>
-                <th>Individuals</th>
-                <th>Announcement URL</th>
-              </tr>
-            </thead>
-            <tbody>
-              {advisors.length > 0 ? (
-                advisors.map((a) => (
-                  <tr key={a.id}>
-                    <td>
-                      <CompanyLogo
-                        logo={
-                          // Prefer nested linkedin logo if present
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          (a as any)?._new_company
-                            ?._linkedin_data_of_new_company?.linkedin_logo ||
-                          // Fallback to direct linkedin_data
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          (a as any)?._new_company?.linkedin_data?.linkedin_logo
-                        }
-                        name={
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          ((a as any)?._new_company?.name as string) ||
-                          "Advisor"
-                        }
-                      />
-                    </td>
-                    <td>
-                      {createClickableElement(
-                        `/advisor/${a._new_company.id}`,
-                        a._new_company.name,
-                        "corporate-event-link"
-                      )}
-                    </td>
-                    <td>{a._advisor_role?.counterparty_status || "Advisor"}</td>
-                    <td>
-                      {(() => {
-                        // Prefer using counterparty_advised id to resolve advised entity
+    return {
+      id: counterparty.id,
+      name: nc?.name ?? "N/A",
+      role:
+        counterparty._counterpartys_type?.counterparty_status ||
+                        counterparty._counterparty_type?.counterparty_status ||
+        "N/A",
+      logo,
+      individuals,
+      href,
+    };
+  });
+
+  const advisorsData = advisors.map((a) => {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const anyA = a as any;
-                        const advisedId: number | undefined =
-                          anyA?.counterparty_advised;
-                        const cp = advisedId
-                          ? counterpartiesById?.get?.(advisedId)
-                          : undefined;
+    const rawLogo =
+      anyA?._new_company?._linkedin_data_of_new_company?.linkedin_logo ||
+      anyA?._new_company?.linkedin_data?.linkedin_logo;
+    const logo = buildLogoSrc(rawLogo);
+
+    const advisedId: number | undefined = anyA?.counterparty_advised;
+    const cp = advisedId ? counterpartiesById?.get?.(advisedId) : undefined;
                         const nc = cp?._new_company;
                         const isInvestor = Boolean(nc?._is_that_investor);
                         const isDA = isDataAnalyticsCompany(nc);
-                        const href = isInvestor
+    const advisingHref = isInvestor
                           ? `/investors/${cp?.new_company_counterparty}`
                           : isDA
                           ? `/company/${Number(nc?.id)}`
                           : undefined;
-                        if (href) {
-                          return createClickableElement(
-                            href,
+
+    const advising = advisingHref
+      ? createClickableElement(
+          advisingHref,
                             nc?.name || "N/A",
-                            "corporate-event-link"
-                          );
-                        }
-                        return (
-                          <span style={{ color: "#000" }}>
-                            {nc?.name || "N/A"}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    <td>
-                      {(() => {
-                        // Strictly use advisor-attached individuals from Event_advisors; no fallbacks
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const anyA = a as any;
+          "text-blue-600 hover:underline"
+        )
+      : nc?.name || "N/A";
+
                         const advisorList = Array.isArray(anyA?.individuals)
                           ? (anyA.individuals as Array<{
                               id: number;
@@ -1156,202 +505,297 @@ const CorporateEventDetail = ({
                               advisor_individuals: string;
                             }>)
                           : undefined;
-                        const list = advisorList;
-                        return Array.isArray(list) && list.length > 0
-                          ? list.map((ind, idx) => (
+
+    const individuals =
+      Array.isArray(advisorList) && advisorList.length > 0
+        ? advisorList.map((ind, idx) => (
                               <span key={ind.id}>
                                 {typeof ind.individuals_id === "number" ? (
                                   <a
                                     href={`/individual/${ind.individuals_id}`}
-                                    className="corporate-event-link"
+                  className="text-blue-600 hover:underline"
                                   >
                                     {ind.advisor_individuals}
                                   </a>
                                 ) : (
                                   <span>{ind.advisor_individuals}</span>
                                 )}
-                                {idx < list.length - 1 && ", "}
+              {idx < advisorList.length - 1 && ", "}
                               </span>
                             ))
                           : "Not available";
-                      })()}
-                    </td>
-                    <td>
-                      {(() => {
-                        // Advisor-only URL; empty string means no link
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const anyA = a as any;
-                        const raw =
-                          (anyA?.announcement_url as string | undefined) ?? "";
-                        const url = raw.trim();
-                        return url ? (
-                          <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="corporate-event-link-url"
-                          >
-                            {url}
-                          </a>
-                        ) : (
-                          "Not available"
-                        );
-                      })()}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4}>Not available</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
 
-          {/* Mobile Cards */}
-          <div className="advisors-cards">
-            {advisors.length > 0 ? (
-              advisors.map((a) => (
-                <div key={a.id} className="counterparty-card">
-                  <div
-                    className="counterparty-card-header"
-                    style={{ marginBottom: 8 }}
-                  >
-                    <CompanyLogo
-                      logo={
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        (a as any)?._new_company?._linkedin_data_of_new_company
-                          ?.linkedin_logo ||
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        (a as any)?._new_company?.linkedin_data?.linkedin_logo
-                      }
-                      name={a._new_company.name}
-                    />
-                    <div className="counterparty-card-name">
-                      {createClickableElement(
-                        `/advisor/${a._new_company.id}`,
-                        a._new_company.name
-                      )}
-                    </div>
-                  </div>
-                  <div className="counterparty-card-info">
-                    <div className="counterparty-card-info-item">
-                      <span className="counterparty-card-info-label">
-                        Role:
+    return {
+      id: a.id,
+      name: a._new_company.name,
+      logo,
+      role: a._advisor_role?.counterparty_status || "Advisor",
+      advising,
+      individuals,
+      href: `/advisor/${a._new_company.id}`,
+    };
+  });
+
+  // Fetch related transactions + related insights (by primary sector), once we know primary sector id.
+  useEffect(() => {
+    const run = async () => {
+      try {
+        if (!primarySectorId || typeof primarySectorId !== "number") return;
+
+        // Related transactions in same primary sector, excluding current event id.
+        // Fetch more to allow for "Load More" functionality
+        const tx = await corporateEventsService.getCorporateEvents(1, 30, {
+          primary_sectors_ids: [primarySectorId],
+        });
+        const items = Array.isArray(tx?.items) ? tx.items : [];
+        const filtered = items
+          .filter((e) => (typeof corporateEventId === "number" ? e?.id !== corporateEventId : true))
+          .map((e) => {
+            const investors = Array.isArray(e?.other_counterparties)
+              ? (() => {
+                  const investorCounterparties = e.other_counterparties
+                    .filter((c) => {
+                      const nc = c?._new_company;
+                      return nc?.name && Boolean(nc?._is_that_investor);
+                    })
+                    .slice(0, 3);
+                  
+                  if (investorCounterparties.length === 0) {
+                    return undefined;
+                  }
+                  
+                  return (
+                    <>
+                      {investorCounterparties.map((c, idx) => {
+                        const nc = c._new_company;
+                        const investorName = nc?.name || "";
+                        const investorId = c?.new_company_counterparty;
+                        const investorsArray = investorCounterparties;
+                        
+                        if (investorId && typeof investorId === "number") {
+                          return (
+                            <span key={investorId || idx}>
+                              <a
+                                href={`/investors/${investorId}`}
+                                className="text-blue-600 hover:underline"
+                              >
+                                {investorName}
+                              </a>
+                              {idx < investorsArray.length - 1 && ", "}
                       </span>
-                      <span className="counterparty-card-info-value">
-                        {a._advisor_role?.counterparty_status || "Advisor"}
-                      </span>
-                    </div>
-                    <div className="counterparty-card-info-item">
-                      <span className="counterparty-card-info-label">
-                        Advising:
-                      </span>
-                      <span className="counterparty-card-info-value">
-                        {(() => {
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          const anyA = a as any;
-                          const advisedId: number | undefined =
-                            anyA?.counterparty_advised;
-                          const cp = advisedId
-                            ? counterpartiesById?.get?.(advisedId)
-                            : undefined;
-                          const nc = cp?._new_company;
-                          const isInvestor = Boolean(nc?._is_that_investor);
-                          const isDA = isDataAnalyticsCompany(nc);
-                          const href = isInvestor
-                            ? `/investors/${cp?.new_company_counterparty}`
-                            : isDA
-                            ? `/company/${Number(nc?.id)}`
-                            : undefined;
-                          if (href) {
-                            return createClickableElement(
-                              href,
-                              nc?.name || "N/A",
-                              "corporate-event-link"
                             );
                           }
                           return (
-                            <span style={{ color: "#000" }}>
-                              {nc?.name || "N/A"}
+                          <span key={idx}>
+                            {investorName}
+                            {idx < investorsArray.length - 1 && ", "}
                             </span>
                           );
-                        })()}
-                      </span>
-                    </div>
-                    <div className="counterparty-card-info-item">
-                      <span className="counterparty-card-info-label">
-                        Individuals:
-                      </span>
-                      <span className="counterparty-card-info-value">
-                        {(() => {
-                          // Strictly use advisor-attached individuals from Event_advisors; no fallbacks
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          const anyA = a as any;
-                          const advisorList = Array.isArray(anyA?.individuals)
-                            ? (anyA.individuals as Array<{
-                                id: number;
-                                individuals_id?: number;
-                                advisor_individuals: string;
-                              }>)
+                      })}
+                    </>
+                  );
+                })()
                             : undefined;
-                          const list = advisorList;
-                          return Array.isArray(list) && list.length > 0
-                            ? list.map((ind, idx) => (
-                                <span key={ind.id}>
-                                  {typeof ind.individuals_id === "number" ? (
-                                    <a
-                                      href={`/individual/${ind.individuals_id}`}
-                                      className="corporate-event-link"
-                                    >
-                                      {ind.advisor_individuals}
-                                    </a>
-                                  ) : (
-                                    <span>{ind.advisor_individuals}</span>
-                                  )}
-                                  {idx < list.length - 1 && ", "}
+            
+            // Extract targets from the targets array
+            const targets = Array.isArray(e?.targets) && e.targets.length > 0
+              ? e.targets.map((target: Target, idx: number) => {
+                  const targetName = target?.name || "";
+                  const targetId = target?.id;
+                  const targetPath = target?.path;
+                  const targetsArray = e.targets || [];
+                  
+                  if (targetId && targetPath) {
+                    return (
+                      <span key={targetId || idx}>
+                        <a
+                          href={targetPath}
+                          className="text-blue-600 hover:underline"
+                        >
+                          {targetName}
+                        </a>
+                        {idx < targetsArray.length - 1 && ", "}
                                 </span>
-                              ))
-                            : "Not available";
-                        })()}
+                            );
+                          }
+                          return (
+                    <span key={idx}>
+                      {targetName}
+                      {idx < targetsArray.length - 1 && ", "}
                       </span>
-                    </div>
-                    {(() => {
-                      // Advisor-only URL on mobile; empty means no section
+                          );
+                })
+              : e?.target_counterparty?.new_company?.name 
+                ? (() => {
+                    const targetName = e.target_counterparty.new_company.name;
+                    const targetId = e.target_counterparty.new_company.id;
+                    return targetId ? (
+                      <a
+                        href={`/company/${targetId}`}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {targetName}
+                      </a>
+                    ) : targetName;
+                  })()
+                : undefined;
+            
+            return {
+              id: e.id,
+              title: e.description || "View event",
+              date: e.announcement_date ? formatDate(e.announcement_date) : undefined,
+              dealType: e.deal_type || undefined,
+              target: targets,
+              investors: investors || undefined,
+            };
+          });
+        setRelatedTransactions(filtered);
+
+        // Sector Insights & Analysis (by primary sector), excluding any already shown above.
+        // Uses api:Z3F6JUiu/articles_based_on_sectors to fetch 5 most recent articles
+        // whose Primary Sector(s) match the corporate event's primary sector(s)
+
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("asymmetrix_auth_token")
+            : null;
+        if (!token) return;
+
+        // Get all primary sector IDs
+        const primarySectorIds = primarySectors
+          .map((s) => s.id)
+          .filter((id): id is number => typeof id === "number");
+
+        if (primarySectorIds.length === 0) {
+          setRelatedInsights([]);
+          return;
+        }
+
+        // Compute IDs of articles already shown in "Insights & Analysis" section
+        const eventArticleIds = new Set(
+          eventArticles
+            .filter((article) => {
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      const anyA = a as any;
-                      const raw =
-                        (anyA?.announcement_url as string | undefined) ?? "";
-                      const url = raw.trim();
-                      return url ? (
-                        <div className="counterparty-card-info-item counterparty-card-full-width">
-                          <span className="counterparty-card-info-label">
-                            Announcement URL:
-                          </span>
-                          <a
-                            href={url}
+              const relatedEvents = (article as any)?.Related_Corporate_Event || [];
+              if (!Array.isArray(relatedEvents) || typeof corporateEventId !== "number") {
+                return false;
+              }
+              return relatedEvents.some((ev: number | { id?: number } | undefined) => {
+                if (typeof ev === "number") {
+                  return ev === corporateEventId;
+                }
+                if (ev && typeof ev === "object" && "id" in ev) {
+                  return ev.id === corporateEventId;
+                }
+                return false;
+              });
+            })
+            .map((a) => a?.id)
+            .filter((id): id is number => typeof id === "number")
+        );
+
+        const params = new URLSearchParams();
+        // Add primary_sectors_ids as array parameters
+        primarySectorIds.forEach((id) => {
+          params.append("primary_sectors_ids[]", String(id));
+        });
+        // Add corporate_events_id
+        if (typeof corporateEventId === "number") {
+          params.append("corporate_events_id", String(corporateEventId));
+        }
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/articles_based_on_sectors?${params.toString()}`;
+        const res = await fetch(url, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          console.error("[Sector Insights] API error:", res.status, errorData);
+          setRelatedInsights([]);
+          return;
+        }
+        const json = (await res.json()) as ContentArticle[] | { items?: ContentArticle[] };
+        // Handle both array response and object with items property
+        const itemsIA = Array.isArray(json) ? json : (Array.isArray(json?.items) ? json.items : []);
+        const filteredIA = itemsIA.filter(
+          (article) => !(typeof article?.id === "number" && eventArticleIds.has(article.id))
+        );
+        const mapped = filteredIA.slice(0, 5).map((article) => ({
+          id: article.id,
+          tag: (article.Content_Type || "Article").trim() || "Article",
+          date: article.Publication_Date
+            ? new Date(article.Publication_Date).toLocaleDateString()
+            : undefined,
+          title: article.Headline || "Untitled",
+          content: article.Strapline || "",
+        }));
+        setRelatedInsights(mapped);
+      } catch {
+        // ignore
+      }
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primarySectorIdsString, corporateEventId, eventArticles.length]);
+
+  const reportButton = (
+    <Button
+      asChild
+      size="sm"
+      className="shadow-md bg-emerald-600 hover:bg-emerald-700 text-white"
+    >
+      <a
+        href={`mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
+          `Contribute Data - ${event?.description ?? "Unknown"}`
+        )}&body=${encodeURIComponent(
+          "Please share the data you'd like to contribute for this corporate event page."
+        )}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="corporate-event-link"
-                            style={{ fontSize: 12 }}
-                          >
-                            {url}
-                          </a>
-                        </div>
-                      ) : null;
-                    })()}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div style={{ color: "#6b7280", fontSize: 14 }}>
-                Not available
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      <style dangerouslySetInnerHTML={{ __html: style }} />
+      >
+        Contribute Data
+      </a>
+    </Button>
+  );
+
+  return (
+    <div className="bg-slate-50 min-h-screen">
+      <TransactionHero transaction={transactionData} reportButton={reportButton} />
+
+      <DealMetrics metrics={metricsData} />
+
+      {insightsForEvent.length > 0 && (
+        <InsightsSection insights={insightsForEvent} title="Insights & Analysis" />
+      )}
+
+      {counterpartiesData.length > 0 && (
+        <CounterpartiesSection
+          counterparties={counterpartiesData}
+          createClickableElement={createClickableElement}
+        />
+      )}
+
+      {advisorsData.length > 0 && (
+        <AdvisorsSection
+          advisors={advisorsData}
+          createClickableElement={createClickableElement}
+        />
+      )}
+
+      {relatedTransactions.length > 0 && (
+        <RelatedTransactionsSection transactions={relatedTransactions} />
+      )}
+
+      {relatedInsights.length > 0 && (
+        <InsightsSection
+          insights={relatedInsights}
+          title="Sector Insights & Analysis"
+          showIcon={false}
+        />
+      )}
     </div>
   );
 };
@@ -1371,7 +815,6 @@ const CorporateEventDetailPage = () => {
 
       const corporateEventId = params.id as string;
 
-      // Safety check for missing ID
       if (!corporateEventId) {
         throw new Error("Corporate event ID is required");
       }
@@ -1384,7 +827,6 @@ const CorporateEventDetailPage = () => {
       const errorMessage =
         err instanceof Error ? err.message : "An error occurred";
 
-      // Handle authentication errors by redirecting to login
       if (
         errorMessage === "Authentication required" ||
         errorMessage.includes("Authentication token not found")
@@ -1409,9 +851,9 @@ const CorporateEventDetailPage = () => {
     return (
       <div className="min-h-screen">
         <Header />
-        <div style={{ padding: "32px 24px" }}>
-          <div style={{ textAlign: "center", padding: "40px" }}>
-            <div style={{ fontSize: "18px", color: "#4a5568" }}>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="text-lg text-slate-600">
               Loading corporate event details...
             </div>
           </div>
@@ -1425,18 +867,9 @@ const CorporateEventDetailPage = () => {
     return (
       <div className="min-h-screen">
         <Header />
-        <div style={{ padding: "32px 24px" }}>
-          <div
-            style={{
-              textAlign: "center",
-              padding: "20px",
-              color: "#e53e3e",
-              backgroundColor: "#fed7d7",
-              borderRadius: "6px",
-              marginBottom: "16px",
-            }}
-          >
-            {error}
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <div className="text-red-800 font-medium">{error}</div>
           </div>
         </div>
         <Footer />
@@ -1448,18 +881,9 @@ const CorporateEventDetailPage = () => {
     return (
       <div className="min-h-screen">
         <Header />
-        <div style={{ padding: "32px 24px" }}>
-          <div
-            style={{
-              textAlign: "center",
-              padding: "20px",
-              color: "#666",
-              backgroundColor: "#f7fafc",
-              borderRadius: "6px",
-              marginBottom: "16px",
-            }}
-          >
-            Corporate event not found
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 text-center">
+            <div className="text-slate-600">Corporate event not found</div>
           </div>
         </div>
         <Footer />
@@ -1477,5 +901,3 @@ const CorporateEventDetailPage = () => {
 };
 
 export default CorporateEventDetailPage;
-
-//

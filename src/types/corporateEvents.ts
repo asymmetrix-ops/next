@@ -115,6 +115,15 @@ export interface TargetEntity {
   entity_type: string;
 }
 
+// Target interface (used by corporate event page)
+export interface Target {
+  id: number;
+  name: string;
+  path: string;
+  route: string;
+  entity_type: string;
+}
+
 export interface CorporateEvent {
   id: number;
   description: string;
