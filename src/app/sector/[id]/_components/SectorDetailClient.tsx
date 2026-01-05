@@ -2169,8 +2169,8 @@ const SectorDetailPage = ({
     loadCities();
   }, [selCountries, selProvinces]);
 
-  // Fetch overview datasets directly from Xano (removes Next.js API route hop for faster response).
-  // Browser → Xano directly (~1.5s) vs Browser → Next API → Xano → Next → Browser (~3.5s)
+  // Fetch overview datasets directly from Xano with PROGRESSIVE rendering.
+  // Each request updates UI immediately when it completes - no waiting for slowest one.
   const fetchOverviewDataProgressive = useCallback(async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("asymmetrix_auth_token") : null;
     if (!token) {
@@ -2186,43 +2186,49 @@ const SectorDetailPage = ({
     const qs = new URLSearchParams();
     qs.append("Sector_id", sectorId);
 
-    try {
-      // Call Xano directly in parallel - removes the Next.js API route hop
-      const [overviewResp, sectorResp, recentResp] = await Promise.all([
-        fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/overview_data?${qs.toString()}`, {
-          method: "GET",
-          headers,
-        }),
-        fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors/${sectorId}`, {
-          method: "GET",
-          headers,
-        }),
-        fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${qs.toString()}&top_15=true`, {
-          method: "GET",
-          headers,
-        }),
-      ]);
+    // Fire all requests simultaneously but process each independently as it completes
+    // This shows data progressively rather than waiting for the slowest request
+    
+    // Sector details (fastest ~50ms) - shows header/title immediately
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors/${sectorId}`, {
+      method: "GET",
+      headers,
+    })
+      .then(async (resp) => {
+        if (resp.ok) {
+          const data = await resp.json();
+          setSectorData(data as SectorStatistics);
+        }
+      })
+      .catch((e) => console.error("❌ Sector fetch failed:", e));
 
-      // Process responses
-      if (overviewResp.ok) {
-        const overviewData = await overviewResp.json();
-        if (overviewData?.market_map) setSplitMarketMapRaw(overviewData.market_map);
-        if (overviewData?.strategic_acquirers) setSplitStrategicRaw(overviewData.strategic_acquirers);
-        if (overviewData?.pe_investors) setSplitPERaw(overviewData.pe_investors);
-      }
+    // Recent transactions (~2.5s)
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${qs.toString()}&top_15=true`, {
+      method: "GET",
+      headers,
+    })
+      .then(async (resp) => {
+        if (resp.ok) {
+          const data = await resp.json();
+          setSplitRecentRaw(data);
+        }
+      })
+      .catch((e) => console.error("❌ Recent transactions fetch failed:", e));
 
-      if (sectorResp.ok) {
-        const sectorJson = await sectorResp.json();
-        setSectorData(sectorJson as SectorStatistics);
-      }
-
-      if (recentResp.ok) {
-        const recentJson = await recentResp.json();
-        setSplitRecentRaw(recentJson);
-      }
-    } catch (e) {
-      console.error("❌ Direct Xano fetch failed:", e);
-    }
+    // Overview data (slowest ~3.5s) - contains market map, strategic, PE
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/overview_data?${qs.toString()}`, {
+      method: "GET",
+      headers,
+    })
+      .then(async (resp) => {
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data?.market_map) setSplitMarketMapRaw(data.market_map);
+          if (data?.strategic_acquirers) setSplitStrategicRaw(data.strategic_acquirers);
+          if (data?.pe_investors) setSplitPERaw(data.pe_investors);
+        }
+      })
+      .catch((e) => console.error("❌ Overview fetch failed:", e));
   }, [sectorId]);
 
   // Kick off ONLY overview tab data load on initial mount (lazy load other tabs)
