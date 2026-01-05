@@ -2,7 +2,43 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 300; // Cache for 5 minutes
+
+async function fetchJsonWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<{ data: unknown | null; ms: number; ok: boolean; status: number; error?: string }> {
+  const start = performance.now();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  
+  // Log fetch start
+  const urlShort = url.split('?')[0].split('/').slice(-1)[0];
+  console.log(`[FETCH] ⏳ Starting ${urlShort}...`);
+  
+  try {
+    const fetchStart = performance.now();
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    const fetchEnd = performance.now();
+    console.log(`[FETCH] 📡 ${urlShort} response received in ${(fetchEnd - fetchStart).toFixed(0)}ms, status: ${res.status}`);
+    
+    const jsonStart = performance.now();
+    const data = await res.json();
+    const jsonEnd = performance.now();
+    console.log(`[FETCH] 📦 ${urlShort} JSON parsed in ${(jsonEnd - jsonStart).toFixed(0)}ms, size: ${JSON.stringify(data).length} chars`);
+    
+    const ms = performance.now() - start;
+    if (!res.ok) return { data: null, ms, ok: false, status: res.status, error: `HTTP ${res.status}` };
+    return { data, ms, ok: true, status: res.status };
+  } catch (err) {
+    const ms = performance.now() - start;
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.log(`[FETCH] ❌ ${urlShort} failed after ${ms.toFixed(0)}ms: ${errorMsg}`);
+    return { data: null, ms, ok: false, status: 0, error: errorMsg };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export async function GET(
   request: NextRequest,
@@ -11,7 +47,7 @@ export async function GET(
   const startTime = performance.now();
   const sectorId = params.id;
   
-  console.log(`[API] 🚀 Fetching overview data for sector ${sectorId}`);
+  console.log(`[API] 🚀 Fetching overview data for sector ${sectorId} using aggregated endpoint`);
 
   try {
     // Get auth token from cookie
@@ -30,78 +66,74 @@ export async function GET(
       'Authorization': `Bearer ${token}`,
     };
 
+    // IMPORTANT: Do NOT use `next: { revalidate }` here - it causes fetch to hang in production.
+    // Use `cache: 'no-store'` for reliable behavior.
+    const fetchInit: RequestInit = {
+      method: 'GET',
+      headers,
+      cache: 'no-store',
+    };
+
+    const timeoutMs = 20000; // Increased to 20s temporarily for diagnostics
+    const fetchStartTime = performance.now();
+
+    // Use the new aggregated Xano endpoint + recent transactions (not included in overview_data)
     const qs = new URLSearchParams();
     qs.append('Sector_id', parseInt(sectorId, 10).toString());
-
-    // Fetch all overview data in parallel ON THE SERVER
-    // Track individual API call timings to identify bottleneck
-    const fetchStartTime = performance.now();
     
-    const sectorStart = performance.now();
-    const sectorRes = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors/${sectorId}`,
-      { 
-        method: 'GET', 
-        headers,
-        cache: 'no-store', // Disable caching temporarily to test raw speed
-      }
-    );
-    console.log(`[API] Sector (lightweight) fetch took: ${(performance.now() - sectorStart).toFixed(0)}ms`);
-
-    const mmStart = performance.now();
-    const marketMapRes = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map?${qs.toString()}`,
-      { 
-        method: 'GET', 
-        headers,
-        cache: 'no-store',
-      }
-    );
-    console.log(`[API] Market Map fetch took: ${(performance.now() - mmStart).toFixed(0)}ms`);
-
-    const stratStart = performance.now();
-    const strategicRes = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_strategic_acquirers?${qs.toString()}`,
-      { 
-        method: 'GET', 
-        headers,
-        cache: 'no-store',
-      }
-    );
-    console.log(`[API] Strategic fetch took: ${(performance.now() - stratStart).toFixed(0)}ms`);
-
-    const peStart = performance.now();
-    const peRes = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_pe_investors?${qs.toString()}`,
-      { 
-        method: 'GET', 
-        headers,
-        cache: 'no-store',
-      }
-    );
-    console.log(`[API] PE fetch took: ${(performance.now() - peStart).toFixed(0)}ms`);
-
-    const recentStart = performance.now();
-    const recentRes = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${qs.toString()}&top_15=true`,
-      { 
-        method: 'GET', 
-        headers,
-        cache: 'no-store',
-      }
-    );
-    console.log(`[API] Recent fetch took: ${(performance.now() - recentStart).toFixed(0)}ms`);
-    
-    console.log(`[API] All fetches (sequential) took: ${(performance.now() - fetchStartTime).toFixed(0)}ms`);
-
-    // Parse all responses in parallel
-    const [sectorData, marketMap, strategic, pe, recentTransactions] = await Promise.all([
-      sectorRes.ok ? sectorRes.json() : null,
-      marketMapRes.ok ? marketMapRes.json() : null,
-      strategicRes.ok ? strategicRes.json() : null,
-      peRes.ok ? peRes.json() : null,
-      recentRes.ok ? recentRes.json() : null,
+    const [overviewOut, sectorOut, recentOut] = await Promise.all([
+      fetchJsonWithTimeout(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/overview_data?${qs.toString()}`,
+        fetchInit,
+        timeoutMs
+      ),
+      // Still need sector details separately for thesis etc.
+      fetchJsonWithTimeout(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors/${sectorId}`,
+        fetchInit,
+        timeoutMs
+      ),
+      // Recent transactions not included in overview_data, fetch separately
+      fetchJsonWithTimeout(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${qs.toString()}&top_15=true`,
+        fetchInit,
+        timeoutMs
+      ),
     ]);
+
+    const fetchTotalMs = performance.now() - fetchStartTime;
+    console.log(`[API] Aggregated fetch took: ${fetchTotalMs.toFixed(0)}ms`);
+    console.log(`[API] Timings (ms):`, {
+      overview: Math.round(overviewOut.ms),
+      sector: Math.round(sectorOut.ms),
+      recent: Math.round(recentOut.ms),
+    });
+
+    // Log any errors
+    const errors = [
+      overviewOut.error && `overview: ${overviewOut.error}`,
+      sectorOut.error && `sector: ${sectorOut.error}`,
+      recentOut.error && `recent: ${recentOut.error}`,
+    ].filter(Boolean);
+    if (errors.length > 0) {
+      console.log(`[API] ⚠️ Fetch errors:`, errors.join(', '));
+    }
+
+    // Extract data from the aggregated response
+    const overviewData = overviewOut.data as Record<string, unknown> | null;
+    const sectorData = sectorOut.data;
+    
+    // Debug: log what keys overview_data actually returns
+    if (overviewData) {
+      console.log(`[API] 🔍 overview_data keys:`, Object.keys(overviewData));
+    }
+    
+    // The aggregated endpoint returns: market_map, strategic_acquirers, pe_investors
+    const marketMap = overviewData?.market_map ?? null;
+    const strategic = overviewData?.strategic_acquirers ?? null;
+    const pe = overviewData?.pe_investors ?? null;
+    // Recent transactions from separate endpoint
+    const recentTransactions = recentOut.data ?? null;
 
     // Debug logging: inspect what the backend is returning for the sector thesis
     try {
@@ -137,7 +169,7 @@ export async function GET(
     console.log(`[API]    - PE: ${pe ? 'OK' : 'failed'}`);
     console.log(`[API]    - Recent: ${recentTransactions ? 'OK' : 'failed'}`);
 
-    // Return everything in one response
+    // Return everything in one response (same structure as before for client compatibility)
     return NextResponse.json({
       sectorData,
       splitDatasets: {
@@ -145,6 +177,23 @@ export async function GET(
         strategic,
         pe,
         recentTransactions,
+      },
+      timings: {
+        fetchTotalMs: Math.round(fetchTotalMs),
+        overviewMs: Math.round(overviewOut.ms),
+        sectorMs: Math.round(sectorOut.ms),
+        recentMs: Math.round(recentOut.ms),
+        timeoutMs,
+        statuses: {
+          overview: overviewOut.status,
+          sector: sectorOut.status,
+          recent: recentOut.status,
+        },
+        errors: {
+          overview: overviewOut.error,
+          sector: sectorOut.error,
+          recent: recentOut.error,
+        },
       },
       serverFetchTime: totalTime,
     });

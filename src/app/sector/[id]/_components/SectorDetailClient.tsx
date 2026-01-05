@@ -2169,108 +2169,42 @@ const SectorDetailPage = ({
     loadCities();
   }, [selCountries, selProvinces]);
 
-  // Fetch each dataset independently from Xano - updates UI as soon as each responds (progressive rendering)
+  // Fetch overview datasets via same-origin Next API (avoids CORS/preflight and improves reliability).
+  // We keep the progressive UX by immediately setting the split datasets from the aggregated response.
   const fetchOverviewDataProgressive = useCallback(async () => {
-    
-    const token = typeof window !== 'undefined' ? localStorage.getItem('asymmetrix_auth_token') : null;
-    if (!token) {
-      setError('Authentication required');
-      return;
+    try {
+      const resp = await fetch(`/api/sector/${encodeURIComponent(sectorId)}/overview`, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (resp.status === 401) {
+        setError("Authentication required");
+        return;
+      }
+      if (!resp.ok) {
+        return;
+      }
+
+      const json = (await resp.json()) as {
+        sectorData?: unknown;
+        splitDatasets?: {
+          marketMap?: unknown;
+          strategic?: unknown;
+          pe?: unknown;
+          recentTransactions?: unknown;
+        };
+      };
+
+      if (json.sectorData) setSectorData(json.sectorData as SectorStatistics);
+      if (json.splitDatasets?.marketMap) setSplitMarketMapRaw(json.splitDatasets.marketMap);
+      if (json.splitDatasets?.strategic) setSplitStrategicRaw(json.splitDatasets.strategic);
+      if (json.splitDatasets?.pe) setSplitPERaw(json.splitDatasets.pe);
+      if (json.splitDatasets?.recentTransactions)
+        setSplitRecentRaw(json.splitDatasets.recentTransactions);
+    } catch (e) {
+      console.error("❌ Overview proxy failed:", e);
     }
-
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    };
-
-    // Fire all 5 APIs independently - each updates state immediately when it responds
-    
-    // 1. Sector metadata (name + thesis) - fastest (~69ms via server, direct should be similar)
-    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors/${sectorId}`, { 
-      method: 'GET',
-      headers,
-      credentials: 'include'
-    })
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data) {
-          // Debug log to inspect how thesis is returned from Xano
-          try {
-            type SectorApiItem = {
-              Sector_thesis?: unknown;
-              Sector?: { Sector_thesis?: unknown };
-            };
-
-            const items: SectorApiItem[] = Array.isArray(data)
-              ? (data as SectorApiItem[])
-              : ([data] as SectorApiItem[]);
-
-            const first = items[0] ?? {};
-
-            // Debug: Sector thesis data available
-            console.debug("Sector thesis sample (overview fetch):", {
-              flatThesis: first.Sector_thesis,
-              nestedThesis: first.Sector?.Sector_thesis,
-            });
-          } catch {
-            // Debug: Sector thesis debug failed to inspect data
-          }
-
-          setSectorData(data as SectorStatistics);
-        }
-      })
-      .catch(err => console.error('❌ Sector failed:', err));
-
-    const qs = new URLSearchParams();
-    qs.append('Sector_id', parseInt(sectorId, 10).toString());
-
-    // 2. Market Map
-    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map?${qs.toString()}`, { 
-      method: 'GET',
-      headers,
-      credentials: 'include'
-    })
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        setSplitMarketMapRaw(data);
-      })
-      .catch(err => console.error('❌ Market Map failed:', err));
-
-    // 3. Strategic Acquirers
-    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_strategic_acquirers?${qs.toString()}`, { 
-      method: 'GET',
-      headers,
-      credentials: 'include'
-    })
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        setSplitStrategicRaw(data);
-      })
-      .catch(err => console.error('❌ Strategic Acquirers failed:', err));
-
-    // 4. PE Investors
-    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_pe_investors?${qs.toString()}`, { 
-      method: 'GET',
-      headers,
-      credentials: 'include'
-    })
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        setSplitPERaw(data);
-      })
-      .catch(err => console.error('❌ PE Investors failed:', err));
-
-    // 5. Recent Transactions
-    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${qs.toString()}&top_15=true`, { 
-      method: 'GET',
-      headers,
-      credentials: 'include'
-    })
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        setSplitRecentRaw(data);
-      })
-      .catch(err => console.error('❌ Recent Transactions failed:', err));
   }, [sectorId]);
 
   // Kick off ONLY overview tab data load on initial mount (lazy load other tabs)

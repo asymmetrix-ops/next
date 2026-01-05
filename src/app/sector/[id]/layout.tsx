@@ -14,46 +14,26 @@ async function fetchSectorMeta(
     const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Get_Sector?Sector_id=${encodeURIComponent(
       id
     )}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
     const res = await fetch(url, {
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         "Content-Type": "application/json",
       },
-      next: { revalidate: 300 },
+      cache: "no-store",
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     if (!res.ok) return null;
     const data = await res.json();
     const sector = data?.Sector;
 
-    // Fetch recent corporate events for this sector to get headline
-    let headline: string | undefined;
-    try {
-      const eventsUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Get_Corporate_Events?Primary_sectors_ids=${encodeURIComponent(
-        id
-      )}&Per_page=1&Page=1`;
-      const eventsRes = await fetch(eventsUrl, {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          "Content-Type": "application/json",
-        },
-        next: { revalidate: 300 },
-      });
-
-      if (eventsRes.ok) {
-        const eventsData = await eventsRes.json();
-        const recentEvent = eventsData?.items?.[0];
-        if (recentEvent?.description) {
-          headline = recentEvent.description;
-        }
-      }
-    } catch {
-      // If fetching events fails, continue without headline
-    }
-
     return {
       name: sector?.sector_name as string | undefined,
       thesis: sector?.Sector_thesis as string | undefined,
-      headline,
+      // Avoid extra upstream calls during navigation; keep metadata fast.
+      headline: undefined,
     };
   } catch {
     return null;
