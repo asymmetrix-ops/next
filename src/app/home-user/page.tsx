@@ -801,7 +801,7 @@ export default function HomeUserPage() {
           </div>
 
           {/* Insights & Analysis */}
-          <div className="bg-white rounded-lg shadow border-2 border-blue-200 order-2 lg:col-span-1 xl:col-span-8">
+          <div className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-2 lg:col-span-1 xl:col-span-8">
             <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700">
@@ -834,7 +834,7 @@ export default function HomeUserPage() {
                 View all
               </a>
             </div>
-            <div className="p-3 sm:p-4">
+            <div className="flex-1 p-3 overflow-y-auto sm:p-4">
               {insightsArticles.length > 0 ? (
                 <div className="space-y-4">
                   {insightsArticles.slice(0, 10).map((article) => {
@@ -919,7 +919,7 @@ export default function HomeUserPage() {
           </div>
 
           {/* Corporate Events */}
-          <div className="bg-white rounded-lg shadow order-3 lg:col-span-1 xl:col-span-8">
+          <div className="flex flex-col bg-white rounded-lg shadow order-3 lg:col-span-1 xl:col-span-8">
             <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-2">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-700">
@@ -952,7 +952,7 @@ export default function HomeUserPage() {
                 View all
               </a>
             </div>
-            <div className="overflow-hidden">
+            <div className="flex-1 overflow-y-auto">
               {corporateEvents.length > 0 ? (
                 <div className="min-w-full">
                   {/* Mobile view - cards */}

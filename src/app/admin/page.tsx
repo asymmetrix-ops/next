@@ -2399,7 +2399,7 @@ function SectorsTab() {
                 // Process sequentially to avoid rate limits
                 for (const c of bulkSelectedCompanies) {
                   try {
-                    // Load current
+                    // Load current sectors to preserve them
                     const getUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${c.id}`;
                     const getRes = await fetch(getUrl, {
                       method: "GET",
@@ -2417,6 +2417,7 @@ function SectorsTab() {
                       .json()
                       .catch(() => ({} as unknown));
                     const currentSectorIds = extractSectorIds(payload);
+                    // Add the bulk sector to existing sectors (deduplicate)
                     const nextIds = Array.from(
                       new Set<number>([
                         ...currentSectorIds,
@@ -2427,14 +2428,15 @@ function SectorsTab() {
                     const needsUpdate =
                       nextIds.length !== currentSectorIds.length;
                     if (needsUpdate) {
-                      const putUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/edit_company_sectors`;
+                      // Use the same API endpoint as single tag
+                      const putUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/company_with_sectors`;
                       const putRes = await fetch(putUrl, {
                         method: "PUT",
                         headers,
                         credentials: "include",
                         body: JSON.stringify({
-                          sectors: nextIds,
                           new_company_id: c.id,
+                          sectors_id: nextIds,
                         }),
                       });
                       if (!putRes.ok) {
