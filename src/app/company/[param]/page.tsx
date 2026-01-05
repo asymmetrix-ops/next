@@ -1604,11 +1604,22 @@ const CompanyDetail = () => {
       // Get the PDF blob
       const blob = await response.blob();
       
+      // Sanitize company name for filename (remove invalid characters)
+      const sanitizeFilename = (name: string): string => {
+        return name
+          .replace(/[<>:"/\\|?*]/g, "") // Remove invalid filename characters
+          .replace(/\s+/g, " ") // Normalize whitespace
+          .trim();
+      };
+      
+      const companyName = company.name ? sanitizeFilename(company.name) : `Company-${company.id}`;
+      const filename = `Asymmetrix ${companyName} Company profile.pdf`;
+      
       // Create download link
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `company-${company.id}.pdf`;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -1619,7 +1630,7 @@ const CompanyDetail = () => {
     } finally {
       setExportingPdf(false);
     }
-  }, [company?.id]);
+  }, [company?.id, company?.name]);
 
   // Helper function to get acquisition date for a subsidiary
   // Returns the date when the current company acquired the subsidiary, or null if:
