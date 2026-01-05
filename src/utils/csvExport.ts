@@ -217,36 +217,49 @@ export class CSVExporter {
         ? this.formatDate(item.date)
         : "Not available";
 
-      // Format amount
-      const formattedAmount =
-        item.amount_m !== null && item.amount_m !== undefined
-          ? `${item.amount_m.toLocaleString(undefined, {
-              maximumFractionDigits: 3,
-            })}m`
-          : "Not available";
+      // Format amount - handle both string and number types
+      let formattedAmount = "Not available";
+      if (item.amount_m !== null && item.amount_m !== undefined) {
+        const amountValue = typeof item.amount_m === "string" ? parseFloat(item.amount_m) : item.amount_m;
+        if (!Number.isNaN(amountValue)) {
+          formattedAmount = `${amountValue.toLocaleString(undefined, {
+            maximumFractionDigits: 3,
+          })}m`;
+        }
+      }
 
-      // Format EV
-      const formattedEV =
-        item.ev_m !== null && item.ev_m !== undefined
-          ? `${item.ev_m.toLocaleString(undefined, {
-              maximumFractionDigits: 3,
-            })}m`
-          : "Not available";
+      // Format EV - handle both string and number types
+      let formattedEV = "Not available";
+      if (item.ev_m !== null && item.ev_m !== undefined) {
+        const evValue = typeof item.ev_m === "string" ? parseFloat(item.ev_m) : item.ev_m;
+        if (!Number.isNaN(evValue)) {
+          formattedEV = `${evValue.toLocaleString(undefined, {
+            maximumFractionDigits: 3,
+          })}m`;
+        }
+      }
+
+      // Helper to handle empty strings and null/undefined values
+      const safeString = (value: string | null | undefined): string => {
+        if (value == null) return "Not Available";
+        const trimmed = String(value).trim();
+        return trimmed === "" ? "Not Available" : trimmed;
+      };
 
       return {
-        Description: item.description || "Not Available",
+        Description: safeString(item.description),
         Date: formattedDate,
-        "Target Name": item.target_name || "Not Available",
-        "Target HQ": item.target_hq || "Not Available",
-        "Primary Sector": item.primary_sector || "Not Available",
-        "Secondary Sectors": item.secondary_sectors || "Not Available",
-        "Deal Type": item.deal_type || "Not Available",
+        "Target Name": safeString(item.target_name),
+        "Target HQ": safeString(item.target_hq),
+        "Primary Sector": safeString(item.primary_sector),
+        "Secondary Sectors": safeString(item.secondary_sectors),
+        "Deal Type": safeString(item.deal_type),
         "Amount (m)": formattedAmount,
         "EV (m)": formattedEV,
-        "Buyer(s)/Investor(s)": item.buyers_investors || "Not Available",
-        "Seller(s)": item.sellers || "Not Available",
-        Advisors: item.advisors || "Not Available",
-        "Corporate Event Link": item.corporate_event_link || "Not Available",
+        "Buyer(s)/Investor(s)": safeString(item.buyers_investors),
+        "Seller(s)": safeString(item.sellers),
+        Advisors: safeString(item.advisors),
+        "Corporate Event Link": safeString(item.corporate_event_link),
       };
     });
   }

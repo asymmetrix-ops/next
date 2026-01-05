@@ -15,6 +15,8 @@ import {
   BuyerInvestorType,
 } from "@/types/corporateEvents";
 import { CSVExporter } from "@/utils/csvExport";
+import { ExportLimitModal } from "@/components/ExportLimitModal";
+import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import {
   ContentArticle,
   InsightsAnalysisResponse,
@@ -2726,6 +2728,9 @@ const SectorDetailPage = ({
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [exporting, setExporting] = useState(false);
+    const [showExportLimitModal, setShowExportLimitModal] = useState(false);
+    const [exportsLeft, setExportsLeft] = useState(0);
 
     // Convert API data to dropdown options format
     const countryOptions = countries.map((country) => ({
@@ -3100,13 +3105,146 @@ const SectorDetailPage = ({
       fetchCorporateEvents(updatedFilters);
     };
 
-    // Handle CSV export
-    const handleExportCSV = () => {
-      if (corporateEvents.length > 0) {
-        CSVExporter.exportCorporateEvents(
-          corporateEvents,
+    // Build filter parameters for export API
+    const buildFilterParams = (): URLSearchParams => {
+      const params = new URLSearchParams();
+
+      // Add search query
+      if (searchTerm.trim()) {
+        params.append("search_query", searchTerm.trim());
+      }
+
+      // Add location filters as comma-separated values
+      if (selectedCountries.length > 0) {
+        params.append("Countries", selectedCountries.join(","));
+      }
+
+      if (selectedProvinces.length > 0) {
+        params.append("Provinces", selectedProvinces.join(","));
+      }
+
+      if (selectedCities.length > 0) {
+        params.append("Cities", selectedCities.join(","));
+      }
+
+      // Add region grouping filters
+      if (selectedContinentalRegions.length > 0) {
+        params.append("Continental_Region", selectedContinentalRegions.join(","));
+      }
+
+      if (selectedSubRegions.length > 0) {
+        params.append("geographical_sub_region", selectedSubRegions.join(","));
+      }
+
+      // Always include the current sector in primary sectors
+      const sectorIdNum = parseInt(sectorId);
+      if (!isNaN(sectorIdNum)) {
+        params.append("primary_sectors_ids[]", sectorIdNum.toString());
+      }
+
+      // Add secondary sectors
+      if (selectedSecondarySectors.length > 0) {
+        selectedSecondarySectors.forEach((id) => {
+          params.append("Secondary_sectors_ids[]", id.toString());
+        });
+      }
+
+      // Add event types as array params (API expects bracketed keys)
+      if (selectedEventTypes.length > 0) {
+        selectedEventTypes.forEach((dealType) => {
+          params.append("deal_types[]", dealType);
+        });
+      }
+
+      // Add deal statuses as comma-separated values
+      if (selectedDealStatuses.length > 0) {
+        params.append("Deal_Status", selectedDealStatuses.join(","));
+      }
+
+      // Add funding stages as comma-separated values
+      if (selectedFundingStages.length > 0) {
+        params.append("Funding_stage", selectedFundingStages.join(","));
+      }
+
+      // Add buyer / investor types
+      if (selectedBuyerInvestorTypes.length > 0) {
+        params.append("Buyer_Investor_Types", selectedBuyerInvestorTypes.join(","));
+      }
+
+      // Add date filters
+      if (dateStart) {
+        params.append("Date_start", dateStart);
+      }
+
+      if (dateEnd) {
+        params.append("Date_end", dateEnd);
+      }
+
+      return params;
+    };
+
+    // Handle CSV export - fetches all matching events from export API
+    const handleExportCSV = async () => {
+      try {
+        // Check export limit first
+        const limitCheck = await checkExportLimit();
+        if (!limitCheck.canExport) {
+          setExportsLeft(limitCheck.exportsLeft);
+          setShowExportLimitModal(true);
+          return;
+        }
+
+        setExporting(true);
+
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) {
+          setError("Authentication required");
+          setExporting(false);
+          return;
+        }
+
+        // Build filter parameters
+        const params = buildFilterParams();
+
+        // Call the export API endpoint
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/export_corporate_events_csv?${params.toString()}`;
+
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          // Check if it's an export limit error
+          if (response.status === 403 || response.status === 429) {
+            const limitCheck = await checkExportLimit();
+            setExportsLeft(limitCheck.exportsLeft);
+            setShowExportLimitModal(true);
+            setExporting(false);
+            return;
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Export the data using the CSV exporter (same as corporate events page)
+        CSVExporter.exportCorporateEventsFromApiResponse(
+          data,
           `sector_${sectorId}_transactions`
         );
+      } catch (error) {
+        console.error("Error exporting corporate events:", error);
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Failed to export corporate events"
+        );
+      } finally {
+        setExporting(false);
       }
     };
 
@@ -3818,9 +3956,9 @@ const SectorDetailPage = ({
             <button
               onClick={handleExportCSV}
               className="px-6 py-2 font-semibold text-white bg-green-600 rounded-md hover:bg-green-700"
-              disabled={loading}
+              disabled={loading || exporting}
             >
-              {loading ? "Exporting..." : "Export CSV"}
+              {exporting ? "Exporting..." : "Export CSV"}
             </button>
           </div>
         )}
@@ -4306,46 +4444,12 @@ const SectorDetailPage = ({
           }
         `}</style>
 
-        {/* CSS for Sector Thesis HTML content - matching article page exactly */}
-        <style
-          dangerouslySetInnerHTML={{
-            __html: `
-          .sector-thesis-content p { margin: 0 0 1rem 0; }
-          .sector-thesis-content ul { 
-            list-style-type: disc !important; 
-            list-style: disc !important; 
-            margin: 0 0 1rem 0 !important; 
-            padding-left: 1.5rem !important; 
-            display: block !important;
-          }
-          .sector-thesis-content ol { 
-            list-style-type: decimal !important; 
-            list-style: decimal !important; 
-            margin: 0 0 1rem 0 !important; 
-            padding-left: 1.5rem !important; 
-            display: block !important;
-          }
-          .sector-thesis-content li { 
-            margin-bottom: 0.5rem !important; 
-            display: list-item !important;
-            list-style-type: inherit !important;
-          }
-          .sector-thesis-content ul ul { 
-            margin-top: 0.5rem !important; 
-            margin-bottom: 0.5rem !important; 
-            padding-left: 1.25rem !important; 
-          }
-          .sector-thesis-content h1, .sector-thesis-content h2, .sector-thesis-content h3, .sector-thesis-content h4, .sector-thesis-content h5, .sector-thesis-content h6 { margin: 1.25rem 0 0.75rem; font-weight: 700; }
-          .sector-thesis-content a { color: #2563eb; text-decoration: underline; }
-          .sector-thesis-content blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid #e5e7eb; color: #374151; }
-          .sector-thesis-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-          .sector-thesis-content th, .sector-thesis-content td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
-          .sector-thesis-content img { max-width: 100%; height: auto; display: block; margin: 1rem auto; border-radius: 8px; }
-          .sector-thesis-content figure { margin: 1rem 0; }
-          .sector-thesis-content figcaption { text-align: center; font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem; }
-        `,
-          }}
-        />
+      <ExportLimitModal
+        isOpen={showExportLimitModal}
+        onClose={() => setShowExportLimitModal(false)}
+        exportsLeft={exportsLeft}
+        totalExports={EXPORT_LIMIT}
+      />
       </div>
     );
   }

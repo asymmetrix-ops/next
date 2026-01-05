@@ -17,6 +17,8 @@ import {
   InsightsAnalysisResponse,
 } from "@/types/insightsAnalysis";
 import { CSVExporter } from "@/utils/csvExport";
+import { ExportLimitModal } from "@/components/ExportLimitModal";
+import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 
 const TABS = [
   { id: "all", name: "All Companies" },
@@ -180,7 +182,10 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
     ipos: 0,
   });
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showExportLimitModal, setShowExportLimitModal] = useState(false);
+  const [exportsLeft, setExportsLeft] = useState(0);
 
   const countryOptions = countries.map((country) => ({
     value: country.locations_Country,
@@ -496,12 +501,136 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
     fetchCorporateEvents(updatedFilters);
   };
 
-  const handleExportCSV = () => {
-    if (corporateEvents.length > 0) {
-      CSVExporter.exportCorporateEvents(
-        corporateEvents,
+  // Helper function to build filter parameters for export API
+  const buildFilterParams = (): URLSearchParams => {
+    const params = new URLSearchParams();
+
+    // Add search query
+    if (searchTerm.trim()) {
+      params.append("search_query", searchTerm.trim());
+    }
+
+    // Add location filters as comma-separated values
+    if (selectedCountries.length > 0) {
+      params.append("Countries", selectedCountries.join(","));
+    }
+
+    if (selectedProvinces.length > 0) {
+      params.append("Provinces", selectedProvinces.join(","));
+    }
+
+    if (selectedCities.length > 0) {
+      params.append("Cities", selectedCities.join(","));
+    }
+
+    // Add region grouping filters
+    if (selectedContinentalRegions.length > 0) {
+      params.append("Continental_Region", selectedContinentalRegions.join(","));
+    }
+
+    if (selectedSubRegions.length > 0) {
+      params.append("geographical_sub_region", selectedSubRegions.join(","));
+    }
+
+    // Always include the current sub-sector in secondary sectors
+    params.append("Secondary_sectors_ids[]", subSectorId.toString());
+
+    // Add event types as array params (API expects bracketed keys)
+    if (selectedEventTypes.length > 0) {
+      selectedEventTypes.forEach((dealType) => {
+        params.append("deal_types[]", dealType);
+      });
+    }
+
+    // Add deal statuses as comma-separated values
+    if (selectedDealStatuses.length > 0) {
+      params.append("Deal_Status", selectedDealStatuses.join(","));
+    }
+
+    // Add funding stages as comma-separated values
+    if (selectedFundingStages.length > 0) {
+      params.append("Funding_stage", selectedFundingStages.join(","));
+    }
+
+    // Add buyer / investor types
+    if (selectedBuyerInvestorTypes.length > 0) {
+      params.append("Buyer_Investor_Types", selectedBuyerInvestorTypes.join(","));
+    }
+
+    // Add date filters
+    if (dateStart) {
+      params.append("Date_start", dateStart);
+    }
+
+    if (dateEnd) {
+      params.append("Date_end", dateEnd);
+    }
+
+    return params;
+  };
+
+  // Handle CSV export - fetches all matching events from export API
+  const handleExportCSV = async () => {
+    try {
+      // Check export limit first
+      const limitCheck = await checkExportLimit();
+      if (!limitCheck.canExport) {
+        setExportsLeft(limitCheck.exportsLeft);
+        setShowExportLimitModal(true);
+        return;
+      }
+
+      setExporting(true);
+
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) {
+        setError("Authentication required");
+        setExporting(false);
+        return;
+      }
+
+      // Build filter parameters
+      const params = buildFilterParams();
+
+      // Call the export API endpoint
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/export_corporate_events_csv?${params.toString()}`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        // Check if it's an export limit error
+        if (response.status === 403 || response.status === 429) {
+          const limitCheck = await checkExportLimit();
+          setExportsLeft(limitCheck.exportsLeft);
+          setShowExportLimitModal(true);
+          setExporting(false);
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Export the data using the CSV exporter (same as corporate events page)
+      CSVExporter.exportCorporateEventsFromApiResponse(
+        data,
         `sub_sector_${subSectorId}_transactions`
       );
+    } catch (error) {
+      console.error("Error exporting corporate events:", error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to export corporate events"
+      );
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -1205,9 +1334,9 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
           <button
             onClick={handleExportCSV}
             className="px-6 py-2 font-semibold text-white bg-green-600 rounded-md hover:bg-green-700"
-            disabled={loading}
+            disabled={loading || exporting}
           >
-            {loading ? "Exporting..." : "Export CSV"}
+            {exporting ? "Exporting..." : "Export CSV"}
           </button>
         </div>
       )}
@@ -1613,6 +1742,13 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
           font-size: 14px;
         }
       `}</style>
+
+      <ExportLimitModal
+        isOpen={showExportLimitModal}
+        onClose={() => setShowExportLimitModal(false)}
+        exportsLeft={exportsLeft}
+        totalExports={EXPORT_LIMIT}
+      />
     </div>
   );
 }
