@@ -2169,41 +2169,59 @@ const SectorDetailPage = ({
     loadCities();
   }, [selCountries, selProvinces]);
 
-  // Fetch overview datasets via same-origin Next API (avoids CORS/preflight and improves reliability).
-  // We keep the progressive UX by immediately setting the split datasets from the aggregated response.
+  // Fetch overview datasets directly from Xano (removes Next.js API route hop for faster response).
+  // Browser → Xano directly (~1.5s) vs Browser → Next API → Xano → Next → Browser (~3.5s)
   const fetchOverviewDataProgressive = useCallback(async () => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("asymmetrix_auth_token") : null;
+    if (!token) {
+      setError("Authentication required");
+      return;
+    }
+
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
+
+    const qs = new URLSearchParams();
+    qs.append("Sector_id", sectorId);
+
     try {
-      const resp = await fetch(`/api/sector/${encodeURIComponent(sectorId)}/overview`, {
-        method: "GET",
-        credentials: "include",
-      });
+      // Call Xano directly in parallel - removes the Next.js API route hop
+      const [overviewResp, sectorResp, recentResp] = await Promise.all([
+        fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/overview_data?${qs.toString()}`, {
+          method: "GET",
+          headers,
+        }),
+        fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors/${sectorId}`, {
+          method: "GET",
+          headers,
+        }),
+        fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${qs.toString()}&top_15=true`, {
+          method: "GET",
+          headers,
+        }),
+      ]);
 
-      if (resp.status === 401) {
-        setError("Authentication required");
-        return;
+      // Process responses
+      if (overviewResp.ok) {
+        const overviewData = await overviewResp.json();
+        if (overviewData?.market_map) setSplitMarketMapRaw(overviewData.market_map);
+        if (overviewData?.strategic_acquirers) setSplitStrategicRaw(overviewData.strategic_acquirers);
+        if (overviewData?.pe_investors) setSplitPERaw(overviewData.pe_investors);
       }
-      if (!resp.ok) {
-        return;
+
+      if (sectorResp.ok) {
+        const sectorJson = await sectorResp.json();
+        setSectorData(sectorJson as SectorStatistics);
       }
 
-      const json = (await resp.json()) as {
-        sectorData?: unknown;
-        splitDatasets?: {
-          marketMap?: unknown;
-          strategic?: unknown;
-          pe?: unknown;
-          recentTransactions?: unknown;
-        };
-      };
-
-      if (json.sectorData) setSectorData(json.sectorData as SectorStatistics);
-      if (json.splitDatasets?.marketMap) setSplitMarketMapRaw(json.splitDatasets.marketMap);
-      if (json.splitDatasets?.strategic) setSplitStrategicRaw(json.splitDatasets.strategic);
-      if (json.splitDatasets?.pe) setSplitPERaw(json.splitDatasets.pe);
-      if (json.splitDatasets?.recentTransactions)
-        setSplitRecentRaw(json.splitDatasets.recentTransactions);
+      if (recentResp.ok) {
+        const recentJson = await recentResp.json();
+        setSplitRecentRaw(recentJson);
+      }
     } catch (e) {
-      console.error("❌ Overview proxy failed:", e);
+      console.error("❌ Direct Xano fetch failed:", e);
     }
   }, [sectorId]);
 
