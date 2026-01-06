@@ -2,6 +2,12 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { locationsService } from "@/lib/locationsService";
+import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
+import { ExportLimitModal } from "@/components/ExportLimitModal";
+import {
+  CompaniesCSVExporter,
+  CompanyCSVRow,
+} from "@/utils/companiesCSVExport";
 
 interface Company {
   id: number;
@@ -32,8 +38,6 @@ interface CompaniesModalProps {
   numCompanies: number;
   // Filters from FinancialMetricsTable
   countries?: string[];
-  provinces?: string[];
-  cities?: string[];
   primarySectors?: number[];
   secondarySectors?: number[];
 }
@@ -137,8 +141,6 @@ export default function CompaniesModal({
   revenueMax,
   numCompanies,
   countries = [],
-  provinces = [],
-  cities = [],
   primarySectors = [],
   secondarySectors = [],
 }: CompaniesModalProps) {
@@ -148,6 +150,9 @@ export default function CompaniesModal({
   const [realEstateSectorId, setRealEstateSectorId] = useState<number | null>(null);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [exporting, setExporting] = useState(false);
+  const [showExportLimitModal, setShowExportLimitModal] = useState(false);
+  const [exportsLeft, setExportsLeft] = useState(0);
 
   // Fetch Real Estate sector ID
   useEffect(() => {
@@ -223,16 +228,6 @@ export default function CompaniesModal({
             pageParams.append("Countries[]", country);
           });
         }
-        if (provinces.length > 0) {
-          provinces.forEach((province) => {
-            pageParams.append("Provinces[]", province);
-          });
-        }
-        if (cities.length > 0) {
-          cities.forEach((city) => {
-            pageParams.append("Cities[]", city);
-          });
-        }
         
         if (revenueMin !== null) {
           pageParams.append("Revenue_min", revenueMin.toString());
@@ -294,7 +289,7 @@ export default function CompaniesModal({
     } finally {
       setLoading(false);
     }
-  }, [isOpen, realEstateSectorId, revenueMin, revenueMax, countries, provinces, cities, primarySectors, secondarySectors]);
+  }, [isOpen, realEstateSectorId, revenueMin, revenueMax, countries, primarySectors, secondarySectors]);
 
   useEffect(() => {
     // Fetch companies when modal opens and we have either primarySectors or realEstateSectorId
@@ -354,6 +349,344 @@ export default function CompaniesModal({
       return sortDirection === "asc" ? comparison : -comparison;
     });
   }, [companies, sortColumn, sortDirection]);
+
+  // Export CSV function - similar to companies page
+  const handleExportCSV = useCallback(async () => {
+    try {
+      // Check export limit first
+      const limitCheck = await checkExportLimit();
+      if (!limitCheck.canExport) {
+        setExportsLeft(limitCheck.exportsLeft);
+        setShowExportLimitModal(true);
+        return;
+      }
+
+      setExporting(true);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = new URLSearchParams();
+
+      // Build sector IDs - use primarySectors from filters if provided, otherwise use Real Estate
+      const sectorIds = primarySectors.length > 0 
+        ? primarySectors 
+        : (realEstateSectorId !== null ? [realEstateSectorId] : []);
+
+      // Add filters to export request
+      sectorIds.forEach((id) => {
+        params.append("Primary_sectors_ids[]", id.toString());
+      });
+
+      if (secondarySectors.length > 0) {
+        secondarySectors.forEach((id) => {
+          params.append("Secondary_sectors_ids[]", id.toString());
+        });
+      }
+
+      if (countries.length > 0) {
+        countries.forEach((country) => {
+          params.append("Countries[]", country);
+        });
+      }
+
+      if (revenueMin !== null) {
+        params.append("Revenue_min", revenueMin.toString());
+      }
+      if (revenueMax !== null) {
+        params.append("Revenue_max", revenueMax.toString());
+      }
+
+      // First, fetch page 1 to get total page count
+      const baseParams = new URLSearchParams(params.toString());
+      baseParams.append("Offset", "1");
+      baseParams.append("Per_page", "25");
+      
+      const firstPageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${baseParams.toString()}`;
+      
+      const firstResp = await fetch(firstPageUrl, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+      
+      if (!firstResp.ok) {
+        // Check if it's an export limit error
+        if (firstResp.status === 403 || firstResp.status === 429) {
+          const limitCheck = await checkExportLimit();
+          setExportsLeft(limitCheck.exportsLeft);
+          setShowExportLimitModal(true);
+          return;
+        }
+        const errText = await firstResp.text();
+        throw new Error(
+          `Export failed: ${firstResp.status} ${firstResp.statusText} - ${errText}`
+        );
+      }
+      
+      // Parse first page to get pagination info
+      const firstPageText = await firstResp.text();
+      let firstPageParsed: unknown;
+      let isJson = false;
+      let totalPages = 1;
+      
+      try {
+        firstPageParsed = JSON.parse(firstPageText);
+        isJson = true;
+        // Check if response has pagination info
+        if (
+          firstPageParsed &&
+          typeof firstPageParsed === "object" &&
+          "pageTotal" in (firstPageParsed as Record<string, unknown>)
+        ) {
+          totalPages = (firstPageParsed as { pageTotal?: number }).pageTotal || 1;
+        } else if (
+          firstPageParsed &&
+          typeof firstPageParsed === "object" &&
+          "result1" in (firstPageParsed as Record<string, unknown>)
+        ) {
+          const result1 = (firstPageParsed as { result1?: { pageTotal?: number } }).result1;
+          totalPages = result1?.pageTotal || 1;
+        }
+      } catch {
+        isJson = false;
+      }
+      
+      // Type guard for export JSON items
+      const isExportCompanyJson = (value: unknown): value is {
+        name?: string;
+        description?: string;
+        primary_sectors?: string | string[];
+        secondary_sectors?: string | string[];
+        ownership?: string;
+        linkedin_members?: number | string;
+        country?: string;
+        company_link?: string;
+        Revenue_m?: number | string;
+        EBITDA_m?: number | string;
+        EV?: number | string;
+        Revenue_multiple?: number | string;
+        Rev_Growth_PC?: number | string;
+        EBITDA_margin?: number | string;
+        Rule_of_40?: number | string;
+        ARR_pc?: number | string;
+        ARR_m?: number | string;
+        Churn_pc?: number | string;
+        GRR_pc?: number | string;
+        NRR?: number | string;
+        New_client_growth_pc?: number | string;
+      } => {
+        if (!value || typeof value !== "object") return false;
+        const obj = value as Record<string, unknown>;
+        return (
+          typeof obj.name === "string" ||
+          typeof obj.description === "string" ||
+          typeof obj.country === "string"
+        );
+      };
+      
+      // Collect all items from all pages
+      let allItems: unknown[] = [];
+      
+      // Process first page
+      if (isJson) {
+        const itemsUnknown: unknown[] = Array.isArray(firstPageParsed)
+          ? (firstPageParsed as unknown[])
+          : firstPageParsed &&
+            typeof firstPageParsed === "object" &&
+            Array.isArray((firstPageParsed as { items?: unknown[] }).items)
+          ? ((firstPageParsed as { items?: unknown[] }).items as unknown[])
+          : firstPageParsed &&
+            typeof firstPageParsed === "object" &&
+            "result1" in (firstPageParsed as Record<string, unknown>) &&
+            Array.isArray((firstPageParsed as { result1?: { items?: unknown[] } }).result1?.items)
+          ? ((firstPageParsed as { result1?: { items?: unknown[] } }).result1?.items as unknown[])
+          : [];
+        allItems = itemsUnknown.filter(isExportCompanyJson);
+      }
+      
+      // Fetch remaining pages if there are more
+      if (totalPages > 1) {
+        for (let page = 2; page <= totalPages; page++) {
+          const pageParams = new URLSearchParams(params.toString());
+          pageParams.append("Offset", page.toString());
+          pageParams.append("Per_page", "25");
+          
+          const pageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${pageParams.toString()}`;
+          
+          const pageResp = await fetch(pageUrl, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            credentials: "include",
+          });
+          
+          if (!pageResp.ok) {
+            console.warn(`Failed to fetch page ${page}, continuing with available data`);
+            continue;
+          }
+          
+          const pageText = await pageResp.text();
+          try {
+            const pageParsed = JSON.parse(pageText);
+            const pageItemsUnknown: unknown[] = Array.isArray(pageParsed)
+              ? (pageParsed as unknown[])
+              : pageParsed &&
+                typeof pageParsed === "object" &&
+                Array.isArray((pageParsed as { items?: unknown[] }).items)
+              ? ((pageParsed as { items?: unknown[] }).items as unknown[])
+              : pageParsed &&
+                typeof pageParsed === "object" &&
+                "result1" in (pageParsed as Record<string, unknown>) &&
+                Array.isArray((pageParsed as { result1?: { items?: unknown[] } }).result1?.items)
+              ? ((pageParsed as { result1?: { items?: unknown[] } }).result1?.items as unknown[])
+              : [];
+            const pageItems = pageItemsUnknown.filter(isExportCompanyJson);
+            allItems = [...allItems, ...pageItems];
+          } catch (e) {
+            console.warn(`Failed to parse page ${page}, continuing with available data`, e);
+          }
+        }
+      }
+      
+      if (allItems.length === 0) {
+        throw new Error("Export returned empty data");
+      }
+      
+      if (isJson) {
+        const items = allItems as Array<{
+          name?: string;
+          description?: string;
+          primary_sectors?: string | string[];
+          secondary_sectors?: string | string[];
+          ownership?: string;
+          linkedin_members?: number | string;
+          country?: string;
+          company_link?: string;
+          Revenue_m?: number | string;
+          EBITDA_m?: number | string;
+          EV?: number | string;
+          Revenue_multiple?: number | string;
+          Rev_Growth_PC?: number | string;
+          EBITDA_margin?: number | string;
+          Rule_of_40?: number | string;
+          ARR_pc?: number | string;
+          ARR_m?: number | string;
+          Churn_pc?: number | string;
+          GRR_pc?: number | string;
+          NRR?: number | string;
+          New_client_growth_pc?: number | string;
+        }>;
+        
+        // Ensure all rows have all columns by creating a base row structure
+        const rows: CompanyCSVRow[] = items.map((it) => {
+          const primaryVal = it.primary_sectors ?? "";
+          const secondaryVal = it.secondary_sectors ?? "";
+          const primaryStr = Array.isArray(primaryVal)
+            ? primaryVal.join(", ")
+            : String(primaryVal);
+          const secondaryStr = Array.isArray(secondaryVal)
+            ? secondaryVal.join(", ")
+            : String(secondaryVal);
+          const primary = primaryStr
+            ? primaryStr
+                .split(",")
+                .map((s: string) => s.trim())
+                .filter(Boolean)
+            : [];
+          const secondary = secondaryStr
+            ? secondaryStr
+                .split(",")
+                .map((s: string) => s.trim())
+                .filter(Boolean)
+            : [];
+          
+          // Create row with ALL columns always present
+          const row: CompanyCSVRow = {
+            Name: it.name ?? "N/A",
+            Description: it.description ?? "N/A",
+            "Primary Sector(s)": CompaniesCSVExporter.formatSectors(primary),
+            Sectors: CompaniesCSVExporter.formatSectors(secondary),
+            Ownership: it.ownership ?? "N/A",
+            "LinkedIn Members": CompaniesCSVExporter.formatLinkedinMembers(
+              typeof it.linkedin_members === "number"
+                ? it.linkedin_members
+                : Number(it.linkedin_members)
+            ),
+            Country: it.country ?? "N/A",
+            "Company URL": it.company_link ?? "",
+            // Financial Metrics - always include all fields
+            Revenue: (it.Revenue_m != null && it.Revenue_m !== "") 
+              ? `${it.Revenue_m}M`
+              : "N/A",
+            EBITDA: (it.EBITDA_m != null && it.EBITDA_m !== "")
+              ? `${it.EBITDA_m}M`
+              : "N/A",
+            "Enterprise Value": (it.EV != null && it.EV !== "")
+              ? `${it.EV}M`
+              : "N/A",
+            "Revenue Multiple": (it.Revenue_multiple != null && it.Revenue_multiple !== "")
+              ? String(it.Revenue_multiple)
+              : "N/A",
+            "Revenue Growth": (it.Rev_Growth_PC != null && it.Rev_Growth_PC !== "")
+              ? `${it.Rev_Growth_PC}%`
+              : "N/A",
+            "EBITDA Margin": (it.EBITDA_margin != null && it.EBITDA_margin !== "")
+              ? `${it.EBITDA_margin}%`
+              : "N/A",
+            "Rule of 40": (it.Rule_of_40 != null && it.Rule_of_40 !== "")
+              ? String(it.Rule_of_40)
+              : "N/A",
+            // Subscription Metrics - always include all fields
+            ARR: (it.ARR_m != null && it.ARR_m !== "")
+              ? `${it.ARR_m}M`
+              : "N/A",
+            Churn: (it.Churn_pc != null && it.Churn_pc !== "")
+              ? `${it.Churn_pc}%`
+              : "N/A",
+            GRR: (it.GRR_pc != null && it.GRR_pc !== "")
+              ? `${it.GRR_pc}%`
+              : "N/A",
+            NRR: (it.NRR != null && it.NRR !== "")
+              ? `${it.NRR}%`
+              : "N/A",
+            "New Clients Revenue Growth": (it.New_client_growth_pc != null && it.New_client_growth_pc !== "")
+              ? `${it.New_client_growth_pc}%`
+              : "N/A",
+          };
+          return row;
+        });
+        
+        const csv = CompaniesCSVExporter.convertToCSV(rows);
+        CompaniesCSVExporter.downloadCSV(csv, `financial_metrics_companies_${revenueRange.replace(/[^a-zA-Z0-9]/g, "_")}`);
+      } else {
+        // Fallback: If API returns CSV directly, use it as-is
+        console.warn("API returned CSV directly - financial columns may be missing and only first page will be exported");
+        const normalized = firstPageText.replace(/\r?\n/g, "\r\n");
+        const contentWithBOM = "\uFEFF" + normalized;
+        const blob = new Blob([contentWithBOM], {
+          type: "text/csv;charset=utf-8;",
+        });
+        const link = document.createElement("a");
+        const urlObject = URL.createObjectURL(blob);
+        link.href = urlObject;
+        link.download = `financial_metrics_companies_${revenueRange.replace(/[^a-zA-Z0-9]/g, "_")}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(urlObject);
+      }
+    } catch (e) {
+      console.error("Error exporting CSV:", e);
+      alert("Failed to export CSV. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  }, [countries, primarySectors, secondarySectors, revenueMin, revenueMax, revenueRange, realEstateSectorId]);
 
   if (!isOpen) return null;
 
@@ -468,7 +801,7 @@ export default function CompaniesModal({
                       <td className="px-4 py-3 text-sm text-gray-900">
                         <a
                           href={`/company/${company.id}`}
-                          className="text-blue-600 hover:text-blue-800 hover:underline"
+                          className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer transition-colors duration-200"
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -501,7 +834,14 @@ export default function CompaniesModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end p-6 border-t border-gray-200">
+        <div className="flex items-center justify-between p-6 border-t border-gray-200">
+          <button
+            onClick={handleExportCSV}
+            disabled={exporting || companies.length === 0}
+            className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {exporting ? "Exporting..." : "Export CSV"}
+          </button>
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -509,6 +849,13 @@ export default function CompaniesModal({
             Close
           </button>
         </div>
+        
+        <ExportLimitModal
+          isOpen={showExportLimitModal}
+          onClose={() => setShowExportLimitModal(false)}
+          exportsLeft={exportsLeft}
+          totalExports={EXPORT_LIMIT}
+        />
       </div>
     </div>
   );
