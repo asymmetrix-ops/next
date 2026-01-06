@@ -114,16 +114,20 @@ interface CorporateEvent {
     };
   };
   ev_data?: {
-    enterprise_value_m?: number;
+    enterprise_value_m?: number | string;
     ev_band?: string;
-    currency?: { Currency?: string };
+    currency?: { id?: number; Currency?: string } | null;
+    currency_id?: string;
   };
   investment_data?: {
     investment_amount_m?: string;
     Funding_stage?: string;
     funding_stage?: string;
-    currency?: { Currency?: string };
+    currency?: { Currency?: string } | null;
+    currency_id?: string;
   };
+  investment_display?: string | null;
+  ev_display?: string | null;
   // New API fields for targets
   targets?: Array<{
     id: number;
@@ -147,6 +151,16 @@ interface CorporateEvent {
     };
   };
   other_counterparties?: Array<{
+    // New API format
+    id?: number;
+    name?: string;
+    page_type?: string;
+    counterparty_id?: number;
+    is_data_analytics?: boolean;
+    counterparty_status?: string;
+    counterparty_type_id?: number;
+    counterparty_announcement_url?: string | null;
+    // Legacy format
     _new_company?: {
       id?: number;
       name?: string;
@@ -155,6 +169,16 @@ interface CorporateEvent {
     _counterparty_type?: {
       counterparty_status?: string;
     };
+  }>;
+  advisors?: Array<{
+    id?: number;
+    advisor_company?: {
+      id?: number;
+      name?: string;
+    };
+    announcement_url?: string | null;
+    new_company_advised?: number;
+    counterparty_advised?: number;
   }>;
   "0"?: Array<{
     _new_company?: {
@@ -172,7 +196,8 @@ interface CorporateEvent {
 }
 
 interface CorporateEventsResponse {
-  New_Events_Wits_Advisors: CorporateEvent[];
+  New_Events_Wits_Advisors?: CorporateEvent[];
+  Corporate_Events?: CorporateEvent[];
 }
 
 interface InvestorData {
@@ -740,7 +765,9 @@ const InvestorDetailPage = () => {
 
       const data: CorporateEventsResponse = await response.json();
       console.log("Corporate events API response:", data);
-      setCorporateEvents(data.New_Events_Wits_Advisors || []);
+      // Handle both API response formats
+      const events = data.Corporate_Events || data.New_Events_Wits_Advisors || [];
+      setCorporateEvents(events);
     } catch (err) {
       console.error("Error fetching corporate events:", err);
       // Don't set main error state for corporate events loading failure
@@ -2313,14 +2340,19 @@ const InvestorDetailPage = () => {
                           const targetCountry =
                             legacyTarget?._location?.Country || "Not Available";
 
-                          // Get advisors from either format
-                          const advisorEntries = event["1"] || [];
-                          const advisorList = advisorEntries
-                            .map((a) => ({
+                          // Get advisors from either format (new API format or legacy)
+                          const newAdvisors = event.advisors || [];
+                          const legacyAdvisors = event["1"] || [];
+                          const advisorList = [
+                            ...newAdvisors.map((a) => ({
+                              id: a.advisor_company?.id,
+                              name: a.advisor_company?.name || "",
+                            })),
+                            ...legacyAdvisors.map((a) => ({
                               id: a._new_company?.id,
                               name: a._new_company?.name || "",
-                            }))
-                            .filter((a) => Boolean(a.name));
+                            })),
+                          ].filter((a) => Boolean(a.name));
 
                           // Format currency helper
                           const formatCurrency = (
@@ -2473,38 +2505,91 @@ const InvestorDetailPage = () => {
                                   <div style={{ marginBottom: "4px" }}>
                                     <strong>Buyer(s) / Investor(s):</strong>{" "}
                                     {(() => {
-                                      // Use legacy format from event["0"]
+                                      // Use new API format first (other_counterparties)
+                                      const newCounterparties = (event.other_counterparties || [])
+                                        .filter((c) => {
+                                          // Filter for buyers/investors (exclude divestors)
+                                          // Check counterparty status/type to exclude divestors
+                                          if ('counterparty_status' in c) {
+                                            const status = c.counterparty_status?.toLowerCase() || '';
+                                            if (status.includes('divestor')) return false;
+                                          }
+                                          // In new format, check if it has direct id/name
+                                          if ('id' in c && 'name' in c && c.id && c.name) return true;
+                                          // In legacy format, check _new_company
+                                          if ('_new_company' in c && c._new_company?.name) return true;
+                                          return false;
+                                        })
+                                        .slice(0, 5);
+                                      
+                                      // Fallback to legacy format from event["0"]
                                       const legacyList = (event["0"] || [])
                                         .filter((c) => c._new_company?.name)
                                         .slice(0, 5);
-                                      if (legacyList.length === 0)
+                                      
+                                      const allCounterparties = newCounterparties.length > 0 
+                                        ? newCounterparties 
+                                        : legacyList;
+                                      
+                                      if (allCounterparties.length === 0)
                                         return "Not Available";
-                                      return legacyList.map((c, idx) => (
-                                        <span
-                                          key={`cp-${
-                                            c._new_company?.id || idx
-                                          }`}
-                                        >
-                                          {c._new_company?.id ? (
-                                            <a
-                                              href={
-                                                c._new_company?._is_that_investor
-                                                  ? `/investors/${c._new_company.id}`
-                                                  : `/company/${c._new_company.id}`
-                                              }
-                                              style={{
-                                                color: "#3b82f6",
-                                                textDecoration: "underline",
-                                              }}
+                                      
+                                      return allCounterparties.map((c, idx) => {
+                                        // Handle new API format - check if it has direct id/name properties
+                                        if ('id' in c && 'name' in c && c.id && c.name) {
+                                          const pageType = 'page_type' in c ? c.page_type : undefined;
+                                          const href = pageType === "investor"
+                                            ? `/investors/${c.id}`
+                                            : `/company/${c.id}`;
+                                          return (
+                                            <span key={`cp-${c.id}-${idx}`}>
+                                              <a
+                                                href={href}
+                                                style={{
+                                                  color: "#3b82f6",
+                                                  textDecoration: "underline",
+                                                }}
+                                              >
+                                                {c.name}
+                                              </a>
+                                              {idx < allCounterparties.length - 1 && ", "}
+                                            </span>
+                                          );
+                                        }
+                                        
+                                        // Handle legacy format
+                                        if ('_new_company' in c && c._new_company) {
+                                          const newCompany = c._new_company;
+                                          return (
+                                            <span
+                                              key={`cp-${
+                                                newCompany.id || idx
+                                              }`}
                                             >
-                                              {c._new_company?.name}
-                                            </a>
-                                          ) : (
-                                            c._new_company?.name
-                                          )}
-                                          {idx < legacyList.length - 1 && ", "}
-                                        </span>
-                                      ));
+                                              {newCompany.id ? (
+                                                <a
+                                                  href={
+                                                    newCompany._is_that_investor
+                                                      ? `/investors/${newCompany.id}`
+                                                      : `/company/${newCompany.id}`
+                                                  }
+                                                  style={{
+                                                    color: "#3b82f6",
+                                                    textDecoration: "underline",
+                                                  }}
+                                                >
+                                                  {newCompany.name}
+                                                </a>
+                                              ) : (
+                                                newCompany.name
+                                              )}
+                                              {idx < allCounterparties.length - 1 && ", "}
+                                            </span>
+                                          );
+                                        }
+                                        
+                                        return null;
+                                      });
                                     })()}
                                   </div>
                                 )}
@@ -2558,15 +2643,19 @@ const InvestorDetailPage = () => {
                                   <>
                                     <div style={{ marginBottom: "4px" }}>
                                       <strong>Amount (m):</strong>{" "}
-                                      {formatCurrency(
-                                        event.investment_data
-                                          ?.investment_amount_m,
-                                        event.investment_data?.currency?.Currency
-                                      )}
+                                      {event.investment_display && event.investment_display !== "Not available"
+                                        ? event.investment_display
+                                        : formatCurrency(
+                                            event.investment_data
+                                              ?.investment_amount_m,
+                                            event.investment_data?.currency?.Currency
+                                          )}
                                     </div>
                                     <div>
                                       <strong>EV (m):</strong>{" "}
-                                      {event.ev_data?.enterprise_value_m
+                                      {event.ev_display && event.ev_display !== "Not available"
+                                        ? event.ev_display
+                                        : event.ev_data?.enterprise_value_m
                                         ? formatCurrency(
                                             String(
                                               event.ev_data.enterprise_value_m
@@ -2617,7 +2706,7 @@ const InvestorDetailPage = () => {
                                         {idx < advisorList.length - 1 && ", "}
                                       </span>
                                     ))
-                                  : "—"}
+                                  : "Not Available"}
                               </td>
                             </tr>
                           );
