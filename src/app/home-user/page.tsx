@@ -1090,6 +1090,45 @@ export default function HomeUserPage() {
                               })()}
                             </div>
                             <div>
+                              <strong>Seller(s):</strong>{" "}
+                              {(() => {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const ev: any = event as any;
+                                const sellersNew = parseEntityArray<EntityRef>(
+                                  ev.sales
+                                );
+
+                                if (sellersNew.length === 0) {
+                                  return <span>Not Available</span>;
+                                }
+
+                                return (
+                                  <>
+                                    {dedupeById(sellersNew).map((s, i, arr) => {
+                                      const href = normalizeEntityHref(s);
+                                      const name = s?.name || "Unknown";
+                                      return (
+                                        <span key={`m-seller-${s?.id ?? i}`}>
+                                          {href ? (
+                                            <a
+                                              href={href}
+                                              className="text-blue-600 underline hover:text-blue-800"
+                                              style={{ fontWeight: "500" }}
+                                            >
+                                              {name}
+                                            </a>
+                                          ) : (
+                                            <span>{name}</span>
+                                          )}
+                                          {i < arr.length - 1 && ", "}
+                                        </span>
+                                      );
+                                    })}
+                                  </>
+                                );
+                              })()}
+                            </div>
+                            <div>
                               <strong>Type:</strong>{" "}
                               {(() => {
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
