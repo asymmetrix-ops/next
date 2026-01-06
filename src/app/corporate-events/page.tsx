@@ -1513,18 +1513,17 @@ const CorporateEventsPage = () => {
         );
       }
 
-      // Add buyer / investor types
+      // Add buyer / investor types as array params (API expects bracketed keys)
       if (
         (filters as Partial<CorporateEventsFilters>).Buyer_Investor_Types &&
         (filters as Partial<CorporateEventsFilters>).Buyer_Investor_Types!
           .length > 0
       ) {
-        params.append(
-          "Buyer_Investor_Types",
-          (
-            filters as Partial<CorporateEventsFilters>
-          ).Buyer_Investor_Types!.join(",")
-        );
+        (
+          filters as Partial<CorporateEventsFilters>
+        ).Buyer_Investor_Types!.forEach((type) => {
+          params.append("Buyer_Investor_Types[]", type);
+        });
       }
 
       // Add date filters
@@ -1720,9 +1719,11 @@ const CorporateEventsPage = () => {
       params.append("Funding_stage", selectedFundingStages.join(","));
     }
 
-    // Add buyer / investor types
+    // Add buyer / investor types as array params (API expects bracketed keys)
     if (selectedBuyerInvestorTypes.length > 0) {
-      params.append("Buyer_Investor_Types", selectedBuyerInvestorTypes.join(","));
+      selectedBuyerInvestorTypes.forEach((type) => {
+        params.append("Buyer_Investor_Types[]", type);
+      });
     }
 
     // Add date filters
