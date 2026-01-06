@@ -3101,6 +3101,67 @@ const CompanyDetail = () => {
                                         </div>
                                       );
                                     })()}
+                                    {(() => {
+                                      const newEvent = event as NewCorporateEvent;
+                                      const isPartnership = /partnership/i.test(newEvent?.deal_type || "");
+                                      
+                                      // Skip for Partnerships
+                                      if (isPartnership) return null;
+
+                                      // First, check for sellers array (new API format)
+                                      const sellersArray = Array.isArray(newEvent.sellers) ? newEvent.sellers : [];
+                                      if (sellersArray.length > 0) {
+                                        return (
+                                          <div className="muted-row">
+                                            <strong>Seller(s):</strong>{" "}
+                                            {sellersArray.map((seller, idx) => {
+                                              const href = seller.page_type === "investor"
+                                                ? `/investors/${seller.id}`
+                                                : `/company/${seller.id}`;
+                                              return (
+                                                <span key={`seller-${seller.id}-${idx}`}>
+                                                  <a href={href} className="link-blue">
+                                                    {seller.name}
+                                                  </a>
+                                                  {idx < sellersArray.length - 1 && ", "}
+                                                </span>
+                                              );
+                                            })}
+                                          </div>
+                                        );
+                                      }
+
+                                      // Also check other_counterparties for divestors
+                                      if (Array.isArray(newEvent.other_counterparties) && newEvent.other_counterparties.length > 0) {
+                                        const divestors = newEvent.other_counterparties.filter(
+                                          (cp) => cp.counterparty_status && 
+                                            /divestor|seller/i.test(cp.counterparty_status)
+                                        );
+                                        
+                                        if (divestors.length > 0) {
+                                          return (
+                                            <div className="muted-row">
+                                              <strong>Seller(s):</strong>{" "}
+                                              {divestors.map((cp, idx) => {
+                                                const href = cp.page_type === "investor"
+                                                  ? `/investors/${cp.id}`
+                                                  : `/company/${cp.id}`;
+                                                return (
+                                                  <span key={`divestor-${cp.id}-${idx}`}>
+                                                    <a href={href} className="link-blue">
+                                                      {cp.name}
+                                                    </a>
+                                                    {idx < divestors.length - 1 && ", "}
+                                                  </span>
+                                                );
+                                              })}
+                                            </div>
+                                          );
+                                        }
+                                      }
+
+                                      return null;
+                                    })()}
                                   </td>
                                   {/* Deal Details */}
                                   <td>
@@ -5268,6 +5329,58 @@ const CompanyDetail = () => {
                                         </span>
                                       );
                                     });
+                                  })()}
+                                </div>
+                              )}
+                              {!isPartnership && (
+                                <div className="muted-row">
+                                  <strong>Seller(s):</strong>{" "}
+                                  {(() => {
+                                    const newEvent = event as NewCorporateEvent;
+
+                                    // First, check for sellers array (new API format)
+                                    const sellersArray = Array.isArray(newEvent.sellers) ? newEvent.sellers : [];
+                                    if (sellersArray.length > 0) {
+                                      return sellersArray.map((seller, idx) => {
+                                        const href = seller.page_type === "investor"
+                                          ? `/investors/${seller.id}`
+                                          : `/company/${seller.id}`;
+                                        return (
+                                          <span key={`seller-${seller.id}-${idx}`}>
+                                            <a href={href} className="link-blue">
+                                              {seller.name}
+                                            </a>
+                                            {idx < sellersArray.length - 1 && ", "}
+                                          </span>
+                                        );
+                                      });
+                                    }
+
+                                    // Also check other_counterparties for divestors
+                                    if (Array.isArray(newEvent.other_counterparties) && newEvent.other_counterparties.length > 0) {
+                                      const divestors = newEvent.other_counterparties.filter(
+                                        (cp) => cp.counterparty_status && 
+                                          /divestor|seller/i.test(cp.counterparty_status)
+                                      );
+                                      
+                                      if (divestors.length > 0) {
+                                        return divestors.map((cp, idx) => {
+                                          const href = cp.page_type === "investor"
+                                            ? `/investors/${cp.id}`
+                                            : `/company/${cp.id}`;
+                                          return (
+                                            <span key={`divestor-${cp.id}-${idx}`}>
+                                              <a href={href} className="link-blue">
+                                                {cp.name}
+                                              </a>
+                                              {idx < divestors.length - 1 && ", "}
+                                            </span>
+                                          );
+                                        });
+                                      }
+                                    }
+
+                                    return <span>Not Available</span>;
                                   })()}
                                 </div>
                               )}
