@@ -1613,7 +1613,7 @@ const CompanyDetail = () => {
       };
       
       const companyName = company.name ? sanitizeFilename(company.name) : `Company-${company.id}`;
-      const filename = `Asymmetrix ${companyName} Company profile.pdf`;
+      const filename = `Asymmetrix ${companyName} Company Profile.pdf`;
       
       // Create download link
       const url = window.URL.createObjectURL(blob);
