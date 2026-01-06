@@ -208,6 +208,18 @@ interface CompanyInvestorFromAPI {
   announcement_date: string;
 }
 
+// Investors data from investors_data field
+interface InvestorsDataItem {
+  name: string;
+  investor_id: number;
+  new_company_id?: number;
+}
+
+interface ParsedInvestorsData {
+  past: InvestorsDataItem[];
+  current: InvestorsDataItem[];
+}
+
 interface CompanyManagement {
   id: number;
   name: string;
@@ -889,6 +901,10 @@ const CompanyDetail = () => {
     CompanyInvestorFromAPI[]
   >([]);
   const [apiInvestorsLoading, setApiInvestorsLoading] = useState(false);
+  // Investors from investors_data field in company response
+  const [parsedInvestorsData, setParsedInvestorsData] = useState<
+    ParsedInvestorsData | null
+  >(null);
 
   // Removed sectors normalization/mapping; rely solely on API-provided primary sectors
 
@@ -1252,6 +1268,7 @@ const CompanyDetail = () => {
     const fetchCompanyData = async () => {
       setLoading(true);
       setError(null);
+      setParsedInvestorsData(null); // Reset investors data
 
       try {
         let data: CompanyResponse;
@@ -1352,6 +1369,40 @@ const CompanyDetail = () => {
             }
           }
         } catch {}
+
+        // Parse investors_data from Get_new_company payload
+        try {
+          const rawInvestorsData = (
+            data as unknown as {
+              investors_data?: Array<{ items?: unknown }>;
+            }
+          )?.investors_data;
+          if (Array.isArray(rawInvestorsData) && rawInvestorsData.length > 0) {
+            for (const entry of rawInvestorsData) {
+              const raw = (entry as { items?: unknown })?.items;
+              let payload: unknown = raw;
+              if (typeof raw === "string") {
+                try {
+                  payload = JSON.parse(raw as string);
+                } catch {
+                  // ignore malformed JSON
+                }
+              }
+              if (payload && typeof payload === "object") {
+                const parsed = payload as ParsedInvestorsData;
+                if (
+                  Array.isArray(parsed.current) ||
+                  Array.isArray(parsed.past)
+                ) {
+                  setParsedInvestorsData(parsed);
+                  break; // use first valid block only
+                }
+              }
+            }
+          }
+        } catch {
+          // non-fatal
+        }
 
         // Parse corporate events from Get_new_company payload (preferred, no auth)
         try {
@@ -2445,10 +2496,34 @@ const CompanyDetail = () => {
                   Investors:
                 </span>
                 <span style={styles.value} className="info-value">
-                  {apiInvestorsLoading
-                    ? "Loading..."
-                    : apiInvestors.length > 0
-                    ? apiInvestors
+                  {(() => {
+                    // Prefer investors from investors_data if available
+                    if (parsedInvestorsData?.current && parsedInvestorsData.current.length > 0) {
+                      return parsedInvestorsData.current
+                        .filter(
+                          (investor) =>
+                            investor &&
+                            typeof investor.investor_id === "number" &&
+                            investor.name
+                        )
+                        .map((investor, index, arr) => {
+                          return (
+                            <span key={`investor-${investor.investor_id}-${index}`}>
+                              {createClickableElement(
+                                `/investors/${investor.investor_id}`,
+                                investor.name
+                              )}
+                              {index < arr.length - 1 && ", "}
+                            </span>
+                          );
+                        });
+                    }
+                    // Fallback to API investors
+                    if (apiInvestorsLoading) {
+                      return "Loading...";
+                    }
+                    if (apiInvestors.length > 0) {
+                      return apiInvestors
                         .filter(
                           (investor) =>
                             investor &&
@@ -2465,8 +2540,10 @@ const CompanyDetail = () => {
                               {index < arr.length - 1 && ", "}
                             </span>
                           );
-                        })
-                    : "Not available"}
+                        });
+                    }
+                    return "Not available";
+                  })()}
                 </span>
               </div>
                 </div>
