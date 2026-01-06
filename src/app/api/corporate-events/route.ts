@@ -25,8 +25,25 @@ export async function GET(request: NextRequest) {
     );
 
     // Copy all search params to the external API URL
+    // Handle array parameters (keys ending with []) correctly
+    const processedKeys = new Set<string>();
     searchParams.forEach((value, key) => {
-      apiUrl.searchParams.append(key, value);
+      // Skip if we've already processed this key as an array
+      if (processedKeys.has(key)) return;
+      
+      // Check if this is an array parameter (key ends with [])
+      if (key.endsWith("[]")) {
+        // Get all values for this array parameter
+        const allValues = searchParams.getAll(key);
+        allValues.forEach((val) => {
+          apiUrl.searchParams.append(key, val);
+        });
+        processedKeys.add(key);
+      } else {
+        // Regular parameter - just append the value
+        apiUrl.searchParams.append(key, value);
+        processedKeys.add(key);
+      }
     });
 
     // Make the request to the external API
