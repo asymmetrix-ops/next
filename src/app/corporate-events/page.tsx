@@ -1502,15 +1502,16 @@ const CorporateEventsPage = () => {
         params.append("Deal_Status", filters.Deal_Status.join(","));
       }
 
-      // Add funding stages as comma-separated values
+      // Add funding stages as array params (API expects bracketed keys)
       if (
         (filters as Partial<CorporateEventsFilters>).Funding_stage &&
         (filters as Partial<CorporateEventsFilters>).Funding_stage!.length > 0
       ) {
-        params.append(
-          "Funding_stage",
-          (filters as Partial<CorporateEventsFilters>).Funding_stage!.join(",")
-        );
+        (
+          filters as Partial<CorporateEventsFilters>
+        ).Funding_stage!.forEach((stage) => {
+          params.append("Funding_stage[]", stage);
+        });
       }
 
       // Add buyer / investor types as array params (API expects bracketed keys)
@@ -1714,9 +1715,11 @@ const CorporateEventsPage = () => {
       params.append("Deal_Status", selectedDealStatuses.join(","));
     }
 
-    // Add funding stages as comma-separated values
+    // Add funding stages as array params (API expects bracketed keys)
     if (selectedFundingStages.length > 0) {
-      params.append("Funding_stage", selectedFundingStages.join(","));
+      selectedFundingStages.forEach((stage) => {
+        params.append("Funding_stage[]", stage);
+      });
     }
 
     // Add buyer / investor types as array params (API expects bracketed keys)
