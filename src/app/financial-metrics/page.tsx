@@ -1,44 +1,13 @@
-"use client";
-
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/components/providers/AuthProvider";
-import FinancialMetricsTable from "@/components/financial-metrics/FinancialMetricsTable";
+import { redirect } from "next/navigation";
+import { serverAuthService } from "@/lib/server-auth";
+import FinancialMetricsTableServer from "@/components/financial-metrics/FinancialMetricsTableServer";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
-export default function FinancialMetricsPage() {
-  const router = useRouter();
-  const { isAuthenticated, loading: authLoading } = useAuth();
-
-  useEffect(() => {
-    if (authLoading) return;
-
-    if (!isAuthenticated) {
-      router.push("/login");
-    }
-  }, [router, isAuthenticated, authLoading]);
-
-  if (authLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="mx-auto w-12 h-12 rounded-full border-b-2 border-blue-600 animate-spin"></div>
-          <p className="mt-4 text-gray-600">Checking authentication...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="mx-auto w-12 h-12 rounded-full border-b-2 border-red-600 animate-spin"></div>
-          <p className="mt-4 text-gray-600">Redirecting to login...</p>
-        </div>
-      </div>
-    );
+export default async function FinancialMetricsPage() {
+  // Check authentication on the server
+  if (!serverAuthService.isAuthenticated()) {
+    redirect("/login");
   }
 
   return (
@@ -52,7 +21,7 @@ export default function FinancialMetricsPage() {
           </h1>
         </div>
 
-        <FinancialMetricsTable />
+        <FinancialMetricsTableServer />
       </main>
 
       <Footer />

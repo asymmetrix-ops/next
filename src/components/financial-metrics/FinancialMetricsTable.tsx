@@ -106,12 +106,12 @@ function formatValue(
 
   switch (format) {
     case "percent":
-      return `${n.toFixed(2).replace(/\.00$/, "")}%`;
+      return `${n.toFixed(1).replace(/\.0$/, "")}%`;
     case "multiple":
-      return `${n.toFixed(2).replace(/\.00$/, "")}x`;
+      return `${n.toFixed(1).replace(/\.0$/, "")}x`;
     case "money_m":
-      // Add commas to large numbers (e.g., 1,234.56)
-      const formatted = n.toFixed(2).replace(/\.00$/, "");
+      // Add commas to large numbers (e.g., 1,234.5)
+      const formatted = n.toFixed(1).replace(/\.0$/, "");
       const parts = formatted.split(".");
       const integerPart = parts[0];
       const decimalPart = parts[1] ? `.${parts[1]}` : "";
@@ -126,17 +126,25 @@ function formatValue(
 
 interface FilterState {
   countries: string[];
-  provinces: string[];
-  cities: string[];
   primarySectors: number[];
   secondarySectors: number[];
   selectedMetrics: string[];
 }
 
-export default function FinancialMetricsTable() {
+interface FinancialMetricsTableProps {
+  initialCountries?: Array<{ locations_Country: string }>;
+  initialPrimarySectors?: Array<{ id: number; sector_name: string }>;
+  initialMetrics?: FinancialMetricsRow[];
+}
+
+export default function FinancialMetricsTable({
+  initialCountries = [],
+  initialPrimarySectors = [],
+  initialMetrics = [],
+}: FinancialMetricsTableProps) {
   const [view, setView] = useState<MetricView>("mean");
-  const [rows, setRows] = useState<FinancialMetricsRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<FinancialMetricsRow[]>(initialMetrics);
+  const [loading, setLoading] = useState(initialMetrics.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -152,27 +160,26 @@ export default function FinancialMetricsTable() {
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
     countries: [],
-    provinces: [],
-    cities: [],
     primarySectors: [],
     secondarySectors: [],
     selectedMetrics: [...DEFAULT_METRICS],
   });
 
-  // Filter data state
-  const [countries, setCountries] = useState<Array<{ locations_Country: string }>>([]);
-  const [provinces, setProvinces] = useState<Array<{ State__Province__County: string }>>([]);
-  const [cities, setCities] = useState<Array<{ City: string }>>([]);
-  const [primarySectors, setPrimarySectors] = useState<Array<{ id: number; sector_name: string }>>([]);
+  // Filter data state - initialize with server-provided data
+  const [countries, setCountries] = useState<Array<{ locations_Country: string }>>(initialCountries);
+  const [primarySectors, setPrimarySectors] = useState<Array<{ id: number; sector_name: string }>>(initialPrimarySectors);
   const [secondarySectors, setSecondarySectors] = useState<Array<{ id: number; sector_name: string }>>([]);
   const [loadingCountries, setLoadingCountries] = useState(false);
-  const [loadingProvinces, setLoadingProvinces] = useState(false);
-  const [loadingCities, setLoadingCities] = useState(false);
   const [loadingPrimarySectors, setLoadingPrimarySectors] = useState(false);
   const [loadingSecondarySectors, setLoadingSecondarySectors] = useState(false);
 
-  // Fetch filter options
+  // Fetch filter options if not provided initially (fallback for client-side only usage)
   useEffect(() => {
+    if (initialCountries.length > 0 && initialPrimarySectors.length > 0) {
+      // Already have initial data, skip fetching
+      return;
+    }
+
     const fetchFilterOptions = async () => {
       try {
         setLoadingCountries(true);
@@ -196,60 +203,36 @@ export default function FinancialMetricsTable() {
     };
 
     fetchFilterOptions();
-  }, []);
+  }, [initialCountries.length, initialPrimarySectors.length]);
 
-  // Fetch provinces when countries are selected
+  // Always fetch all sub-sectors (secondary sectors) on mount
   useEffect(() => {
-    const fetchProvinces = async () => {
-      if (filters.countries.length === 0) {
-        setProvinces([]);
-        return;
-      }
-
+    const fetchAllSubSectors = async () => {
       try {
-        setLoadingProvinces(true);
-        const provincesData = await locationsService.getProvinces(filters.countries);
-        setProvinces(provincesData);
+        setLoadingSecondarySectors(true);
+        const allSecondarySectorsData = await locationsService.getAllSecondarySectorsWithPrimary();
+        // Extract just the secondary sector info
+        const secondarySectorsList = allSecondarySectorsData.map((item) => ({
+          id: item.id,
+          sector_name: item.sector_name,
+        }));
+        setSecondarySectors(secondarySectorsList);
       } catch (error) {
-        console.error("Error fetching provinces:", error);
+        console.error("Error fetching secondary sectors:", error);
       } finally {
-        setLoadingProvinces(false);
+        setLoadingSecondarySectors(false);
       }
     };
 
-    fetchProvinces();
-  }, [filters.countries]);
+    fetchAllSubSectors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
-  // Fetch cities when countries or provinces are selected
-  useEffect(() => {
-    const fetchCities = async () => {
-      if (filters.countries.length === 0) {
-        setCities([]);
-        return;
-      }
-
-      try {
-        setLoadingCities(true);
-        const citiesData = await locationsService.getCities(
-          filters.countries,
-          filters.provinces
-        );
-        setCities(citiesData);
-      } catch (error) {
-        console.error("Error fetching cities:", error);
-      } finally {
-        setLoadingCities(false);
-      }
-    };
-
-    fetchCities();
-  }, [filters.countries, filters.provinces]);
-
-  // Fetch secondary sectors when primary sectors are selected
+  // Fetch secondary sectors when primary sectors are selected (for backward compatibility)
   useEffect(() => {
     const fetchSecondarySectors = async () => {
-      if (filters.primarySectors.length === 0) {
-        setSecondarySectors([]);
+      // Only fetch if primary sectors are selected AND no secondary sectors are already loaded
+      if (filters.primarySectors.length === 0 || secondarySectors.length > 0) {
         return;
       }
 
@@ -267,7 +250,7 @@ export default function FinancialMetricsTable() {
     };
 
     fetchSecondarySectors();
-  }, [filters.primarySectors]);
+  }, [filters.primarySectors, secondarySectors.length]);
 
   const fetchMetrics = useCallback(async () => {
     try {
@@ -277,20 +260,12 @@ export default function FinancialMetricsTable() {
       // Build filter payload (only location and sector filters, no metrics)
       const filterPayload: {
         Countries?: string[];
-        Provinces?: string[];
-        Cities?: string[];
         Primary_sectors_ids?: number[];
         Secondary_sectors_ids?: number[];
       } = {};
 
       if (filters.countries.length > 0) {
         filterPayload.Countries = filters.countries;
-      }
-      if (filters.provinces.length > 0) {
-        filterPayload.Provinces = filters.provinces;
-      }
-      if (filters.cities.length > 0) {
-        filterPayload.Cities = filters.cities;
       }
       if (filters.primarySectors.length > 0) {
         filterPayload.Primary_sectors_ids = filters.primarySectors;
@@ -302,8 +277,6 @@ export default function FinancialMetricsTable() {
       // Only send filters if at least one filter is applied
       const hasFilters = 
         (filterPayload.Countries?.length ?? 0) > 0 ||
-        (filterPayload.Provinces?.length ?? 0) > 0 ||
-        (filterPayload.Cities?.length ?? 0) > 0 ||
         (filterPayload.Primary_sectors_ids?.length ?? 0) > 0 ||
         (filterPayload.Secondary_sectors_ids?.length ?? 0) > 0;
 
@@ -588,18 +561,14 @@ export default function FinancialMetricsTable() {
           <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
             Financial Metrics
           </h2>
-          <div className="mt-1 text-xs text-gray-500">
-            Primary Sector: <span className="font-medium">Real Estate</span>
-            {lastUpdated ? (
-              <>
-                {" "}
-                · Updated{" "}
-                <span className="font-medium">
-                  {lastUpdated.toLocaleTimeString()}
-                </span>
-              </>
-            ) : null}
-          </div>
+          {lastUpdated ? (
+            <div className="mt-1 text-xs text-gray-500">
+              Updated{" "}
+              <span className="font-medium">
+                {lastUpdated.toLocaleTimeString()}
+              </span>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -688,8 +657,6 @@ export default function FinancialMetricsTable() {
                         setFilters((prev) => ({
                           ...prev,
                           countries: [...prev.countries, value],
-                          provinces: [], // Reset provinces when country changes
-                          cities: [], // Reset cities when country changes
                         }));
                       }
                     }}
@@ -712,99 +679,6 @@ export default function FinancialMetricsTable() {
                               }))
                             }
                             className="hover:text-blue-600"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Province/State
-                  </label>
-                  <SearchableSelect
-                    options={provinces.map((p) => ({
-                      value: p.State__Province__County,
-                      label: p.State__Province__County,
-                    }))}
-                    value=""
-                    onChange={(value) => {
-                      if (typeof value === "string" && value && !filters.provinces.includes(value)) {
-                        setFilters((prev) => ({
-                          ...prev,
-                          provinces: [...prev.provinces, value],
-                          cities: [], // Reset cities when province changes
-                        }));
-                      }
-                    }}
-                    placeholder={loadingProvinces ? "Loading..." : filters.countries.length === 0 ? "Select country first" : "Select Province"}
-                    disabled={loadingProvinces || filters.countries.length === 0}
-                  />
-                  {filters.provinces.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {filters.provinces.map((province) => (
-                        <span
-                          key={province}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-green-100 text-green-800 rounded"
-                        >
-                          {province}
-                          <button
-                            onClick={() =>
-                              setFilters((prev) => ({
-                                ...prev,
-                                provinces: prev.provinces.filter((p) => p !== province),
-                              }))
-                            }
-                            className="hover:text-green-600"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    City
-                  </label>
-                  <SearchableSelect
-                    options={cities.map((c) => ({
-                      value: c.City,
-                      label: c.City,
-                    }))}
-                    value=""
-                    onChange={(value) => {
-                      if (typeof value === "string" && value && !filters.cities.includes(value)) {
-                        setFilters((prev) => ({
-                          ...prev,
-                          cities: [...prev.cities, value],
-                        }));
-                      }
-                    }}
-                    placeholder={loadingCities ? "Loading..." : filters.countries.length === 0 ? "Select country first" : "Select City"}
-                    disabled={loadingCities || filters.countries.length === 0}
-                  />
-                  {filters.cities.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {filters.cities.map((city) => (
-                        <span
-                          key={city}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded"
-                        >
-                          {city}
-                          <button
-                            onClick={() =>
-                              setFilters((prev) => ({
-                                ...prev,
-                                cities: prev.cities.filter((c) => c !== city),
-                              }))
-                            }
-                            className="hover:text-orange-600"
                           >
                             ×
                           </button>
@@ -872,7 +746,7 @@ export default function FinancialMetricsTable() {
 
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Secondary Sector
+                    Sub-Sector
                   </label>
                   <SearchableSelect
                     options={secondarySectors.map((s) => ({
@@ -880,16 +754,38 @@ export default function FinancialMetricsTable() {
                       label: s.sector_name,
                     }))}
                     value=""
-                    onChange={(value) => {
+                    onChange={async (value) => {
                       if (typeof value === "number" && value && !filters.secondarySectors.includes(value)) {
-                        setFilters((prev) => ({
-                          ...prev,
-                          secondarySectors: [...prev.secondarySectors, value],
-                        }));
+                        // When a sub-sector is selected, fetch related primary sectors
+                        try {
+                          const relatedPrimarySectors = await locationsService.getPrimarySectorsBySecondarySector(value);
+                          const relatedPrimarySectorIds = relatedPrimarySectors.map((s) => s.id);
+                          
+                          setFilters((prev) => {
+                            // Add the sub-sector
+                            const newSecondarySectors = [...prev.secondarySectors, value];
+                            // Add related primary sectors (avoid duplicates)
+                            const combinedPrimarySectors = [...prev.primarySectors, ...relatedPrimarySectorIds];
+                            const uniquePrimarySectors = Array.from(new Set(combinedPrimarySectors));
+                            
+                            return {
+                              ...prev,
+                              secondarySectors: newSecondarySectors,
+                              primarySectors: uniquePrimarySectors,
+                            };
+                          });
+                        } catch (error) {
+                          console.error("Error fetching primary sectors for sub-sector:", error);
+                          // Still add the sub-sector even if fetching primary sectors fails
+                          setFilters((prev) => ({
+                            ...prev,
+                            secondarySectors: [...prev.secondarySectors, value],
+                          }));
+                        }
                       }
                     }}
-                    placeholder={loadingSecondarySectors ? "Loading..." : filters.primarySectors.length === 0 ? "Select primary sector first" : "Select Secondary Sector"}
-                    disabled={loadingSecondarySectors || filters.primarySectors.length === 0}
+                    placeholder={loadingSecondarySectors ? "Loading..." : "Select Sub-Sector"}
+                    disabled={loadingSecondarySectors}
                   />
                   {filters.secondarySectors.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
@@ -1093,7 +989,7 @@ export default function FinancialMetricsTable() {
                       {r.revenue_range}
                     </td>
                     <td
-                      className="px-4 py-3 text-sm text-center text-gray-900 cursor-pointer hover:text-blue-600 hover:underline"
+                      className="px-4 py-3 text-sm text-center text-blue-600 underline font-medium cursor-pointer hover:text-blue-800 transition-colors duration-200"
                       onClick={() => handleCompaniesClick(r.revenue_range, r.num_companies)}
                       title="Click to view all companies in this revenue range"
                     >
@@ -1129,8 +1025,6 @@ export default function FinancialMetricsTable() {
         revenueMax={selectedRevenueMax}
         numCompanies={selectedNumCompanies}
         countries={filters.countries}
-        provinces={filters.provinces}
-        cities={filters.cities}
         primarySectors={filters.primarySectors}
         secondarySectors={filters.secondarySectors}
       />
