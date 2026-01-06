@@ -707,7 +707,7 @@ const CorporateEventsTable = ({
             <th>Event Details</th>
             <th>Parties</th>
             <th>Deal Details</th>
-            <th>Advisors</th>
+            <th>Advisor(s)</th>
             <th>Sectors</th>
           </tr>
         </thead>
@@ -933,91 +933,92 @@ const CorporateEventsTable = ({
                       </div>
                     );
                   })()}
-                  {!isPartnership && (
-                    <div className="muted-row">
-                      <strong>Seller(s):</strong>{" "}
-                      {Array.isArray(event.other_counterparties) &&
-                      event.other_counterparties.length > 0
-                        ? (() => {
-                            const sellers = event.other_counterparties.filter(
-                              (cp) => {
-                                const status =
-                                  cp._counterparty_type?.counterparty_status ||
-                                  "";
-                                return /divestor|seller|vendor/i.test(status);
-                              }
-                            );
-                            if (sellers.length === 0)
-                              return <span>Not Available</span>;
-                            return sellers.map((counterparty, subIndex) => {
-                              const nc = counterparty._new_company as
-                                | {
-                                    id?: number;
-                                    name: string;
-                                    _is_that_investor?: boolean;
-                                    _is_that_data_analytic_company?: boolean;
-                                    _url?: string;
-                                    _investor_profile_id?: number;
-                                  }
-                                | undefined;
-                              if (!nc) {
-                                return (
-                                  <span key={subIndex}>
-                                    Not Available
-                                    {subIndex < sellers.length - 1 && ", "}
-                                  </span>
-                                );
-                              }
-                              const name = nc.name;
-                              let url = "";
-                              const investorProfileId = nc._investor_profile_id;
-                              const cpId =
-                                (
-                                  counterparty as {
-                                    new_company_counterparty?: number;
-                                  }
-                                ).new_company_counterparty || nc.id;
-                              if (nc._is_that_investor) {
-                                url =
-                                  typeof investorProfileId === "number" &&
-                                  investorProfileId > 0
-                                    ? `/investors/${investorProfileId}`
-                                    : typeof cpId === "number"
-                                    ? `/investors/${cpId}`
-                                    : "";
-                              } else if (nc._is_that_data_analytic_company) {
-                                url =
-                                  typeof cpId === "number"
-                                    ? `/company/${cpId}`
-                                    : "";
-                              } else if (
-                                typeof nc._url === "string" &&
-                                nc._url
-                              ) {
-                                url = nc._url.replace(
-                                  /\/(?:investor)\//,
-                                  "/investors/"
-                                );
-                              }
+                  {!isPartnership &&
+                    (() => {
+                      // Check if there are any sellers before rendering
+                      const sellers =
+                        Array.isArray(event.other_counterparties) &&
+                        event.other_counterparties.length > 0
+                          ? event.other_counterparties.filter((cp) => {
+                              const status =
+                                cp._counterparty_type?.counterparty_status ||
+                                "";
+                              return /divestor|seller|vendor/i.test(status);
+                            })
+                          : [];
+
+                      // Only render if there are sellers
+                      if (sellers.length === 0) return null;
+
+                      return (
+                        <div className="muted-row">
+                          <strong>Seller(s):</strong>{" "}
+                          {sellers.map((counterparty, subIndex) => {
+                            const nc = counterparty._new_company as
+                              | {
+                                  id?: number;
+                                  name: string;
+                                  _is_that_investor?: boolean;
+                                  _is_that_data_analytic_company?: boolean;
+                                  _url?: string;
+                                  _investor_profile_id?: number;
+                                }
+                              | undefined;
+                            if (!nc) {
                               return (
                                 <span key={subIndex}>
-                                  {url ? (
-                                    <a href={url} className="link-blue">
-                                      {name}
-                                    </a>
-                                  ) : (
-                                    <span style={{ color: "#000" }}>
-                                      {name}
-                                    </span>
-                                  )}
+                                  Not Available
                                   {subIndex < sellers.length - 1 && ", "}
                                 </span>
                               );
-                            });
-                          })()
-                        : "Not Available"}
-                    </div>
-                  )}
+                            }
+                            const name = nc.name;
+                            let url = "";
+                            const investorProfileId = nc._investor_profile_id;
+                            const cpId =
+                              (
+                                counterparty as {
+                                  new_company_counterparty?: number;
+                                }
+                              ).new_company_counterparty || nc.id;
+                            if (nc._is_that_investor) {
+                              url =
+                                typeof investorProfileId === "number" &&
+                                investorProfileId > 0
+                                  ? `/investors/${investorProfileId}`
+                                  : typeof cpId === "number"
+                                  ? `/investors/${cpId}`
+                                  : "";
+                            } else if (nc._is_that_data_analytic_company) {
+                              url =
+                                typeof cpId === "number"
+                                  ? `/company/${cpId}`
+                                  : "";
+                            } else if (
+                              typeof nc._url === "string" &&
+                              nc._url
+                            ) {
+                              url = nc._url.replace(
+                                /\/(?:investor)\//,
+                                "/investors/"
+                              );
+                            }
+                            return (
+                              <span key={subIndex}>
+                                {url ? (
+                                  <a href={url} className="link-blue">
+                                    {name}
+                                  </a>
+                                ) : (
+                                  <span style={{ color: "#000" }}>{name}</span>
+                                )}
+                                {subIndex < sellers.length - 1 && ", "}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                 </td>
                 {/* Deal Details */}
                 <td>
