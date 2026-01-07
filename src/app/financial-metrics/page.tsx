@@ -1,17 +1,12 @@
-import { redirect } from "next/navigation";
-import { serverAuthService } from "@/lib/server-auth";
 import FinancialMetricsTableServer from "@/components/financial-metrics/FinancialMetricsTableServer";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import FinancialMetricsAuthGate from "./financial-metrics-auth-gate";
 
 export default async function FinancialMetricsPage() {
-  // Check authentication on the server
-  if (!serverAuthService.isAuthenticated()) {
-    redirect("/login");
-  }
-
   return (
     <div className="min-h-screen">
+      <FinancialMetricsAuthGate />
       <Header />
 
       <main className="px-2 py-4 mx-auto w-full sm:px-4 sm:py-8">
