@@ -1385,9 +1385,33 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
             </thead>
             <tbody>
               {corporateEvents.map((event: CorporateEvent, index: number) => {
-                const target = event.target_counterparty?.new_company;
+                // Check both new_company and _new_company for target data (API may use either)
+                const targetCounterparty = event.target_counterparty as unknown as {
+                  new_company?: {
+                    name?: string;
+                    country?: string;
+                    primary_sectors?: Array<string | { sector_name?: string; id?: number }>;
+                    secondary_sectors?: Array<string | { sector_name?: string; id?: number }>;
+                    _location?: { Country?: string };
+                    _sectors_primary?: Array<{ sector_name?: string; id?: number }>;
+                    _sectors_secondary?: Array<{ sector_name?: string; id?: number }>;
+                  };
+                  _new_company?: {
+                    name?: string;
+                    country?: string;
+                    primary_sectors?: Array<string | { sector_name?: string; id?: number }>;
+                    secondary_sectors?: Array<string | { sector_name?: string; id?: number }>;
+                    _location?: { Country?: string };
+                    _sectors_primary?: Array<{ sector_name?: string; id?: number }>;
+                    _sectors_secondary?: Array<{ sector_name?: string; id?: number }>;
+                  };
+                  new_company_counterparty?: number;
+                };
+                const target =
+                  targetCounterparty?.new_company ||
+                  targetCounterparty?._new_company;
                 const targetCounterpartyId =
-                  event.target_counterparty?.new_company_counterparty;
+                  targetCounterparty?.new_company_counterparty;
                 const targetName = target?.name || "Not Available";
                 const targetHref = targetCounterpartyId
                   ? `/company/${targetCounterpartyId}`
@@ -1408,14 +1432,18 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                   event.deal_type || ""
                 );
 
+                // Extract primary sectors - check both new and legacy formats
                 const rawPrimary =
                   (target?.primary_sectors as
-                    | Array<string | { sector_name?: string }>
+                    | Array<string | { sector_name?: string; id?: number }>
                     | undefined) ??
                   ((target as unknown as {
-                    _sectors_primary?: Array<{ sector_name?: string }>;
+                    _sectors_primary?: Array<{
+                      sector_name?: string;
+                      id?: number;
+                    }>;
                   })?._sectors_primary as
-                    | Array<{ sector_name?: string }>
+                    | Array<{ sector_name?: string; id?: number }>
                     | undefined);
 
                 const primarySectorsForLinks:
@@ -1445,14 +1473,18 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
                       }>)
                     : undefined;
 
+                // Extract secondary sectors - check both new and legacy formats
                 const rawSecondary =
                   (target?.secondary_sectors as
-                    | Array<string | { sector_name?: string }>
+                    | Array<string | { sector_name?: string; id?: number }>
                     | undefined) ??
                   ((target as unknown as {
-                    _sectors_secondary?: Array<{ sector_name?: string }>;
+                    _sectors_secondary?: Array<{
+                      sector_name?: string;
+                      id?: number;
+                    }>;
                   })?._sectors_secondary as
-                    | Array<{ sector_name?: string }>
+                    | Array<{ sector_name?: string; id?: number }>
                     | undefined);
 
                 const secondarySectorsForLinks:
