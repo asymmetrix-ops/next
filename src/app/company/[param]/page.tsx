@@ -3768,14 +3768,19 @@ const CompanyDetail = () => {
               {financialMetricsPeriodDisplay && (
                 <div
                   style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(180px, 220px) 1fr",
                     marginTop: "-12px",
-                    marginBottom: "12px",
+                    marginBottom: "4px",
                     fontSize: "13px",
                     color: "#6b7280",
                     fontWeight: 500,
                   }}
                 >
-                  {financialMetricsPeriodDisplay}
+                  <span></span>
+                  <span style={{ textAlign: "left" }}>
+                    {financialMetricsPeriodDisplay}
+                  </span>
                 </div>
               )}
               {!hasIncomeStatementData && (
@@ -4478,14 +4483,19 @@ const CompanyDetail = () => {
               {financialMetricsPeriodDisplay && (
                 <div
                   style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(180px, 220px) 1fr",
                     marginTop: "-10px",
-                    marginBottom: "10px",
+                    marginBottom: "4px",
                     fontSize: "13px",
                     color: "#6b7280",
                     fontWeight: 500,
                   }}
                 >
-                  {financialMetricsPeriodDisplay}
+                  <span></span>
+                  <span style={{ textAlign: "left" }}>
+                    {financialMetricsPeriodDisplay}
+                  </span>
                 </div>
               )}
               {!hasIncomeStatementData && (
