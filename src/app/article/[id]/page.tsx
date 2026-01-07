@@ -907,120 +907,6 @@ const ArticleDetailPage = () => {
                   </div>
                 </div>
               )}
-
-            {/* Related Documents (attachments) */}
-            {article.Related_Documents &&
-              (article.Related_Documents || [])
-                .filter(Boolean)
-                .filter((d) => !isImageDoc(d)).length > 0 && (
-                <div style={styles.section}>
-                  <h2 style={styles.sectionTitle}>Related Documents</h2>
-                  {(() => {
-                    const nonImage = (article.Related_Documents || [])
-                      .filter(Boolean)
-                      .filter((d) => !isImageDoc(d));
-
-                    const audioDocs = nonImage.filter(isAudioDoc);
-                    const otherDocs = nonImage.filter((d) => !isAudioDoc(d));
-
-                    return (
-                      <>
-                        {audioDocs.length > 0 && (
-                          <div className="article-audio-list">
-                            {audioDocs.map((doc, idx) => {
-                              const url = resolveDocumentUrl(doc);
-                              const name =
-                                (doc as { name?: string })?.name ||
-                                "Audio file";
-                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                              const metaAny = (doc as any)?.meta;
-                              const durationSeconds =
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                (metaAny as any)?.duration ??
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                (metaAny as any)?.audio?.duration;
-                              const duration = formatDuration(durationSeconds);
-                              const size = formatBytes(
-                                (doc as { size?: number })?.size
-                              );
-
-                              return (
-                                <div
-                                  key={`${name}-${idx}`}
-                                  className="article-audio-card"
-                                >
-                                  <div className="article-audio-top">
-                                    <div className="article-audio-title">
-                                      {name}
-                                    </div>
-                                    {url ? (
-                                      <a
-                                        href={url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="article-audio-link"
-                                        title="Open / download audio"
-                                      >
-                                        Open
-                                      </a>
-                                    ) : null}
-                                  </div>
-
-                                  {url ? (
-                                    <audio
-                                      className="article-audio-player"
-                                      controls
-                                      preload="metadata"
-                                      src={url}
-                                    />
-                                  ) : (
-                                    <div className="article-audio-missing">
-                                      Audio attachment is available but no
-                                      playable URL was provided.
-                                    </div>
-                                  )}
-
-                                  {(size || duration) && (
-                                    <div className="article-audio-meta">
-                                      {[size, duration]
-                                        .filter(Boolean)
-                                        .join(" • ")}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {otherDocs.length > 0 && (
-                          <div style={styles.tagContainer}>
-                            {otherDocs.map((doc, index) => {
-                              const url = resolveDocumentUrl(doc);
-                              const name = (doc as { name?: string })?.name;
-                              if (!url) return null;
-                              return (
-                                <a
-                                  key={index}
-                                  href={url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{
-                                    ...styles.tag,
-                                    textDecoration: "none",
-                                  }}
-                                >
-                                  {name || "Document"}
-                                </a>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
           </div>
 
           {/* Right: Metadata (1/3) */}
@@ -1568,6 +1454,121 @@ const ArticleDetailPage = () => {
                 </div>
               </div>
             )}
+
+            {/* Related Documents (attachments) */}
+            {article.Related_Documents &&
+              (article.Related_Documents || [])
+                .filter(Boolean)
+                .filter((d) => !isImageDoc(d)).length > 0 && (
+                <div style={styles.section}>
+                  <h2 style={styles.sectionTitle}>Related Documents</h2>
+                  {(() => {
+                    const nonImage = (article.Related_Documents || [])
+                      .filter(Boolean)
+                      .filter((d) => !isImageDoc(d));
+
+                    const audioDocs = nonImage.filter(isAudioDoc);
+                    const otherDocs = nonImage.filter((d) => !isAudioDoc(d));
+
+                    return (
+                      <>
+                        {audioDocs.length > 0 && (
+                          <div className="article-audio-list">
+                            {audioDocs.map((doc, idx) => {
+                              const url = resolveDocumentUrl(doc);
+                              const name =
+                                (doc as { name?: string })?.name ||
+                                "Audio file";
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                              const metaAny = (doc as any)?.meta;
+                              const durationSeconds =
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                (metaAny as any)?.duration ??
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                (metaAny as any)?.audio?.duration;
+                              const duration = formatDuration(durationSeconds);
+                              const size = formatBytes(
+                                (doc as { size?: number })?.size
+                              );
+
+                              return (
+                                <div
+                                  key={`${name}-${idx}`}
+                                  className="article-audio-card"
+                                >
+                                  <div className="article-audio-top">
+                                    <div className="article-audio-title">
+                                      {name}
+                                    </div>
+                                    {url ? (
+                                      <a
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="article-audio-link"
+                                        title="Open / download audio"
+                                      >
+                                        Open
+                                      </a>
+                                    ) : null}
+                                  </div>
+
+                                  {url ? (
+                                    <audio
+                                      className="article-audio-player"
+                                      controls
+                                      preload="metadata"
+                                      src={url}
+                                    />
+                                  ) : (
+                                    <div className="article-audio-missing">
+                                      Audio attachment is available but no
+                                      playable URL was provided.
+                                    </div>
+                                  )}
+
+                                  {(size || duration) && (
+                                    <div className="article-audio-meta">
+                                      {[size, duration]
+                                        .filter(Boolean)
+                                        .join(" • ")}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {otherDocs.length > 0 && (
+                          <div style={styles.tagContainer}>
+                            {otherDocs.map((doc, index) => {
+                              const url = resolveDocumentUrl(doc);
+                              const name = (doc as { name?: string })?.name;
+                              if (!url) return null;
+                              return (
+                                <a
+                                  key={index}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    ...styles.tag,
+                                    textDecoration: "none",
+                                  }}
+                                >
+                                  {name || "Document"}
+                                </a>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
             {(() => {
               const ct = (
                 article.Content_Type ||
