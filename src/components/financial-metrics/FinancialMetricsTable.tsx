@@ -5,6 +5,14 @@ import { dashboardApiService } from "@/lib/dashboardApi";
 import { locationsService } from "@/lib/locationsService";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import CompaniesModal from "./CompaniesModal";
+import {
+  Currency,
+  FXRates,
+  getFXRates,
+  convertCurrency,
+  formatCurrency,
+  CURRENCY_OPTIONS,
+} from "@/lib/fxRates";
 
 type MetricView = "mean" | "median";
 
@@ -13,45 +21,58 @@ export type FinancialMetricsRow = {
   num_companies: number;
   range_order?: number;
 
-  mean_arr_percent?: string | number | null;
-  mean_ebitda_margin?: string | number | null;
-  mean_enterprise_value_m?: string | number | null;
+  // Financial Metrics - Mean (lowercase from API)
+  mean_revenue_m?: string | number | null;
+  mean_ebitda_m?: string | number | null;
+  mean_ebit_m?: string | number | null;
+  mean_ev?: string | number | null;
   mean_ev_rev_multiple?: string | number | null;
   mean_revenue_growth?: string | number | null;
+  mean_ebitda_margin?: string | number | null;
+
+  // Subscription Metrics - Mean
+  mean_arr_percent?: string | number | null;
+  mean_arr_m?: string | number | null;
   mean_nrr?: string | number | null;
   mean_grr?: string | number | null;
 
-  median_arr_percent?: string | number | null;
-  median_ebitda_margin?: string | number | null;
-  median_enterprise_value_m?: string | number | null;
+  // Financial Metrics - Median (lowercase from API)
+  median_revenue_m?: string | number | null;
+  median_ebitda_m?: string | number | null;
+  median_ebit_m?: string | number | null;
+  median_ev?: string | number | null;
   median_ev_rev_multiple?: string | number | null;
   median_revenue_growth?: string | number | null;
+  median_ebitda_margin?: string | number | null;
+
+  // Subscription Metrics - Median
+  median_arr_percent?: string | number | null;
+  median_arr_m?: string | number | null;
   median_nrr?: string | number | null;
   median_grr?: string | number | null;
 };
 
 // All available metrics organized by category
 // Note: Only metrics that are actually returned by the API are included here
+// Monetary fields (money_m) will be converted based on selected currency
+// Key names match the API field names (without the mean_/median_ prefix)
+// API returns lowercase: mean_revenue_m, mean_ev, mean_arr_m, mean_ebitda_m, mean_ebit_m
 const FINANCIAL_METRICS = [
-  {
-    key: "enterprise_value_m",
-    label: "Enterprise Value ($M)",
-    format: "money_m" as const,
-  },
+  // Monetary values - will be currency converted
+  { key: "revenue_m", label: "Revenue ($M)", format: "money_m" as const },
+  { key: "ebitda_m", label: "EBITDA ($M)", format: "money_m" as const },
+  { key: "ebit_m", label: "EBIT ($M)", format: "money_m" as const },
+  { key: "ev", label: "EV ($M)", format: "money_m" as const },
+  // Multiples and percentages - NOT converted
   { key: "ev_rev_multiple", label: "EV / Rev (x)", format: "multiple" as const },
-  {
-    key: "revenue_growth",
-    label: "Revenue Growth (%)",
-    format: "percent" as const,
-  },
-  {
-    key: "ebitda_margin",
-    label: "EBITDA Margin (%)",
-    format: "percent" as const,
-  },
+  { key: "revenue_growth", label: "Revenue Growth (%)", format: "percent" as const },
+  { key: "ebitda_margin", label: "EBITDA Margin (%)", format: "percent" as const },
 ] as const;
 
 const SUBSCRIPTION_METRICS = [
+  // Monetary value - will be currency converted
+  { key: "arr_m", label: "ARR ($M)", format: "money_m" as const },
+  // Percentages - NOT converted
   { key: "arr_percent", label: "ARR (%)", format: "percent" as const },
   { key: "nrr", label: "NRR (%)", format: "percent" as const },
   { key: "grr", label: "GRR (%)", format: "percent" as const },
@@ -76,11 +97,15 @@ const ALL_METRICS = [
 
 // Default metrics to show (all available metrics)
 const DEFAULT_METRICS = [
-  "arr_percent",
-  "ebitda_margin",
-  "enterprise_value_m",
+  "revenue_m",
+  "arr_m",
+  "ebitda_m",
+  "ebit_m",
+  "ev",
   "ev_rev_multiple",
   "revenue_growth",
+  "ebitda_margin",
+  "arr_percent",
   "nrr",
   "grr",
 ] as const;
@@ -97,26 +122,33 @@ function toNumber(value: unknown): number | null {
   return null;
 }
 
+/**
+ * Format a value based on its type.
+ * For money_m (monetary values in millions), applies currency conversion and formatting.
+ * For percent/multiple/number, no conversion is applied.
+ */
 function formatValue(
   value: unknown,
-  format: (typeof ALL_METRICS)[number]["format"]
+  format: (typeof ALL_METRICS)[number]["format"],
+  currency: Currency = "USD",
+  fxRates: FXRates | null = null
 ): string {
   const n = toNumber(value);
   if (n === null) return "—";
 
   switch (format) {
     case "percent":
+      // No currency conversion for percentages
       return `${n.toFixed(1).replace(/\.0$/, "")}%`;
     case "multiple":
+      // No currency conversion for multiples
       return `${n.toFixed(1).replace(/\.0$/, "")}x`;
     case "money_m":
-      // Add commas to large numbers (e.g., 1,234.5)
-      const formatted = n.toFixed(1).replace(/\.0$/, "");
-      const parts = formatted.split(".");
-      const integerPart = parts[0];
-      const decimalPart = parts[1] ? `.${parts[1]}` : "";
-      const withCommas = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-      return `$${withCommas}${decimalPart}`;
+      // Apply currency conversion for monetary values
+      const convertedValue = fxRates
+        ? convertCurrency(n, currency, fxRates)
+        : n;
+      return formatCurrency(convertedValue, currency);
     case "number":
       return n.toLocaleString();
     default:
@@ -185,6 +217,11 @@ export default function FinancialMetricsTable({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [showFilters, setShowFilters] = useState(false);
   
+  // Currency state
+  const [currency, setCurrency] = useState<Currency>("USD");
+  const [fxRates, setFxRates] = useState<FXRates | null>(null);
+  const [loadingFxRates, setLoadingFxRates] = useState(true);
+  
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
     countries: [],
@@ -228,6 +265,23 @@ export default function FinancialMetricsTable({
   const [loadingCountries, setLoadingCountries] = useState(false);
   const [loadingPrimarySectors, setLoadingPrimarySectors] = useState(false);
   const [loadingSecondarySectors, setLoadingSecondarySectors] = useState(false);
+
+  // Fetch FX rates on mount (cached for 12h)
+  useEffect(() => {
+    const loadFxRates = async () => {
+      try {
+        setLoadingFxRates(true);
+        const rates = await getFXRates();
+        setFxRates(rates);
+      } catch (error) {
+        console.error("Error fetching FX rates:", error);
+        // Will use USD as fallback (no conversion)
+      } finally {
+        setLoadingFxRates(false);
+      }
+    };
+    loadFxRates();
+  }, []);
 
   // Fetch filter options if not provided initially (fallback for client-side only usage)
   useEffect(() => {
@@ -461,10 +515,23 @@ export default function FinancialMetricsTable({
 
   const viewPrefix = view === "mean" ? "mean_" : "median_";
 
-  // Get selected metrics to display
+  // Get currency symbol for dynamic labels
+  const currencySymbol = CURRENCY_OPTIONS.find((c) => c.value === currency)?.symbol ?? "$";
+
+  // Get selected metrics to display with dynamic labels for money fields
   const selectedMetricsList = useMemo(() => {
-    return ALL_METRICS.filter((m) => filters.selectedMetrics.includes(m.key));
-  }, [filters.selectedMetrics]);
+    return ALL_METRICS.filter((m) => filters.selectedMetrics.includes(m.key)).map((m) => {
+      // Update label for money_m format to show selected currency
+      // Replace ($M) with the selected currency symbol
+      if (m.format === "money_m") {
+        return {
+          ...m,
+          label: m.label.replace(/\(\$M\)/, `(${currencySymbol}M)`),
+        };
+      }
+      return m;
+    });
+  }, [filters.selectedMetrics, currencySymbol]);
 
   // Handle metric selection
   const toggleMetric = useCallback((metricKey: string) => {
@@ -552,7 +619,9 @@ export default function FinancialMetricsTable({
         num_companies: r.num_companies,
         range_order: r.range_order ?? 0,
         rawValues: selectedMetricsList.map((m) => get(m.key)),
-        values: selectedMetricsList.map((m) => formatValue(get(m.key), m.format)),
+        values: selectedMetricsList.map((m) => 
+          formatValue(get(m.key), m.format, currency, fxRates)
+        ),
       };
     });
 
@@ -594,7 +663,7 @@ export default function FinancialMetricsTable({
 
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [rows, viewPrefix, sortColumn, sortDirection, selectedMetricsList]);
+  }, [rows, viewPrefix, sortColumn, sortDirection, selectedMetricsList, currency, fxRates]);
 
   // Parse revenue range to get min/max values
   const parseRevenueRange = useCallback((range: string): { min: number | null; max: number | null } => {
@@ -676,7 +745,7 @@ export default function FinancialMetricsTable({
       const blob = new Blob([fullCsv], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       const timestamp = new Date().toISOString().split("T")[0];
-      const filename = `financial_metrics_${view}_${timestamp}.csv`;
+      const filename = `financial_metrics_${view}_${currency}_${timestamp}.csv`;
 
       if (link.download !== undefined) {
         const url = URL.createObjectURL(blob);
@@ -694,7 +763,7 @@ export default function FinancialMetricsTable({
     } finally {
       setExporting(false);
     }
-  }, [rows, tableRows, view, selectedMetricsList]);
+  }, [rows, tableRows, view, selectedMetricsList, currency]);
 
   return (
     <div className="bg-white rounded-lg shadow">
@@ -747,6 +816,30 @@ export default function FinancialMetricsTable({
             >
               Median
             </button>
+          </div>
+
+          {/* Currency Selector */}
+          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+            {CURRENCY_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setCurrency(opt.value)}
+                disabled={loadingFxRates && opt.value !== "USD"}
+                className={
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-colors " +
+                  (currency === opt.value
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900") +
+                  (loadingFxRates && opt.value !== "USD"
+                    ? " opacity-50 cursor-not-allowed"
+                    : "")
+                }
+                title={opt.label}
+              >
+                {opt.symbol}
+              </button>
+            ))}
           </div>
 
           <button
@@ -1487,7 +1580,12 @@ export default function FinancialMetricsTable({
             </table>
 
             <div className="mt-3 text-xs text-gray-500">
-              Enterprise Value is displayed in <span className="font-medium">$M</span>.
+              Monetary values (Revenue, ARR, EBITDA, EBIT, EV) displayed in <span className="font-medium">{currencySymbol}M</span>.
+              {currency !== "USD" && fxRates && (
+                <span className="ml-2 text-gray-400">
+                  (1 USD = {fxRates[currency].toFixed(4)} {currency})
+                </span>
+              )}
             </div>
           </div>
         )}
