@@ -606,6 +606,8 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                       {!isPartnership && (() => {
                         // Extract buyers separately
                         const buyers: Array<{ id?: number; name: string; href: string | null }> = [];
+                        const dealTypeLower = String(newEvent.deal_type ?? legacyEvent.deal_type ?? "").toLowerCase();
+                        const isInvestmentDeal = dealTypeLower.includes("investment");
                         
                             // Prefer new other_counterparties with counterparty_status
                             if (
@@ -652,7 +654,13 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                         }
 
                         // Fallback to buyers_investors (non-investors only)
-                        if (buyers.length === 0 && Array.isArray(newEvent.buyers_investors) && newEvent.buyers_investors.length > 0) {
+                        // IMPORTANT: for Investment deals, `buyers_investors` are investors, not buyers.
+                        if (
+                          !isInvestmentDeal &&
+                          buyers.length === 0 &&
+                          Array.isArray(newEvent.buyers_investors) &&
+                          newEvent.buyers_investors.length > 0
+                        ) {
                           newEvent.buyers_investors.forEach((c) => {
                             if (c && typeof c.id === "number" && c.name && c.page_type !== "investor") {
                               buyers.push({
@@ -710,6 +718,8 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                       {!isPartnership && (() => {
                         // Extract investors separately
                         const investors: Array<{ id?: number; name: string; href: string | null }> = [];
+                        const dealTypeLower = String(newEvent.deal_type ?? legacyEvent.deal_type ?? "").toLowerCase();
+                        const isInvestmentDeal = dealTypeLower.includes("investment");
                         
                         // Prefer new other_counterparties with counterparty_status
                         if (
@@ -758,7 +768,13 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                         // Fallback to buyers_investors (investors only)
                         if (investors.length === 0 && Array.isArray(newEvent.buyers_investors) && newEvent.buyers_investors.length > 0) {
                           newEvent.buyers_investors.forEach((c) => {
-                            if (c && typeof c.id === "number" && c.name && c.page_type === "investor") {
+                            // For Investment deals, the backend often places investors in buyers_investors without page_type.
+                            if (
+                              c &&
+                              typeof c.id === "number" &&
+                              c.name &&
+                              (isInvestmentDeal || c.page_type === "investor")
+                            ) {
                               investors.push({
                                 id: c.id,
                                 name: c.name,
