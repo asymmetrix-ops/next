@@ -25,31 +25,63 @@ export type FinancialMetricsRow = {
   mean_revenue_m?: string | number | null;
   mean_ebitda_m?: string | number | null;
   mean_ebit_m?: string | number | null;
+  mean_ebit?: string | number | null;
   mean_ev?: string | number | null;
+  mean_ev_m?: string | number | null;
+  mean_enterprise_value_m?: string | number | null;
   mean_ev_rev_multiple?: string | number | null;
   mean_revenue_growth?: string | number | null;
   mean_ebitda_margin?: string | number | null;
+  mean_rule_of_40?: string | number | null;
+  mean_num_clients?: string | number | null;
+  mean_revenue_per_client?: string | number | null;
+  mean_num_employees?: string | number | null;
+  mean_revenue_per_employee?: string | number | null;
 
   // Subscription Metrics - Mean
   mean_arr_percent?: string | number | null;
   mean_arr_m?: string | number | null;
+  mean_churn_pc?: string | number | null;
+  mean_churn?: string | number | null;
   mean_nrr?: string | number | null;
   mean_grr?: string | number | null;
+  mean_upsell_pc?: string | number | null;
+  mean_cross_sell_pc?: string | number | null;
+  mean_price_increase_pc?: string | number | null;
+  mean_rev_expansion_pc?: string | number | null;
+  mean_new_client_growth_pc?: string | number | null;
+  mean_new_client_growth?: string | number | null;
 
   // Financial Metrics - Median (lowercase from API)
   median_revenue_m?: string | number | null;
   median_ebitda_m?: string | number | null;
   median_ebit_m?: string | number | null;
+  median_ebit?: string | number | null;
   median_ev?: string | number | null;
+  median_ev_m?: string | number | null;
+  median_enterprise_value_m?: string | number | null;
   median_ev_rev_multiple?: string | number | null;
   median_revenue_growth?: string | number | null;
   median_ebitda_margin?: string | number | null;
+  median_rule_of_40?: string | number | null;
+  median_num_clients?: string | number | null;
+  median_revenue_per_client?: string | number | null;
+  median_num_employees?: string | number | null;
+  median_revenue_per_employee?: string | number | null;
 
   // Subscription Metrics - Median
   median_arr_percent?: string | number | null;
   median_arr_m?: string | number | null;
+  median_churn_pc?: string | number | null;
+  median_churn?: string | number | null;
   median_nrr?: string | number | null;
   median_grr?: string | number | null;
+  median_upsell_pc?: string | number | null;
+  median_cross_sell_pc?: string | number | null;
+  median_price_increase_pc?: string | number | null;
+  median_rev_expansion_pc?: string | number | null;
+  median_new_client_growth_pc?: string | number | null;
+  median_new_client_growth?: string | number | null;
 };
 
 // All available metrics organized by category
@@ -62,11 +94,12 @@ const FINANCIAL_METRICS = [
   { key: "revenue_m", label: "Revenue ($M)", format: "money_m" as const },
   { key: "ebitda_m", label: "EBITDA ($M)", format: "money_m" as const },
   { key: "ebit_m", label: "EBIT ($M)", format: "money_m" as const },
-  { key: "ev", label: "EV ($M)", format: "money_m" as const },
+  { key: "ev_m", label: "EV ($M)", format: "money_m" as const },
   // Multiples and percentages - NOT converted
   { key: "ev_rev_multiple", label: "EV / Rev (x)", format: "multiple" as const },
   { key: "revenue_growth", label: "Revenue Growth (%)", format: "percent" as const },
   { key: "ebitda_margin", label: "EBITDA Margin (%)", format: "percent" as const },
+  { key: "rule_of_40", label: "Rule of 40 (%)", format: "percent" as const },
 ] as const;
 
 const SUBSCRIPTION_METRICS = [
@@ -74,8 +107,10 @@ const SUBSCRIPTION_METRICS = [
   { key: "arr_m", label: "ARR ($M)", format: "money_m" as const },
   // Percentages - NOT converted
   { key: "arr_percent", label: "ARR (%)", format: "percent" as const },
-  { key: "nrr", label: "NRR (%)", format: "percent" as const },
+  { key: "churn", label: "Churn (%)", format: "percent" as const },
   { key: "grr", label: "GRR (%)", format: "percent" as const },
+  { key: "nrr", label: "NRR (%)", format: "percent" as const },
+  { key: "new_client_growth", label: "New client growth (%)", format: "percent" as const },
 ] as const;
 
 type MetricDefinition = {
@@ -101,13 +136,16 @@ const DEFAULT_METRICS = [
   "arr_m",
   "ebitda_m",
   "ebit_m",
-  "ev",
+  "ev_m",
   "ev_rev_multiple",
   "revenue_growth",
   "ebitda_margin",
+  "rule_of_40",
   "arr_percent",
+  "churn",
   "nrr",
   "grr",
+  "new_client_growth",
 ] as const;
 
 function toNumber(value: unknown): number | null {
@@ -161,34 +199,6 @@ interface FilterState {
   primarySectors: number[];
   secondarySectors: number[];
   selectedMetrics: string[];
-  // Financial Metrics min/max
-  revenueMin: number | null;
-  revenueMax: number | null;
-  ebitdaMin: number | null;
-  ebitdaMax: number | null;
-  enterpriseValueMin: number | null;
-  enterpriseValueMax: number | null;
-  revenueMultipleMin: number | null;
-  revenueMultipleMax: number | null;
-  revenueGrowthMin: number | null;
-  revenueGrowthMax: number | null;
-  ebitdaMarginMin: number | null;
-  ebitdaMarginMax: number | null;
-  ruleOf40Min: number | null;
-  ruleOf40Max: number | null;
-  // Subscription Metrics min/max
-  arrMin: number | null;
-  arrMax: number | null;
-  arrPcMin: number | null;
-  arrPcMax: number | null;
-  churnMin: number | null;
-  churnMax: number | null;
-  grrMin: number | null;
-  grrMax: number | null;
-  nrrMin: number | null;
-  nrrMax: number | null;
-  newClientsRevenueGrowthMin: number | null;
-  newClientsRevenueGrowthMax: number | null;
 }
 
 interface FinancialMetricsTableProps {
@@ -228,34 +238,6 @@ export default function FinancialMetricsTable({
     primarySectors: [],
     secondarySectors: [],
     selectedMetrics: [...DEFAULT_METRICS],
-    // Financial Metrics min/max
-    revenueMin: null,
-    revenueMax: null,
-    ebitdaMin: null,
-    ebitdaMax: null,
-    enterpriseValueMin: null,
-    enterpriseValueMax: null,
-    revenueMultipleMin: null,
-    revenueMultipleMax: null,
-    revenueGrowthMin: null,
-    revenueGrowthMax: null,
-    ebitdaMarginMin: null,
-    ebitdaMarginMax: null,
-    ruleOf40Min: null,
-    ruleOf40Max: null,
-    // Subscription Metrics min/max
-    arrMin: null,
-    arrMax: null,
-    arrPcMin: null,
-    arrPcMax: null,
-    churnMin: null,
-    churnMax: null,
-    grrMin: null,
-    grrMax: null,
-    nrrMin: null,
-    nrrMax: null,
-    newClientsRevenueGrowthMin: null,
-    newClientsRevenueGrowthMax: null,
   });
 
   // Filter data state - initialize with server-provided data
@@ -372,34 +354,6 @@ export default function FinancialMetricsTable({
         Countries?: string[];
         Primary_sectors_ids?: number[];
         Secondary_sectors_ids?: number[];
-        // Financial Metrics
-        Revenue_min?: number;
-        Revenue_max?: number;
-        EBITDA_min?: number;
-        EBITDA_max?: number;
-        Enterprise_Value_min?: number;
-        Enterprise_Value_max?: number;
-        Revenue_Multiple_min?: number;
-        Revenue_Multiple_max?: number;
-        Revenue_Growth_min?: number;
-        Revenue_Growth_max?: number;
-        EBITDA_Margin_min?: number;
-        EBITDA_Margin_max?: number;
-        Rule_of_40_min?: number;
-        Rule_of_40_max?: number;
-        // Subscription Metrics
-        ARR_min?: number;
-        ARR_max?: number;
-        ARR_pc_min?: number;
-        ARR_pc_max?: number;
-        Churn_min?: number;
-        Churn_max?: number;
-        GRR_min?: number;
-        GRR_max?: number;
-        NRR_min?: number;
-        NRR_max?: number;
-        New_Clients_Revenue_Growth_min?: number;
-        New_Clients_Revenue_Growth_max?: number;
       } = {};
 
       if (filters.countries.length > 0) {
@@ -412,69 +366,11 @@ export default function FinancialMetricsTable({
         filterPayload.Secondary_sectors_ids = filters.secondarySectors;
       }
 
-      // Financial Metrics min/max
-      if (filters.revenueMin != null) filterPayload.Revenue_min = filters.revenueMin;
-      if (filters.revenueMax != null) filterPayload.Revenue_max = filters.revenueMax;
-      if (filters.ebitdaMin != null) filterPayload.EBITDA_min = filters.ebitdaMin;
-      if (filters.ebitdaMax != null) filterPayload.EBITDA_max = filters.ebitdaMax;
-      if (filters.enterpriseValueMin != null) filterPayload.Enterprise_Value_min = filters.enterpriseValueMin;
-      if (filters.enterpriseValueMax != null) filterPayload.Enterprise_Value_max = filters.enterpriseValueMax;
-      if (filters.revenueMultipleMin != null) filterPayload.Revenue_Multiple_min = filters.revenueMultipleMin;
-      if (filters.revenueMultipleMax != null) filterPayload.Revenue_Multiple_max = filters.revenueMultipleMax;
-      if (filters.revenueGrowthMin != null) filterPayload.Revenue_Growth_min = filters.revenueGrowthMin;
-      if (filters.revenueGrowthMax != null) filterPayload.Revenue_Growth_max = filters.revenueGrowthMax;
-      if (filters.ebitdaMarginMin != null) filterPayload.EBITDA_Margin_min = filters.ebitdaMarginMin;
-      if (filters.ebitdaMarginMax != null) filterPayload.EBITDA_Margin_max = filters.ebitdaMarginMax;
-      if (filters.ruleOf40Min != null) filterPayload.Rule_of_40_min = filters.ruleOf40Min;
-      if (filters.ruleOf40Max != null) filterPayload.Rule_of_40_max = filters.ruleOf40Max;
-
-      // Subscription Metrics min/max
-      if (filters.arrMin != null) filterPayload.ARR_min = filters.arrMin;
-      if (filters.arrMax != null) filterPayload.ARR_max = filters.arrMax;
-      if (filters.arrPcMin != null) filterPayload.ARR_pc_min = filters.arrPcMin;
-      if (filters.arrPcMax != null) filterPayload.ARR_pc_max = filters.arrPcMax;
-      if (filters.churnMin != null) filterPayload.Churn_min = filters.churnMin;
-      if (filters.churnMax != null) filterPayload.Churn_max = filters.churnMax;
-      if (filters.grrMin != null) filterPayload.GRR_min = filters.grrMin;
-      if (filters.grrMax != null) filterPayload.GRR_max = filters.grrMax;
-      if (filters.nrrMin != null) filterPayload.NRR_min = filters.nrrMin;
-      if (filters.nrrMax != null) filterPayload.NRR_max = filters.nrrMax;
-      if (filters.newClientsRevenueGrowthMin != null) filterPayload.New_Clients_Revenue_Growth_min = filters.newClientsRevenueGrowthMin;
-      if (filters.newClientsRevenueGrowthMax != null) filterPayload.New_Clients_Revenue_Growth_max = filters.newClientsRevenueGrowthMax;
-
       // Only send filters if at least one filter is applied
       const hasFilters = 
         (filterPayload.Countries?.length ?? 0) > 0 ||
         (filterPayload.Primary_sectors_ids?.length ?? 0) > 0 ||
-        (filterPayload.Secondary_sectors_ids?.length ?? 0) > 0 ||
-        // Financial Metrics
-        filterPayload.Revenue_min != null ||
-        filterPayload.Revenue_max != null ||
-        filterPayload.EBITDA_min != null ||
-        filterPayload.EBITDA_max != null ||
-        filterPayload.Enterprise_Value_min != null ||
-        filterPayload.Enterprise_Value_max != null ||
-        filterPayload.Revenue_Multiple_min != null ||
-        filterPayload.Revenue_Multiple_max != null ||
-        filterPayload.Revenue_Growth_min != null ||
-        filterPayload.Revenue_Growth_max != null ||
-        filterPayload.EBITDA_Margin_min != null ||
-        filterPayload.EBITDA_Margin_max != null ||
-        filterPayload.Rule_of_40_min != null ||
-        filterPayload.Rule_of_40_max != null ||
-        // Subscription Metrics
-        filterPayload.ARR_min != null ||
-        filterPayload.ARR_max != null ||
-        filterPayload.ARR_pc_min != null ||
-        filterPayload.ARR_pc_max != null ||
-        filterPayload.Churn_min != null ||
-        filterPayload.Churn_max != null ||
-        filterPayload.GRR_min != null ||
-        filterPayload.GRR_max != null ||
-        filterPayload.NRR_min != null ||
-        filterPayload.NRR_max != null ||
-        filterPayload.New_Clients_Revenue_Growth_min != null ||
-        filterPayload.New_Clients_Revenue_Growth_max != null;
+        (filterPayload.Secondary_sectors_ids?.length ?? 0) > 0;
 
       const data = await dashboardApiService.getFinancialMetrics(
         hasFilters ? filterPayload : undefined
@@ -514,6 +410,40 @@ export default function FinancialMetricsTable({
   }, [fetchMetrics]);
 
   const viewPrefix = view === "mean" ? "mean_" : "median_";
+
+  // Map UI metric keys to possible API field suffixes (without mean_/median_ prefix)
+  // This makes the table resilient to backend naming differences (e.g. `ev` vs `enterprise_value_m`).
+  const METRIC_FIELD_ALIASES = useMemo<Record<string, string[]>>(
+    () => ({
+      ev_m: ["ev_m", "ev", "enterprise_value_m", "enterprise_value"],
+      ebit_m: ["ebit_m", "ebit"],
+      churn: ["churn", "churn_pc"],
+      grr: ["grr", "grr_pc"],
+      nrr: ["nrr"],
+      rule_of_40: ["rule_of_40"],
+      new_client_growth: ["new_client_growth", "new_client_growth_pc"],
+    }),
+    []
+  );
+
+  const getMetricValue = useCallback(
+    (rowAny: Record<string, unknown>, key: string): unknown => {
+      const suffixes = METRIC_FIELD_ALIASES[key] ?? [key];
+
+      for (const suffix of suffixes) {
+        const fullKey = `${viewPrefix}${suffix}`;
+        const v = rowAny?.[fullKey];
+        if (v !== undefined && v !== null) return v;
+      }
+      // Fallback: try without prefix (just in case)
+      for (const suffix of suffixes) {
+        const v = rowAny?.[suffix];
+        if (v !== undefined && v !== null) return v;
+      }
+      return null;
+    },
+    [METRIC_FIELD_ALIASES, viewPrefix]
+  );
 
   // Get currency symbol for dynamic labels
   const currencySymbol = CURRENCY_OPTIONS.find((c) => c.value === currency)?.symbol ?? "$";
@@ -603,24 +533,16 @@ export default function FinancialMetricsTable({
 
   const tableRows = useMemo(() => {
     const mapped = rows.map((r) => {
-      const get = (key: string) => {
-        // The API returns fields with the pattern: mean_<metric_key> or median_<metric_key>
-        // We already have viewPrefix (mean_ or median_), so we just need the metric key
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const rowAny = r as any;
-        const fullKey = `${viewPrefix}${key}`;
-        
-        // Direct access to the field
-        return rowAny[fullKey] ?? null;
-      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rowAny = r as any as Record<string, unknown>;
       
       return {
         revenue_range: r.revenue_range,
         num_companies: r.num_companies,
         range_order: r.range_order ?? 0,
-        rawValues: selectedMetricsList.map((m) => get(m.key)),
+        rawValues: selectedMetricsList.map((m) => getMetricValue(rowAny, m.key)),
         values: selectedMetricsList.map((m) => 
-          formatValue(get(m.key), m.format, currency, fxRates)
+          formatValue(getMetricValue(rowAny, m.key), m.format, currency, fxRates)
         ),
       };
     });
@@ -663,7 +585,7 @@ export default function FinancialMetricsTable({
 
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [rows, viewPrefix, sortColumn, sortDirection, selectedMetricsList, currency, fxRates]);
+  }, [rows, viewPrefix, sortColumn, sortDirection, selectedMetricsList, currency, fxRates, getMetricValue]);
 
   // Parse revenue range to get min/max values
   const parseRevenueRange = useCallback((range: string): { min: number | null; max: number | null } => {
@@ -1151,291 +1073,6 @@ export default function FinancialMetricsTable({
             </div>
           </div>
 
-          {/* Financial Metrics Range Filters */}
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Financial Metrics Filters</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Revenue */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Revenue ($m)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.revenueMin ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, revenueMin: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.revenueMax ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, revenueMax: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* EBITDA */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">EBITDA ($m)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.ebitdaMin ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, ebitdaMin: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.ebitdaMax ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, ebitdaMax: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Enterprise Value */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Enterprise Value ($m)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.enterpriseValueMin ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, enterpriseValueMin: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.enterpriseValueMax ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, enterpriseValueMax: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Revenue Multiple */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Revenue Multiple (x)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.revenueMultipleMin ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, revenueMultipleMin: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.revenueMultipleMax ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, revenueMultipleMax: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Revenue Growth */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Revenue Growth (%)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.revenueGrowthMin ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, revenueGrowthMin: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.revenueGrowthMax ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, revenueGrowthMax: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* EBITDA Margin */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">EBITDA Margin (%)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.ebitdaMarginMin ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, ebitdaMarginMin: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.ebitdaMarginMax ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, ebitdaMarginMax: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Rule of 40 */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Rule of 40 (%)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.ruleOf40Min ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, ruleOf40Min: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.ruleOf40Max ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, ruleOf40Max: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Subscription Metrics Range Filters */}
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Subscription Metrics Filters</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* ARR */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">ARR ($m)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.arrMin ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, arrMin: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.arrMax ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, arrMax: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* ARR % */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">ARR (%)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.arrPcMin ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, arrPcMin: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.arrPcMax ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, arrPcMax: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Churn */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Churn (%)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.churnMin ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, churnMin: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.churnMax ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, churnMax: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* GRR */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">GRR (%)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.grrMin ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, grrMin: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.grrMax ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, grrMax: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* NRR */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">NRR (%)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.nrrMin ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, nrrMin: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.nrrMax ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, nrrMax: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* New Clients Revenue Growth */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">New Clients Revenue Growth (%)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.newClientsRevenueGrowthMin ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, newClientsRevenueGrowthMin: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.newClientsRevenueGrowthMax ?? ""}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, newClientsRevenueGrowthMax: e.target.value ? Number(e.target.value) : null }))}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* Apply Filters Button */}
           <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end gap-2">
             <button
@@ -1445,32 +1082,6 @@ export default function FinancialMetricsTable({
                 primarySectors: [],
                 secondarySectors: [],
                 selectedMetrics: [...DEFAULT_METRICS],
-                revenueMin: null,
-                revenueMax: null,
-                ebitdaMin: null,
-                ebitdaMax: null,
-                enterpriseValueMin: null,
-                enterpriseValueMax: null,
-                revenueMultipleMin: null,
-                revenueMultipleMax: null,
-                revenueGrowthMin: null,
-                revenueGrowthMax: null,
-                ebitdaMarginMin: null,
-                ebitdaMarginMax: null,
-                ruleOf40Min: null,
-                ruleOf40Max: null,
-                arrMin: null,
-                arrMax: null,
-                arrPcMin: null,
-                arrPcMax: null,
-                churnMin: null,
-                churnMax: null,
-                grrMin: null,
-                grrMax: null,
-                nrrMin: null,
-                nrrMax: null,
-                newClientsRevenueGrowthMin: null,
-                newClientsRevenueGrowthMax: null,
               })}
               className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg border border-gray-200 hover:bg-gray-200"
             >
