@@ -770,28 +770,49 @@ const InvestorDetailPage = () => {
 
       // Normalize advisors so `CorporateEventsTable` can render + link them.
       // Investor CE endpoint often returns { advisor_company_id, advisor_company_name } instead of { advisor_company: {id,name} }.
-      const normalizedEvents = (Array.isArray(events) ? events : []).map((ev) => {
+      const isRecord = (v: unknown): v is Record<string, unknown> =>
+        typeof v === "object" && v !== null;
+
+      const getNestedNumber = (
+        obj: Record<string, unknown>,
+        key: string,
+        nestedKey: string
+      ): number | undefined => {
+        const child = obj[key];
+        if (!isRecord(child)) return undefined;
+        const value = child[nestedKey];
+        return typeof value === "number" ? value : undefined;
+      };
+
+      const getNestedString = (
+        obj: Record<string, unknown>,
+        key: string,
+        nestedKey: string
+      ): string | undefined => {
+        const child = obj[key];
+        if (!isRecord(child)) return undefined;
+        const value = child[nestedKey];
+        return typeof value === "string" ? value : undefined;
+      };
+
+      const normalizedEvents: CorporateEvent[] = (Array.isArray(events) ? events : []).map(
+        (ev): CorporateEvent => {
         const rawAdvisors = (ev as unknown as { advisors?: unknown }).advisors;
         if (!Array.isArray(rawAdvisors)) return ev;
 
-        const normalizedAdvisors = rawAdvisors
+        const normalizedAdvisors: NonNullable<CorporateEvent["advisors"]> = rawAdvisors
           .map((a) => {
             const advisor = a as Record<string, unknown>;
             const advisorCompanyId =
               typeof advisor["advisor_company_id"] === "number"
                 ? (advisor["advisor_company_id"] as number)
-                : typeof (advisor["advisor_company"] as any)?.id === "number"
-                ? ((advisor["advisor_company"] as any).id as number)
-                : undefined;
+                : getNestedNumber(advisor, "advisor_company", "id");
 
             const advisorCompanyName =
               typeof advisor["advisor_company_name"] === "string"
                 ? (advisor["advisor_company_name"] as string)
-                : typeof (advisor["advisor_company"] as any)?.name === "string"
-                ? ((advisor["advisor_company"] as any).name as string)
-                : typeof (advisor["_new_company"] as any)?.name === "string"
-                ? ((advisor["_new_company"] as any).name as string)
-                : undefined;
+                : getNestedString(advisor, "advisor_company", "name") ??
+                  getNestedString(advisor, "_new_company", "name");
 
             const announcementUrl =
               typeof advisor["announcement_url"] === "string" ||
@@ -799,25 +820,44 @@ const InvestorDetailPage = () => {
                 ? (advisor["announcement_url"] as string | null)
                 : null;
 
-            // Preserve any existing shape, but ensure `advisor_company` exists for the table’s mapping.
+            const advisorCompanyFromObj = isRecord(advisor["advisor_company"])
+              ? {
+                  id: getNestedNumber(advisor, "advisor_company", "id"),
+                  name: getNestedString(advisor, "advisor_company", "name"),
+                }
+              : undefined;
+
             return {
-              ...advisor,
+              id: typeof advisor["id"] === "number" ? advisor["id"] : undefined,
               announcement_url: announcementUrl,
+              new_company_advised:
+                typeof advisor["new_company_advised"] === "number"
+                  ? advisor["new_company_advised"]
+                  : undefined,
+              counterparty_advised:
+                typeof advisor["counterparty_advised"] === "number"
+                  ? advisor["counterparty_advised"]
+                  : undefined,
+              advisor_company_id:
+                typeof advisor["advisor_company_id"] === "number"
+                  ? advisor["advisor_company_id"]
+                  : undefined,
+              advisor_company_name:
+                typeof advisor["advisor_company_name"] === "string"
+                  ? advisor["advisor_company_name"]
+                  : undefined,
               advisor_company:
                 advisorCompanyId || advisorCompanyName
                   ? { id: advisorCompanyId, name: advisorCompanyName }
-                  : (advisor["advisor_company"] as any),
+                  : advisorCompanyFromObj,
             };
           })
           .filter((a) => {
-            const name =
-              typeof (a as any)?.advisor_company?.name === "string"
-                ? ((a as any).advisor_company.name as string)
-                : "";
-            return name.trim().length > 0;
+            const name = a?.advisor_company?.name ?? "";
+            return typeof name === "string" && name.trim().length > 0;
           });
 
-        return { ...(ev as any), advisors: normalizedAdvisors };
+        return { ...ev, advisors: normalizedAdvisors };
       });
 
       setCorporateEvents(normalizedEvents as CorporateEvent[]);
