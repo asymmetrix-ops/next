@@ -722,11 +722,10 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               // Only investors
                               if (status.includes("investor")) {
                                 if ("id" in cp && "name" in cp && cp.id && cp.name) {
-                                  const pageType = cp.page_type === "investor" ? "investors" : "company";
                                   investors.push({
                                     id: cp.id,
                                     name: cp.name,
-                                    href: `/${pageType}/${cp.id}`,
+                                    href: `/investors/${cp.id}`,
                                   });
                                 } else if ("_new_company" in cp && cp._new_company?.name && cp._new_company?._is_that_investor) {
                                   const href = cp._new_company.id

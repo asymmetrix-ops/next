@@ -208,6 +208,13 @@ interface CompanyInvestorFromAPI {
   announcement_date: string;
 }
 
+// Investors list embedded on the company payload (Company._companies_investors)
+interface CompanyInvestorFromCompanies {
+  id: number;
+  original_new_company_id: number;
+  company_name: string;
+}
+
 // Investors data from investors_data field
 interface InvestorsDataItem {
   name: string;
@@ -360,6 +367,7 @@ interface Company {
   Former_name?: string[];
   investors?: CompanyInvestor[];
   investors_new_company?: CompanyInvestor[];
+  _companies_investors?: CompanyInvestorFromCompanies[];
   management_current?: CompanyManagement[];
   management_past?: CompanyManagement[];
   subsidiaries?: CompanySubsidiary[];
@@ -2351,6 +2359,36 @@ const CompanyDetail = () => {
                 </span>
                 <span style={styles.value} className="info-value">
                   {(() => {
+                    // Prefer investors from Company._companies_investors (canonical for company page)
+                    if (
+                      Array.isArray(company._companies_investors) &&
+                      company._companies_investors.length > 0
+                    ) {
+                      const list = company._companies_investors
+                        .filter(
+                          (inv) =>
+                            inv &&
+                            typeof inv.original_new_company_id === "number" &&
+                            inv.company_name
+                        )
+                        .map((inv) => ({
+                          id: inv.original_new_company_id,
+                          name: inv.company_name,
+                        }));
+
+                      if (list.length > 0) {
+                        return list.map((inv, index, arr) => (
+                          <span key={`company-investor-${inv.id}-${index}`}>
+                            {createClickableElement(
+                              `/investors/${inv.id}`,
+                              inv.name
+                            )}
+                            {index < arr.length - 1 && ", "}
+                          </span>
+                        ));
+                      }
+                    }
+
                     // Prefer investors from investors_data if available
                     if (parsedInvestorsData?.current && parsedInvestorsData.current.length > 0) {
                       return parsedInvestorsData.current
