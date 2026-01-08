@@ -342,7 +342,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                   borderBottom: "1px solid #e2e8f0",
                 }}
               >
-                Advisors
+                Advisor(s)
               </th>
               {showSectors && (
                 <th
@@ -923,24 +923,27 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                         fontSize: "12px",
                       }}
                     >
-                      {advisorList.length > 0
-                        ? advisorList.map((advisor, idx) => (
-                            <span key={advisor.id ?? `${advisor.name}-${idx}`}>
-                              <span
-                                style={{
-                                  color: "#3b82f6",
-                                  cursor: "pointer",
-                                }}
-                                onClick={() => {
-                                  handleAdvisorClick(advisor.id, advisor.name);
-                                }}
-                              >
-                                {advisor.name}
+                      <div className="muted-row">
+                        <strong>Advisor(s):</strong>{" "}
+                        {advisorList.length > 0
+                          ? advisorList.map((advisor, idx) => (
+                              <span key={advisor.id ?? `${advisor.name}-${idx}`}>
+                                <span
+                                  style={{
+                                    color: "#3b82f6",
+                                    cursor: "pointer",
+                                  }}
+                                  onClick={() => {
+                                    handleAdvisorClick(advisor.id, advisor.name);
+                                  }}
+                                >
+                                  {advisor.name}
+                                </span>
+                                {idx < advisorList.length - 1 && ", "}
                               </span>
-                              {idx < advisorList.length - 1 && ", "}
-                            </span>
-                          ))
-                        : "Not Available"}
+                            ))
+                          : "Not Available"}
+                      </div>
                     </td>
 
                     {/* Sectors - only shown if showSectors is true */}

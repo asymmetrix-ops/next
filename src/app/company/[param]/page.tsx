@@ -1824,6 +1824,8 @@ const CompanyDetail = () => {
       borderRadius: "12px",
       padding: "32px 24px",
       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+      // Important for CSS grid: allow cards to shrink so inner overflow containers can scroll
+      minWidth: 0,
     },
     sectionTitle: {
       fontSize: "20px",
@@ -1901,7 +1903,8 @@ const CompanyDetail = () => {
     },
     responsiveGrid: {
       display: "grid",
-      gridTemplateColumns: "2fr 1fr",
+      // Allow grid children to shrink and prevent wide tables from pushing/clipping the right column
+      gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)",
       gap: "24px",
       flex: "1",
       maxWidth: "100%",
@@ -2020,8 +2023,9 @@ const CompanyDetail = () => {
 
   const responsiveCss = `
     .company-detail-page { overflow-x: hidden; }
-    .responsiveGrid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; max-width: 100%; }
-    .card { background: white; border-radius: 12px; }
+    .responsiveGrid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 24px; max-width: 100%; }
+    .responsiveGrid > * { min-width: 0; }
+    .card { background: white; border-radius: 12px; min-width: 0; }
     /* Hover tooltips for metric values using title attribute */
     .desktop-financial-metrics span[title],
     .mobile-financial-metrics span[title] {
