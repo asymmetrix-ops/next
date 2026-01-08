@@ -7,7 +7,8 @@ import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useRightClick } from "@/hooks/useRightClick";
-import { CorporateEventsTable, type CorporateEvent as CorporateEventsTableEvent } from "@/components/corporate-events/CorporateEventsTable";
+import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
+import { type CorporateEvent as CorporateEventsTableEvent } from "@/components/corporate-events/CorporateEventsTable";
 import {
   LineChart,
   Line,
@@ -2250,8 +2251,8 @@ const InvestorDetailPage = () => {
 
             {/* Corporate Events Section */}
             <div className="investor-section" style={{ marginTop: "32px" }}>
-              <h2 className="section-title">Corporate Events</h2>
-              <CorporateEventsTable
+              <CorporateEventsSection
+                title="Corporate Events"
                 events={corporateEvents as unknown as CorporateEventsTableEvent[]}
                 loading={corporateEventsLoading}
                 onEventClick={handleCorporateEventDescriptionClick}

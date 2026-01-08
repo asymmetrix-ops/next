@@ -20,11 +20,12 @@ interface LegacyCorporateEvent {
   investment_data?: {
     investment_amount_m?: number | string;
     investment_amount?: number | string;
-    currency?: { Currency?: string } | null;
+    currency?: string | { Currency?: string } | null;
     _currency?: { Currency?: string };
-    currency_id?: string;
+    currency_id?: number | string;
     Funding_stage?: string;
     funding_stage?: string;
+    investment_amount_url?: string | null;
   };
   investment_display?: string | null;
   ev_display?: string | null;
@@ -161,11 +162,12 @@ interface NewCorporateEvent {
   investment_data?: {
     investment_amount_m?: number | string;
     investment_amount?: number | string;
-    currency?: { Currency?: string } | null;
+    currency?: string | { Currency?: string } | null;
     _currency?: { Currency?: string };
-    currency_id?: string;
+    currency_id?: number | string;
     Funding_stage?: string;
     funding_stage?: string;
+    investment_amount_url?: string | null;
   };
   investment_display?: string | null;
   ev_display?: string | null;
@@ -192,7 +194,7 @@ interface NewCorporateEvent {
 
 export type CorporateEvent = LegacyCorporateEvent | NewCorporateEvent;
 
-interface Sector {
+export interface Sector {
   sector_id?: number;
   sector_name?: string;
   Sector_importance?: string;
@@ -404,10 +406,12 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                   investment_data?: {
                     investment_amount_m?: number | string;
                     investment_amount?: number | string;
-                    currency?: { Currency?: string };
+                    currency?: string | { Currency?: string };
                     _currency?: { Currency?: string };
+                    currency_id?: number | string;
                     Funding_stage?: string;
                     funding_stage?: string;
+                    investment_amount_url?: string | null;
                   };
                   ev_data?: {
                     enterprise_value_m?: number | string;
@@ -424,9 +428,13 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                   anyEvent.investment_data?.investment_amount ??
                   null;
                 const amountMillions = sanitizeAmountValue(amountRaw);
+                // Handle both string format (new API) and object format (legacy)
                 const amountCurrency: string | undefined =
-                  anyEvent.investment_data?.currency?.Currency ||
-                  anyEvent.investment_data?._currency?.Currency;
+                  typeof anyEvent.investment_data?.currency === "string"
+                    ? anyEvent.investment_data.currency
+                    : anyEvent.investment_data?.currency?.Currency ||
+                      anyEvent.investment_data?._currency?.Currency;
+                      
 
                 const evDataRaw = legacyEvent.ev_data || newEvent.ev_data;
                 const evMillions = sanitizeAmountValue(

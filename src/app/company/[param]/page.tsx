@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useRightClick } from "@/hooks/useRightClick";
-import { CorporateEventsTable } from "@/components/corporate-events/CorporateEventsTable";
+import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
 import {
   LineChart,
   Line,
@@ -2622,36 +2622,22 @@ const CompanyDetail = () => {
               )}
 
               {/* Corporate Events moved into Overview */}
-              {(corporateEventsLoading || corporateEvents.length > 0) && (
-                <>
-                  <div
-                    style={{
-                      marginTop: "16px",
-                      paddingTop: "16px",
-                      borderTop: "1px solid #e2e8f0",
-                    }}
-                  >
-                    <h3
-                      style={{
-                        ...styles.sectionTitle,
-                        fontSize: "17px",
-                        marginBottom: "12px",
-                      }}
-                    >
-                      Corporate Events{" "}
-                    </h3>
-                    <CorporateEventsTable
-                      events={corporateEvents}
-                      loading={corporateEventsLoading}
-                      showSectors={true}
-                      primarySectors={augmentedPrimarySectors}
-                      secondarySectors={secondarySectors}
-                      maxInitialEvents={3}
-                      truncateDescriptionLength={180}
-                    />
-                  </div>
-                </>
-              )}
+              <CorporateEventsSection
+                events={corporateEvents}
+                loading={corporateEventsLoading}
+                showSectors={true}
+                primarySectors={augmentedPrimarySectors}
+                secondarySectors={secondarySectors}
+                maxInitialEvents={3}
+                truncateDescriptionLength={180}
+                hideWhenEmpty={true}
+                dividerTop={true}
+                titleStyle={{
+                  ...styles.sectionTitle,
+                  fontSize: "17px",
+                  marginBottom: "12px",
+                }}
+              />
 
               {/* Current Subsidiaries section */}
               {hasSubsidiaries && (
