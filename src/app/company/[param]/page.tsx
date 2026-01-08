@@ -2523,7 +2523,19 @@ const CompanyDetail = () => {
                                 marginBottom: "4px",
                               }}
                             >
-                              {person.Individual_text}
+                              {person.individuals_id ? (
+                                <a
+                                  href={`/individual/${person.individuals_id}`}
+                                  style={{
+                                    color: "#0075df",
+                                    textDecoration: "underline",
+                                  }}
+                                >
+                                  {person.Individual_text}
+                                </a>
+                              ) : (
+                                person.Individual_text
+                              )}
                             </div>
                             <div
                               style={{
@@ -2589,7 +2601,19 @@ const CompanyDetail = () => {
                                 marginBottom: "4px",
                               }}
                             >
-                              {person.Individual_text}
+                              {person.individuals_id ? (
+                                <a
+                                  href={`/individual/${person.individuals_id}`}
+                                  style={{
+                                    color: "#0075df",
+                                    textDecoration: "underline",
+                                  }}
+                                >
+                                  {person.Individual_text}
+                                </a>
+                              ) : (
+                                person.Individual_text
+                              )}
                             </div>
                             <div
                               style={{
