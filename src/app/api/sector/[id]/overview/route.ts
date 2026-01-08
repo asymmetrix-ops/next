@@ -81,7 +81,7 @@ export async function GET(
     const qs = new URLSearchParams();
     qs.append('Sector_id', parseInt(sectorId, 10).toString());
     
-    const [overviewOut, sectorOut, recentOut] = await Promise.all([
+    const [overviewOut, sectorOut, recentOut, marketOut] = await Promise.all([
       fetchJsonWithTimeout(
         `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/overview_data?${qs.toString()}`,
         fetchInit,
@@ -99,6 +99,12 @@ export async function GET(
         fetchInit,
         timeoutMs
       ),
+      // Market map moved out of overview_data → dedicated endpoint
+      fetchJsonWithTimeout(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map?${qs.toString()}`,
+        fetchInit,
+        timeoutMs
+      ),
     ]);
 
     const fetchTotalMs = performance.now() - fetchStartTime;
@@ -107,6 +113,7 @@ export async function GET(
       overview: Math.round(overviewOut.ms),
       sector: Math.round(sectorOut.ms),
       recent: Math.round(recentOut.ms),
+      market: Math.round(marketOut.ms),
     });
 
     // Log any errors
@@ -114,6 +121,7 @@ export async function GET(
       overviewOut.error && `overview: ${overviewOut.error}`,
       sectorOut.error && `sector: ${sectorOut.error}`,
       recentOut.error && `recent: ${recentOut.error}`,
+      marketOut.error && `market: ${marketOut.error}`,
     ].filter(Boolean);
     if (errors.length > 0) {
       console.log(`[API] ⚠️ Fetch errors:`, errors.join(', '));
@@ -128,8 +136,11 @@ export async function GET(
       console.log(`[API] 🔍 overview_data keys:`, Object.keys(overviewData));
     }
     
-    // The aggregated endpoint returns: market_map, strategic_acquirers, pe_investors
-    const marketMap = overviewData?.market_map ?? null;
+    // overview_data now returns: strategic_acquirers, pe_investors (market map is separate)
+    const marketMap =
+      (marketOut.data as { market_map?: unknown } | null)?.market_map ??
+      marketOut.data ??
+      null;
     const strategic = overviewData?.strategic_acquirers ?? null;
     const pe = overviewData?.pe_investors ?? null;
     // Recent transactions from separate endpoint
@@ -183,16 +194,19 @@ export async function GET(
         overviewMs: Math.round(overviewOut.ms),
         sectorMs: Math.round(sectorOut.ms),
         recentMs: Math.round(recentOut.ms),
+        marketMs: Math.round(marketOut.ms),
         timeoutMs,
         statuses: {
           overview: overviewOut.status,
           sector: sectorOut.status,
           recent: recentOut.status,
+          market: marketOut.status,
         },
         errors: {
           overview: overviewOut.error,
           sector: sectorOut.error,
           recent: recentOut.error,
+          market: marketOut.error,
         },
       },
       serverFetchTime: totalTime,

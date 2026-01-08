@@ -428,10 +428,19 @@ function mapRankedEntities(raw: unknown): RankedEntity[] {
 
 function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
   if (!raw) return [];
+  // Support Xano response wrapper: { market_map: { ... } }
+  const normalizedRaw =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? ((raw as { market_map?: unknown })?.market_map ?? raw)
+      : raw;
   const toTypeFromBucket = (bucket: string): string => {
-    const b = (bucket || "").toLowerCase();
+    const b = (bucket || "")
+      .toLowerCase()
+      .replace(/_/g, " ")
+      .replace(/\bcompanies\b/g, "")
+      .trim();
     if (b.includes("public")) return "public";
-    if (b.includes("private equity") || b.includes("pe"))
+    if (b.includes("private equity") || b.includes("privateequity") || b.includes("pe"))
       return "private_equity_owned";
     if (b.includes("venture") || b.includes("vc"))
       return "venture_capital_backed";
@@ -522,8 +531,12 @@ function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
   const out: SectorCompany[] = [];
 
   // If raw is a non-array object whose values are arrays (bucket -> items)
-  if (raw && !Array.isArray(raw) && typeof raw === "object") {
-    const obj = raw as Record<string, unknown>;
+  if (
+    normalizedRaw &&
+    !Array.isArray(normalizedRaw) &&
+    typeof normalizedRaw === "object"
+  ) {
+    const obj = normalizedRaw as Record<string, unknown>;
     let treated = false;
     for (const [key, value] of Object.entries(obj)) {
       if (Array.isArray(value)) {
@@ -538,9 +551,9 @@ function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
   }
 
   // Otherwise, treat as array (possibly wrapped)
-  const arr = Array.isArray(raw)
-    ? (raw as Array<unknown>)
-    : (extractArray(raw) as Array<unknown>);
+  const arr = Array.isArray(normalizedRaw)
+    ? (normalizedRaw as Array<unknown>)
+    : (extractArray(normalizedRaw) as Array<unknown>);
   if (!Array.isArray(arr)) return out;
 
   if (arr.length > 0 && typeof arr[0] === "object" && arr[0] !== null) {
@@ -1477,10 +1490,16 @@ const SectorDetailPage = ({
   // Debug states removed
   const [companiesApiPayload, setCompaniesApiPayload] = useState<unknown>(null);
   // Split datasets fetched from dedicated endpoints (initialized with server-side data if available)
-  const [splitStrategicRaw, setSplitStrategicRaw] = useState<unknown>(initialStrategicAcquirers || null);
+  const [splitStrategicRaw, setSplitStrategicRaw] = useState<unknown>(
+    initialStrategicAcquirers || null
+  );
   const [splitPERaw, setSplitPERaw] = useState<unknown>(initialPEInvestors || null);
-  const [splitMarketMapRaw, setSplitMarketMapRaw] = useState<unknown>(initialMarketMap || null);
-  const [splitRecentRaw, setSplitRecentRaw] = useState<unknown>(initialRecentTransactions || null);
+  // Market map is server-fetched and passed in via props.
+  // Keep it as a stable value (no client re-fetch / no setter needed).
+  const splitMarketMapRaw: unknown = initialMarketMap || null;
+  const [splitRecentRaw, setSplitRecentRaw] = useState<unknown>(
+    initialRecentTransactions || null
+  );
   // Sub-sectors
   const [subSectors, setSubSectors] = useState<SubSector[]>([]);
   const [subSectorsLoading, setSubSectorsLoading] = useState(false);
@@ -2215,7 +2234,7 @@ const SectorDetailPage = ({
       })
       .catch((e) => console.error("❌ Recent transactions fetch failed:", e));
 
-    // Overview data (slowest ~3.5s) - contains market map, strategic, PE
+    // Overview data (slowest ~3.5s) - contains strategic + PE (market map moved to sectors_market_map)
     fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/overview_data?${qs.toString()}`, {
       method: "GET",
       headers,
@@ -2223,7 +2242,6 @@ const SectorDetailPage = ({
       .then(async (resp) => {
         if (resp.ok) {
           const data = await resp.json();
-          if (data?.market_map) setSplitMarketMapRaw(data.market_map);
           if (data?.strategic_acquirers) setSplitStrategicRaw(data.strategic_acquirers);
           if (data?.pe_investors) setSplitPERaw(data.pe_investors);
         }

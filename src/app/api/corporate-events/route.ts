@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     // Get auth token from cookies or headers
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     const token =
       cookieStore.get("asymmetrix_auth_token")?.value ||
       request.headers.get("authorization")?.replace("Bearer ", "");
