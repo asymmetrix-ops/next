@@ -192,12 +192,20 @@ interface NewCorporateEvent {
 
 export type CorporateEvent = LegacyCorporateEvent | NewCorporateEvent;
 
+interface Sector {
+  sector_id?: number;
+  sector_name?: string;
+  Sector_importance?: string;
+}
+
 interface CorporateEventsTableProps {
   events: CorporateEvent[];
   loading?: boolean;
   onEventClick?: (eventId: number, description?: string) => void;
   onAdvisorClick?: (advisorId?: number, advisorName?: string) => void;
   showSectors?: boolean;
+  primarySectors?: Sector[];
+  secondarySectors?: Sector[];
   maxInitialEvents?: number;
   truncateDescriptionLength?: number;
 }
@@ -245,6 +253,8 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
   onEventClick,
   onAdvisorClick,
   showSectors = false,
+  primarySectors = [],
+  secondarySectors = [],
   maxInitialEvents = 3,
   truncateDescriptionLength = 180,
 }) => {
@@ -592,265 +602,295 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                         })()}
                       </div>
 
-                      {/* Buyers/Investors (skip for partnerships) */}
-                      {!isPartnership && (
-                        <div style={{ marginBottom: "4px" }}>
-                          <strong>
-                            {newEvent.buyer_investor_label ||
-                              "Buyer(s) / Investor(s)"}
-                            :
-                          </strong>{" "}
-                          {(() => {
+                      {/* Buyers (skip for partnerships) */}
+                      {!isPartnership && (() => {
+                        // Extract buyers separately
+                        const buyers: Array<{ id?: number; name: string; href: string | null }> = [];
+                        
                             // Prefer new other_counterparties with counterparty_status
                             if (
                               Array.isArray(newEvent.other_counterparties) &&
                               newEvent.other_counterparties.length > 0
                             ) {
-                              // Filter for buyers/investors (not divestors/targets)
-                              const buyersInvestors =
-                                newEvent.other_counterparties.filter((cp) => {
+                          newEvent.other_counterparties.forEach((cp) => {
                                   if (cp.counterparty_status) {
-                                    const status =
-                                      cp.counterparty_status.toLowerCase();
-                                    if (
-                                      status.includes("divestor") ||
-                                      status.includes("seller")
-                                    )
-                                      return false;
-                                    if (
-                                      status.includes("acquirer") ||
-                                      status.includes("buyer") ||
-                                      status.includes("investor")
-                                    )
-                                      return true;
-                                  }
-                                  // In new format, check if it has direct id/name
-                                  if (
-                                    "id" in cp &&
-                                    "name" in cp &&
-                                    cp.id &&
-                                    cp.name
-                                  )
-                                    return true;
-                                  // In legacy format, check _new_company
-                                  if (
-                                    "_new_company" in cp &&
-                                    cp._new_company?.name
-                                  )
-                                    return true;
-                                  return false;
-                                });
+                              const status = cp.counterparty_status.toLowerCase();
+                              // Only buyers/acquirers, not investors
+                              if (status.includes("acquirer") || status.includes("buyer")) {
+                                if ("id" in cp && "name" in cp && cp.id && cp.name) {
+                                  const pageType = cp.page_type === "investor" ? "investors" : "company";
+                                  buyers.push({
+                                    id: cp.id,
+                                    name: cp.name,
+                                    href: `/${pageType}/${cp.id}`,
+                                  });
+                                } else if ("_new_company" in cp && cp._new_company?.name && !cp._new_company?._is_that_investor) {
+                                  const href = cp._new_company.id
+                                    ? `/company/${cp._new_company.id}`
+                                    : null;
+                                  buyers.push({
+                                    id: cp._new_company.id,
+                                    name: cp._new_company.name,
+                                    href,
+                                  });
+                                }
+                              }
+                            }
+                          });
+                        }
 
-                              if (buyersInvestors.length > 0) {
-                                return buyersInvestors.map((cp, idx) => {
-                                  // Handle new API format
-                                  if (
-                                    "id" in cp &&
-                                    "name" in cp &&
-                                    cp.id &&
-                                    cp.name
-                                  ) {
-                                    const pageType =
-                                      cp.page_type === "investor"
-                                        ? "investors"
-                                        : "company";
-                                    const href = `/${pageType}/${cp.id}`;
+                        // Fallback to buyers array
+                        if (buyers.length === 0 && Array.isArray(newEvent.buyers) && newEvent.buyers.length > 0) {
+                          newEvent.buyers.forEach((c) => {
+                            if (c && typeof c.id === "number" && c.name) {
+                              const href = c.page_type === "investor"
+                                ? `/investors/${c.id}`
+                                : `/company/${c.id}`;
+                              buyers.push({ id: c.id, name: c.name, href });
+                            }
+                          });
+                        }
+
+                        // Fallback to buyers_investors (non-investors only)
+                        if (buyers.length === 0 && Array.isArray(newEvent.buyers_investors) && newEvent.buyers_investors.length > 0) {
+                          newEvent.buyers_investors.forEach((c) => {
+                            if (c && typeof c.id === "number" && c.name && c.page_type !== "investor") {
+                              buyers.push({
+                                id: c.id,
+                                name: c.name,
+                                href: `/company/${c.id}`,
+                              });
+                            }
+                          });
+                        }
+
+                        // Fallback to legacy format (non-investors)
+                        if (buyers.length === 0) {
+                          const legacyList = (legacyEvent["0"] || []).filter(
+                            (c) => c._new_company?.name && !c._new_company?._is_that_investor
+                          );
+                          legacyList.forEach((it) => {
+                            const id = it._new_company?.id;
+                            buyers.push({
+                              id,
+                              name: it._new_company!.name,
+                              href: id ? `/company/${id}` : null,
+                            });
+                          });
+                        }
+
+                        if (buyers.length === 0) return null;
+
                                     return (
-                                      <span key={`cp-${cp.id}-${idx}`}>
-                                        <a
-                                          href={href}
-                                          style={{
-                                            color: "#3b82f6",
-                                            textDecoration: "underline",
-                                          }}
-                                        >
-                                          {cp.name}
-                                        </a>
-                                        {idx < buyersInvestors.length - 1 && ", "}
-                                      </span>
-                                    );
-                                  }
-                                  // Handle legacy format
-                                  if (
-                                    "_new_company" in cp &&
-                                    cp._new_company
-                                  ) {
-                                    const newCompany = cp._new_company;
-                                    const href = newCompany.id
-                                      ? newCompany._is_that_investor
-                                        ? `/investors/${newCompany.id}`
-                                        : `/company/${newCompany.id}`
-                                      : undefined;
-                                    return (
-                                      <span
-                                        key={`cp-${newCompany.id || idx}-${idx}`}
-                                      >
-                                        {href ? (
-                                          <a
-                                            href={href}
+                          <div style={{ marginBottom: "4px" }}>
+                            <strong>Buyer(s):</strong>{" "}
+                            {buyers.map((b, idx) => (
+                              <span key={`buyer-${b.id ?? idx}-${idx}`}>
+                                {b.href ? (
+                                  <a
+                                    href={b.href}
                                             style={{
                                               color: "#3b82f6",
                                               textDecoration: "underline",
                                             }}
                                           >
-                                            {newCompany.name}
+                                    {b.name}
                                           </a>
                                         ) : (
-                                          <span>{newCompany.name}</span>
+                                  <span>{b.name}</span>
                                         )}
-                                        {idx < buyersInvestors.length - 1 && ", "}
+                                {idx < buyers.length - 1 && ", "}
                                       </span>
-                                    );
-                                  }
-                                  return null;
-                                });
+                            ))}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Investors (skip for partnerships) */}
+                      {!isPartnership && (() => {
+                        // Extract investors separately
+                        const investors: Array<{ id?: number; name: string; href: string | null }> = [];
+                        
+                        // Prefer new other_counterparties with counterparty_status
+                        if (
+                          Array.isArray(newEvent.other_counterparties) &&
+                          newEvent.other_counterparties.length > 0
+                        ) {
+                          newEvent.other_counterparties.forEach((cp) => {
+                            if (cp.counterparty_status) {
+                              const status = cp.counterparty_status.toLowerCase();
+                              // Only investors
+                              if (status.includes("investor")) {
+                                if ("id" in cp && "name" in cp && cp.id && cp.name) {
+                                  const pageType = cp.page_type === "investor" ? "investors" : "company";
+                                  investors.push({
+                                    id: cp.id,
+                                    name: cp.name,
+                                    href: `/${pageType}/${cp.id}`,
+                                  });
+                                } else if ("_new_company" in cp && cp._new_company?.name && cp._new_company?._is_that_investor) {
+                                  const href = cp._new_company.id
+                                    ? `/investors/${cp._new_company.id}`
+                                    : null;
+                                  investors.push({
+                                    id: cp._new_company.id,
+                                    name: cp._new_company.name,
+                                    href,
+                                  });
+                                }
                               }
                             }
+                          });
+                        }
 
-                            // Fallback to buyers_investors array
-                            if (
-                              Array.isArray(newEvent.buyers_investors) &&
-                              newEvent.buyers_investors.length > 0
-                            ) {
-                              return newEvent.buyers_investors.map(
-                                (c, idx) => {
-                                  const href =
-                                    c.page_type === "investor"
-                                      ? `/investors/${c.id}`
-                                      : `/company/${c.id}`;
-                                  return (
-                                    <span key={`${c.id}-${idx}`}>
-                                      <a
-                                        href={href}
-                                        style={{
-                                          color: "#3b82f6",
-                                          textDecoration: "underline",
-                                        }}
-                                      >
-                                        {c.name}
-                                      </a>
-                                      {idx < newEvent.buyers_investors!.length - 1 && ", "}
-                                    </span>
-                                  );
-                                }
-                              );
-                            }
-
-                            // Fallback to legacy format from event["0"]
-                            const legacyList = (legacyEvent["0"] || []).filter(
-                              (c) => c._new_company?.name
-                            );
-                            if (legacyList.length > 0) {
-                              return legacyList.map((it, idx) => {
-                                const id = it._new_company?.id;
-                                const isInvestor =
-                                  it._new_company?._is_that_investor;
-                                const href = id
-                                  ? isInvestor
-                                    ? `/investors/${id}`
-                                    : `/company/${id}`
-                                  : undefined;
-                                return (
-                                  <span key={`${id || idx}-${idx}`}>
-                                    {href ? (
-                                      <a
-                                        href={href}
-                                        style={{
-                                          color: "#3b82f6",
-                                          textDecoration: "underline",
-                                        }}
-                                      >
-                                        {it._new_company!.name}
-                                      </a>
-                                    ) : (
-                                      <span>{it._new_company!.name}</span>
-                                    )}
-                                    {idx < legacyList.length - 1 && ", "}
-                                  </span>
-                                );
+                        // Fallback to investors array
+                        if (investors.length === 0 && Array.isArray(newEvent.investors) && newEvent.investors.length > 0) {
+                          newEvent.investors.forEach((c) => {
+                            if (c && typeof c.id === "number" && c.name) {
+                              investors.push({
+                                id: c.id,
+                                name: c.name,
+                                href: `/investors/${c.id}`,
                               });
                             }
+                          });
+                        }
 
-                            return "Not Available";
+                        // Fallback to buyers_investors (investors only)
+                        if (investors.length === 0 && Array.isArray(newEvent.buyers_investors) && newEvent.buyers_investors.length > 0) {
+                          newEvent.buyers_investors.forEach((c) => {
+                            if (c && typeof c.id === "number" && c.name && c.page_type === "investor") {
+                              investors.push({
+                                id: c.id,
+                                name: c.name,
+                                href: `/investors/${c.id}`,
+                              });
+                            }
+                          });
+                        }
+
+                        // Fallback to legacy format (investors only)
+                        if (investors.length === 0) {
+                            const legacyList = (legacyEvent["0"] || []).filter(
+                            (c) => c._new_company?.name && c._new_company?._is_that_investor
+                            );
+                          legacyList.forEach((it) => {
+                                const id = it._new_company?.id;
+                            investors.push({
+                              id,
+                              name: it._new_company!.name,
+                              href: id ? `/investors/${id}` : null,
+                            });
+                          });
+                        }
+
+                        if (investors.length === 0) return null;
+
+                                return (
+                          <div style={{ marginBottom: "4px" }}>
+                            <strong>Investor(s):</strong>{" "}
+                            {investors.map((inv, idx) => (
+                              <span key={`investor-${inv.id ?? idx}-${idx}`}>
+                                {inv.href ? (
+                                  <a
+                                    href={inv.href}
+                                        style={{
+                                          color: "#3b82f6",
+                                          textDecoration: "underline",
+                                        }}
+                                      >
+                                    {inv.name}
+                                      </a>
+                                    ) : (
+                                  <span>{inv.name}</span>
+                                    )}
+                                {idx < investors.length - 1 && ", "}
+                                  </span>
+                            ))}
+                          </div>
+                                );
                           })()}
-                        </div>
-                      )}
 
                       {/* Sellers (skip for partnerships) */}
-                      {!isPartnership && (
-                        <div style={{ marginBottom: "4px" }}>
-                          <strong>Seller(s):</strong>{" "}
-                          {(() => {
+                      {!isPartnership && (() => {
+                        const sellers: Array<{ id?: number; name: string; href: string | null }> = [];
+                        
                             // First, check for sellers array (new API format)
-                            const sellersArray = Array.isArray(newEvent.sellers)
-                              ? newEvent.sellers
-                              : [];
-                            if (sellersArray.length > 0) {
-                              return sellersArray.map((seller, idx) => {
-                                const href =
-                                  seller.page_type === "investor"
+                        if (Array.isArray(newEvent.sellers) && newEvent.sellers.length > 0) {
+                          newEvent.sellers.forEach((seller) => {
+                            if (seller && typeof seller.id === "number" && seller.name) {
+                              const href = seller.page_type === "investor"
                                     ? `/investors/${seller.id}`
                                     : `/company/${seller.id}`;
-                                return (
-                                  <span key={`seller-${seller.id}-${idx}`}>
-                                    <a
-                                      href={href}
-                                      style={{
-                                        color: "#3b82f6",
-                                        textDecoration: "underline",
-                                      }}
-                                    >
-                                      {seller.name}
-                                    </a>
-                                    {idx < sellersArray.length - 1 && ", "}
-                                  </span>
-                                );
+                              sellers.push({
+                                id: seller.id,
+                                name: seller.name,
+                                href,
+                              });
+                            }
                               });
                             }
 
                             // Also check other_counterparties for divestors
-                            if (
+                        if (sellers.length === 0 &&
                               Array.isArray(newEvent.other_counterparties) &&
                               newEvent.other_counterparties.length > 0
                             ) {
-                              const divestors =
-                                newEvent.other_counterparties.filter((cp) => {
+                          newEvent.other_counterparties.forEach((cp) => {
                                   if (cp.counterparty_status) {
-                                    return /divestor|seller/i.test(
-                                      cp.counterparty_status
-                                    );
-                                  }
-                                  return false;
-                                });
+                              const status = cp.counterparty_status.toLowerCase();
+                              if (status.includes("divestor") || status.includes("seller")) {
+                                if ("id" in cp && "name" in cp && cp.id && cp.name) {
+                                  const pageType = cp.page_type === "investor" ? "investors" : "company";
+                                  sellers.push({
+                                    id: cp.id,
+                                    name: cp.name,
+                                    href: `/${pageType}/${cp.id}`,
+                                  });
+                                } else if ("_new_company" in cp && cp._new_company?.name) {
+                                  const id = cp._new_company.id;
+                                  const href = id
+                                    ? (cp._new_company._is_that_investor
+                                        ? `/investors/${id}`
+                                        : `/company/${id}`)
+                                    : null;
+                                  sellers.push({
+                                    id,
+                                    name: cp._new_company.name,
+                                    href,
+                                  });
+                                }
+                              }
+                            }
+                          });
+                        }
 
-                              if (divestors.length > 0) {
-                                return divestors.map((cp, idx) => {
-                                  const href =
-                                    cp.page_type === "investor"
-                                      ? `/investors/${cp.id}`
-                                      : `/company/${cp.id}`;
+                        if (sellers.length === 0) return null;
+
                                   return (
-                                    <span key={`divestor-${cp.id}-${idx}`}>
-                                      <a
-                                        href={href}
+                          <div style={{ marginBottom: "4px" }}>
+                            <strong>Seller(s):</strong>{" "}
+                            {sellers.map((s, idx) => (
+                              <span key={`seller-${s.id ?? idx}-${idx}`}>
+                                {s.href ? (
+                                  <a
+                                    href={s.href}
                                         style={{
                                           color: "#3b82f6",
                                           textDecoration: "underline",
                                         }}
                                       >
-                                        {cp.name}
+                                    {s.name}
                                       </a>
-                                      {idx < divestors.length - 1 && ", "}
+                                ) : (
+                                  <span>{s.name}</span>
+                                )}
+                                {idx < sellers.length - 1 && ", "}
                                     </span>
+                            ))}
+                          </div>
                                   );
-                                });
-                              }
-                            }
-
-                            return "Not Available";
                           })()}
-                        </div>
-                      )}
                     </td>
 
                     {/* Deal Details */}
@@ -912,10 +952,77 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                           fontSize: "12px",
                         }}
                       >
-                        {/* Sectors would be passed as props if needed */}
+                        {primarySectors.length > 0 && (
+                          <div style={{ marginBottom: "4px" }}>
+                            <strong>Primary:</strong>{" "}
+                            {primarySectors
+                              .filter((s) => s?.sector_name)
+                              .map((s, idx) => {
+                                const id = s?.sector_id;
+                                const name = s?.sector_name || "";
+                                const separator = idx < primarySectors.filter((s) => s?.sector_name).length - 1 ? ", " : "";
+                                if (typeof id === "number") {
+                                  return (
+                                    <span key={`${name}-${id}-${idx}`}>
+                                      <a
+                                        href={`/sector/${id}`}
+                                        style={{
+                                          color: "#3b82f6",
+                                          textDecoration: "underline",
+                                        }}
+                                      >
+                                        {name}
+                                      </a>
+                                      {separator}
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span key={`${name}-na-${idx}`}>
+                                    {name}{separator}
+                                  </span>
+                                );
+                              })}
+                          </div>
+                        )}
+                        {secondarySectors.length > 0 && (
+                          <div style={{ marginBottom: "4px" }}>
+                            <strong>Secondary:</strong>{" "}
+                            {secondarySectors
+                              .filter((s) => s?.sector_name)
+                              .map((s, idx) => {
+                                const id = s?.sector_id;
+                                const name = s?.sector_name || "";
+                                const separator = idx < secondarySectors.filter((s) => s?.sector_name).length - 1 ? ", " : "";
+                                if (typeof id === "number") {
+                                  return (
+                                    <span key={`${name}-${id}-${idx}`}>
+                                      <a
+                                        href={`/sub-sector/${id}`}
+                                        style={{
+                                          color: "#3b82f6",
+                                          textDecoration: "underline",
+                                        }}
+                                      >
+                                        {name}
+                                      </a>
+                                      {separator}
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span key={`${name}-na-${idx}`}>
+                                    {name}{separator}
+                                  </span>
+                                );
+                              })}
+                          </div>
+                        )}
+                        {primarySectors.length === 0 && secondarySectors.length === 0 && (
                         <div className="muted-row">
                           <span>Not available</span>
                         </div>
+                        )}
                       </td>
                     )}
                   </tr>
