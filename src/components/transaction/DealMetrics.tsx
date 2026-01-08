@@ -130,6 +130,7 @@ export default function DealMetrics({ metrics }: {
             label="Enterprise Value (m)"
             value={metrics.enterpriseValue}
             subValue={metrics.enterpriseValueCurrency}
+            inlineSubValue={true}
           />
         </div>
       </div>
