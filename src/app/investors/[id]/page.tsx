@@ -174,13 +174,24 @@ interface CorporateEvent {
   }>;
   advisors?: Array<{
     id?: number;
-    advisor_company?: {
-      id?: number;
-      name?: string;
-    };
+    // Normalized shape used by `CorporateEventsTable`
+    advisor_company?: { id?: number; name?: string };
     announcement_url?: string | null;
     new_company_advised?: number;
     counterparty_advised?: number;
+
+    // Raw API fields sometimes returned by investor corporate events endpoint
+    advisor_company_id?: number;
+    advisor_company_name?: string;
+    advised_company?: {
+      id?: number;
+      name?: string;
+      path?: string;
+      route?: string;
+      entity_type?: string;
+      counterparty_type?: number;
+      counterparty_status?: string;
+    };
   }>;
   "0"?: Array<{
     _new_company?: {
@@ -756,7 +767,60 @@ const InvestorDetailPage = () => {
       console.log("Corporate events API response:", data);
       // Handle both API response formats
       const events = data.Corporate_Events || data.New_Events_Wits_Advisors || [];
-      setCorporateEvents(events);
+
+      // Normalize advisors so `CorporateEventsTable` can render + link them.
+      // Investor CE endpoint often returns { advisor_company_id, advisor_company_name } instead of { advisor_company: {id,name} }.
+      const normalizedEvents = (Array.isArray(events) ? events : []).map((ev) => {
+        const rawAdvisors = (ev as unknown as { advisors?: unknown }).advisors;
+        if (!Array.isArray(rawAdvisors)) return ev;
+
+        const normalizedAdvisors = rawAdvisors
+          .map((a) => {
+            const advisor = a as Record<string, unknown>;
+            const advisorCompanyId =
+              typeof advisor["advisor_company_id"] === "number"
+                ? (advisor["advisor_company_id"] as number)
+                : typeof (advisor["advisor_company"] as any)?.id === "number"
+                ? ((advisor["advisor_company"] as any).id as number)
+                : undefined;
+
+            const advisorCompanyName =
+              typeof advisor["advisor_company_name"] === "string"
+                ? (advisor["advisor_company_name"] as string)
+                : typeof (advisor["advisor_company"] as any)?.name === "string"
+                ? ((advisor["advisor_company"] as any).name as string)
+                : typeof (advisor["_new_company"] as any)?.name === "string"
+                ? ((advisor["_new_company"] as any).name as string)
+                : undefined;
+
+            const announcementUrl =
+              typeof advisor["announcement_url"] === "string" ||
+              advisor["announcement_url"] === null
+                ? (advisor["announcement_url"] as string | null)
+                : null;
+
+            // Preserve any existing shape, but ensure `advisor_company` exists for the table’s mapping.
+            return {
+              ...advisor,
+              announcement_url: announcementUrl,
+              advisor_company:
+                advisorCompanyId || advisorCompanyName
+                  ? { id: advisorCompanyId, name: advisorCompanyName }
+                  : (advisor["advisor_company"] as any),
+            };
+          })
+          .filter((a) => {
+            const name =
+              typeof (a as any)?.advisor_company?.name === "string"
+                ? ((a as any).advisor_company.name as string)
+                : "";
+            return name.trim().length > 0;
+          });
+
+        return { ...(ev as any), advisors: normalizedAdvisors };
+      });
+
+      setCorporateEvents(normalizedEvents as CorporateEvent[]);
     } catch (err) {
       console.error("Error fetching corporate events:", err);
       // Don't set main error state for corporate events loading failure
