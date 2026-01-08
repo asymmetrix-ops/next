@@ -4398,7 +4398,12 @@ const SectorDetailPage = ({
                             ? event.advisors.map((advisor, idx) => {
                                 const nc = advisor._new_company;
                                 const name = nc?.name || "Unknown";
-                                const id = nc?.id;
+                                // Advisor pages use `new_comp_id` (i.e., new_company id).
+                                // Some API shapes omit `_new_company.id`, so fall back to `new_company_advised`.
+                                const id =
+                                  nc?.id ??
+                                  (advisor as unknown as { new_company_advised?: number })
+                                    .new_company_advised;
                                 return (
                                   <span key={id || idx}>
                                     {id ? (
