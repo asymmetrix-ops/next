@@ -1383,6 +1383,9 @@ const InvestorDetailPage = () => {
       padding: 24px;
       color: #64748b;
     }
+    .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
+    .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
+    .pill-green { background-color: #dcfce7; color: #15803d; }
 
     @media (max-width: 768px) {
       .investor-content {
