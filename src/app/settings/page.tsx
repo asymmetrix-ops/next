@@ -17,6 +17,7 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [editingAlert, setEditingAlert] = useState<EmailAlert | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [sendTogether, setSendTogether] = useState(true);
 
   const loadAlerts = useCallback(async (showLoading = true) => {
     if (!user?.id) {
@@ -52,6 +53,29 @@ export default function SettingsPage() {
   useEffect(() => {
     loadAlerts();
   }, [loadAlerts]);
+
+  const corporateAlert = alerts.find((a) => a.item_type === "corporate_events");
+  const insightsAlert = alerts.find((a) => a.item_type === "insights_analysis");
+  const canSendTogether =
+    !!corporateAlert &&
+    !!insightsAlert &&
+    corporateAlert.email_frequency === insightsAlert.email_frequency;
+
+  useEffect(() => {
+    if (!user?.id) return;
+    if (!canSendTogether) return;
+    const key = `emailAlerts:sendTogether:${user.id}`;
+    const stored = window.localStorage.getItem(key);
+    // Default is ON, unless user explicitly turned it off before.
+    setSendTogether(stored == null ? true : stored === "true");
+  }, [user?.id, canSendTogether]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    if (!canSendTogether) return;
+    const key = `emailAlerts:sendTogether:${user.id}`;
+    window.localStorage.setItem(key, String(sendTogether));
+  }, [user?.id, canSendTogether, sendTogether]);
 
   const handleEdit = (alert: EmailAlert) => {
     setEditingAlert(alert);
@@ -144,6 +168,31 @@ export default function SettingsPage() {
 
         {!isLoading && !error && (
           <>
+            {canSendTogether && (
+              <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    checked={sendTogether}
+                    onChange={(e) => setSendTogether(e.target.checked)}
+                  />
+                  <div>
+                    <p className="text-gray-900 font-medium">
+                      Send Corporate Events and Insights &amp; Analysis together
+                    </p>
+                    <p className="text-gray-600 text-sm">
+                      Available because both are set to{" "}
+                      <span className="font-medium">
+                        {corporateAlert?.email_frequency}
+                      </span>
+                      . Default is on.
+                    </p>
+                  </div>
+                </label>
+              </div>
+            )}
+
             {alerts.length === 0 ? (
               <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
                 <p className="text-gray-600 mb-4">
@@ -205,10 +254,13 @@ export default function SettingsPage() {
                   item_type: "corporate_events",
                   email_frequency: "daily",
                   day_of_week: "",
-                  timezone: meta.defaults.timezone,
+                  timezone: "Europe/London",
                   content_type: "",
                   is_active: true,
                   send_time_local: defaultTime,
+                  next_run_at_utc: null,
+                  last_sent_at_utc: null,
+                  status: "scheduled",
                 } as EmailAlert;
               })()
             }

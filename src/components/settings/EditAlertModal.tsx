@@ -12,6 +12,40 @@ interface EditAlertModalProps {
   onSave: (alert: EmailAlert) => void;
 }
 
+// Common timezones with user-friendly labels
+const COMMON_TIMEZONES = [
+  { value: "Europe/London", label: "London (GMT/BST)" },
+  { value: "America/New_York", label: "New York (EST/EDT)" },
+  { value: "America/Chicago", label: "Chicago (CST/CDT)" },
+  { value: "America/Denver", label: "Denver (MST/MDT)" },
+  { value: "America/Los_Angeles", label: "Los Angeles (PST/PDT)" },
+  { value: "America/Toronto", label: "Toronto (EST/EDT)" },
+  { value: "America/Vancouver", label: "Vancouver (PST/PDT)" },
+  { value: "Europe/Paris", label: "Paris (CET/CEST)" },
+  { value: "Europe/Berlin", label: "Berlin (CET/CEST)" },
+  { value: "Europe/Rome", label: "Rome (CET/CEST)" },
+  { value: "Europe/Madrid", label: "Madrid (CET/CEST)" },
+  { value: "Europe/Amsterdam", label: "Amsterdam (CET/CEST)" },
+  { value: "Europe/Zurich", label: "Zurich (CET/CEST)" },
+  { value: "Europe/Stockholm", label: "Stockholm (CET/CEST)" },
+  { value: "Europe/Dublin", label: "Dublin (GMT/IST)" },
+  { value: "Asia/Dubai", label: "Dubai (GST)" },
+  { value: "Asia/Singapore", label: "Singapore (SGT)" },
+  { value: "Asia/Hong_Kong", label: "Hong Kong (HKT)" },
+  { value: "Asia/Tokyo", label: "Tokyo (JST)" },
+  { value: "Asia/Shanghai", label: "Shanghai (CST)" },
+  { value: "Asia/Mumbai", label: "Mumbai (IST)" },
+  { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" },
+  { value: "Australia/Melbourne", label: "Melbourne (AEDT/AEST)" },
+  { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" },
+  { value: "America/Sao_Paulo", label: "São Paulo (BRT/BRST)" },
+  { value: "America/Mexico_City", label: "Mexico City (CST/CDT)" },
+  { value: "Africa/Johannesburg", label: "Johannesburg (SAST)" },
+  { value: "Asia/Seoul", label: "Seoul (KST)" },
+  { value: "Asia/Bangkok", label: "Bangkok (ICT)" },
+  { value: "UTC", label: "UTC" },
+];
+
 export function EditAlertModal({
   alert,
   meta,
@@ -42,12 +76,13 @@ export function EditAlertModal({
       item_type: alert.item_type,
       email_frequency: alert.email_frequency,
       day_of_week: alert.day_of_week || "",
-      timezone: alert.timezone || meta.defaults.timezone,
+      timezone: alert.timezone || "Europe/London",
       content_type: alert.content_type || "",
       is_active: alert.is_active,
       send_time_local: normalizeTime(alert.send_time_local) || defaultTime,
     };
   });
+
 
   useEffect(() => {
     if (isOpen) {
@@ -56,7 +91,7 @@ export function EditAlertModal({
         item_type: alert.item_type,
         email_frequency: alert.email_frequency,
         day_of_week: alert.day_of_week || "",
-        timezone: alert.timezone || meta.defaults.timezone,
+        timezone: alert.timezone || "Europe/London",
         content_type: alert.content_type || "",
         is_active: alert.is_active,
         send_time_local: normalizeTime(alert.send_time_local) || defaultTime,
@@ -279,16 +314,20 @@ export function EditAlertModal({
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Timezone
               </label>
-              <input
-                type="text"
+              <select
                 value={formData.timezone}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, timezone: e.target.value }))
                 }
-                placeholder="e.g., Europe/London"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 required
-              />
+              >
+                {COMMON_TIMEZONES.map((tz) => (
+                  <option key={tz.value} value={tz.value}>
+                    {tz.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Content Type (only for insights_analysis + as_added) */}
