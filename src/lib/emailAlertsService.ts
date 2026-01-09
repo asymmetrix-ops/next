@@ -1,5 +1,6 @@
 import { authService } from "./auth";
 import type { EmailAlert, EmailAlertsMeta } from "@/types/emailAlerts";
+import { computeNextRunAtUtcIso } from "@/utils/emailAlertSchedule";
 
 interface EmailAlertsResponse {
   alerts: EmailAlert[];
@@ -97,34 +98,37 @@ class EmailAlertsService {
 
   // Create a new email alert
   async createEmailAlert(alert: EmailAlert): Promise<EmailAlert> {
+    const timezone = alert.timezone || "Europe/London";
+    const nextRunAtUtcIso = computeNextRunAtUtcIso({
+      email_frequency: alert.email_frequency,
+      day_of_week: alert.day_of_week,
+      timezone,
+      send_time_local: alert.send_time_local,
+    });
+
     // Build base request body
     const body: Record<string, unknown> = {
       user_id: alert.user_id,
       item_type: alert.item_type,
       email_frequency: alert.email_frequency,
-      timezone: alert.timezone || "Europe/London",
+      day_of_week: alert.day_of_week || "",
+      timezone,
+      content_type: alert.content_type || "",
       is_active: alert.is_active,
+      send_time_local: alert.send_time_local ?? null,
+      next_run_at_utc: nextRunAtUtcIso,
+      last_sent_at_utc: null,
+      status: "scheduled",
     };
 
-    // Add fields based on frequency
-    if (alert.email_frequency === "daily") {
-      // Daily: add send_time_local as timestamp (only time-of-day is meaningful)
-      if (alert.send_time_local) {
-        body.send_time_local = alert.send_time_local;
-      }
-    } else if (alert.email_frequency === "weekly") {
-      // Weekly: add send_time_local (timestamp) + day_of_week
-      if (alert.send_time_local) {
-        body.send_time_local = alert.send_time_local;
-      }
-      if (alert.day_of_week) {
-        body.day_of_week = alert.day_of_week;
-      }
-    } else if (alert.email_frequency === "as_added") {
-      // As added: no time/day fields
-      // If insights_analysis, add content_type
-      if (alert.item_type === "insights_analysis" && alert.content_type) {
-        body.content_type = alert.content_type;
+    // Keep "as_added" clean: it doesn't use time/day scheduling.
+    if (alert.email_frequency === "as_added") {
+      body.day_of_week = "";
+      body.send_time_local = null;
+      body.next_run_at_utc = null;
+      // content_type is only meaningful for insights_analysis
+      if (alert.item_type !== "insights_analysis") {
+        body.content_type = "";
       }
     }
 
@@ -138,16 +142,26 @@ class EmailAlertsService {
 
   // Update an email alert
   async updateEmailAlert(alert: EmailAlert): Promise<EmailAlert> {
+    const timezone = alert.timezone || "Europe/London";
+    const nextRunAtUtcIso = computeNextRunAtUtcIso({
+      email_frequency: alert.email_frequency,
+      day_of_week: alert.day_of_week,
+      timezone,
+      send_time_local: alert.send_time_local,
+    });
+
     const body: Record<string, unknown> = {
       user_email_alerts_id: alert.id,
       user_id: alert.user_id,
       item_type: alert.item_type,
       email_frequency: alert.email_frequency,
       day_of_week: alert.day_of_week || "",
-      timezone: alert.timezone || "Europe/London",
+      timezone,
       content_type: alert.content_type || "",
       is_active: alert.is_active,
       send_time_local: alert.send_time_local || null,
+      next_run_at_utc: alert.email_frequency === "as_added" ? null : nextRunAtUtcIso,
+      status: "scheduled",
     };
 
     const response = await this.request<EmailAlert>(
