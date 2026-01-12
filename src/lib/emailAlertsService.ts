@@ -105,6 +105,8 @@ class EmailAlertsService {
       timezone,
       send_time_local: alert.send_time_local,
     });
+    const nextRunAtUtcMs =
+      nextRunAtUtcIso == null ? null : new Date(nextRunAtUtcIso).getTime();
 
     // Build base request body
     const body: Record<string, unknown> = {
@@ -116,7 +118,7 @@ class EmailAlertsService {
       content_type: alert.content_type || "",
       is_active: alert.is_active,
       send_time_local: alert.send_time_local ?? null,
-      next_run_at_utc: nextRunAtUtcIso,
+      next_run_at_utc: nextRunAtUtcMs,
       last_sent_at_utc: null,
       status: "scheduled",
     };
@@ -149,6 +151,8 @@ class EmailAlertsService {
       timezone,
       send_time_local: alert.send_time_local,
     });
+    const nextRunAtUtcMs =
+      nextRunAtUtcIso == null ? null : new Date(nextRunAtUtcIso).getTime();
 
     const body: Record<string, unknown> = {
       user_email_alerts_id: alert.id,
@@ -160,7 +164,7 @@ class EmailAlertsService {
       content_type: alert.content_type || "",
       is_active: alert.is_active,
       send_time_local: alert.send_time_local || null,
-      next_run_at_utc: alert.email_frequency === "as_added" ? null : nextRunAtUtcIso,
+      next_run_at_utc: alert.email_frequency === "as_added" ? null : nextRunAtUtcMs,
       status: "scheduled",
     };
 

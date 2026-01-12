@@ -9,8 +9,8 @@ export interface EmailAlert {
   content_type: string;
   is_active: boolean;
   send_time_local: string | null;
-  next_run_at_utc?: string | null;
-  last_sent_at_utc?: string | null;
+  next_run_at_utc?: string | number | null;
+  last_sent_at_utc?: string | number | null;
   status?: string;
 }
 
