@@ -75,6 +75,7 @@ interface PortfolioCompany {
     Sector_importance: string;
   }>;
   description: string;
+  year_exited?: number | string | null;
   linkedin_data: {
     LinkedIn_Employee: number;
     linkedin_logo: string;
@@ -571,6 +572,14 @@ const InvestorDetailPage = () => {
       locations_id: Number((obj["locations_id"] as number) ?? 0),
       sectors_id: Array.isArray(sectors) ? sectors : [],
       description: String((obj["description"] as string) ?? ""),
+      year_exited:
+        typeof obj["year_exited"] === "number" || typeof obj["year_exited"] === "string"
+          ? (obj["year_exited"] as number | string)
+          : typeof obj["Year_Exited"] === "number" || typeof obj["Year_Exited"] === "string"
+            ? (obj["Year_Exited"] as number | string)
+            : typeof obj["yearExited"] === "number" || typeof obj["yearExited"] === "string"
+              ? (obj["yearExited"] as number | string)
+              : null,
       linkedin_data: {
         LinkedIn_Employee: Number(linkedinDataOld?.LinkedIn_Employee ?? 0),
         linkedin_logo: String(linkedinDataOld?.linkedin_logo ?? ""),
@@ -2136,7 +2145,7 @@ const InvestorDetailPage = () => {
                               borderBottom: "1px solid #e2e8f0",
                             }}
                           >
-                            Description
+                            Year Exited
                           </th>
                           <th
                             style={{
@@ -2204,11 +2213,13 @@ const InvestorDetailPage = () => {
                                 </div>
                               </td>
                               <td
-                                style={{ padding: "12px", maxWidth: "350px" }}
+                                style={{ padding: "12px" }}
                               >
-                                <CompanyDescription
-                                  description={company.description}
-                                />
+                                {company.year_exited !== null &&
+                                company.year_exited !== undefined &&
+                                String(company.year_exited).trim().length > 0
+                                  ? String(company.year_exited)
+                                  : "Not available"}
                               </td>
                               <td style={{ padding: "12px" }}>
                                 {company.related_to_investor_individuals &&
