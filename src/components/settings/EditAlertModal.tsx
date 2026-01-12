@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import type { EmailAlert, EmailAlertsMeta } from "@/types/emailAlerts";
+import { computeNextRunAtUtcIso } from "@/utils/emailAlertSchedule";
 
 interface EditAlertModalProps {
   alert: EmailAlert;
@@ -145,6 +146,36 @@ export function EditAlertModal({
   const isAsAdded = formData.email_frequency === "as_added";
   const showContentType =
     formData.item_type === "insights_analysis" && isAsAdded;
+
+  const londonTimeHint = useMemo(() => {
+    if (!formData.email_frequency || formData.email_frequency === "as_added") return null;
+    if (!formData.send_time_local || !formData.timezone) return null;
+
+    const iso = computeNextRunAtUtcIso({
+      email_frequency: formData.email_frequency as EmailAlert["email_frequency"],
+      day_of_week: (formData.day_of_week || "") as EmailAlert["day_of_week"],
+      timezone: formData.timezone,
+      send_time_local: formData.send_time_local,
+    });
+    if (!iso) return null;
+    const dt = new Date(iso);
+    const london = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/London",
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(dt);
+    return london;
+  }, [
+    formData.day_of_week,
+    formData.email_frequency,
+    formData.send_time_local,
+    formData.timezone,
+  ]);
 
   return (
     <div
@@ -328,6 +359,12 @@ export function EditAlertModal({
                   </option>
                 ))}
               </select>
+              {londonTimeHint && (
+                <p className="text-xs text-gray-500 mt-1">
+                  London equivalent for next run:{" "}
+                  <span className="font-medium text-gray-700">{londonTimeHint}</span>
+                </p>
+              )}
             </div>
 
             {/* Content Type (only for insights_analysis + as_added) */}
