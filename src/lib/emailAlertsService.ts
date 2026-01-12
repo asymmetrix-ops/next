@@ -105,8 +105,10 @@ class EmailAlertsService {
       timezone,
       send_time_local: alert.send_time_local,
     });
+    // Xano timestamp fields expect milliseconds
     const nextRunAtUtcMs =
       nextRunAtUtcIso == null ? null : new Date(nextRunAtUtcIso).getTime();
+
 
     // Build base request body
     const body: Record<string, unknown> = {
@@ -164,7 +166,8 @@ class EmailAlertsService {
       content_type: alert.content_type || "",
       is_active: alert.is_active,
       send_time_local: alert.send_time_local || null,
-      next_run_at_utc: alert.email_frequency === "as_added" ? null : nextRunAtUtcMs,
+      next_run_at_utc:
+        alert.email_frequency === "as_added" ? null : nextRunAtUtcMs,
       status: "scheduled",
     };
 
