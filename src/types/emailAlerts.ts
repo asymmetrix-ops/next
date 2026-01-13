@@ -2,7 +2,7 @@ export interface EmailAlert {
   id: number;
   created_at: number;
   user_id: number;
-  item_type: "corporate_events" | "insights_analysis";
+  item_type: "corporate_events" | "insights_analysis" | "digest";
   email_frequency: "as_added" | "daily" | "weekly";
   day_of_week: string;
   timezone: string;
