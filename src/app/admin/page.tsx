@@ -1178,59 +1178,183 @@ function EmailsTab() {
   );
 }
 function ContentTab() {
-  // Core fields
+  const editorContainerRef = useRef<HTMLDivElement | null>(null);
+  const unlayerRef = useRef<unknown>(null);
+  const [html, setHtml] = useState("");
   const [headline, setHeadline] = useState("");
   const [strapline, setStrapline] = useState("");
   const [contentType, setContentType] = useState("");
-  const CONTENT_TYPES = [
-    "Company Analysis",
-    "Deal Analysis",
-    "Hot Take",
-    "Executive Interview",
-    "Sector Analysis",
-  ];
-  const [contentTypes] = useState<string[]>(CONTENT_TYPES);
+  const [contentTypes, setContentTypes] = useState<string[]>([]);
+  const [singleRecipient, setSingleRecipient] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [editorReady, setEditorReady] = useState(false);
+  const [pendingHtml, setPendingHtml] = useState<string | null>(null);
 
-  // Body builder (EmailEditor)
-  const contentUnlayerRef = useRef<unknown>(null);
-
-  // Sectors
-  const [primarySectors, setPrimarySectors] = useState<
-    Array<{ id: number; sector_name: string }>
-  >([]);
-  const [secondarySectors, setSecondarySectors] = useState<
-    Array<{ id: number; sector_name: string }>
-  >([]);
-  const [selectedPrimarySectorIds, setSelectedPrimarySectorIds] = useState<
-    number[]
-  >([]);
-  const [selectedSecondarySectorIds, setSelectedSecondarySectorIds] = useState<
-    number[]
-  >([]);
-
-  // Companies selection
+  // Company + sector metadata (for content creation workflows)
   interface SimpleCompany {
     id: number;
     name: string;
   }
-  const [companyQuery, setCompanyQuery] = useState("");
-  const [companyResults, setCompanyResults] = useState<SimpleCompany[]>([]);
-  const [selectedCompanies, setSelectedCompanies] = useState<SimpleCompany[]>(
+
+  // Company of Focus (multi)
+  const [cofQuery, setCofQuery] = useState("");
+  const [cofResults, setCofResults] = useState<SimpleCompany[]>([]);
+  const [companyOfFocus, setCompanyOfFocus] = useState<SimpleCompany[]>([]);
+  const [cofLoading, setCofLoading] = useState(false);
+
+  // Companies Mentioned (multi)
+  const [mentionedQuery, setMentionedQuery] = useState("");
+  const [mentionedResults, setMentionedResults] = useState<SimpleCompany[]>([]);
+  const [companiesMentioned, setCompaniesMentioned] = useState<SimpleCompany[]>(
     []
   );
-  const [loadingCompanies, setLoadingCompanies] = useState(false);
+  const [mentionedLoading, setMentionedLoading] = useState(false);
 
-  // Content types are fixed per product spec
+  // Sectors (multi)
+  const [allSectors, setAllSectors] = useState<
+    Array<{ id: number; sector_name: string }>
+  >([]);
+  const [selectedSectorIds, setSelectedSectorIds] = useState<number[]>([]);
 
-  // Fetch sectors
+  // Related corporate events (multi)
+  type SimpleCorporateEvent = { id: number; label: string };
+  const [corporateEventsQuery, setCorporateEventsQuery] = useState("");
+  const [corporateEventsResults, setCorporateEventsResults] = useState<
+    SimpleCorporateEvent[]
+  >([]);
+  const [selectedCorporateEvents, setSelectedCorporateEvents] = useState<
+    SimpleCorporateEvent[]
+  >([]);
+  const [corporateEventsLoading, setCorporateEventsLoading] = useState(false);
+
+  // Related documents (local only for now)
+  const [relatedDocuments, setRelatedDocuments] = useState<File[]>([]);
+
+  interface EmailTemplate {
+    id: number;
+    Headline?: string | null;
+    Body?: string | null;
+    Publication_Date?: unknown;
+    created_at?: number;
+  }
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | "">("");
+
+  function extractInnerContent(fullHtml: string): string {
+    // If it's a full HTML document, extract the inner content
+    // Look for the content inside the container table/td
+    try {
+      // Create a temporary DOM parser to extract content safely
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(fullHtml, "text/html");
+
+      // Try to find the container table
+      const container = doc.querySelector(
+        'table.container, .container table, table[class*="container"]'
+      );
+      if (container) {
+        const td = container.querySelector("td");
+        if (td) {
+          return td.innerHTML.trim();
+        }
+      }
+
+      // Try to find any div inside body
+      const bodyDiv = doc.body?.querySelector("div");
+      if (bodyDiv) {
+        return bodyDiv.innerHTML.trim();
+      }
+
+      // If no wrapper found, return body content or as-is
+      return doc.body?.innerHTML.trim() || fullHtml;
+    } catch {
+      // Fallback: regex extraction
+      const containerMatch = fullHtml.match(
+        /<table[^>]*class="container"[^>]*>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<\/table>/i
+      );
+      if (containerMatch && containerMatch[1]) {
+        return containerMatch[1].trim();
+      }
+      const divMatch = fullHtml.match(
+        /<body[^>]*>[\s\S]*?<div[^>]*>([\s\S]*?)<\/div>[\s\S]*?<\/body>/i
+      );
+      if (divMatch && divMatch[1]) {
+        return divMatch[1].trim();
+      }
+      return fullHtml;
+    }
+  }
+
+  const readyResolveRef = useRef<(() => void) | null>(null);
+  const readyP = useRef<Promise<void> | null>(null);
+  if (!readyP.current) {
+    readyP.current = new Promise<void>((res) => (readyResolveRef.current = res));
+  }
+
+  async function getEditorApi() {
+    await readyP.current;
+    type EditorRef = {
+      editor?: {
+        exportHtml?: (cb: (d: { html?: string }) => void) => void;
+        loadDesign?: (design: unknown) => void;
+      };
+    };
+    const ref = unlayerRef.current as EditorRef | null;
+    const api = ref?.editor as
+      | {
+          exportHtml?: (cb: (d: { html?: string }) => void) => void;
+          loadDesign?: (design: unknown) => void;
+        }
+      | undefined;
+    if (!api?.exportHtml || !api?.loadDesign) {
+      throw new Error("Email editor API not available yet.");
+    }
+    return api;
+  }
+
+  async function safeExportHtml(): Promise<{ html?: string }> {
+    const api = await getEditorApi();
+    return await new Promise<{ html?: string }>((resolve) =>
+      api.exportHtml?.((d: { html?: string }) => resolve(d))
+    );
+  }
+
+  async function safeLoadHtml(rawHtml: string): Promise<void> {
+    const innerHtml = extractInnerContent(rawHtml);
+    const api = await getEditorApi();
+    api.loadDesign?.({
+      body: {
+        rows: [
+          {
+            cells: [1],
+            columns: [
+              {
+                contents: [
+                  {
+                    type: "html",
+                    values: { html: innerHtml },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        values: { backgroundColor: "#ffffff", contentWidth: "600px" },
+      },
+    } as unknown);
+  }
+
+  // Fetch content types (same source as Insights & Analysis)
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
       try {
-        const prim = await locationsService.getPrimarySectors();
-        if (!cancelled) setPrimarySectors(prim);
+        const values = await locationsService.getContentTypesForArticles();
+        if (!cancelled) setContentTypes(values);
       } catch {
-        // ignore
+        if (!cancelled) setContentTypes([]);
       }
     };
     run();
@@ -1239,43 +1363,43 @@ function ContentTab() {
     };
   }, []);
 
-  // When primary sector selection changes, refresh secondary sector options
+  // Fetch sectors list (primary + secondary combined)
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
       try {
-        if (selectedPrimarySectorIds.length === 0) {
-          setSecondarySectors([]);
-          setSelectedSecondarySectorIds([]);
-          return;
-        }
-        const secs = await locationsService.getSecondarySectors(
-          selectedPrimarySectorIds
+        const prim = await locationsService.getPrimarySectors();
+        const allPrimaryIds = prim.map((p) => p.id);
+        const sec =
+          allPrimaryIds.length > 0
+            ? await locationsService.getSecondarySectors(allPrimaryIds)
+            : [];
+        const combined = [...prim, ...sec];
+        const unique = combined.filter(
+          (s, i, arr) => arr.findIndex((x) => x.id === s.id) === i
         );
-        if (!cancelled) setSecondarySectors(secs);
+        if (!cancelled) setAllSectors(unique);
       } catch {
-        // ignore
+        if (!cancelled) setAllSectors([]);
       }
     };
     run();
     return () => {
       cancelled = true;
     };
-  }, [selectedPrimarySectorIds]);
+  }, []);
 
-  // Company search (same endpoint/shape as Companies list page; filter only by name)
-  const searchCompanies = async () => {
-    if (!companyQuery.trim()) return;
-    try {
-      setLoadingCompanies(true);
+  async function fetchCompaniesByName(query: string, perPage: number) {
+    const q = query.trim();
+    if (!q) return [];
       const token = localStorage.getItem("asymmetrix_auth_token");
       const params = new URLSearchParams();
       params.append("Offset", "1");
-      params.append("Per_page", "25");
+    params.append("Per_page", String(perPage));
       params.append("Min_linkedin_members", "0");
       params.append("Max_linkedin_members", "0");
       params.append("Horizontals_ids", "");
-      params.append("query", companyQuery.trim());
+    params.append("query", q);
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
       const resp = await fetch(url, {
         method: "GET",
@@ -1285,147 +1409,352 @@ function ContentTab() {
         },
         credentials: "include",
       });
-      if (!resp.ok) {
-        setCompanyResults([]);
-        return;
-      }
+    if (!resp.ok) return [];
       const data = await resp.json().catch(() => null);
       const items: Array<{ id: number; name: string }> =
         (data?.result1?.items as Array<{ id: number; name: string }>) ||
         (data?.companies?.items as Array<{ id: number; name: string }>) ||
         (data?.items as Array<{ id: number; name: string }>) ||
         [];
-      setCompanyResults(
-        (Array.isArray(items) ? items : [])
+    return (Array.isArray(items) ? items : [])
           .map((c) => ({ id: Number(c.id), name: String(c.name || "") }))
-          .filter((c) => c.id && c.name)
-      );
+      .filter((c) => c.id && c.name);
+  }
+
+  const searchCompanyOfFocus = async () => {
+    if (!cofQuery.trim()) return;
+    try {
+      setCofLoading(true);
+      const results = await fetchCompaniesByName(cofQuery, 25);
+      setCofResults(results);
     } catch {
-      setCompanyResults([]);
+      setCofResults([]);
     } finally {
-      setLoadingCompanies(false);
+      setCofLoading(false);
     }
   };
 
-  // Build JSON payload for copy/preview
-  const [generatedJson, setGeneratedJson] = useState<string>("");
-  const generatePayload = async () => {
-    const exported = await new Promise<{ html?: string }>((resolve) => {
-      const editorRef = contentUnlayerRef.current as {
-        editor?: { exportHtml?: (cb: (d: { html?: string }) => void) => void };
-        exportHtml?: (cb: (d: { html?: string }) => void) => void;
-      } | null;
-      const exportFn = editorRef?.editor?.exportHtml ?? editorRef?.exportHtml;
-      exportFn?.((d) => resolve(d));
-    });
-    const rawHtml = exported?.html || "";
-    const sanitized = sanitizeHtml(rawHtml);
-    const bodyHtml = `<div>${sanitized}</div>`;
-    const payload = {
-      Headline: headline.trim() || null,
-      Strapline: strapline.trim() || null,
-      Content_Type: contentType || null,
-      Body: bodyHtml,
-      primary_sectors_ids: selectedPrimarySectorIds,
-      Secondary_sectors_ids: selectedSecondarySectorIds,
-      companies_mentioned: selectedCompanies.map((c) => ({
-        id: c.id,
-        name: c.name,
-      })),
-    } as const;
-    setGeneratedJson(JSON.stringify(payload, null, 2));
+  const searchCompaniesMentioned = async () => {
+    if (!mentionedQuery.trim()) return;
+    try {
+      setMentionedLoading(true);
+      const results = await fetchCompaniesByName(mentionedQuery, 25);
+      setMentionedResults(results);
+    } catch {
+      setMentionedResults([]);
+    } finally {
+      setMentionedLoading(false);
+    }
   };
 
-  // Submit to Xano: create new content. Do NOT set Visibility or Publication_Date
-  const [submittingContent, setSubmittingContent] = useState(false);
-  const submitContent = async () => {
-    if (submittingContent) return;
+  const searchCorporateEvents = async () => {
+    const q = corporateEventsQuery.trim();
+    if (!q) return;
     try {
-      setSubmittingContent(true);
-      // export HTML from builder
-      const exported = await new Promise<{ html?: string }>((resolve) => {
-        const editorRef = contentUnlayerRef.current as {
-          editor?: { exportHtml?: (cb: (d: { html?: string }) => void) => void };
-          exportHtml?: (cb: (d: { html?: string }) => void) => void;
-        } | null;
-        const exportFn = editorRef?.editor?.exportHtml ?? editorRef?.exportHtml;
-        exportFn?.((d) => resolve(d));
+      setCorporateEventsLoading(true);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = new URLSearchParams();
+      // Corporate Events API expects 0-based page indexing
+      params.append("Page", "0");
+      params.append("Per_page", "25");
+      params.append("search_query", q);
+      const resp = await fetch(`/api/corporate-events?${params.toString()}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
+      if (!resp.ok) {
+        setCorporateEventsResults([]);
+        return;
+      }
+      const json = (await resp.json().catch(() => null)) as
+        | { items?: Array<Record<string, unknown>> }
+        | null;
+      const items = Array.isArray(json?.items) ? json!.items! : [];
+
+      const mapped = items
+        .map((it) => {
+          const idRaw = (it.id ?? it.corporate_event_id ?? it.corporate_events_id) as
+            | number
+            | string
+            | undefined;
+          const idNum =
+            typeof idRaw === "number"
+              ? idRaw
+              : typeof idRaw === "string"
+              ? parseInt(idRaw, 10)
+              : NaN;
+          if (!Number.isFinite(idNum) || idNum <= 0) return null;
+
+          const dealType = String(it.deal_type ?? it.Deal_type ?? "").trim();
+          const announcementDate = String(
+            it.announcement_date ?? it.Announcement_date ?? ""
+          ).trim();
+          const targetCounterparty = it.target_counterparty as
+            | { new_company?: { name?: unknown } }
+            | undefined;
+          const targetName = String(
+            targetCounterparty?.new_company?.name ?? ""
+          ).trim();
+          const targetLabel = String(it.target_label ?? "").trim();
+          const description = String(it.description ?? "").trim();
+
+          const labelParts = [
+            dealType || undefined,
+            targetLabel || targetName || undefined,
+            announcementDate || undefined,
+          ].filter(Boolean) as string[];
+          const label =
+            labelParts.join(" • ") ||
+            (description ? description.slice(0, 80) : `Corporate Event #${idNum}`);
+
+          return { id: idNum, label } satisfies SimpleCorporateEvent;
+        })
+        .filter((x): x is SimpleCorporateEvent => Boolean(x));
+
+      setCorporateEventsResults(mapped);
+    } catch {
+      setCorporateEventsResults([]);
+    } finally {
+      setCorporateEventsLoading(false);
+    }
+  };
+
+  function formatBytes(n: number) {
+    if (!Number.isFinite(n) || n <= 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
+    const v = n / Math.pow(1024, i);
+    return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadTemplates() {
+      try {
+        setTemplatesLoading(true);
+        const res = await fetch(
+          "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content",
+          { method: "GET", headers: { "Content-Type": "application/json" } }
+        );
+        const data = await res.json();
+        if (!cancelled && Array.isArray(data)) {
+          setTemplates(data as EmailTemplate[]);
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setTemplatesLoading(false);
+      }
+    }
+    loadTemplates();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleExport = async () => {
+    try {
+      const exported = await safeExportHtml();
+    const rawHtml = exported?.html || "";
+    const sanitized = sanitizeHtml(rawHtml);
+      const branded = buildBrandedEmailHtml({
+        bodyHtml: `<div>${sanitized}</div>`,
+        subject: contentType,
+      });
+      setHtml(branded);
+    } catch (err) {
+      console.error("Failed to export HTML:", err);
+      alert("Email editor is not ready yet. Try again in a few seconds.");
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!html) return;
+    try {
+      await navigator.clipboard.writeText(html);
+    } catch {}
+  };
+
+  const submitNewContent = async () => {
+    if (sending) return;
+    const token = localStorage.getItem("asymmetrix_auth_token");
+    if (!token) {
+      alert("Authentication required");
+      return;
+    }
+
+    const Headline = headline.trim();
+    const Strapline = strapline.trim();
+    const Content_Type = contentType.trim();
+    if (!Headline) {
+      alert("Headline is required");
+      return;
+    }
+    if (!Content_Type) {
+      alert("Content Type is required");
+      return;
+    }
+
+    let exported: { html?: string };
+    try {
+      exported = await safeExportHtml();
+    } catch (err) {
+      console.error("Failed to export HTML:", err);
+      alert("Content editor is not ready yet. Try again in a few seconds.");
+      return;
+    }
+
       const rawHtml = exported?.html || "";
       const sanitized = sanitizeHtml(rawHtml);
-      const bodyHtml = `<div>${sanitized}</div>`;
+    const Body = `<div>${sanitized}</div>`;
 
-      const sectorsCombined = [
-        ...selectedPrimarySectorIds,
-        ...selectedSecondarySectorIds,
-      ];
-      const companiesIds = selectedCompanies.map((c) => c.id);
+    const companyOfFocusIds = companyOfFocus.map((c) => c.id);
+    const companiesMentionedIds = companiesMentioned.map((c) => c.id);
+    const relatedCorporateEventIds = selectedCorporateEvents.map((e) => e.id);
 
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const resp = await fetch(
+    type ArrayMode = "bracketed" | "plain";
+    const buildFormData = (mode: ArrayMode) => {
+      const fd = new FormData();
+
+      // Scalars
+      // Xano: this should resolve to null (Publication_Date is always null for this flow)
+      fd.append("Publication_Date", "");
+      fd.append("Headline", Headline);
+      fd.append("Strapline", Strapline);
+      fd.append("Content_Type", Content_Type);
+      fd.append("Body", Body);
+      fd.append("Visibility", "Admin");
+
+      // Arrays of IDs (send as repeated [] keys)
+      const k = (base: string) => (mode === "bracketed" ? `${base}[]` : base);
+      for (const id of companyOfFocusIds)
+        fd.append(k("Company_of_Focus"), String(id));
+      for (const id of selectedSectorIds) fd.append(k("sectors"), String(id));
+      for (const id of companiesMentionedIds)
+        fd.append(k("companies_mentioned"), String(id));
+      for (const id of relatedCorporateEventIds)
+        fd.append(k("Related_Corporate_Event"), String(id));
+
+      // Attachments: repeated keys
+      const fileKey = mode === "bracketed" ? "files[]" : "files";
+      for (const file of relatedDocuments) {
+        fd.append(fileKey, file, file.name);
+      }
+
+      return fd;
+    };
+
+    setSending(true);
+    try {
+      // Keep UI "Generated HTML" consistent with export button
+      setHtml(
+        buildBrandedEmailHtml({
+          bodyHtml: `<div>${sanitized}</div>`,
+          subject: Content_Type,
+        })
+      );
+
+      const tryOnce = async (mode: ArrayMode) => {
+        const fd = buildFormData(mode);
+        const res = await fetch(
         "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/new_content",
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            Headline: headline.trim(),
-            Strapline: strapline.trim(),
-            Content_Type: contentType,
-            Body: bodyHtml,
-            sectors: sectorsCombined,
-            companies_mentioned: companiesIds,
-            Related_Documents: [],
-            Related_Corporate_Event: [],
-          }),
-        }
-      );
-      if (!resp.ok) {
-        const txt = await resp.text();
-        alert(`Failed to create content: ${resp.status} ${txt}`);
-        return;
-      }
-      alert("Content created successfully");
-    } catch {
-      alert("Network error while creating content");
-    } finally {
-      setSubmittingContent(false);
-    }
-  };
+              Authorization: `Bearer ${token}`,
+              // IMPORTANT: do NOT set Content-Type for multipart/form-data
+            },
+            body: fd,
+          }
+        );
+        const text = await res.text().catch(() => "");
+        return { res, text };
+      };
 
-  const copyPayload = async () => {
-    if (!generatedJson) return;
-    try {
-      await navigator.clipboard.writeText(generatedJson);
-    } catch {}
+      // Xano often needs bracketed keys to consistently treat single values as arrays.
+      // Try bracketed first, then fall back to plain repeated keys.
+      let { res, text } = await tryOnce("bracketed");
+      if (!res.ok) {
+        const retry = await tryOnce("plain");
+        res = retry.res;
+        text = retry.text;
+      }
+
+      if (!res.ok) {
+        throw new Error(`Failed to create content: ${res.status} ${text}`);
+      }
+
+      alert("Content created successfully");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to create content");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
     <div>
-      <h2 className="mb-4 text-xl font-semibold">Content Builder</h2>
+      <h2 className="mb-4 text-xl font-semibold">Content Template Builder</h2>
 
-      <div className="mb-3">
-        <label className="block mb-1 text-sm font-medium">Headline</label>
+      <div className="flex gap-3 items-center mb-3">
+        <label className="text-sm font-medium">Single recipient</label>
         <input
-          type="text"
-          className="p-2 w-full border"
-          placeholder="Enter headline"
-          value={headline}
-          onChange={(e) => setHeadline(e.target.value)}
+          type="checkbox"
+          checked={singleRecipient}
+          onChange={(e) => setSingleRecipient(e.target.checked)}
         />
       </div>
+      {singleRecipient && (
+      <div className="mb-3">
+          <label className="block mb-1 text-sm font-medium">
+            Recipient email
+          </label>
+        <input
+            type="email"
+          className="p-2 w-full border"
+            placeholder="name@example.com"
+            value={recipientEmail}
+            onChange={(e) => setRecipientEmail(e.target.value)}
+        />
+      </div>
+      )}
 
       <div className="mb-3">
-        <label className="block mb-1 text-sm font-medium">Strapline</label>
-        <input
-          type="text"
+        <label className="block mb-1 text-sm font-medium">Template</label>
+        <select
           className="p-2 w-full border"
-          placeholder="Enter strapline"
-          value={strapline}
-          onChange={(e) => setStrapline(e.target.value)}
-        />
+          value={selectedTemplateId}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "") {
+              setSelectedTemplateId("");
+              return;
+            }
+            const idNum = Number(val);
+            setSelectedTemplateId(idNum);
+            const t = templates.find((x) => x.id === idNum);
+            if (t?.Body) {
+              const bodyHtml = String(t.Body);
+              if (editorReady) {
+                void safeLoadHtml(bodyHtml);
+              } else {
+                setPendingHtml(bodyHtml);
+              }
+            }
+          }}
+        >
+          <option value="" disabled={templatesLoading}>
+            {templatesLoading ? "Loading templates..." : "Choose a template"}
+          </option>
+          {templates.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.Headline ? String(t.Headline) : `Template #${t.id}`}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="mb-3">
@@ -1444,115 +1773,133 @@ function ContentTab() {
         </select>
       </div>
 
-      <div className="mt-3 border">
-        <EmailEditor
-          ref={contentUnlayerRef as unknown as never}
-          minHeight={500}
-          onReady={() => {
-            try {
-              const uploadCb = async (
-                file: File,
-                done: (data: { url: string }) => void
-              ) => {
-                try {
-                  const fd = new FormData();
-                  fd.append("img", file);
-                  const token = localStorage.getItem("asymmetrix_auth_token");
-                  const resp = await fetch(
-                    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/images",
-                    {
-                      method: "POST",
-                      headers: {
-                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                      },
-                      body: fd,
-                    }
-                  );
-                  const json = await resp
-                    .json()
-                    .catch(() => ({} as Record<string, unknown>));
-                  const urlCandidate = (
-                    json as {
-                      image?: { url?: string };
-                    }
-                  ).image?.url;
-                  if (
-                    resp.ok &&
-                    typeof urlCandidate === "string" &&
-                    urlCandidate
-                  ) {
-                    done({ url: urlCandidate });
-                  } else {
-                    done({ url: "" });
-                  }
-                } catch {
-                  done({ url: "" });
-                }
-              };
-
-              // Register on global unlayer API if available
-              const g = (globalThis as unknown as { unlayer?: unknown })
-                .unlayer as
-                | {
-                    registerCallback?: (
-                      name: string,
-                      cb: typeof uploadCb
-                    ) => void;
-                  }
-                | undefined;
-              g?.registerCallback?.("image", uploadCb);
-
-              // Also register on the instance as a fallback
-              const editorRef = contentUnlayerRef.current as {
-                editor?: { registerCallback?: (name: string, cb: typeof uploadCb) => void };
-                registerCallback?: (name: string, cb: typeof uploadCb) => void;
-              } | null;
-              const registerFn = editorRef?.editor?.registerCallback ?? editorRef?.registerCallback;
-              registerFn?.("image", uploadCb);
-            } catch {}
-          }}
-        />
-      </div>
-
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <label className="block mb-1 text-sm font-medium">
-            Primary Sectors
+            Company of Focus (select one or more)
           </label>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              className="flex-1 p-2 border rounded"
+              placeholder="Search companies by name"
+              value={cofQuery}
+              onChange={(e) => setCofQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && searchCompanyOfFocus()}
+            />
+            <button
+              className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
+              onClick={searchCompanyOfFocus}
+              disabled={cofLoading}
+            >
+              {cofLoading ? "Searching…" : "Search"}
+            </button>
+          </div>
           <SearchableSelect
-            options={primarySectors.map((s) => ({
-              value: s.id,
-              label: s.sector_name,
+            options={cofResults.map((c) => ({ value: c.id, label: c.name }))}
+            value={""}
+            onChange={(value) => {
+              if (typeof value === "number") {
+                const found = cofResults.find((c) => c.id === value);
+                if (found && !companyOfFocus.find((c) => c.id === found.id)) {
+                  setCompanyOfFocus([...companyOfFocus, found]);
+                }
+              }
+            }}
+            placeholder={
+              cofLoading
+                ? "Loading companies..."
+                : cofResults.length === 0
+                ? "Search above to load companies"
+                : "Select company to add"
+            }
+            disabled={cofLoading || cofResults.length === 0}
+            style={{ width: "100%" }}
+          />
+          {companyOfFocus.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {companyOfFocus.map((c) => (
+                <span
+                  key={c.id}
+                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
+                >
+                  {c.name}
+                  <button
+                    onClick={() =>
+                      setCompanyOfFocus(
+                        companyOfFocus.filter((x) => x.id !== c.id)
+                      )
+                    }
+                    className="font-bold"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+      </div>
+
+        <div>
+          <label className="block mb-1 text-sm font-medium">
+            Companies Mentioned (select one or more)
+          </label>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              className="flex-1 p-2 border rounded"
+              placeholder="Search companies by name"
+              value={mentionedQuery}
+              onChange={(e) => setMentionedQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && searchCompaniesMentioned()}
+            />
+            <button
+              className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
+              onClick={searchCompaniesMentioned}
+              disabled={mentionedLoading}
+            >
+              {mentionedLoading ? "Searching…" : "Search"}
+            </button>
+          </div>
+          <SearchableSelect
+            options={mentionedResults.map((c) => ({
+              value: c.id,
+              label: c.name,
             }))}
             value={""}
             onChange={(value) => {
-              if (
-                typeof value === "number" &&
-                !selectedPrimarySectorIds.includes(value)
-              ) {
-                setSelectedPrimarySectorIds([
-                  ...selectedPrimarySectorIds,
-                  value,
-                ]);
+              if (typeof value === "number") {
+                const found = mentionedResults.find((c) => c.id === value);
+                if (
+                  found &&
+                  !companiesMentioned.find((c) => c.id === found.id)
+                ) {
+                  setCompaniesMentioned([...companiesMentioned, found]);
+                }
               }
             }}
-            placeholder={"Select Primary Sector"}
+            placeholder={
+              mentionedLoading
+                ? "Loading companies..."
+                : mentionedResults.length === 0
+                ? "Search above to load companies"
+                : "Select company to add"
+            }
+            disabled={mentionedLoading || mentionedResults.length === 0}
             style={{ width: "100%" }}
           />
-          {selectedPrimarySectorIds.length > 0 && (
+          {companiesMentioned.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
-              {selectedPrimarySectorIds.map((id) => {
-                const s = primarySectors.find((x) => x.id === id);
-                return (
+              {companiesMentioned.map((c) => (
                   <span
-                    key={id}
-                    className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
+                  key={c.id}
+                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-purple-700 bg-purple-50 rounded"
                   >
-                    {s?.sector_name || id}
+                  {c.name}
                     <button
                       onClick={() =>
-                        setSelectedPrimarySectorIds(
-                          selectedPrimarySectorIds.filter((x) => x !== id)
+                      setCompaniesMentioned(
+                        companiesMentioned.filter((x) => x.id !== c.id)
                         )
                       }
                       className="font-bold"
@@ -1560,45 +1907,35 @@ function ContentTab() {
                       ×
                     </button>
                   </span>
-                );
-              })}
+              ))}
             </div>
           )}
         </div>
+        </div>
 
-        <div>
+      <div className="mt-4">
           <label className="block mb-1 text-sm font-medium">
-            Secondary Sectors
+          Sectors (select one or more)
           </label>
           <SearchableSelect
-            options={secondarySectors.map((s) => ({
+          options={allSectors.map((s) => ({
               value: s.id,
               label: s.sector_name,
             }))}
             value={""}
             onChange={(value) => {
-              if (
-                typeof value === "number" &&
-                !selectedSecondarySectorIds.includes(value)
-              ) {
-                setSelectedSecondarySectorIds([
-                  ...selectedSecondarySectorIds,
-                  value,
-                ]);
-              }
-            }}
-            placeholder={
-              selectedPrimarySectorIds.length === 0
-                ? "Select primary sector first"
-                : "Select Secondary Sector"
+            if (typeof value === "number" && !selectedSectorIds.includes(value)) {
+              setSelectedSectorIds([...selectedSectorIds, value]);
             }
-            disabled={selectedPrimarySectorIds.length === 0}
+          }}
+          placeholder={allSectors.length === 0 ? "Loading sectors..." : "Select sectors"}
+          disabled={allSectors.length === 0}
             style={{ width: "100%" }}
           />
-          {selectedSecondarySectorIds.length > 0 && (
+        {selectedSectorIds.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
-              {selectedSecondarySectorIds.map((id) => {
-                const s = secondarySectors.find((x) => x.id === id);
+            {selectedSectorIds.map((id) => {
+              const s = allSectors.find((x) => x.id === id);
                 return (
                   <span
                     key={id}
@@ -1607,9 +1944,7 @@ function ContentTab() {
                     {s?.sector_name || id}
                     <button
                       onClick={() =>
-                        setSelectedSecondarySectorIds(
-                          selectedSecondarySectorIds.filter((x) => x !== id)
-                        )
+                      setSelectedSectorIds(selectedSectorIds.filter((x) => x !== id))
                       }
                       className="font-bold"
                     >
@@ -1620,63 +1955,68 @@ function ContentTab() {
               })}
             </div>
           )}
-        </div>
       </div>
 
       <div className="mt-4">
         <label className="block mb-1 text-sm font-medium">
-          Companies Mentioned
+          Related Corporate Events (select one or more)
         </label>
         <div className="flex gap-2 mb-2">
           <input
             type="text"
-            className="flex-1 p-2 border"
-            placeholder="Search companies by name"
-            value={companyQuery}
-            onChange={(e) => setCompanyQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && searchCompanies()}
+            className="flex-1 p-2 border rounded"
+            placeholder="Search corporate events"
+            value={corporateEventsQuery}
+            onChange={(e) => setCorporateEventsQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && searchCorporateEvents()}
           />
           <button
             className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
-            onClick={searchCompanies}
-            disabled={loadingCompanies}
+            onClick={searchCorporateEvents}
+            disabled={corporateEventsLoading}
           >
-            {loadingCompanies ? "Searching…" : "Search"}
+            {corporateEventsLoading ? "Searching…" : "Search"}
           </button>
         </div>
         <SearchableSelect
-          options={companyResults.map((c) => ({ value: c.id, label: c.name }))}
+          options={corporateEventsResults.map((ev) => ({
+            value: ev.id,
+            label: ev.label,
+          }))}
           value={""}
           onChange={(value) => {
             if (typeof value === "number") {
-              const found = companyResults.find((c) => c.id === value);
-              if (found && !selectedCompanies.find((c) => c.id === found.id)) {
-                setSelectedCompanies([...selectedCompanies, found]);
+              const found = corporateEventsResults.find((e) => e.id === value);
+              if (
+                found &&
+                !selectedCorporateEvents.find((e) => e.id === found.id)
+              ) {
+                setSelectedCorporateEvents([...selectedCorporateEvents, found]);
               }
             }
           }}
           placeholder={
-            loadingCompanies
-              ? "Loading companies..."
-              : companyResults.length === 0
-              ? "Search above to load companies"
-              : "Select company to add"
+            corporateEventsLoading
+              ? "Loading corporate events..."
+              : corporateEventsResults.length === 0
+              ? "Search above to load corporate events"
+              : "Select corporate event to add"
           }
-          disabled={loadingCompanies || companyResults.length === 0}
+          disabled={corporateEventsLoading || corporateEventsResults.length === 0}
           style={{ width: "100%" }}
         />
-        {selectedCompanies.length > 0 && (
+        {selectedCorporateEvents.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
-            {selectedCompanies.map((c) => (
+            {selectedCorporateEvents.map((ev) => (
               <span
-                key={c.id}
-                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-purple-700 bg-purple-50 rounded"
+                key={ev.id}
+                className="inline-flex gap-1 items-center px-2 py-1 text-xs text-orange-700 bg-orange-50 rounded"
               >
-                {c.name}
+                {ev.label}
                 <button
                   onClick={() =>
-                    setSelectedCompanies(
-                      selectedCompanies.filter((x) => x.id !== c.id)
+                    setSelectedCorporateEvents(
+                      selectedCorporateEvents.filter((x) => x.id !== ev.id)
                     )
                   }
                   className="font-bold"
@@ -1689,34 +2029,114 @@ function ContentTab() {
         )}
       </div>
 
+      <div className="mt-4">
+        <label className="block mb-1 text-sm font-medium">
+          Related Documents (upload one or more)
+        </label>
+        <input
+          type="file"
+          multiple
+          className="block w-full p-2 border rounded bg-white"
+          onChange={(e) => {
+            const files = Array.from(e.target.files || []);
+            setRelatedDocuments(files);
+          }}
+        />
+        {relatedDocuments.length > 0 && (
+          <div className="mt-2 space-y-2">
+            {relatedDocuments.map((f, idx) => (
+              <div
+                key={`${f.name}-${f.size}-${idx}`}
+                className="flex justify-between items-center p-2 rounded border bg-white"
+              >
+                <div className="text-sm">
+                  <div className="font-medium">{f.name}</div>
+                  <div className="text-xs text-gray-500">
+                    {formatBytes(f.size)}
+                  </div>
+                </div>
+                <button
+                  className="px-3 py-1 text-sm text-white bg-red-600 rounded"
+                  onClick={() =>
+                    setRelatedDocuments(
+                      relatedDocuments.filter((_, i) => i !== idx)
+                    )
+                  }
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 mt-4 md:grid-cols-2">
+        <div>
+          <label className="block mb-1 text-sm font-medium">Headline</label>
+          <input
+            type="text"
+            className="p-2 w-full border rounded"
+            placeholder="Enter headline"
+            value={headline}
+            onChange={(e) => setHeadline(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Strapline</label>
+          <input
+            type="text"
+            className="p-2 w-full border rounded"
+            placeholder="Enter strapline"
+            value={strapline}
+            onChange={(e) => setStrapline(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="border" ref={editorContainerRef}>
+        <EmailEditor
+          ref={unlayerRef as unknown as never}
+          minHeight={500}
+          onReady={() => {
+            readyResolveRef.current?.();
+            setEditorReady(true);
+            if (pendingHtml) {
+              void safeLoadHtml(pendingHtml);
+              setPendingHtml(null);
+            }
+          }}
+        />
+      </div>
+
       <div className="flex gap-2 mt-4">
         <button
-          className="px-4 py-2 text-white bg-blue-600 rounded"
-          onClick={generatePayload}
+          className="px-4 py-2 text-white bg-purple-600 rounded"
+          onClick={handleExport}
         >
-          Generate JSON
+          Export HTML
         </button>
         <button
           className="px-4 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
-          onClick={copyPayload}
-          disabled={!generatedJson}
+          onClick={handleCopy}
+          disabled={!html}
         >
-          Copy JSON
+          Copy HTML
         </button>
         <button
-          className="px-4 py-2 text-white bg-green-600 rounded disabled:opacity-50"
-          onClick={submitContent}
-          disabled={submittingContent}
+          className="px-4 py-2 text-white bg-blue-600 rounded disabled:opacity-50"
+          onClick={submitNewContent}
+          disabled={sending}
         >
-          {submittingContent ? "Submitting…" : "Submit"}
+          {sending ? "Submitting…" : "Submit"}
         </button>
       </div>
 
-      {generatedJson && (
+      {html && (
         <div className="mt-6">
-          <h3 className="mb-2 font-semibold">Payload</h3>
+          <h3 className="mb-2 font-semibold">Generated HTML</h3>
           <pre className="overflow-x-auto p-2 text-sm bg-gray-100 rounded">
-            {generatedJson}
+            {html}
           </pre>
         </div>
       )}
