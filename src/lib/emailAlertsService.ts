@@ -67,6 +67,7 @@ class EmailAlertsService {
         item_type: [
           { value: "corporate_events", label: "Corporate Events" },
           { value: "insights_analysis", label: "Insights & Analysis" },
+          { value: "digest", label: "Corporate Events and Insights & Analysis" },
         ],
         email_frequency: [
           { value: "as_added", label: "As they are added to platform" },
@@ -134,6 +135,11 @@ class EmailAlertsService {
       if (alert.item_type !== "insights_analysis") {
         body.content_type = "";
       }
+    }
+    
+    // Digest never uses content_type
+    if (alert.item_type === "digest") {
+      body.content_type = "";
     }
 
     const response = await this.request<EmailAlert>("/user_email_alerts", {

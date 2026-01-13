@@ -172,10 +172,16 @@ export function EditAlertModal({
     }));
   };
 
+  const isDigest = formData.item_type === "digest";
   const showDayOfWeek = formData.email_frequency === "weekly";
   const isAsAdded = formData.email_frequency === "as_added";
   const showContentType =
-    formData.item_type === "insights_analysis" && isAsAdded;
+    formData.item_type === "insights_analysis" && isAsAdded && !isDigest;
+  
+  // Filter frequency options: digest only allows daily/weekly
+  const availableFrequencies = isDigest
+    ? meta.enums.email_frequency.filter((f) => f.value !== "as_added")
+    : meta.enums.email_frequency;
 
   return (
     <div
@@ -234,12 +240,17 @@ export function EditAlertModal({
                       ...prev,
                       item_type: newItemType,
                     };
-                    // Clear content_type if not insights_analysis or not as_added
+                    // Clear content_type if not insights_analysis or not as_added, or if digest
                     if (
+                      newItemType === "digest" ||
                       newItemType !== "insights_analysis" ||
                       prev.email_frequency !== "as_added"
                     ) {
                       newData.content_type = "";
+                    }
+                    // If switching to digest and currently on as_added, switch to daily
+                    if (newItemType === "digest" && prev.email_frequency === "as_added") {
+                      newData.email_frequency = "daily";
                     }
                     return newData;
                   });
@@ -290,7 +301,7 @@ export function EditAlertModal({
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 required
               >
-                {meta.enums.email_frequency.map((option) => (
+                {availableFrequencies.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
