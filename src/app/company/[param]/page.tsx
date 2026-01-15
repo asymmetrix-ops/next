@@ -515,12 +515,11 @@ const getNumeric = (value?: number | string | null): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 
-// Convert absolute amounts to thousands (k) with up to 2 decimals
-const toThousandsPlain = (value?: number | string | null): string => {
+// Format as a whole number with thousands separators (e.g. 54170 -> "54,170")
+const formatWholeNumber = (value?: number | string | null): string => {
   const n = getNumeric(value);
   if (n === undefined) return "Not available";
-  const thousands = n / 1000;
-  return thousands.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  return Math.round(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
 };
 
 // Map Xano source codes to human-readable labels (best-known mapping)
@@ -3426,7 +3425,7 @@ const CompanyDetail = () => {
                 </span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue per client (k):</span>
+                <span style={styles.label}>Revenue per client:</span>
                 <span
                   style={styles.value}
                   title={
@@ -3441,7 +3440,7 @@ const CompanyDetail = () => {
                       : undefined
                   }
                 >
-                  {toThousandsPlain(financialMetrics?.Rev_per_client)}
+                  {formatWholeNumber(financialMetrics?.Rev_per_client)}
                 </span>
               </div>
               <div style={styles.infoRow}>
@@ -3466,7 +3465,7 @@ const CompanyDetail = () => {
                 </span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue per employee (k):</span>
+                <span style={styles.label}>Revenue per employee:</span>
                 <span
                   style={styles.value}
                   title={
@@ -3481,7 +3480,7 @@ const CompanyDetail = () => {
                       : undefined
                   }
                 >
-                  {toThousandsPlain(financialMetrics?.Revenue_per_employee)}
+                  {formatWholeNumber(financialMetrics?.Revenue_per_employee)}
                 </span>
               </div>
               <div style={styles.chartContainer} className="chartContainer">
@@ -4145,7 +4144,7 @@ const CompanyDetail = () => {
                 </span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue per client (k):</span>
+                <span style={styles.label}>Revenue per client:</span>
                 <span
                   style={styles.value}
                   title={
@@ -4160,7 +4159,7 @@ const CompanyDetail = () => {
                       : undefined
                   }
                 >
-                  {toThousandsPlain(financialMetrics?.Rev_per_client)}
+                  {formatWholeNumber(financialMetrics?.Rev_per_client)}
                 </span>
               </div>
               <div style={styles.infoRow}>
@@ -4185,7 +4184,7 @@ const CompanyDetail = () => {
                 </span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue per employee (k):</span>
+                <span style={styles.label}>Revenue per employee:</span>
                 <span
                   style={styles.value}
                   title={
@@ -4200,7 +4199,7 @@ const CompanyDetail = () => {
                       : undefined
                   }
                 >
-                  {toThousandsPlain(financialMetrics?.Revenue_per_employee)}
+                  {formatWholeNumber(financialMetrics?.Revenue_per_employee)}
                 </span>
               </div>
               <div style={styles.chartContainer}>
