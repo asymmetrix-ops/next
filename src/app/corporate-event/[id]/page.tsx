@@ -8,7 +8,6 @@ import { corporateEventsService } from "../../../lib/corporateEventsService";
 import {
   CorporateEventDetailResponse,
   CorporateEventAdvisor,
-  Target,
 } from "../../../types/corporateEvents";
 import { useRightClick } from "@/hooks/useRightClick";
 import { ContentArticle } from "@/types/insightsAnalysis";
@@ -324,11 +323,6 @@ const CorporateEventDetail = ({
     id: (s as any)?.id || (s as any)?.sector_id || (s as any)?.sub_sector_id || undefined,
   }));
 
-  const primarySectorId =
-    primarySectors.find((s) => typeof s.id === "number")?.id ??
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ((data.Primary_sectors?.[0] as any)?.id as number | undefined);
-
   const metricsData = {
     sectors: primarySectors.length > 0 ? primarySectors : undefined,
     subSectors: subSectorsWithIds.length > 0 ? subSectorsWithIds : undefined,
@@ -540,132 +534,147 @@ const CorporateEventDetail = ({
   useEffect(() => {
     const run = async () => {
       try {
-        if (!primarySectorId || typeof primarySectorId !== "number") return;
-
-        // Related transactions in same primary sector, excluding current event id.
-        // Fetch more to allow for "Load More" functionality
-        const tx = await corporateEventsService.getCorporateEvents(1, 30, {
-          primary_sectors_ids: [primarySectorId],
-        });
-        const items = Array.isArray(tx?.items) ? tx.items : [];
-        const filtered = items
-          .filter((e) => (typeof corporateEventId === "number" ? e?.id !== corporateEventId : true))
-          .map((e) => {
-            const investors = Array.isArray(e?.other_counterparties)
-              ? (() => {
-                  const investorCounterparties = e.other_counterparties
-                    .filter((c) => {
-                      const nc = c?._new_company;
-                      return nc?.name && Boolean(nc?._is_that_investor);
-                    })
-                    .slice(0, 3);
-                  
-                  if (investorCounterparties.length === 0) {
-                    return undefined;
-                  }
-                  
-                  return (
-                    <>
-                      {investorCounterparties.map((c, idx) => {
-                        const nc = c._new_company;
-                        const investorName = nc?.name || "";
-                        const investorId = c?.new_company_counterparty;
-                        const investorsArray = investorCounterparties;
-                        
-                        if (investorId && typeof investorId === "number") {
-                          return (
-                            <span key={investorId || idx}>
-                              <a
-                                href={`/investors/${investorId}`}
-                                className="text-blue-600 hover:underline"
-                              >
-                                {investorName}
-                              </a>
-                              {idx < investorsArray.length - 1 && ", "}
-                      </span>
-                            );
-                          }
-                          return (
-                          <span key={idx}>
-                            {investorName}
-                            {idx < investorsArray.length - 1 && ", "}
-                            </span>
-                          );
-                      })}
-                    </>
-                  );
-                })()
-                            : undefined;
-            
-            // Extract targets from the targets array
-            const targets = Array.isArray(e?.targets) && e.targets.length > 0
-              ? e.targets.map((target: Target, idx: number) => {
-                  const targetName = target?.name || "";
-                  const targetId = target?.id;
-                  const targetPath = target?.path;
-                  const targetsArray = e.targets || [];
-                  
-                  if (targetId && targetPath) {
-                    return (
-                      <span key={targetId || idx}>
-                        <a
-                          href={targetPath}
-                          className="text-blue-600 hover:underline"
-                        >
-                          {targetName}
-                        </a>
-                        {idx < targetsArray.length - 1 && ", "}
-                                </span>
-                            );
-                          }
-                          return (
-                    <span key={idx}>
-                      {targetName}
-                      {idx < targetsArray.length - 1 && ", "}
-                      </span>
-                          );
-                })
-              : e?.target_counterparty?.new_company?.name 
-                ? (() => {
-                    const targetName = e.target_counterparty.new_company.name;
-                    const targetId = e.target_counterparty.new_company.id;
-                    return targetId ? (
-                      <a
-                        href={`/company/${targetId}`}
-                        className="text-blue-600 hover:underline"
-                      >
-                        {targetName}
-                      </a>
-                    ) : targetName;
-                  })()
-                : undefined;
-            
-            return {
-              id: e.id,
-              title: e.description || "View event",
-              date: e.announcement_date ? formatDate(e.announcement_date) : undefined,
-              dealType: e.deal_type || undefined,
-              target: targets,
-              investors: investors || undefined,
-            };
-          });
-        setRelatedTransactions(filtered);
-
-        // Sector Insights & Analysis (by primary sector), excluding any already shown above.
-        // Uses api:Z3F6JUiu/articles_based_on_sectors to fetch 5 most recent articles
-        // whose Primary Sector(s) match the corporate event's primary sector(s)
-
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : null;
-        if (!token) return;
-
         // Get all primary sector IDs
         const primarySectorIds = primarySectors
           .map((s) => s.id)
           .filter((id): id is number => typeof id === "number");
+        
+        if (primarySectorIds.length === 0 || typeof corporateEventId !== "number") return;
 
+        // Get auth token for both API calls
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("asymmetrix_auth_token")
+            : null;
+        
+        if (!token) return;
+
+        // Related transactions using the new endpoint
+        try {
+          const params = new URLSearchParams();
+          params.append("event_id", String(corporateEventId));
+          params.append("Page", "0");
+          params.append("Per_page", "30");
+          // Add primary_sectors_ids as array parameters
+          primarySectorIds.forEach((id) => {
+            params.append("primary_sectors_ids[]", String(id));
+          });
+
+          const response = await fetch(
+            `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_resent_ce_transactions?${params.toString()}`,
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json",
+              },
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            const items = Array.isArray(data?.items) ? data.items : [];
+            
+            const filtered = items.map((e: {
+              id: number;
+              description: string;
+              announcement_date?: string;
+              deal_type?: string;
+              targets?: Array<{ id: number; name: string; path: string }>;
+              buyers_investors?: Array<{ id: number; name: string; path: string }>;
+            }) => {
+              // Extract investors from buyers_investors array
+              const investors = Array.isArray(e?.buyers_investors) && e.buyers_investors.length > 0
+                ? (() => {
+                    const investorsList = e.buyers_investors.slice(0, 3);
+                    return (
+                      <>
+                        {investorsList.map((investor, idx) => {
+                          const investorName = investor?.name || "";
+                          const investorId = investor?.id;
+                          const investorPath = investor?.path;
+                          
+                          if (investorId && investorPath) {
+                            return (
+                              <span key={investorId || idx}>
+                                <a
+                                  href={investorPath}
+                                  className="text-blue-600 hover:underline"
+                                >
+                                  {investorName}
+                                </a>
+                                {idx < investorsList.length - 1 && ", "}
+                              </span>
+                            );
+                          }
+                          return (
+                            <span key={idx}>
+                              {investorName}
+                              {idx < investorsList.length - 1 && ", "}
+                            </span>
+                          );
+                        })}
+                      </>
+                    );
+                  })()
+                : undefined;
+
+              // Extract targets from the targets array
+              const targets = Array.isArray(e?.targets) && e.targets.length > 0
+                ? e.targets.map((target, idx: number) => {
+                    const targetName = target?.name || "";
+                    const targetId = target?.id;
+                    const targetPath = target?.path;
+                    const targetsArray = e.targets || [];
+                    
+                    if (targetId && targetPath) {
+                      return (
+                        <span key={targetId || idx}>
+                          <a
+                            href={targetPath}
+                            className="text-blue-600 hover:underline"
+                          >
+                            {targetName}
+                          </a>
+                          {idx < targetsArray.length - 1 && ", "}
+                        </span>
+                      );
+                    }
+                    return (
+                      <span key={idx}>
+                        {targetName}
+                        {idx < targetsArray.length - 1 && ", "}
+                      </span>
+                    );
+                  })
+                : undefined;
+
+              return {
+                id: e.id,
+                title: e.description || "View event",
+                date: e.announcement_date ? formatDate(e.announcement_date) : undefined,
+                dealType: e.deal_type || undefined,
+                target: targets,
+                investors: investors || undefined,
+              };
+            });
+            
+            setRelatedTransactions(filtered);
+          } else {
+            console.error("[Related Transactions] API error:", response.status);
+            setRelatedTransactions([]);
+          }
+        } catch (error) {
+          console.error("[Related Transactions] Fetch error:", error);
+          setRelatedTransactions([]);
+        }
+
+        // Sector Insights & Analysis (by primary sector), excluding any already shown above.
+        // Uses api:Z3F6JUiu/articles_based_on_sectors to fetch 5 most recent articles
+        // whose Primary Sector(s) match the corporate event's primary sector(s)
+        // Token is already available from above
+
+        // Reuse primarySectorIds computed above
         if (primarySectorIds.length === 0) {
           setRelatedInsights([]);
           return;
