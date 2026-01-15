@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -1908,6 +1909,36 @@ const CompanyDetail = () => {
       fontSize: "14px",
       fontWeight: "500",
     },
+    tagContainer: {
+      display: "flex",
+      flexWrap: "wrap" as const,
+      gap: "8px",
+      marginTop: "4px",
+    },
+    sectorTag: {
+      backgroundColor: "#f3e5f5",
+      color: "#7b1fa2",
+      padding: "6px 12px",
+      borderRadius: "6px",
+      fontSize: "14px",
+      fontWeight: "500",
+      cursor: "pointer",
+      transition: "background-color 0.2s ease",
+      textDecoration: "none",
+      display: "inline-block",
+    },
+    companyTag: {
+      backgroundColor: "#e8f5e8",
+      color: "#2e7d32",
+      padding: "6px 12px",
+      borderRadius: "6px",
+      fontSize: "14px",
+      fontWeight: "500",
+      cursor: "pointer",
+      transition: "background-color 0.2s ease",
+      textDecoration: "none",
+      display: "inline-block",
+    },
     responsiveGrid: {
       display: "grid",
       // Allow grid children to shrink and prevent wide tables from pushing/clipping the right column
@@ -2164,33 +2195,41 @@ const CompanyDetail = () => {
                 <div style={styles.value} className="info-value">
                   {augmentedPrimarySectors.length > 0 ? (
                     <>
-                      {(isMobile && !showAllPrimarySectors
-                        ? augmentedPrimarySectors.slice(0, 4)
-                        : augmentedPrimarySectors
-                      ).map((sector, index) => {
-                        if (!sector || !sector.sector_name) return null;
-                        const id = getSectorId(sector);
-                        const content = id ? (
-                          createClickableElement(
-                            `/sector/${id}`,
-                            sector.sector_name
-                          )
-                        ) : (
-                          <span style={{ color: "#000" }}>
-                            {sector.sector_name}
-                          </span>
-                        );
-                        return (
-                          <span key={`${sector.sector_name}-${index}`}>
-                            {content}
-                            {index <
-                              (isMobile && !showAllPrimarySectors
-                                ? Math.min(augmentedPrimarySectors.length, 4) -
-                                  1
-                                : augmentedPrimarySectors.length - 1) && ", "}
-                          </span>
-                        );
-                      })}
+                      <div style={styles.tagContainer}>
+                        {(isMobile && !showAllPrimarySectors
+                          ? augmentedPrimarySectors.slice(0, 4)
+                          : augmentedPrimarySectors
+                        ).map((sector) => {
+                          if (!sector || !sector.sector_name) return null;
+                          const id = getSectorId(sector);
+                          if (id) {
+                            return (
+                              <Link
+                                key={`sector-${id}`}
+                                href={`/sector/${id}`}
+                                style={styles.sectorTag}
+                                onMouseEnter={(e) => {
+                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e1bee7";
+                                }}
+                                onMouseLeave={(e) => {
+                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#f3e5f5";
+                                }}
+                                prefetch={false}
+                              >
+                                {sector.sector_name}
+                              </Link>
+                            );
+                          }
+                          return (
+                            <span
+                              key={`sector-${sector.sector_name}`}
+                              style={styles.sectorTag}
+                            >
+                              {sector.sector_name}
+                            </span>
+                          );
+                        })}
+                      </div>
                       {isMobile && augmentedPrimarySectors.length > 4 && (
                         <button
                           onClick={() => setShowAllPrimarySectors((v) => !v)}
@@ -2201,7 +2240,7 @@ const CompanyDetail = () => {
                             cursor: "pointer",
                             fontSize: "12px",
                             textDecoration: "underline",
-                            marginLeft: 6,
+                            marginTop: "8px",
                             padding: 0,
                           }}
                         >
@@ -2221,32 +2260,41 @@ const CompanyDetail = () => {
                 <div style={styles.value} className="info-value">
                   {secondarySectors.length > 0 ? (
                     <>
-                      {(isMobile && !showAllSecondarySectors
-                        ? secondarySectors.slice(0, 4)
-                        : secondarySectors
-                      ).map((sector, index) => {
-                        if (!sector || !sector.sector_name) return null;
-                        const id = getSectorId(sector);
-                        const content = id ? (
-                          createClickableElement(
-                            `/sub-sector/${id}`,
-                            sector.sector_name
-                          )
-                        ) : (
-                          <span style={{ color: "#000" }}>
-                            {sector.sector_name}
-                          </span>
-                        );
-                        return (
-                          <span key={`${sector.sector_name}-${index}`}>
-                            {content}
-                            {index <
-                              (isMobile && !showAllSecondarySectors
-                                ? Math.min(secondarySectors.length, 4) - 1
-                                : secondarySectors.length - 1) && ", "}
-                          </span>
-                        );
-                      })}
+                      <div style={styles.tagContainer}>
+                        {(isMobile && !showAllSecondarySectors
+                          ? secondarySectors.slice(0, 4)
+                          : secondarySectors
+                        ).map((sector) => {
+                          if (!sector || !sector.sector_name) return null;
+                          const id = getSectorId(sector);
+                          if (id) {
+                            return (
+                              <Link
+                                key={`sub-sector-${id}`}
+                                href={`/sub-sector/${id}`}
+                                style={styles.sectorTag}
+                                onMouseEnter={(e) => {
+                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e1bee7";
+                                }}
+                                onMouseLeave={(e) => {
+                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#f3e5f5";
+                                }}
+                                prefetch={false}
+                              >
+                                {sector.sector_name}
+                              </Link>
+                            );
+                          }
+                          return (
+                            <span
+                              key={`sub-sector-${sector.sector_name}`}
+                              style={styles.sectorTag}
+                            >
+                              {sector.sector_name}
+                            </span>
+                          );
+                        })}
+                      </div>
                       {isMobile && secondarySectors.length > 4 && (
                         <button
                           onClick={() => setShowAllSecondarySectors((v) => !v)}
@@ -2257,7 +2305,7 @@ const CompanyDetail = () => {
                             cursor: "pointer",
                             fontSize: "12px",
                             textDecoration: "underline",
-                            marginLeft: 6,
+                            marginTop: "8px",
                             padding: 0,
                           }}
                         >
@@ -2335,28 +2383,41 @@ const CompanyDetail = () => {
                   <span style={styles.label} className="info-label">
                     Parent Company:
                   </span>
-                  <span style={styles.value} className="info-value">
+                  <div style={styles.value} className="info-value">
                     {(() => {
                       const parent =
                         company.have_parent_company!.Parant_companies![0];
                       const parentId = parent?.id;
                       const parentName = (parent?.name || "").trim();
                       if (parentId && parentName) {
-                        return createClickableElement(
-                          `/company/${parentId}`,
-                          parentName
+                        return (
+                          <div style={styles.tagContainer}>
+                            <Link
+                              href={`/company/${parentId}`}
+                              style={styles.companyTag}
+                              onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
+                              }}
+                              onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
+                              }}
+                              prefetch={false}
+                            >
+                              {parentName}
+                            </Link>
+                          </div>
                         );
                       }
                       return parentName || "Not available";
                     })()}
-                  </span>
+                  </div>
                 </div>
               )}
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
                   Investors:
                 </span>
-                <span style={styles.value} className="info-value">
+                <div style={styles.value} className="info-value">
                   {(() => {
                     // Prefer investors from Company._companies_investors (canonical for company page)
                     if (
@@ -2376,66 +2437,95 @@ const CompanyDetail = () => {
                         }));
 
                       if (list.length > 0) {
-                        return list.map((inv, index, arr) => (
-                          <span key={`company-investor-${inv.id}-${index}`}>
-                            {createClickableElement(
-                              `/investors/${inv.id}`,
-                              inv.name
-                            )}
-                            {index < arr.length - 1 && ", "}
-                          </span>
-                        ));
+                        return (
+                          <div style={styles.tagContainer}>
+                            {list.map((inv) => (
+                              <Link
+                                key={`company-investor-${inv.id}`}
+                                href={`/investors/${inv.id}`}
+                                style={styles.companyTag}
+                                onMouseEnter={(e) => {
+                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
+                                }}
+                                onMouseLeave={(e) => {
+                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
+                                }}
+                                prefetch={false}
+                              >
+                                {inv.name}
+                              </Link>
+                            ))}
+                          </div>
+                        );
                       }
                     }
 
                     // Prefer investors from investors_data if available
                     if (parsedInvestorsData?.current && parsedInvestorsData.current.length > 0) {
-                      return parsedInvestorsData.current
-                        .filter(
-                          (investor) =>
-                            investor &&
-                            typeof investor.investor_id === "number" &&
-                            investor.name
-                        )
-                        .map((investor, index, arr) => {
-                          return (
-                            <span key={`investor-${investor.investor_id}-${index}`}>
-                              {createClickableElement(
-                                `/investors/${investor.investor_id}`,
+                      return (
+                        <div style={styles.tagContainer}>
+                          {parsedInvestorsData.current
+                            .filter(
+                              (investor) =>
+                                investor &&
+                                typeof investor.investor_id === "number" &&
                                 investor.name
-                              )}
-                              {index < arr.length - 1 && ", "}
-                            </span>
-                          );
-                        });
+                            )
+                            .map((investor) => (
+                              <Link
+                                key={`investor-${investor.investor_id}`}
+                                href={`/investors/${investor.investor_id}`}
+                                style={styles.companyTag}
+                                onMouseEnter={(e) => {
+                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
+                                }}
+                                onMouseLeave={(e) => {
+                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
+                                }}
+                                prefetch={false}
+                              >
+                                {investor.name}
+                              </Link>
+                            ))}
+                        </div>
+                      );
                     }
                     // Fallback to API investors
                     if (apiInvestorsLoading) {
                       return "Loading...";
                     }
                     if (apiInvestors.length > 0) {
-                      return apiInvestors
-                        .filter(
-                          (investor) =>
-                            investor &&
-                            typeof investor.investor_id === "number" &&
-                            investor.investor_name
-                        )
-                        .map((investor, index, arr) => {
-                          return (
-                            <span key={`api-investor-${investor.investor_id}-${index}`}>
-                              {createClickableElement(
-                                `/investors/${investor.investor_id}`,
+                      return (
+                        <div style={styles.tagContainer}>
+                          {apiInvestors
+                            .filter(
+                              (investor) =>
+                                investor &&
+                                typeof investor.investor_id === "number" &&
                                 investor.investor_name
-                              )}
-                              {index < arr.length - 1 && ", "}
-                            </span>
-                          );
-                        });
+                            )
+                            .map((investor) => (
+                              <Link
+                                key={`api-investor-${investor.investor_id}`}
+                                href={`/investors/${investor.investor_id}`}
+                                style={styles.companyTag}
+                                onMouseEnter={(e) => {
+                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
+                                }}
+                                onMouseLeave={(e) => {
+                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
+                                }}
+                                prefetch={false}
+                              >
+                                {investor.investor_name}
+                              </Link>
+                            ))}
+                        </div>
+                      );
                     }
                     return "Not available";
                   })()}
-                </span>
+                </div>
               </div>
                 </div>
                 {/* Right column: Description */}
