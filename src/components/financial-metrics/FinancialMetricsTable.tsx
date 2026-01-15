@@ -1212,6 +1212,7 @@ export default function FinancialMetricsTable({
         countries={filters.countries}
         primarySectors={filters.primarySectors}
         secondarySectors={filters.secondarySectors}
+        selectedMetrics={filters.selectedMetrics}
       />
     </div>
   );

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { locationsService } from "@/lib/locationsService";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import {
@@ -19,14 +18,19 @@ interface Company {
   // Financial metrics
   Revenue_m?: number | string | null;
   EBITDA_m?: number | string | null;
+  EBIT_m?: number | string | null;
   EV?: number | string | null;
   Revenue_multiple?: number | string | null;
   Rev_Growth_PC?: number | string | null;
   EBITDA_margin?: number | string | null;
+  Rule_of_40?: number | string | null;
   // Subscription metrics
+  ARR_m?: number | string | null;
   ARR_pc?: number | string | null;
   NRR?: number | string | null;
   GRR_pc?: number | string | null;
+  Churn_pc?: number | string | null;
+  New_client_growth_pc?: number | string | null;
 }
 
 interface CompaniesModalProps {
@@ -40,17 +44,29 @@ interface CompaniesModalProps {
   countries?: string[];
   primarySectors?: number[];
   secondarySectors?: number[];
+  selectedMetrics?: string[];
 }
 
-const METRICS = [
-  { key: "ARR_pc", label: "ARR (%)", format: "percent" as const },
-  { key: "EBITDA_margin", label: "EBITDA Margin (%)", format: "percent" as const },
-  { key: "EV", label: "Enterprise Value ($M)", format: "money_m" as const },
-  { key: "Revenue_multiple", label: "EV / Rev (x)", format: "multiple" as const },
-  { key: "Rev_Growth_PC", label: "Revenue Growth (%)", format: "percent" as const },
-  { key: "NRR", label: "NRR (%)", format: "percent" as const },
-  { key: "GRR_pc", label: "GRR (%)", format: "percent" as const },
-] as const;
+// Mapping from filter metric keys (from FinancialMetricsTable) to company field names and labels
+const METRIC_MAP: Record<
+  string,
+  { field: string; label: string; format: "percent" | "multiple" | "money_m" | "number" }
+> = {
+  revenue_m: { field: "Revenue_m", label: "Revenue ($M)", format: "money_m" },
+  ebitda_m: { field: "EBITDA_m", label: "EBITDA ($M)", format: "money_m" },
+  ebit_m: { field: "EBIT_m", label: "EBIT ($M)", format: "money_m" },
+  ev_m: { field: "EV", label: "EV ($M)", format: "money_m" },
+  ev_rev_multiple: { field: "Revenue_multiple", label: "EV / Rev (x)", format: "multiple" },
+  revenue_growth: { field: "Rev_Growth_PC", label: "Revenue Growth (%)", format: "percent" },
+  ebitda_margin: { field: "EBITDA_margin", label: "EBITDA Margin (%)", format: "percent" },
+  rule_of_40: { field: "Rule_of_40", label: "Rule of 40 (%)", format: "percent" },
+  arr_m: { field: "ARR_m", label: "ARR ($M)", format: "money_m" },
+  arr_percent: { field: "ARR_pc", label: "ARR (%)", format: "percent" },
+  churn: { field: "Churn_pc", label: "Churn (%)", format: "percent" },
+  grr: { field: "GRR_pc", label: "GRR (%)", format: "percent" },
+  nrr: { field: "NRR", label: "NRR (%)", format: "percent" },
+  new_client_growth: { field: "New_client_growth_pc", label: "New client growth (%)", format: "percent" },
+};
 
 function getNumericValue(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
@@ -65,9 +81,11 @@ function getNumericValue(value: unknown): number | null {
   return num;
 }
 
+type MetricFormat = "percent" | "multiple" | "money_m" | "number";
+
 function formatValue(
   value: unknown,
-  format: (typeof METRICS)[number]["format"]
+  format: MetricFormat
 ): string {
   const num = getNumericValue(value);
   if (num === null) return "—";
@@ -143,61 +161,40 @@ export default function CompaniesModal({
   countries = [],
   primarySectors = [],
   secondarySectors = [],
+  selectedMetrics = [],
 }: CompaniesModalProps) {
+  // Build METRICS array from selectedMetrics
+  const METRICS = useMemo(() => {
+    return selectedMetrics
+      .filter((key) => METRIC_MAP[key])
+      .map((key) => {
+        const mapping = METRIC_MAP[key];
+        return {
+          key: mapping.field,
+          label: mapping.label,
+          format: mapping.format,
+        };
+      });
+  }, [selectedMetrics]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [realEstateSectorId, setRealEstateSectorId] = useState<number | null>(null);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [exporting, setExporting] = useState(false);
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
   const [exportsLeft, setExportsLeft] = useState(0);
 
-  // Fetch Real Estate sector ID
-  useEffect(() => {
-    if (!isOpen) return;
-    
-    let cancelled = false;
-    const fetchSectorId = async () => {
-      try {
-        const sectors = await locationsService.getPrimarySectors();
-        if (!cancelled) {
-          const realEstate = sectors.find(
-            (s) => s.sector_name?.toLowerCase() === "real estate"
-          );
-          if (realEstate?.id) {
-            setRealEstateSectorId(realEstate.id);
-          }
-        }
-      } catch (e) {
-        console.error("Error fetching sector ID:", e);
-      }
-    };
-    fetchSectorId();
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen]);
-
   // Fetch companies when modal opens
   const fetchCompanies = useCallback(async () => {
     if (!isOpen) return;
     if (revenueMin === null && revenueMax === null) return;
-
-    // Need either primarySectors from filters or realEstateSectorId
-    if (primarySectors.length === 0 && realEstateSectorId === null) return;
 
     setLoading(true);
     setError(null);
 
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
-
-      // Build sector IDs - use primarySectors from filters if provided, otherwise use Real Estate
-      const sectorIds = primarySectors.length > 0 
-        ? primarySectors 
-        : (realEstateSectorId !== null ? [realEstateSectorId] : []);
 
       // Fetch all pages if needed
       let allItems: Company[] = [];
@@ -210,10 +207,12 @@ export default function CompaniesModal({
         pageParams.append("Offset", currentPage.toString());
         pageParams.append("Per_page", perPage.toString());
         
-        // Add primary sectors
-        sectorIds.forEach((id) => {
-          pageParams.append("Primary_sectors_ids[]", id.toString());
-        });
+        // Add primary sectors if provided
+        if (primarySectors.length > 0) {
+          primarySectors.forEach((id) => {
+            pageParams.append("Primary_sectors_ids[]", id.toString());
+          });
+        }
         
         // Add secondary sectors if provided
         if (secondarySectors.length > 0) {
@@ -289,14 +288,14 @@ export default function CompaniesModal({
     } finally {
       setLoading(false);
     }
-  }, [isOpen, realEstateSectorId, revenueMin, revenueMax, countries, primarySectors, secondarySectors]);
+  }, [isOpen, revenueMin, revenueMax, countries, primarySectors, secondarySectors]);
 
   useEffect(() => {
-    // Fetch companies when modal opens and we have either primarySectors or realEstateSectorId
-    if (isOpen && (primarySectors.length > 0 || realEstateSectorId !== null)) {
+    // Fetch companies when modal opens
+    if (isOpen) {
       fetchCompanies();
     }
-  }, [isOpen, realEstateSectorId, primarySectors, fetchCompanies]);
+  }, [isOpen, fetchCompanies]);
 
   // Handle column sorting
   const handleSort = useCallback((column: string) => {
@@ -365,15 +364,12 @@ export default function CompaniesModal({
       const token = localStorage.getItem("asymmetrix_auth_token");
       const params = new URLSearchParams();
 
-      // Build sector IDs - use primarySectors from filters if provided, otherwise use Real Estate
-      const sectorIds = primarySectors.length > 0 
-        ? primarySectors 
-        : (realEstateSectorId !== null ? [realEstateSectorId] : []);
-
       // Add filters to export request
-      sectorIds.forEach((id) => {
-        params.append("Primary_sectors_ids[]", id.toString());
-      });
+      if (primarySectors.length > 0) {
+        primarySectors.forEach((id) => {
+          params.append("Primary_sectors_ids[]", id.toString());
+        });
+      }
 
       if (secondarySectors.length > 0) {
         secondarySectors.forEach((id) => {
@@ -686,7 +682,7 @@ export default function CompaniesModal({
     } finally {
       setExporting(false);
     }
-  }, [countries, primarySectors, secondarySectors, revenueMin, revenueMax, revenueRange, realEstateSectorId]);
+  }, [countries, primarySectors, secondarySectors, revenueMin, revenueMax, revenueRange]);
 
   if (!isOpen) return null;
 
@@ -706,7 +702,7 @@ export default function CompaniesModal({
               Companies in Revenue Range: {revenueRange}
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              {numCompanies.toLocaleString()} companies · Primary Sector: Real Estate
+              {numCompanies.toLocaleString()} companies
             </p>
           </div>
           <button
