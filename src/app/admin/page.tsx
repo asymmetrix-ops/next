@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import EmailEditor from "react-email-editor";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
@@ -59,7 +60,7 @@ export default function AdminPage() {
   const router = useRouter();
   const { user, isAuthenticated, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<
-    "valuation" | "user-activity" | "emails" | "content" | "sectors"
+    "valuation" | "user-activity" | "content-insights" | "emails" | "content" | "sectors"
   >("valuation");
 
   const hasAccess = useMemo(() => {
@@ -175,6 +176,16 @@ Target company: {query} ({domain})`;
           User Activity
         </button>
         <button
+          onClick={() => setActiveTab("content-insights")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "content-insights"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Content Insights
+        </button>
+        <button
           onClick={() => setActiveTab("emails")}
           className={`px-3 py-2 -mb-px border-b-2 ${
             activeTab === "emails"
@@ -267,6 +278,7 @@ Target company: {query} ({domain})`;
       )}
 
       {activeTab === "user-activity" && <UserActivityTab />}
+      {activeTab === "content-insights" && <ContentInsightsTab />}
       {activeTab === "emails" && <EmailsTab />}
       {activeTab === "content" && <ContentTab />}
       {activeTab === "sectors" && <SectorsTab />}
@@ -518,6 +530,348 @@ function UserActivityTab() {
                   </td>
                 </tr>
               ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Content Insights Types
+type ContentInsightsView = "Individual" | "Content Type" | "Top Articles Per Type";
+
+type TopArticlesRow = {
+  Content_Type: string;
+  content_id: number;
+  Headline: string;
+  Publication_Date: string;
+  sessions_30d: number;
+  views_30d: number;
+  sessions_90d: number;
+  views_90d: number;
+  total_sessions: number;
+  total_views: number;
+  unique_users: number;
+  rank_in_type: number;
+};
+
+// Flexible type for different views - will be determined by the API response
+type ContentInsightsRow = Record<string, unknown>;
+
+type ContentInsightsSortColumn = string;
+
+function ContentInsightsTab() {
+  const [view, setView] = useState<ContentInsightsView>("Top Articles Per Type");
+  const [data, setData] = useState<ContentInsightsRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [contentTypeFilter, setContentTypeFilter] = useState("");
+  const [sortCol, setSortCol] = useState<ContentInsightsSortColumn>("");
+  const [sortDir, setSortDir] = useState<SortDirection>("desc");
+
+  useEffect(() => {
+    let aborted = false;
+    async function fetchData() {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const url = new URL(
+          "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/content_insights"
+        );
+        url.searchParams.append("view", view);
+
+        const resp = await fetch(url.toString(), {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => "");
+          throw new Error(`${resp.status} ${resp.statusText} ${text}`);
+        }
+        const json = (await resp.json()) as ContentInsightsRow[];
+        if (!aborted) {
+          setData(Array.isArray(json) ? json : []);
+          // Set default sort column based on view
+          if (json.length > 0) {
+            const keys = Object.keys(json[0] as Record<string, unknown>);
+            if (view === "Top Articles Per Type") {
+              setSortCol("total_views");
+            } else if (view === "Content Type") {
+              setSortCol("total_views");
+            } else {
+              setSortCol(keys[0] || "");
+            }
+          }
+        }
+      } catch (e) {
+        if (!aborted)
+          setError(e instanceof Error ? e.message : "Failed to load");
+      } finally {
+        if (!aborted) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => {
+      aborted = true;
+    };
+  }, [view]);
+
+  const contentTypes = useMemo(() => {
+    const set = new Set<string>();
+    data.forEach((r) => {
+      const type = (r as TopArticlesRow).Content_Type || (r as Record<string, unknown>).content_type as string;
+      if (type) set.add(type);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [data]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return data
+      .filter((r) => {
+        if (contentTypeFilter) {
+          const type = (r as TopArticlesRow).Content_Type || (r as Record<string, unknown>).content_type as string;
+          return type === contentTypeFilter;
+        }
+        return true;
+      })
+      .filter((r) => {
+        if (!q) return true;
+        // Search across all string fields
+        return Object.values(r).some((v) =>
+          String(v || "").toLowerCase().includes(q)
+        );
+      })
+      .slice()
+      .sort((a, b) => {
+        if (!sortCol) return 0;
+        return compareValues(
+          (a as Record<string, unknown>)[sortCol],
+          (b as Record<string, unknown>)[sortCol],
+          sortDir
+        );
+      });
+  }, [data, search, contentTypeFilter, sortCol, sortDir]);
+
+  function onSort(col: ContentInsightsSortColumn) {
+    if (sortCol === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir("desc");
+    }
+  }
+
+  function formatDate(dateStr: string | unknown): string {
+    if (!dateStr) return "—";
+    try {
+      const d = new Date(dateStr as string);
+      if (Number.isNaN(d.getTime())) return String(dateStr);
+      return (
+        d.getFullYear() +
+        "-" +
+        String(d.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(d.getDate()).padStart(2, "0")
+      );
+    } catch {
+      return String(dateStr);
+    }
+  }
+
+  function getColumnHeaders(): [string, string][] {
+    if (data.length === 0) return [];
+    const firstRow = data[0] as Record<string, unknown>;
+    const keys = Object.keys(firstRow);
+
+    // Define column labels based on common field names
+    const labelMap: Record<string, string> = {
+      Content_Type: "Content Type",
+      content_type: "Content Type",
+      content_id: "Content ID",
+      Headline: "Headline",
+      headline: "Headline",
+      Publication_Date: "Publication Date",
+      publication_date: "Publication Date",
+      sessions_30d: "Sessions 30d",
+      views_30d: "Views 30d",
+      sessions_90d: "Sessions 90d",
+      views_90d: "Views 90d",
+      total_sessions: "Total Sessions",
+      total_views: "Total Views",
+      unique_users: "Unique Users",
+      rank_in_type: "Rank in Type",
+    };
+
+    return keys.map((key) => [key, labelMap[key] || key] as [string, string]);
+  }
+
+  const columnHeaders = getColumnHeaders();
+  const columnCount = columnHeaders.length || 1;
+
+  return (
+    <div>
+      {/* Sub-tabs for different views */}
+      <div className="flex gap-4 mb-6 border-b">
+        <button
+          onClick={() => setView("Individual")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            view === "Individual"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Individual
+        </button>
+        <button
+          onClick={() => setView("Content Type")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            view === "Content Type"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Content Type
+        </button>
+        <button
+          onClick={() => setView("Top Articles Per Type")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            view === "Top Articles Per Type"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Top Articles Per Type
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search..."
+          className="px-3 py-2 w-full rounded border"
+        />
+        {contentTypes.length > 0 && (
+          <select
+            value={contentTypeFilter}
+            onChange={(e) => setContentTypeFilter(e.target.value)}
+            className="px-3 py-2 w-full rounded border"
+          >
+            <option value="">All content types</option>
+            {contentTypes.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="overflow-auto bg-white rounded border">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-50 text-gray-700">
+            <tr>
+              {columnHeaders.map(([key, label]) => (
+                <th key={key} className="px-3 py-2 text-left whitespace-nowrap">
+                  <button
+                    onClick={() => onSort(key)}
+                    className="inline-flex items-center gap-1 hover:underline"
+                    title="Sort"
+                  >
+                    <span>{label}</span>
+                    {sortCol === key && (
+                      <span className="text-xs text-gray-500">
+                        {sortDir === "asc" ? "▲" : "▼"}
+                      </span>
+                    )}
+                  </button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading && (
+              <tr>
+                <td className="px-3 py-3 text-center" colSpan={columnCount}>
+                  Loading…
+                </td>
+              </tr>
+            )}
+            {error && !loading && (
+              <tr>
+                <td className="px-3 py-3 text-red-700 bg-red-50" colSpan={columnCount}>
+                  {error}
+                </td>
+              </tr>
+            )}
+            {!loading && !error && filtered.length === 0 && (
+              <tr>
+                <td className="px-3 py-3 text-center text-gray-500" colSpan={columnCount}>
+                  No results
+                </td>
+              </tr>
+            )}
+            {!loading &&
+              !error &&
+              filtered.map((r, idx) => {
+                const row = r as Record<string, unknown>;
+                const rowKey =
+                  (row.content_id as number | undefined)?.toString() ||
+                  (row.Content_Type as string | undefined) ||
+                  `row-${idx}`;
+                return (
+                  <tr key={rowKey} className="border-t">
+                    {columnHeaders.map(([key]) => {
+                      const value = row[key];
+                      // Make content_id a link in "Top Articles Per Type" view
+                      if (
+                        (key === "content_id" || key === "Content_ID") &&
+                        view === "Top Articles Per Type" &&
+                        value != null
+                      ) {
+                        const contentId = String(value);
+                        return (
+                          <td key={key} className="px-3 py-2">
+                            <Link
+                              href={`/article/${contentId}`}
+                              className="text-blue-600 hover:underline"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {contentId}
+                            </Link>
+                          </td>
+                        );
+                      }
+                      // Format dates
+                      if (
+                        (key === "Publication_Date" || key === "publication_date") &&
+                        value
+                      ) {
+                        return (
+                          <td key={key} className="px-3 py-2 whitespace-nowrap">
+                            {formatDate(value)}
+                          </td>
+                        );
+                      }
+                      return (
+                        <td key={key} className="px-3 py-2">
+                          {value == null ? "—" : String(value)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
           </tbody>
         </table>
       </div>
