@@ -29,14 +29,14 @@ const styles = {
     backgroundColor: "white",
     borderRadius: "12px",
     boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-    padding: "32px 24px",
+    padding: "20px 24px",
     marginBottom: "0",
   },
   heading: {
     fontSize: "24px",
     fontWeight: "700",
     color: "#1a202c",
-    marginBottom: "8px",
+    marginBottom: "16px",
     marginTop: "0px",
   },
   subHeading: {
@@ -47,26 +47,29 @@ const styles = {
   },
   searchDiv: {
     display: "flex" as const,
-    flexDirection: "column" as const,
+    flexDirection: "row" as const,
+    gap: "12px",
+    flexWrap: "wrap" as const,
+    alignItems: "flex-start" as const,
   },
   input: {
     width: "100%",
-    maxWidth: "300px",
-    padding: "15px 14px",
+    maxWidth: "280px",
+    padding: "10px 12px",
     border: "1px solid #e2e8f0",
     borderRadius: "6px",
     fontSize: "14px",
     color: "#4a5568",
     outline: "none",
-    marginBottom: "12px",
+    marginBottom: "0",
   },
   button: {
     width: "100%",
-    maxWidth: "300px",
+    maxWidth: "120px",
     backgroundColor: "#0075df",
     color: "white",
     fontWeight: "600",
-    padding: "15px 14px",
+    padding: "10px 14px",
     borderRadius: "6px",
     border: "none",
     cursor: "pointer",
@@ -100,7 +103,15 @@ const styles = {
   },
   select: {
     width: "100%",
-    maxWidth: "300px",
+    maxWidth: "280px",
+    padding: "10px 12px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "6px",
+    fontSize: "14px",
+    color: "#4a5568",
+    outline: "none",
+    backgroundColor: "white",
+    cursor: "pointer",
   },
 };
 
@@ -307,6 +318,9 @@ const InsightsAnalysisPage = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [contentTypes, setContentTypes] = useState<string[]>([]);
+  const [primarySectors, setPrimarySectors] = useState<
+    Array<{ id: number; sector_name: string }>
+  >([]);
 
   // State for insights analysis data
   const [articles, setArticles] = useState<ContentArticle[]>([]);
@@ -453,12 +467,16 @@ const InsightsAnalysisPage = () => {
     fetchInsightsAnalysis(filters);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch content type options (cached via locationsService)
+  // Fetch content type options and primary sectors (cached via locationsService)
   useEffect(() => {
     const run = async () => {
       try {
-        const values = await locationsService.getContentTypesForArticles();
+        const [values, sectors] = await Promise.all([
+          locationsService.getContentTypesForArticles(),
+          locationsService.getPrimarySectors(),
+        ]);
         setContentTypes(values);
+        setPrimarySectors(sectors);
       } catch {
         // ignore
       }
@@ -786,16 +804,38 @@ const InsightsAnalysisPage = () => {
                     setFilters(updated);
                     fetchInsightsAnalysis(updated);
                   }}
-                  style={{
-                    ...styles.input,
-                    maxWidth: 280,
-                    paddingRight: 8,
-                  }}
+                  style={styles.select}
                 >
                   <option value="">All Content Types</option>
                   {contentTypes.map((ct) => (
                     <option key={ct} value={ct}>
                       {ct}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={
+                    filters.primary_sectors_ids?.[0]?.toString() || ""
+                  }
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const updated = {
+                      ...filters,
+                      primary_sectors_ids:
+                        value === ""
+                          ? []
+                          : [Number.parseInt(value, 10)],
+                      Offset: 1, // Reset to first page when filtering
+                    };
+                    setFilters(updated);
+                    fetchInsightsAnalysis(updated);
+                  }}
+                  style={styles.select}
+                >
+                  <option value="">All Primary Sectors</option>
+                  {primarySectors.map((sector) => (
+                    <option key={sector.id} value={sector.id}>
+                      {sector.sector_name}
                     </option>
                   ))}
                 </select>
