@@ -2463,16 +2463,16 @@ const CompanyDetail = () => {
 
                     // Prefer investors from investors_data if available
                     if (parsedInvestorsData?.current && parsedInvestorsData.current.length > 0) {
-                      return (
-                        <div style={styles.tagContainer}>
-                          {parsedInvestorsData.current
-                            .filter(
-                              (investor) =>
-                                investor &&
-                                typeof investor.investor_id === "number" &&
-                                investor.name
-                            )
-                            .map((investor) => (
+                      const validInvestors = parsedInvestorsData.current.filter(
+                        (investor) =>
+                          investor &&
+                          typeof investor.investor_id === "number" &&
+                          investor.name
+                      );
+                      if (validInvestors.length > 0) {
+                        return (
+                          <div style={styles.tagContainer}>
+                            {validInvestors.map((investor) => (
                               <Link
                                 key={`investor-${investor.investor_id}`}
                                 href={`/investors/${investor.investor_id}`}
@@ -2488,24 +2488,25 @@ const CompanyDetail = () => {
                                 {investor.name}
                               </Link>
                             ))}
-                        </div>
-                      );
+                          </div>
+                        );
+                      }
                     }
                     // Fallback to API investors
                     if (apiInvestorsLoading) {
                       return "Loading...";
                     }
                     if (apiInvestors.length > 0) {
-                      return (
-                        <div style={styles.tagContainer}>
-                          {apiInvestors
-                            .filter(
-                              (investor) =>
-                                investor &&
-                                typeof investor.investor_id === "number" &&
-                                investor.investor_name
-                            )
-                            .map((investor) => (
+                      const validApiInvestors = apiInvestors.filter(
+                        (investor) =>
+                          investor &&
+                          typeof investor.investor_id === "number" &&
+                          investor.investor_name
+                      );
+                      if (validApiInvestors.length > 0) {
+                        return (
+                          <div style={styles.tagContainer}>
+                            {validApiInvestors.map((investor) => (
                               <Link
                                 key={`api-investor-${investor.investor_id}`}
                                 href={`/investors/${investor.investor_id}`}
@@ -2521,8 +2522,9 @@ const CompanyDetail = () => {
                                 {investor.investor_name}
                               </Link>
                             ))}
-                        </div>
-                      );
+                          </div>
+                        );
+                      }
                     }
                     return "Not available";
                   })()}
