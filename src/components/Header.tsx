@@ -39,6 +39,9 @@ const Header = () => {
       borderBottom: "1px solid #e5e7eb",
       padding: "16.5px 0px",
       position: "relative" as const,
+      width: "100%",
+      maxWidth: "100%",
+      boxSizing: "border-box" as const,
     },
     container: {
       display: "flex",
@@ -46,6 +49,8 @@ const Header = () => {
       justifyContent: "space-between",
       padding: "0px 32px",
       width: "100%",
+      maxWidth: "100%",
+      boxSizing: "border-box" as const,
     },
     leftSection: {
       display: "flex",
@@ -162,6 +167,9 @@ const Header = () => {
           .left-section {
             gap: 16px !important;
           }
+          .header-container {
+            padding: 0 16px !important;
+          }
         }
         @media (min-width: 768px) {
           .nav-mobile {
@@ -187,7 +195,7 @@ const Header = () => {
       `}</style>
 
       <header style={styles.header}>
-        <div style={styles.container}>
+        <div style={styles.container} className="header-container">
           <div style={styles.leftSection} className="left-section">
             {/* Logo */}
             <Link

@@ -18,12 +18,18 @@ const styles = {
     backgroundColor: "#f9fafb",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    width: "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box" as const,
   },
   maxWidth: {
-    padding: "32px",
+    padding: "16px",
     display: "flex" as const,
     flexDirection: "column" as const,
     gap: "24px",
+    width: "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box" as const,
   },
   card: {
     backgroundColor: "white",
@@ -31,6 +37,9 @@ const styles = {
     boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
     padding: "20px 24px",
     marginBottom: "0",
+    boxSizing: "border-box" as const,
+    width: "100%",
+    maxWidth: "100%",
   },
   heading: {
     fontSize: "24px",
@@ -51,6 +60,8 @@ const styles = {
     gap: "12px",
     flexWrap: "wrap" as const,
     alignItems: "flex-start" as const,
+    width: "100%",
+    maxWidth: "100%",
   },
   input: {
     width: "100%",
@@ -62,6 +73,7 @@ const styles = {
     color: "#4a5568",
     outline: "none",
     marginBottom: "0",
+    boxSizing: "border-box" as const,
   },
   button: {
     width: "100%",
@@ -74,6 +86,9 @@ const styles = {
     border: "none",
     cursor: "pointer",
     fontSize: "14px",
+    minHeight: "44px",
+    touchAction: "manipulation",
+    WebkitTapHighlightColor: "transparent",
   },
   linkButton: {
     backgroundColor: "transparent",
@@ -112,6 +127,7 @@ const styles = {
     outline: "none",
     backgroundColor: "white",
     cursor: "pointer",
+    boxSizing: "border-box" as const,
   },
 };
 
@@ -503,9 +519,21 @@ const InsightsAnalysisPage = () => {
   };
 
   const style = `
+    * {
+      box-sizing: border-box;
+    }
     .insights-analysis-section {
-      padding: 32px 24px;
+      padding: 32px 16px;
       border-radius: 8px;
+      max-width: 100%;
+      width: 100%;
+      overflow-x: hidden;
+      box-sizing: border-box;
+    }
+    @media (max-width: 640px) {
+      .insights-analysis-section {
+        padding: 16px 12px !important;
+      }
     }
     .insights-analysis-stats {
       background: #fff;
@@ -543,10 +571,11 @@ const InsightsAnalysisPage = () => {
     }
     .insights-analysis-cards {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(350px, 100%), 1fr));
       gap: 24px;
       padding: 0;
       margin-bottom: 24px;
+      width: 100%;
     }
     .article-card {
       background-color: white;
@@ -556,6 +585,9 @@ const InsightsAnalysisPage = () => {
       border: 1px solid #e2e8f0;
       cursor: pointer;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-sizing: border-box;
+      width: 100%;
+      max-width: 100%;
     }
     .article-card:hover {
       transform: translateY(-2px);
@@ -705,7 +737,20 @@ const InsightsAnalysisPage = () => {
       .insights-analysis-cards {
         grid-template-columns: 1fr !important;
         gap: 12px !important;
-        padding: 8px !important;
+        padding: 0 !important;
+      }
+      .filters-card {
+        padding: 16px 12px !important;
+      }
+      .article-card {
+        padding: 12px !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      .filters-input, .filters-select {
+        max-width: 100% !important;
+        width: 100% !important;
       }
       .pagination {
         flex-wrap: wrap !important;
@@ -723,7 +768,13 @@ const InsightsAnalysisPage = () => {
         font-size: 13px !important;
       }
       .insights-analysis-section {
-        padding: 20px 8px !important;
+        padding: 16px 8px !important;
+      }
+      .article-card {
+        padding: 12px !important;
+      }
+      .article-title {
+        font-size: 16px !important;
       }
       .insights-analysis-stats {
         padding: 20px 16px !important;
@@ -771,7 +822,7 @@ const InsightsAnalysisPage = () => {
   `;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" style={{ width: "100%", maxWidth: "100vw", overflowX: "hidden" }}>
       <Header />
 
       {/* Filters Section (hidden for Trial) */}

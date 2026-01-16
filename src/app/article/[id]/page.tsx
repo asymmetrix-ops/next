@@ -119,19 +119,30 @@ const styles = {
     backgroundColor: "#f9fafb",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    width: "100%",
+    maxWidth: "100%",
+    overflowX: "hidden" as const,
+    boxSizing: "border-box" as const,
   },
   maxWidth: {
-    padding: "32px",
+    padding: "16px",
     display: "flex" as const,
     flexDirection: "column" as const,
     gap: "24px",
+    width: "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box" as const,
   },
   card: {
     backgroundColor: "white",
     borderRadius: "12px",
     boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-    padding: "32px 24px",
+    padding: "24px 16px",
     marginBottom: "0",
+    boxSizing: "border-box" as const,
+    width: "100%",
+    maxWidth: "100%",
+    overflow: "hidden",
   },
   heading: {
     fontSize: "28px",
@@ -244,24 +255,36 @@ const styles = {
     display: "inline-flex",
     alignItems: "center",
     gap: "8px",
+    minHeight: "44px",
+    touchAction: "manipulation",
+    WebkitTapHighlightColor: "transparent",
   },
   infoRow: {
     display: "grid",
-    gridTemplateColumns: "minmax(140px, 1.4fr) 2fr",
+    gridTemplateColumns: "minmax(100px, 1fr) minmax(0, 2fr)",
     alignItems: "center",
     columnGap: "8px",
     padding: "8px 0",
     borderBottom: "1px solid #e5e7eb",
     fontSize: "15px",
+    width: "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box" as const,
   },
   label: {
     fontWeight: 600,
     color: "#4b5563",
+    wordWrap: "break-word" as const,
+    overflowWrap: "break-word" as const,
+    minWidth: 0,
   },
   value: {
     textAlign: "right" as const,
     color: "#111827",
     fontWeight: 500,
+    wordWrap: "break-word" as const,
+    overflowWrap: "break-word" as const,
+    minWidth: 0,
   },
 };
 
@@ -821,14 +844,14 @@ const ArticleDetailPage = () => {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, maxWidth: "100vw", overflowX: "hidden" }}>
       <Header />
-      <div style={styles.maxWidth}>
+      <div style={{ ...styles.maxWidth, maxWidth: "100%", width: "100%", overflowX: "hidden" }}>
         <button onClick={handleBackClick} style={styles.backButton}>
           ← Back to Insights & Analysis
         </button>
 
-        <div className="article-layout">
+        <div className="article-layout" style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
           {/* Left: Main body (2/3) */}
           <div style={styles.card} className="article-main">
             {/* Article Header */}
@@ -888,8 +911,10 @@ const ArticleDetailPage = () => {
                     style={{
                       display: "grid",
                       gridTemplateColumns:
-                        "repeat(auto-fill, minmax(220px, 1fr))",
+                        "repeat(auto-fill, minmax(min(220px, 100%), 1fr))",
                       gap: 16,
+                      width: "100%",
+                      maxWidth: "100%",
                     }}
                   >
                     {(article.Related_Documents || [])
@@ -915,6 +940,7 @@ const ArticleDetailPage = () => {
             <div style={styles.section}>
               <h2 style={styles.sectionTitle}>Published</h2>
               <div
+                className="article-published-section"
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -929,19 +955,30 @@ const ArticleDetailPage = () => {
                 {/* Export PDF Button */}
                 {ENABLE_PDF_EXPORT && (
                   <button
-                    onClick={() => openArticlePdfWindow(article)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openArticlePdfWindow(article).catch((err) => {
+                        console.error("PDF export error:", err);
+                        alert("Failed to export PDF. Please try again.");
+                      });
+                    }}
                     style={{
                       backgroundColor: "#38a169",
                       color: "white",
                       fontWeight: 600,
-                      padding: "10px 14px",
+                      padding: "12px 18px",
                       borderRadius: 6,
                       border: "none",
                       cursor: "pointer",
-                      fontSize: 13,
+                      fontSize: 14,
                       textAlign: "center",
                       whiteSpace: "nowrap",
                       marginLeft: "auto",
+                      minHeight: "44px",
+                      minWidth: "120px",
+                      touchAction: "manipulation",
+                      WebkitTapHighlightColor: "transparent",
                     }}
                     onMouseOver={(e) =>
                       ((e.target as HTMLButtonElement).style.backgroundColor =
@@ -1619,8 +1656,37 @@ const ArticleDetailPage = () => {
       <style
         dangerouslySetInnerHTML={{
           __html: `
-          .article-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
-          @media (max-width: 1024px) { .article-layout { grid-template-columns: 1fr; } }
+          * { box-sizing: border-box; }
+          .article-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; max-width: 100%; width: 100%; overflow-x: hidden; }
+          @media (max-width: 1024px) { .article-layout { grid-template-columns: 1fr; gap: 16px; } }
+          @media (max-width: 640px) {
+            .article-layout { gap: 12px; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; }
+            .article-main, .article-meta { 
+              padding: 16px 12px !important; 
+              width: 100% !important; 
+              max-width: 100% !important; 
+              box-sizing: border-box !important;
+              overflow: hidden !important;
+            }
+            .article-main h1 { font-size: 20px !important; line-height: 1.3 !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
+            .article-main p, .article-main .strapline { font-size: 15px !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
+            .article-body { font-size: 15px !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
+            .article-body * { max-width: 100% !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
+            .article-body p { margin-bottom: 0.875rem !important; }
+            .article-body img { max-width: 100% !important; height: auto !important; }
+            .article-body iframe, .article-body video, .article-body embed { max-width: 100% !important; height: auto !important; }
+            .article-financial-metrics { padding: 12px !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; }
+            .article-financial-metrics .info-row { grid-template-columns: minmax(90px, 1fr) 1.5fr; font-size: 13px !important; }
+            .article-financial-metrics h2 { font-size: 17px !important; margin-bottom: 10px !important; }
+            .tag-container { gap: 6px !important; }
+            .tag, .companyTag, .sectorTag { font-size: 12px !important; padding: 6px 10px !important; }
+            .article-published-section { flex-direction: column !important; align-items: stretch !important; justify-content: flex-start !important; }
+            .article-published-section button { width: 100% !important; max-width: 100% !important; margin-left: 0 !important; }
+          }
+          @media (min-width: 641px) {
+            .article-published-section { flex-direction: row !important; align-items: center !important; justify-content: space-between !important; }
+            .article-published-section button { width: auto !important; }
+          }
           /* Preserve HTML formatting inside article body */
           .article-body p { margin: 0 0 1rem 0; }
           .article-body ul { list-style: disc; margin: 0 0 1rem 1.25rem; padding-left: 1.25rem; }

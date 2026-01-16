@@ -17,6 +17,9 @@ const Footer = () => {
       alignItems: "center",
       padding: "0 24px",
       position: "relative" as const,
+      width: "100%",
+      maxWidth: "100%",
+      boxSizing: "border-box" as const,
     },
     container: {
       display: "flex",
@@ -74,6 +77,7 @@ const Footer = () => {
             gap: 16px !important;
             padding: 16px 0 !important;
             text-align: center !important;
+            max-width: 100% !important;
           }
           .footer-center {
             order: 3;
@@ -83,6 +87,8 @@ const Footer = () => {
           }
           .footer-left {
             order: 1;
+            flex-wrap: wrap !important;
+            justify-content: center !important;
           }
         }
       `}</style>

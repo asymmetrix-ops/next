@@ -230,6 +230,8 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
       style={{
         display: "block",
         width: "100%",
+        maxWidth: "100%",
+        boxSizing: "border-box",
         backgroundColor: "#ffffff",
         borderRadius: 12,
         boxShadow: "0 4px 10px rgba(15, 23, 42, 0.08)",
@@ -238,6 +240,9 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
         textDecoration: "none",
         color: "inherit",
         transition: "transform 0.15s ease, box-shadow 0.15s ease",
+        overflow: "hidden",
+        wordWrap: "break-word",
+        overflowWrap: "break-word",
       }}
       onMouseEnter={(e) => {
         (e.currentTarget.style.transform = "translateY(-2px)");
@@ -260,6 +265,9 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
               color: "#111827",
               margin: "0 0 8px 0",
               lineHeight: 1.3,
+              wordWrap: "break-word",
+              overflowWrap: "break-word",
+              maxWidth: "100%",
             }}
           >
             {plainHeadline || "Not available"}
@@ -296,6 +304,9 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
               alignItems: "flex-start",
               gap: 12,
               marginBottom: 8,
+              flexWrap: "wrap",
+              width: "100%",
+              maxWidth: "100%",
             }}
           >
             <h3
@@ -306,12 +317,15 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
                 margin: 0,
                 lineHeight: 1.3,
                 flex: 1,
+                minWidth: 0,
+                wordWrap: "break-word",
+                overflowWrap: "break-word",
               }}
             >
               {plainHeadline || "Not available"}
             </h3>
             {effectiveContentType && (
-              <span style={badgeClassFor(effectiveContentType)}>
+              <span style={{ ...badgeClassFor(effectiveContentType), flexShrink: 0 }}>
                 {effectiveContentType}
               </span>
             )}
@@ -340,6 +354,9 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
             lineHeight: 1.5,
             margin: "0 0 10px 0",
             fontWeight: 500,
+            wordWrap: "break-word",
+            overflowWrap: "break-word",
+            maxWidth: "100%",
           }}
         >
           {plainStrapline}
@@ -359,6 +376,9 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
             WebkitBoxOrient: "vertical" as const,
             overflow: "hidden",
             textOverflow: "ellipsis",
+            wordWrap: "break-word",
+            overflowWrap: "break-word",
+            maxWidth: "100%",
           }}
         >
           {plainBody}
@@ -370,11 +390,15 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
         <div
           style={{
             marginBottom: 10,
+            maxWidth: "100%",
+            overflow: "hidden",
           }}
         >
           <div
             style={{
               marginBottom: 8,
+              wordWrap: "break-word",
+              overflowWrap: "break-word",
             }}
           >
             <span
@@ -396,7 +420,12 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
               {formatCompanies(article.companies_mentioned)}
             </span>
           </div>
-          <div>
+          <div
+            style={{
+              wordWrap: "break-word",
+              overflowWrap: "break-word",
+            }}
+          >
             <span
               style={{
                 fontSize: 12,
