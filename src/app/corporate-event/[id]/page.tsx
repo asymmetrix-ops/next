@@ -222,6 +222,7 @@ const CorporateEventDetail = ({
   const [relatedInsights, setRelatedInsights] = useState<
     Array<{ id?: number; tag?: string; date?: string; title: string; content: string }>
   >([]);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   useEffect(() => {
     const run = async () => {
@@ -741,24 +742,105 @@ const CorporateEventDetail = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [primarySectorIdsString, corporateEventId, eventArticles.length]);
 
+  const handleExportPdf = useCallback(async () => {
+    if (!corporateEventId || typeof corporateEventId !== "number") {
+      console.error("[PDF Export] Invalid corporate event ID");
+      return;
+    }
+
+    setIsExportingPdf(true);
+    try {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("asymmetrix_auth_token")
+          : null;
+
+      if (!token) {
+        throw new Error("Authentication token not found. Please log in again.");
+      }
+
+      const endpoint = "https://asymmetrix-pdf-service.fly.dev/api/export-corporate-event-pdf";
+      
+      // Prepare the full data payload
+      const payload = {
+        Event: data?.Event || [],
+        Event_counterparties: data?.Event_counterparties || [],
+        Event_advisors: data?.Event_advisors || [],
+        Primary_sectors: data?.Primary_sectors || [],
+        "Sub-sectors": data?.["Sub-sectors"] || [],
+        event_articles: eventArticles || [],
+        related_transactions: relatedTransactions || [],
+        related_insights: relatedInsights || [],
+        xano_auth_token: token,
+      };
+
+      console.log("[PDF Export] POST", endpoint, {
+        corporate_event_id: corporateEventId,
+        event_count: payload.Event.length,
+        articles_count: payload.event_articles.length,
+        transactions_count: payload.related_transactions.length,
+        insights_count: payload.related_insights.length,
+      });
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`PDF export failed: ${res.status} ${res.statusText}`);
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const eventTitle = (event?.description || "Corporate Event")
+        .toString()
+        .replace(/[\\/:*?"<>|]/g, " ")
+        .slice(0, 180);
+      a.download = `Asymmetrix - ${eventTitle}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+    } catch (error) {
+      console.error("[PDF Export] Error:", error);
+      alert("Failed to export PDF. Please try again later.");
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }, [corporateEventId, event?.description, data, eventArticles, relatedTransactions, relatedInsights]);
+
   const reportButton = (
-    <Button
-      asChild
-      size="sm"
-      className="shadow-md bg-emerald-600 hover:bg-emerald-700 text-white"
-    >
-      <a
-        href={`mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
-          `Contribute Data - ${event?.description ?? "Unknown"}`
-        )}&body=${encodeURIComponent(
-          "Please share the data you'd like to contribute for this corporate event page."
-        )}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+    <div className="flex gap-2">
+      <Button
+        onClick={handleExportPdf}
+        disabled={isExportingPdf || !corporateEventId}
+        size="sm"
+        className="shadow-md bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        Contribute Data
-      </a>
-    </Button>
+        {isExportingPdf ? "Exporting..." : "Export PDF"}
+      </Button>
+      <Button
+        asChild
+        size="sm"
+        className="shadow-md bg-emerald-600 hover:bg-emerald-700 text-white"
+      >
+        <a
+          href={`mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
+            `Contribute Data - ${event?.description ?? "Unknown"}`
+          )}&body=${encodeURIComponent(
+            "Please share the data you'd like to contribute for this corporate event page."
+          )}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Contribute Data
+        </a>
+      </Button>
+    </div>
   );
 
   return (
