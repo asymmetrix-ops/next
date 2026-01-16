@@ -76,6 +76,7 @@ interface PortfolioCompany {
   }>;
   description: string;
   year_exited?: number | string | null;
+  year_invested?: number | string | null;
   linkedin_data: {
     LinkedIn_Employee: number;
     linkedin_logo: string;
@@ -302,17 +303,6 @@ const LinkedInHistoryChart = ({ data }: { data: LinkedInHistory[] }) => {
   );
 };
 
-const truncateDescription = (
-  description: string,
-  maxLength: number = 150
-): { text: string; isLong: boolean } => {
-  const isLong = description.length > maxLength;
-  const truncated = isLong
-    ? description.substring(0, maxLength) + "..."
-    : description;
-  return { text: truncated, isLong };
-};
-
 // Company Logo Component
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
   if (logo) {
@@ -349,37 +339,6 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
       }}
     >
       {name.charAt(0).toUpperCase()}
-    </div>
-  );
-};
-
-// Company Description Component
-const CompanyDescription = ({ description }: { description: string }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const { text, isLong } = truncateDescription(description);
-
-  const toggleDescription = () => {
-    setIsExpanded(!isExpanded);
-  };
-
-  return (
-    <div>
-      <span>{isExpanded ? description : text}</span>
-      {isLong && (
-        <button
-          onClick={toggleDescription}
-          style={{
-            background: "none",
-            border: "none",
-            color: "#3b82f6",
-            cursor: "pointer",
-            fontSize: "12px",
-            marginLeft: "8px",
-          }}
-        >
-          {isExpanded ? "Show less" : "Expand description"}
-        </button>
-      )}
     </div>
   );
 };
@@ -579,6 +538,14 @@ const InvestorDetailPage = () => {
             ? (obj["Year_Exited"] as number | string)
             : typeof obj["yearExited"] === "number" || typeof obj["yearExited"] === "string"
               ? (obj["yearExited"] as number | string)
+              : null,
+      year_invested:
+        typeof obj["year_invested"] === "number" || typeof obj["year_invested"] === "string"
+          ? (obj["year_invested"] as number | string)
+          : typeof obj["Year_Invested"] === "number" || typeof obj["Year_Invested"] === "string"
+            ? (obj["Year_Invested"] as number | string)
+            : typeof obj["yearInvested"] === "number" || typeof obj["yearInvested"] === "string"
+              ? (obj["yearInvested"] as number | string)
               : null,
       linkedin_data: {
         LinkedIn_Employee: Number(linkedinDataOld?.LinkedIn_Employee ?? 0),
@@ -1839,7 +1806,7 @@ const InvestorDetailPage = () => {
                           <th>Logo</th>
                           <th>Name</th>
                           <th>Sectors</th>
-                          <th>Description</th>
+                          <th>Year Invested</th>
                           <th>Related Individuals</th>
                           <th>LinkedIn Members</th>
                           <th>Country</th>
@@ -1874,10 +1841,12 @@ const InvestorDetailPage = () => {
                                   {company.sectors_id.length > 3 && "..."}
                                 </div>
                               </td>
-                              <td style={{ maxWidth: "350px" }}>
-                                <CompanyDescription
-                                  description={company.description}
-                                />
+                              <td>
+                                {company.year_invested !== null &&
+                                company.year_invested !== undefined &&
+                                String(company.year_invested).trim().length > 0
+                                  ? String(company.year_invested)
+                                  : "Not available"}
                               </td>
                               <td>
                                 {company.related_to_investor_individuals &&
@@ -1989,6 +1958,18 @@ const InvestorDetailPage = () => {
                             </div>
                             <div className="portfolio-card-info-item">
                               <span className="portfolio-card-info-label">
+                                Year Invested:
+                              </span>
+                              <span className="portfolio-card-info-value">
+                                {company.year_invested !== null &&
+                                company.year_invested !== undefined &&
+                                String(company.year_invested).trim().length > 0
+                                  ? String(company.year_invested)
+                                  : "Not available"}
+                              </span>
+                            </div>
+                            <div className="portfolio-card-info-item">
+                              <span className="portfolio-card-info-label">
                                 Country:
                               </span>
                               <span className="portfolio-card-info-value">
@@ -2036,11 +2017,6 @@ const InvestorDetailPage = () => {
                                 )}
                               </span>
                             </div>
-                          </div>
-                          <div style={{ marginTop: "12px" }}>
-                            <CompanyDescription
-                              description={company.description}
-                            />
                           </div>
                         </div>
                       ))
