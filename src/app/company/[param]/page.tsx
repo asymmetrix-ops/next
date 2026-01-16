@@ -8,6 +8,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useRightClick } from "@/hooks/useRightClick";
 import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
+import IndividualCards from "@/components/shared/IndividualCards";
 import {
   LineChart,
   Line,
@@ -2567,170 +2568,40 @@ const CompanyDetail = () => {
                   </h3>
                   
                   {/* Current Management */}
-                  {company.Managmant_Roles_current &&
-                  company.Managmant_Roles_current.length > 0 && (
-                    <div style={{ marginBottom: "20px" }}>
-                      <h4
-                        style={{
-                          fontSize: "14px",
-                          marginBottom: "12px",
-                          fontWeight: 600,
-                          color: "#4a5568",
-                        }}
-                      >
-                        Current:
-                      </h4>
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                          gap: "12px",
-                        }}
-                        className="management-grid"
-                      >
-                        {company.Managmant_Roles_current.map((person) => (
-                          <div
-                            key={person.id}
-                            style={{
-                              padding: "12px",
-                              border: "1px solid #e2e8f0",
-                              borderRadius: "8px",
-                              backgroundColor: "#f9fafb",
-                              transition: "all 0.2s ease",
-                              cursor: "pointer",
-                            }}
-                            className="management-card"
-                            onClick={() => {
-                              window.location.href = `/individual/${person.individuals_id}`;
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: "14px",
-                                fontWeight: 600,
-                                color: "#0075df",
-                                marginBottom: "4px",
-                              }}
-                            >
-                              {person.individuals_id ? (
-                                <a
-                                  href={`/individual/${person.individuals_id}`}
-                                  style={{
-                                    color: "#0075df",
-                                    textDecoration: "underline",
-                                  }}
-                                >
-                                  {person.Individual_text}
-                                </a>
-                              ) : (
-                                person.Individual_text
-                              )}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: "13px",
-                                color: "#4a5568",
-                                lineHeight: "1.4",
-                              }}
-                            >
-                              {(person.job_titles_id || [])
-                                .map((job) => job?.job_title)
-                                .filter(Boolean)
-                                .join(", ") || "No title"}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <div style={{ marginBottom: "20px" }}>
+                    <IndividualCards
+                      title="Current:"
+                      individuals={(company.Managmant_Roles_current || []).map(
+                        (person) => ({
+                          id: person.id,
+                          name: person.Individual_text,
+                          jobTitles: (person.job_titles_id || [])
+                            .map((job) => job?.job_title)
+                            .filter(Boolean),
+                          individualId: person.individuals_id,
+                        })
+                      )}
+                      emptyMessage="Not available"
+                    />
+                  </div>
 
                   {/* Past Management */}
-                  {company.Managmant_Roles_past &&
-                  company.Managmant_Roles_past.length > 0 && (
-                    <div>
-                      <h4
-                        style={{
-                          fontSize: "14px",
-                          marginBottom: "12px",
-                          fontWeight: 600,
-                          color: "#4a5568",
-                        }}
-                      >
-                        Past:
-                      </h4>
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                          gap: "12px",
-                        }}
-                        className="management-grid"
-                      >
-                        {company.Managmant_Roles_past.map((person) => (
-                          <div
-                            key={person.id}
-                            style={{
-                              padding: "12px",
-                              border: "1px solid #e2e8f0",
-                              borderRadius: "8px",
-                              backgroundColor: "#f9fafb",
-                              transition: "all 0.2s ease",
-                              cursor: "pointer",
-                            }}
-                            className="management-card"
-                            onClick={() => {
-                              window.location.href = `/individual/${person.individuals_id}`;
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: "14px",
-                                fontWeight: 600,
-                                color: "#0075df",
-                                marginBottom: "4px",
-                              }}
-                            >
-                              {person.individuals_id ? (
-                                <a
-                                  href={`/individual/${person.individuals_id}`}
-                                  style={{
-                                    color: "#0075df",
-                                    textDecoration: "underline",
-                                  }}
-                                >
-                                  {person.Individual_text}
-                                </a>
-                              ) : (
-                                person.Individual_text
-                              )}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: "13px",
-                                color: "#4a5568",
-                                lineHeight: "1.4",
-                              }}
-                            >
-                              {(person.job_titles_id || [])
-                                .map((job) => job?.job_title)
-                                .filter(Boolean)
-                                .join(", ") || "No title"}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* No management data */}
-                  {(!company.Managmant_Roles_current ||
-                    company.Managmant_Roles_current.length === 0) &&
-                    (!company.Managmant_Roles_past ||
-                      company.Managmant_Roles_past.length === 0) && (
-                      <div style={{ color: "#6b7280", fontSize: "14px" }}>
-                        Not available
-                      </div>
-                    )}
+                  <div>
+                    <IndividualCards
+                      title="Past:"
+                      individuals={(company.Managmant_Roles_past || []).map(
+                        (person) => ({
+                          id: person.id,
+                          name: person.Individual_text,
+                          jobTitles: (person.job_titles_id || [])
+                            .map((job) => job?.job_title)
+                            .filter(Boolean),
+                          individualId: person.individuals_id,
+                        })
+                      )}
+                      emptyMessage="Not available"
+                    />
+                  </div>
                 </div>
               )}
 

@@ -9,6 +9,7 @@ import Footer from "@/components/Footer";
 import { useRightClick } from "@/hooks/useRightClick";
 import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
 import { type CorporateEvent as CorporateEventsTableEvent } from "@/components/corporate-events/CorporateEventsTable";
+import IndividualCards from "@/components/shared/IndividualCards";
 import {
   LineChart,
   Line,
@@ -382,6 +383,9 @@ const InvestorDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [pastPortfolioLoading, setPastPortfolioLoading] = useState(false);
+  const [resolvedIndividualIds, setResolvedIndividualIds] = useState<
+    Map<string, number>
+  >(new Map());
 
   const [error, setError] = useState<string | null>(null);
 
@@ -1036,13 +1040,55 @@ const InvestorDetailPage = () => {
 
   // Navigate to individual profile by resolving ID from Individuals API
   const handleTeamMemberClick = async (individualName: string) => {
+    // Check if we already have the ID cached
+    const cachedId = resolvedIndividualIds.get(individualName);
+    if (cachedId) {
+      router.push(`/individual/${cachedId}`);
+      return;
+    }
+
+    // Otherwise resolve it
     const id = await resolveIndividualIdByName(individualName);
     if (id) {
+      setResolvedIndividualIds((prev) => {
+        const next = new Map(prev);
+        next.set(individualName, id);
+        return next;
+      });
       router.push(`/individual/${id}`);
     } else {
       console.error("No matching individual found");
     }
   };
+
+  // Resolve all individual IDs when investor data loads
+  useEffect(() => {
+    const resolveAllIds = async () => {
+      if (!investorData) return;
+
+      const allNames = new Set<string>();
+      investorData.Investment_Team_Roles_current.forEach((member) => {
+        allNames.add(member.Individual_text);
+      });
+      investorData.Investment_Team_Roles_past.forEach((member) => {
+        allNames.add(member.Individual_text);
+      });
+
+      const resolved = new Map<string, number>();
+      await Promise.all(
+        Array.from(allNames).map(async (name) => {
+          const id = await resolveIndividualIdByName(name);
+          if (id) {
+            resolved.set(name, id);
+          }
+        })
+      );
+
+      setResolvedIndividualIds(resolved);
+    };
+
+    resolveAllIds();
+  }, [investorData]);
 
   const handleCorporateEventDescriptionClick = async (
     eventId?: number,
@@ -1466,6 +1512,13 @@ const InvestorDetailPage = () => {
     .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
     .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
     .pill-green { background-color: #dcfce7; color: #15803d; }
+    /* Management/Individual cards hover effects */
+    .management-card:hover {
+      background-color: #e6f0ff !important;
+      border-color: #0075df !important;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0, 117, 223, 0.1);
+    }
 
     @media (max-width: 768px) {
       .investor-content {
@@ -1528,6 +1581,9 @@ const InvestorDetailPage = () => {
         text-align: center !important;
         width: 100% !important;
         order: -1 !important;
+      }
+      .management-grid {
+        grid-template-columns: 1fr !important;
       }
     }
 
@@ -1702,87 +1758,33 @@ const InvestorDetailPage = () => {
               <h2 className="section-title">Investment Team</h2>
 
               {/* Current Team */}
-              <div style={{ marginBottom: "16px" }}>
-                <h3 className="section-subtitle">Current:</h3>
-                {Investment_Team_Roles_current.length > 0 ? (
-                  <div className="info-grid">
-                    {Investment_Team_Roles_current.map((member, index) => (
-                      <div key={index} className="info-value">
-                        <span
-                          style={{ color: "#3b82f6", cursor: "pointer" }}
-                          onClick={() =>
-                            handleTeamMemberClick(member.Individual_text)
-                          }
-                          onContextMenu={async (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const id = await resolveIndividualIdByName(
-                              member.Individual_text
-                            );
-                            if (id) {
-                              window.open(
-                                `/individual/${id}`,
-                                "_blank",
-                                "noopener,noreferrer"
-                              );
-                            }
-                          }}
-                          title="Left click to open profile, Right click to open in new tab"
-                        >
-                          {member.Individual_text}
-                        </span>
-                        :{" "}
-                        {member.job_titles_id
-                          .map((jt) => jt.job_title)
-                          .join(", ")}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="info-value">Not available</div>
-                )}
+              <div style={{ marginBottom: "20px" }}>
+                <IndividualCards
+                  title="Current:"
+                  individuals={Investment_Team_Roles_current.map((member) => ({
+                    id: resolvedIndividualIds.get(member.Individual_text),
+                    name: member.Individual_text,
+                    jobTitles: member.job_titles_id.map((jt) => jt.job_title),
+                    individualId: resolvedIndividualIds.get(member.Individual_text),
+                    onClick: () => handleTeamMemberClick(member.Individual_text),
+                  }))}
+                  emptyMessage="Not available"
+                />
               </div>
 
               {/* Past Team */}
               <div>
-                <h3 className="section-subtitle">Past:</h3>
-                {Investment_Team_Roles_past.length > 0 ? (
-                  <div className="info-grid">
-                    {Investment_Team_Roles_past.map((member, index) => (
-                      <div key={index} className="info-value">
-                        <span
-                          style={{ color: "#3b82f6", cursor: "pointer" }}
-                          onClick={() =>
-                            handleTeamMemberClick(member.Individual_text)
-                          }
-                          onContextMenu={async (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const id = await resolveIndividualIdByName(
-                              member.Individual_text
-                            );
-                            if (id) {
-                              window.open(
-                                `/individual/${id}`,
-                                "_blank",
-                                "noopener,noreferrer"
-                              );
-                            }
-                          }}
-                          title="Left click to open profile, Right click to open in new tab"
-                        >
-                          {member.Individual_text}
-                        </span>
-                        :{" "}
-                        {member.job_titles_id
-                          .map((jt) => jt.job_title)
-                          .join(", ")}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="info-value">Not available</div>
-                )}
+                <IndividualCards
+                  title="Past:"
+                  individuals={Investment_Team_Roles_past.map((member) => ({
+                    id: resolvedIndividualIds.get(member.Individual_text),
+                    name: member.Individual_text,
+                    jobTitles: member.job_titles_id.map((jt) => jt.job_title),
+                    individualId: resolvedIndividualIds.get(member.Individual_text),
+                    onClick: () => handleTeamMemberClick(member.Individual_text),
+                  }))}
+                  emptyMessage="Not available"
+                />
               </div>
             </div>
           </div>
