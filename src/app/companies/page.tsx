@@ -38,12 +38,20 @@ interface CompanyCSVRow extends BaseCompanyCSVRow {
 }
 
 // Types for API integration
+type SectorRef =
+  | string
+  | {
+      id?: number;
+      sector_name?: string;
+      name?: string;
+    };
+
 interface Company {
   id: number;
   name: string;
   description: string;
-  primary_sectors: string[];
-  secondary_sectors: string[];
+  primary_sectors: SectorRef[];
+  secondary_sectors: SectorRef[];
   ownership_type_id: number;
   ownership: string;
   country: string;
@@ -668,8 +676,9 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
 };
 
 // Helpers for sector mapping fallbacks and normalization
-const normalizeSectorName = (name: string | undefined | null): string => {
-  return (name || "").trim().toLowerCase();
+const normalizeSectorName = (name: unknown): string => {
+  // API data isn't always reliable; ensure we never call `.trim()` on non-strings.
+  return String(name ?? "").trim().toLowerCase();
 };
 
 const FALLBACK_SECONDARY_TO_PRIMARY: Record<string, string> = {
@@ -704,15 +713,71 @@ const FALLBACK_SECONDARY_TO_PRIMARY: Record<string, string> = {
 };
 
 const mapSecondaryToPrimary = (
-  secondaryName: string,
+  secondaryName: unknown,
   apiMap: Record<string, string>
 ): string | undefined => {
   const key = normalizeSectorName(secondaryName);
   // Prefer API-driven map first (with normalized lookup)
-  const apiValue = apiMap[key] || apiMap[secondaryName];
+  const rawKey =
+    typeof secondaryName === "string"
+      ? secondaryName
+      : String(secondaryName ?? "");
+  const apiValue = apiMap[key] || apiMap[rawKey];
   if (apiValue) return apiValue;
   // Fallback static map
   return FALLBACK_SECONDARY_TO_PRIMARY[key];
+};
+
+const getSectorInfo = (sector: unknown): { name: string; id?: number } => {
+  if (typeof sector === "string") return { name: sector };
+  if (!sector || typeof sector !== "object") return { name: "" };
+  const rec = sector as Record<string, unknown>;
+  const nameRaw =
+    (typeof rec.sector_name === "string" && rec.sector_name) ||
+    (typeof rec.name === "string" && rec.name) ||
+    "";
+  const idRaw = rec.id;
+  const id = typeof idRaw === "number" ? idRaw : undefined;
+  return { name: String(nameRaw), id };
+};
+
+const renderSectorLinks = (
+  sectors: unknown[] | undefined,
+  kind: "primary" | "secondary"
+): React.ReactNode => {
+  if (!Array.isArray(sectors) || sectors.length === 0) return "N/A";
+
+  const nodes: React.ReactNode[] = [];
+  sectors.forEach((s, index) => {
+    const { name, id } = getSectorInfo(s);
+    const label = String(name ?? "").trim();
+    if (!label) return;
+
+    const href =
+      id != null
+        ? kind === "primary"
+          ? `/sector/${id}`
+          : `/sub-sector/${id}`
+        : undefined;
+
+    nodes.push(
+      href ? (
+        <a
+          key={`${kind}-${id}-${label}-${index}`}
+          href={href}
+          className="text-blue-600 underline hover:text-blue-800"
+        >
+          {label}
+        </a>
+      ) : (
+        <span key={`${kind}-${label}-${index}`}>{label}</span>
+      )
+    );
+
+    if (index < sectors.length - 1) nodes.push(<span key={`sep-${kind}-${index}`}>, </span>);
+  });
+
+  return nodes.length > 0 ? nodes : "N/A";
 };
 
 // Company Card Component for Mobile
@@ -755,15 +820,30 @@ const CompanyCard = ({
 
   // Compute primary sectors by combining existing primaries with primaries derived from secondaries
   const computedPrimarySectors = React.useMemo(() => {
+    const primaryMap = new Map<string, SectorRef>();
     const existing = Array.isArray(company.primary_sectors)
       ? company.primary_sectors
       : [];
+
+    for (const s of existing) {
+      const { name } = getSectorInfo(s);
+      const key = normalizeSectorName(name);
+      if (key) primaryMap.set(key, s);
+    }
+
     const derived = Array.isArray(company.secondary_sectors)
       ? company.secondary_sectors
+          .map((sec) => getSectorInfo(sec).name)
           .map((name) => mapSecondaryToPrimary(name, secondaryToPrimaryMap))
           .filter((v): v is string => Boolean(v))
       : [];
-    return Array.from(new Set([...existing, ...derived]));
+
+    for (const name of derived) {
+      const key = normalizeSectorName(name);
+      if (key && !primaryMap.has(key)) primaryMap.set(key, name);
+    }
+
+    return Array.from(primaryMap.values());
   }, [
     company.primary_sectors,
     company.secondary_sectors,
@@ -814,7 +894,7 @@ const CompanyCard = ({
           "span",
           { className: "company-card-value" },
           computedPrimarySectors.length > 0
-            ? computedPrimarySectors.join(", ")
+            ? renderSectorLinks(computedPrimarySectors as unknown[], "primary")
             : "N/A"
         )
       ),
@@ -829,8 +909,9 @@ const CompanyCard = ({
         React.createElement(
           "span",
           { className: "company-card-value" },
-          company.secondary_sectors?.length > 0
-            ? company.secondary_sectors.join(", ")
+          Array.isArray(company.secondary_sectors) &&
+          company.secondary_sectors.length > 0
+            ? renderSectorLinks(company.secondary_sectors as unknown[], "secondary")
             : "N/A"
         )
       ),
@@ -2883,7 +2964,26 @@ const CompanySection = ({
       console.error("Error exporting CSV:", e);
       // Fallback to client-side CSV if API export fails
       if (companies.length > 0) {
-        CompaniesCSVExporter.exportCompanies(companies, "companies_filtered");
+        // `CompaniesCSVExporter` expects sectors as string arrays; normalize in case API returns objects.
+        const toStringArray = (vals: unknown): string[] => {
+          if (!Array.isArray(vals)) return [];
+          return vals
+            .map((v) => getSectorInfo(v).name)
+            .map((n) => String(n ?? "").trim())
+            .filter(Boolean);
+        };
+        const normalizedCompanies = companies.map((c) => ({
+          ...c,
+          primary_sectors: toStringArray(c.primary_sectors),
+          secondary_sectors: toStringArray(c.secondary_sectors),
+        }));
+        CompaniesCSVExporter.exportCompanies(
+          // Exporter has its own internal `Company` type with string[] sectors.
+          normalizedCompanies as unknown as Parameters<
+            typeof CompaniesCSVExporter.exportCompanies
+          >[0],
+          "companies_filtered"
+        );
       }
     }
   }, [currentFilters, companies]);
@@ -2905,16 +3005,31 @@ const CompanySection = ({
   const tableRows = useMemo(
     () =>
       companies.map((company, index) => {
-        const primarySet = new Set(
-          Array.isArray(company.primary_sectors) ? company.primary_sectors : []
-        );
+        const primaryMap = new Map<string, SectorRef>();
+        const primaries = Array.isArray(company.primary_sectors)
+          ? company.primary_sectors
+          : [];
+        for (const s of primaries) {
+          const { name } = getSectorInfo(s);
+          const key = normalizeSectorName(name);
+          if (key) primaryMap.set(key, s);
+        }
+
         const derivedFromSecondary = Array.isArray(company.secondary_sectors)
           ? company.secondary_sectors
+              .map((sec) => getSectorInfo(sec).name)
               .map((s) => mapSecondaryToPrimary(s, secondaryToPrimaryMap))
               .filter((v): v is string => Boolean(v))
           : [];
-        derivedFromSecondary.forEach((p) => primarySet.add(p));
-        const primaryDisplay = Array.from(primarySet);
+        for (const name of derivedFromSecondary) {
+          const key = normalizeSectorName(name);
+          if (key && !primaryMap.has(key)) primaryMap.set(key, name);
+        }
+
+        const primaryDisplay = Array.from(primaryMap.values());
+        const secondaryDisplay = Array.isArray(company.secondary_sectors)
+          ? company.secondary_sectors
+          : [];
 
         return (
           <tr key={company.id || index}>
@@ -2954,12 +3069,10 @@ const CompanySection = ({
               />
             </td>
             <td className="sectors-list">
-              {primaryDisplay.length > 0 ? primaryDisplay.join(", ") : "N/A"}
+              {renderSectorLinks(primaryDisplay as unknown[], "primary")}
             </td>
             <td className="sectors-list">
-              {company.secondary_sectors?.length > 0
-                ? company.secondary_sectors.join(", ")
-                : "N/A"}
+              {renderSectorLinks(secondaryDisplay as unknown[], "secondary")}
             </td>
             <td>{company.ownership || "N/A"}</td>
             <td>{formatNumber(company.linkedin_members)}</td>

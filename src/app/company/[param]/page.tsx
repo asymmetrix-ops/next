@@ -20,7 +20,6 @@ import {
 } from "recharts";
 import { ContentArticle } from "@/types/insightsAnalysis";
 import { InsightsAnalysisCard } from "@/components/InsightsAnalysisCard";
-import { locationsService } from "@/lib/locationsService";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
 
@@ -879,44 +878,6 @@ const CompanyDetail = () => {
     ParsedInvestorsData | null
   >(null);
 
-  // Load authoritative sector ID lists so we can interpret `new_sectors_data`
-  // even when the backend misclassifies a sub-sector inside `primary_sectors`.
-  const [sectorIdSets, setSectorIdSets] = useState<{
-    primaryIds: Set<number>;
-    secondaryIds: Set<number>;
-  } | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const [primary, secondary] = await Promise.all([
-          locationsService.getPrimarySectors(),
-          locationsService.getAllSecondarySectorsWithPrimary(),
-        ]);
-        if (cancelled) return;
-        setSectorIdSets({
-          primaryIds: new Set((primary || []).map((s) => s.id)),
-          secondaryIds: new Set((secondary || []).map((s) => s.id)),
-        });
-      } catch {
-        // Non-fatal: if not authenticated (or API fails), fall back to backend-provided classification.
-        if (!cancelled) setSectorIdSets(null);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const isAuthoritativelySecondarySectorId = (id: number): boolean => {
-    if (!sectorIdSets) return false;
-    // Only treat it as secondary if it appears in the secondary list AND not in the primary list.
-    // This avoids accidental reclassification if an ID ever overlaps between lists.
-    return sectorIdSets.secondaryIds.has(id) && !sectorIdSets.primaryIds.has(id);
-  };
-
   // Safely extract a sector id from various backend shapes
   const getSectorId = (sector: unknown): number | undefined => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1540,22 +1501,48 @@ const CompanyDetail = () => {
       if (!candidate) return null;
       const rawPayload = candidate.sectors_payload;
 
-      let payload: {
+      type SectorsPayloadShape = {
         primary_sectors?: Array<{ id?: number | string; sector_name?: string }>;
-        secondary_sectors?: Array<{
-          id?: number | string;
-          sector_name?: string;
-        }>;
-      } = {};
+        secondary_sectors?: Array<{ id?: number | string; sector_name?: string }>;
+      };
 
-      if (typeof rawPayload === "string") {
-        const jsonString = rawPayload.replace(/\\u0022/g, '"');
-        payload = JSON.parse(jsonString);
-      } else if (rawPayload && typeof rawPayload === "object") {
-        payload = rawPayload as typeof payload;
-      } else {
+      const tryParseJson = (text: string): unknown => {
+        const trimmed = text.trim();
+        if (!trimmed) return null;
+        // Common Xano escaping: \u0022 for quotes
+        const normalized = trimmed.replace(/\\u0022/g, '"');
+        try {
+          return JSON.parse(normalized);
+        } catch {
+          return null;
+        }
+      };
+
+      const normalizePayload = (value: unknown): SectorsPayloadShape | null => {
+        if (!value) return null;
+
+        // If it's already an object, use it directly
+        if (typeof value === "object") return value as SectorsPayloadShape;
+
+        if (typeof value === "string") {
+          // Handle plain JSON string or double-encoded JSON string
+          const first = tryParseJson(value);
+          if (first && typeof first === "object") return first as SectorsPayloadShape;
+          if (typeof first === "string") {
+            const second = tryParseJson(first);
+            if (second && typeof second === "object") return second as SectorsPayloadShape;
+          }
+          // Last attempt: sometimes it arrives with surrounding quotes escaped
+          const unquoted = value.trim().replace(/^"+|"+$/g, "");
+          const third = tryParseJson(unquoted);
+          if (third && typeof third === "object") return third as SectorsPayloadShape;
+        }
+
         return null;
-      }
+      };
+
+      const payload = normalizePayload(rawPayload);
+      if (!payload) return null;
       const toNumber = (v: unknown): number => {
         if (typeof v === "number" && Number.isFinite(v)) return v;
         const n = parseInt(String(v ?? ""), 10);
@@ -1590,10 +1577,14 @@ const CompanyDetail = () => {
     }
   })();
 
-  // Determine sectors to display (prefer `new_sectors_data`, fallback to `sectors_id`)
-  const primarySectorsRaw =
-    (parsedNewSectors?.primary && parsedNewSectors.primary.length > 0
-      ? parsedNewSectors.primary
+  // Determine sectors to display:
+  // Prefer `new_sectors_data.sectors_payload` (it already splits primary vs secondary).
+  // Only fall back to `company.sectors_id` when `new_sectors_data` is missing/unparseable.
+  const hasNewSectors = parsedNewSectors !== null;
+
+  const primarySectors =
+    (hasNewSectors
+      ? parsedNewSectors!.primary
       : (company.sectors_id || [])
           .filter((sector) => sector && sector?.Sector_importance === "Primary")
           .filter((s): s is CompanySector =>
@@ -1604,9 +1595,9 @@ const CompanyDetail = () => {
             )
           )) || [];
 
-  const secondarySectorsRaw =
-    (parsedNewSectors?.secondary && parsedNewSectors.secondary.length > 0
-      ? parsedNewSectors.secondary
+  const secondarySectors =
+    (hasNewSectors
+      ? parsedNewSectors!.secondary
       : (company.sectors_id || [])
           .filter((sector) => sector && sector?.Sector_importance !== "Primary")
           .filter((s): s is CompanySector =>
@@ -1616,23 +1607,6 @@ const CompanyDetail = () => {
                 typeof s.sector_id === "number"
             )
           )) || [];
-
-  // Re-classify using authoritative ID sets when available:
-  // if something is listed as primary by the backend but its ID is a known secondary-sector ID,
-  // show it under Secondary Sector(s) and route it to `/sub-sector/[id]`.
-  const secondaryById = new Map<number, CompanySector>();
-  secondarySectorsRaw.forEach((s) => secondaryById.set(s.sector_id, s));
-
-  const primarySectors: CompanySector[] = [];
-  primarySectorsRaw.forEach((s) => {
-    if (isAuthoritativelySecondarySectorId(s.sector_id)) {
-      secondaryById.set(s.sector_id, { ...s, Sector_importance: "Secondary" });
-    } else {
-      primarySectors.push(s);
-    }
-  });
-
-  const secondarySectors = Array.from(secondaryById.values());
 
   // Use API-provided primary sectors only
   const augmentedPrimarySectors = primarySectors;
