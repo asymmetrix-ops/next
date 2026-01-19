@@ -1781,20 +1781,22 @@ const InvestorDetailPage = () => {
                 />
               </div>
 
-              {/* Past Team */}
-              <div>
-                <IndividualCards
-                  title="Past:"
-                  individuals={Investment_Team_Roles_past.map((member) => ({
-                    id: resolvedIndividualIds.get(member.Individual_text),
-                    name: member.Individual_text,
-                    jobTitles: member.job_titles_id.map((jt) => jt.job_title),
-                    individualId: resolvedIndividualIds.get(member.Individual_text),
-                    onClick: () => handleTeamMemberClick(member.Individual_text),
-                  }))}
-                  emptyMessage="Not available"
-                />
-              </div>
+              {/* Past Team - Only show if there are past team members */}
+              {Investment_Team_Roles_past && Investment_Team_Roles_past.length > 0 && (
+                <div>
+                  <IndividualCards
+                    title="Past:"
+                    individuals={Investment_Team_Roles_past.map((member) => ({
+                      id: resolvedIndividualIds.get(member.Individual_text),
+                      name: member.Individual_text,
+                      jobTitles: member.job_titles_id.map((jt) => jt.job_title),
+                      individualId: resolvedIndividualIds.get(member.Individual_text),
+                      onClick: () => handleTeamMemberClick(member.Individual_text),
+                    }))}
+                    emptyMessage="Not available"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
