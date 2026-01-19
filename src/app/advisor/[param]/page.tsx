@@ -22,6 +22,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useRightClick } from "../../../hooks/useRightClick";
+import IndividualCards, { type IndividualCardItem } from "@/components/shared/IndividualCards";
 
 // Types for LinkedIn History Chart
 interface LinkedInHistory {
@@ -611,6 +612,25 @@ export default function AdvisorProfilePage() {
       padding: 40px;
       color: #666;
     }
+    .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
+    .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
+    .pill-green { background-color: #dcfce7; color: #15803d; }
+    /* Management/Individual cards hover effects */
+    .management-card:hover {
+      background-color: #e6f0ff !important;
+      border-color: #0075df !important;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0, 117, 223, 0.1);
+    }
+    /* Advisors: make cards smaller and fit 2 per row on desktop */
+    .advisor-detail-page .management-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 10px !important;
+    }
+    .advisor-detail-page .management-card {
+      padding: 8px !important;
+      border-radius: 6px !important;
+    }
 
     @media (max-width: 768px) {
       .advisor-content {
@@ -660,6 +680,9 @@ export default function AdvisorProfilePage() {
         flex-direction: column !important;
         align-items: flex-start !important;
         gap: 8px !important;
+      }
+      .advisor-detail-page .management-grid {
+        grid-template-columns: 1fr !important;
       }
     }
 
@@ -793,139 +816,82 @@ export default function AdvisorProfilePage() {
             {/* Advisors Section */}
             <div className="advisor-section">
               <h2 className="section-title">Advisors</h2>
-              {/* Current */}
-              <div style={{ marginBottom: "16px" }}>
-                <h3 className="section-title" style={{ fontSize: 16 }}>
-                  Current:
-                </h3>
-                {rolesCurrent.length > 0 ? (
-                  <div className="info-grid">
-                    {rolesCurrent.map((role) => (
-                      <div
-                        key={`current-role-${role.id}`}
-                        className="info-value"
-                      >
-                        {createClickableElement(
-                          `/individual/${role.individuals_id}`,
-                          role.advisor_individuals ||
-                            role.Individual_text ||
-                            "Unknown",
-                          undefined,
-                          { textDecoration: "none" }
-                        )}
-                        {": "}
-                        {role.job_titles_id && role.job_titles_id.length > 0
-                          ? role.job_titles_id
-                              .map((jt) => jt.job_title)
-                              .join(", ")
-                          : "Not available"}
-                      </div>
-                    ))}
-                  </div>
-                ) : advisorData.Advisors_individuals_current &&
-                  advisorData.Advisors_individuals_current.length > 0 ? (
-                  <div className="info-grid">
-                    {advisorData.Advisors_individuals_current.map(
-                      (individual) => (
-                        <div
-                          key={`current-${individual.id}`}
-                          className="info-value"
-                        >
-                          {createClickableElement(
-                            `/individual/${individual.individuals_id}`,
-                            individual.advisor_individuals,
-                            undefined,
-                            { textDecoration: "none" }
-                          )}
-                          {": "}
-                          {individual.job_titles_id &&
-                          individual.job_titles_id.length > 0
-                            ? individual.job_titles_id
-                                .map((jt) => jt.job_title)
-                                .join(", ")
-                            : "Not available"}
-                        </div>
-                      )
-                    )}
-                  </div>
-                ) : Advisors_individuals && Advisors_individuals.length > 0 ? (
-                  <div className="info-grid">
-                    {Advisors_individuals.map((individual) => (
-                      <div
-                        key={`fallback-${individual.id}`}
-                        className="info-value"
-                      >
-                        {createClickableElement(
-                          `/individual/${individual.individuals_id}`,
-                          individual.advisor_individuals,
-                          undefined,
-                          { textDecoration: "none" }
-                        )}
-                        {": "}
-                        {individual.job_titles_id &&
-                        individual.job_titles_id.length > 0
-                          ? individual.job_titles_id
-                              .map((jt) => jt.job_title)
-                              .join(", ")
-                          : "Not available"}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="info-value">Not available</div>
-                )}
+              
+              {/* Current Advisors */}
+              <div style={{ marginBottom: "20px" }}>
+                <IndividualCards
+                  title="Current:"
+                  individuals={(() => {
+                    // Prefer rolesCurrent from LinkedIn endpoint
+                    if (rolesCurrent.length > 0) {
+                      return rolesCurrent.map((role) => ({
+                        id: role.id,
+                        name: role.advisor_individuals || role.Individual_text || "Unknown",
+                        jobTitles: role.job_titles_id?.map((jt) => jt.job_title) || [],
+                        individualId: role.individuals_id,
+                      }));
+                    }
+                    // Fallback to advisorData.Advisors_individuals_current
+                    if (advisorData.Advisors_individuals_current && advisorData.Advisors_individuals_current.length > 0) {
+                      return advisorData.Advisors_individuals_current.map((individual) => ({
+                        id: individual.id,
+                        name: individual.advisor_individuals,
+                        jobTitles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
+                        individualId: individual.individuals_id,
+                      }));
+                    }
+                    // Final fallback to Advisors_individuals
+                    if (Advisors_individuals && Advisors_individuals.length > 0) {
+                      return Advisors_individuals.map((individual) => ({
+                        id: individual.id,
+                        name: individual.advisor_individuals,
+                        jobTitles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
+                        individualId: individual.individuals_id,
+                      }));
+                    }
+                    return [];
+                  })()}
+                  emptyMessage="Not available"
+                />
               </div>
-              {/* Past */}
-              <div>
-                <h3 className="section-title" style={{ fontSize: 16 }}>
-                  Past:
-                </h3>
-                {rolesPast.length > 0 ? (
-                  <div className="info-grid">
-                    {rolesPast.map((role) => (
-                      <div key={`past-role-${role.id}`} className="info-value">
-                        {createClickableElement(
-                          `/individual/${role.individuals_id}`,
-                          role.advisor_individuals ||
-                            role.Individual_text ||
-                            "Unknown",
-                          undefined,
-                          { textDecoration: "none" }
-                        )}
-                        {": "}
-                        {role.job_titles_id && role.job_titles_id.length > 0
-                          ? role.job_titles_id
-                              .map((jt) => jt.job_title)
-                              .join(", ")
-                          : "Not available"}
-                      </div>
-                    ))}
-                  </div>
-                ) : advisorData.Advisors_individuals_past &&
-                  advisorData.Advisors_individuals_past.length > 0 ? (
-                  <div className="info-grid">
-                    {advisorData.Advisors_individuals_past.map((individual) => (
-                      <div key={`past-${individual.id}`} className="info-value">
-                        {createClickableElement(
-                          `/individual/${individual.individuals_id}`,
-                          individual.advisor_individuals,
-                          undefined,
-                          { textDecoration: "none" }
-                        )}
-                        {": "}
-                        {individual.job_titles_id &&
-                        individual.job_titles_id.length > 0
-                          ? individual.job_titles_id
-                              .map((jt) => jt.job_title)
-                              .join(", ")
-                          : "Not available"}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="info-value">Not available</div>
-                )}
-              </div>
+
+              {/* Past Advisors - Only show if there are past advisors */}
+              {(() => {
+                // Get past advisors list
+                let pastAdvisors: IndividualCardItem[] = [];
+                // Prefer rolesPast from LinkedIn endpoint
+                if (rolesPast.length > 0) {
+                  pastAdvisors = rolesPast.map((role) => ({
+                    id: role.id,
+                    name: role.advisor_individuals || role.Individual_text || "Unknown",
+                    jobTitles: role.job_titles_id?.map((jt) => jt.job_title) || [],
+                    individualId: role.individuals_id,
+                  }));
+                }
+                // Fallback to advisorData.Advisors_individuals_past
+                else if (advisorData.Advisors_individuals_past && advisorData.Advisors_individuals_past.length > 0) {
+                  pastAdvisors = advisorData.Advisors_individuals_past.map((individual) => ({
+                    id: individual.id,
+                    name: individual.advisor_individuals,
+                    jobTitles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
+                    individualId: individual.individuals_id,
+                  }));
+                }
+                
+                // Only render if there are past advisors
+                if (pastAdvisors.length > 0) {
+                  return (
+                    <div>
+                      <IndividualCards
+                        title="Past:"
+                        individuals={pastAdvisors}
+                        emptyMessage="Not available"
+                      />
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
           </div>
 
