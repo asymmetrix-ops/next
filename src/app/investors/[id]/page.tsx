@@ -1519,6 +1519,15 @@ const InvestorDetailPage = () => {
       transform: translateY(-2px);
       box-shadow: 0 4px 6px rgba(0, 117, 223, 0.1);
     }
+    /* Investment Team: make cards smaller and fit 2 per row on desktop */
+    .investor-detail-page .management-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 10px !important;
+    }
+    .investor-detail-page .management-card {
+      padding: 8px !important;
+      border-radius: 6px !important;
+    }
 
     @media (max-width: 768px) {
       .investor-content {
