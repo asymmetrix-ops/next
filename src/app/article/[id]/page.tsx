@@ -554,6 +554,19 @@ const ArticleDetailPage = () => {
     return undefined;
   };
 
+  // Decide sector route based on API response shape:
+  // - Primary sectors should go to `/sector/{id}`
+  // - Secondary sectors should go to `/sub-sector/{id}`
+  const getSectorHref = (sector: unknown, sid: number): string => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const s = sector as any;
+    const importanceRaw =
+      s?.Sector_importance ?? s?.sector_importance ?? s?.importance ?? "";
+    const importance = String(importanceRaw || "").trim().toLowerCase();
+    const isPrimary = importance === "primary";
+    return isPrimary ? `/sector/${sid}` : `/sub-sector/${sid}`;
+  };
+
   // Sector navigation handled via <Link> elements
 
   const handleBackClick = () => {
@@ -1460,10 +1473,11 @@ const ArticleDetailPage = () => {
                   {article.sectors.map((sector) => {
                     const sid = getSectorId(sector);
                     if (!sid) return null;
+                    const href = getSectorHref(sector, sid);
                     return (
                       <Link
                         key={sid}
-                        href={`/sector/${sid}`}
+                        href={href}
                         style={{
                           ...styles.sectorTag,
                           cursor: "pointer",
@@ -1480,7 +1494,11 @@ const ArticleDetailPage = () => {
                             e.currentTarget as HTMLAnchorElement
                           ).style.backgroundColor = "#f3e5f5";
                         }}
-                        title="Open sector page"
+                        title={
+                          href.startsWith("/sub-sector/")
+                            ? "Open sub-sector page"
+                            : "Open sector page"
+                        }
                         prefetch={false}
                       >
                         {sector.sector_name}
