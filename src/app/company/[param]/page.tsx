@@ -20,7 +20,7 @@ import {
 } from "recharts";
 import { ContentArticle } from "@/types/insightsAnalysis";
 import { InsightsAnalysisCard } from "@/components/InsightsAnalysisCard";
-// import { locationsService } from "@/lib/locationsService"; // removed: sectors normalization not used anymore
+import { locationsService } from "@/lib/locationsService";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
 
@@ -879,7 +879,43 @@ const CompanyDetail = () => {
     ParsedInvestorsData | null
   >(null);
 
-  // Removed sectors normalization/mapping; rely solely on API-provided primary sectors
+  // Load authoritative sector ID lists so we can interpret `new_sectors_data`
+  // even when the backend misclassifies a sub-sector inside `primary_sectors`.
+  const [sectorIdSets, setSectorIdSets] = useState<{
+    primaryIds: Set<number>;
+    secondaryIds: Set<number>;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [primary, secondary] = await Promise.all([
+          locationsService.getPrimarySectors(),
+          locationsService.getAllSecondarySectorsWithPrimary(),
+        ]);
+        if (cancelled) return;
+        setSectorIdSets({
+          primaryIds: new Set((primary || []).map((s) => s.id)),
+          secondaryIds: new Set((secondary || []).map((s) => s.id)),
+        });
+      } catch {
+        // Non-fatal: if not authenticated (or API fails), fall back to backend-provided classification.
+        if (!cancelled) setSectorIdSets(null);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const isAuthoritativelySecondarySectorId = (id: number): boolean => {
+    if (!sectorIdSets) return false;
+    // Only treat it as secondary if it appears in the secondary list AND not in the primary list.
+    // This avoids accidental reclassification if an ID ever overlaps between lists.
+    return sectorIdSets.secondaryIds.has(id) && !sectorIdSets.primaryIds.has(id);
+  };
 
   // Safely extract a sector id from various backend shapes
   const getSectorId = (sector: unknown): number | undefined => {
@@ -1554,7 +1590,8 @@ const CompanyDetail = () => {
     }
   })();
 
-  const primarySectors =
+  // Determine sectors to display (prefer `new_sectors_data`, fallback to `sectors_id`)
+  const primarySectorsRaw =
     (parsedNewSectors?.primary && parsedNewSectors.primary.length > 0
       ? parsedNewSectors.primary
       : (company.sectors_id || [])
@@ -1567,7 +1604,7 @@ const CompanyDetail = () => {
             )
           )) || [];
 
-  const secondarySectors =
+  const secondarySectorsRaw =
     (parsedNewSectors?.secondary && parsedNewSectors.secondary.length > 0
       ? parsedNewSectors.secondary
       : (company.sectors_id || [])
@@ -1579,6 +1616,23 @@ const CompanyDetail = () => {
                 typeof s.sector_id === "number"
             )
           )) || [];
+
+  // Re-classify using authoritative ID sets when available:
+  // if something is listed as primary by the backend but its ID is a known secondary-sector ID,
+  // show it under Secondary Sector(s) and route it to `/sub-sector/[id]`.
+  const secondaryById = new Map<number, CompanySector>();
+  secondarySectorsRaw.forEach((s) => secondaryById.set(s.sector_id, s));
+
+  const primarySectors: CompanySector[] = [];
+  primarySectorsRaw.forEach((s) => {
+    if (isAuthoritativelySecondarySectorId(s.sector_id)) {
+      secondaryById.set(s.sector_id, { ...s, Sector_importance: "Secondary" });
+    } else {
+      primarySectors.push(s);
+    }
+  });
+
+  const secondarySectors = Array.from(secondaryById.values());
 
   // Use API-provided primary sectors only
   const augmentedPrimarySectors = primarySectors;
