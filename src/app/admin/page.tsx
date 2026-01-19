@@ -540,21 +540,6 @@ function UserActivityTab() {
 // Content Insights Types
 type ContentInsightsView = "Individual" | "Content Type" | "Top Articles Per Type";
 
-type TopArticlesRow = {
-  Content_Type: string;
-  content_id: number;
-  Headline: string;
-  Publication_Date: string;
-  sessions_30d: number;
-  views_30d: number;
-  sessions_90d: number;
-  views_90d: number;
-  total_sessions: number;
-  total_views: number;
-  unique_users: number;
-  rank_in_type: number;
-};
-
 // Flexible type for different views - will be determined by the API response
 type ContentInsightsRow = Record<string, unknown>;
 
@@ -566,9 +551,27 @@ function ContentInsightsTab() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [contentTypeFilter, setContentTypeFilter] = useState("");
+  const [selectedContentTypes, setSelectedContentTypes] = useState<string[]>([]);
+  const [availableContentTypes, setAvailableContentTypes] = useState<string[]>([]);
   const [sortCol, setSortCol] = useState<ContentInsightsSortColumn>("");
   const [sortDir, setSortDir] = useState<SortDirection>("desc");
+
+  // Fetch available content types from service
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const values = await locationsService.getContentTypesForArticles();
+        if (!cancelled) setAvailableContentTypes(values);
+      } catch {
+        if (!cancelled) setAvailableContentTypes([]);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let aborted = false;
@@ -580,15 +583,36 @@ function ContentInsightsTab() {
         const url = new URL(
           "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/content_insights"
         );
-        url.searchParams.append("view", view);
-
-        const resp = await fetch(url.toString(), {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        });
+        
+        let resp: Response;
+        
+        // Use POST if content types are selected (for array support), otherwise GET
+        if (selectedContentTypes.length > 0) {
+          // POST with JSON body for array support
+          const payload = {
+            view,
+            content_type: selectedContentTypes,
+          };
+          resp = await fetch(url.toString(), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify(payload),
+          });
+        } else {
+          // GET for backward compatibility when no filters
+          url.searchParams.append("view", view);
+          resp = await fetch(url.toString(), {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          });
+        }
+        
         if (!resp.ok) {
           const text = await resp.text().catch(() => "");
           throw new Error(`${resp.status} ${resp.statusText} ${text}`);
@@ -619,27 +643,11 @@ function ContentInsightsTab() {
     return () => {
       aborted = true;
     };
-  }, [view]);
-
-  const contentTypes = useMemo(() => {
-    const set = new Set<string>();
-    data.forEach((r) => {
-      const type = (r as TopArticlesRow).Content_Type || (r as Record<string, unknown>).content_type as string;
-      if (type) set.add(type);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [data]);
+  }, [view, selectedContentTypes]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return data
-      .filter((r) => {
-        if (contentTypeFilter) {
-          const type = (r as TopArticlesRow).Content_Type || (r as Record<string, unknown>).content_type as string;
-          return type === contentTypeFilter;
-        }
-        return true;
-      })
       .filter((r) => {
         if (!q) return true;
         // Search across all string fields
@@ -656,7 +664,7 @@ function ContentInsightsTab() {
           sortDir
         );
       });
-  }, [data, search, contentTypeFilter, sortCol, sortDir]);
+  }, [data, search, sortCol, sortDir]);
 
   function onSort(col: ContentInsightsSortColumn) {
     if (sortCol === col) {
@@ -751,28 +759,62 @@ function ContentInsightsTab() {
       </div>
 
       {/* Filters */}
-      <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search..."
-          className="px-3 py-2 w-full rounded border"
-        />
-        {contentTypes.length > 0 && (
-          <select
-            value={contentTypeFilter}
-            onChange={(e) => setContentTypeFilter(e.target.value)}
+      <div className="mb-4 space-y-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search..."
             className="px-3 py-2 w-full rounded border"
-          >
-            <option value="">All content types</option>
-            {contentTypes.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        )}
+          />
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">
+            Content Types (select one or more)
+          </label>
+          <SearchableSelect
+            options={availableContentTypes.map((ct) => ({
+              value: ct,
+              label: ct,
+            }))}
+            value={""}
+            onChange={(value) => {
+              if (typeof value === "string" && !selectedContentTypes.includes(value)) {
+                setSelectedContentTypes([...selectedContentTypes, value]);
+              }
+            }}
+            placeholder={
+              availableContentTypes.length === 0
+                ? "Loading content types..."
+                : "Select content types to filter"
+            }
+            disabled={availableContentTypes.length === 0}
+            style={{ width: "100%" }}
+          />
+          {selectedContentTypes.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {selectedContentTypes.map((ct) => (
+                <span
+                  key={ct}
+                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
+                >
+                  {ct}
+                  <button
+                    onClick={() =>
+                      setSelectedContentTypes(
+                        selectedContentTypes.filter((x) => x !== ct)
+                      )
+                    }
+                    className="font-bold"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Table */}
