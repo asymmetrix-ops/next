@@ -18,6 +18,9 @@ import InsightsSection from "@/components/transaction/InsightsSection";
 import CounterpartiesSection from "@/components/transaction/CounterpartiesSection";
 import AdvisorsSection from "@/components/transaction/AdvisorsSection";
 import RelatedTransactionsSection from "@/components/transaction/RelatedTransactionsSection";
+import PreviousCorporateEventsSection, {
+  PreviousCorporateEventRow,
+} from "@/components/transaction/PreviousCorporateEventsSection";
 import { Button } from "@/components/ui/button";
 
 // Type-safe check for Data & Analytics company flag
@@ -84,6 +87,10 @@ const CorporateEventDetail = ({
     : [];
   const advisors: CorporateEventAdvisor[] = Array.isArray(data?.Event_advisors)
     ? data.Event_advisors
+    : [];
+
+  const previousCorporateEventsRaw = Array.isArray(data?.Previous_Corporate_Events)
+    ? data.Previous_Corporate_Events
     : [];
 
   // Fast lookup for counterparties by id
@@ -537,6 +544,20 @@ const CorporateEventDetail = ({
     };
   });
 
+  const previousCorporateEventsData: PreviousCorporateEventRow[] =
+    previousCorporateEventsRaw
+      .filter((e) => e && typeof e.id === "number")
+      .map((e) => ({
+        id: e.id,
+        title: e.description || "View event",
+        announcementDate: e.announcement_date ? formatDate(e.announcement_date) : undefined,
+        closedDate: e.closed_date ? formatDate(e.closed_date) : undefined,
+        dealType: e.deal_type || undefined,
+        dealStatus: e.deal_status || undefined,
+        targetRole: e.target_company_role?.counterparty_status || undefined,
+      }))
+      .sort((a, b) => b.id - a.id);
+
   // Fetch related transactions + related insights (by primary sector), once we know primary sector id.
   useEffect(() => {
     const run = async () => {
@@ -858,6 +879,10 @@ const CorporateEventDetail = ({
           counterparties={counterpartiesData}
           createClickableElement={createClickableElement}
         />
+      )}
+
+      {previousCorporateEventsData.length > 0 && (
+        <PreviousCorporateEventsSection events={previousCorporateEventsData} />
       )}
 
       {advisorsData.length > 0 && (

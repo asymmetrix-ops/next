@@ -250,6 +250,34 @@ export interface CorporateEventDetailResponse {
   Event_advisors: CorporateEventAdvisor[];
   Primary_sectors: PrimarySector[];
   "Sub-sectors": SubSector[];
+  Previous_Corporate_Events?: PreviousCorporateEvent[];
+}
+
+export interface PreviousCorporateEventCounterparty {
+  id: number;
+  company_id: number;
+  company_name: string;
+  company_logo?: string;
+  counterparty_type?: number;
+  counterparty_status?: string;
+}
+
+export interface PreviousCorporateEvent {
+  id: number;
+  description?: string;
+  deal_type?: string;
+  deal_status?: string;
+  announcement_date?: string;
+  closed_date?: string;
+  investment_amount_m?: number | null;
+  enterprise_value_m?: number | null;
+  investment_currency?: string;
+  enterprise_value_currency?: string;
+  target_company_role?: {
+    counterparty_status?: string;
+    counterparty_type_id?: number;
+  };
+  counterparties?: PreviousCorporateEventCounterparty[];
 }
 
 export interface FilterOptions {
