@@ -186,6 +186,7 @@ class CorporateEventsService {
         Primary_sectors: safeParse(first.Primary_sectors, []),
         // Note: key contains a hyphen
         ["Sub-sectors"]: safeParse(first["Sub-sectors"], []),
+        Previous_Corporate_Events: safeParse(first.Previous_Corporate_Events, []),
       } as CorporateEventDetailResponse;
       return normalized;
     }
