@@ -62,6 +62,8 @@ class LocationsService {
   private allSecondarySectorsWithPrimaryCache:
     | Array<SecondarySector & { related_primary_sector?: PrimarySector }>
     | null = null;
+  private allSecondarySectorsCache: SecondarySector[] | null = null;
+  private primarySectorsBySecondaryIdCache: Record<number, PrimarySector[]> = {};
   private fundingStagesCache: string[] | null = null;
   private jobTitlesCache: JobTitle[] | null = null;
   private investorTypesCache: InvestorType[] | null = null;
@@ -75,6 +77,8 @@ class LocationsService {
     this.continentalRegionsCache = null;
     this.subRegionsCache = null;
     this.allSecondarySectorsWithPrimaryCache = null;
+    this.allSecondarySectorsCache = null;
+    this.primarySectorsBySecondaryIdCache = {};
     this.fundingStagesCache = null;
     this.jobTitlesCache = null;
     this.investorTypesCache = null;
@@ -261,6 +265,7 @@ class LocationsService {
       headers: {
         ...this.getAuthHeaders(),
       },
+      // Per API: initial load requires no payload (omit body entirely)
     });
 
     if (!response.ok) {
@@ -277,6 +282,57 @@ class LocationsService {
       SecondarySector & { related_primary_sector?: PrimarySector }
     >;
     this.allSecondarySectorsWithPrimaryCache = data;
+    return data;
+  }
+
+  // Get all secondary sectors (minimal shape: id + sector_name)
+  async getAllSecondarySectors(): Promise<SecondarySector[]> {
+    if (this.allSecondarySectorsCache) {
+      return this.allSecondarySectorsCache;
+    }
+
+    // Reuse the existing cached call (same endpoint) and strip extra fields
+    const data = await this.getAllSecondarySectorsWithPrimary();
+    const minimal = (Array.isArray(data) ? data : []).map((s) => ({
+      id: s.id,
+      sector_name: s.sector_name,
+    }));
+
+    this.allSecondarySectorsCache = minimal;
+    return minimal;
+  }
+
+  // New API behavior: when passing `secondary_sector_id`, endpoint returns the related primary sector(s)
+  async getPrimarySectorsForSecondarySectorId(
+    secondarySectorId: number
+  ): Promise<PrimarySector[]> {
+    if (
+      typeof secondarySectorId === "number" &&
+      this.primarySectorsBySecondaryIdCache[secondarySectorId]
+    ) {
+      return this.primarySectorsBySecondaryIdCache[secondarySectorId];
+    }
+
+    const url = `${BASE_URL}/Get_Secondary_Sectors?secondary_sector_id=${secondarySectorId}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch primary sectors for secondary: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const data = (await response.json()) as PrimarySector[];
+    this.primarySectorsBySecondaryIdCache[secondarySectorId] = data;
     return data;
   }
 

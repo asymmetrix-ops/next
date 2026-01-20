@@ -1178,6 +1178,7 @@ const CorporateEventsPage = () => {
   const [selectedSecondarySectors, setSelectedSecondarySectors] = useState<
     number[]
   >([]);
+  // When user selects Secondary first, we pre-filter Primary sectors dropdown (no auto-selection).
   const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([]);
   const [selectedDealStatuses, setSelectedDealStatuses] = useState<string[]>(
     []
@@ -1202,6 +1203,9 @@ const CorporateEventsPage = () => {
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
   );
+  const [secondaryIdToPrimaryIds, setSecondaryIdToPrimaryIds] = useState<
+    Record<number, number[]>
+  >({});
   const [fundingStages, setFundingStages] = useState<string[]>([]);
   // Removed eventTypes and dealStatuses state since we're using hardcoded options
 
@@ -1252,7 +1256,30 @@ const CorporateEventsPage = () => {
     label: city.City,
   }));
 
-  const primarySectorOptions = primarySectors.map((sector) => ({
+  const primaryIdsFromSelectedSecondaries = (() => {
+    const set = new Set<number>();
+    for (const secId of selectedSecondarySectors) {
+      const ids = secondaryIdToPrimaryIds[secId] || [];
+      ids.forEach((id) => {
+        if (typeof id === "number") set.add(id);
+      });
+    }
+    return Array.from(set);
+  })();
+
+  const primaryIdsForDropdown =
+    selectedSecondarySectors.length > 0
+      ? Array.from(
+          new Set([...primaryIdsFromSelectedSecondaries, ...selectedPrimarySectors])
+        )
+      : [];
+
+  const primarySectorsForDropdown =
+    selectedSecondarySectors.length > 0 && primaryIdsForDropdown.length > 0
+      ? primarySectors.filter((p) => primaryIdsForDropdown.includes(p.id))
+      : primarySectors;
+
+  const primarySectorOptions = primarySectorsForDropdown.map((sector) => ({
     value: sector.id,
     label: sector.sector_name,
   }));
@@ -1402,15 +1429,12 @@ const CorporateEventsPage = () => {
   };
 
   const fetchSecondarySectors = async () => {
-    if (selectedPrimarySectors.length === 0) {
-      setSecondarySectors([]);
-      return;
-    }
     try {
       setLoadingSecondarySectors(true);
-      const sectorsData = await locationsService.getSecondarySectors(
-        selectedPrimarySectors
-      );
+      const sectorsData =
+        selectedPrimarySectors.length > 0
+          ? await locationsService.getSecondarySectors(selectedPrimarySectors)
+          : await locationsService.getAllSecondarySectors();
       setSecondarySectors(sectorsData);
     } catch (error) {
       console.error("Error fetching secondary sectors:", error);
@@ -2689,22 +2713,57 @@ const CorporateEventsPage = () => {
                         value &&
                         !selectedSecondarySectors.includes(value)
                       ) {
-                        setSelectedSecondarySectors([
+                        const nextSecondary = [
                           ...selectedSecondarySectors,
                           value,
-                        ]);
+                        ];
+                        setSelectedSecondarySectors(nextSecondary);
+
+                        // New API behavior: when selecting Secondary first, call the API with
+                        // { secondary_sector_id: <id> } to get related Primary sector ids.
+                        if (selectedPrimarySectors.length === 0) {
+                          (async () => {
+                            try {
+                              const relatedPrimaries =
+                                await locationsService.getPrimarySectorsForSecondarySectorId(
+                                  value
+                                );
+                              const relatedPrimaryIds = Array.from(
+                                new Set(
+                                  (Array.isArray(relatedPrimaries)
+                                    ? relatedPrimaries
+                                    : []
+                                  )
+                                    .map((p) => (p as { id?: number }).id)
+                                    .filter(
+                                      (id): id is number =>
+                                        typeof id === "number"
+                                    )
+                                )
+                              );
+
+                              // Save mapping for future filtering (no auto-selection; user must pick manually).
+                              setSecondaryIdToPrimaryIds((prev) => ({
+                                ...prev,
+                                [value]: relatedPrimaryIds,
+                              }));
+                            } catch (e) {
+                              console.warn(
+                                "[Corporate Events] Failed to prefilter primary sectors from secondary selection",
+                                e
+                              );
+                            }
+                          })();
+                        }
                       }
                     }}
                     placeholder={
                       loadingSecondarySectors
                         ? "Loading sectors..."
-                        : selectedPrimarySectors.length === 0
-                        ? "Select primary sectors first"
                         : "Select Secondary Sector"
                     }
                     disabled={
-                      loadingSecondarySectors ||
-                      selectedPrimarySectors.length === 0
+                      loadingSecondarySectors
                     }
                     style={styles.select}
                   />
