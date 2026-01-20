@@ -1,5 +1,6 @@
 export type TrackingEventType = "login" | "page_view" | "logout" | "error";
 import { authService } from "@/lib/auth";
+import { isActivityTrackingBlockedEmail } from "@/lib/activityTracking";
 
 export interface TrackingEventInput {
   userId?: number;
@@ -13,25 +14,7 @@ const SESSION_KEY = "asym_session_id";
 const RECENT_EVENTS_KEY = "asym_recent_events";
 const recentEvents = new Map<string, number>();
 
-// Do not track activities for these users
-const BLOCKED_EMAILS = new Set<string>(
-  [
-    "a.boden@gmail.com",
-    "j.bochner@asymmetrixintelligence.com",
-    "d.dinsey@asymmetrixintelligence.com",
-    "a.grishko@asymmetrixintelligence.com",
-    "tucha.dev@gmail.com",
-  ].map((e) => e.toLowerCase())
-);
-
-function isBlockedEmail(email: string | undefined): boolean {
-  if (!email) return false;
-  try {
-    return BLOCKED_EMAILS.has(email.toLowerCase());
-  } catch {
-    return false;
-  }
-}
+// NOTE: Global activity tracking block rule lives in `src/lib/activityTracking.ts`
 
 export function getOrCreateSessionId(): string {
   if (typeof window === "undefined") return "";
@@ -335,8 +318,8 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
     }
   }
 
-  // Respect blocklist: skip tracking if the authenticated user's email is blocked
-  if (isBlockedEmail(currentEmail)) {
+  // Respect global block rule: skip tracking if the authenticated user's email is blocked
+  if (isActivityTrackingBlockedEmail(currentEmail)) {
     return;
   }
   if (isPageView) {
