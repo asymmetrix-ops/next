@@ -222,6 +222,33 @@ const CorporateEventDetail = ({
     Array<{ id?: number; tag?: string; date?: string; title: string; content: string }>
   >([]);
 
+  // Derive the "target" company id for this event from counterparties.
+  // The API change requires `new_company_id`, which should be the `_new_company.id`
+  // for the counterparty whose status is "Target" (when available).
+  const targetNewCompanyId = useMemo(() => {
+    const cps = Array.isArray(counterparties) ? counterparties : [];
+
+    const statusOf = (cp: (typeof cps)[number]): string => {
+      const s =
+        cp?._counterpartys_type?.counterparty_status ||
+        cp?._counterparty_type?.counterparty_status ||
+        "";
+      return typeof s === "string" ? s : "";
+    };
+
+    const targetCp = cps.find((cp) => /target/i.test(statusOf(cp)));
+    const targetId = targetCp?._new_company?.id;
+    if (typeof targetId === "number") return targetId;
+
+    // Fallback: first non-investor company (often the target/investee), else first company id.
+    const nonInvestor = cps.find((cp) => !Boolean(cp?._new_company?._is_that_investor));
+    const nonInvestorId = nonInvestor?._new_company?.id;
+    if (typeof nonInvestorId === "number") return nonInvestorId;
+
+    const anyId = cps.find((cp) => typeof cp?._new_company?.id === "number")?._new_company?.id;
+    return typeof anyId === "number" ? anyId : undefined;
+  }, [counterparties]);
+
   useEffect(() => {
     const run = async () => {
       const startedAt = Date.now();
@@ -230,8 +257,14 @@ const CorporateEventDetail = ({
         if (!evId) return;
         console.log("[Insights & Analysis] fetch start", {
           corporate_event_id: evId,
+          new_company_id: targetNewCompanyId,
         });
-        const qs = new URLSearchParams({ corporate_event_id: String(evId) });
+        const qs = new URLSearchParams({
+          corporate_event_id: String(evId),
+          ...(typeof targetNewCompanyId === "number"
+            ? { new_company_id: String(targetNewCompanyId) }
+            : {}),
+        });
         const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/content?${qs.toString()}`;
         console.log("[Insights & Analysis] GET URL", url);
         const res = await fetch(url, {
@@ -261,7 +294,7 @@ const CorporateEventDetail = ({
     };
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [event?.id]);
+  }, [event?.id, targetNewCompanyId]);
 
   // Transform data for components
   const transactionData = {
