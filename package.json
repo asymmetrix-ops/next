@@ -11,8 +11,8 @@
     "clean": "node -e \"const fs = require('fs'); const path = require('path'); ['.next', 'out', '.vercel', 'node_modules/.cache'].forEach(dir => { try { fs.rmSync(path.join(process.cwd(), dir), { recursive: true, force: true }); console.log('Removed ' + dir); } catch(e) { if(e.code !== 'ENOENT') console.log('Not found: ' + dir); } });\""
   },
   "dependencies": {
-    "@sparticuz/chromium": "^119.0.0",
     "@heroicons/react": "^2.0.18",
+    "@sparticuz/chromium": "^119.0.0",
     "@xano/js-sdk": "^2.0.1",
     "axios": "^1.9.0",
     "chart.js": "^4.4.0",
@@ -36,6 +36,7 @@
     "react-dom": "^18.2.0",
     "react-dropzone": "^14.2.3",
     "react-email-editor": "^1.7.8",
+    "react-h5-audio-player": "^3.10.1",
     "react-hook-form": "^7.48.0",
     "react-hot-toast": "^2.5.2",
     "react-markdown": "^9.0.0",

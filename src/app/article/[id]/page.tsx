@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { openArticlePdfWindow } from "@/utils/exportArticlePdf";
+import InlineAudioPlayer from "@/components/article/InlineAudioPlayer";
 
 // Types for the article detail page
 interface ArticleDetail {
@@ -319,7 +320,7 @@ const ArticleDetailPage = () => {
   const articleId = String((params as Record<string, unknown>)?.id || "");
   const ENABLE_PDF_EXPORT = true;
 
-  const fetchArticle = async () => {
+  const fetchArticle = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -410,13 +411,13 @@ const ArticleDetailPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [articleId]);
 
   useEffect(() => {
     if (articleId) {
       fetchArticle();
     }
-  }, [articleId]);
+  }, [articleId, fetchArticle]);
 
   // Fetch Company_of_Focus details for Company Analysis & Executive Interview content
   useEffect(() => {
@@ -596,18 +597,6 @@ const ArticleDetailPage = () => {
       return `https://xdil-abvj-o7rq.e2.xano.io${candidate}`;
     }
     return candidate;
-  };
-
-  const formatBytes = (bytes?: number): string => {
-    const n = typeof bytes === "number" ? bytes : Number(bytes);
-    if (!Number.isFinite(n) || n <= 0) return "";
-    const kb = 1024;
-    const mb = kb * 1024;
-    const gb = mb * 1024;
-    if (n >= gb) return `${(n / gb).toFixed(2)} GB`;
-    if (n >= mb) return `${(n / mb).toFixed(1)} MB`;
-    if (n >= kb) return `${Math.round(n / kb)} KB`;
-    return `${Math.round(n)} B`;
   };
 
   const formatDuration = (seconds?: number): string => {
@@ -883,6 +872,39 @@ const ArticleDetailPage = () => {
                   <span style={styles.contentTypeBadge}>{ct}</span>
                 </div>
               ) : null;
+            })()}
+
+            {/* Inline Audio (audio-only interview / listen module) */}
+            {(() => {
+              const audioDocs = (article.Related_Documents || [])
+                .filter(Boolean)
+                .filter(isAudioDoc);
+              if (!audioDocs.length) return null;
+
+              const first = audioDocs[0]!;
+              const url = resolveDocumentUrl(first);
+              if (!url) return null;
+
+              const name =
+                (first as { name?: string })?.name ||
+                "Listen to this article now";
+
+              // Subtitle like "3 min listen" if duration metadata exists
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const metaAny = (first as any)?.meta;
+              const durationSeconds =
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (metaAny as any)?.duration ??
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (metaAny as any)?.audio?.duration;
+              const duration = formatDuration(durationSeconds);
+              const subtitle = duration ? `${duration} listen` : undefined;
+
+              return (
+                <div style={{ marginBottom: 16 }}>
+                  <InlineAudioPlayer src={url} title={name} subtitle={subtitle} />
+                </div>
+              );
             })()}
 
             {/* Article Body with embedded images from attachments */}
@@ -1514,90 +1536,19 @@ const ArticleDetailPage = () => {
             {article.Related_Documents &&
               (article.Related_Documents || [])
                 .filter(Boolean)
-                .filter((d) => !isImageDoc(d)).length > 0 && (
+                .filter((d) => !isImageDoc(d) && !isAudioDoc(d)).length > 0 && (
                 <div style={styles.section}>
                   <h2 style={styles.sectionTitle}>Related Documents</h2>
                   {(() => {
                     const nonImage = (article.Related_Documents || [])
                       .filter(Boolean)
-                      .filter((d) => !isImageDoc(d));
-
-                    const audioDocs = nonImage.filter(isAudioDoc);
-                    const otherDocs = nonImage.filter((d) => !isAudioDoc(d));
+                      .filter((d) => !isImageDoc(d) && !isAudioDoc(d));
 
                     return (
                       <>
-                        {audioDocs.length > 0 && (
-                          <div className="article-audio-list">
-                            {audioDocs.map((doc, idx) => {
-                              const url = resolveDocumentUrl(doc);
-                              const name =
-                                (doc as { name?: string })?.name ||
-                                "Audio file";
-                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                              const metaAny = (doc as any)?.meta;
-                              const durationSeconds =
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                (metaAny as any)?.duration ??
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                (metaAny as any)?.audio?.duration;
-                              const duration = formatDuration(durationSeconds);
-                              const size = formatBytes(
-                                (doc as { size?: number })?.size
-                              );
-
-                              return (
-                                <div
-                                  key={`${name}-${idx}`}
-                                  className="article-audio-card"
-                                >
-                                  <div className="article-audio-top">
-                                    <div className="article-audio-title">
-                                      {name}
-                                    </div>
-                                    {url ? (
-                                      <a
-                                        href={url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="article-audio-link"
-                                        title="Open / download audio"
-                                      >
-                                        Open
-                                      </a>
-                                    ) : null}
-                                  </div>
-
-                                  {url ? (
-                                    <audio
-                                      className="article-audio-player"
-                                      controls
-                                      preload="metadata"
-                                      src={url}
-                                    />
-                                  ) : (
-                                    <div className="article-audio-missing">
-                                      Audio attachment is available but no
-                                      playable URL was provided.
-                                    </div>
-                                  )}
-
-                                  {(size || duration) && (
-                                    <div className="article-audio-meta">
-                                      {[size, duration]
-                                        .filter(Boolean)
-                                        .join(" • ")}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {otherDocs.length > 0 && (
+                        {nonImage.length > 0 && (
                           <div style={styles.tagContainer}>
-                            {otherDocs.map((doc, index) => {
+                            {nonImage.map((doc, index) => {
                               const url = resolveDocumentUrl(doc);
                               const name = (doc as { name?: string })?.name;
                               if (!url) return null;
@@ -1721,46 +1672,96 @@ const ArticleDetailPage = () => {
           .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem; }
           .article-inline-image { margin: 1.25rem 0; }
           /* Audio attachments (WhatsApp-style card) */
-          .article-audio-list { display: grid; gap: 12px; margin-bottom: 16px; }
-          .article-audio-card {
-            background: #f3f4f6;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 12px;
+          /* Inline audio player (news-style listen module) */
+          .inline-audio-player{
+            background:#fff;
+            border:1px solid #e5e7eb;
+            border-radius:12px;
+            padding:14px 14px;
+            box-shadow:0 2px 4px rgba(0,0,0,.04);
           }
-          .article-audio-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            margin-bottom: 8px;
+          .inline-audio-header{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+          .inline-audio-title{
+            font-size:16px; font-weight:600; color:#111827;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
           }
-          .article-audio-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: #111827;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+          .inline-audio-subtitle{
+            margin-left:10px;
+            font-size:13px; font-weight:500; color:#6b7280;
           }
-          .article-audio-link {
-            font-size: 12px;
-            font-weight: 600;
-            color: #2563eb;
-            text-decoration: none;
-            white-space: nowrap;
+          .inline-audio-controls{ display:flex; align-items:center; gap:10px; }
+          .inline-audio-rate{
+            border:1px solid #e5e7eb;
+            background:#fff;
+            border-radius:9999px;
+            padding:6px 10px;
+            font-size:13px;
+            color:#111827;
           }
-          .article-audio-link:hover { text-decoration: underline; }
-          .article-audio-player { width: 100%; height: 36px; }
-          .article-audio-meta {
-            margin-top: 6px;
-            font-size: 12px;
-            color: #6b7280;
+          /* react-h5-audio-player overrides (keep compact + match module style) */
+          .inline-audio-player .rhap_container{
+            box-shadow:none;
+            background:transparent;
+            padding:0;
+            border:0;
           }
-          .article-audio-missing {
-            font-size: 13px;
-            color: #6b7280;
-            padding: 8px 0;
+          .inline-audio-player .rhap_main{ gap:10px; }
+          .inline-audio-player .rhap_progress-section{ align-items:center; }
+          .inline-audio-player .rhap_time{
+            font-size:12px;
+            color:#6b7280;
+            min-width:42px;
+            text-align:center;
+          }
+          .inline-audio-player .rhap_progress-bar{
+            height:4px;
+            border-radius:9999px;
+            background:#e5e7eb;
+          }
+          .inline-audio-player .rhap_progress-filled{
+            background:#111827;
+            border-radius:9999px;
+          }
+          .inline-audio-player .rhap_progress-indicator{
+            width:12px;
+            height:12px;
+            background:#111827;
+            box-shadow:0 0 0 2px #fff, 0 0 0 3px rgba(17,24,39,.25);
+            top:50%;
+            transform:translateY(-50%);
+          }
+          .inline-audio-player .rhap_main-controls-button{
+            width:44px;
+            height:44px;
+            border-radius:9999px;
+            border:2px solid #111827;
+            background:#fff;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+          }
+          .inline-audio-player .rhap_main-controls-button svg{
+            width:18px;
+            height:18px;
+            color:#111827;
+          }
+          .inline-audio-player .rhap_download-progress{ background:transparent; }
+          .inline-audio-player .rhap_controls-section{ margin-top:0; }
+          .inline-audio-player .rhap_additional-controls{ display:none; }
+          .inline-audio-player .rhap_volume-controls{ display:none; }
+          /* Utility for screen-reader-only text */
+          .sr-only{
+            position:absolute;
+            width:1px; height:1px;
+            padding:0; margin:-1px;
+            overflow:hidden; clip:rect(0,0,0,0);
+            white-space:nowrap; border:0;
+          }
+          @media (max-width: 640px) {
+            .inline-audio-player{ padding:12px; }
+            .inline-audio-title{ font-size:14px; }
+            .inline-audio-subtitle{ display:none; }
+            .inline-audio-header{ margin-bottom:8px; }
           }
           /* Hover tooltips for metric values using title attribute (align like company page) */
           .article-financial-metrics {
