@@ -17,6 +17,7 @@ interface Sector {
   Number_of_VC: number;
   Number_of_Public: number;
   Number_of_Private: number;
+  Number_of_Other: number;
 }
 
 type SortField =
@@ -26,7 +27,8 @@ type SortField =
   | "Number_of_Public"
   | "Number_of_PE"
   | "Number_of_VC"
-  | "Number_of_Private";
+  | "Number_of_Private"
+  | "Number_of_Other";
 type SortDirection = "asc" | "desc";
 
 interface SectorsResponse {
@@ -247,6 +249,29 @@ const SectorCard = ({
           "span",
           { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
           formatNumber(sector.Number_of_Private)
+        )
+      ),
+      React.createElement(
+        "div",
+        {
+          style: {
+            display: "flex",
+            flexDirection: "column" as const,
+            padding: "8px",
+            backgroundColor: "#f9fafb",
+            borderRadius: "6px",
+            gridColumn: "1 / -1",
+          },
+        },
+        React.createElement(
+          "span",
+          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
+          "Other"
+        ),
+        React.createElement(
+          "span",
+          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
+          formatNumber(sector.Number_of_Other)
         )
       )
     )
@@ -591,6 +616,11 @@ const SectorsSection = () => {
           "option",
           { value: "Number_of_Private" },
           "Private Companies"
+      ),
+      React.createElement(
+        "option",
+        { value: "Number_of_Other" },
+        "Other Companies"
         )
       ),
       React.createElement(
