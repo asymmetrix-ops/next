@@ -17,6 +17,12 @@ interface InsightsAnalysisCardProps {
    * instead of in the header row. This allows the title to span full width.
    */
   badgeBelowDate?: boolean;
+  /**
+   * Meta rendering style.
+   * - text: legacy "Companies: a, b, c" (compact)
+   * - badges: badge grid with truncation ("+N more")
+   */
+  metaStyle?: "text" | "badges";
 }
 
 const formatDate = (dateString: string) => {
@@ -83,6 +89,49 @@ const formatCompanies = (
     .map((c) => decodeHtmlEntities(c?.name || ""))
     .filter((name): name is string => Boolean(name && name.trim().length));
   return names.length ? names.join(", ") : "Not available";
+};
+
+const getCompanyNames = (
+  companies: ContentArticle["companies_mentioned"] | undefined
+): string[] => {
+  if (!Array.isArray(companies) || companies.length === 0) return [];
+  return companies
+    .filter(Boolean)
+    .map((c) => decodeHtmlEntities(c?.name || ""))
+    .filter((name): name is string => Boolean(name && name.trim().length));
+};
+
+const getSectorNames = (
+  sectors: Array<Array<{ sector_name: string }>> | undefined
+): string[] => {
+  if (!Array.isArray(sectors) || sectors.length === 0) return [];
+  return sectors
+    .filter(Boolean)
+    .flat()
+    .filter(Boolean)
+    .map((s) => decodeHtmlEntities(s?.sector_name || ""))
+    .filter((name): name is string => Boolean(name && name.trim().length));
+};
+
+const renderBadgeList = (
+  names: string[],
+  badgeClassName: string,
+  maxShown = 3
+) => {
+  const unique = Array.from(new Set(names));
+  const shown = unique.slice(0, maxShown);
+  const remaining = Math.max(0, unique.length - shown.length);
+
+  return (
+    <div className="badge-container">
+      {shown.map((n) => (
+        <span key={n} className={badgeClassName}>
+          {n}
+        </span>
+      ))}
+      {remaining > 0 && <span className="more-badge">+{remaining} more</span>}
+    </div>
+  );
 };
 
 const normalizeContentTypeLabel = (raw: unknown): string | undefined => {
@@ -177,6 +226,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
   article,
   showMeta = true,
   badgeBelowDate = false,
+  metaStyle = "text",
 }) => {
   const router = useRouter();
 
@@ -208,6 +258,16 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
     [article.Body]
   );
 
+  const companyNames = React.useMemo(
+    () => getCompanyNames(article.companies_mentioned),
+    [article.companies_mentioned]
+  );
+
+  const sectorNames = React.useMemo(
+    () => getSectorNames(article.sectors),
+    [article.sectors]
+  );
+
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (
       e.defaultPrevented ||
@@ -227,6 +287,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
     <a
       href={`/article/${article.id}`}
       onClick={handleClick}
+      className="content-card"
       style={{
         display: "block",
         width: "100%",
@@ -255,217 +316,247 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
           "0 4px 10px rgba(15, 23, 42, 0.08)";
       }}
     >
-      {badgeBelowDate ? (
-        <>
-          {/* Title (full width) */}
-          <h3
-            style={{
-              fontSize: 18,
-              fontWeight: 700,
-              color: "#111827",
-              margin: "0 0 8px 0",
-              lineHeight: 1.3,
-              wordWrap: "break-word",
-              overflowWrap: "break-word",
-              maxWidth: "100%",
-            }}
-          >
-            {plainHeadline || "Not available"}
-          </h3>
-
-          {/* Date */}
-          <p
-            style={{
-              fontSize: 13,
-              color: "#6b7280",
-              margin: "0 0 10px 0",
-              fontWeight: 500,
-            }}
-          >
-            {formatDate(article.Publication_Date)}
-          </p>
-
-          {/* Badge (below date) */}
-          {effectiveContentType && (
-            <div style={{ marginBottom: 10 }}>
-              <span style={badgeClassFor(effectiveContentType)}>
-                {effectiveContentType}
-              </span>
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          {/* Header row: Title + Badge */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              gap: 12,
-              marginBottom: 8,
-              flexWrap: "wrap",
-              width: "100%",
-              maxWidth: "100%",
-            }}
-          >
+      <div className="card-header">
+        {badgeBelowDate ? (
+          <>
+            {/* Title (full width) */}
             <h3
+              className="card-title"
               style={{
                 fontSize: 18,
                 fontWeight: 700,
                 color: "#111827",
-                margin: 0,
+                margin: "0 0 8px 0",
                 lineHeight: 1.3,
-                flex: 1,
-                minWidth: 0,
                 wordWrap: "break-word",
                 overflowWrap: "break-word",
+                maxWidth: "100%",
               }}
             >
               {plainHeadline || "Not available"}
             </h3>
-            {effectiveContentType && (
-              <span style={{ ...badgeClassFor(effectiveContentType), flexShrink: 0 }}>
-                {effectiveContentType}
-              </span>
-            )}
-          </div>
 
-          {/* Date */}
+            {/* Date */}
+            <p
+              className="card-date"
+              style={{
+                fontSize: 13,
+                color: "#6b7280",
+                margin: "0 0 10px 0",
+                fontWeight: 500,
+              }}
+            >
+              {formatDate(article.Publication_Date)}
+            </p>
+
+            {/* Badge (below date) */}
+            {effectiveContentType && (
+              <div className="content-type-row" style={{ marginBottom: 10 }}>
+                <span style={badgeClassFor(effectiveContentType)}>
+                  {effectiveContentType}
+                </span>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Header row: Title + Badge */}
+            <div
+              className="title-row"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 12,
+                marginBottom: 8,
+                flexWrap: "wrap",
+                width: "100%",
+                maxWidth: "100%",
+              }}
+            >
+              <h3
+                className="card-title"
+                style={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: "#111827",
+                  margin: 0,
+                  lineHeight: 1.3,
+                  flex: 1,
+                  minWidth: 0,
+                  wordWrap: "break-word",
+                  overflowWrap: "break-word",
+                }}
+              >
+                {plainHeadline || "Not available"}
+              </h3>
+              {effectiveContentType && (
+                <span
+                  style={{
+                    ...badgeClassFor(effectiveContentType),
+                    flexShrink: 0,
+                  }}
+                >
+                  {effectiveContentType}
+                </span>
+              )}
+            </div>
+
+            {/* Date */}
+            <p
+              className="card-date"
+              style={{
+                fontSize: 13,
+                color: "#6b7280",
+                margin: "0 0 10px 0",
+                fontWeight: 500,
+              }}
+            >
+              {formatDate(article.Publication_Date)}
+            </p>
+          </>
+        )}
+      </div>
+
+      <div className="card-body">
+        {/* Strapline */}
+        {plainStrapline && (
           <p
+            className="strapline"
             style={{
-              fontSize: 13,
-              color: "#6b7280",
+              fontSize: 14,
+              color: "#374151",
+              lineHeight: 1.5,
               margin: "0 0 10px 0",
               fontWeight: 500,
+              wordWrap: "break-word",
+              overflowWrap: "break-word",
+              maxWidth: "100%",
             }}
           >
-            {formatDate(article.Publication_Date)}
+            {plainStrapline}
           </p>
-        </>
-      )}
+        )}
 
-      {/* Strapline */}
-      {plainStrapline && (
-        <p
-          style={{
-            fontSize: 14,
-            color: "#374151",
-            lineHeight: 1.5,
-            margin: "0 0 10px 0",
-            fontWeight: 500,
-            wordWrap: "break-word",
-            overflowWrap: "break-word",
-            maxWidth: "100%",
-          }}
-        >
-          {plainStrapline}
-        </p>
-      )}
+        {/* First three lines of main content body */}
+        {plainBody && (
+          <p
+            className="description"
+            style={{
+              fontSize: 14,
+              color: "#4b5563",
+              lineHeight: 1.6,
+              margin: "0 0 12px 0",
+              display: "-webkit-box",
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: "vertical" as const,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              wordWrap: "break-word",
+              overflowWrap: "break-word",
+              maxWidth: "100%",
+            }}
+          >
+            {plainBody}
+          </p>
+        )}
 
-      {/* First three lines of main content body */}
-      {plainBody && (
-        <p
-          style={{
-            fontSize: 14,
-            color: "#4b5563",
-            lineHeight: 1.6,
-            margin: "0 0 12px 0",
-            display: "-webkit-box",
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: "vertical" as const,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            wordWrap: "break-word",
-            overflowWrap: "break-word",
-            maxWidth: "100%",
-          }}
-        >
-          {plainBody}
-        </p>
-      )}
+        {/* Optional meta (companies and sectors) */}
+        {showMeta && metaStyle === "text" && (
+          <div
+            className="meta-text"
+            style={{
+              marginBottom: 10,
+              maxWidth: "100%",
+              overflow: "hidden",
+            }}
+          >
+            {companyNames.length > 0 && (
+              <div
+                style={{
+                  marginBottom: 8,
+                  wordWrap: "break-word",
+                  overflowWrap: "break-word",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginRight: 6,
+                  }}
+                >
+                  Companies:
+                </span>
+                <span style={{ fontSize: 12, color: "#6b7280" }}>
+                  {formatCompanies(article.companies_mentioned)}
+                </span>
+              </div>
+            )}
+            {sectorNames.length > 0 && (
+              <div
+                style={{
+                  wordWrap: "break-word",
+                  overflowWrap: "break-word",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginRight: 6,
+                  }}
+                >
+                  Sectors:
+                </span>
+                <span style={{ fontSize: 12, color: "#6b7280" }}>
+                  {formatSectors(article.sectors)}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
-      {/* Optional meta (companies and sectors) */}
-      {showMeta && (
+        {showMeta && metaStyle === "badges" && (
+          <div className="meta-badges">
+            {companyNames.length > 0 && (
+              <div className="meta-section">
+                <div className="meta-label">Companies</div>
+                {renderBadgeList(companyNames, "company-badge")}
+              </div>
+            )}
+            {sectorNames.length > 0 && (
+              <div className="meta-section">
+                <div className="meta-label">Sectors</div>
+                {renderBadgeList(sectorNames, "sector-badge")}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="card-footer">
+        {/* Read more */}
         <div
           style={{
-            marginBottom: 10,
-            maxWidth: "100%",
-            overflow: "hidden",
+            display: "flex",
+            justifyContent: "flex-end",
+            marginTop: 4,
           }}
         >
-          <div
+          <span
             style={{
-              marginBottom: 8,
-              wordWrap: "break-word",
-              overflowWrap: "break-word",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#2563eb",
+              textDecoration: "underline",
             }}
           >
-            <span
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#374151",
-                marginRight: 6,
-              }}
-            >
-              Companies:
-            </span>
-            <span
-              style={{
-                fontSize: 12,
-                color: "#6b7280",
-              }}
-            >
-              {formatCompanies(article.companies_mentioned)}
-            </span>
-          </div>
-          <div
-            style={{
-              wordWrap: "break-word",
-              overflowWrap: "break-word",
-            }}
-          >
-            <span
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#374151",
-                marginRight: 6,
-              }}
-            >
-              Sectors:
-            </span>
-            <span
-              style={{
-                fontSize: 12,
-                color: "#6b7280",
-              }}
-            >
-              {formatSectors(article.sectors)}
-            </span>
-          </div>
+            Read More
+          </span>
         </div>
-      )}
-
-      {/* Read more */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          marginTop: 4,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: "#2563eb",
-            textDecoration: "underline",
-          }}
-        >
-          Read More
-        </span>
       </div>
     </a>
   );

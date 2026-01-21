@@ -304,13 +304,14 @@ const InsightsAnalysisCards = ({
   }
 
   return (
-    <div className="insights-analysis-cards">
+    <div className="insights-analysis-cards cards-grid">
       {articles.map((article: ContentArticle) => (
         <InsightsAnalysisCard
           key={article.id}
           article={article}
           showMeta={true}
           badgeBelowDate={true}
+          metaStyle="badges"
         />
       ))}
     </div>
@@ -569,119 +570,128 @@ const InsightsAnalysisPage = () => {
       color: #000;
       font-weight: 700;
     }
-    .insights-analysis-cards {
+    /* Grid System (Container Level) */
+    .cards-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(350px, 100%), 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
       gap: 24px;
       padding: 0;
       margin-bottom: 24px;
       width: 100%;
-    }
-    .article-card {
-      background-color: white;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      padding: 16px;
-      border: 1px solid #e2e8f0;
-      cursor: pointer;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-      box-sizing: border-box;
-      width: 100%;
       max-width: 100%;
     }
-    .article-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+
+    /*
+      Card Layout Rules (scoped to Insights & Analysis only).
+      We use !important here to override inline styles inside InsightsAnalysisCard,
+      while keeping the existing visual design intact.
+    */
+    .insights-analysis-section .content-card {
+      display: flex !important;
+      flex-direction: column !important;
+      min-height: 480px !important;
+      padding: 28px !important;
+      box-sizing: border-box !important;
     }
-    .article-title {
-      font-size: 18px;
-      font-weight: 700;
-      color: #1a202c;
-      margin: 0 0 8px 0;
-      line-height: 1.3;
+    .insights-analysis-section .card-header {
+      margin-bottom: 16px !important;
     }
-    .article-content-type {
-      display: inline-block;
-      font-size: 12px;
-      line-height: 1;
-      color: #374151;
-      background-color: #f3f4f6;
-      padding: 4px 8px;
-      border-radius: 9999px;
-      margin: 0 0 8px 0;
-      font-weight: 600;
+    .insights-analysis-section .card-title {
+      /* Title should always be fully visible (no clamping) */
+      min-height: 0 !important;
+      display: block !important;
+      overflow: visible !important;
+      text-overflow: unset !important;
+      white-space: normal !important;
+      /* Keep long titles from breaking the grid */
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      line-height: 1.35 !important;
     }
-    .article-date {
+    .insights-analysis-section .card-body {
+      flex: 1 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 16px !important;
+      margin-bottom: 20px !important;
+    }
+    .insights-analysis-section .card-footer {
+      margin-top: auto !important;
+      padding-top: 20px !important;
+      border-top: 1px solid #E5E7EB !important;
+    }
+
+    /* Content truncation */
+    .insights-analysis-section .description {
+      display: -webkit-box !important;
+      -webkit-line-clamp: 3 !important;
+      -webkit-box-orient: vertical !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      line-height: 1.7 !important;
+      /* Prevent glyph descenders from looking visually clipped */
+      padding-bottom: 2px;
+      overflow-wrap: anywhere;
+    }
+
+    /* Badge containers */
+    .insights-analysis-section .badge-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      /* No height clamp needed since we render max 3 + “more” badge */
+    }
+
+    /* Badge styling */
+    .insights-analysis-section .company-badge {
+      /* Match Article page companyTag */
+      background-color: #e8f5e8;
+      color: #2e7d32;
+      padding: 8px 12px;
+      border-radius: 6px;
       font-size: 14px;
-      color: #6b7280;
-      margin: 0 0 16px 0;
       font-weight: 500;
+      line-height: 1.2;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
     }
-    .article-badge-row {
-      margin: -8px 0 16px 0;
-      display: block;
-    }
-    .badge {
-      display: inline-block;
-      font-size: 12px;
-      line-height: 1;
-      padding: 6px 10px;
-      border-radius: 9999px;
-      border: 1px solid transparent;
-      font-weight: 600;
-    }
-    .badge-company-analysis {
-      background: #ecfdf5;
-      color: #065f46;
-      border-color: #a7f3d0;
-    }
-    .badge-deal-analysis {
-      background: #eff6ff;
-      color: #1e40af;
-      border-color: #bfdbfe;
-    }
-    .badge-sector-analysis {
-      background: #f5f3ff;
-      color: #5b21b6;
-      border-color: #ddd6fe;
-    }
-    .badge-hot-take {
-      background: #fff7ed;
-      color: #9a3412;
-      border-color: #fed7aa;
-    }
-    .badge-executive-interview {
-      background: #f0fdf4;
-      color: #166534;
-      border-color: #bbf7d0;
-    }
-    .article-summary {
+    .insights-analysis-section .sector-badge {
+      /* Match Article page sectorTag */
+      background-color: #f3e5f5;
+      color: #7b1fa2;
+      padding: 8px 12px;
+      border-radius: 6px;
       font-size: 14px;
-      color: #374151;
-      line-height: 1.6;
-      margin: 0 0 16px 0;
-      display: -webkit-box;
-      -webkit-line-clamp: 4;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-weight: 500;
+      line-height: 1.2;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
     }
-    .article-meta {
-      margin-bottom: 12px;
+    .insights-analysis-section .more-badge {
+      /* Match Article page tag (blue) for overflow indicator */
+      background-color: #e3f2fd;
+      color: #1976d2;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.2;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
     }
-    .article-meta:last-child {
-      margin-bottom: 0;
-    }
-    .article-meta-label {
-      font-size: 13px;
+
+    /* Meta label styling (keeps existing palette) */
+    .insights-analysis-section .meta-label {
+      font-size: 12px;
       font-weight: 600;
       color: #374151;
-      margin-right: 8px;
+      margin-bottom: 8px;
     }
-    .article-meta-value {
-      font-size: 13px;
-      color: #6b7280;
-      line-height: 1.4;
+    .insights-analysis-section .meta-section + .meta-section {
+      margin-top: 12px;
     }
     .loading {
       text-align: center;
@@ -734,19 +744,11 @@ const InsightsAnalysisPage = () => {
       font-size: 14px;
     }
     @media (max-width: 768px) {
-      .insights-analysis-cards {
-        grid-template-columns: 1fr !important;
-        gap: 12px !important;
-        padding: 0 !important;
+      .cards-grid {
+        grid-template-columns: 1fr;
       }
       .filters-card {
         padding: 16px 12px !important;
-      }
-      .article-card {
-        padding: 12px !important;
-        margin: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
       }
       .filters-input, .filters-select {
         max-width: 100% !important;
@@ -769,12 +771,6 @@ const InsightsAnalysisPage = () => {
       }
       .insights-analysis-section {
         padding: 16px 8px !important;
-      }
-      .article-card {
-        padding: 12px !important;
-      }
-      .article-title {
-        font-size: 16px !important;
       }
       .insights-analysis-stats {
         padding: 20px 16px !important;
