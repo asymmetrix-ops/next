@@ -652,7 +652,9 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
 
 // Helpers for sector mapping fallbacks and normalization
 const normalizeSectorName = (name: string | undefined | null): string => {
-  return (name || "").trim().toLowerCase();
+  // Defensive: some API payloads may contain non-string sector values (e.g. numbers/null)
+  if (typeof name !== "string") return "";
+  return name.trim().toLowerCase();
 };
 
 const FALLBACK_SECONDARY_TO_PRIMARY: Record<string, string> = {
