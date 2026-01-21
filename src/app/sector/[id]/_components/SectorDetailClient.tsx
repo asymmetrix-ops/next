@@ -2602,6 +2602,9 @@ const SectorDetailPage = ({
     country?: string;
     primary_sectors?: Array<string | { sector_name?: string; id?: number }>;
     secondary_sectors?: Array<string | { sector_name?: string; id?: number }>;
+    derived_parent_primaries?: Array<
+      string | { sector_name?: string; id?: number; sector_id?: number }
+    >;
     _location?: {
       Country?: string;
     };
@@ -4022,10 +4025,20 @@ const SectorDetailPage = ({
                     })}m`;
                   };
 
+                  type SectorLinkItem =
+                    | string
+                    | {
+                        sector_name?: string;
+                        Sector_name?: string;
+                        name?: string;
+                        id?: number;
+                        sector_id?: number;
+                        sectorId?: number;
+                      };
+
                   const renderSectorLinks = (
-                    sectors:
-                      | Array<string | { sector_name?: string; id?: number }>
-                      | undefined
+                    sectors: SectorLinkItem[] | undefined,
+                    hrefBase: "/sector/" | "/sub-sector/" = "/sector/"
                   ): React.ReactNode => {
                     if (!Array.isArray(sectors) || sectors.length === 0) {
                       return "Not available";
@@ -4035,17 +4048,23 @@ const SectorDetailPage = ({
                       const name =
                         typeof sector === "string"
                           ? sector
-                          : sector?.sector_name;
+                          : sector?.sector_name ||
+                            sector?.Sector_name ||
+                            sector?.name;
                       if (!name) return;
                       const sectorId =
                         typeof sector === "object" && sector
-                          ? (sector as { id?: number }).id
+                          ? (sector.id ??
+                              sector.sector_id ??
+                              sector.sectorId ??
+                              undefined)
                           : undefined;
+
                       nodes.push(
-                        sectorId ? (
+                        typeof sectorId === "number" ? (
                           <a
-                            key={`${sectorId}-${name}-${index}`}
-                            href={`/sector/${sectorId}`}
+                            key={`${hrefBase}${sectorId}-${name}-${index}`}
+                            href={`${hrefBase}${sectorId}`}
                             className="text-blue-600 underline hover:text-blue-800"
                           >
                             {name}
@@ -4071,29 +4090,27 @@ const SectorDetailPage = ({
                     event.deal_type || ""
                   );
                   const primarySectorsSource =
-                    (target?.primary_sectors as
-                      | Array<string | { sector_name?: string; id?: number }>
-                      | undefined) ??
-                    ((target as unknown as {
-                      _sectors_primary?: Array<{
-                        sector_name?: string;
-                        id?: number;
-                      }>;
-                    })?._sectors_primary as
-                      | Array<{ sector_name?: string; id?: number }>
-                      | undefined);
+                    (target?.primary_sectors as SectorLinkItem[] | undefined) ??
+                    ((target as unknown as { _sectors_primary?: SectorLinkItem[] })
+                      ?._sectors_primary as SectorLinkItem[] | undefined);
                   const secondarySectorsSource =
-                    (target?.secondary_sectors as
-                      | Array<string | { sector_name?: string; id?: number }>
-                      | undefined) ??
-                    ((target as unknown as {
-                      _sectors_secondary?: Array<{
-                        sector_name?: string;
-                        id?: number;
-                      }>;
-                    })?._sectors_secondary as
-                      | Array<{ sector_name?: string; id?: number }>
-                      | undefined);
+                    (target?.secondary_sectors as SectorLinkItem[] | undefined) ??
+                    ((target as unknown as { _sectors_secondary?: SectorLinkItem[] })
+                      ?._sectors_secondary as SectorLinkItem[] | undefined);
+
+                  // Some API responses omit `primary_sectors` but include
+                  // `derived_parent_primaries` (now typically [{id, sector_name}]).
+                  // Use it as a fallback so sectors still render (and hyperlink when ids exist).
+                  const derivedParentPrimariesSource = target?.derived_parent_primaries;
+
+                  const primarySectorsEffective: SectorLinkItem[] | undefined =
+                    Array.isArray(primarySectorsSource) &&
+                    primarySectorsSource.length > 0
+                      ? primarySectorsSource
+                      : Array.isArray(derivedParentPrimariesSource) &&
+                        derivedParentPrimariesSource.length > 0
+                      ? derivedParentPrimariesSource
+                      : primarySectorsSource;
 
                   return (
                     <tr
@@ -4430,11 +4447,11 @@ const SectorDetailPage = ({
                       <td className="p-3 align-top break-words">
                         <div className="text-xs text-slate-600">
                           <strong>Primary:</strong>{" "}
-                          {renderSectorLinks(primarySectorsSource)}
+                          {renderSectorLinks(primarySectorsEffective, "/sector/")}
                         </div>
                         <div className="text-xs text-slate-600">
                           <strong>Secondary:</strong>{" "}
-                          {renderSectorLinks(secondarySectorsSource)}
+                          {renderSectorLinks(secondarySectorsSource, "/sub-sector/")}
                         </div>
                       </td>
                     </tr>
