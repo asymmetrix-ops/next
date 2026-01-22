@@ -864,23 +864,33 @@ const CorporateEventDetail = ({
   ]);
 
   const reportButton = (
-    <Button
-      asChild
-      size="sm"
-      className="shadow-md bg-emerald-600 hover:bg-emerald-700 text-white"
-    >
-      <a
-        href={`mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
-          `Contribute Data - ${event?.description ?? "Unknown"}`
-        )}&body=${encodeURIComponent(
-          "Please share the data you'd like to contribute for this corporate event page."
-        )}`}
-        target="_blank"
-        rel="noopener noreferrer"
+    <div className="flex gap-2">
+      <Button
+        onClick={handleExportPdf}
+        disabled={isExportingPdf || !corporateEventId}
+        size="sm"
+        className="shadow-md bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
       >
-        Contribute Data
-      </a>
-    </Button>
+        {isExportingPdf ? "Exporting..." : "Export PDF"}
+      </Button>
+      <Button
+        asChild
+        size="sm"
+        className="shadow-md bg-emerald-600 hover:bg-emerald-700 text-white"
+      >
+        <a
+          href={`mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
+            `Contribute Data - ${event?.description ?? "Unknown"}`
+          )}&body=${encodeURIComponent(
+            "Please share the data you'd like to contribute for this corporate event page."
+          )}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Contribute Data
+        </a>
+      </Button>
+    </div>
   );
 
   return (
