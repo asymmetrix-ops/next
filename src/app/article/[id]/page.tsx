@@ -1301,7 +1301,7 @@ const ArticleDetailPage = () => {
                           marginBottom: "12px",
                         }}
                       >
-                        Company Overview
+                         Company Snapshot
                       </h2>
                       <div>
                         {companyOfFocus?.id && companyOfFocus?.name && (

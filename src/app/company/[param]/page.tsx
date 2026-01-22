@@ -1861,7 +1861,7 @@ const CompanyDetail = () => {
     header: {
       backgroundColor: "white",
       borderRadius: "12px",
-      padding: "32px 24px",
+      padding: "24px 24px",
       marginBottom: "24px",
       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
       display: "flex",
@@ -2042,7 +2042,7 @@ const CompanyDetail = () => {
       header: {
         flexDirection: "column",
         alignItems: "flex-start",
-        padding: "16px 14px",
+        padding: "12px 14px",
         gap: "10px",
       },
       headerLeft: {
