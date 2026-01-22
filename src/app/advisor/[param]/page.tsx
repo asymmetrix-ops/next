@@ -6,6 +6,9 @@ import Image from "next/image";
 import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import IndividualCards, {
+  type IndividualCardItem,
+} from "@/components/shared/IndividualCards";
 import { useAdvisorProfile } from "../../../hooks/useAdvisorProfile";
 import {
   formatSectorsList,
@@ -331,6 +334,58 @@ export default function AdvisorProfilePage() {
     Advisors_individuals,
   } = advisorData;
 
+  // Map various backend role shapes into the `IndividualCards` format (same as Company -> Management UI)
+  const toIndividualCardItems = (items: Array<unknown>): IndividualCardItem[] => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const list = items as any[];
+    if (!Array.isArray(list)) return [];
+    return list
+      .map((raw) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const r = raw as any;
+        const name =
+          String(r?.advisor_individuals || r?.Individual_text || "").trim() ||
+          "Unknown";
+        const individualId =
+          typeof r?.individuals_id === "number"
+            ? r.individuals_id
+            : parseInt(String(r?.individuals_id ?? ""), 10);
+        const safeIndividualId = Number.isFinite(individualId)
+          ? individualId
+          : undefined;
+        const jobTitles = Array.isArray(r?.job_titles_id)
+          ? (r.job_titles_id as Array<{ job_title?: unknown }>)
+              .map((jt) => String(jt?.job_title ?? "").trim())
+              .filter(Boolean)
+          : [];
+        return {
+          id: typeof r?.id === "number" ? r.id : undefined,
+          name,
+          jobTitles,
+          individualId: safeIndividualId,
+        } satisfies IndividualCardItem;
+      })
+      .filter((p) => Boolean(p.name));
+  };
+
+  const advisorsCurrentCards: IndividualCardItem[] =
+    rolesCurrent.length > 0
+      ? toIndividualCardItems(rolesCurrent)
+      : advisorData.Advisors_individuals_current &&
+          advisorData.Advisors_individuals_current.length > 0
+        ? toIndividualCardItems(advisorData.Advisors_individuals_current)
+        : Advisors_individuals && Advisors_individuals.length > 0
+          ? toIndividualCardItems(Advisors_individuals)
+          : [];
+
+  const advisorsPastCards: IndividualCardItem[] =
+    rolesPast.length > 0
+      ? toIndividualCardItems(rolesPast)
+      : advisorData.Advisors_individuals_past &&
+          advisorData.Advisors_individuals_past.length > 0
+        ? toIndividualCardItems(advisorData.Advisors_individuals_past)
+        : [];
+
   const hq = `${Advisor._locations?.City || ""}, ${
     Advisor._locations?.State__Province__County || ""
   }, ${Advisor._locations?.Country || ""}`
@@ -378,7 +433,8 @@ export default function AdvisorProfilePage() {
     }
     .advisor-layout {
       display: grid;
-      grid-template-columns: 1fr 2fr; /* 1/3 left, 2/3 right */
+      /* Give Corporate Events more room (it has many columns) */
+      grid-template-columns: minmax(320px, 1fr) minmax(0, 3fr);
       gap: 24px 32px;
       align-items: start;
     }
@@ -435,6 +491,8 @@ export default function AdvisorProfilePage() {
       width: 100%;
       border-collapse: collapse;
       font-size: 14px;
+      /* Prevent columns from becoming overly narrow; allow horizontal scroll */
+      min-width: 1400px;
     }
     .events-table thead tr {
       border-bottom: 2px solid #e2e8f0;
@@ -568,6 +626,14 @@ export default function AdvisorProfilePage() {
       color: #666;
     }
 
+    /* Advisors (match Company -> Management cards) */
+    .management-card:hover {
+      background-color: #e6f0ff !important;
+      border-color: #0075df !important;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0, 117, 223, 0.1);
+    }
+
     @media (max-width: 768px) {
       .advisor-content {
         padding: 16px !important;
@@ -616,6 +682,10 @@ export default function AdvisorProfilePage() {
         flex-direction: column !important;
         align-items: flex-start !important;
         gap: 8px !important;
+      }
+
+      .management-grid {
+        grid-template-columns: 1fr !important;
       }
     }
 
@@ -741,144 +811,6 @@ export default function AdvisorProfilePage() {
                   No LinkedIn history data available
                 </div>
               )}
-            </div>
-
-            {/* Advisors Section */}
-            <div className="advisor-section">
-              <h2 className="section-title">Advisors</h2>
-              {/* Current */}
-              <div style={{ marginBottom: "16px" }}>
-                <h3 className="section-title" style={{ fontSize: 16 }}>
-                  Current:
-                </h3>
-                {rolesCurrent.length > 0 ? (
-                  <div className="info-grid">
-                    {rolesCurrent.map((role) => (
-                      <div
-                        key={`current-role-${role.id}`}
-                        className="info-value"
-                      >
-                        {createClickableElement(
-                          `/individual/${role.individuals_id}`,
-                          role.advisor_individuals ||
-                            role.Individual_text ||
-                            "Unknown",
-                          undefined,
-                          { textDecoration: "none" }
-                        )}
-                        {": "}
-                        {role.job_titles_id && role.job_titles_id.length > 0
-                          ? role.job_titles_id
-                              .map((jt) => jt.job_title)
-                              .join(", ")
-                          : "Not available"}
-                      </div>
-                    ))}
-                  </div>
-                ) : advisorData.Advisors_individuals_current &&
-                  advisorData.Advisors_individuals_current.length > 0 ? (
-                  <div className="info-grid">
-                    {advisorData.Advisors_individuals_current.map(
-                      (individual) => (
-                        <div
-                          key={`current-${individual.id}`}
-                          className="info-value"
-                        >
-                          {createClickableElement(
-                            `/individual/${individual.individuals_id}`,
-                            individual.advisor_individuals,
-                            undefined,
-                            { textDecoration: "none" }
-                          )}
-                          {": "}
-                          {individual.job_titles_id &&
-                          individual.job_titles_id.length > 0
-                            ? individual.job_titles_id
-                                .map((jt) => jt.job_title)
-                                .join(", ")
-                            : "Not available"}
-                        </div>
-                      )
-                    )}
-                  </div>
-                ) : Advisors_individuals && Advisors_individuals.length > 0 ? (
-                  <div className="info-grid">
-                    {Advisors_individuals.map((individual) => (
-                      <div
-                        key={`fallback-${individual.id}`}
-                        className="info-value"
-                      >
-                        {createClickableElement(
-                          `/individual/${individual.individuals_id}`,
-                          individual.advisor_individuals,
-                          undefined,
-                          { textDecoration: "none" }
-                        )}
-                        {": "}
-                        {individual.job_titles_id &&
-                        individual.job_titles_id.length > 0
-                          ? individual.job_titles_id
-                              .map((jt) => jt.job_title)
-                              .join(", ")
-                          : "Not available"}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="info-value">Not available</div>
-                )}
-              </div>
-              {/* Past */}
-              <div>
-                <h3 className="section-title" style={{ fontSize: 16 }}>
-                  Past:
-                </h3>
-                {rolesPast.length > 0 ? (
-                  <div className="info-grid">
-                    {rolesPast.map((role) => (
-                      <div key={`past-role-${role.id}`} className="info-value">
-                        {createClickableElement(
-                          `/individual/${role.individuals_id}`,
-                          role.advisor_individuals ||
-                            role.Individual_text ||
-                            "Unknown",
-                          undefined,
-                          { textDecoration: "none" }
-                        )}
-                        {": "}
-                        {role.job_titles_id && role.job_titles_id.length > 0
-                          ? role.job_titles_id
-                              .map((jt) => jt.job_title)
-                              .join(", ")
-                          : "Not available"}
-                      </div>
-                    ))}
-                  </div>
-                ) : advisorData.Advisors_individuals_past &&
-                  advisorData.Advisors_individuals_past.length > 0 ? (
-                  <div className="info-grid">
-                    {advisorData.Advisors_individuals_past.map((individual) => (
-                      <div key={`past-${individual.id}`} className="info-value">
-                        {createClickableElement(
-                          `/individual/${individual.individuals_id}`,
-                          individual.advisor_individuals,
-                          undefined,
-                          { textDecoration: "none" }
-                        )}
-                        {": "}
-                        {individual.job_titles_id &&
-                        individual.job_titles_id.length > 0
-                          ? individual.job_titles_id
-                              .map((jt) => jt.job_title)
-                              .join(", ")
-                          : "Not available"}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="info-value">Not available</div>
-                )}
-              </div>
             </div>
           </div>
 
@@ -1248,6 +1180,27 @@ export default function AdvisorProfilePage() {
               ) : (
                 <div className="no-events">No corporate events available</div>
               )}
+            </div>
+
+            {/* Advisors (moved under Corporate Events; match Company -> Management layout) */}
+            <div className="advisor-section">
+              <h2 className="section-title">Advisors</h2>
+
+              <div style={{ marginBottom: "20px" }}>
+                <IndividualCards
+                  title="Current:"
+                  individuals={advisorsCurrentCards}
+                  emptyMessage="Not available"
+                />
+              </div>
+
+              <div>
+                <IndividualCards
+                  title="Past:"
+                  individuals={advisorsPastCards}
+                  emptyMessage="Not available"
+                />
+              </div>
             </div>
           </div>
         </div>
