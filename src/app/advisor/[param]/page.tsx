@@ -1,648 +1,255 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { FollowButton } from "@/components/FollowButton";
+import IndividualCards, {
+  type IndividualCardItem,
+} from "@/components/shared/IndividualCards";
+import { useAdvisorProfile } from "../../../hooks/useAdvisorProfile";
 import {
-  BellIcon,
-  ArrowUpTrayIcon,
-  PlusIcon,
-} from "@heroicons/react/24/outline";
-import {
-  DEFAULT_ADVISOR_DEALS_PAGE_SIZE,
-  useAdvisorProfile,
-} from "../../../hooks/useAdvisorProfile";
-import { normalizeAdvisorTransactionEngagement } from "@/lib/normalizeAdvisorDealEvent";
-import { buildCorporateEventsBrowseAllHref } from "@/lib/corporateEventsFilterPayload";
-import {
+  formatSectorsList,
   formatDate,
   getAdvisorYearFoundedDisplay,
 } from "../../../utils/advisorHelpers";
-import { formatCorporateEventEnterpriseValue } from "@/lib/corporateEventAmountDisplay";
-import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
-import { HeadcountCard } from "@/components/redesign/HeadcountCard";
-import { DescriptionCard } from "@/components/redesign/DescriptionCard";
-import { LinkPanel, T } from "@/components/redesign/primitives";
-import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 import {
-  fetchCompanyLinkedIn,
-  formatLinkedInEmployeeCountDate,
-  mapLinkedInHistoryToTimeSeries,
-  resolveLinkedInDisplayEmployeeCount,
-  type CompanyLinkedInResponse,
-  type EmployeeTimeSeriesPoint,
-} from "@/lib/companyLinkedIn";
-import { parseLinkedInGrowthPctValue } from "@/components/subsidiaries/SubsidiariesProfilePanel";
-import { AdvisorOverviewCard } from "@/components/advisors/AdvisorOverviewCard";
-import {
-  AdvisorPeopleCard,
-  type AdvisorPerson,
-} from "@/components/advisors/AdvisorPeopleCard";
-import {
-  formatJobTitlesWithLookup,
-  getIndividualLinkedInUrl,
-} from "@/utils/individualHelpers";
-import {
-  AdvisorDealsProfilePanel,
-  type AdvisorDealEvent,
-} from "@/components/advisors/AdvisorDealsProfilePanel";
-import type {
-  Advisor,
-  AdvisorIndividual,
-  AdvisorRoleRef,
-  AdvisorResponse,
-} from "../../../types/advisor";
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import { useRightClick } from "../../../hooks/useRightClick";
 
-function formatWebsiteDisplayLabel(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) return "";
-  try {
-    const withProto = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-    const url = new URL(withProto);
-    const host = url.hostname.replace(/^www\./i, "");
-    const path = url.pathname === "/" ? "" : url.pathname.replace(/\/$/, "");
-    return path ? `${host}${path}` : host;
-  } catch {
-    return trimmed
-      .replace(/^https?:\/\//i, "")
-      .replace(/^www\./i, "")
-      .replace(/\/$/, "");
-  }
+// Types for LinkedIn History Chart
+interface LinkedInHistory {
+  date: string;
+  employees_count: number;
 }
 
-function computeEmployeeYoYFromMonthly(data: EmployeeTimeSeriesPoint[]): string | null {
-  if (!Array.isArray(data) || data.length < 2) return null;
-  const sorted = [...data].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
-  const latest = sorted[sorted.length - 1];
-  const latestCount = latest?.employees_count;
-  if (typeof latestCount !== "number" || latestCount <= 0) return null;
-  const latestT = new Date(latest.date).getTime();
-  const yearMs = 365 * 86_400_000;
-  let best: EmployeeTimeSeriesPoint | null = null;
-  let bestDiff = Infinity;
-  for (let i = sorted.length - 2; i >= 0; i--) {
-    const row = sorted[i];
-    const t = new Date(row.date).getTime();
-    const diff = latestT - t;
-    if (diff >= yearMs * 0.85 && diff <= yearMs * 1.15) {
-      const d = Math.abs(diff - yearMs);
-      if (d < bestDiff) {
-        bestDiff = d;
-        best = row;
-      }
+// Utility function for chart date formatting
+const formatChartDate = (dateString: string): string => {
+  const [year, month] = dateString.split("-");
+  const date = new Date(parseInt(year), parseInt(month) - 1);
+  return date.toLocaleDateString("en-US", { year: "numeric", month: "short" });
+};
+
+// LinkedIn History Chart Component
+const LinkedInHistoryChart = ({ data }: { data: LinkedInHistory[] }) => {
+  const chartData = data.map((item) => ({
+    date: formatChartDate(item.date),
+    count: item.employees_count,
+    fullDate: item.date,
+  }));
+
+  interface TooltipProps {
+    active?: boolean;
+    payload?: Array<{
+      value: number;
+      dataKey: string;
+    }>;
+    label?: string;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
+    if (active && payload && payload.length) {
+      return (
+        <div
+          style={{
+            backgroundColor: "white",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            padding: "10px",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+          }}
+        >
+          <p style={{ margin: 0, fontWeight: "bold" }}>{`${label}`}</p>
+          <p style={{ margin: 0, color: "#0075df" }}>
+            {`Employees: ${formatNumber(payload[0].value)}`}
+          </p>
+        </div>
+      );
     }
-  }
-  if (!best || typeof best.employees_count !== "number" || best.employees_count <= 0) {
     return null;
-  }
-  const pct = ((latestCount - best.employees_count) / best.employees_count) * 100;
-  const rounded = Math.round(pct * 10) / 10;
-  const sign = rounded > 0 ? "+" : "";
-  return `${sign}${rounded}% YoY`;
-}
+  };
 
-function resolveChartEmployeeCount(data: EmployeeTimeSeriesPoint[]): number {
-  if (!Array.isArray(data) || data.length === 0) return 0;
-  const numericData = data.map((e) => e.employees_count);
-  const hasAnyNonZero = numericData.some((v) => v > 0);
-  const filtered = hasAnyNonZero ? numericData.filter((v) => v > 0) : numericData;
-  const lastNonZero = filtered.length > 0 ? filtered[filtered.length - 1]! : 0;
-  const last = numericData[numericData.length - 1] ?? 0;
-  return last > 0 ? last : lastNonZero;
-}
+  return (
+    <div style={{ width: "100%", height: "300px" }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis
+            dataKey="date"
+            tick={{ fontSize: 12 }}
+            angle={-45}
+            textAnchor="end"
+            height={60}
+          />
+          <YAxis tick={{ fontSize: 12 }} />
+          <Tooltip content={<CustomTooltip />} />
+          <Line
+            type="monotone"
+            dataKey="count"
+            stroke="#0075df"
+            strokeWidth={2}
+            dot={{ fill: "#0075df", strokeWidth: 2, r: 4 }}
+            activeDot={{ r: 6, fill: "#0075df" }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
 
-const DEALS_PREVIEW_COUNT = DEFAULT_ADVISOR_DEALS_PAGE_SIZE;
-
+// Company Logo Component
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
   if (logo) {
     return (
-      <Image
-        src={`data:image/jpeg;base64,${logo}`}
-        alt={`${name} logo`}
-        width={40}
-        height={40}
-        style={{
-          objectFit: "contain",
-          borderRadius: "50%",
-          border: `1px solid ${T.divider}`,
-        }}
-      />
+      <div style={{ width: "80px", height: "80px", position: "relative" }}>
+        <Image
+          src={`data:image/jpeg;base64,${logo}`}
+          alt={`${name} logo`}
+          fill
+          style={{ objectFit: "cover", borderRadius: "8px" }}
+        />
+      </div>
     );
   }
 
   return (
     <div
       style={{
-        width: 40,
-        height: 40,
-        backgroundColor: T.inset,
-        borderRadius: "50%",
+        width: "80px",
+        height: "80px",
+        backgroundColor: "#f7fafc",
+        borderRadius: "8px",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: 12,
-        fontWeight: 600,
-        color: T.muted,
-        border: `1px solid ${T.divider}`,
+        fontSize: "24px",
+        color: "#718096",
+        fontWeight: "bold",
       }}
     >
-      {name.charAt(0).toUpperCase()}
+      {name.charAt(0)}
     </div>
   );
 };
 
-function coercePositiveInt(value: unknown): number | undefined {
-  const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
-}
-
-function buildJobTitleLookup(data: unknown): Map<number, string> {
-  const map = new Map<number, string>();
-  if (!Array.isArray(data)) return map;
-
-  for (const item of data) {
-    if (!item || typeof item !== "object") continue;
-    const record = item as Record<string, unknown>;
-    const id = coercePositiveInt(record.id);
-    const title =
-      typeof record.job_title === "string"
-        ? record.job_title.trim()
-        : typeof record.Job_Title === "string"
-        ? record.Job_Title.trim()
-        : "";
-    if (id != null && title) map.set(id, title);
-  }
-
-  return map;
-}
-
-async function fetchAdvisorJobTitleLookup(): Promise<Map<number, string>> {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("asymmetrix_auth_token")
-      : null;
-  if (!token) return new Map();
-
-  const endpoints = [
-    "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/get_all_job_titles",
-    "https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I/job_titles_list",
-  ];
-
-  for (const url of endpoints) {
-    try {
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (!response.ok) continue;
-      const data = await response.json();
-      const lookup = buildJobTitleLookup(data);
-      if (lookup.size > 0) return lookup;
-    } catch {
-      // try next endpoint
-    }
-  }
-
-  return new Map();
-}
-
-function isPastAdvisorIndividual(status: unknown): boolean {
-  return String(status ?? "").trim().toLowerCase() === "past";
-}
-
-function mapAdvisorIndividualToPerson(
-  individual: AdvisorIndividual,
-  jobTitleById: Map<number, string>
-): AdvisorPerson {
-  return {
-    id: individual.id,
-    name: individual.advisor_individuals,
-    role: formatJobTitlesWithLookup(
-      individual.job_titles_id,
-      jobTitleById,
-      individual.job_titles
-    ),
-    individualId: individual.individuals_id,
-    linkedinUrl: getIndividualLinkedInUrl(individual),
-  };
-}
-
-function resolveAdvisorIndividualsLists(advisorData: AdvisorResponse): {
-  current: AdvisorIndividual[];
-  past: AdvisorIndividual[];
-} {
-  if (
-    advisorData.Advisors_individuals_current?.length ||
-    advisorData.Advisors_individuals_past?.length
-  ) {
-    return {
-      current: advisorData.Advisors_individuals_current ?? [],
-      past: advisorData.Advisors_individuals_past ?? [],
-    };
-  }
-
-  const current: AdvisorIndividual[] = [];
-  const past: AdvisorIndividual[] = [];
-
-  for (const individual of advisorData.Advisors_individuals ?? []) {
-    if (isPastAdvisorIndividual(individual.Status)) {
-      past.push(individual);
-    } else {
-      current.push(individual);
-    }
-  }
-
-  return { current, past };
-}
-
-function buildAdvisorPeopleLists(
-  advisorData: AdvisorResponse,
-  jobTitleById: Map<number, string>
-): { current: AdvisorPerson[]; past: AdvisorPerson[] } {
-  const { current, past } = resolveAdvisorIndividualsLists(advisorData);
-
-  return {
-    current: current.map((individual) =>
-      mapAdvisorIndividualToPerson(individual, jobTitleById)
-    ),
-    past: past.map((individual) =>
-      mapAdvisorIndividualToPerson(individual, jobTitleById)
-    ),
-  };
-}
+// Format number with commas
+const formatNumber = (num: number | undefined): string => {
+  if (num === undefined || num === null) return "0";
+  return num.toLocaleString();
+};
 
 export default function AdvisorProfilePage() {
   const params = useParams();
+  const router = useRouter();
   const advisorId = parseInt(params.param as string);
-  const descriptionRef = useRef<HTMLDivElement>(null);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [exportingPdf, setExportingPdf] = useState(false);
-  const [companyLinkedIn, setCompanyLinkedIn] =
-    useState<CompanyLinkedInResponse | null>(null);
-  const [jobTitleById, setJobTitleById] = useState<Map<number, string>>(
-    () => new Map()
-  );
-  const [dealsPage, setDealsPage] = useState(1);
-  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
+  const [eventsExpanded, setEventsExpanded] = useState(false);
+  const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
+  // Roles fetched from the LinkedIn/company endpoint (includes job titles)
+  interface RoleItem {
+    id: number;
+    individuals_id: number;
+    Individual_text?: string;
+    advisor_individuals?: string;
+    job_titles_id?: Array<{ id?: number; job_title: string }>;
+  }
+  const [rolesCurrent, setRolesCurrent] = useState<RoleItem[]>([]);
+  const [rolesPast, setRolesPast] = useState<RoleItem[]>([]);
+  const [linkedInHistoryLoading, setLinkedInHistoryLoading] = useState(false);
+  const { createClickableElement } = useRightClick();
 
-  const { advisorData, corporateEvents, dealsTotal, dealsTotalPages, dealsLoading, loading, error } =
-    useAdvisorProfile({
-      advisorId,
-      dealsPage,
-      dealsPageSize: DEALS_PREVIEW_COUNT,
-    });
+  const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
+    advisorId,
+  });
 
   // Removed: handleAdvisorClick (replaced with createClickableElement in list)
+
+  const handleOtherAdvisorClick = (advisorId: number) => {
+    console.log("Other advisor clicked:", advisorId);
+    router.push(`/advisor/${advisorId}`);
+  };
 
   // Replaced corporate event navigation with right-clickable links via createClickableElement
 
   // Removed unused handler; replaced by mailto link button
 
-  const coerceUnknownToArray = (raw: unknown): unknown[] => {
-    if (Array.isArray(raw)) return raw;
-    if (raw === null || raw === undefined) return [];
-    if (typeof raw !== "string") return [];
-    const trimmed = raw.trim();
-    if (!trimmed || trimmed === "[]") return [];
-    try {
-      const normalized = trimmed.replace(/\\u0022/g, '"');
-      const parsed = JSON.parse(normalized) as unknown;
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
+  const handleToggleEvents = () => {
+    setEventsExpanded(!eventsExpanded);
   };
 
-  const buildAdvisorPageSnapshot = () => {
-    const safeEvents: AdvisorDealEvent[] = Array.isArray(corporateEvents)
-      ? corporateEvents.map((event) => normalizeAdvisorTransactionEngagement(event))
-      : [];
+  // Fetch LinkedIn history data using the same API pattern as company page
+  const fetchLinkedInHistory = useCallback(async () => {
+    setLinkedInHistoryLoading(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
 
-    const baseUrl =
-      typeof window !== "undefined"
-        ? window.location.origin
-        : "https://www.asymmetrixintelligence.com";
-    const pagePath = `/advisor/${advisorId}`;
-    const pageUrl = `${baseUrl}${pagePath}`;
-
-    const env =
-      process.env.NEXT_PUBLIC_ENVIRONMENT ||
-      process.env.NEXT_PUBLIC_VERCEL_ENV ||
-      "unknown";
-
-    const advisor = advisorData?.Advisor;
-    const loc = advisor?._locations;
-    const hqFormatted = `${loc?.City || ""}, ${loc?.State__Province__County || ""}, ${
-      loc?.Country || ""
-    }`
-      .replace(/^,\s*/, "")
-      .replace(/,\s*$/, "");
-
-    const linkedInNew = advisor?._linkedin_data_of_new_company as
-      | { linkedin_logo?: string; linkedin_employee?: number; linkedin_emp_date?: string }
-      | undefined;
-    const linkedInLegacy = advisor?.linkedin_data as
-      | { LinkedIn_URL?: string; LinkedIn_Employee?: number; LinkedIn_Emp__Date?: string; linkedin_logo?: string }
-      | undefined;
-
-    const normalizedDeals = safeEvents.map((event) => {
-      const companyAdvisedId = event.company_advised_id ?? null;
-      const companyAdvisedName = (event.company_advised_name || "").trim() || null;
-      const companyAdvisedRole = (event.company_advised_role || "").trim() || null;
-
-      const roleLc = String(companyAdvisedRole || "").toLowerCase();
-      const companyAdvisedPath =
-        companyAdvisedId && companyAdvisedName
-          ? roleLc.includes("investor")
-            ? `/investors/${companyAdvisedId}`
-            : `/company/${companyAdvisedId}`
-          : null;
-
-      const currency = (event.currency_name || "").trim() || null;
-      const value = event.enterprise_value_m ?? null;
-      const evFormatted = formatCorporateEventEnterpriseValue(
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${advisorId}`,
         {
-          ev_display: event.ev_display,
-          currency_name: currency,
-          ev_data: {
-            enterprise_value_m: value,
-            _currency: currency ? { Currency: currency } : undefined,
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
           },
-        },
-        "-"
-      );
-
-      const sectorsArr = coerceUnknownToArray(event.primary_sectors as unknown).map(
-        (s) => {
-          const obj = s as {
-            id?: number;
-            sector_name?: string;
-            sector_importance?: string;
-            is_derived?: boolean;
-          };
-          return {
-            id: typeof obj.id === "number" ? obj.id : null,
-            sector_name: obj.sector_name ?? null,
-            sector_importance: obj.sector_importance ?? null,
-            is_derived: typeof obj.is_derived === "boolean" ? obj.is_derived : null,
-          };
+          credentials: "include",
         }
       );
 
-      const advisorIndividualsArr = coerceUnknownToArray(
-        event.advisor_individuals as unknown
-      ).map((p) => {
-        const obj = p as { id?: number; name?: string };
-        return {
-          id: typeof obj.id === "number" ? obj.id : null,
-          name: obj.name ?? null,
-        };
-      });
-
-      const otherAdvisorsArr = coerceUnknownToArray(event.other_advisors as unknown).map(
-        (a) => {
-          const obj = a as {
-            id?: number;
-            advisor_company_id?: number;
-            advisor_company_name?: string;
-            individuals_id?: number[];
-          };
-          return {
-            id: typeof obj.id === "number" ? obj.id : null,
-            advisor_company_id:
-              typeof obj.advisor_company_id === "number" ? obj.advisor_company_id : null,
-            advisor_company_name: obj.advisor_company_name ?? null,
-            individuals_id: Array.isArray(obj.individuals_id) ? obj.individuals_id : null,
-          };
-        }
-      );
-
-      return {
-        id: event.id,
-        description: event.description ?? null,
-        announcement_date: event.announcement_date ?? null,
-        announcement_date_display: event.announcement_date
-          ? formatDate(event.announcement_date)
-          : "-",
-        deal_type: event.deal_type ?? null,
-        company_advised: {
-          id: companyAdvisedId,
-          name: companyAdvisedName,
-          role: companyAdvisedRole,
-        },
-        enterprise_value: {
-          value_m: value,
-          currency_name: currency,
-          formatted: evFormatted,
-          ...(event.ev_display ? { ev_display: event.ev_display } : {}),
-        },
-        sectors: sectorsArr,
-        advisor_individuals: advisorIndividualsArr,
-        other_advisors: otherAdvisorsArr,
-        links: {
-          corporate_event_path: `/corporate-event/${event.id}`,
-          company_advised_path: companyAdvisedPath,
-        },
-      };
-    });
-
-    const buildPeopleLists = () => {
-      if (!advisorData) {
-        return {
-          current: [] as Array<{
-            id: number;
-            individual_id: number;
-            name: string;
-            job_titles: string[];
-            linkedin_url: string | null;
-          }>,
-          past: [] as Array<{
-            id: number;
-            individual_id: number;
-            name: string;
-            job_titles: string[];
-            linkedin_url: string | null;
-          }>,
-        };
-      }
-
-      const { current, past } = buildAdvisorPeopleLists(advisorData, jobTitleById);
-
-      const toSnapshotPerson = (person: AdvisorPerson) => ({
-        id: person.id ?? 0,
-        individual_id: person.individualId ?? 0,
-        name: person.name,
-        job_titles: person.role ? person.role.split(", ") : [],
-        linkedin_url: person.linkedinUrl ?? null,
-      });
-
-      return {
-        current: current.map(toSnapshotPerson),
-        past: past.map(toSnapshotPerson),
-      };
-    };
-
-    const { current, past } = buildPeopleLists();
-
-    return {
-      schema_version: "1.0.0",
-      captured_at: new Date().toISOString(),
-      source: {
-        app: "asymmetrix-nextjs",
-        environment: env,
-        page_path: pagePath,
-        page_url: pageUrl,
-        advisor_id: advisorId,
-        preferred_currency_id: preferredCurrencyId,
-      },
-      advisor: {
-        id: advisor?.id ?? advisorId,
-        name: advisor?.name ?? "",
-        description: advisor?.description ?? null,
-        website_url: advisor?.url ?? null,
-        year_founded_display: advisor ? getAdvisorYearFoundedDisplay(advisor) : "-",
-        hq: {
-          city: loc?.City ?? null,
-          state_province_county: loc?.State__Province__County ?? null,
-          country: loc?.Country ?? null,
-          formatted: hqFormatted,
-        },
-        linkedin: {
-          logo_base64_jpeg:
-            companyLinkedIn?.profile?.logo ||
-            linkedInNew?.linkedin_logo ||
-            linkedInLegacy?.linkedin_logo ||
-            null,
-          employee_count:
-            typeof companyLinkedIn?.profile?.employee_count === "number"
-              ? companyLinkedIn.profile.employee_count
-              : typeof linkedInNew?.linkedin_employee === "number"
-              ? linkedInNew.linkedin_employee
-              : typeof linkedInLegacy?.LinkedIn_Employee === "number"
-              ? linkedInLegacy.LinkedIn_Employee
-              : null,
-          employee_count_date:
-            companyLinkedIn?.profile?.employee_count_date ||
-            linkedInNew?.linkedin_emp_date ||
-            linkedInLegacy?.LinkedIn_Emp__Date ||
-            null,
-          linkedin_url:
-            companyLinkedIn?.profile?.linkedin_url ||
-            linkedInLegacy?.LinkedIn_URL ||
-            null,
-        },
-        portfolio_companies_count: advisorData?.Portfolio_companies_count ?? 0,
-      },
-      deals_advised: {
-        total_count: safeEvents.length,
-        filtered_count: safeEvents.length,
-        active_filters: {
-          primary_sector_ids: [],
-          secondary_sector_ids: [],
-        },
-        items: normalizedDeals,
-      },
-      linkedin_history: {
-        monthly_employee_counts: (
-          companyLinkedIn?.employee_history &&
-          companyLinkedIn.employee_history.length > 0
-            ? mapLinkedInHistoryToTimeSeries(companyLinkedIn.employee_history)
-            : []
-        ).map((x) => ({
-          date: x.date,
-          employees_count: x.employees_count,
-        })),
-      },
-      advisor_people: {
-        current,
-        past,
-        sources: {
-          preferred: "advisor_profile_individuals",
-        },
-      },
-      deal_filter_option_lists: {
-        primary_sectors: [],
-        secondary_sectors: [],
-      },
-    };
-  };
-
-  const exportAdvisorPdf = async () => {
-    if (!advisorData?.Advisor) return;
-    setExportingPdf(true);
-    try {
-      const payload = { advisor: buildAdvisorPageSnapshot() };
-      const res = await fetch(
-        "https://asymmetrix-pdf-service.fly.dev/api/export-advisor-pdf",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
+      if (!response.ok) {
         throw new Error(
-          `PDF export failed: ${res.status} ${res.statusText}${text ? ` — ${text}` : ""}`
+          `LinkedIn History API request failed: ${response.statusText}`
         );
       }
-      const blob = await res.blob();
-      const urlObj = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = urlObj;
-      const safeNamePart = (input: string) =>
-        input
-          .trim()
-          .replace(/[^a-zA-Z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, "")
-          .slice(0, 60)
-          .toLowerCase();
-      const advisorName = String(advisorData.Advisor?.name || "").trim();
-      const date = new Date().toISOString().slice(0, 10);
-      const namePart = safeNamePart(advisorName) || `advisor-${advisorId}`;
-      a.download = `${namePart}-${date}.pdf`;
-      a.click();
-      URL.revokeObjectURL(urlObj);
-    } catch (e) {
-      console.error("Export PDF failed:", e);
+
+      const data = await response.json();
+      console.log("Advisor LinkedIn history API response:", data);
+
+      // Extract employee count data from the same field as company page
+      const employeeData =
+        data.Company?._companies_employees_count_monthly || [];
+
+      // Transform the data to match our interface - same format as company page
+      const historyData = employeeData.map(
+        (item: { date?: string; employees_count?: number }) => ({
+          date: item.date || "",
+          employees_count: item.employees_count || 0,
+        })
+      );
+
+      setLinkedInHistory(historyData);
+
+      // Capture roles (with job titles) if provided by this endpoint
+      const currentRoles: RoleItem[] = Array.isArray(
+        data.Managmant_Roles_current
+      )
+        ? data.Managmant_Roles_current
+        : [];
+      const pastRoles: RoleItem[] = Array.isArray(data.Managmant_Roles_past)
+        ? data.Managmant_Roles_past
+        : [];
+      setRolesCurrent(currentRoles);
+      setRolesPast(pastRoles);
+    } catch (err) {
+      console.error("Error fetching advisor LinkedIn history:", err);
+      // Don't set main error state for LinkedIn history loading failure
     } finally {
-      setExportingPdf(false);
+      setLinkedInHistoryLoading(false);
     }
-  };
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const lookup = await fetchAdvisorJobTitleLookup();
-        if (lookup.size > 0) setJobTitleById(lookup);
-      } catch (err) {
-        console.warn("Failed to fetch job titles for advisor people:", err);
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    if (!advisorId) return;
-
-    setCompanyLinkedIn(null);
-    void (async () => {
-      try {
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        const data = await fetchCompanyLinkedIn(advisorId, token);
-        setCompanyLinkedIn(data);
-      } catch (err) {
-        console.warn("Failed to fetch advisor LinkedIn data:", err);
-      }
-    })();
   }, [advisorId]);
+
+  useEffect(() => {
+    if (advisorId) {
+      fetchLinkedInHistory();
+    }
+  }, [advisorId, fetchLinkedInHistory]);
 
   // Update page title when advisor data is loaded
   useEffect(() => {
@@ -651,34 +258,22 @@ export default function AdvisorProfilePage() {
     }
   }, [advisorData?.Advisor?.name]);
 
-  useEffect(() => {
-    setDealsPage(1);
-  }, [advisorId]);
-
-  const safeEvents: AdvisorDealEvent[] = useMemo(
-    () =>
-      Array.isArray(corporateEvents)
-        ? corporateEvents.map((event) => normalizeAdvisorTransactionEngagement(event))
-        : [],
-    [corporateEvents]
-  );
-
-  const displayedDeals = safeEvents;
-  const dealsShowingFrom =
-    dealsTotal > 0 ? (dealsPage - 1) * DEALS_PREVIEW_COUNT + 1 : 0;
-  const dealsShowingTo =
-    dealsTotal > 0
-      ? Math.min(dealsPage * DEALS_PREVIEW_COUNT, dealsTotal)
-      : 0;
-  const canDealsPrev = dealsTotal > 0 && dealsPage > 1;
-  const canDealsNext = dealsTotal > 0 && dealsPage < dealsTotalPages;
-
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
+      <div
+        style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
+      >
         <Header />
-        <div style={{ flex: 1, padding: 32, display: "flex", justifyContent: "center", alignItems: "center", color: T.muted }}>
-          Loading advisor data…
+        <div
+          style={{
+            flex: "1",
+            padding: "32px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <div>Loading advisor data...</div>
         </div>
         <Footer />
       </div>
@@ -687,12 +282,22 @@ export default function AdvisorProfilePage() {
 
   if (error) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
+      <div
+        style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
+      >
         <Header />
-        <div style={{ flex: 1, padding: 32, display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <div
+          style={{
+            flex: "1",
+            padding: "32px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
           <div style={{ textAlign: "center" }}>
-            <h2 style={{ color: T.ink, fontFamily: T.sans }}>Error Loading Advisor</h2>
-            <p style={{ color: T.muted }}>{error}</p>
+            <h2>Error Loading Advisor</h2>
+            <p>{error}</p>
           </div>
         </div>
         <Footer />
@@ -702,69 +307,84 @@ export default function AdvisorProfilePage() {
 
   if (!advisorData) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: T.paper, fontFamily: T.sans }}>
+      <div
+        style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
+      >
         <Header />
-        <div style={{ flex: 1, padding: 32, display: "flex", justifyContent: "center", alignItems: "center", color: T.muted }}>
-          Advisor not found
+        <div
+          style={{
+            flex: "1",
+            padding: "32px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <div>Advisor not found</div>
         </div>
         <Footer />
       </div>
     );
   }
 
-  const { Advisor, Portfolio_companies_count } = advisorData;
-  const { current: peopleCurrent, past: peoplePast } = buildAdvisorPeopleLists(
-    advisorData,
-    jobTitleById
-  );
+  const {
+    Advisor,
+    Advised_DA_sectors,
+    Portfolio_companies_count,
+    Advisors_individuals,
+  } = advisorData;
 
-  const extractAdvisorFocus = (advisor: Advisor): string[] => {
-    const raw = advisor.primary_business_focus_id;
-    if (!Array.isArray(raw)) return [];
-    return raw
-      .map((item) => {
-        const focus = item?.business_focus;
-        return typeof focus === "string" ? focus.trim() : "";
+  // Map various backend role shapes into the `IndividualCards` format (same as Company -> Management UI)
+  const toIndividualCardItems = (items: Array<unknown>): IndividualCardItem[] => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const list = items as any[];
+    if (!Array.isArray(list)) return [];
+    return list
+      .map((raw) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const r = raw as any;
+        const name =
+          String(r?.advisor_individuals || r?.Individual_text || "").trim() ||
+          "Unknown";
+        const individualId =
+          typeof r?.individuals_id === "number"
+            ? r.individuals_id
+            : parseInt(String(r?.individuals_id ?? ""), 10);
+        const safeIndividualId = Number.isFinite(individualId)
+          ? individualId
+          : undefined;
+        const jobTitles = Array.isArray(r?.job_titles_id)
+          ? (r.job_titles_id as Array<{ job_title?: unknown }>)
+              .map((jt) => String(jt?.job_title ?? "").trim())
+              .filter(Boolean)
+          : [];
+        return {
+          id: typeof r?.id === "number" ? r.id : undefined,
+          name,
+          jobTitles,
+          individualId: safeIndividualId,
+        } satisfies IndividualCardItem;
       })
-      .filter(Boolean);
+      .filter((p) => Boolean(p.name));
   };
 
-  const extractAdvisorType = (advisor: Advisor): string | null => {
-    const roleLists: AdvisorRoleRef[][] = [];
-    if (Array.isArray(advisor._advisor_roles)) roleLists.push(advisor._advisor_roles);
-    if (Array.isArray(advisor.advisor_roles)) roleLists.push(advisor.advisor_roles);
+  const advisorsCurrentCards: IndividualCardItem[] =
+    rolesCurrent.length > 0
+      ? toIndividualCardItems(rolesCurrent)
+      : advisorData.Advisors_individuals_current &&
+          advisorData.Advisors_individuals_current.length > 0
+        ? toIndividualCardItems(advisorData.Advisors_individuals_current)
+        : Advisors_individuals && Advisors_individuals.length > 0
+          ? toIndividualCardItems(Advisors_individuals)
+          : [];
 
-    for (const roles of roleLists) {
-      for (const role of roles) {
-        const label =
-          role.role_name?.trim() ||
-          role.advisor_role?.trim() ||
-          role.name?.trim() ||
-          role.counterparty_status?.trim();
-        if (label) return label;
-      }
-    }
-
-    const focus = extractAdvisorFocus(advisor);
-    return focus[0] ?? null;
-  };
-
-  const extractAdvisorOwnership = (advisor: Advisor): string | null => {
-    return advisor._ownership_type?.ownership?.trim() || null;
-  };
-
-  const extractAdvisorTicker = (advisor: Advisor): string | null => {
-    const ticker = advisor.ticker ?? advisor.Ticker;
-    return typeof ticker === "string" && ticker.trim() ? ticker.trim() : null;
-  };
-
-  const extractAdvisorStatus = (advisor: Advisor): string => {
-    const lifecycle = advisor.Lifecycle_stage?.Lifecycle_Stage?.trim();
-    if (lifecycle) return lifecycle;
-    const status = advisor.status?.trim();
-    if (status) return status;
-    return "Active";
-  };
+  const advisorsPastCards: IndividualCardItem[] =
+    rolesPast.length > 0
+      ? toIndividualCardItems(rolesPast)
+      : advisorData.Advisors_individuals_past &&
+          advisorData.Advisors_individuals_past.length > 0
+        ? toIndividualCardItems(advisorData.Advisors_individuals_past)
+        : [];
 
   const hq = `${Advisor._locations?.City || ""}, ${
     Advisor._locations?.State__Province__County || ""
@@ -772,294 +392,822 @@ export default function AdvisorProfilePage() {
     .replace(/^,\s*/, "")
     .replace(/,\s*$/, "");
 
-  const employeeData =
-    companyLinkedIn?.employee_history && companyLinkedIn.employee_history.length > 0
-      ? mapLinkedInHistoryToTimeSeries(companyLinkedIn.employee_history)
-      : [];
-  const currentHeadcount = resolveLinkedInDisplayEmployeeCount(
-    companyLinkedIn,
-    resolveChartEmployeeCount(employeeData) ||
-      Advisor._linkedin_data_of_new_company?.linkedin_employee ||
-      Advisor.linkedin_data?.LinkedIn_Employee ||
-      0
-  );
-  const headcountYoY = (() => {
-    const liGrowth = parseLinkedInGrowthPctValue(companyLinkedIn?.growth_1y_pct);
-    if (liGrowth !== null) {
-      const rounded = Math.round(liGrowth * 10) / 10;
-      return `${rounded >= 0 ? "+" : ""}${rounded}% YoY`;
+  const style = `
+    .advisor-detail-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
-    return computeEmployeeYoYFromMonthly(employeeData);
-  })();
-  const linkedinUrl = normalizeLinkedInProfileUrl(
-    companyLinkedIn?.profile?.linkedin_url ?? Advisor.linkedin_data?.LinkedIn_URL
-  );
-  const employeeCountAsOf =
-    formatLinkedInEmployeeCountDate(companyLinkedIn?.profile?.employee_count_date) ??
-    (() => {
-      const latest = employeeData[employeeData.length - 1];
-      if (!latest?.date) return undefined;
-      return formatLinkedInEmployeeCountDate(latest.date);
-    })();
-
-  const WIDE_ROW_START = 2;
-  const dealsGridRow = WIDE_ROW_START;
-
-  const styles = {
-    container: {
-      backgroundColor: T.paper,
-      fontFamily: T.sans,
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column" as const,
-    },
-    maxWidth: {
-      width: "100%",
-      maxWidth: "100%",
-      padding: "18px",
-      flex: 1,
-      display: "flex",
-      flexDirection: "column" as const,
-      overflow: "hidden",
-    },
-    responsiveGrid: {
-      display: "grid",
-      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-      gap: "12px",
-      flex: 1,
-      maxWidth: "100%",
-      overflow: "hidden",
-      alignItems: "stretch",
-    },
-  };
-
-  const responsiveCss = `
-    .advisor-detail-page { overflow-x: hidden; }
-    .responsiveGrid {
+    .advisor-content {
+      flex: 1;
+      padding: 32px;
+      width: 100%;
+    }
+    .advisor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .advisor-title-section {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex: 1;
+    }
+    .advisor-title {
+      margin: 0;
+      font-size: 32px;
+      font-weight: bold;
+    }
+    .report-button {
+      padding: 8px 16px;
+      background-color: #dc2626;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .advisor-layout {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-      max-width: 100%;
-      align-items: stretch;
+      /* Give Corporate Events more room (it has many columns) */
+      grid-template-columns: minmax(320px, 1fr) minmax(0, 3fr);
+      gap: 24px 32px;
+      align-items: start;
     }
-    .responsiveGrid > * { min-width: 0; min-height: 0; }
-    .advisor-grid-overview { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .advisor-grid-description { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .advisor-grid-headcount { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .advisor-grid-people { grid-column: 3; grid-row: ${dealsGridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .advisor-grid-deals { grid-column: 1 / span 2; grid-row: ${dealsGridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
-    .advisor-grid-deals > * { min-width: 0; max-width: 100%; width: 100%; }
-    .advisor-grid-people > * { min-width: 0; max-width: 100%; width: 100%; }
+    .advisor-left-column { width: 100%; }
+    .advisor-right-column { width: 100%; }
+    .advisor-section {
+      background-color: white;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 24px;
+    }
+    .section-title {
+      margin: 0 0 16px 0;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .info-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .info-label {
+      font-weight: bold;
+      color: #374151;
+    }
+    .info-value {
+      color: #6b7280;
+    }
+    .corporate-events-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .toggle-button {
+      color: #3b82f6;
+      text-decoration: none;
+      font-size: 14px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+    }
+    .events-table-container {
+      overflow-x: auto;
+    }
+    .events-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      /* Prevent columns from becoming overly narrow; allow horizontal scroll */
+      min-width: 1400px;
+    }
+    .events-table thead tr {
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .events-table th {
+      text-align: left;
+      padding: 8px;
+      font-weight: bold;
+      font-size: 12px;
+    }
+    .events-table tbody tr {
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .events-table td {
+      padding: 8px;
+      font-size: 12px;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: normal;
+      line-break: anywhere;
+    }
+    .events-table td:nth-child(2) {
+      word-break: keep-all;
+      overflow-wrap: normal;
+      white-space: nowrap;
+    }
+    .nowrap-token { display: inline-block; white-space: nowrap; }
+    .nowrap-token:not(:last-child)::after { content: ", "; }
+    .nowrap-token .advisor-link {
+      word-break: keep-all !important;
+      overflow-wrap: normal !important;
+      white-space: nowrap !important;
+      line-break: auto !important;
+    }
+    /* Prevent splitting individual other-counterparty names */
+    .other-counterparty-name {
+      word-break: keep-all;
+      overflow-wrap: normal;
+      white-space: nowrap;
+      display: inline-block;
+    }
+    .other-counterparty-name .advisor-link {
+      word-break: keep-all !important;
+      overflow-wrap: normal !important;
+      white-space: nowrap !important;
+    }
+    .event-link {
+      color: #3b82f6;
+      text-decoration: none;
+      cursor: pointer;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: normal;
+      line-break: anywhere;
+    }
+    .event-link:hover {
+      text-decoration: underline;
+    }
+    .advisor-link {
+      color: #3b82f6;
+      text-decoration: none;
+      cursor: pointer;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: normal;
+      line-break: anywhere;
+    }
+    .advisor-link:hover {
+      text-decoration: underline;
+    }
+    .no-events {
+      color: #6b7280;
+      text-align: center;
+      padding: 20px;
+    }
+    .events-cards {
+      display: none;
+    }
+    .event-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .event-card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #3b82f6;
+      cursor: pointer;
+      margin-bottom: 12px;
+      line-height: 1.4;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: normal;
+      line-break: anywhere;
+    }
+    .event-card-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 14px;
+    }
+    .event-card-info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .event-card-info-label {
+      font-weight: 600;
+      color: #374151;
+    }
+    .event-card-info-item:nth-child(2) .event-card-info-value {
+      word-break: keep-all;
+      overflow-wrap: normal;
+      white-space: nowrap;
+    }
+      font-size: 12px;
+    }
+    .event-card-info-value {
+      color: #6b7280;
+      font-size: 12px;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: normal;
+      line-break: anywhere;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    /* Advisors (match Company -> Management cards) */
+    .management-card:hover {
+      background-color: #e6f0ff !important;
+      border-color: #0075df !important;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0, 117, 223, 0.1);
+    }
+
     @media (max-width: 768px) {
-      .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
-      .advisor-grid-overview,
-      .advisor-grid-description,
-      .advisor-grid-headcount,
-      .advisor-grid-people,
-      .advisor-grid-deals {
-        grid-column: 1 / -1 !important;
-        grid-row: auto !important;
-        align-self: stretch !important;
+      .advisor-content {
+        padding: 16px !important;
+      }
+      .advisor-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 16px !important;
+      }
+      .advisor-title-section {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+      }
+      .advisor-title {
+        font-size: 24px !important;
+      }
+      .report-button {
+        align-self: flex-start !important;
+        width: fit-content !important;
+      }
+      .advisor-layout {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 16px !important;
+      }
+      .advisor-left-column,
+      .advisor-right-column {
+        width: 100% !important;
+      }
+      .advisor-section {
+        padding: 16px !important;
+        margin-bottom: 16px !important;
+      }
+      .section-title {
+        font-size: 18px !important;
+        margin-bottom: 12px !important;
+      }
+      .events-table-container {
+        display: none !important;
+      }
+      .events-cards {
+        display: block !important;
+      }
+      .corporate-events-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+      }
+
+      .management-grid {
+        grid-template-columns: 1fr !important;
+      }
+    }
+
+    @media (min-width: 769px) {
+      .events-cards {
+        display: none !important;
+      }
+      .events-table-container {
+        display: block !important;
       }
     }
   `;
 
-  const reportMailTo = `mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
-    `Contribute Advisor Data – ${Advisor.name} (ID ${Advisor.id})`
-  )}&body=${encodeURIComponent(
-    "Please describe the data you would like to contribute for this advisor page."
-  )}`;
-
   return (
-    <div className="advisor-detail-page" style={styles.container}>
+    <div className="advisor-detail-page">
+      {Advisor?.name && (
+        <Head>
+          <title>{`Asymmetrix – ${Advisor.name}`}</title>
+        </Head>
+      )}
       <Header />
 
-      <div style={{ backgroundColor: T.paper, borderBottom: `1px solid ${T.divider}`, padding: "0 24px" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 12,
-            padding: "22px 0",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0, flex: 1 }}>
+      <div className="advisor-content">
+        {/* Page Header */}
+        <div className="advisor-header">
+          <div className="advisor-title-section">
             <CompanyLogo
-              logo={
-                companyLinkedIn?.profile?.logo ||
-                Advisor._linkedin_data_of_new_company?.linkedin_logo ||
-                ""
-              }
+              logo={Advisor._linkedin_data_of_new_company?.linkedin_logo || ""}
               name={Advisor.name}
             />
-            <span
-              style={{
-                fontSize: 24,
-                fontWeight: 600,
-                color: T.ink,
-                letterSpacing: "-0.4px",
-                lineHeight: 1.2,
-                fontFamily: T.sans,
-              }}
-            >
-              {Advisor.name}
-            </span>
+            <div>
+              <h1 className="advisor-title">{Advisor.name}</h1>
+            </div>
+          </div>
+          <a
+            className="report-button"
+            href={`mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
+              `Report Incorrect Advisor Data – ${Advisor.name} (ID ${Advisor.id})`
+            )}&body=${encodeURIComponent(
+              "Please describe the issue you found for this advisor page."
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Report Incorrect Data
+          </a>
+        </div>
+
+        <div className="advisor-layout">
+          {/* Left Column - Overview */}
+          <div className="advisor-left-column">
+            {/* Overview Section */}
+            <div className="advisor-section">
+              <h2 className="section-title">Overview</h2>
+              <div className="info-grid">
+                <div className="info-item">
+                  <span className="info-label">Advised D&A sectors:</span>
+                  <span className="info-value">
+                    {formatSectorsList(Advised_DA_sectors) || "Not available"}
+                  </span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Year founded:</span>
+                  <span className="info-value">
+                    {getAdvisorYearFoundedDisplay(Advisor)}
+                  </span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">HQ:</span>
+                  <span className="info-value">{hq || "Not available"}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Website:</span>
+                  <span className="info-value">
+                    {Advisor.url ? (
+                      <a
+                        href={Advisor.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "#3b82f6", textDecoration: "none" }}
+                      >
+                        {Advisor.url}
+                      </a>
+                    ) : (
+                      "Not available"
+                    )}
+                  </span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">
+                    Data & Analytics transactions advised:
+                  </span>
+                  <span className="info-value">
+                    {Portfolio_companies_count}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Description Section */}
+            <div className="advisor-section">
+              <h2 className="section-title">Description</h2>
+              <div className="info-value" style={{ whiteSpace: "pre-wrap" }}>
+                {Advisor.description || "Not available"}
+              </div>
+            </div>
+
+            {/* Historic LinkedIn Data Section */}
+            <div className="advisor-section">
+              <h2 className="section-title">Historic LinkedIn Data</h2>
+              {linkedInHistoryLoading ? (
+                <div className="loading">Loading LinkedIn history...</div>
+              ) : linkedInHistory.length > 0 ? (
+                <LinkedInHistoryChart data={linkedInHistory} />
+              ) : (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "24px",
+                    color: "#6b7280",
+                  }}
+                >
+                  No LinkedIn history data available
+                </div>
+              )}
+            </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            {Advisor?.id != null && Number.isFinite(Advisor.id) && (
-              <FollowButton
-                followKey="followed_advisors"
-                entityId={Advisor.id}
-                entityType="advisor"
-                label="Advisor"
-                icon={<BellIcon width={15} height={15} strokeWidth={2} aria-hidden />}
-              />
-            )}
-            <button
-              type="button"
-              onClick={exportAdvisorPdf}
-              disabled={exportingPdf || !advisorData?.Advisor}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-                fontFamily: T.sans,
-                fontSize: 12.5,
-                fontWeight: 600,
-                color: "#fff",
-                backgroundColor: exportingPdf ? T.faint : "#475569",
-                border: "none",
-                borderRadius: 6,
-                padding: "8px 14px",
-                cursor: exportingPdf || !advisorData?.Advisor ? "not-allowed" : "pointer",
-              }}
-            >
-              <ArrowUpTrayIcon width={15} height={15} strokeWidth={2} aria-hidden />
-              {exportingPdf ? "Exporting…" : "Export PDF"}
-            </button>
-            <a
-              href={reportMailTo}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-                fontFamily: T.sans,
-                fontSize: 12.5,
-                fontWeight: 600,
-                color: "#fff",
-                backgroundColor: T.emerald,
-                borderRadius: 6,
-                padding: "8px 14px",
-                textDecoration: "none",
-              }}
-            >
-              <PlusIcon width={15} height={15} strokeWidth={2} aria-hidden />
-              Contribute Data
-            </a>
+          {/* Right Column - Corporate Events */}
+          <div className="advisor-right-column">
+            <div className="advisor-section">
+              <div className="corporate-events-header">
+                <h2 className="section-title">Corporate Events</h2>
+                {corporateEvents?.New_Events_Wits_Advisors &&
+                  corporateEvents.New_Events_Wits_Advisors.length > 10 && (
+                    <button
+                      onClick={handleToggleEvents}
+                      className="toggle-button"
+                    >
+                      {eventsExpanded ? "Show less" : "See more"}
+                    </button>
+                  )}
+              </div>
+
+              {corporateEvents?.New_Events_Wits_Advisors &&
+              corporateEvents.New_Events_Wits_Advisors.length > 0 ? (
+                <>
+                  {/* Desktop Table View */}
+                  <div className="events-table-container">
+                    <table className="events-table">
+                      <thead>
+                        <tr>
+                          <th>Description</th>
+                          <th>Date Announced</th>
+                          <th>Type</th>
+                          <th>Counterparty Advised</th>
+                          <th>Other Counterparties</th>
+                          <th>Enterprise Value</th>
+                          <th>Individuals</th>
+                          <th>Other Advisors</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {corporateEvents.New_Events_Wits_Advisors.slice(
+                          0,
+                          eventsExpanded ? undefined : 10
+                        ).map((event, index) => {
+                          // Helper functions to extract data
+                          const getCounterpartyAdvised = () => {
+                            const advised =
+                              event
+                                ._counterparty_advised_of_corporate_events?.[0];
+                            return (
+                              advised?._counterpartys_type
+                                ?.counterparty_status || "—"
+                            );
+                          };
+
+                          const getOtherCounterparties = () => {
+                            if (
+                              !event._other_counterparties_of_corporate_events
+                                ?.length
+                            )
+                              return "—";
+                            return event._other_counterparties_of_corporate_events.map(
+                              (cp, i) => (
+                                <span
+                                  key={`${cp.id}-${i}`}
+                                  className="other-counterparty-name"
+                                >
+                                  <span
+                                    className="advisor-link"
+                                    onClick={() => {
+                                      if (cp._is_that_investor) {
+                                        router.push(`/investors/${cp.id}`);
+                                      } else {
+                                        router.push(`/company/${cp.id}`);
+                                      }
+                                    }}
+                                  >
+                                    {cp.name}
+                                  </span>
+                                  {i <
+                                  event._other_counterparties_of_corporate_events!
+                                    .length -
+                                    1
+                                    ? ", "
+                                    : ""}
+                                </span>
+                              )
+                            );
+                          };
+
+                          const getEnterpriseValue = () => {
+                            if (
+                              !event.ev_data?.enterprise_value_m ||
+                              !event.ev_data?._currency ||
+                              !event.ev_data._currency.Currency
+                            )
+                              return "—";
+                            const value = parseFloat(
+                              event.ev_data.enterprise_value_m
+                            );
+                            const currency = event.ev_data._currency.Currency;
+                            return `${currency}${value.toLocaleString()}`;
+                          };
+
+                          const getIndividuals = () => {
+                            if (
+                              !event
+                                .__related_to_corporate_event_advisors_individuals
+                                ?.length
+                            )
+                              return "—";
+                            return event.__related_to_corporate_event_advisors_individuals
+                              .map(
+                                (ind) => ind._individuals?.advisor_individuals
+                              )
+                              .filter(Boolean)
+                              .join(", ");
+                          };
+
+                          const getOtherAdvisors = () => {
+                            if (
+                              !event._other_advisors_of_corporate_event?.length
+                            )
+                              return "—";
+                            return event._other_advisors_of_corporate_event
+                              .map((advisor) => ({
+                                name: advisor._new_company?.name,
+                                id: advisor._new_company?.id,
+                              }))
+                              .filter((advisor) => advisor.name && advisor.id);
+                          };
+
+                          return (
+                            <tr key={index}>
+                              <td>
+                                {createClickableElement(
+                                  `/corporate-event/${event.id}`,
+                                  event.description,
+                                  "event-link"
+                                )}
+                              </td>
+                              <td>{formatDate(event.announcement_date)}</td>
+                              <td>{event.deal_type || "—"}</td>
+                              <td>{getCounterpartyAdvised()}</td>
+                              <td>{getOtherCounterparties()}</td>
+                              <td>{getEnterpriseValue()}</td>
+                              <td>
+                                {(() => {
+                                  const list = getIndividuals();
+                                  if (!list || list === "—") return list;
+                                  return String(list)
+                                    .split(/\s*,\s*/)
+                                    .filter(Boolean)
+                                    .map((name, i) => (
+                                      <span
+                                        className="nowrap-token"
+                                        key={`${name}-${i}`}
+                                      >
+                                        {name}
+                                      </span>
+                                    ));
+                                })()}
+                              </td>
+                              <td>
+                                {(() => {
+                                  const advisors = getOtherAdvisors();
+                                  if (advisors === "—") return "—";
+                                  return advisors.map((advisor) => (
+                                    <span
+                                      className="nowrap-token"
+                                      key={advisor.id}
+                                    >
+                                      <span
+                                        onClick={() =>
+                                          handleOtherAdvisorClick(advisor.id)
+                                        }
+                                        className="advisor-link"
+                                      >
+                                        {advisor.name}
+                                      </span>
+                                    </span>
+                                  ));
+                                })()}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile Cards View */}
+                  <div className="events-cards">
+                    {corporateEvents.New_Events_Wits_Advisors.slice(
+                      0,
+                      eventsExpanded ? undefined : 10
+                    ).map((event, index) => {
+                      // Same helper functions for mobile cards
+                      const getCounterpartyAdvised = () => {
+                        const advised =
+                          event._counterparty_advised_of_corporate_events?.[0];
+                        return (
+                          advised?._counterpartys_type?.counterparty_status ||
+                          "—"
+                        );
+                      };
+
+                      const getOtherCounterparties = () => {
+                        if (
+                          !event._other_counterparties_of_corporate_events
+                            ?.length
+                        )
+                          return "—";
+                        return event._other_counterparties_of_corporate_events
+                          .map((cp) => cp.name)
+                          .filter(Boolean)
+                          .join(", ");
+                      };
+
+                      const getEnterpriseValue = () => {
+                        if (
+                          !event.ev_data?.enterprise_value_m ||
+                          !event.ev_data?._currency ||
+                          !event.ev_data._currency.Currency
+                        )
+                          return "—";
+                        const value = parseFloat(
+                          event.ev_data.enterprise_value_m
+                        );
+                        const currency = event.ev_data._currency.Currency;
+                        return `${currency}${value.toLocaleString()}`;
+                      };
+
+                      const getIndividuals = () => {
+                        if (
+                          !event
+                            .__related_to_corporate_event_advisors_individuals
+                            ?.length
+                        )
+                          return "—";
+                        return event.__related_to_corporate_event_advisors_individuals
+                          .map((ind) => ind._individuals?.advisor_individuals)
+                          .filter(Boolean)
+                          .join(", ");
+                      };
+
+                      const getOtherAdvisors = () => {
+                        if (!event._other_advisors_of_corporate_event?.length)
+                          return "—";
+                        return event._other_advisors_of_corporate_event
+                          .map((advisor) => ({
+                            name: advisor._new_company?.name,
+                            id: advisor._new_company?.id,
+                          }))
+                          .filter((advisor) => advisor.name && advisor.id);
+                      };
+
+                      return (
+                        <div key={index} className="event-card">
+                          {createClickableElement(
+                            `/corporate-event/${event.id}`,
+                            event.description,
+                            "event-card-title"
+                          )}
+                          <div className="event-card-info">
+                            <div className="event-card-info-item">
+                              <span className="event-card-info-label">
+                                Date:
+                              </span>
+                              <span className="event-card-info-value">
+                                {formatDate(event.announcement_date)}
+                              </span>
+                            </div>
+                            <div className="event-card-info-item">
+                              <span className="event-card-info-label">
+                                Type:
+                              </span>
+                              <span className="event-card-info-value">
+                                {event.deal_type || "—"}
+                              </span>
+                            </div>
+                            <div className="event-card-info-item">
+                              <span className="event-card-info-label">
+                                Counterparty:
+                              </span>
+                              <span className="event-card-info-value">
+                                {getCounterpartyAdvised()}
+                              </span>
+                            </div>
+                            <div className="event-card-info-item">
+                              <span className="event-card-info-label">
+                                Value:
+                              </span>
+                              <span className="event-card-info-value">
+                                {getEnterpriseValue()}
+                              </span>
+                            </div>
+                            <div
+                              className="event-card-info-item"
+                              style={{ gridColumn: "1 / -1" }}
+                            >
+                              <span className="event-card-info-label">
+                                Other Counterparties:
+                              </span>
+                              <span className="event-card-info-value">
+                                {getOtherCounterparties()}
+                              </span>
+                            </div>
+                            <div
+                              className="event-card-info-item"
+                              style={{ gridColumn: "1 / -1" }}
+                            >
+                              <span className="event-card-info-label">
+                                Individuals:
+                              </span>
+                              <span className="event-card-info-value">
+                                {(() => {
+                                  const list = getIndividuals();
+                                  if (!list || list === "—") return list;
+                                  return String(list)
+                                    .split(/\s*,\s*/)
+                                    .filter(Boolean)
+                                    .map((name, i) => (
+                                      <span
+                                        className="nowrap-token"
+                                        key={`${name}-${i}`}
+                                      >
+                                        {name}
+                                      </span>
+                                    ));
+                                })()}
+                              </span>
+                            </div>
+                            <div
+                              className="event-card-info-item"
+                              style={{ gridColumn: "1 / -1" }}
+                            >
+                              <span className="event-card-info-label">
+                                Other Advisors:
+                              </span>
+                              <span className="event-card-info-value">
+                                {(() => {
+                                  const advisors = getOtherAdvisors();
+                                  if (advisors === "—") return "—";
+                                  return advisors.map((advisor) => (
+                                    <span
+                                      className="nowrap-token"
+                                      key={advisor.id}
+                                    >
+                                      <span
+                                        onClick={() =>
+                                          handleOtherAdvisorClick(advisor.id)
+                                        }
+                                        className="advisor-link"
+                                      >
+                                        {advisor.name}
+                                      </span>
+                                    </span>
+                                  ));
+                                })()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <div className="no-events">No corporate events available</div>
+              )}
+            </div>
+
+            {/* Advisors (moved under Corporate Events; match Company -> Management layout) */}
+            <div className="advisor-section">
+              <h2 className="section-title">Advisors</h2>
+
+              <div style={{ marginBottom: "20px" }}>
+                <IndividualCards
+                  title="Current:"
+                  individuals={advisorsCurrentCards}
+                  emptyMessage="Not available"
+                />
+              </div>
+
+              <div>
+                <IndividualCards
+                  title="Past:"
+                  individuals={advisorsPastCards}
+                  emptyMessage="Not available"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <div className="advisor-detail-content" style={styles.maxWidth}>
-          <div style={styles.responsiveGrid} className="responsiveGrid">
-            <div className="advisor-grid-overview">
-              <AdvisorOverviewCard
-                fillGridCell
-                type={extractAdvisorType(Advisor)}
-                focus={extractAdvisorFocus(Advisor)}
-                yearFounded={getAdvisorYearFoundedDisplay(Advisor)}
-                website={Advisor.url}
-                websiteLabel={
-                  Advisor.url?.trim() ? formatWebsiteDisplayLabel(Advisor.url) : undefined
-                }
-                hq={hq || undefined}
-                linkedinUrl={linkedinUrl}
-                ownership={extractAdvisorOwnership(Advisor)}
-                ticker={extractAdvisorTicker(Advisor)}
-                status={extractAdvisorStatus(Advisor)}
-                transactionsAdvised={Portfolio_companies_count}
-              />
-            </div>
-
-            <div
-              className="advisor-grid-description"
-              style={{
-                minWidth: 0,
-                minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
-                alignSelf: isDescriptionExpanded ? "start" : "stretch",
-                overflow: isDescriptionExpanded ? "visible" : "hidden",
-              }}
-            >
-              <DescriptionCard
-                text={Advisor.description ?? ""}
-                expanded={isDescriptionExpanded}
-                onToggleExpand={() => setIsDescriptionExpanded((e) => !e)}
-                contentRef={descriptionRef}
-                fillGridCell={!isDescriptionExpanded}
-              />
-            </div>
-
-            {employeeData.length > 0 && (
-            <div className="advisor-grid-headcount">
-              <HeadcountCard
-                fillGridCell
-                data={employeeData.map((e) => e.employees_count)}
-                dates={employeeData.map((e) => e.date)}
-                count={currentHeadcount}
-                yoyLabel={headcountYoY || undefined}
-                asOf={employeeCountAsOf}
-                linkedinUrl={linkedinUrl}
-                showHeaderArrow={false}
-              />
-            </div>
-            )}
-
-            <div className="advisor-grid-deals">
-              <LinkPanel fillGridCell className="advisor-deals-v3-card">
-                <AdvisorDealsProfilePanel
-                  variant="summary"
-                  events={displayedDeals}
-                  loading={dealsLoading}
-                  totalCount={dealsTotal}
-                  rangeStart={dealsShowingFrom}
-                  rangeEnd={dealsShowingTo}
-                  canPrev={canDealsPrev}
-                  canNext={canDealsNext}
-                  onPrev={() => {
-                    if (dealsPage > 1) setDealsPage(dealsPage - 1);
-                  }}
-                  onNext={() => {
-                    if (dealsPage < dealsTotalPages) setDealsPage(dealsPage + 1);
-                  }}
-                  browseAllHref={buildCorporateEventsBrowseAllHref({
-                    advisorId,
-                  })}
-                  fillGridCell
-                />
-              </LinkPanel>
-            </div>
-
-            <div className="advisor-grid-people">
-              <AdvisorPeopleCard
-                fillGridCell
-                current={peopleCurrent}
-                past={peoplePast}
-              />
-            </div>
-          </div>
-        </div>
-        <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />
-      </main>
-
       <Footer />
+      <style dangerouslySetInnerHTML={{ __html: style }} />
     </div>
   );
 }
