@@ -269,6 +269,14 @@ export interface PreviousCorporateEvent {
   deal_status?: string;
   announcement_date?: string;
   closed_date?: string;
+  // New API shape (preferred)
+  date?: string;
+  target?: {
+    company_id: number;
+    company_name: string;
+    company_logo?: string;
+  };
+  investors?: PreviousCorporateEventCounterparty[] | null;
   investment_amount_m?: number | null;
   enterprise_value_m?: number | null;
   investment_currency?: string;
@@ -277,6 +285,7 @@ export interface PreviousCorporateEvent {
     counterparty_status?: string;
     counterparty_type_id?: number;
   };
+  // Legacy shape
   counterparties?: PreviousCorporateEventCounterparty[];
 }
 

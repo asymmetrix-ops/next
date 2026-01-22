@@ -3,17 +3,11 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/utils/cn";
 import type { Interval, Range } from "@/types/yahoo-finance";
-import AreaClosedChart from "./AreaClosedChart";
 
 interface StockGraphProps {
   ticker: string;
   range: Range;
   interval: Interval;
-}
-
-interface ChartQuote {
-  date: Date;
-  close: number;
 }
 
 interface ChartMeta {
@@ -117,13 +111,6 @@ export default function StockChartClient({
       Number(chartData.quotes[0].close),
       Number(chartData.meta.regularMarketPrice)
     );
-
-  const ChartQuotes: ChartQuote[] = chartData.quotes
-    .map((quote) => ({
-      date: quote.date as Date,
-      close: Number(quote.close?.toFixed(2)),
-    }))
-    .filter((quote) => !isNaN(quote.close) && quote.date !== null);
 
   return (
     <div className="h-[27.5rem] w-full">
@@ -238,7 +225,9 @@ export default function StockChartClient({
         </div>
       )}
       {chartData.quotes.length > 0 && (
-        <AreaClosedChart chartQuotes={ChartQuotes} range={range} />
+        <div className="flex justify-center items-center h-full text-center text-neutral-500">
+          Chart temporarily disabled
+        </div>
       )}
     </div>
   );

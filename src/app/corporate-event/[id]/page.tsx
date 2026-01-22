@@ -547,15 +547,88 @@ const CorporateEventDetail = ({
   const previousCorporateEventsData: PreviousCorporateEventRow[] =
     previousCorporateEventsRaw
       .filter((e) => e && typeof e.id === "number")
-      .map((e) => ({
-        id: e.id,
-        title: e.description || "View event",
-        announcementDate: e.announcement_date ? formatDate(e.announcement_date) : undefined,
-        closedDate: e.closed_date ? formatDate(e.closed_date) : undefined,
-        dealType: e.deal_type || undefined,
-        dealStatus: e.deal_status || undefined,
-        targetRole: e.target_company_role?.counterparty_status || undefined,
-      }))
+      .map((e) => {
+        const dealType = e.deal_type || undefined;
+        const dateRaw = e.date || e.announcement_date || e.closed_date || undefined;
+
+        const date = dateRaw ? formatDate(dateRaw) : undefined;
+
+        // Target (new API: `target`, legacy fallback: infer from `counterparties` if possible)
+        const legacyCounterparties = Array.isArray(e.counterparties)
+          ? e.counterparties
+          : [];
+        const legacyTarget =
+          legacyCounterparties.find((c) =>
+            String(c?.counterparty_status || "").toLowerCase().includes("target")
+          ) || legacyCounterparties[0];
+
+        const targetCompanyId: number | undefined =
+          typeof e.target?.company_id === "number"
+            ? e.target.company_id
+            : typeof legacyTarget?.company_id === "number"
+              ? legacyTarget.company_id
+              : undefined;
+        const targetCompanyName: string | undefined =
+          typeof e.target?.company_name === "string" && e.target.company_name
+            ? e.target.company_name
+            : typeof legacyTarget?.company_name === "string" && legacyTarget.company_name
+              ? legacyTarget.company_name
+              : undefined;
+
+        const target =
+          targetCompanyId && targetCompanyName ? (
+            <a
+              href={`/company/${targetCompanyId}`}
+              className="text-blue-600 hover:underline"
+            >
+              {targetCompanyName}
+            </a>
+          ) : undefined;
+
+        // Investors (new API: `investors`, legacy fallback: infer from `counterparties`)
+        const investorsArr = Array.isArray(e.investors)
+          ? e.investors
+          : legacyCounterparties.filter((c) => {
+              const status = String(c?.counterparty_status || "").toLowerCase();
+              return status && !status.includes("target");
+            });
+
+        const investors =
+          Array.isArray(investorsArr) && investorsArr.length > 0 ? (
+            <>
+              {investorsArr.map((inv, idx) => {
+                const name = String(inv?.company_name || "");
+                const id = inv?.company_id;
+                const content =
+                  typeof id === "number" && name ? (
+                    <a
+                      href={`/company/${id}`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      {name}
+                    </a>
+                  ) : (
+                    <span>{name || "N/A"}</span>
+                  );
+                return (
+                  <span key={typeof id === "number" ? id : idx}>
+                    {content}
+                    {idx < investorsArr.length - 1 && ", "}
+                  </span>
+                );
+              })}
+            </>
+          ) : undefined;
+
+        return {
+          id: e.id,
+          title: e.description || "View event",
+          date,
+          dealType,
+          target,
+          investors,
+        };
+      })
       .sort((a, b) => b.id - a.id);
 
   // Fetch related transactions + related insights (by primary sector), once we know primary sector id.
