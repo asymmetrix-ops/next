@@ -157,10 +157,11 @@ const SectorCard = ({
       "div",
       {
         style: {
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
+          display: "flex",
+          flexDirection: "column" as const,
           gap: "10px",
           fontSize: "12px",
+          width: "100%",
         },
       },
       React.createElement(
@@ -172,6 +173,7 @@ const SectorCard = ({
             padding: "8px",
             backgroundColor: "#f9fafb",
             borderRadius: "6px",
+            width: "100%",
           },
         },
         React.createElement(
@@ -194,6 +196,7 @@ const SectorCard = ({
             padding: "8px",
             backgroundColor: "#f9fafb",
             borderRadius: "6px",
+            width: "100%",
           },
         },
         React.createElement(
@@ -216,6 +219,7 @@ const SectorCard = ({
             padding: "8px",
             backgroundColor: "#f9fafb",
             borderRadius: "6px",
+            width: "100%",
           },
         },
         React.createElement(
@@ -238,6 +242,7 @@ const SectorCard = ({
             padding: "8px",
             backgroundColor: "#f9fafb",
             borderRadius: "6px",
+            width: "100%",
           },
         },
         React.createElement(
@@ -260,7 +265,7 @@ const SectorCard = ({
             padding: "8px",
             backgroundColor: "#f9fafb",
             borderRadius: "6px",
-            gridColumn: "1 / -1",
+            width: "100%",
           },
         },
         React.createElement(

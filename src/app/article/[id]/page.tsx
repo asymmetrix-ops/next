@@ -1299,7 +1299,7 @@ const ArticleDetailPage = () => {
                         style={{
                           ...styles.sectionTitle,
                           marginBottom: "12px",
-                        }}
+                         }}
                       >
                          Company Snapshot
                       </h2>
