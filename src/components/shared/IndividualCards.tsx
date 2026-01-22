@@ -2,14 +2,12 @@
 
 import React from "react";
 import Link from "next/link";
-import { LinkedInProfileButton } from "@/components/redesign/LinkedInProfileButton";
 
 export interface IndividualCardItem {
   id?: number;
   name: string;
   jobTitles: string[];
   individualId?: number;
-  linkedinUrl?: string;
   onClick?: () => void;
 }
 
@@ -61,7 +59,7 @@ const IndividualCards: React.FC<IndividualCardsProps> = ({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
           gap: "12px",
         }}
         className="management-grid"
@@ -91,39 +89,26 @@ const IndividualCards: React.FC<IndividualCardsProps> = ({
             >
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "8px",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "#0075df",
                   marginBottom: "4px",
                 }}
               >
-                <div
-                  style={{
-                    fontSize: "14px",
-                    fontWeight: 600,
-                    color: "#0075df",
-                    minWidth: 0,
-                  }}
-                >
-                  {person.individualId ? (
-                    <Link
-                      href={`/individual/${person.individualId}`}
-                      style={{
-                        color: "#0075df",
-                        textDecoration: "underline",
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {person.name}
-                    </Link>
-                  ) : (
-                    person.name
-                  )}
-                </div>
-                {person.linkedinUrl ? (
-                  <LinkedInProfileButton href={person.linkedinUrl} size={18} />
-                ) : null}
+                {person.individualId ? (
+                  <Link
+                    href={`/individual/${person.individualId}`}
+                    style={{
+                      color: "#0075df",
+                      textDecoration: "underline",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {person.name}
+                  </Link>
+                ) : (
+                  person.name
+                )}
               </div>
               <div
                 style={{

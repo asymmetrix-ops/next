@@ -3,12 +3,8 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CorporateEventDealMetrics } from "./CorporateEventDealMetrics";
-import { normalizeEntityHref } from "@/lib/corporateEventEntityHref";
-import {
-  resolveAdvisorDisplayName,
-  resolveAdvisorRouteId,
-} from "./corporateEventsPartyLinks";
 
+// Types compatible with both company and investor pages
 interface LegacyCorporateEvent {
   id?: number;
   description: string;
@@ -52,7 +48,6 @@ interface LegacyCorporateEvent {
     path?: string;
     route?: string;
     entity_type?: string;
-    hq_country_iso2?: string | null;
   }>;
   target_label?: string;
   other_counterparties?: Array<{
@@ -103,31 +98,19 @@ interface NewTargetEntity {
   name: string;
   page_type?: string;
   route?: string;
-  path?: string;
-  entity_type?: string;
-  is_investor?: boolean;
   counterparty_announcement_url?: string;
-  hq_country_iso2?: string | null;
 }
 
 interface NewCounterpartyMinimal {
   id: number;
   name: string;
   page_type?: string;
-  route?: string;
-  path?: string;
-  entity_type?: string;
-  is_investor?: boolean;
 }
 
 interface NewOtherCounterparty {
   id?: number;
   name?: string;
   page_type?: string;
-  route?: string;
-  path?: string;
-  entity_type?: string;
-  is_investor?: boolean;
   counterparty_id?: number;
   counterparty_status?: string;
   _new_company?: {
@@ -148,18 +131,10 @@ interface NewCorporateEvent {
   description?: string;
   announcement_date?: string;
   deal_type?: string;
-  // New API field (present in Get_new_company.new_counterparties items)
-  target_hq_country?: string | null;
-  // Some endpoints / exports may use this legacy-ish naming
-  target_hq?: string | null;
   target_company?: {
     id?: number;
     name?: string;
     page_type?: string;
-    route?: string;
-    path?: string;
-    entity_type?: string;
-    is_investor?: boolean;
   };
   targets?: NewTargetEntity[];
   target_label?: string;
@@ -261,6 +236,17 @@ const truncateDescription = (
     ? description.substring(0, maxLength) + "..."
     : description;
   return { text: truncated, isLong };
+};
+
+const sanitizeAmountValue = (
+  value?: number | string | null
+): number | string | null => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return value;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  const num = Number(trimmed.replace(/,/g, ""));
+  return Number.isNaN(num) ? trimmed : num;
 };
 
 export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
@@ -382,16 +368,15 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                   newEvent.deal_type || legacyEvent.deal_type || ""
                 );
 
+                // Extract target info
+                const targets = newEvent.targets;
                 const legacyTarget =
                   newEvent.target_counterparty?.new_company ||
                   newEvent.target_counterparty?._new_company;
+                const legacyTargetId =
+                  newEvent.target_counterparty?.new_company_counterparty;
                 const targetCountry =
-                  (typeof newEvent.target_hq_country === "string" &&
-                    newEvent.target_hq_country.trim()) ||
-                  (typeof newEvent.target_hq === "string" &&
-                    newEvent.target_hq.trim()) ||
-                  legacyTarget?._location?.Country ||
-                  "Not Available";
+                  legacyTarget?._location?.Country || "Not Available";
 
                 // Get advisors
                 const newAdvisors = newEvent.advisors || [];
@@ -403,8 +388,8 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                   : [];
                 const advisorList = [
                   ...newAdvisors.map((a) => ({
-                    id: resolveAdvisorRouteId(a),
-                    name: resolveAdvisorDisplayName(a),
+                    id: a.advisor_company?.id || a._new_company?.id,
+                    name: a.advisor_company?.name || a._new_company?.name || "",
                   })),
                   ...legacyAdvisors.map((a) => ({
                     id: a._new_company?.id,
@@ -416,14 +401,59 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                   })),
                 ].filter((a) => Boolean(a.name));
 
+                // Extract deal metrics
                 const anyEvent = event as unknown as {
                   investment_data?: {
+                    investment_amount_m?: number | string;
+                    investment_amount?: number | string;
+                    currency?: string | { Currency?: string };
+                    _currency?: { Currency?: string };
+                    currency_id?: number | string;
                     Funding_stage?: string;
                     funding_stage?: string;
+                    investment_amount_url?: string | null;
+                  };
+                  ev_data?: {
+                    enterprise_value_m?: number | string;
+                    ev_band?: string;
+                    currency?: { Currency?: string };
+                    _currency?: { Currency?: string };
                   };
                 };
 
                 const dealType = newEvent.deal_type || legacyEvent.deal_type;
+                const amountDisplay = newEvent.investment_display || null;
+                const amountRaw =
+                  anyEvent.investment_data?.investment_amount_m ??
+                  anyEvent.investment_data?.investment_amount ??
+                  null;
+                const amountMillions = sanitizeAmountValue(amountRaw);
+                // Handle both string format (new API) and object format (legacy)
+                const amountCurrency: string | undefined =
+                  typeof anyEvent.investment_data?.currency === "string"
+                    ? anyEvent.investment_data.currency
+                    : anyEvent.investment_data?.currency?.Currency ||
+                      anyEvent.investment_data?._currency?.Currency;
+                      
+
+                const evDataRaw = legacyEvent.ev_data || newEvent.ev_data;
+                const evMillions = sanitizeAmountValue(
+                  evDataRaw?.enterprise_value_m ?? null
+                );
+                const evCurrency: string | undefined =
+                  evDataRaw?._currency?.Currency ||
+                  evDataRaw?.currency?.Currency;
+                const hasEvNumeric =
+                  evMillions !== null &&
+                  typeof evCurrency === "string" &&
+                  evCurrency.trim().length > 0;
+                const evDisplay = hasEvNumeric
+                  ? null
+                  : (newEvent.ev_display || null);
+                const evBandFallback = hasEvNumeric
+                  ? null
+                  : evDataRaw?.ev_band || null;
+
                 const fundingStage = (
                   anyEvent.investment_data?.Funding_stage ||
                   anyEvent.investment_data?.funding_stage ||
@@ -500,6 +530,86 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                         fontSize: "12px",
                       }}
                     >
+                      {/* Target */}
+                      <div style={{ marginBottom: "4px" }}>
+                        <strong>
+                          {newEvent.target_label ||
+                            (isPartnership ? "Target(s)" : "Target")}
+                          :
+                        </strong>{" "}
+                        {(() => {
+                          // Use new targets array if available
+                          if (Array.isArray(targets) && targets.length > 0) {
+                            const displayTargets = isPartnership
+                              ? targets
+                              : targets.slice(0, 1);
+                            return displayTargets.map((tgt, i, arr) => {
+                              const pageType =
+                                tgt.page_type === "investor"
+                                  ? "investors"
+                                  : tgt.route === "investor" ||
+                                    tgt.route === "investors"
+                                  ? "investors"
+                                  : "company";
+                              const href = `/${pageType}/${tgt.id}`;
+                              return (
+                                <span key={`tgt-${tgt.id}-${i}`}>
+                                  <a
+                                    href={href}
+                                    style={{
+                                      color: "#3b82f6",
+                                      textDecoration: "underline",
+                                    }}
+                                  >
+                                    {tgt.name}
+                                  </a>
+                                  {i < arr.length - 1 && ", "}
+                                </span>
+                              );
+                            });
+                          }
+                          // Fallback to legacy target
+                          if (legacyTarget?.name && legacyTargetId) {
+                            return (
+                              <a
+                                href={`/company/${legacyTargetId}`}
+                                style={{
+                                  color: "#3b82f6",
+                                  textDecoration: "underline",
+                                }}
+                              >
+                                {legacyTarget.name}
+                              </a>
+                            );
+                          }
+                          // Fallback to target_company
+                          if (newEvent.target_company?.name) {
+                            const pageType =
+                              newEvent.target_company.page_type === "investor"
+                                ? "investors"
+                                : "company";
+                            const href = newEvent.target_company.id
+                              ? `/${pageType}/${newEvent.target_company.id}`
+                              : undefined;
+                            if (href) {
+                              return (
+                                <a
+                                  href={href}
+                                  style={{
+                                    color: "#3b82f6",
+                                    textDecoration: "underline",
+                                  }}
+                                >
+                                  {newEvent.target_company.name}
+                                </a>
+                              );
+                            }
+                            return <span>{newEvent.target_company.name}</span>;
+                          }
+                          return "Not Available";
+                        })()}
+                      </div>
+
                       {/* Buyers (skip for partnerships) */}
                       {!isPartnership && (() => {
                         // Extract buyers separately
@@ -518,17 +628,11 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               // Only buyers/acquirers, not investors
                               if (status.includes("acquirer") || status.includes("buyer")) {
                                 if ("id" in cp && "name" in cp && cp.id && cp.name) {
+                                  const pageType = cp.page_type === "investor" ? "investors" : "company";
                                   buyers.push({
                                     id: cp.id,
                                     name: cp.name,
-                                    href: normalizeEntityHref({
-                                      id: cp.id,
-                                      route: cp.route,
-                                      page_type: cp.page_type,
-                                      path: cp.path,
-                                      entity_type: cp.entity_type,
-                                      is_investor: cp.is_investor,
-                                    }),
+                                    href: `/${pageType}/${cp.id}`,
                                   });
                                 } else if ("_new_company" in cp && cp._new_company?.name && !cp._new_company?._is_that_investor) {
                                   const href = cp._new_company.id
@@ -549,14 +653,9 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                         if (buyers.length === 0 && Array.isArray(newEvent.buyers) && newEvent.buyers.length > 0) {
                           newEvent.buyers.forEach((c) => {
                             if (c && typeof c.id === "number" && c.name) {
-                              const href = normalizeEntityHref({
-                                id: c.id,
-                                route: c.route,
-                                page_type: c.page_type,
-                                path: c.path,
-                                entity_type: c.entity_type,
-                                is_investor: c.is_investor,
-                              });
+                              const href = c.page_type === "investor"
+                                ? `/investors/${c.id}`
+                                : `/company/${c.id}`;
                               buyers.push({ id: c.id, name: c.name, href });
                             }
                           });
@@ -644,16 +743,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                   investors.push({
                                     id: cp.id,
                                     name: cp.name,
-                                    href: normalizeEntityHref({
-                                      id: cp.id,
-                                      route: cp.route,
-                                      page_type: cp.page_type,
-                                      path: cp.path,
-                                      entity_type: cp.entity_type,
-                                      is_investor:
-                                        cp.is_investor ?? true,
-                                      isInvestorHint: true,
-                                    }),
+                                    href: `/investors/${cp.id}`,
                                   });
                                 } else if ("_new_company" in cp && cp._new_company?.name && cp._new_company?._is_that_investor) {
                                   const href = cp._new_company.id
@@ -677,16 +767,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               investors.push({
                                 id: c.id,
                                 name: c.name,
-                                href:
-                                  normalizeEntityHref({
-                                    id: c.id,
-                                    route: c.route,
-                                    page_type: c.page_type,
-                                    path: c.path,
-                                    entity_type: c.entity_type,
-                                    is_investor: c.is_investor,
-                                    isInvestorHint: true,
-                                  }) ?? null,
+                                href: `/investors/${c.id}`,
                               });
                             }
                           });
@@ -705,16 +786,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               investors.push({
                                 id: c.id,
                                 name: c.name,
-                                href:
-                                  normalizeEntityHref({
-                                    id: c.id,
-                                    route: c.route,
-                                    page_type: c.page_type,
-                                    path: c.path,
-                                    entity_type: c.entity_type,
-                                    is_investor: c.is_investor,
-                                    isInvestorHint: true,
-                                  }) ?? null,
+                                href: `/investors/${c.id}`,
                               });
                             }
                           });
@@ -770,14 +842,9 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                         if (Array.isArray(newEvent.sellers) && newEvent.sellers.length > 0) {
                           newEvent.sellers.forEach((seller) => {
                             if (seller && typeof seller.id === "number" && seller.name) {
-                              const href = normalizeEntityHref({
-                                id: seller.id,
-                                route: seller.route,
-                                page_type: seller.page_type,
-                                path: seller.path,
-                                entity_type: seller.entity_type,
-                                is_investor: seller.is_investor,
-                              });
+                              const href = seller.page_type === "investor"
+                                    ? `/investors/${seller.id}`
+                                    : `/company/${seller.id}`;
                               sellers.push({
                                 id: seller.id,
                                 name: seller.name,
@@ -797,17 +864,11 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               const status = cp.counterparty_status.toLowerCase();
                               if (status.includes("divestor") || status.includes("seller")) {
                                 if ("id" in cp && "name" in cp && cp.id && cp.name) {
+                                  const pageType = cp.page_type === "investor" ? "investors" : "company";
                                   sellers.push({
                                     id: cp.id,
                                     name: cp.name,
-                                    href: normalizeEntityHref({
-                                      id: cp.id,
-                                      route: cp.route,
-                                      page_type: cp.page_type,
-                                      path: cp.path,
-                                      entity_type: cp.entity_type,
-                                      is_investor: cp.is_investor,
-                                    }),
+                                    href: `/${pageType}/${cp.id}`,
                                   });
                                 } else if ("_new_company" in cp && cp._new_company?.name) {
                                   const id = cp._new_company.id;
@@ -867,7 +928,13 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                         dealType={dealType}
                         fundingStage={fundingStage || undefined}
                         isPartnership={isPartnership}
-                        event={event}
+                        amountDisplay={amountDisplay}
+                        amountMillions={amountMillions}
+                        amountCurrency={amountCurrency}
+                        evDisplay={evDisplay}
+                        evMillions={evMillions}
+                        evCurrency={evCurrency}
+                        evBandFallback={evBandFallback}
                       />
                     </td>
 

@@ -3,20 +3,9 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import type { ContentArticle } from "@/types/insightsAnalysis";
-import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
-import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
-import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
-
-const INSIGHT_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
 interface InsightsAnalysisCardProps {
   article: ContentArticle;
-  /**
-   * Optional link override (e.g. add tracking query params).
-   * Defaults to `/article/${article.id}`.
-   * Pass `null` to render a non-clickable card (no navigation).
-   */
-  href?: string | null;
   /**
    * When true, shows companies and sector metadata.
    * On contextual surfaces (company / corporate event detail pages),
@@ -28,10 +17,6 @@ interface InsightsAnalysisCardProps {
    * instead of in the header row. This allows the title to span full width.
    */
   badgeBelowDate?: boolean;
-  /**
-   * When true, renders the extracted article body preview below the strapline.
-   */
-  showBodyPreview?: boolean;
   /**
    * Meta rendering style.
    * - text: legacy "Companies: a, b, c" (compact)
@@ -73,107 +58,12 @@ const decodeHtmlEntities = (input: string): string => {
     .replace(/&#39;|&apos;/g, "'");
 };
 
-const normalizePreviewText = (text: string): string =>
-  decodeHtmlEntities(text).replace(/\s+/g, " ").trim();
-
-const extractStructuredPreviewBlocks = (root: ParentNode): string[] => {
-  const blocks: string[] = [];
-
-  const pushBlock = (value: string) => {
-    const normalized = normalizePreviewText(value);
-    if (normalized) blocks.push(normalized);
-  };
-
-  const splitLeadingLabel = (el: Element): string[] => {
-    const fullText = normalizePreviewText(el.textContent || "");
-    if (!fullText) return [];
-
-    const firstElementChild = el.firstElementChild;
-    const firstTag = firstElementChild?.tagName.toLowerCase();
-    const firstLabel =
-      firstTag && ["strong", "b"].includes(firstTag)
-        ? normalizePreviewText(firstElementChild?.textContent || "")
-        : "";
-
-    if (!firstLabel) return [fullText];
-
-    const remainingText = normalizePreviewText(
-      fullText.slice(firstLabel.length).trim()
-    );
-
-    if (
-      remainingText &&
-      firstLabel.length <= 48 &&
-      /^[A-Z][A-Za-z0-9&/,\-()' ]+$/.test(firstLabel)
-    ) {
-      return [firstLabel, remainingText];
-    }
-
-    return [fullText];
-  };
-
-  const blockElements = Array.from(
-    root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,blockquote")
-  );
-
-  for (const el of blockElements) {
-    const tag = el.tagName.toLowerCase();
-    if (tag.startsWith("h")) {
-      pushBlock(el.textContent || "");
-      continue;
-    }
-
-    for (const part of splitLeadingLabel(el)) {
-      pushBlock(part);
-    }
-  }
-
-  return blocks;
-};
-
-const extractBodyPreviewText = (html: string | undefined | null): string => {
+const stripHtmlToText = (html: string | undefined | null): string => {
   if (!html) return "";
-
-  if (typeof window !== "undefined") {
-    const div = document.createElement("div");
-    div.innerHTML = html;
-
-    // Remove non-preview content and section headings so the card excerpt reads
-    // like the detail page paragraph preview rather than a flattened document dump.
-    div
-      .querySelectorAll(
-        "script,style,iframe,embed,object,video,audio,figure,img,svg,table"
-      )
-      .forEach((el) => el.remove());
-
-    const previewBlocks = extractStructuredPreviewBlocks(div);
-
-    if (previewBlocks.length > 0) {
-      return previewBlocks.slice(0, 3).join("\n\n");
-    }
-
-    return normalizePreviewText(div.textContent || div.innerText || "");
-  }
-
-  // Server-side fallback: preserve paragraph/list boundaries so words do not
-  // collapse together when headings or block elements are removed.
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(h[1-6]|p|li|div|blockquote|section|article|tr)>/gi, "\n\n")
-    .replace(
-      /<(strong|b)[^>]*>\s*([^<]{1,48})\s*<\/\1>\s*/gi,
-      (_match, _tag, label: string) => `${label}\n\n`
-    )
-    .replace(/&amp;/g, "&")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  // First decode entities, then strip tags and collapse whitespace
+  const decoded = decodeHtmlEntities(html);
+  const withoutTags = decoded.replace(/<[^>]*>/g, " ");
+  return withoutTags.replace(/\s+/g, " ").trim();
 };
 
 const formatSectors = (
@@ -264,15 +154,12 @@ const inferContentTypeFromHeadline = (headline: unknown): string | undefined => 
   const known = new Map<string, string>([
     ["company analysis", "Company Analysis"],
     ["deal analysis", "Deal Analysis"],
-    ["deal perspective", "Deal Perspective"],
-    ["market commentary", "Market Commentary"],
     ["sector analysis", "Sector Analysis"],
     ["hot take", "Hot Take"],
     ["executive interview", "Executive Interview"],
   ]);
   return known.get(c) || undefined;
 };
-
 
 const badgeClassFor = (contentType?: string): React.CSSProperties => {
   const base: React.CSSProperties = {
@@ -302,22 +189,6 @@ const badgeClassFor = (contentType?: string): React.CSSProperties => {
       borderColor: "#bfdbfe",
     };
   }
-  if (t === "deal perspective") {
-    return {
-      ...base,
-      backgroundColor: "#ecfeff",
-      color: "#155e75",
-      borderColor: "#a5f3fc",
-    };
-  }
-  if (t === "market commentary") {
-    return {
-      ...base,
-      backgroundColor: "#fefce8",
-      color: "#854d0e",
-      borderColor: "#fde68a",
-    };
-  }
   if (t === "sector analysis") {
     return {
       ...base,
@@ -342,14 +213,6 @@ const badgeClassFor = (contentType?: string): React.CSSProperties => {
       borderColor: "#bbf7d0",
     };
   }
-  if (t === "news") {
-    return {
-      ...base,
-      backgroundColor: "#fff1f2",
-      color: "#9f1239",
-      borderColor: "#fecdd3",
-    };
-  }
 
   return {
     ...base,
@@ -361,34 +224,11 @@ const badgeClassFor = (contentType?: string): React.CSSProperties => {
 
 export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
   article,
-  href,
   showMeta = true,
   badgeBelowDate = false,
-  showBodyPreview = true,
   metaStyle = "text",
 }) => {
   const router = useRouter();
-  const linkHref = href === null ? null : href ?? `/article/${article.id}`;
-  const isClickable = linkHref !== null;
-
-  const transactionStatusBadgeStyle: React.CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    fontSize: 11,
-    lineHeight: 1,
-    padding: "5px 10px",
-    borderRadius: 9999,
-    border: "1.5px solid #4ade80",
-    fontWeight: 700,
-    letterSpacing: "0.03em",
-    textTransform: "uppercase",
-    backgroundColor: "#dcfce7",
-    color: "#166534",
-    whiteSpace: "nowrap",
-    maxWidth: "100%",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  };
 
   // Robust content type detection across backend shapes
   const effectiveContentType = React.useMemo(() => {
@@ -408,19 +248,14 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
     [article.Headline]
   );
 
-  const hqCountryIso2 = React.useMemo(
-    () => getInsightHqCountryIso2(article),
-    [article]
-  );
-
   const plainStrapline = React.useMemo(
     () => decodeHtmlEntities(article.Strapline),
     [article.Strapline]
   );
 
-  const plainBodyPreview = React.useMemo(
-    () => (showBodyPreview ? extractBodyPreviewText(article.Body) : ""),
-    [article.Body, showBodyPreview]
+  const plainBody = React.useMemo(
+    () => stripHtmlToText(article.Body),
+    [article.Body]
   );
 
   const companyNames = React.useMemo(
@@ -433,10 +268,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
     [article.sectors]
   );
 
-  const isNews = (effectiveContentType || "").toLowerCase() === "news";
-
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (!isClickable || !linkHref) return;
     if (
       e.defaultPrevented ||
       e.button !== 0 ||
@@ -448,71 +280,46 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
       return;
     }
     e.preventDefault();
-    router.push(linkHref);
+    router.push(`/article/${article.id}`);
   };
 
-  const defaultBoxShadow = isNews
-    ? "0 1px 3px rgba(0, 0, 0, 0.08)"
-    : "0 4px 10px rgba(15, 23, 42, 0.08)";
-  const hoverBoxShadow = isNews
-    ? "0 8px 24px rgba(225, 29, 72, 0.12)"
-    : "0 10px 30px rgba(15, 23, 42, 0.18)";
-
-  const shellStyle: React.CSSProperties = {
-    display: "block",
-    width: "100%",
-    maxWidth: "100%",
-    boxSizing: "border-box",
-    background: isNews
-      ? "linear-gradient(180deg, #ffffff 0%, #fffafb 100%)"
-      : "#ffffff",
-    borderRadius: 12,
-    boxShadow: defaultBoxShadow,
-    border: isNews ? "1px solid #fecdd3" : "1px solid #e2e8f0",
-    borderLeft: isNews ? "4px solid #e11d48" : undefined,
-    padding: 20,
-    textDecoration: "none",
-    color: "inherit",
-    transition: isClickable
-      ? "transform 0.15s ease, box-shadow 0.15s ease"
-      : undefined,
-    overflow: "hidden",
-    wordWrap: "break-word",
-    overflowWrap: "break-word",
-    cursor: isClickable ? "pointer" : "default",
-  };
-
-  const shellProps =
-    isClickable && linkHref
-      ? ({
-          href: linkHref,
-          onClick: handleClick,
-          onMouseEnter: (e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.boxShadow = hoverBoxShadow;
-          },
-          onMouseLeave: (e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = defaultBoxShadow;
-          },
-        } satisfies React.AnchorHTMLAttributes<HTMLAnchorElement>)
-      : ({
-          role: "group",
-          tabIndex: -1,
-        } satisfies React.HTMLAttributes<HTMLDivElement>);
-
-  return React.createElement(
-    isClickable ? "a" : "div",
-    {
-      ...shellProps,
-      className: isNews ? "content-card content-card--news" : "content-card",
-      style: shellStyle,
-    },
-    <>
+  return (
+    <a
+      href={`/article/${article.id}`}
+      onClick={handleClick}
+      className="content-card"
+      style={{
+        display: "block",
+        width: "100%",
+        maxWidth: "100%",
+        boxSizing: "border-box",
+        backgroundColor: "#ffffff",
+        borderRadius: 12,
+        boxShadow: "0 4px 10px rgba(15, 23, 42, 0.08)",
+        border: "1px solid #e2e8f0",
+        padding: 20,
+        textDecoration: "none",
+        color: "inherit",
+        transition: "transform 0.15s ease, box-shadow 0.15s ease",
+        overflow: "hidden",
+        wordWrap: "break-word",
+        overflowWrap: "break-word",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget.style.transform = "translateY(-2px)");
+        e.currentTarget.style.boxShadow =
+          "0 10px 30px rgba(15, 23, 42, 0.18)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow =
+          "0 4px 10px rgba(15, 23, 42, 0.08)";
+      }}
+    >
       <div className="card-header">
         {badgeBelowDate ? (
           <>
-            {/* Title (full width, never squeezed) */}
+            {/* Title (full width) */}
             <h3
               className="card-title"
               style={{
@@ -524,16 +331,9 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
                 wordWrap: "break-word",
                 overflowWrap: "break-word",
                 maxWidth: "100%",
-                display: "flex",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 8,
               }}
             >
               {plainHeadline || "Not available"}
-              {hqCountryIso2 ? (
-                <CountryFlagImg iso2={hqCountryIso2} size={INSIGHT_FLAG_SIZE_PX} />
-              ) : null}
             </h3>
 
             {/* Date */}
@@ -548,17 +348,6 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
             >
               {formatDate(article.Publication_Date)}
             </p>
-
-            {article.Transaction_status && (
-              <div style={{ marginBottom: 10 }}>
-                <span
-                  className="transaction-status-badge"
-                  style={transactionStatusBadgeStyle}
-                >
-                  {article.Transaction_status}
-                </span>
-              </div>
-            )}
 
             {/* Badge (below date) */}
             {effectiveContentType && (
@@ -597,16 +386,9 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
                   minWidth: 0,
                   wordWrap: "break-word",
                   overflowWrap: "break-word",
-                  display: "flex",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: 8,
                 }}
               >
                 {plainHeadline || "Not available"}
-                {hqCountryIso2 ? (
-                  <CountryFlagImg iso2={hqCountryIso2} size={INSIGHT_FLAG_SIZE_PX} />
-                ) : null}
               </h3>
               {effectiveContentType && (
                 <span
@@ -632,17 +414,6 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
             >
               {formatDate(article.Publication_Date)}
             </p>
-
-            {article.Transaction_status && (
-              <div style={{ marginBottom: 10 }}>
-                <span
-                  className="transaction-status-badge"
-                  style={transactionStatusBadgeStyle}
-                >
-                  {article.Transaction_status}
-                </span>
-              </div>
-            )}
           </>
         )}
       </div>
@@ -653,11 +424,11 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
           <p
             className="strapline"
             style={{
-              fontSize: 15,
+              fontSize: 14,
               color: "#374151",
-              lineHeight: 1.6,
-              margin: "0 0 12px 0",
-              fontStyle: "italic",
+              lineHeight: 1.5,
+              margin: "0 0 10px 0",
+              fontWeight: 500,
               wordWrap: "break-word",
               overflowWrap: "break-word",
               maxWidth: "100%",
@@ -668,7 +439,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
         )}
 
         {/* First three lines of main content body */}
-        {plainBodyPreview && (
+        {plainBody && (
           <p
             className="description"
             style={{
@@ -681,13 +452,12 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
               WebkitBoxOrient: "vertical" as const,
               overflow: "hidden",
               textOverflow: "ellipsis",
-              whiteSpace: "pre-line",
               wordWrap: "break-word",
               overflowWrap: "break-word",
               maxWidth: "100%",
             }}
           >
-            {plainBodyPreview}
+            {plainBody}
           </p>
         )}
 
@@ -780,15 +550,15 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
             style={{
               fontSize: 13,
               fontWeight: 600,
-              color: isClickable ? "#2563eb" : "#9ca3af",
-              textDecoration: isClickable ? "underline" : "none",
+              color: "#2563eb",
+              textDecoration: "underline",
             }}
           >
-            {isClickable ? "Read More" : "Subscribers Only"}
+            Read More
           </span>
         </div>
       </div>
-    </>
+    </a>
   );
 };
 
