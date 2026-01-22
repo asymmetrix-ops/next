@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { openArticlePdfWindow } from "@/utils/exportArticlePdf";
+import { generateArticlePdfBlobUrl } from "@/utils/exportArticlePdf";
 import InlineAudioPlayer from "@/components/article/InlineAudioPlayer";
+import EmbeddedPdfViewer from "@/components/article/EmbeddedPdfViewer";
 
 // Types for the article detail page
 interface ArticleDetail {
@@ -311,6 +312,12 @@ const ArticleDetailPage = () => {
   const [companyOfFocus, setCompanyOfFocus] =
     useState<CompanyOfFocusApiItem | null>(null);
   const [companyOfFocusLoading, setCompanyOfFocusLoading] = useState(false);
+  // PDF viewer state
+  const [showPdfViewer, setShowPdfViewer] = useState(false);
+  // Can be a `blob:` URL (generated) or a remote URL (detected attachment)
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [detectedPdfUrl, setDetectedPdfUrl] = useState<string | null>(null);
   // Guard against rare runtime cases where search params may be unavailable during hydration
   const searchParams = useSearchParams() as unknown as {
     get?: (key: string) => string | null;
@@ -574,6 +581,40 @@ const ArticleDetailPage = () => {
     router.push("/insights-analysis");
   };
 
+  // Open embedded PDF viewer (LinkedIn-style)
+  const handleViewPdf = async () => {
+    if (!article) return;
+    setShowPdfViewer(true);
+    setPdfBlobUrl(null);
+
+    // If the API already provided a PDF attachment, use it directly (no generation)
+    if (detectedPdfUrl) {
+      setPdfLoading(false);
+      setPdfBlobUrl(detectedPdfUrl);
+      return;
+    }
+
+    setPdfLoading(true);
+
+    try {
+      const url = await generateArticlePdfBlobUrl(article);
+      setPdfBlobUrl(url);
+    } catch (err) {
+      console.error("PDF generation error:", err);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  // Close PDF viewer and cleanup
+  const handleClosePdfViewer = () => {
+    setShowPdfViewer(false);
+    if (pdfBlobUrl && pdfBlobUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(pdfBlobUrl);
+      setPdfBlobUrl(null);
+    }
+  };
+
   // Utilities to embed image attachments within the body content
   const escapeHtml = (str: string) =>
     str
@@ -743,6 +784,51 @@ const ArticleDetailPage = () => {
     return /(\.(mp3|m4a|aac|wav|ogg|oga|opus|flac))($|\?)/i.test(nameOrUrl);
   };
 
+  const isPdfDoc = (doc: {
+    mime?: string;
+    type?: string;
+    url?: string;
+    path?: string;
+    name?: string;
+  }) => {
+    if (!doc) return false;
+    if (doc.mime && /^application\/pdf$/i.test(doc.mime)) return true;
+    if (doc.type && /^application\/pdf$/i.test(doc.type)) return true;
+    const nameOrUrl = `${doc.name || ""} ${doc.url || ""} ${doc.path || ""}`;
+    return /(\.pdf)($|\?)/i.test(nameOrUrl);
+  };
+
+  // Auto-detect PDF attachment (Xano vault URLs, etc.)
+  useEffect(() => {
+    if (!article) {
+      setDetectedPdfUrl(null);
+      return;
+    }
+
+    // 1) Check attachments
+    const pdfDocs = (article.Related_Documents || [])
+      .filter(Boolean)
+      .filter(isPdfDoc);
+    const firstAttachment = pdfDocs[0];
+    const attachmentUrl = firstAttachment
+      ? resolveDocumentUrl(firstAttachment)
+      : "";
+
+    // 2) Also detect embedded PDF iframes inside the HTML body:
+    //    e.g. <iframe src="https://.../vault/.../file.pdf"></iframe>
+    const bodyHtml = String(article.Body || "");
+    const iframePdfMatch = bodyHtml.match(
+      /<iframe[^>]*\bsrc=["']([^"']+\.pdf(?:\?[^"']*)?)["'][^>]*>/i
+    );
+    const embedPdfMatch = bodyHtml.match(
+      /<(?:embed|object)[^>]*(?:\bsrc|\bdata)=["']([^"']+\.pdf(?:\?[^"']*)?)["'][^>]*>/i
+    );
+    const bodyPdfUrlRaw = (iframePdfMatch?.[1] || embedPdfMatch?.[1] || "").trim();
+
+    const detected = attachmentUrl || bodyPdfUrlRaw;
+    setDetectedPdfUrl(detected || null);
+  }, [article]);
+
   const formatCompanyOfFocusYearFounded = (candidate: unknown): string => {
     if (candidate === null || candidate === undefined) return "Not available";
     const n = Number(candidate);
@@ -874,6 +960,19 @@ const ArticleDetailPage = () => {
               ) : null;
             })()}
 
+            {/* LinkedIn-style PDF carousel (auto-detected from attachments or embedded iframe) */}
+            {detectedPdfUrl && (
+              <EmbeddedPdfViewer
+                pdfUrl={detectedPdfUrl}
+                isLoading={false}
+                onClose={() => {
+                  // Inline mode: no-op close (keep the control if we ever switch to modal)
+                }}
+                articleTitle={article.Headline}
+                variant="inline"
+              />
+            )}
+
             {/* Inline Audio (audio-only interview / listen module) */}
             {(() => {
               const audioDocs = (article.Related_Documents || [])
@@ -909,6 +1008,17 @@ const ArticleDetailPage = () => {
 
             {/* Article Body with embedded images from attachments */}
             {(() => {
+              // Remove embedded PDF viewers from the HTML body, so we don't render the browser's PDF UI.
+              const bodyWithoutPdfEmbeds = String(article.Body || "")
+                .replace(
+                  /<iframe[^>]*\bsrc=["'][^"']+\.pdf(?:\?[^"']*)?["'][^>]*>[\s\S]*?<\/iframe>/gi,
+                  ""
+                )
+                .replace(
+                  /<(?:embed|object)[^>]*(?:\bsrc|\bdata)=["'][^"']+\.pdf(?:\?[^"']*)?["'][^>]*>[\s\S]*?<\/(?:embed|object)>/gi,
+                  ""
+                );
+
               const allImageDocs = (article.Related_Documents || [])
                 .filter(Boolean)
                 .filter(isImageDoc)
@@ -920,7 +1030,7 @@ const ArticleDetailPage = () => {
                 }))
                 .filter((d) => Boolean(d.url));
               const { html: withPlaceholders, usedIndices } =
-                replaceImagePlaceholders(article.Body, allImageDocs);
+                replaceImagePlaceholders(bodyWithoutPdfEmbeds, allImageDocs);
               const remainingImages = allImageDocs.filter(
                 (_, idx) => !usedIndices.has(idx)
               );
@@ -987,19 +1097,16 @@ const ArticleDetailPage = () => {
                 <p style={{ ...styles.date, marginBottom: 0 }}>
                   {formatDate(article.Publication_Date)}
                 </p>
-                {/* Export PDF Button */}
+                {/* View PDF Button (auto-detect attachment; otherwise generate) */}
                 {ENABLE_PDF_EXPORT && (
                   <button
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      openArticlePdfWindow(article).catch((err) => {
-                        console.error("PDF export error:", err);
-                        alert("Failed to export PDF. Please try again.");
-                      });
+                      handleViewPdf();
                     }}
                     style={{
-                      backgroundColor: "#38a169",
+                      backgroundColor: "#0a66c2",
                       color: "white",
                       fontWeight: 600,
                       padding: "12px 18px",
@@ -1014,17 +1121,36 @@ const ArticleDetailPage = () => {
                       minWidth: "120px",
                       touchAction: "manipulation",
                       WebkitTapHighlightColor: "transparent",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "8px",
                     }}
                     onMouseOver={(e) =>
                       ((e.target as HTMLButtonElement).style.backgroundColor =
-                        "#2f855a")
+                        "#004182")
                     }
                     onMouseOut={(e) =>
                       ((e.target as HTMLButtonElement).style.backgroundColor =
-                        "#38a169")
+                        "#0a66c2")
                     }
                   >
-                    Export PDF
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ flexShrink: 0 }}
+                    >
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                    {detectedPdfUrl ? "View PDF" : "Generate PDF"}
                   </button>
                 )}
               </div>
@@ -1622,6 +1748,18 @@ const ArticleDetailPage = () => {
         </div>
       </div>
       <Footer />
+
+      {/* Embedded PDF Viewer Modal (manual open/generate) */}
+      {showPdfViewer && (
+        <EmbeddedPdfViewer
+          pdfUrl={pdfBlobUrl}
+          isLoading={pdfLoading}
+          onClose={handleClosePdfViewer}
+          articleTitle={article.Headline}
+          variant="modal"
+        />
+      )}
+
       <style
         dangerouslySetInnerHTML={{
           __html: `

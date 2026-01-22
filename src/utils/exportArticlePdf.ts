@@ -86,8 +86,13 @@ function ensureHtml2Pdf(): Promise<void> {
   return html2pdfLoaded;
 }
 
-export async function openArticlePdfWindow(article: ExportableArticle) {
-  // Prefer external PDF service; fallback to client-side html2pdf on failure.
+/**
+ * Generate PDF and return blob URL for embedding (LinkedIn-style viewer).
+ * Returns null on failure.
+ */
+export async function generateArticlePdfBlobUrl(
+  article: ExportableArticle
+): Promise<string | null> {
   try {
     const ct = (
       article.Content_Type ||
@@ -196,7 +201,6 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
 
     // Log payload and endpoint to browser console
     try {
-      // Avoid mutating payload; shallow clone for readability
       // eslint-disable-next-line no-console
       console.log("[PDF Export] POST", endpoint, { ...payload });
     } catch {}
@@ -206,25 +210,35 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+
     if (res.ok) {
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const headline = (article.Headline || "Article")
-        .toString()
-        .replace(/[\\/:*?"<>|]/g, " ")
-        .slice(0, 180);
-      a.download = `Asymmetrix - ${headline}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 3000);
-      return;
+      return URL.createObjectURL(blob);
     }
-  } catch {
-    // ignore and fallback
+  } catch (err) {
+    console.error("[PDF Export] Service error:", err);
   }
+  return null;
+}
+
+export async function openArticlePdfWindow(article: ExportableArticle) {
+  // Prefer external PDF service; fallback to client-side html2pdf on failure.
+  const blobUrl = await generateArticlePdfBlobUrl(article);
+  if (blobUrl) {
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    const headline = (article.Headline || "Article")
+      .toString()
+      .replace(/[\\/:*?"<>|]/g, " ")
+      .slice(0, 180);
+    a.download = `Asymmetrix - ${headline}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+    return;
+  }
+  // Fallback to client-side generation if service failed
   const ct = (
     article.Content_Type ||
     article.content_type ||

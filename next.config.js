@@ -101,6 +101,19 @@ const nextConfig = {
       },
     ];
   },
+  webpack: (config, { isServer }) => {
+    // pdfjs-dist includes an optional Node dependency (`canvas`) which we never
+    // want to bundle for the browser. Without this, Next can fail production builds.
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      canvas: false,
+    };
+    config.resolve.fallback = {
+      ...(config.resolve.fallback || {}),
+      canvas: false,
+    };
+    return config;
+  },
 };
 
 module.exports = nextConfig;
