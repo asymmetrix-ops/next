@@ -28,6 +28,7 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
   const [totalPages, setTotalPages] = useState(0);
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [pageLoading, setPageLoading] = useState(false);
+  const [zoom, setZoom] = useState(1);
   const [slideDirection, setSlideDirection] = useState<"left" | "right" | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   
@@ -35,6 +36,22 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const isModal = variant === "modal";
+
+  const canZoomOut = zoom > 0.75;
+  const canZoomIn = zoom < 3;
+
+  const zoomOut = useCallback(() => {
+    setZoom((z) => Math.max(0.75, Math.round((z - 0.25) * 100) / 100));
+  }, []);
+
+  const zoomIn = useCallback(() => {
+    setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100));
+  }, []);
+
+  const handleOpenOriginal = useCallback(() => {
+    if (!pdfUrl) return;
+    window.open(pdfUrl, "_blank", "noopener,noreferrer");
+  }, [pdfUrl]);
 
   // Load PDF document
   useEffect(() => {
@@ -82,18 +99,29 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
         const containerWidth = container.clientWidth;
         const containerHeight = container.clientHeight;
 
-        // Get device pixel ratio for sharp rendering on retina displays
-        // Use 2x multiplier for extra crisp rendering
-        const dpr = (window.devicePixelRatio || 1) * 2;
-
         // Calculate scale to fit page in container
         const viewport = page.getViewport({ scale: 1 });
         const scaleX = containerWidth / viewport.width;
         const scaleY = containerHeight / viewport.height;
         const scale = Math.min(scaleX, scaleY) * 0.95; // 95% to add some padding
 
-        // Create high-resolution viewport
-        const scaledViewport = page.getViewport({ scale: scale * dpr });
+        // --- Max-quality rendering (with safety cap) ---
+        // Render at higher internal resolution, but cap total pixels to avoid OOM on large pages.
+        const deviceDpr = window.devicePixelRatio || 1;
+        const QUALITY_MULTIPLIER = 3; // "max" (can be tuned)
+        const MAX_EFFECTIVE_DPR = 6; // hard cap
+        const MAX_CANVAS_PIXELS = 16_000_000; // 16MP safety cap (~64MB for RGBA)
+
+        const baseViewport = page.getViewport({ scale: scale * zoom });
+        let effectiveDpr = Math.min(deviceDpr * QUALITY_MULTIPLIER, MAX_EFFECTIVE_DPR);
+        let renderViewport = page.getViewport({ scale: scale * zoom * effectiveDpr });
+
+        const pixels = renderViewport.width * renderViewport.height;
+        if (pixels > MAX_CANVAS_PIXELS) {
+          const ratio = Math.sqrt(MAX_CANVAS_PIXELS / pixels);
+          effectiveDpr = Math.max(1, effectiveDpr * ratio);
+          renderViewport = page.getViewport({ scale: scale * zoom * effectiveDpr });
+        }
 
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -101,18 +129,19 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
         const context = canvas.getContext("2d");
         if (!context) return;
 
-        // Set canvas size at high resolution
-        canvas.width = scaledViewport.width;
-        canvas.height = scaledViewport.height;
-
-        // Scale down with CSS to display at correct size
-        canvas.style.width = `${scaledViewport.width / dpr}px`;
-        canvas.style.height = `${scaledViewport.height / dpr}px`;
+        // Set canvas size at high resolution, but display at base (CSS) size
+        canvas.width = Math.floor(renderViewport.width);
+        canvas.height = Math.floor(renderViewport.height);
+        canvas.style.width = `${Math.floor(baseViewport.width)}px`;
+        canvas.style.height = `${Math.floor(baseViewport.height)}px`;
 
         // Render page at high resolution
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await page.render({
           canvasContext: context,
-          viewport: scaledViewport,
+          viewport: renderViewport,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          intent: "print" as any,
         }).promise;
 
         setPageLoading(false);
@@ -127,7 +156,7 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [pdfDoc, currentPage]);
+  }, [pdfDoc, currentPage, zoom]);
 
   const goToPrevPage = useCallback(() => {
     if (currentPage > 1 && !isAnimating) {
@@ -232,6 +261,41 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
             )}
           </div>
           <div className="pdf-topbar-actions">
+            <button
+              type="button"
+              className="pdf-icon-btn"
+              onClick={zoomOut}
+              disabled={!pdfUrl || isLoading || pageLoading || !canZoomOut}
+              title="Zoom out"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              className="pdf-icon-btn pdf-zoom-label"
+              disabled
+              title="Zoom"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              type="button"
+              className="pdf-icon-btn"
+              onClick={zoomIn}
+              disabled={!pdfUrl || isLoading || pageLoading || !canZoomIn}
+              title="Zoom in"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              className="pdf-icon-btn"
+              onClick={handleOpenOriginal}
+              disabled={!pdfUrl || isLoading}
+              title="Open original"
+            >
+              ↗
+            </button>
             <button
               type="button"
               className="pdf-icon-btn"
@@ -418,6 +482,9 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
           align-items: center;
           justify-content: center;
           transition: background 0.15s;
+          font-weight: 800;
+          font-size: 16px;
+          line-height: 1;
         }
         .pdf-icon-btn:hover {
           background: rgba(255, 255, 255, 0.2);
@@ -425,6 +492,13 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
         .pdf-icon-btn:disabled {
           opacity: 0.4;
           cursor: not-allowed;
+        }
+        .pdf-zoom-label:disabled {
+          opacity: 0.85;
+          cursor: default;
+          min-width: 60px;
+          font-weight: 700;
+          font-size: 13px;
         }
 
         .pdf-stage {
