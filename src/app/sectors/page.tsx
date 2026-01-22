@@ -169,22 +169,24 @@ const SectorCard = ({
         {
           style: {
             display: "flex",
-            flexDirection: "column" as const,
+            flexDirection: "row" as const,
+            alignItems: "center" as const,
+            justifyContent: "space-between" as const,
             padding: "8px",
             backgroundColor: "#f9fafb",
             borderRadius: "6px",
             width: "100%",
           },
         },
-        React.createElement(
-          "span",
-          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
-          "Public"
-        ),
         React.createElement(
           "span",
           { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
           formatNumber(sector.Number_of_Public)
+        ),
+        React.createElement(
+          "span",
+          { style: { color: "#6b7280", fontSize: "12px" } },
+          "Public"
         )
       ),
       React.createElement(
@@ -192,22 +194,24 @@ const SectorCard = ({
         {
           style: {
             display: "flex",
-            flexDirection: "column" as const,
+            flexDirection: "row" as const,
+            alignItems: "center" as const,
+            justifyContent: "space-between" as const,
             padding: "8px",
             backgroundColor: "#f9fafb",
             borderRadius: "6px",
             width: "100%",
           },
         },
-        React.createElement(
-          "span",
-          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
-          "PE-owned"
-        ),
         React.createElement(
           "span",
           { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
           formatNumber(sector.Number_of_PE)
+        ),
+        React.createElement(
+          "span",
+          { style: { color: "#6b7280", fontSize: "12px" } },
+          "PE-owned"
         )
       ),
       React.createElement(
@@ -215,22 +219,24 @@ const SectorCard = ({
         {
           style: {
             display: "flex",
-            flexDirection: "column" as const,
+            flexDirection: "row" as const,
+            alignItems: "center" as const,
+            justifyContent: "space-between" as const,
             padding: "8px",
             backgroundColor: "#f9fafb",
             borderRadius: "6px",
             width: "100%",
           },
         },
-        React.createElement(
-          "span",
-          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
-          "VC-backed"
-        ),
         React.createElement(
           "span",
           { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
           formatNumber(sector.Number_of_VC)
+        ),
+        React.createElement(
+          "span",
+          { style: { color: "#6b7280", fontSize: "12px" } },
+          "VC-backed"
         )
       ),
       React.createElement(
@@ -238,22 +244,24 @@ const SectorCard = ({
         {
           style: {
             display: "flex",
-            flexDirection: "column" as const,
+            flexDirection: "row" as const,
+            alignItems: "center" as const,
+            justifyContent: "space-between" as const,
             padding: "8px",
             backgroundColor: "#f9fafb",
             borderRadius: "6px",
             width: "100%",
           },
         },
-        React.createElement(
-          "span",
-          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
-          "Private"
-        ),
         React.createElement(
           "span",
           { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
           formatNumber(sector.Number_of_Private)
+        ),
+        React.createElement(
+          "span",
+          { style: { color: "#6b7280", fontSize: "12px" } },
+          "Private"
         )
       ),
       React.createElement(
@@ -261,7 +269,9 @@ const SectorCard = ({
         {
           style: {
             display: "flex",
-            flexDirection: "column" as const,
+            flexDirection: "row" as const,
+            alignItems: "center" as const,
+            justifyContent: "space-between" as const,
             padding: "8px",
             backgroundColor: "#f9fafb",
             borderRadius: "6px",
@@ -270,13 +280,13 @@ const SectorCard = ({
         },
         React.createElement(
           "span",
-          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
-          "Other"
+          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
+          formatNumber(sector.Number_of_Other)
         ),
         React.createElement(
           "span",
-          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
-          formatNumber(sector.Number_of_Other)
+          { style: { color: "#6b7280", fontSize: "12px" } },
+          "Other"
         )
       )
     )
