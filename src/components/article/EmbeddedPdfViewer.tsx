@@ -65,7 +65,7 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
     };
   }, [pdfUrl]);
 
-  // Render current page to canvas
+  // Render current page to canvas with high DPI support
   useEffect(() => {
     if (!pdfDoc || !canvasRef.current || !containerRef.current) return;
 
@@ -82,13 +82,17 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
         const containerWidth = container.clientWidth;
         const containerHeight = container.clientHeight;
 
+        // Get device pixel ratio for sharp rendering on retina displays
+        const dpr = window.devicePixelRatio || 1;
+
         // Calculate scale to fit page in container
         const viewport = page.getViewport({ scale: 1 });
         const scaleX = containerWidth / viewport.width;
         const scaleY = containerHeight / viewport.height;
         const scale = Math.min(scaleX, scaleY) * 0.95; // 95% to add some padding
 
-        const scaledViewport = page.getViewport({ scale });
+        // Create high-resolution viewport
+        const scaledViewport = page.getViewport({ scale: scale * dpr });
 
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -96,11 +100,15 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
         const context = canvas.getContext("2d");
         if (!context) return;
 
-        // Set canvas size
+        // Set canvas size at high resolution
         canvas.width = scaledViewport.width;
         canvas.height = scaledViewport.height;
 
-        // Render page
+        // Scale down with CSS to display at correct size
+        canvas.style.width = `${scaledViewport.width / dpr}px`;
+        canvas.style.height = `${scaledViewport.height / dpr}px`;
+
+        // Render page at high resolution
         await page.render({
           canvasContext: context,
           viewport: scaledViewport,
