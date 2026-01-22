@@ -317,7 +317,7 @@ const ArticleDetailPage = () => {
   // Can be a `blob:` URL (generated) or a remote URL (detected attachment)
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
-  const [detectedPdfUrl, setDetectedPdfUrl] = useState<string | null>(null);
+  const [detectedPdfs, setDetectedPdfs] = useState<Array<{ url: string; name: string }>>([]);
   // Guard against rare runtime cases where search params may be unavailable during hydration
   const searchParams = useSearchParams() as unknown as {
     get?: (key: string) => string | null;
@@ -588,9 +588,9 @@ const ArticleDetailPage = () => {
     setPdfBlobUrl(null);
 
     // If the API already provided a PDF attachment, use it directly (no generation)
-    if (detectedPdfUrl) {
+    if (detectedPdfs.length > 0) {
       setPdfLoading(false);
-      setPdfBlobUrl(detectedPdfUrl);
+      setPdfBlobUrl(detectedPdfs[0].url);
       return;
     }
 
@@ -798,21 +798,27 @@ const ArticleDetailPage = () => {
     return /(\.pdf)($|\?)/i.test(nameOrUrl);
   };
 
-  // Auto-detect PDF attachment (Xano vault URLs, etc.)
+  // Auto-detect ALL PDF attachments (Xano vault URLs, etc.)
   useEffect(() => {
     if (!article) {
-      setDetectedPdfUrl(null);
+      setDetectedPdfs([]);
       return;
     }
 
-    // 1) Check attachments
+    const pdfs: Array<{ url: string; name: string }> = [];
+
+    // 1) Collect all PDF attachments from Related_Documents
     const pdfDocs = (article.Related_Documents || [])
       .filter(Boolean)
       .filter(isPdfDoc);
-    const firstAttachment = pdfDocs[0];
-    const attachmentUrl = firstAttachment
-      ? resolveDocumentUrl(firstAttachment)
-      : "";
+    
+    for (const doc of pdfDocs) {
+      const url = resolveDocumentUrl(doc);
+      if (url) {
+        const name = (doc as { name?: string })?.name || "Document";
+        pdfs.push({ url, name });
+      }
+    }
 
     // 2) Also detect embedded PDF iframes inside the HTML body:
     //    e.g. <iframe src="https://.../vault/.../file.pdf"></iframe>
@@ -825,8 +831,12 @@ const ArticleDetailPage = () => {
     );
     const bodyPdfUrlRaw = (iframePdfMatch?.[1] || embedPdfMatch?.[1] || "").trim();
 
-    const detected = attachmentUrl || bodyPdfUrlRaw;
-    setDetectedPdfUrl(detected || null);
+    // Add embedded PDF if not already in the list
+    if (bodyPdfUrlRaw && !pdfs.some((p) => p.url === bodyPdfUrlRaw)) {
+      pdfs.push({ url: bodyPdfUrlRaw, name: "Embedded Document" });
+    }
+
+    setDetectedPdfs(pdfs);
   }, [article]);
 
   const formatCompanyOfFocusYearFounded = (candidate: unknown): string => {
@@ -960,19 +970,6 @@ const ArticleDetailPage = () => {
               ) : null;
             })()}
 
-            {/* LinkedIn-style PDF carousel (auto-detected from attachments or embedded iframe) */}
-            {detectedPdfUrl && (
-              <EmbeddedPdfViewer
-                pdfUrl={detectedPdfUrl}
-                isLoading={false}
-                onClose={() => {
-                  // Inline mode: no-op close (keep the control if we ever switch to modal)
-                }}
-                articleTitle={article.Headline}
-                variant="inline"
-              />
-            )}
-
             {/* Inline Audio (audio-only interview / listen module) */}
             {(() => {
               const audioDocs = (article.Related_Documents || [])
@@ -1046,6 +1043,22 @@ const ArticleDetailPage = () => {
                 />
               );
             })()}
+
+            {/* LinkedIn-style PDF carousels (all PDFs from Related_Documents) */}
+            {detectedPdfs.length > 0 && (
+              <div style={{ width: "100%", marginTop: 16 }}>
+                {detectedPdfs.map((pdf, idx) => (
+                  <EmbeddedPdfViewer
+                    key={`${pdf.url}-${idx}`}
+                    pdfUrl={pdf.url}
+                    isLoading={false}
+                    onClose={() => {}}
+                    articleTitle={pdf.name}
+                    variant="inline"
+                  />
+                ))}
+              </div>
+            )}
 
             {/* Inline image grid (if additional images remain useful outside body) */}
             {article.Related_Documents &&
@@ -1150,7 +1163,7 @@ const ArticleDetailPage = () => {
                       <line x1="16" y1="13" x2="8" y2="13" />
                       <line x1="16" y1="17" x2="8" y2="17" />
                     </svg>
-                    {detectedPdfUrl ? "View PDF" : "Generate PDF"}
+                    {detectedPdfs.length > 0 ? "View PDF" : "Generate PDF"}
                   </button>
                 )}
               </div>
@@ -1747,6 +1760,7 @@ const ArticleDetailPage = () => {
           </div>
         </div>
       </div>
+
       <Footer />
 
       {/* Embedded PDF Viewer Modal (manual open/generate) */}

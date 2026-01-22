@@ -83,7 +83,8 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
         const containerHeight = container.clientHeight;
 
         // Get device pixel ratio for sharp rendering on retina displays
-        const dpr = window.devicePixelRatio || 1;
+        // Use 2x multiplier for extra crisp rendering
+        const dpr = (window.devicePixelRatio || 1) * 2;
 
         // Calculate scale to fit page in container
         const viewport = page.getViewport({ scale: 1 });
