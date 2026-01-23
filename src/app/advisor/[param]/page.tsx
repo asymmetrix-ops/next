@@ -165,6 +165,7 @@ export default function AdvisorProfilePage() {
   const [rolesCurrent, setRolesCurrent] = useState<RoleItem[]>([]);
   const [rolesPast, setRolesPast] = useState<RoleItem[]>([]);
   const [linkedInHistoryLoading, setLinkedInHistoryLoading] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const { createClickableElement } = useRightClick();
 
   const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
@@ -185,6 +186,98 @@ export default function AdvisorProfilePage() {
   const handleToggleEvents = () => {
     setEventsExpanded(!eventsExpanded);
   };
+
+  // Handle PDF export
+  const handleExportPdf = useCallback(async () => {
+    if (!advisorId || !advisorData) {
+      console.error("[PDF Export] Advisor ID or data not available");
+      return;
+    }
+
+    setIsExportingPdf(true);
+    try {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("asymmetrix_auth_token")
+          : null;
+
+      if (!token) {
+        throw new Error("Authentication token not found. Please log in again.");
+      }
+
+      const endpoint =
+        "https://asymmetrix-pdf-service.fly.dev/api/export-advisor-pdf";
+
+      // Prepare the full data payload
+      const payload = {
+        advisor_id: advisorId,
+        advisor: {
+          Advisor: advisorData.Advisor,
+          Advised_DA_sectors: advisorData.Advised_DA_sectors || [],
+          Portfolio_companies_count: advisorData.Portfolio_companies_count || 0,
+          Advisors_individuals: advisorData.Advisors_individuals || [],
+          Advisors_individuals_current: advisorData.Advisors_individuals_current || [],
+          Advisors_individuals_past: advisorData.Advisors_individuals_past || [],
+        },
+        corporate_events: corporateEvents || [],
+        linkedin_history: linkedInHistory || [],
+        management_roles: {
+          current: rolesCurrent || [],
+          past: rolesPast || [],
+        },
+        xano_auth_token: token,
+      };
+
+      console.log("[PDF Export] POST", endpoint, {
+        advisor_id: advisorId,
+        advisor_name: advisorData.Advisor?.name,
+        events_count: (corporateEvents || []).length,
+        linkedin_history_count: linkedInHistory.length,
+        current_roles_count: rolesCurrent.length,
+        past_roles_count: rolesPast.length,
+      });
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`PDF export failed: ${res.status} ${res.statusText}`);
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const advisorName = (advisorData.Advisor?.name || "Advisor")
+        .toString()
+        .replace(/[\\/:*?"<>|]/g, " ")
+        .slice(0, 180);
+      a.download = `Asymmetrix ${advisorName} Advisor profile.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+    } catch (error) {
+      console.error("[PDF Export] Error:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to export PDF. Please try again later."
+      );
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }, [
+    advisorId,
+    advisorData,
+    corporateEvents,
+    linkedInHistory,
+    rolesCurrent,
+    rolesPast,
+  ]);
 
   // Fetch LinkedIn history data using the same API pattern as company page
   const fetchLinkedInHistory = useCallback(async () => {
@@ -448,6 +541,26 @@ export default function AdvisorProfilePage() {
       border-radius: 4px;
       cursor: pointer;
       font-size: 14px;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .export-pdf-button {
+      padding: 8px 16px;
+      background-color: #0075df;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background-color 0.2s;
+    }
+    .export-pdf-button:hover:not(:disabled) {
+      background-color: #005bb5;
+    }
+    .export-pdf-button:disabled {
+      background-color: #9ca3af;
+      cursor: not-allowed;
     }
     .advisor-layout {
       display: grid;
@@ -628,8 +741,6 @@ export default function AdvisorProfilePage() {
       overflow-wrap: normal;
       white-space: nowrap;
     }
-      font-size: 12px;
-    }
     .event-card-info-value {
       color: #6b7280;
       font-size: 12px;
@@ -669,9 +780,20 @@ export default function AdvisorProfilePage() {
       .advisor-title {
         font-size: 24px !important;
       }
+      .advisor-header > div:last-child {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        width: 100% !important;
+      }
+      .export-pdf-button,
       .report-button {
         align-self: flex-start !important;
         width: fit-content !important;
+        margin-bottom: 8px !important;
+      }
+      .export-pdf-button:last-child,
+      .report-button:last-child {
+        margin-bottom: 0 !important;
       }
       .advisor-layout {
         display: flex !important;
@@ -738,18 +860,39 @@ export default function AdvisorProfilePage() {
               <h1 className="advisor-title">{Advisor.name}</h1>
             </div>
           </div>
-          <a
-            className="report-button"
-            href={`mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
-              `Report Incorrect Advisor Data – ${Advisor.name} (ID ${Advisor.id})`
-            )}&body=${encodeURIComponent(
-              "Please describe the issue you found for this advisor page."
-            )}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Report Incorrect Data
-          </a>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <button
+              onClick={handleExportPdf}
+              disabled={isExportingPdf || !advisorData}
+              className="export-pdf-button"
+              style={{
+                padding: "8px 16px",
+                backgroundColor: isExportingPdf ? "#9ca3af" : "#0075df",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor:
+                  isExportingPdf || !advisorData ? "not-allowed" : "pointer",
+                fontSize: "14px",
+                fontWeight: 500,
+                transition: "background-color 0.2s",
+              }}
+            >
+              {isExportingPdf ? "Exporting..." : "Export PDF"}
+            </button>
+            <a
+              className="report-button"
+              href={`mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
+                `Report Incorrect Advisor Data – ${Advisor.name} (ID ${Advisor.id})`
+              )}&body=${encodeURIComponent(
+                "Please describe the issue you found for this advisor page."
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Report Incorrect Data
+            </a>
+          </div>
         </div>
 
         <div className="advisor-layout">
