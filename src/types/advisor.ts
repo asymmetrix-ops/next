@@ -74,94 +74,30 @@ export interface AdvisorIndividual {
 
 // Corporate Events Response Interface
 export interface CorporateEventsResponse {
-  New_Events_Wits_Advisors: CorporateEvent[];
+  /**
+   * New advisors corporate events payload (Xano `advisors_ce`)
+   * This endpoint returns a *flat array* (not wrapped in an object).
+   */
+  events: AdvisorCorporateEvent[];
 }
 
-// Corporate Event
-export interface CorporateEvent {
+// Corporate Event (new advisors CE endpoint)
+export interface AdvisorCorporateEvent {
   id: number;
   description: string;
   announcement_date: string;
   deal_type: string;
-  ev_data: EnterpriseValueData;
-  _other_advisors_of_corporate_event: OtherAdvisor[];
-  _target_counterparty_of_corporate_events?: TargetCounterparty;
-  _other_counterparties_of_corporate_events: OtherCounterparty[];
-  _counterparty_advised_of_corporate_events: CounterpartyAdvised[];
-  __related_to_corporate_event_advisors_individuals: RelatedIndividual[];
-  // Some API variants return this field name instead of the double-underscore one
-  _related_to_corporate_event_individuals?: RelatedIndividual[];
-  // When we are on an individual page, backend may include a pointer to the
-  // specific counterparty related to that individual for this event
-  related_to_individual_by_event_id?: {
-    counterparty_advised: number;
-    _counterparties: {
-      new_company_counterparty: number;
-      _new_company: {
-        id: number;
-        name: string;
-        _is_that_investor: boolean;
-        _is_that_data_analytic_company: boolean;
-      };
-    };
-  };
+  ev_source?: string | null;
+  enterprise_value_m?: string | number | null;
+  currency_id?: number | null;
+  currency_name?: string | null; // e.g. "USD", "GBP"
+  company_advised_id?: number | null;
+  company_advised_name?: string | null;
+  company_advised_role?: string | null;
+  // These are JSON strings in the API (sometimes empty array string "[]")
+  target_companies?: string | null;
+  other_advisors?: string | null;
+  advisor_individuals?: string | null;
 }
 
-// Enterprise Value Data
-export interface EnterpriseValueData {
-  ev_source: string;
-  enterprise_value_m: string;
-  currency_id: number;
-  _currency?: Currency;
-}
-
-export interface Currency {
-  id: number;
-  created_at: number;
-  Currency: string;
-}
-
-// Other Advisor
-export interface OtherAdvisor {
-  id: number;
-  new_company_advised: number;
-  individuals_id: number[];
-  _new_company: {
-    id: number;
-    name: string;
-  };
-}
-
-// Target Counterparty
-export interface TargetCounterparty {
-  new_company_counterparty: number;
-  id: number;
-  name: string;
-}
-
-// Other Counterparty
-export interface OtherCounterparty {
-  new_company_counterparty: number;
-  id: number;
-  name: string;
-  _is_that_investor: boolean;
-  _is_that_data_analytic_company: boolean;
-}
-
-// Counterparty Advised
-export interface CounterpartyAdvised {
-  counterparty_type: number;
-  _counterpartys_type: {
-    counterparty_status: string;
-  };
-}
-
-// Related Individual
-export interface RelatedIndividual {
-  id: number;
-  individuals_id: number;
-  _individuals: {
-    id: number;
-    advisor_individuals: string;
-  };
-}
+// (Legacy advisor corporate events shapes removed; advisor pages now use `advisors_ce`.)

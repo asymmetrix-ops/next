@@ -1,4 +1,5 @@
-import { CorporateEvent } from "../../types/advisor";
+import React from "react";
+import type { AdvisorCorporateEvent } from "../../types/advisor";
 import {
   formatDate,
   formatCurrency,
@@ -7,17 +8,30 @@ import {
 } from "../../utils/advisorHelpers";
 
 interface CorporateEventsTableProps {
-  events: CorporateEvent[];
+  events: AdvisorCorporateEvent[];
 }
 
 export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
   events,
 }) => {
+  const parseJsonArray = <T,>(raw?: string | null): T[] => {
+    if (!raw) return [];
+    const trimmed = String(raw).trim();
+    if (!trimmed || trimmed === "[]") return [];
+    try {
+      const normalized = trimmed.replace(/\\u0022/g, '"');
+      const parsed = JSON.parse(normalized) as unknown;
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+      return [];
+    }
+  };
+
   return (
     <div className="overflow-x-auto">
       <table
         className="w-full border border-gray-300 border-collapse"
-        style={{ minWidth: "1200px" }}
+        style={{ minWidth: "1050px" }}
       >
         <thead>
           <tr className="bg-gray-100">
@@ -29,13 +43,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
             </th>
             <th className="px-4 py-2 text-left border border-gray-300">Type</th>
             <th className="px-4 py-2 text-left border border-gray-300">
-              Counterparty Advised
-            </th>
-            <th className="px-4 py-2 text-left border border-gray-300">
-              Related Counterparty
-            </th>
-            <th className="px-4 py-2 w-64 text-left border border-gray-300">
-              Other Counterparties
+              Company Advised
             </th>
             <th className="px-4 py-2 text-left border border-gray-300">
               Enterprise Value
@@ -63,92 +71,29 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                 {event.deal_type || "Not available"}
               </td>
               <td className="px-4 py-2 border border-gray-300">
-                {getCounterpartyRole(event)}
+                {event.company_advised_name || "Not available"}
+                {event.company_advised_role
+                  ? ` (${getCounterpartyRole(event)})`
+                  : ""}
               </td>
               <td className="px-4 py-2 border border-gray-300">
-                {event.related_to_individual_by_event_id &&
-                event.related_to_individual_by_event_id._counterparties &&
-                event.related_to_individual_by_event_id._counterparties
-                  ._new_company?.name ? (
-                  <a href="#" className="text-blue-600 hover:underline">
-                    {
-                      event.related_to_individual_by_event_id._counterparties
-                        ._new_company.name
-                    }
-                  </a>
-                ) : (
-                  "Not available"
-                )}
-              </td>
-              <td className="px-4 py-2 w-64 border border-gray-300">
-                {event._other_counterparties_of_corporate_events.length > 0 ? (
-                  <div className="space-y-1 text-sm">
-                    {event._other_counterparties_of_corporate_events.map(
-                      (counterparty) => (
-                        <div
-                          key={counterparty.id}
-                          className="whitespace-nowrap"
-                        >
-                          <a
-                            href="#"
-                            className="text-blue-600 whitespace-nowrap hover:underline"
-                          >
-                            {counterparty.name}
-                          </a>
-                        </div>
-                      )
-                    )}
-                  </div>
-                ) : (
-                  "Not available"
-                )}
-              </td>
-              <td className="px-4 py-2 border border-gray-300">
-                {event.ev_data.enterprise_value_m &&
-                event.ev_data._currency &&
-                event.ev_data._currency.Currency
-                  ? formatCurrency(
-                      event.ev_data.enterprise_value_m,
-                      event.ev_data._currency.Currency
-                    )
+                {event.enterprise_value_m != null && event.currency_name
+                  ? formatCurrency(String(event.enterprise_value_m), event.currency_name)
                   : "Not available"}
               </td>
               <td className="px-4 py-2 border border-gray-300">
-                {(event.__related_to_corporate_event_advisors_individuals &&
-                  event.__related_to_corporate_event_advisors_individuals
-                    .length > 0) ||
-                (event._related_to_corporate_event_individuals &&
-                  event._related_to_corporate_event_individuals.length > 0) ? (
-                  <div className="text-sm">
-                    {(event.__related_to_corporate_event_advisors_individuals ||
-                      event._related_to_corporate_event_individuals)!.map(
-                      (individual, index, arr) => {
-                        return (
-                          <span
-                            key={individual.id}
-                            className="inline-block whitespace-nowrap"
-                          >
-                            <a
-                              href="#"
-                              className="text-blue-600 hover:underline"
-                            >
-                              {individual._individuals.advisor_individuals}
-                            </a>
-                            {index < arr.length - 1 ? ", " : ""}
-                          </span>
-                        );
-                      }
-                    )}
-                  </div>
-                ) : (
-                  "Not available"
-                )}
+                {(() => {
+                  const inds = parseJsonArray<{ id?: number; name?: string }>(
+                    event.advisor_individuals
+                  )
+                    .map((p) => String(p?.name ?? "").trim())
+                    .filter(Boolean);
+                  return inds.length > 0 ? inds.join(", ") : "Not available";
+                })()}
               </td>
               <td className="px-4 py-2 border border-gray-300">
                 {(() => {
-                  const text = getOtherAdvisorsText(
-                    event._other_advisors_of_corporate_event
-                  );
+                  const text = getOtherAdvisorsText(event.other_advisors);
                   if (!text || text === "None") return text;
                   return text.split(/\s*,\s*/).map((name, i, arr) => (
                     <span

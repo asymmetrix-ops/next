@@ -11,6 +11,7 @@ import IndividualCards, {
 } from "@/components/shared/IndividualCards";
 import { useAdvisorProfile } from "../../../hooks/useAdvisorProfile";
 import {
+  formatCurrency,
   formatSectorsList,
   formatDate,
   getAdvisorYearFoundedDisplay,
@@ -386,6 +387,23 @@ export default function AdvisorProfilePage() {
         ? toIndividualCardItems(advisorData.Advisors_individuals_past)
         : [];
 
+  // Corporate Events (new advisors_ce payload) helpers
+  const safeEvents = Array.isArray(corporateEvents) ? corporateEvents : [];
+
+  const parseJsonArray = <T,>(raw?: string | null): T[] => {
+    if (!raw) return [];
+    const trimmed = String(raw).trim();
+    if (!trimmed || trimmed === "[]") return [];
+    try {
+      // Some payloads may contain escaped quotes (\u0022) from Xano
+      const normalized = trimmed.replace(/\\u0022/g, '"');
+      const parsed = JSON.parse(normalized) as unknown;
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+      return [];
+    }
+  };
+
   const hq = `${Advisor._locations?.City || ""}, ${
     Advisor._locations?.State__Province__County || ""
   }, ${Advisor._locations?.Country || ""}`
@@ -492,7 +510,7 @@ export default function AdvisorProfilePage() {
       border-collapse: collapse;
       font-size: 14px;
       /* Prevent columns from becoming overly narrow; allow horizontal scroll */
-      min-width: 1400px;
+      min-width: 1250px;
     }
     .events-table thead tr {
       border-bottom: 2px solid #e2e8f0;
@@ -819,8 +837,7 @@ export default function AdvisorProfilePage() {
             <div className="advisor-section">
               <div className="corporate-events-header">
                 <h2 className="section-title">Corporate Events</h2>
-                {corporateEvents?.New_Events_Wits_Advisors &&
-                  corporateEvents.New_Events_Wits_Advisors.length > 10 && (
+                {safeEvents.length > 10 && (
                     <button
                       onClick={handleToggleEvents}
                       className="toggle-button"
@@ -830,8 +847,7 @@ export default function AdvisorProfilePage() {
                   )}
               </div>
 
-              {corporateEvents?.New_Events_Wits_Advisors &&
-              corporateEvents.New_Events_Wits_Advisors.length > 0 ? (
+              {safeEvents.length > 0 ? (
                 <>
                   {/* Desktop Table View */}
                   <div className="events-table-container">
@@ -841,105 +857,56 @@ export default function AdvisorProfilePage() {
                           <th>Description</th>
                           <th>Date Announced</th>
                           <th>Type</th>
-                          <th>Counterparty Advised</th>
-                          <th>Other Counterparties</th>
+                          <th>Company Advised</th>
                           <th>Enterprise Value</th>
                           <th>Individuals</th>
                           <th>Other Advisors</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {corporateEvents.New_Events_Wits_Advisors.slice(
+                        {safeEvents.slice(
                           0,
                           eventsExpanded ? undefined : 10
                         ).map((event, index) => {
-                          // Helper functions to extract data
-                          const getCounterpartyAdvised = () => {
-                            const advised =
-                              event
-                                ._counterparty_advised_of_corporate_events?.[0];
-                            return (
-                              advised?._counterpartys_type
-                                ?.counterparty_status || "—"
-                            );
-                          };
-
-                          const getOtherCounterparties = () => {
-                            if (
-                              !event._other_counterparties_of_corporate_events
-                                ?.length
-                            )
-                              return "—";
-                            return event._other_counterparties_of_corporate_events.map(
-                              (cp, i) => (
-                                <span
-                                  key={`${cp.id}-${i}`}
-                                  className="other-counterparty-name"
-                                >
-                                  <span
-                                    className="advisor-link"
-                                    onClick={() => {
-                                      if (cp._is_that_investor) {
-                                        router.push(`/investors/${cp.id}`);
-                                      } else {
-                                        router.push(`/company/${cp.id}`);
-                                      }
-                                    }}
-                                  >
-                                    {cp.name}
-                                  </span>
-                                  {i <
-                                  event._other_counterparties_of_corporate_events!
-                                    .length -
-                                    1
-                                    ? ", "
-                                    : ""}
-                                </span>
-                              )
-                            );
-                          };
+                          // Company Advised comes directly from the new endpoint
+                          const companyAdvisedId = event.company_advised_id ?? null;
+                          const companyAdvisedName =
+                            (event.company_advised_name || "").trim() || "—";
+                          const companyAdvisedRole = (
+                            event.company_advised_role || ""
+                          ).toLowerCase();
+                          const companyAdvisedHref =
+                            companyAdvisedId && companyAdvisedName !== "—"
+                              ? companyAdvisedRole.includes("investor")
+                                ? `/investors/${companyAdvisedId}`
+                                : `/company/${companyAdvisedId}`
+                              : undefined;
 
                           const getEnterpriseValue = () => {
-                            if (
-                              !event.ev_data?.enterprise_value_m ||
-                              !event.ev_data?._currency ||
-                              !event.ev_data._currency.Currency
-                            )
+                            const value = event.enterprise_value_m;
+                            const currency = (event.currency_name || "").trim();
+                            if (value === null || value === undefined || value === "")
                               return "—";
-                            const value = parseFloat(
-                              event.ev_data.enterprise_value_m
-                            );
-                            const currency = event.ev_data._currency.Currency;
-                            return `${currency}${value.toLocaleString()}`;
+                            if (currency) {
+                              return formatCurrency(String(value), currency);
+                            }
+                            const n = Number(String(value).replace(/,/g, ""));
+                            return Number.isFinite(n)
+                              ? `${Math.round(n).toLocaleString()}M`
+                              : String(value);
                           };
 
-                          const getIndividuals = () => {
-                            if (
-                              !event
-                                .__related_to_corporate_event_advisors_individuals
-                                ?.length
-                            )
-                              return "—";
-                            return event.__related_to_corporate_event_advisors_individuals
-                              .map(
-                                (ind) => ind._individuals?.advisor_individuals
-                              )
-                              .filter(Boolean)
-                              .join(", ");
-                          };
+                          const individuals = parseJsonArray<{
+                            id?: number;
+                            name?: string;
+                          }>(event.advisor_individuals);
 
-                          const getOtherAdvisors = () => {
-                            if (
-                              !event._other_advisors_of_corporate_event?.length
-                            )
-                              return "—";
-                            return event._other_advisors_of_corporate_event
-                              .map((advisor) => ({
-                                name: advisor._new_company?.name,
-                                id: advisor._new_company?.id,
-                              }))
-                              .filter((advisor) => advisor.name && advisor.id);
-                          };
+                          const otherAdvisors = parseJsonArray<{
+                            advisor_company_id?: number;
+                            advisor_company_name?: string;
+                          }>(event.other_advisors).filter(
+                            (a) => a && a.advisor_company_id && a.advisor_company_name
+                          );
 
                           return (
                             <tr key={index}>
@@ -952,46 +919,59 @@ export default function AdvisorProfilePage() {
                               </td>
                               <td>{formatDate(event.announcement_date)}</td>
                               <td>{event.deal_type || "—"}</td>
-                              <td>{getCounterpartyAdvised()}</td>
-                              <td>{getOtherCounterparties()}</td>
+                              <td>
+                                {companyAdvisedHref
+                                  ? createClickableElement(
+                                      companyAdvisedHref,
+                                      companyAdvisedName,
+                                      "advisor-link"
+                                    )
+                                  : companyAdvisedName}
+                              </td>
                               <td>{getEnterpriseValue()}</td>
                               <td>
-                                {(() => {
-                                  const list = getIndividuals();
-                                  if (!list || list === "—") return list;
-                                  return String(list)
-                                    .split(/\s*,\s*/)
-                                    .filter(Boolean)
-                                    .map((name, i) => (
-                                      <span
-                                        className="nowrap-token"
-                                        key={`${name}-${i}`}
-                                      >
-                                        {name}
-                                      </span>
-                                    ));
-                                })()}
+                                {individuals.length > 0
+                                  ? individuals
+                                      .filter(
+                                        (p) =>
+                                          p &&
+                                          typeof p.id === "number" &&
+                                          String(p.name || "").trim().length > 0
+                                      )
+                                      .map((p, i) => (
+                                        <span
+                                          className="nowrap-token"
+                                          key={`${p.id}-${i}`}
+                                        >
+                                          {createClickableElement(
+                                            `/individual/${p.id}`,
+                                            String(p.name),
+                                            "advisor-link"
+                                          )}
+                                        </span>
+                                      ))
+                                  : "—"}
                               </td>
                               <td>
-                                {(() => {
-                                  const advisors = getOtherAdvisors();
-                                  if (advisors === "—") return "—";
-                                  return advisors.map((advisor) => (
-                                    <span
-                                      className="nowrap-token"
-                                      key={advisor.id}
-                                    >
+                                {otherAdvisors.length > 0
+                                  ? otherAdvisors.map((advisor, i) => (
                                       <span
-                                        onClick={() =>
-                                          handleOtherAdvisorClick(advisor.id)
-                                        }
-                                        className="advisor-link"
+                                        className="nowrap-token"
+                                        key={`${advisor.advisor_company_id}-${i}`}
                                       >
-                                        {advisor.name}
+                                        <span
+                                          onClick={() =>
+                                            handleOtherAdvisorClick(
+                                              advisor.advisor_company_id as number
+                                            )
+                                          }
+                                          className="advisor-link"
+                                        >
+                                          {advisor.advisor_company_name}
+                                        </span>
                                       </span>
-                                    </span>
-                                  ));
-                                })()}
+                                    ))
+                                  : "—"}
                               </td>
                             </tr>
                           );
@@ -1002,69 +982,61 @@ export default function AdvisorProfilePage() {
 
                   {/* Mobile Cards View */}
                   <div className="events-cards">
-                    {corporateEvents.New_Events_Wits_Advisors.slice(
+                    {safeEvents.slice(
                       0,
                       eventsExpanded ? undefined : 10
                     ).map((event, index) => {
-                      // Same helper functions for mobile cards
-                      const getCounterpartyAdvised = () => {
-                        const advised =
-                          event._counterparty_advised_of_corporate_events?.[0];
-                        return (
-                          advised?._counterpartys_type?.counterparty_status ||
-                          "—"
-                        );
-                      };
-
-                      const getOtherCounterparties = () => {
-                        if (
-                          !event._other_counterparties_of_corporate_events
-                            ?.length
-                        )
-                          return "—";
-                        return event._other_counterparties_of_corporate_events
-                          .map((cp) => cp.name)
-                          .filter(Boolean)
-                          .join(", ");
-                      };
+                      const companyAdvisedId = event.company_advised_id ?? null;
+                      const companyAdvisedName =
+                        (event.company_advised_name || "").trim() || "—";
+                      const companyAdvisedRole = (
+                        event.company_advised_role || ""
+                      ).toLowerCase();
+                      const companyAdvisedHref =
+                        companyAdvisedId && companyAdvisedName !== "—"
+                          ? companyAdvisedRole.includes("investor")
+                            ? `/investors/${companyAdvisedId}`
+                            : `/company/${companyAdvisedId}`
+                          : undefined;
 
                       const getEnterpriseValue = () => {
-                        if (
-                          !event.ev_data?.enterprise_value_m ||
-                          !event.ev_data?._currency ||
-                          !event.ev_data._currency.Currency
-                        )
+                        const value = event.enterprise_value_m;
+                        const currency = (event.currency_name || "").trim();
+                        if (value === null || value === undefined || value === "")
                           return "—";
-                        const value = parseFloat(
-                          event.ev_data.enterprise_value_m
-                        );
-                        const currency = event.ev_data._currency.Currency;
-                        return `${currency}${value.toLocaleString()}`;
+                        if (currency) return formatCurrency(String(value), currency);
+                        const n = Number(String(value).replace(/,/g, ""));
+                        return Number.isFinite(n)
+                          ? `${Math.round(n).toLocaleString()}M`
+                          : String(value);
                       };
 
-                      const getIndividuals = () => {
-                        if (
-                          !event
-                            .__related_to_corporate_event_advisors_individuals
-                            ?.length
+                      const individuals = parseJsonArray<{
+                        id?: number;
+                        name?: string;
+                      }>(event.advisor_individuals)
+                        .filter(
+                          (p) =>
+                            p &&
+                            typeof p.id === "number" &&
+                            String(p.name || "").trim().length > 0
                         )
-                          return "—";
-                        return event.__related_to_corporate_event_advisors_individuals
-                          .map((ind) => ind._individuals?.advisor_individuals)
-                          .filter(Boolean)
-                          .join(", ");
-                      };
+                        .map((p) => String(p.name));
 
-                      const getOtherAdvisors = () => {
-                        if (!event._other_advisors_of_corporate_event?.length)
-                          return "—";
-                        return event._other_advisors_of_corporate_event
-                          .map((advisor) => ({
-                            name: advisor._new_company?.name,
-                            id: advisor._new_company?.id,
-                          }))
-                          .filter((advisor) => advisor.name && advisor.id);
-                      };
+                      const otherAdvisors = parseJsonArray<{
+                        advisor_company_id?: number;
+                        advisor_company_name?: string;
+                      }>(event.other_advisors)
+                        .filter(
+                          (a) =>
+                            a &&
+                            typeof a.advisor_company_id === "number" &&
+                            String(a.advisor_company_name || "").trim().length > 0
+                        )
+                        .map((a) => ({
+                          id: a.advisor_company_id as number,
+                          name: String(a.advisor_company_name),
+                        }));
 
                       return (
                         <div key={index} className="event-card">
@@ -1092,10 +1064,16 @@ export default function AdvisorProfilePage() {
                             </div>
                             <div className="event-card-info-item">
                               <span className="event-card-info-label">
-                                Counterparty:
+                                Company Advised:
                               </span>
                               <span className="event-card-info-value">
-                                {getCounterpartyAdvised()}
+                                {companyAdvisedHref
+                                  ? createClickableElement(
+                                      companyAdvisedHref,
+                                      companyAdvisedName,
+                                      "advisor-link"
+                                    )
+                                  : companyAdvisedName}
                               </span>
                             </div>
                             <div className="event-card-info-item">
@@ -1111,35 +1089,12 @@ export default function AdvisorProfilePage() {
                               style={{ gridColumn: "1 / -1" }}
                             >
                               <span className="event-card-info-label">
-                                Other Counterparties:
-                              </span>
-                              <span className="event-card-info-value">
-                                {getOtherCounterparties()}
-                              </span>
-                            </div>
-                            <div
-                              className="event-card-info-item"
-                              style={{ gridColumn: "1 / -1" }}
-                            >
-                              <span className="event-card-info-label">
                                 Individuals:
                               </span>
                               <span className="event-card-info-value">
-                                {(() => {
-                                  const list = getIndividuals();
-                                  if (!list || list === "—") return list;
-                                  return String(list)
-                                    .split(/\s*,\s*/)
-                                    .filter(Boolean)
-                                    .map((name, i) => (
-                                      <span
-                                        className="nowrap-token"
-                                        key={`${name}-${i}`}
-                                      >
-                                        {name}
-                                      </span>
-                                    ));
-                                })()}
+                                {individuals.length > 0
+                                  ? individuals.join(", ")
+                                  : "—"}
                               </span>
                             </div>
                             <div
@@ -1150,25 +1105,23 @@ export default function AdvisorProfilePage() {
                                 Other Advisors:
                               </span>
                               <span className="event-card-info-value">
-                                {(() => {
-                                  const advisors = getOtherAdvisors();
-                                  if (advisors === "—") return "—";
-                                  return advisors.map((advisor) => (
-                                    <span
-                                      className="nowrap-token"
-                                      key={advisor.id}
-                                    >
+                                {otherAdvisors.length > 0
+                                  ? otherAdvisors.map((a) => (
                                       <span
-                                        onClick={() =>
-                                          handleOtherAdvisorClick(advisor.id)
-                                        }
-                                        className="advisor-link"
+                                        className="nowrap-token"
+                                        key={a.id}
                                       >
-                                        {advisor.name}
+                                        <span
+                                          onClick={() =>
+                                            handleOtherAdvisorClick(a.id)
+                                          }
+                                          className="advisor-link"
+                                        >
+                                          {a.name}
+                                        </span>
                                       </span>
-                                    </span>
-                                  ));
-                                })()}
+                                    ))
+                                  : "—"}
                               </span>
                             </div>
                           </div>

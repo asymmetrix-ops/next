@@ -49,36 +49,58 @@ class AdvisorService {
 
   /**
    * API Call 2: Get Corporate Events
-   * Endpoint: https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_advosirs_corporate_ivents_new
+   * Endpoint: https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/advisors_ce
    * Method: GET
    * Auth: Required
-   * Query Parameters: { "new_comp_id": number }
+   * Query Parameters: backend may vary; try common keys.
    */
   async getCorporateEvents(
     advisorId: number
   ): Promise<CorporateEventsResponse> {
-    const url = `${BASE_URL}/get_advosirs_corporate_ivents_new?new_comp_id=${advisorId}`;
+    const endpoint = `${BASE_URL}/advisors_ce`;
+    const headers = { ...this.getAuthHeaders() };
 
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        ...this.getAuthHeaders(),
-      },
-    });
+    // Some deployments expect different query keys. We try a few and prefer a non-empty array.
+    const candidates: Array<{ key: string; value: number }> = [
+      { key: "advisor_company_id", value: advisorId },
+      { key: "new_comp_id", value: advisorId },
+      { key: "advisor_id", value: advisorId },
+    ];
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        authService.logout();
-        window.location.href = "/login";
-        throw new Error("Authentication required");
+    let lastOk: unknown = null;
+
+    for (const c of candidates) {
+      const url = `${endpoint}?${encodeURIComponent(c.key)}=${encodeURIComponent(
+        String(c.value)
+      )}`;
+      const res = await fetch(url, { method: "GET", headers });
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          authService.logout();
+          window.location.href = "/login";
+          throw new Error("Authentication required");
+        }
+        // try next candidate
+        continue;
       }
-      throw new Error(
-        `Failed to fetch corporate events: ${response.status} ${response.statusText}`
-      );
+
+      const payload = (await res.json()) as unknown;
+      lastOk = payload;
+
+      // If this candidate returns a non-empty array, use it immediately.
+      if (Array.isArray(payload) && payload.length > 0) {
+        return { events: payload };
+      }
     }
 
-    const data = await response.json();
-    return data;
+    // If we never got a successful response, throw.
+    if (lastOk === null) {
+      throw new Error("Failed to fetch corporate events");
+    }
+
+    // Successful response but empty / unexpected shape -> treat as empty array.
+    return { events: Array.isArray(lastOk) ? lastOk : [] };
   }
 
   /**

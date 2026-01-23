@@ -1,4 +1,4 @@
-import { AdvisedSector, CorporateEvent } from "../types/advisor";
+import { AdvisedSector, AdvisorCorporateEvent } from "../types/advisor";
 
 export const formatCurrency = (value: string, currency: string): string => {
   if (!value || value === "0" || value === "") return "Not available";
@@ -33,19 +33,28 @@ export const formatSectorsList = (sectors: AdvisedSector[]): string => {
   return sectors.map((sector) => sector.sector_name).join(", ");
 };
 
-export const getCounterpartyRole = (event: CorporateEvent): string => {
-  const advised = event._counterparty_advised_of_corporate_events[0];
-  return advised?._counterpartys_type?.counterparty_status || "Unknown";
+// Backward-compatible helper name used by some components. In the new `advisors_ce`
+// payload, the closest equivalent is `company_advised_role`.
+export const getCounterpartyRole = (event: AdvisorCorporateEvent): string => {
+  const role = String(event.company_advised_role ?? "").trim();
+  return role || "Unknown";
 };
 
-export const getOtherAdvisorsText = (advisors: unknown[]): string => {
-  if (advisors.length === 0) return "None";
-  return advisors
-    .map((advisor) => {
-      const advisorObj = advisor as { _new_company: { name: string } };
-      return advisorObj._new_company.name;
-    })
-    .join(", ");
+// In the new `advisors_ce` payload, `other_advisors` is a JSON string array.
+export const getOtherAdvisorsText = (otherAdvisorsJson?: string | null): string => {
+  const raw = String(otherAdvisorsJson ?? "").trim();
+  if (!raw || raw === "[]") return "None";
+  try {
+    const normalized = raw.replace(/\\u0022/g, '"');
+    const parsed = JSON.parse(normalized) as unknown;
+    if (!Array.isArray(parsed) || parsed.length === 0) return "None";
+    return (parsed as Array<{ advisor_company_name?: unknown }>)
+      .map((a) => String(a?.advisor_company_name ?? "").trim())
+      .filter(Boolean)
+      .join(", ");
+  } catch {
+    return "None";
+  }
 };
 
 export const getAdvisorYearFoundedDisplay = (advisor: {

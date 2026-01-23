@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { advisorService } from "../lib/advisorService";
-import { AdvisorResponse, CorporateEventsResponse } from "../types/advisor";
+import {
+  type AdvisorCorporateEvent,
+  type AdvisorResponse,
+  type CorporateEventsResponse,
+} from "../types/advisor";
 
 interface UseAdvisorProfileProps {
   advisorId: number;
@@ -9,7 +13,7 @@ interface UseAdvisorProfileProps {
 export const useAdvisorProfile = ({ advisorId }: UseAdvisorProfileProps) => {
   const [advisorData, setAdvisorData] = useState<AdvisorResponse | null>(null);
   const [corporateEvents, setCorporateEvents] =
-    useState<CorporateEventsResponse | null>(null);
+    useState<AdvisorCorporateEvent[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +30,7 @@ export const useAdvisorProfile = ({ advisorId }: UseAdvisorProfileProps) => {
       );
 
       setAdvisorData(completeProfile.advisor);
-      setCorporateEvents(completeProfile.events);
+      setCorporateEvents(completeProfile.events?.events || []);
     } catch (err) {
       const errorMessage =
         err instanceof Error
@@ -60,7 +64,7 @@ export const useAdvisorIndividualCalls = ({
 }: UseAdvisorProfileProps) => {
   const [advisorData, setAdvisorData] = useState<AdvisorResponse | null>(null);
   const [corporateEvents, setCorporateEvents] =
-    useState<CorporateEventsResponse | null>(null);
+    useState<AdvisorCorporateEvent[] | null>(null);
   const [loadingAdvisor, setLoadingAdvisor] = useState(true);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [advisorError, setAdvisorError] = useState<string | null>(null);
@@ -87,8 +91,10 @@ export const useAdvisorIndividualCalls = ({
     try {
       setLoadingEvents(true);
       setEventsError(null);
-      const data = await advisorService.getCorporateEvents(advisorId);
-      setCorporateEvents(data);
+      const data: CorporateEventsResponse = await advisorService.getCorporateEvents(
+        advisorId
+      );
+      setCorporateEvents(data?.events || []);
     } catch (err) {
       setEventsError(
         err instanceof Error ? err.message : "Failed to fetch corporate events"
