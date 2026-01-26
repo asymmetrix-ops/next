@@ -1,12 +1,13 @@
 import { Location, Individual, CurrentRole } from "../types/individuals";
 
-export const formatLocation = (location: Location): string => {
+export const formatLocation = (location: Location | null): string => {
+  if (!location) return "Not available";
   const parts = [
     location.City,
     location.State__Province__County,
     location.Country,
   ];
-  return parts.filter(Boolean).join(", ");
+  return parts.filter(Boolean).join(", ") || "Not available";
 };
 
 export const formatCurrentRoles = (roles: CurrentRole[]): string => {

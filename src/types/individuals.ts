@@ -1,15 +1,10 @@
-// Main API Response Interface
+// Main API Response Interface (optimized flat structure)
 export interface IndividualsResponse {
-  Individuals_list: {
-    itemsReceived: number;
-    curPage: number;
-    nextPage: number | null;
-    prevPage: number | null;
-    offset: number;
-    pageTotal: number;
-    items: Individual[];
-  };
+  individuals: Individual[];
   totalIndividuals: number;
+  currentPage: number;
+  perPage: number;
+  totalPages: number;
   currentRoles: number;
   pastRoles: number;
   ceos: number;
@@ -23,10 +18,17 @@ export interface Individual {
   advisor_individuals: string;
   roles: Role[];
   locations_id: number;
-  _locations_individual: Location;
+  _locations_individual: IndividualLocation | null;
+  total_count?: number;
   current_roles: CurrentRole[];
-  current_company: string;
+  current_company: string | null;
   current_company_location: Location[];
+}
+
+// Individual Location with region fields
+export interface IndividualLocation extends Location {
+  Continental_Region?: string;
+  geographical_sub_region?: string;
 }
 
 // Role Interface
@@ -58,7 +60,7 @@ export interface Company {
   name: string;
   locations_id: number;
   sectors_id: number[];
-  _locations: Location;
+  _locations: Location | null;
 }
 
 // Location Interface
