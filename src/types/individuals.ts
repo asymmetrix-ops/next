@@ -75,6 +75,12 @@ export interface IndividualLocation extends Location {
   geographical_sub_region?: string;
 }
 
+// Individual Location with region fields
+export interface IndividualLocation extends Location {
+  Continental_Region?: string;
+  geographical_sub_region?: string;
+}
+
 // Role Interface
 export interface Role {
   id: number;
