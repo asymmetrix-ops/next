@@ -13,11 +13,10 @@ import {
 export type PreviousCorporateEventRow = {
   id: number;
   title: string;
-  announcementDate?: string;
-  closedDate?: string;
+  date?: string;
   dealType?: string;
-  dealStatus?: string;
-  targetRole?: string;
+  target?: React.ReactNode;
+  investors?: React.ReactNode;
 };
 
 export default function PreviousCorporateEventsSection({
@@ -45,19 +44,16 @@ export default function PreviousCorporateEventsSection({
                 Event
               </TableHead>
               <TableHead className="font-semibold text-slate-700 min-w-[160px]">
-                Announced
-              </TableHead>
-              <TableHead className="font-semibold text-slate-700 min-w-[160px]">
-                Closed
+                Date
               </TableHead>
               <TableHead className="font-semibold text-slate-700 min-w-[140px]">
                 Deal Type
               </TableHead>
-              <TableHead className="font-semibold text-slate-700 min-w-[140px]">
-                Deal Status
+              <TableHead className="font-semibold text-slate-700 min-w-[220px]">
+                Target
               </TableHead>
-              <TableHead className="font-semibold text-slate-700 min-w-[160px]">
-                Target Role
+              <TableHead className="font-semibold text-slate-700 min-w-[260px]">
+                Investors
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -65,7 +61,7 @@ export default function PreviousCorporateEventsSection({
           <TableBody>
             {displayed.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-slate-400">
+                <TableCell colSpan={5} className="text-center py-8 text-slate-400">
                   No previous corporate events available
                 </TableCell>
               </TableRow>
@@ -81,19 +77,16 @@ export default function PreviousCorporateEventsSection({
                     </a>
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {e.announcementDate || "Not available"}
-                  </TableCell>
-                  <TableCell className="text-slate-600">
-                    {e.closedDate || "Not available"}
+                    {e.date || "Not available"}
                   </TableCell>
                   <TableCell className="text-slate-600">
                     {e.dealType || "Not available"}
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {e.dealStatus || "Not available"}
+                    {e.target || "Not available"}
                   </TableCell>
                   <TableCell className="text-slate-600">
-                    {e.targetRole || "Not available"}
+                    {e.investors || "Not available"}
                   </TableCell>
                 </TableRow>
               ))
