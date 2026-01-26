@@ -20,6 +20,7 @@ import {
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { fetchCompaniesServer, CompaniesFilters as ServerFilters } from "./actions";
 
 // Extended CSV row type that includes financial and subscription metrics
 interface CompanyCSVRow extends BaseCompanyCSVRow {
@@ -134,26 +135,6 @@ interface Filters {
   nrrMax: number | null;
   newClientsRevenueGrowthMin: number | null;
   newClientsRevenueGrowthMax: number | null;
-}
-
-interface CompaniesResponse {
-  result1: {
-    items: Company[];
-    itemsReceived: number;
-    curPage: number;
-    nextPage: number | null;
-    prevPage: number | null;
-    offset: number;
-    perPage: number;
-    pageTotal: number;
-    ownershipCounts: {
-      publicCompanies: number;
-      peOwnedCompanies: number;
-      vcOwnedCompanies: number;
-      privateCompanies: number;
-      subsidiaryCompanies: number;
-    };
-  };
 }
 
 // Shape returned by export API when sending JSON instead of CSV
@@ -330,16 +311,6 @@ const isExportCompanyJson = (value: unknown): value is ExportCompanyJson => {
   );
 };
 
-const truncateDescription = (
-  description: string,
-  maxLength: number = 250
-): { text: string; isLong: boolean } => {
-  const isLong = description.length > maxLength;
-  const truncated = isLong
-    ? description.substring(0, maxLength) + "..."
-    : description;
-  return { text: truncated, isLong };
-};
 
 // API service
 const useCompaniesAPI = () => {
@@ -381,208 +352,57 @@ const useCompaniesAPI = () => {
       const filtersToUse = filters !== undefined ? filters : currentFilters;
 
       try {
-        const token = localStorage.getItem("asymmetrix_auth_token");
-
-        // Companies endpoint: Per_page is static; Offset is literally the page number clicked
-        const perPage = 25;
-        const offset = page; // 1-based page number
-
-        const params = new URLSearchParams();
-        params.append("Offset", offset.toString());
-        params.append("Per_page", perPage.toString());
-
-        // Add filters to the request using API's expected param names
-        if (filtersToUse) {
-          // New API text inputs for regions (only include when applied)
-          if ((filtersToUse.continentalRegions || []).length > 0) {
-            params.append(
-              "Continental_Region",
-              (filtersToUse.continentalRegions || []).join(",")
-            );
-          }
-          if ((filtersToUse.subRegions || []).length > 0) {
-            params.append(
-              "geographical_sub_region",
-              (filtersToUse.subRegions || []).join(",")
-            );
-          }
-          if (filtersToUse.countries.length > 0) {
-            filtersToUse.countries.forEach((country) => {
-              params.append("Countries[]", country);
-            });
-          }
-          if (filtersToUse.provinces.length > 0) {
-            filtersToUse.provinces.forEach((province) => {
-              params.append("Provinces[]", province);
-            });
-          }
-          if (filtersToUse.cities.length > 0) {
-            filtersToUse.cities.forEach((city) => {
-              params.append("Cities[]", city);
-            });
-          }
-          if (filtersToUse.primarySectors.length > 0) {
-            filtersToUse.primarySectors.forEach((sectorId) => {
-              params.append("Primary_sectors_ids[]", sectorId.toString());
-            });
-          }
-          if ((filtersToUse.secondarySectors || []).length > 0) {
-            (filtersToUse.secondarySectors || []).forEach((sectorId) => {
-              params.append("Secondary_sectors_ids[]", sectorId.toString());
-            });
-          }
-          if (filtersToUse.ownershipTypes.length > 0) {
-            filtersToUse.ownershipTypes.forEach((ownershipTypeId) => {
-              params.append(
-                "Ownership_types_ids[]",
-                ownershipTypeId.toString()
-              );
-            });
-          }
-          if (filtersToUse.hybridBusinessFocuses.length > 0) {
-            filtersToUse.hybridBusinessFocuses.forEach((focusId) => {
-              params.append("Hybrid_Data_ids[]", focusId.toString());
-            });
-          }
-
-          // Only send min/max parameters when they have actual values
-          if (filtersToUse.linkedinMembersMin != null) {
-            params.append("Min_linkedin_members", filtersToUse.linkedinMembersMin.toString());
-          }
-          if (filtersToUse.linkedinMembersMax != null) {
-            params.append("Max_linkedin_members", filtersToUse.linkedinMembersMax.toString());
-          }
-
-          // Financial Metrics min/max - only send when values are present
-          if (filtersToUse.revenueMin != null) {
-            params.append("Revenue_min", filtersToUse.revenueMin.toString());
-          }
-          if (filtersToUse.revenueMax != null) {
-            params.append("Revenue_max", filtersToUse.revenueMax.toString());
-          }
-
-          if (filtersToUse.ebitdaMin != null) {
-            params.append("EBITDA_min", filtersToUse.ebitdaMin.toString());
-          }
-          if (filtersToUse.ebitdaMax != null) {
-            params.append("EBITDA_max", filtersToUse.ebitdaMax.toString());
-          }
-
-          if (filtersToUse.enterpriseValueMin != null) {
-            params.append("Enterprise_Value_min", filtersToUse.enterpriseValueMin.toString());
-          }
-          if (filtersToUse.enterpriseValueMax != null) {
-            params.append("Enterprise_Value_max", filtersToUse.enterpriseValueMax.toString());
-          }
-
-          if (filtersToUse.revenueMultipleMin != null) {
-            params.append("Revenue_Multiple_min", filtersToUse.revenueMultipleMin.toString());
-          }
-          if (filtersToUse.revenueMultipleMax != null) {
-            params.append("Revenue_Multiple_max", filtersToUse.revenueMultipleMax.toString());
-          }
-
-          if (filtersToUse.revenueGrowthMin != null) {
-            params.append("Revenue_Growth_min", filtersToUse.revenueGrowthMin.toString());
-          }
-          if (filtersToUse.revenueGrowthMax != null) {
-            params.append("Revenue_Growth_max", filtersToUse.revenueGrowthMax.toString());
-          }
-
-          if (filtersToUse.ebitdaMarginMin != null) {
-            params.append("EBITDA_Margin_min", filtersToUse.ebitdaMarginMin.toString());
-          }
-          if (filtersToUse.ebitdaMarginMax != null) {
-            params.append("EBITDA_Margin_max", filtersToUse.ebitdaMarginMax.toString());
-          }
-
-          if (filtersToUse.ruleOf40Min != null) {
-            params.append("Rule_of_40_min", filtersToUse.ruleOf40Min.toString());
-          }
-          if (filtersToUse.ruleOf40Max != null) {
-            params.append("Rule_of_40_max", filtersToUse.ruleOf40Max.toString());
-          }
-
-          // Subscription Metrics min/max - only send when values are present
-          if (filtersToUse.arrMin != null) {
-            params.append("ARR_min", filtersToUse.arrMin.toString());
-          }
-          if (filtersToUse.arrMax != null) {
-            params.append("ARR_max", filtersToUse.arrMax.toString());
-          }
-
-          if (filtersToUse.arrPcMin != null) {
-            params.append("ARR_pc_min", filtersToUse.arrPcMin.toString());
-          }
-          if (filtersToUse.arrPcMax != null) {
-            params.append("ARR_pc_max", filtersToUse.arrPcMax.toString());
-          }
-
-          if (filtersToUse.churnMin != null) {
-            params.append("Churn_min", filtersToUse.churnMin.toString());
-          }
-          if (filtersToUse.churnMax != null) {
-            params.append("Churn_max", filtersToUse.churnMax.toString());
-          }
-
-          if (filtersToUse.grrMin != null) {
-            params.append("GRR_min", filtersToUse.grrMin.toString());
-          }
-          if (filtersToUse.grrMax != null) {
-            params.append("GRR_max", filtersToUse.grrMax.toString());
-          }
-
-          if (filtersToUse.nrrMin != null) {
-            params.append("NRR_min", filtersToUse.nrrMin.toString());
-          }
-          if (filtersToUse.nrrMax != null) {
-            params.append("NRR_max", filtersToUse.nrrMax.toString());
-          }
-
-          if (filtersToUse.newClientsRevenueGrowthMin != null) {
-            params.append("New_Clients_Revenue_Growth_min", filtersToUse.newClientsRevenueGrowthMin.toString());
-          }
-          if (filtersToUse.newClientsRevenueGrowthMax != null) {
-            params.append("New_Clients_Revenue_Growth_max", filtersToUse.newClientsRevenueGrowthMax.toString());
-          }
-
-          if (filtersToUse.searchQuery && filtersToUse.searchQuery.trim()) {
-            params.append("query", filtersToUse.searchQuery.trim());
-          }
-        }
-        // When no filters are present, only send Offset and Per_page
-
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
-        console.log("[Companies] Fetch URL:", url);
-
         const requestId = ++lastRequestIdRef.current;
 
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-          credentials: "include",
-        });
+        // Convert local Filters type to server action filters
+        const serverFilters: ServerFilters = filtersToUse ? {
+          countries: filtersToUse.countries,
+          provinces: filtersToUse.provinces,
+          cities: filtersToUse.cities,
+          continentalRegions: filtersToUse.continentalRegions,
+          subRegions: filtersToUse.subRegions,
+          primarySectors: filtersToUse.primarySectors,
+          secondarySectors: filtersToUse.secondarySectors,
+          hybridBusinessFocuses: filtersToUse.hybridBusinessFocuses,
+          ownershipTypes: filtersToUse.ownershipTypes,
+          linkedinMembersMin: filtersToUse.linkedinMembersMin,
+          linkedinMembersMax: filtersToUse.linkedinMembersMax,
+          searchQuery: filtersToUse.searchQuery,
+          // Financial Metrics
+          revenueMin: filtersToUse.revenueMin,
+          revenueMax: filtersToUse.revenueMax,
+          ebitdaMin: filtersToUse.ebitdaMin,
+          ebitdaMax: filtersToUse.ebitdaMax,
+          enterpriseValueMin: filtersToUse.enterpriseValueMin,
+          enterpriseValueMax: filtersToUse.enterpriseValueMax,
+          revenueMultipleMin: filtersToUse.revenueMultipleMin,
+          revenueMultipleMax: filtersToUse.revenueMultipleMax,
+          revenueGrowthMin: filtersToUse.revenueGrowthMin,
+          revenueGrowthMax: filtersToUse.revenueGrowthMax,
+          ebitdaMarginMin: filtersToUse.ebitdaMarginMin,
+          ebitdaMarginMax: filtersToUse.ebitdaMarginMax,
+          ruleOf40Min: filtersToUse.ruleOf40Min,
+          ruleOf40Max: filtersToUse.ruleOf40Max,
+          // Subscription Metrics
+          arrMin: filtersToUse.arrMin,
+          arrMax: filtersToUse.arrMax,
+          arrPcMin: filtersToUse.arrPcMin,
+          arrPcMax: filtersToUse.arrPcMax,
+          churnMin: filtersToUse.churnMin,
+          churnMax: filtersToUse.churnMax,
+          grrMin: filtersToUse.grrMin,
+          grrMax: filtersToUse.grrMax,
+          nrrMin: filtersToUse.nrrMin,
+          nrrMax: filtersToUse.nrrMax,
+          newClientsRevenueGrowthMin: filtersToUse.newClientsRevenueGrowthMin,
+          newClientsRevenueGrowthMax: filtersToUse.newClientsRevenueGrowthMax,
+        } : {};
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(
-            `API request failed: ${response.statusText} - ${errorText}`
-          );
-        }
+        // Use server action for data fetching
+        const data = await fetchCompaniesServer(page, serverFilters);
 
-        const data: CompaniesResponse = JSON.parse(await response.text());
-        console.log("[Companies] Response keys:", Object.keys(data || {}));
-        const dataAny = data as unknown as {
-          result1?: Record<string, unknown>;
-        };
-        if (dataAny?.result1) {
-          console.log(
-            "[Companies] result1 keys:",
-            Object.keys(dataAny.result1 || {})
-          );
+        if (!data) {
+          throw new Error("Failed to fetch companies - authentication required");
         }
 
         // Ignore stale responses
@@ -606,11 +426,6 @@ const useCompaniesAPI = () => {
             privateCompanies: ownershipData.privateCompanies || 0,
             subsidiaryCompanies: ownershipData.subsidiaryCompanies || 0,
           });
-        } else {
-          console.log(
-            "[Companies] Ignoring stale response for request",
-            requestId
-          );
         }
       } catch (err) {
         setError(
@@ -780,10 +595,9 @@ const renderSectorLinks = (
   return nodes.length > 0 ? nodes : "N/A";
 };
 
-// Company Card Component for Mobile
-const CompanyCard = ({
+// Company Card Component for Mobile - Optimized with React state
+const CompanyCardBase = ({
   company,
-  index,
   secondaryToPrimaryMap,
 }: {
   company: Company;
@@ -791,32 +605,14 @@ const CompanyCard = ({
   secondaryToPrimaryMap: Record<string, string>;
 }) => {
   const router = useRouter();
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const handleCompanyClick = () => {
     router.push(`/company/${company.id}`);
   };
 
-  const toggleDescription = () => {
-    const truncatedEl = document.getElementById(`card-description-${index}`);
-    const fullEl = document.getElementById(`card-description-full-${index}`);
-    const expandEl = document.getElementById(`card-expand-${index}`);
-
-    if (truncatedEl && fullEl && expandEl) {
-      if (truncatedEl.style.display === "block") {
-        truncatedEl.style.display = "none";
-        fullEl.style.display = "block";
-        expandEl.textContent = "Show less";
-      } else {
-        truncatedEl.style.display = "block";
-        fullEl.style.display = "none";
-        expandEl.textContent = "Show more";
-      }
-    }
-  };
-
-  const { text: truncatedText, isLong } = truncateDescription(
-    company.description || "N/A"
-  );
+  const description = company.description || "N/A";
+  const isLong = description.length > 250;
 
   // Compute primary sectors by combining existing primaries with primaries derived from secondaries
   const computedPrimarySectors = React.useMemo(() => {
@@ -861,6 +657,7 @@ const CompanyCard = ({
             src: `data:image/jpeg;base64,${company.linkedin_logo}`,
             alt: `${company.name} logo`,
             className: "company-card-logo",
+            loading: "lazy",
             onError: (e: React.SyntheticEvent<HTMLImageElement>) => {
               (e.target as HTMLImageElement).style.display = "none";
             },
@@ -963,91 +760,56 @@ const CompanyCard = ({
         React.createElement(
           "div",
           {
-            className: "company-card-description-truncated",
-            id: `card-description-${index}`,
-            style: { display: isLong ? "block" : "none" },
+            className: isExpanded ? "" : "company-card-description-truncated",
           },
-          truncatedText
-        ),
-        React.createElement(
-          "div",
-          {
-            id: `card-description-full-${index}`,
-            style: { display: isLong ? "none" : "block" },
-          },
-          company.description || "N/A"
+          isExpanded || !isLong ? description : `${description.substring(0, 250)}...`
         ),
         isLong &&
           React.createElement(
             "span",
             {
               className: "company-card-expand",
-              onClick: toggleDescription,
-              id: `card-expand-${index}`,
+              onClick: () => setIsExpanded(!isExpanded),
             },
-            "Show more"
+            isExpanded ? "Show less" : "Show more"
           )
       )
     )
   );
 };
+const CompanyCard = React.memo(CompanyCardBase);
+CompanyCard.displayName = "CompanyCard";
 
-// Company Description Component
-const CompanyDescription = ({
+// Company Description Component - Optimized with React state
+const CompanyDescriptionBase = ({
   description,
-  index,
 }: {
   description: string;
   index: number;
 }) => {
-  const { text: truncatedText, isLong } = truncateDescription(description);
-
-  const toggleDescription = () => {
-    const truncatedEl = document.getElementById(`description-${index}`);
-    const fullEl = document.getElementById(`description-full-${index}`);
-    const expandEl = document.getElementById(`expand-${index}`);
-
-    if (truncatedEl && fullEl && expandEl) {
-      if (truncatedEl.style.display === "block") {
-        truncatedEl.style.display = "none";
-        fullEl.style.display = "block";
-        expandEl.textContent = "Collapse description";
-      } else {
-        truncatedEl.style.display = "block";
-        fullEl.style.display = "none";
-        expandEl.textContent = "Expand description";
-      }
-    }
-  };
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isLong = description.length > 250;
 
   return (
     <div className="company-description">
       <div
-        className="company-description-truncated"
-        id={`description-${index}`}
-        style={{ display: isLong ? "block" : "none" }}
+        className={isExpanded ? "company-description-full" : "company-description-truncated"}
       >
-        {truncatedText}
-      </div>
-      <div
-        className="company-description-full"
-        id={`description-full-${index}`}
-        style={{ display: isLong ? "none" : "block" }}
-      >
-        {description}
+        {isExpanded || !isLong ? description : `${description.substring(0, 250)}...`}
       </div>
       {isLong && (
         <span
           className="expand-description"
-          onClick={toggleDescription}
-          id={`expand-${index}`}
+          onClick={() => setIsExpanded(!isExpanded)}
         >
-          Expand description
+          {isExpanded ? "Collapse" : "Expand"}
         </span>
       )}
     </div>
   );
 };
+const CompanyDescription = React.memo(CompanyDescriptionBase);
+CompanyDescription.displayName = "CompanyDescription";
 
 // Filters Component
 const CompanyDashboard = ({
