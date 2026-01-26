@@ -63,53 +63,6 @@ const CorporateEventDetail = ({
   data: CorporateEventDetailResponse;
 }) => {
   const { createClickableElement } = useRightClick();
-  type PreviousCorporateEvent = {
-    id?: number;
-    description?: string;
-    announcement_date?: string;
-    deal_type?: string;
-    investment_display?: string;
-    ev_display?: string | null;
-    // New API fields for targets/counterparties used across the app
-    targets?: Array<{
-      id: number;
-      name: string;
-      path?: string;
-      route?: string;
-      entity_type?: string;
-      page_type?: string;
-      counterparty_announcement_url?: string;
-    }>;
-    buyers_investors?: Array<{
-      id?: number;
-      name?: string;
-      path?: string;
-      route?: string;
-      page_type?: string;
-    }>;
-    buyers?: Array<{
-      id?: number;
-      name?: string;
-      path?: string;
-      route?: string;
-      page_type?: string;
-    }>;
-    sellers?: Array<{
-      id?: number;
-      name?: string;
-      path?: string;
-      route?: string;
-      page_type?: string;
-    }>;
-    investors?: Array<{
-      id?: number;
-      name?: string;
-      path?: string;
-      route?: string;
-      page_type?: string;
-    }>;
-    this_company_status?: string;
-  };
   type FlatEventFields = {
     investment_amount_m?: string | number | null;
     investment_amount?: string | number | null;
@@ -273,10 +226,6 @@ const CorporateEventDetail = ({
       investors?: string | React.ReactNode;
     }>
   >([]);
-  // Previous corporate events for the target company (used in PDF export payload)
-  const [previousCorporateEvents, setPreviousCorporateEvents] = useState<
-    PreviousCorporateEvent[]
-  >([]);
   const [relatedInsights, setRelatedInsights] = useState<
     Array<{ id?: number; tag?: string; date?: string; title: string; content: string }>
   >([]);
@@ -308,92 +257,6 @@ const CorporateEventDetail = ({
     const anyId = cps.find((cp) => typeof cp?._new_company?.id === "number")?._new_company?.id;
     return typeof anyId === "number" ? anyId : undefined;
   }, [counterparties]);
-
-  // Fetch previous corporate events for the target company (Get_new_company -> new_counterparties)
-  useEffect(() => {
-    const companyId = targetNewCompanyId;
-    if (typeof companyId !== "number") {
-      setPreviousCorporateEvents([]);
-      return;
-    }
-
-    let cancelled = false;
-
-    const safeJsonParse = <T,>(value: unknown, fallback: T): T => {
-      if (typeof value !== "string") return (value as T) ?? fallback;
-      try {
-        return (JSON.parse(value) as T) ?? fallback;
-      } catch {
-        return fallback;
-      }
-    };
-
-    const run = async () => {
-      try {
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : null;
-
-        const resp = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${companyId}`,
-          {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            credentials: "include",
-          }
-        );
-        if (!resp.ok) {
-          if (!cancelled) setPreviousCorporateEvents([]);
-          return;
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const json: any = await resp.json();
-        const newCounterparties: unknown = json?.new_counterparties;
-
-        const parsed: PreviousCorporateEvent[] = [];
-        if (Array.isArray(newCounterparties)) {
-          for (const entry of newCounterparties) {
-            // Legacy: entry.items holds a JSON string (or already-parsed array)
-            // New: entry is an event object directly
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const rawItems = (entry as any)?.items;
-            const payload = safeJsonParse<unknown>(
-              rawItems ?? (rawItems === "" ? undefined : rawItems),
-              rawItems
-            );
-
-            if (Array.isArray(payload)) {
-              parsed.push(...(payload as PreviousCorporateEvent[]));
-            } else if (rawItems == null && entry && typeof entry === "object") {
-              parsed.push(entry as PreviousCorporateEvent);
-            }
-          }
-        }
-
-        const filtered = parsed
-          .filter((e) => !(typeof e?.id === "number" && e.id === corporateEventId))
-          .sort((a, b) => {
-            const da = new Date(a?.announcement_date || 0).getTime();
-            const db = new Date(b?.announcement_date || 0).getTime();
-            return db - da;
-          });
-
-        if (!cancelled) setPreviousCorporateEvents(filtered);
-      } catch {
-        if (!cancelled) setPreviousCorporateEvents([]);
-      }
-    };
-
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [targetNewCompanyId, corporateEventId]);
 
   useEffect(() => {
     const run = async () => {
@@ -713,11 +576,26 @@ const CorporateEventDetail = ({
       .map((e) => ({
         id: e.id,
         title: e.description || "View event",
-        announcementDate: e.announcement_date ? formatDate(e.announcement_date) : undefined,
+        // API uses `date` for this list; fall back to legacy fields if present.
+        announcementDate: (() => {
+          const d = e.date || e.announcement_date;
+          return d ? formatDate(d) : undefined;
+        })(),
         closedDate: e.closed_date ? formatDate(e.closed_date) : undefined,
         dealType: e.deal_type || undefined,
         dealStatus: e.deal_status || undefined,
-        targetRole: e.target_company_role?.counterparty_status || undefined,
+        targetRole:
+          e.target_company_role?.counterparty_status ||
+          // New payload shape: `target.counterparty_status` (e.g. "Target")
+          e.target?.counterparty_status ||
+          // Legacy fallback: search within counterparties for a "Target" status
+          (Array.isArray(e.counterparties)
+            ? e.counterparties.find((c) =>
+                String(c?.counterparty_status || "")
+                  .toLowerCase()
+                  .includes("target")
+              )?.counterparty_status
+            : undefined),
       }))
       .sort((a, b) => b.id - a.id);
 
@@ -971,8 +849,8 @@ const CorporateEventDetail = ({
         "Sub-sectors": data?.["Sub-sectors"] || [],
         event_articles: eventArticles || [],
         related_transactions: relatedTransactions || [],
-        // Include target-company prior events (PDF service expects this for "Previous Corporate Events")
-        previous_corporate_events: previousCorporateEvents || [],
+        // Include prior events from the corporate_event_v2 payload (matches `Previous_Corporate_Events` shape)
+        previous_corporate_events: previousCorporateEventsRaw || [],
         related_insights: relatedInsights || [],
         xano_auth_token: token,
       };
@@ -1021,7 +899,7 @@ const CorporateEventDetail = ({
     data,
     eventArticles,
     relatedTransactions,
-    previousCorporateEvents,
+    previousCorporateEventsRaw,
     relatedInsights,
   ]);
 

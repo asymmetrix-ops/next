@@ -282,12 +282,33 @@ export interface PreviousCorporateEvent {
   description?: string;
   deal_type?: string;
   deal_status?: string;
+  /**
+   * Newer API field used by `Previous_Corporate_Events` payloads.
+   * Treat as the announced date for UI purposes.
+   */
+  date?: string;
   announcement_date?: string;
   closed_date?: string;
   investment_amount_m?: number | null;
   enterprise_value_m?: number | null;
   investment_currency?: string;
   enterprise_value_currency?: string;
+  /**
+   * Newer API shape (matches payloads returned in `Previous_Corporate_Events`)
+   */
+  target?: {
+    company_id: number;
+    company_name?: string;
+    company_logo?: string;
+    counterparty_type?: number;
+    counterparty_status?: string;
+  };
+  investors?: Array<{
+    company_id: number;
+    company_name: string;
+    company_logo?: string;
+    counterparty_status?: string;
+  }> | null;
   target_company_role?: {
     counterparty_status?: string;
     counterparty_type_id?: number;
