@@ -194,6 +194,21 @@ const styles = {
   },
 };
 
+// Format location for display
+function formatLocation(
+  location: Individual["_locations_individual"]
+): string {
+  if (!location) return "Not available";
+
+  const parts = [
+    location.City,
+    location.State__Province__County,
+    location.Country,
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(", ") : "Not available";
+}
+
 // Resolve current company href using roles when possible
 function resolveCompanyHref(ind: Individual): string | null {
   try {
@@ -398,13 +413,7 @@ const IndividualCard: React.FC<{ individual: Individual }> = ({
             }
           )}
           <div style={{ fontSize: "14px", color: "#4a5568" }}>
-            {individual._locations_individual
-              ? `${individual._locations_individual.City || ""}, ${
-                  individual._locations_individual.State__Province__County || ""
-                }, ${individual._locations_individual.Country || ""}`
-                  .replace(/^,\s*/, "")
-                  .replace(/,\s*$/, "")
-              : "Not available"}
+            {formatLocation(individual._locations_individual)}
           </div>
         </div>
       </div>
@@ -526,15 +535,7 @@ const IndividualsTable = ({
         {individual.current_roles?.map((role) => role.job_title).join(", ") ||
           "Not available"}
       </td>
-      <td>
-        {individual._locations_individual
-          ? `${individual._locations_individual.City || ""}, ${
-              individual._locations_individual.State__Province__County || ""
-            }, ${individual._locations_individual.Country || ""}`
-              .replace(/^,\s*/, "")
-              .replace(/,\s*$/, "")
-          : "Not available"}
-      </td>
+      <td>{formatLocation(individual._locations_individual)}</td>
     </tr>
   ));
 
@@ -876,27 +877,27 @@ const IndividualsPage = () => {
       const data: IndividualsResponse = await response.json();
 
       if (requestId === lastRequestIdRef.current) {
-        const list = data?.Individuals_list;
-        setIndividuals(list?.items || []);
+        // New optimized flat response structure
+        const currentPage = data.currentPage || 1;
+        const totalPages = data.totalPages || 1;
+
+        setIndividuals(data.individuals || []);
         setPagination({
-          itemsReceived: list?.itemsReceived || 0,
-          curPage: list?.curPage || 1,
-          nextPage: list?.nextPage ?? null,
-          prevPage: list?.prevPage ?? null,
-          offset: list?.offset || 0,
-          perPage: filters.per_page,
-          pageTotal: Math.max(
-            1,
-            Math.ceil((data?.totalIndividuals || 0) / filters.per_page)
-          ),
+          itemsReceived: data.individuals?.length || 0,
+          curPage: currentPage,
+          nextPage: currentPage < totalPages ? currentPage + 1 : null,
+          prevPage: currentPage > 1 ? currentPage - 1 : null,
+          offset: (currentPage - 1) * filters.per_page,
+          perPage: data.perPage || filters.per_page,
+          pageTotal: totalPages,
         });
         setSummaryData({
-          totalIndividuals: data?.totalIndividuals || 0,
-          currentRoles: data?.currentRoles || 0,
-          pastRoles: data?.pastRoles || 0,
-          ceos: data?.ceos || 0,
-          chairs: data?.chairs || 0,
-          founders: data?.founders || 0,
+          totalIndividuals: data.totalIndividuals || 0,
+          currentRoles: data.currentRoles || 0,
+          pastRoles: data.pastRoles || 0,
+          ceos: data.ceos || 0,
+          chairs: data.chairs || 0,
+          founders: data.founders || 0,
         });
       }
     } catch (error) {
