@@ -276,8 +276,7 @@ const styles = {
   label: {
     fontWeight: 600,
     color: "#4b5563",
-    wordWrap: "break-word" as const,
-    overflowWrap: "break-word" as const,
+    whiteSpace: "nowrap" as const,
     minWidth: 0,
   },
   value: {
@@ -1730,30 +1729,207 @@ const ArticleDetailPage = () => {
               return (
                 <div style={styles.section}>
                   <h2 style={styles.sectionTitle}>Related Corporate Event</h2>
-                  <div style={styles.tagContainer}>
-                    {events.map((ev, idx) => {
-                      const id = ev?.id;
-                      const label = (ev?.description || "View event").trim();
-                      return typeof id === "number" && id > 0 ? (
-                        <Link
-                          key={id}
-                          href={`/corporate-event/${id}`}
-                          style={{
-                            ...styles.tag,
-                            textDecoration: "none",
-                            display: "inline-block",
-                          }}
-                          prefetch={false}
-                        >
-                          {label}
-                        </Link>
-                      ) : (
-                        <span key={`ev-${idx}`} style={styles.tag}>
-                          {label}
-                        </span>
-                      );
-                    })}
-                  </div>
+                  {events.map((ev, idx) => {
+                    const id = ev?.id;
+                    const description = (ev?.description || "").trim();
+                    const announcementDate = ev?.announcement_date;
+                    const closedDate = ev?.closed_date;
+                    const displayDate = closedDate || announcementDate;
+                    const targetName = ev?.target?.name;
+                    const dealType = ev?.deal_type;
+                    const primarySectors = ev?.primary_sectors || [];
+                    const secondarySectors = ev?.secondary_sectors || [];
+
+                    const formatEventDate = (dateStr?: string) => {
+                      if (!dateStr) return null;
+                      try {
+                        const date = new Date(dateStr);
+                        return date.toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        });
+                      } catch {
+                        return dateStr;
+                      }
+                    };
+
+                    return (
+                      <div
+                        key={id || `ev-${idx}`}
+                        style={{
+                          ...styles.card,
+                          marginBottom: idx < events.length - 1 ? "16px" : "0",
+                          padding: "20px",
+                        }}
+                      >
+                        {description && (
+                          <div style={{ marginBottom: "12px" }}>
+                            {typeof id === "number" && id > 0 ? (
+                              <Link
+                                href={`/corporate-event/${id}`}
+                                style={{
+                                  fontSize: "16px",
+                                  fontWeight: "600",
+                                  color: "#2563eb",
+                                  textDecoration: "none",
+                                }}
+                                prefetch={false}
+                              >
+                                {description}
+                              </Link>
+                            ) : (
+                              <span
+                                style={{
+                                  fontSize: "16px",
+                                  fontWeight: "600",
+                                  color: "#1a202c",
+                                }}
+                              >
+                                {description}
+                              </span>
+                            )}
+                            {displayDate && (
+                              <span
+                                style={{
+                                  marginLeft: "12px",
+                                  fontSize: "14px",
+                                  color: "#6b7280",
+                                }}
+                              >
+                                {formatEventDate(displayDate)}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                          {targetName && (
+                            <div style={styles.infoRow}>
+                              <span style={styles.label}>Target</span>
+                              <span style={styles.value}>{targetName}</span>
+                            </div>
+                          )}
+                          {dealType && (
+                            <div style={styles.infoRow}>
+                              <span style={styles.label}>Deal Type</span>
+                              <span style={styles.value}>
+                                <span
+                                  style={{
+                                    backgroundColor: "#e3f2fd",
+                                    color: "#1976d2",
+                                    padding: "4px 8px",
+                                    borderRadius: "4px",
+                                    fontSize: "13px",
+                                    fontWeight: "500",
+                                  }}
+                                >
+                                  {dealType}
+                                </span>
+                              </span>
+                            </div>
+                          )}
+                          {primarySectors.length > 0 && (
+                            <div style={styles.infoRow}>
+                              <span style={styles.label}>Primary</span>
+                              <span
+                                style={{
+                                  ...styles.value,
+                                  display: "flex",
+                                  flexWrap: "wrap",
+                                  justifyContent: "flex-end",
+                                  gap: "6px",
+                                }}
+                              >
+                                {primarySectors
+                                  .filter((s) => s?.sector_name)
+                                  .map((s, sIdx) => {
+                                    const sectorId = s?.id;
+                                    const sectorName = s?.sector_name || "";
+                                    const separator =
+                                      sIdx <
+                                      primarySectors.filter((s) => s?.sector_name).length - 1
+                                        ? ", "
+                                        : "";
+                                    if (typeof sectorId === "number") {
+                                      return (
+                                        <span key={`primary-${sectorId}-${sIdx}`}>
+                                          <Link
+                                            href={`/sector/${sectorId}`}
+                                            style={{
+                                              color: "#2563eb",
+                                              textDecoration: "none",
+                                            }}
+                                            prefetch={false}
+                                          >
+                                            {sectorName}
+                                          </Link>
+                                          {separator}
+                                        </span>
+                                      );
+                                    }
+                                    return (
+                                      <span key={`primary-na-${sIdx}`}>
+                                        {sectorName}
+                                        {separator}
+                                      </span>
+                                    );
+                                  })}
+                              </span>
+                            </div>
+                          )}
+                          {secondarySectors.length > 0 && (
+                            <div style={styles.infoRow}>
+                              <span style={styles.label}>Sectors</span>
+                              <span
+                                style={{
+                                  ...styles.value,
+                                  display: "flex",
+                                  flexWrap: "wrap",
+                                  justifyContent: "flex-end",
+                                  gap: "6px",
+                                }}
+                              >
+                                {secondarySectors
+                                  .filter((s) => s?.sector_name)
+                                  .map((s, sIdx) => {
+                                    const sectorId = s?.id;
+                                    const sectorName = s?.sector_name || "";
+                                    const separator =
+                                      sIdx <
+                                      secondarySectors.filter((s) => s?.sector_name).length - 1
+                                        ? ", "
+                                        : "";
+                                    if (typeof sectorId === "number") {
+                                      return (
+                                        <span key={`secondary-${sectorId}-${sIdx}`}>
+                                          <Link
+                                            href={`/sub-sector/${sectorId}`}
+                                            style={{
+                                              color: "#2563eb",
+                                              textDecoration: "none",
+                                            }}
+                                            prefetch={false}
+                                          >
+                                            {sectorName}
+                                          </Link>
+                                          {separator}
+                                        </span>
+                                      );
+                                    }
+                                    return (
+                                      <span key={`secondary-na-${sIdx}`}>
+                                        {sectorName}
+                                        {separator}
+                                      </span>
+                                    );
+                                  })}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })()}
