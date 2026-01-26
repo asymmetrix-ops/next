@@ -425,7 +425,7 @@ const ArticleDetailPage = () => {
     }
   }, [articleId, fetchArticle]);
 
-  // Fetch Company_of_Focus details for Company Analysis & Executive Interview content
+  // Fetch Company_of_Focus details for Company Analysis & Hot Take content
   useEffect(() => {
     const fetchCompanyOfFocus = async () => {
       if (!article) {
@@ -441,7 +441,7 @@ const ArticleDetailPage = () => {
         ""
       ).trim();
 
-      const isCompanyAnalysisOrExecInterview = /^(company\s*analysis|executive\s*interview)$/i.test(
+      const isCompanyAnalysisOrHotTake = /^(company\s*analysis|hot\s*take)$/i.test(
         contentType
       );
 
@@ -449,7 +449,7 @@ const ArticleDetailPage = () => {
         (article as unknown as { Company_of_Focus?: unknown })
           .Company_of_Focus != null;
 
-      if (!isCompanyAnalysisOrExecInterview || !hasCompanyOfFocus) {
+      if (!isCompanyAnalysisOrHotTake || !hasCompanyOfFocus) {
         setCompanyOfFocus(null);
         return;
       }
@@ -1180,10 +1180,10 @@ const ArticleDetailPage = () => {
                 article.Content?.Content_Type ||
                 ""
               ).trim();
-              const isCompanyAnalysisOrExecInterview = /^(company\s*analysis|executive\s*interview)$/i.test(
+              const isCompanyAnalysisOrHotTake = /^(company\s*analysis|hot\s*take)$/i.test(
                 ct
               );
-              if (!isCompanyAnalysisOrExecInterview) return null;
+              if (!isCompanyAnalysisOrHotTake) return null;
 
               const overview = companyOfFocus.company_overview;
               const financial = companyOfFocus.financial_overview;
