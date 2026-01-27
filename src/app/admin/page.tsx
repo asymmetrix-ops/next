@@ -624,9 +624,21 @@ function ContentInsightsTab() {
           if (json.length > 0) {
             const keys = Object.keys(json[0] as Record<string, unknown>);
             if (view === "Top Articles Per Type") {
-              setSortCol("total_views");
+              setSortCol(
+                keys.includes("total_page_views")
+                  ? "total_page_views"
+                  : keys.includes("total_views")
+                    ? "total_views"
+                    : "page_views_90d"
+              );
             } else if (view === "Content Type") {
-              setSortCol("total_views");
+              setSortCol(
+                keys.includes("total_page_views")
+                  ? "total_page_views"
+                  : keys.includes("total_views")
+                    ? "total_views"
+                    : "page_views_90d"
+              );
             } else {
               setSortCol(keys[0] || "");
             }
@@ -706,17 +718,73 @@ function ContentInsightsTab() {
       headline: "Headline",
       Publication_Date: "Publication Date",
       publication_date: "Publication Date",
+      sessions_24h: "Sessions 24h",
+      page_views_24h: "Page Views 24h",
+      views_24h: "Views 24h",
+      sessions_7d: "Sessions 7d",
+      page_views_7d: "Page Views 7d",
+      views_7d: "Views 7d",
       sessions_30d: "Sessions 30d",
+      page_views_30d: "Page Views 30d",
       views_30d: "Views 30d",
       sessions_90d: "Sessions 90d",
+      page_views_90d: "Page Views 90d",
       views_90d: "Views 90d",
       total_sessions: "Total Sessions",
+      total_page_views: "Total Page Views",
       total_views: "Total Views",
       unique_users: "Unique Users",
+      number_of_articles: "Articles",
+      last_viewed: "Last Viewed",
       rank_in_type: "Rank in Type",
     };
 
-    return keys.map((key) => [key, labelMap[key] || key] as [string, string]);
+    // Prefer a stable, human-friendly column order when metrics exist
+    const preferredOrder = [
+      "Content_Type",
+      "content_type",
+      "content_id",
+      "Headline",
+      "headline",
+      "Publication_Date",
+      "publication_date",
+      "sessions_24h",
+      "page_views_24h",
+      "views_24h",
+      "sessions_7d",
+      "page_views_7d",
+      "views_7d",
+      "sessions_30d",
+      "page_views_30d",
+      "views_30d",
+      "sessions_90d",
+      "page_views_90d",
+      "views_90d",
+      "total_sessions",
+      "total_page_views",
+      "total_views",
+      "unique_users",
+      "number_of_articles",
+      "last_viewed",
+      "rank_in_type",
+    ];
+    const orderIndex = new Map<string, number>(
+      preferredOrder.map((k, i) => [k, i])
+    );
+    const ordered = keys.slice().sort((a, b) => {
+      const ai = orderIndex.get(a);
+      const bi = orderIndex.get(b);
+      const aKnown = typeof ai === "number";
+      const bKnown = typeof bi === "number";
+      if (aKnown && bKnown) return ai! - bi!;
+      if (aKnown) return -1;
+      if (bKnown) return 1;
+      return a.localeCompare(b);
+    });
+
+    return ordered.map(
+      (key) => [key, labelMap[key] || key] as [string, string]
+    );
   }
 
   const columnHeaders = getColumnHeaders();
@@ -899,6 +967,13 @@ function ContentInsightsTab() {
                         (key === "Publication_Date" || key === "publication_date") &&
                         value
                       ) {
+                        return (
+                          <td key={key} className="px-3 py-2 whitespace-nowrap">
+                            {formatDate(value)}
+                          </td>
+                        );
+                      }
+                      if (key === "last_viewed" && value) {
                         return (
                           <td key={key} className="px-3 py-2 whitespace-nowrap">
                             {formatDate(value)}
