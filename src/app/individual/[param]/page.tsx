@@ -64,6 +64,15 @@ export default function IndividualProfilePage() {
   >({});
   // Right-click handled via native anchors now
 
+  const getCompanyHref = (opts: {
+    companyId?: number | null;
+    isInvestor?: boolean | null;
+  }) => {
+    const companyId = opts.companyId ?? undefined;
+    if (!companyId) return "";
+    return opts.isInvestor ? `/investors/${companyId}` : `/company/${companyId}`;
+  };
+
   const { profileData, eventsData, individualName, loading, error } =
     useIndividualProfile({
       individualId,
@@ -686,7 +695,12 @@ export default function IndividualProfilePage() {
                           <td style={{ padding: "8px", fontSize: "12px" }}>
                             {role.new_company?.id ? (
                               <a
-                                href={`/company/${role.new_company.id}`}
+                                href={getCompanyHref({
+                                  companyId:
+                                    role.employee_new_company_id ??
+                                    role.new_company?.id,
+                                  isInvestor: role.new_company?._is_that_investor,
+                                })}
                                 style={{
                                   color: "#3b82f6",
                                   textDecoration: "underline",
@@ -869,7 +883,13 @@ export default function IndividualProfilePage() {
                             <td style={{ padding: "8px", fontSize: "12px" }}>
                               {relatedIndividual._new_company?.id ? (
                                 <a
-                                  href={`/company/${relatedIndividual._new_company.id}`}
+                                  href={getCompanyHref({
+                                    companyId:
+                                      relatedIndividual.employee_new_company_id ??
+                                      relatedIndividual._new_company?.id,
+                                    isInvestor:
+                                      relatedIndividual._new_company?._is_that_investor,
+                                  })}
                                   style={{
                                     color: "#3b82f6",
                                     textDecoration: "underline",
