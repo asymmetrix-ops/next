@@ -73,6 +73,8 @@ interface PortfolioCompany {
     Sector_importance: string;
   }>;
   description: string;
+  year_exited?: number | string | null;
+  year_invested?: number | string | null;
   linkedin_data: {
     LinkedIn_Employee: number;
     linkedin_logo: string;
@@ -87,7 +89,11 @@ interface PortfolioCompany {
   };
   related_to_investor_individuals?: Array<{
     id: number;
-    advisor_individuals: string;
+    /** Canonical display name (preferred) */
+    name: string;
+    /** Legacy field sometimes returned by backend */
+    advisor_individuals?: string;
+    job_titles?: string[];
   }>;
 }
 
@@ -476,9 +482,29 @@ const InvestorDetailPage = () => {
       linkedin_logo?: string;
     }>(obj["linkedin_data"], {});
 
-    const relatedIndividuals = safeParseJSON<
-      Array<{ id: number; advisor_individuals: string; linkedin_URL?: string }>
+    // API may return stringified JSON and/or different field names for related individuals.
+    const relatedIndividualsRaw = safeParseJSON<
+      Array<{
+        id?: number;
+        name?: string;
+        advisor_individuals?: string;
+        job_titles?: unknown;
+      }>
     >(obj["related_to_investor_individuals"], []);
+
+    const relatedIndividuals = (Array.isArray(relatedIndividualsRaw)
+      ? relatedIndividualsRaw
+      : []
+    )
+      .map((ri) => {
+        const id = Number(ri?.id);
+        const name = String((ri?.name || ri?.advisor_individuals || "").trim());
+        const jobTitles = Array.isArray(ri?.job_titles)
+          ? (ri.job_titles as unknown[]).map((t) => String(t)).filter(Boolean)
+          : [];
+        return { id, name, advisor_individuals: ri?.advisor_individuals, job_titles: jobTitles };
+      })
+      .filter((ri) => Number.isFinite(ri.id) && ri.id > 0 && ri.name.length > 0);
 
     return {
       id: Number(obj["id"]),
@@ -486,6 +512,28 @@ const InvestorDetailPage = () => {
       locations_id: Number((obj["locations_id"] as number) ?? 0),
       sectors_id: Array.isArray(sectors) ? sectors : [],
       description: String((obj["description"] as string) ?? ""),
+      year_exited:
+        typeof obj["year_exited"] === "number" ||
+        typeof obj["year_exited"] === "string"
+          ? (obj["year_exited"] as number | string)
+          : typeof obj["Year_Exited"] === "number" ||
+            typeof obj["Year_Exited"] === "string"
+          ? (obj["Year_Exited"] as number | string)
+          : typeof obj["yearExited"] === "number" ||
+            typeof obj["yearExited"] === "string"
+          ? (obj["yearExited"] as number | string)
+          : null,
+      year_invested:
+        typeof obj["year_invested"] === "number" ||
+        typeof obj["year_invested"] === "string"
+          ? (obj["year_invested"] as number | string)
+          : typeof obj["Year_Invested"] === "number" ||
+            typeof obj["Year_Invested"] === "string"
+          ? (obj["Year_Invested"] as number | string)
+          : typeof obj["yearInvested"] === "number" ||
+            typeof obj["yearInvested"] === "string"
+          ? (obj["yearInvested"] as number | string)
+          : null,
       linkedin_data: {
         LinkedIn_Employee: Number(linkedinDataOld?.LinkedIn_Employee ?? 0),
         linkedin_logo: String(linkedinDataOld?.linkedin_logo ?? ""),
@@ -1852,7 +1900,9 @@ const InvestorDetailPage = () => {
                                         <span key={individual.id}>
                                           {createClickableElement(
                                             `/individual/${individual.id}`,
-                                            individual.advisor_individuals,
+                                            individual.name ||
+                                              individual.advisor_individuals ||
+                                              "Unknown",
                                             undefined,
                                             {
                                               textDecoration: "none",
@@ -1972,7 +2022,9 @@ const InvestorDetailPage = () => {
                                         <span key={individual.id}>
                                           {createClickableElement(
                                             `/individual/${individual.id}`,
-                                            individual.advisor_individuals,
+                                            individual.name ||
+                                              individual.advisor_individuals ||
+                                              "Unknown",
                                             undefined,
                                             {
                                               textDecoration: "none",
@@ -2192,7 +2244,9 @@ const InvestorDetailPage = () => {
                                         <span key={individual.id}>
                                           {createClickableElement(
                                             `/individual/${individual.id}`,
-                                            individual.advisor_individuals,
+                                            individual.name ||
+                                              individual.advisor_individuals ||
+                                              "Unknown",
                                             undefined,
                                             {
                                               textDecoration: "none",
