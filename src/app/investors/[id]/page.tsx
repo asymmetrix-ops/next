@@ -7,6 +7,9 @@ import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useRightClick } from "@/hooks/useRightClick";
+import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
+import { type CorporateEvent as CorporateEventsTableEvent } from "@/components/corporate-events/CorporateEventsTable";
+import IndividualCards from "@/components/shared/IndividualCards";
 import {
   LineChart,
   Line,
@@ -89,10 +92,7 @@ interface PortfolioCompany {
   };
   related_to_investor_individuals?: Array<{
     id: number;
-    /** Canonical display name (preferred) */
     name: string;
-    /** Legacy field sometimes returned by backend */
-    advisor_individuals?: string;
     job_titles?: string[];
   }>;
 }
@@ -119,9 +119,83 @@ interface CorporateEvent {
     };
   };
   ev_data?: {
-    enterprise_value_m?: number;
+    enterprise_value_m?: number | string;
     ev_band?: string;
+    currency?: { id?: number; Currency?: string } | null;
+    currency_id?: string;
   };
+  investment_data?: {
+    investment_amount_m?: string;
+    Funding_stage?: string;
+    funding_stage?: string;
+    currency?: { Currency?: string } | null;
+    currency_id?: string;
+  };
+  investment_display?: string | null;
+  ev_display?: string | null;
+  // New API fields for targets
+  targets?: Array<{
+    id: number;
+    name: string;
+    path?: string;
+    route?: string;
+    entity_type?: string;
+  }>;
+  target_label?: string;
+  target_counterparty?: {
+    new_company_counterparty?: number;
+    new_company?: {
+      id?: number;
+      name?: string;
+      _location?: { Country?: string };
+    };
+    _new_company?: {
+      id?: number;
+      name?: string;
+      _location?: { Country?: string };
+    };
+  };
+  other_counterparties?: Array<{
+    // New API format
+    id?: number;
+    name?: string;
+    page_type?: string;
+    counterparty_id?: number;
+    is_data_analytics?: boolean;
+    counterparty_status?: string;
+    counterparty_type_id?: number;
+    counterparty_announcement_url?: string | null;
+    // Legacy format
+    _new_company?: {
+      id?: number;
+      name?: string;
+      _is_that_investor?: boolean;
+    };
+    _counterparty_type?: {
+      counterparty_status?: string;
+    };
+  }>;
+  advisors?: Array<{
+    id?: number;
+    // Normalized shape used by `CorporateEventsTable`
+    advisor_company?: { id?: number; name?: string };
+    announcement_url?: string | null;
+    new_company_advised?: number;
+    counterparty_advised?: number;
+
+    // Raw API fields sometimes returned by investor corporate events endpoint
+    advisor_company_id?: number;
+    advisor_company_name?: string;
+    advised_company?: {
+      id?: number;
+      name?: string;
+      path?: string;
+      route?: string;
+      entity_type?: string;
+      counterparty_type?: number;
+      counterparty_status?: string;
+    };
+  }>;
   "0"?: Array<{
     _new_company?: {
       id?: number;
@@ -138,7 +212,8 @@ interface CorporateEvent {
 }
 
 interface CorporateEventsResponse {
-  New_Events_Wits_Advisors: CorporateEvent[];
+  New_Events_Wits_Advisors?: CorporateEvent[];
+  Corporate_Events?: CorporateEvent[];
 }
 
 interface InvestorData {
@@ -157,19 +232,6 @@ const formatNumber = (num: number | undefined): string => {
   return num.toLocaleString();
 };
 
-const formatDate = (dateString: string | null): string => {
-  if (!dateString) return "Not available";
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  } catch {
-    return "Not available";
-  }
-};
 
 const formatChartDate = (dateString: string): string => {
   const [year, month] = dateString.split("-");
@@ -244,17 +306,6 @@ const LinkedInHistoryChart = ({ data }: { data: LinkedInHistory[] }) => {
   );
 };
 
-const truncateDescription = (
-  description: string,
-  maxLength: number = 150
-): { text: string; isLong: boolean } => {
-  const isLong = description.length > maxLength;
-  const truncated = isLong
-    ? description.substring(0, maxLength) + "..."
-    : description;
-  return { text: truncated, isLong };
-};
-
 // Company Logo Component
 const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
   if (logo) {
@@ -291,37 +342,6 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
       }}
     >
       {name.charAt(0).toUpperCase()}
-    </div>
-  );
-};
-
-// Company Description Component
-const CompanyDescription = ({ description }: { description: string }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const { text, isLong } = truncateDescription(description);
-
-  const toggleDescription = () => {
-    setIsExpanded(!isExpanded);
-  };
-
-  return (
-    <div>
-      <span>{isExpanded ? description : text}</span>
-      {isLong && (
-        <button
-          onClick={toggleDescription}
-          style={{
-            background: "none",
-            border: "none",
-            color: "#3b82f6",
-            cursor: "pointer",
-            fontSize: "12px",
-            marginLeft: "8px",
-          }}
-        >
-          {isExpanded ? "Show less" : "Expand description"}
-        </button>
-      )}
     </div>
   );
 };
@@ -366,6 +386,9 @@ const InvestorDetailPage = () => {
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [pastPortfolioLoading, setPastPortfolioLoading] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [resolvedIndividualIds, setResolvedIndividualIds] = useState<
+    Map<string, number>
+  >(new Map());
 
   const [error, setError] = useState<string | null>(null);
 
@@ -482,7 +505,8 @@ const InvestorDetailPage = () => {
       linkedin_logo?: string;
     }>(obj["linkedin_data"], {});
 
-    // API may return stringified JSON and/or different field names for related individuals.
+    // API returns stringified JSON: [{ id, name, job_titles: string[] }]
+    // Keep backwards compatibility if legacy field `advisor_individuals` exists.
     const relatedIndividualsRaw = safeParseJSON<
       Array<{
         id?: number;
@@ -498,11 +522,13 @@ const InvestorDetailPage = () => {
     )
       .map((ri) => {
         const id = Number(ri?.id);
-        const name = String((ri?.name || ri?.advisor_individuals || "").trim());
+        const name = String(
+          (ri?.name || ri?.advisor_individuals || "").trim()
+        );
         const jobTitles = Array.isArray(ri?.job_titles)
           ? (ri.job_titles as unknown[]).map((t) => String(t)).filter(Boolean)
           : [];
-        return { id, name, advisor_individuals: ri?.advisor_individuals, job_titles: jobTitles };
+        return { id, name, job_titles: jobTitles };
       })
       .filter((ri) => Number.isFinite(ri.id) && ri.id > 0 && ri.name.length > 0);
 
@@ -513,27 +539,21 @@ const InvestorDetailPage = () => {
       sectors_id: Array.isArray(sectors) ? sectors : [],
       description: String((obj["description"] as string) ?? ""),
       year_exited:
-        typeof obj["year_exited"] === "number" ||
-        typeof obj["year_exited"] === "string"
+        typeof obj["year_exited"] === "number" || typeof obj["year_exited"] === "string"
           ? (obj["year_exited"] as number | string)
-          : typeof obj["Year_Exited"] === "number" ||
-            typeof obj["Year_Exited"] === "string"
-          ? (obj["Year_Exited"] as number | string)
-          : typeof obj["yearExited"] === "number" ||
-            typeof obj["yearExited"] === "string"
-          ? (obj["yearExited"] as number | string)
-          : null,
+          : typeof obj["Year_Exited"] === "number" || typeof obj["Year_Exited"] === "string"
+            ? (obj["Year_Exited"] as number | string)
+            : typeof obj["yearExited"] === "number" || typeof obj["yearExited"] === "string"
+              ? (obj["yearExited"] as number | string)
+              : null,
       year_invested:
-        typeof obj["year_invested"] === "number" ||
-        typeof obj["year_invested"] === "string"
+        typeof obj["year_invested"] === "number" || typeof obj["year_invested"] === "string"
           ? (obj["year_invested"] as number | string)
-          : typeof obj["Year_Invested"] === "number" ||
-            typeof obj["Year_Invested"] === "string"
-          ? (obj["Year_Invested"] as number | string)
-          : typeof obj["yearInvested"] === "number" ||
-            typeof obj["yearInvested"] === "string"
-          ? (obj["yearInvested"] as number | string)
-          : null,
+          : typeof obj["Year_Invested"] === "number" || typeof obj["Year_Invested"] === "string"
+            ? (obj["Year_Invested"] as number | string)
+            : typeof obj["yearInvested"] === "number" || typeof obj["yearInvested"] === "string"
+              ? (obj["yearInvested"] as number | string)
+              : null,
       linkedin_data: {
         LinkedIn_Employee: Number(linkedinDataOld?.LinkedIn_Employee ?? 0),
         linkedin_logo: String(linkedinDataOld?.linkedin_logo ?? ""),
@@ -728,7 +748,102 @@ const InvestorDetailPage = () => {
 
       const data: CorporateEventsResponse = await response.json();
       console.log("Corporate events API response:", data);
-      setCorporateEvents(data.New_Events_Wits_Advisors || []);
+      // Handle both API response formats
+      const events = data.Corporate_Events || data.New_Events_Wits_Advisors || [];
+
+      // Normalize advisors so `CorporateEventsTable` can render + link them.
+      // Investor CE endpoint often returns { advisor_company_id, advisor_company_name } instead of { advisor_company: {id,name} }.
+      const isRecord = (v: unknown): v is Record<string, unknown> =>
+        typeof v === "object" && v !== null;
+
+      const getNestedNumber = (
+        obj: Record<string, unknown>,
+        key: string,
+        nestedKey: string
+      ): number | undefined => {
+        const child = obj[key];
+        if (!isRecord(child)) return undefined;
+        const value = child[nestedKey];
+        return typeof value === "number" ? value : undefined;
+      };
+
+      const getNestedString = (
+        obj: Record<string, unknown>,
+        key: string,
+        nestedKey: string
+      ): string | undefined => {
+        const child = obj[key];
+        if (!isRecord(child)) return undefined;
+        const value = child[nestedKey];
+        return typeof value === "string" ? value : undefined;
+      };
+
+      const normalizedEvents: CorporateEvent[] = (Array.isArray(events) ? events : []).map(
+        (ev): CorporateEvent => {
+        const rawAdvisors = (ev as unknown as { advisors?: unknown }).advisors;
+        if (!Array.isArray(rawAdvisors)) return ev;
+
+        const normalizedAdvisors: NonNullable<CorporateEvent["advisors"]> = rawAdvisors
+          .map((a) => {
+            const advisor = a as Record<string, unknown>;
+            const advisorCompanyId =
+              typeof advisor["advisor_company_id"] === "number"
+                ? (advisor["advisor_company_id"] as number)
+                : getNestedNumber(advisor, "advisor_company", "id");
+
+            const advisorCompanyName =
+              typeof advisor["advisor_company_name"] === "string"
+                ? (advisor["advisor_company_name"] as string)
+                : getNestedString(advisor, "advisor_company", "name") ??
+                  getNestedString(advisor, "_new_company", "name");
+
+            const announcementUrl =
+              typeof advisor["announcement_url"] === "string" ||
+              advisor["announcement_url"] === null
+                ? (advisor["announcement_url"] as string | null)
+                : null;
+
+            const advisorCompanyFromObj = isRecord(advisor["advisor_company"])
+              ? {
+                  id: getNestedNumber(advisor, "advisor_company", "id"),
+                  name: getNestedString(advisor, "advisor_company", "name"),
+                }
+              : undefined;
+
+            return {
+              id: typeof advisor["id"] === "number" ? advisor["id"] : undefined,
+              announcement_url: announcementUrl,
+              new_company_advised:
+                typeof advisor["new_company_advised"] === "number"
+                  ? advisor["new_company_advised"]
+                  : undefined,
+              counterparty_advised:
+                typeof advisor["counterparty_advised"] === "number"
+                  ? advisor["counterparty_advised"]
+                  : undefined,
+              advisor_company_id:
+                typeof advisor["advisor_company_id"] === "number"
+                  ? advisor["advisor_company_id"]
+                  : undefined,
+              advisor_company_name:
+                typeof advisor["advisor_company_name"] === "string"
+                  ? advisor["advisor_company_name"]
+                  : undefined,
+              advisor_company:
+                advisorCompanyId || advisorCompanyName
+                  ? { id: advisorCompanyId, name: advisorCompanyName }
+                  : advisorCompanyFromObj,
+            };
+          })
+          .filter((a) => {
+            const name = a?.advisor_company?.name ?? "";
+            return typeof name === "string" && name.trim().length > 0;
+          });
+
+        return { ...ev, advisors: normalizedAdvisors };
+      });
+
+      setCorporateEvents(normalizedEvents as CorporateEvent[]);
     } catch (err) {
       console.error("Error fetching corporate events:", err);
       // Don't set main error state for corporate events loading failure
@@ -811,10 +926,10 @@ const InvestorDetailPage = () => {
     }
   }, [investorData?.Investor?.name]);
 
-  const reportMailTo = `mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
-    "Report Incorrect Investor Data"
+  const reportMailTo = `mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
+    "Contribute Investor Data"
   )}&body=${encodeURIComponent(
-    `Please describe the issue you found on the investor page.%0D%0A%0D%0AInvestor: ${
+    `Please describe the data you would like to contribute for this investor page.%0D%0A%0D%0AInvestor: ${
       investorId || ""
     } - ${investorData?.Investor?.name || ""}%0D%0AURL: ${
       typeof window !== "undefined" ? window.location.href : ""
@@ -928,13 +1043,55 @@ const InvestorDetailPage = () => {
 
   // Navigate to individual profile by resolving ID from Individuals API
   const handleTeamMemberClick = async (individualName: string) => {
+    // Check if we already have the ID cached
+    const cachedId = resolvedIndividualIds.get(individualName);
+    if (cachedId) {
+      router.push(`/individual/${cachedId}`);
+      return;
+    }
+
+    // Otherwise resolve it
     const id = await resolveIndividualIdByName(individualName);
     if (id) {
+      setResolvedIndividualIds((prev) => {
+        const next = new Map(prev);
+        next.set(individualName, id);
+        return next;
+      });
       router.push(`/individual/${id}`);
     } else {
       console.error("No matching individual found");
     }
   };
+
+  // Resolve all individual IDs when investor data loads
+  useEffect(() => {
+    const resolveAllIds = async () => {
+      if (!investorData) return;
+
+      const allNames = new Set<string>();
+      investorData.Investment_Team_Roles_current.forEach((member) => {
+        allNames.add(member.Individual_text);
+      });
+      investorData.Investment_Team_Roles_past.forEach((member) => {
+        allNames.add(member.Individual_text);
+      });
+
+      const resolved = new Map<string, number>();
+      await Promise.all(
+        Array.from(allNames).map(async (name) => {
+          const id = await resolveIndividualIdByName(name);
+          if (id) {
+            resolved.set(name, id);
+          }
+        })
+      );
+
+      setResolvedIndividualIds(resolved);
+    };
+
+    resolveAllIds();
+  }, [investorData]);
 
   const handleCorporateEventDescriptionClick = async (
     eventId?: number,
@@ -1200,47 +1357,6 @@ const InvestorDetailPage = () => {
     .replace(/^,\s*/, "")
     .replace(/,\s*$/, "");
 
-  // Map corporate events for display
-  const mappedCorporateEvents = corporateEvents.map((event, index) => {
-    const counterparties = event["0"] || [];
-
-    // Build other counterparties with id and investor flag for proper routing
-    const otherCounterparties = counterparties
-      .filter((c) => c._new_company?.name)
-      .map((c) => ({
-        id: c._new_company?.id as number | undefined,
-        name: c._new_company?.name || "",
-        isInvestor: Boolean(c._new_company?._is_that_investor),
-      }))
-      .filter((c) => Boolean(c.name));
-
-    // Get advisors if present in index "1"
-    const advisorEntries = event["1"] || [];
-    const advisorList = advisorEntries
-      .map((a) => ({
-        id: a._new_company?.id,
-        name: a._new_company?.name || "",
-      }))
-      .filter((a) => Boolean(a.name));
-
-    return {
-      id: event.id,
-      originalIndex: index, // Fallback for navigation if no ID
-      description: event.description,
-      announcement_date: event.announcement_date,
-      type: event.deal_type,
-      counterparty_status:
-        event.counterparty_status?.counterparty_syayus?.counterparty_status ||
-        "—",
-      other_counterparties:
-        otherCounterparties.length > 0 ? otherCounterparties : "—",
-      enterprise_value: event.ev_data?.enterprise_value_m
-        ? `$${Number(event.ev_data.enterprise_value_m).toLocaleString()}m`
-        : event.ev_data?.ev_band || "—",
-      advisors: advisorList.length > 0 ? advisorList : "—",
-    };
-  });
-
   const style = `
     .investor-detail-page {
       min-height: 100vh;
@@ -1273,7 +1389,7 @@ const InvestorDetailPage = () => {
     }
     .report-button {
       padding: 8px 16px;
-      background-color: #dc2626;
+      background-color: #16a34a;
       color: white;
       border: none;
       border-radius: 4px;
@@ -1499,6 +1615,25 @@ const InvestorDetailPage = () => {
       padding: 24px;
       color: #64748b;
     }
+    .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
+    .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
+    .pill-green { background-color: #dcfce7; color: #15803d; }
+    /* Management/Individual cards hover effects */
+    .management-card:hover {
+      background-color: #e6f0ff !important;
+      border-color: #0075df !important;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0, 117, 223, 0.1);
+    }
+    /* Investment Team: make cards smaller and fit 2 per row on desktop */
+    .investor-detail-page .management-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 10px !important;
+    }
+    .investor-detail-page .management-card {
+      padding: 8px !important;
+      border-radius: 6px !important;
+    }
 
     @media (max-width: 768px) {
       .investor-content {
@@ -1518,6 +1653,10 @@ const InvestorDetailPage = () => {
         font-size: 24px !important;
       }
       .report-button {
+        align-self: flex-start !important;
+        width: fit-content !important;
+      }
+      .export-button {
         align-self: flex-start !important;
         width: fit-content !important;
       }
@@ -1561,6 +1700,9 @@ const InvestorDetailPage = () => {
         text-align: center !important;
         width: 100% !important;
         order: -1 !important;
+      }
+      .management-grid {
+        grid-template-columns: 1fr !important;
       }
     }
 
@@ -1614,7 +1756,7 @@ const InvestorDetailPage = () => {
               target="_blank"
               rel="noopener noreferrer"
             >
-              Report Incorrect Data
+              Contribute Data
             </a>
           </div>
         </div>
@@ -1745,88 +1887,36 @@ const InvestorDetailPage = () => {
               <h2 className="section-title">Investment Team</h2>
 
               {/* Current Team */}
-              <div style={{ marginBottom: "16px" }}>
-                <h3 className="section-subtitle">Current:</h3>
-                {Investment_Team_Roles_current.length > 0 ? (
-                  <div className="info-grid">
-                    {Investment_Team_Roles_current.map((member, index) => (
-                      <div key={index} className="info-value">
-                        <span
-                          style={{ color: "#3b82f6", cursor: "pointer" }}
-                          onClick={() =>
-                            handleTeamMemberClick(member.Individual_text)
-                          }
-                          onContextMenu={async (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const id = await resolveIndividualIdByName(
-                              member.Individual_text
-                            );
-                            if (id) {
-                              window.open(
-                                `/individual/${id}`,
-                                "_blank",
-                                "noopener,noreferrer"
-                              );
-                            }
-                          }}
-                          title="Left click to open profile, Right click to open in new tab"
-                        >
-                          {member.Individual_text}
-                        </span>
-                        :{" "}
-                        {member.job_titles_id
-                          .map((jt) => jt.job_title)
-                          .join(", ")}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="info-value">Not available</div>
-                )}
+              <div style={{ marginBottom: "20px" }}>
+                <IndividualCards
+                  title="Current:"
+                  individuals={Investment_Team_Roles_current.map((member) => ({
+                    id: resolvedIndividualIds.get(member.Individual_text),
+                    name: member.Individual_text,
+                    jobTitles: member.job_titles_id.map((jt) => jt.job_title),
+                    individualId: resolvedIndividualIds.get(member.Individual_text),
+                    onClick: () => handleTeamMemberClick(member.Individual_text),
+                  }))}
+                  emptyMessage="Not available"
+                />
               </div>
 
-              {/* Past Team */}
-              <div>
-                <h3 className="section-subtitle">Past:</h3>
-                {Investment_Team_Roles_past.length > 0 ? (
-                  <div className="info-grid">
-                    {Investment_Team_Roles_past.map((member, index) => (
-                      <div key={index} className="info-value">
-                        <span
-                          style={{ color: "#3b82f6", cursor: "pointer" }}
-                          onClick={() =>
-                            handleTeamMemberClick(member.Individual_text)
-                          }
-                          onContextMenu={async (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const id = await resolveIndividualIdByName(
-                              member.Individual_text
-                            );
-                            if (id) {
-                              window.open(
-                                `/individual/${id}`,
-                                "_blank",
-                                "noopener,noreferrer"
-                              );
-                            }
-                          }}
-                          title="Left click to open profile, Right click to open in new tab"
-                        >
-                          {member.Individual_text}
-                        </span>
-                        :{" "}
-                        {member.job_titles_id
-                          .map((jt) => jt.job_title)
-                          .join(", ")}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="info-value">Not available</div>
-                )}
-              </div>
+              {/* Past Team - Only show if there are past team members */}
+              {Investment_Team_Roles_past && Investment_Team_Roles_past.length > 0 && (
+                <div>
+                  <IndividualCards
+                    title="Past:"
+                    individuals={Investment_Team_Roles_past.map((member) => ({
+                      id: resolvedIndividualIds.get(member.Individual_text),
+                      name: member.Individual_text,
+                      jobTitles: member.job_titles_id.map((jt) => jt.job_title),
+                      individualId: resolvedIndividualIds.get(member.Individual_text),
+                      onClick: () => handleTeamMemberClick(member.Individual_text),
+                    }))}
+                    emptyMessage="Not available"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -1849,7 +1939,7 @@ const InvestorDetailPage = () => {
                           <th>Logo</th>
                           <th>Name</th>
                           <th>Sectors</th>
-                          <th>Description</th>
+                          <th>Year Invested</th>
                           <th>Related Individuals</th>
                           <th>LinkedIn Members</th>
                           <th>Country</th>
@@ -1884,10 +1974,12 @@ const InvestorDetailPage = () => {
                                   {company.sectors_id.length > 3 && "..."}
                                 </div>
                               </td>
-                              <td style={{ maxWidth: "350px" }}>
-                                <CompanyDescription
-                                  description={company.description}
-                                />
+                              <td>
+                                {company.year_invested !== null &&
+                                company.year_invested !== undefined &&
+                                String(company.year_invested).trim().length > 0
+                                  ? String(company.year_invested)
+                                  : "Not available"}
                               </td>
                               <td>
                                 {company.related_to_investor_individuals &&
@@ -1900,9 +1992,7 @@ const InvestorDetailPage = () => {
                                         <span key={individual.id}>
                                           {createClickableElement(
                                             `/individual/${individual.id}`,
-                                            individual.name ||
-                                              individual.advisor_individuals ||
-                                              "Unknown",
+                                            individual.name,
                                             undefined,
                                             {
                                               textDecoration: "none",
@@ -2001,6 +2091,18 @@ const InvestorDetailPage = () => {
                             </div>
                             <div className="portfolio-card-info-item">
                               <span className="portfolio-card-info-label">
+                                Year Invested:
+                              </span>
+                              <span className="portfolio-card-info-value">
+                                {company.year_invested !== null &&
+                                company.year_invested !== undefined &&
+                                String(company.year_invested).trim().length > 0
+                                  ? String(company.year_invested)
+                                  : "Not available"}
+                              </span>
+                            </div>
+                            <div className="portfolio-card-info-item">
+                              <span className="portfolio-card-info-label">
                                 Country:
                               </span>
                               <span className="portfolio-card-info-value">
@@ -2022,9 +2124,7 @@ const InvestorDetailPage = () => {
                                         <span key={individual.id}>
                                           {createClickableElement(
                                             `/individual/${individual.id}`,
-                                            individual.name ||
-                                              individual.advisor_individuals ||
-                                              "Unknown",
+                                            individual.name,
                                             undefined,
                                             {
                                               textDecoration: "none",
@@ -2050,11 +2150,6 @@ const InvestorDetailPage = () => {
                                 )}
                               </span>
                             </div>
-                          </div>
-                          <div style={{ marginTop: "12px" }}>
-                            <CompanyDescription
-                              description={company.description}
-                            />
                           </div>
                         </div>
                       ))
@@ -2159,7 +2254,7 @@ const InvestorDetailPage = () => {
                               borderBottom: "1px solid #e2e8f0",
                             }}
                           >
-                            Description
+                            Year Exited
                           </th>
                           <th
                             style={{
@@ -2227,11 +2322,13 @@ const InvestorDetailPage = () => {
                                 </div>
                               </td>
                               <td
-                                style={{ padding: "12px", maxWidth: "350px" }}
+                                style={{ padding: "12px" }}
                               >
-                                <CompanyDescription
-                                  description={company.description}
-                                />
+                                {company.year_exited !== null &&
+                                company.year_exited !== undefined &&
+                                String(company.year_exited).trim().length > 0
+                                  ? String(company.year_exited)
+                                  : "Not available"}
                               </td>
                               <td style={{ padding: "12px" }}>
                                 {company.related_to_investor_individuals &&
@@ -2244,9 +2341,7 @@ const InvestorDetailPage = () => {
                                         <span key={individual.id}>
                                           {createClickableElement(
                                             `/individual/${individual.id}`,
-                                            individual.name ||
-                                              individual.advisor_individuals ||
-                                              "Unknown",
+                                            individual.name,
                                             undefined,
                                             {
                                               textDecoration: "none",
@@ -2383,256 +2478,22 @@ const InvestorDetailPage = () => {
 
             {/* Corporate Events Section */}
             <div className="investor-section" style={{ marginTop: "32px" }}>
-              <h2 className="section-title">Corporate Events</h2>
-              {corporateEventsLoading ? (
-                <div style={{ textAlign: "center", padding: "24px" }}>
-                  Loading corporate events...
-                </div>
-              ) : (
-                <div
-                  style={{
-                    overflowX: "auto",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "8px",
-                  }}
-                >
-                  <table
-                    style={{
-                      width: "100%",
-                      minWidth: "900px",
-                      borderCollapse: "collapse",
-                      fontSize: "14px",
-                    }}
-                  >
-                    <thead>
-                      <tr style={{ backgroundColor: "#f8fafc" }}>
-                        <th
-                          style={{
-                            padding: "12px",
-                            textAlign: "left",
-                            borderBottom: "1px solid #e2e8f0",
-                          }}
-                        >
-                          Description
-                        </th>
-                        <th
-                          style={{
-                            padding: "12px",
-                            textAlign: "left",
-                            borderBottom: "1px solid #e2e8f0",
-                          }}
-                        >
-                          Date Announced
-                        </th>
-                        <th
-                          style={{
-                            padding: "12px",
-                            textAlign: "left",
-                            borderBottom: "1px solid #e2e8f0",
-                          }}
-                        >
-                          Type
-                        </th>
-                        <th
-                          style={{
-                            padding: "12px",
-                            textAlign: "left",
-                            borderBottom: "1px solid #e2e8f0",
-                          }}
-                        >
-                          Counterparty Status
-                        </th>
-                        <th
-                          style={{
-                            padding: "12px",
-                            textAlign: "left",
-                            borderBottom: "1px solid #e2e8f0",
-                          }}
-                        >
-                          Other Counterparties
-                        </th>
-                        <th
-                          style={{
-                            padding: "12px",
-                            textAlign: "left",
-                            borderBottom: "1px solid #e2e8f0",
-                          }}
-                        >
-                          Enterprise Value
-                        </th>
-                        <th
-                          style={{
-                            padding: "12px",
-                            textAlign: "left",
-                            borderBottom: "1px solid #e2e8f0",
-                          }}
-                        >
-                          Advisors
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {mappedCorporateEvents.length > 0 ? (
-                        mappedCorporateEvents.map((event, index) => (
-                          <tr
-                            key={index}
-                            style={{ borderBottom: "1px solid #e2e8f0" }}
-                          >
-                            <td style={{ padding: "12px" }}>
-                              <div style={{ maxWidth: "520px" }}>
-                                <a
-                                  href={
-                                    event.id
-                                      ? `/corporate-event/${event.id}`
-                                      : "#"
-                                  }
-                                  style={{
-                                    color: "#3b82f6",
-                                    textDecoration: "underline",
-                                    fontWeight: "500",
-                                    cursor: "pointer",
-                                    wordBreak: "keep-all",
-                                    overflowWrap: "normal",
-                                    hyphens: "none",
-                                    whiteSpace: "normal",
-                                    lineHeight: 1.4,
-                                    display: "inline",
-                                  }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    handleCorporateEventDescriptionClick(
-                                      event.id,
-                                      event.description
-                                    );
-                                  }}
-                                  onContextMenu={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    if (event.id) {
-                                      window.open(
-                                        `/corporate-event/${event.id}`,
-                                        "_blank",
-                                        "noopener,noreferrer"
-                                      );
-                                    }
-                                  }}
-                                  title="Open event"
-                                >
-                                  {
-                                    truncateDescription(event.description, 220)
-                                      .text
-                                  }
-                                </a>
-                              </div>
-                            </td>
-                            <td style={{ padding: "12px" }}>
-                              {event.announcement_date
-                                ? formatDate(event.announcement_date)
-                                : "—"}
-                            </td>
-                            <td style={{ padding: "12px" }}>
-                              {event.type || "—"}
-                            </td>
-                            <td style={{ padding: "12px" }}>
-                              {event.counterparty_status}
-                            </td>
-                            <td
-                              style={{
-                                padding: "12px",
-                                maxWidth: "150px",
-                                fontSize: "12px",
-                              }}
-                            >
-                              {Array.isArray(event.other_counterparties)
-                                ? event.other_counterparties.map((cp, idx) => (
-                                    <span key={`${cp.id ?? cp.name}-${idx}`}>
-                                      {createClickableElement(
-                                        cp?.isInvestor && cp.id
-                                          ? `/investors/${cp.id}`
-                                          : cp.id
-                                          ? `/company/${cp.id}`
-                                          : `/companies?search=${encodeURIComponent(
-                                              cp.name || ""
-                                            )}`,
-                                        cp.name || "Unknown",
-                                        undefined,
-                                        { fontSize: "12px" }
-                                      )}
-                                      {idx <
-                                      event.other_counterparties.length - 1
-                                        ? ", "
-                                        : ""}
-                                    </span>
-                                  ))
-                                : "—"}
-                            </td>
-                            <td style={{ padding: "12px" }}>
-                              {event.enterprise_value}
-                            </td>
-                            <td
-                              style={{
-                                padding: "12px",
-                                maxWidth: "150px",
-                                fontSize: "12px",
-                              }}
-                            >
-                              {Array.isArray(event.advisors)
-                                ? event.advisors.map((advisor, index) => (
-                                    <span
-                                      key={
-                                        advisor.id ?? `${advisor.name}-${index}`
-                                      }
-                                    >
-                                      <span
-                                        style={{
-                                          color: "#3b82f6",
-                                          textDecoration: "none",
-                                          fontWeight: "500",
-                                          cursor: "pointer",
-                                        }}
-                                        onClick={() => {
-                                          if (advisor.id) {
-                                            router.push(
-                                              `/advisor/${advisor.id}`
-                                            );
-                                          } else if (advisor.name) {
-                                            handleAdvisorClick(advisor.name);
-                                          }
-                                        }}
-                                        onContextMenu={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                        }}
-                                        title="Click to navigate to advisor page"
-                                      >
-                                        {advisor.name}
-                                      </span>
-                                      {index < event.advisors.length - 1 &&
-                                        ", "}
-                                    </span>
-                                  ))
-                                : "—"}
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td
-                            colSpan={7}
-                            style={{
-                              padding: "24px",
-                              textAlign: "center",
-                              color: "#64748b",
-                            }}
-                          >
-                            No corporate events found
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <CorporateEventsSection
+                title="Corporate Events"
+                events={corporateEvents as unknown as CorporateEventsTableEvent[]}
+                loading={corporateEventsLoading}
+                onEventClick={handleCorporateEventDescriptionClick}
+                onAdvisorClick={(advisorId, advisorName) => {
+                  if (advisorId) {
+                    router.push(`/advisor/${advisorId}`);
+                  } else if (advisorName) {
+                    handleAdvisorClick(advisorName);
+                  }
+                }}
+                showSectors={false}
+                maxInitialEvents={3}
+                truncateDescriptionLength={180}
+              />
             </div>
           </div>
         </div>
