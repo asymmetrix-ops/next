@@ -69,7 +69,7 @@ interface SectorCompany {
   locations_id: number;
   url: string;
   sectors: string[];
-  primary_sectors: string[];
+  primary_sectors: SectorLinkItem[];
   description: string;
   linkedin_employee: number;
   linkedin_employee_latest: number;
@@ -86,12 +86,66 @@ interface SectorCompany {
 }
 
 // Response shape for the new companies endpoint used on sector page
+type SectorLinkItem =
+  | string
+  | {
+      sector_name?: string;
+      Sector_name?: string;
+      name?: string;
+      id?: number;
+      sector_id?: number;
+      sectorId?: number;
+    };
+
+const getSectorLabel = (sector: SectorLinkItem): string => {
+  const name =
+    typeof sector === "string"
+      ? sector
+      : sector?.sector_name || sector?.Sector_name || sector?.name;
+  return String(name ?? "").trim();
+};
+
+const renderSectorLinks = (
+  sectors: SectorLinkItem[] | undefined,
+  hrefBase: "/sector/" | "/sub-sector/" = "/sector/"
+): React.ReactNode => {
+  if (!Array.isArray(sectors) || sectors.length === 0) {
+    return "N/A";
+  }
+  const nodes: React.ReactNode[] = [];
+  sectors.forEach((sector, index) => {
+    const label = getSectorLabel(sector);
+    if (!label) return;
+    const sectorId =
+      typeof sector === "object" && sector
+        ? (sector.id ?? sector.sector_id ?? sector.sectorId ?? undefined)
+        : undefined;
+
+    nodes.push(
+      typeof sectorId === "number" ? (
+        <a
+          key={`${hrefBase}${sectorId}-${label}-${index}`}
+          href={`${hrefBase}${sectorId}`}
+          className="text-blue-600 underline hover:text-blue-800"
+        >
+          {label}
+        </a>
+      ) : (
+        <span key={`${label}-${index}`}>{label}</span>
+      )
+    );
+
+    if (index < sectors.length - 1) nodes.push(<span key={`sep-${index}`}>, </span>);
+  });
+  return nodes.length > 0 ? nodes : "N/A";
+};
+
 interface NewCompanyItem {
   id: number;
   name: string;
   url?: string;
-  secondary_sectors?: string[];
-  primary_sectors?: string[];
+  secondary_sectors?: SectorLinkItem[];
+  primary_sectors?: SectorLinkItem[];
   description?: string;
   linkedin_members?: number;
   linkedin_members_old?: number;
@@ -1239,7 +1293,7 @@ function MarketMapGrid({ companies }: { companies: SectorCompany[] }) {
         : "",
       sub_sector:
         Array.isArray(c.primary_sectors) && c.primary_sectors.length > 0
-          ? c.primary_sectors[0]
+          ? getSectorLabel(c.primary_sectors[0] as SectorLinkItem)
           : "",
       company_type: computedType,
       ownership_text: ownershipText,
@@ -1779,7 +1833,9 @@ const SectorDetailPage = ({
           )
             ? ((c as unknown as { sectors?: string[] }).sectors as string[])
             : Array.isArray(c.secondary_sectors)
-            ? (c.secondary_sectors as string[])
+            ? (c.secondary_sectors as SectorLinkItem[])
+                .map(getSectorLabel)
+                .filter((s) => s.length > 0)
             : [],
           primary_sectors: Array.isArray(c.primary_sectors)
             ? c.primary_sectors
@@ -5997,15 +6053,16 @@ const SectorDetailPage = ({
                                 )}
                               </td>
                               <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
-                                {primaryDisplay.length > 0
-                                  ? primaryDisplay.join(", ")
-                                  : "N/A"}
+                                {renderSectorLinks(
+                                  primaryDisplay as SectorLinkItem[] | undefined,
+                                  "/sector/"
+                                )}
                               </td>
                               <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
-                                {Array.isArray(c.secondary_sectors) &&
-                                c.secondary_sectors.length > 0
-                                  ? c.secondary_sectors.join(", ")
-                                  : "N/A"}
+                                {renderSectorLinks(
+                                  c.secondary_sectors as SectorLinkItem[] | undefined,
+                                  "/sub-sector/"
+                                )}
                               </td>
                               <td className="py-3 pr-4 text-center text-slate-700">
                                 {typeof c.linkedin_members === "number"
@@ -6732,15 +6789,16 @@ const SectorDetailPage = ({
                                 )}
                               </td>
                               <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
-                                {primaryDisplay.length > 0
-                                  ? primaryDisplay.join(", ")
-                                  : "N/A"}
+                                {renderSectorLinks(
+                                  primaryDisplay as SectorLinkItem[] | undefined,
+                                  "/sector/"
+                                )}
                               </td>
                               <td className="py-3 pr-4 align-middle whitespace-normal break-words text-slate-700">
-                                {Array.isArray(c.secondary_sectors) &&
-                                c.secondary_sectors.length > 0
-                                  ? c.secondary_sectors.join(", ")
-                                  : "N/A"}
+                                {renderSectorLinks(
+                                  c.secondary_sectors as SectorLinkItem[] | undefined,
+                                  "/sub-sector/"
+                                )}
                               </td>
                               <td className="py-3 pr-4 text-center text-slate-700">
                                 {typeof c.linkedin_members === "number"

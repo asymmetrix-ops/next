@@ -28,12 +28,23 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
+type SectorRef =
+  | string
+  | {
+      id?: number;
+      sector_id?: number;
+      sectorId?: number;
+      sector_name?: string;
+      Sector_name?: string;
+      name?: string;
+    };
+
 interface CompanyItem {
   id: number;
   name: string;
   description?: string;
-  primary_sectors?: string[];
-  secondary_sectors?: string[];
+  primary_sectors?: SectorRef[];
+  secondary_sectors?: SectorRef[];
   ownership_type_id?: number;
   ownership?: string;
   locations_id?: number;
@@ -107,6 +118,104 @@ const DescriptionCell: React.FC<{ description?: string; index: number }> = ({
       </button>
     </div>
   );
+};
+
+const getSectorInfo = (sector: unknown): { name: string; id?: number } => {
+  if (typeof sector === "string") return { name: sector };
+  if (!sector || typeof sector !== "object") return { name: "" };
+  const rec = sector as Record<string, unknown>;
+  const nameRaw =
+    (typeof rec.sector_name === "string" && rec.sector_name) ||
+    (typeof rec.Sector_name === "string" && rec.Sector_name) ||
+    (typeof rec.name === "string" && rec.name) ||
+    "";
+
+  const idRaw = rec.id ?? rec.sector_id ?? rec.sectorId;
+  const id =
+    typeof idRaw === "number"
+      ? idRaw
+      : typeof idRaw === "string" && idRaw.trim() && !Number.isNaN(Number(idRaw))
+      ? Number(idRaw)
+      : undefined;
+  return { name: String(nameRaw), id };
+};
+
+const renderSectorLinks = (
+  sectors: unknown[] | undefined,
+  kind: "primary" | "secondary",
+  nameToId?: Record<string, number>
+): React.ReactNode => {
+  if (!Array.isArray(sectors) || sectors.length === 0) return "N/A";
+
+  const nodes: React.ReactNode[] = [];
+  sectors.forEach((s, index) => {
+    const { name, id } = getSectorInfo(s);
+    const label = String(name ?? "").trim();
+    if (!label) return;
+
+    const derivedId =
+      id ??
+      (nameToId ? nameToId[label.toLowerCase()] ?? nameToId[label] : undefined);
+
+    const href =
+      derivedId != null
+        ? kind === "primary"
+          ? `/sector/${derivedId}`
+          : `/sub-sector/${derivedId}`
+        : undefined;
+
+    nodes.push(
+      href ? (
+        <a
+          key={`${kind}-${derivedId ?? "na"}-${label}-${index}`}
+          href={href}
+          className="text-blue-600 underline hover:text-blue-800"
+        >
+          {label}
+        </a>
+      ) : (
+        <span key={`${kind}-${label}-${index}`}>{label}</span>
+      )
+    );
+
+    if (index < sectors.length - 1) {
+      nodes.push(<span key={`sep-${kind}-${index}`}>, </span>);
+    }
+  });
+
+  return nodes.length > 0 ? nodes : "N/A";
+};
+
+const renderInvestorLinks = (
+  investors:
+    | Array<{
+        id?: number;
+        name?: string;
+      }>
+    | undefined
+): React.ReactNode => {
+  if (!Array.isArray(investors) || investors.length === 0) return "N/A";
+  const nodes: React.ReactNode[] = [];
+  investors.forEach((inv, index) => {
+    const name = String(inv?.name ?? "").trim();
+    if (!name) return;
+    const id = inv?.id;
+    nodes.push(
+      typeof id === "number" ? (
+        <a
+          key={`inv-${id}-${name}-${index}`}
+          href={`/investors/${id}`}
+          className="text-blue-600 underline hover:text-blue-800"
+        >
+          {name}
+        </a>
+      ) : (
+        <span key={`inv-${name}-${index}`}>{name}</span>
+      )
+    );
+    if (index < investors.length - 1) nodes.push(<span key={`inv-sep-${index}`}>, </span>);
+  });
+  return nodes.length > 0 ? nodes : "N/A";
 };
 
 // Transactions tab – mirrors corporate events grid layout,
@@ -1793,6 +1902,13 @@ const SubSectorPage = () => {
     (searchParams?.get("tab") as TabId) || "all"
   );
 
+  const [primarySectorIdByName, setPrimarySectorIdByName] = useState<
+    Record<string, number>
+  >({});
+  const [secondarySectorIdByName, setSecondarySectorIdByName] = useState<
+    Record<string, number>
+  >({});
+
   // Header title lookup
   const [subSectorName, setSubSectorName] = useState<string>("");
   useEffect(() => {
@@ -1814,6 +1930,50 @@ const SubSectorPage = () => {
       cancelled = true;
     };
   }, [subSectorId]);
+
+  // Build sector name -> id maps (for hyperlinking name-only responses)
+  useEffect(() => {
+    if (activeTab !== "all") return;
+    let cancelled = false;
+    const normalize = (s: string) => s.trim().toLowerCase();
+    const load = async () => {
+      try {
+        const [primaries, secondaries] = await Promise.all([
+          locationsService.getPrimarySectors(),
+          locationsService.getAllSecondarySectorsWithPrimary(),
+        ]);
+
+        if (cancelled) return;
+
+        const pMap: Record<string, number> = {};
+        (Array.isArray(primaries) ? primaries : []).forEach((p) => {
+          const id = (p as { id?: number }).id;
+          const name = (p as { sector_name?: string }).sector_name;
+          if (typeof id === "number" && typeof name === "string" && name.trim()) {
+            pMap[normalize(name)] = id;
+          }
+        });
+
+        const sMap: Record<string, number> = {};
+        (Array.isArray(secondaries) ? secondaries : []).forEach((s) => {
+          const id = (s as { id?: number }).id;
+          const name = (s as { sector_name?: string }).sector_name;
+          if (typeof id === "number" && typeof name === "string" && name.trim()) {
+            sMap[normalize(name)] = id;
+          }
+        });
+
+        setPrimarySectorIdByName(pMap);
+        setSecondarySectorIdByName(sMap);
+      } catch {
+        // ignore
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab]);
 
   // Sync tab in URL
   const setTab = (id: TabId) => {
@@ -2738,25 +2898,31 @@ const SubSectorPage = () => {
                     <table className="w-full text-sm table-fixed">
                       <thead className="bg-slate-50/80">
                         <tr className="hover:bg-slate-50/80">
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[8%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[7%]">
                             Logo
                           </th>
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[18%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[14%]">
                             Name
                           </th>
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[26%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[20%]">
                             Description
                           </th>
                           <th className="py-3 font-semibold text-center text-slate-700 w-[12%]">
+                            Primary Sector(s)
+                          </th>
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[12%]">
+                            Secondary Sector(s)
+                          </th>
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[9%]">
                             Ownership
                           </th>
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[14%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[12%]">
                             Investor(s)
                           </th>
-                          <th className="py-3 font-semibold text-center text-slate-700 w-[14%]">
+                          <th className="py-3 font-semibold text-center text-slate-700 w-[10%]">
                             HQ
                           </th>
-                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[8%]">
+                          <th className="py-3 px-3 font-semibold text-center text-slate-700 w-[4%]">
                             LinkedIn Members
                           </th>
                         </tr>
@@ -2797,19 +2963,36 @@ const SubSectorPage = () => {
                                 index={index}
                               />
                             </td>
+                            <td className="py-3 pr-4 align-top text-center whitespace-normal break-words text-slate-700">
+                              {renderSectorLinks(
+                                c.primary_sectors as unknown[] | undefined,
+                                "primary",
+                                primarySectorIdByName
+                              )}
+                            </td>
+                            <td className="py-3 pr-4 align-top text-center whitespace-normal break-words text-slate-700">
+                              {renderSectorLinks(
+                                c.secondary_sectors as unknown[] | undefined,
+                                "secondary",
+                                secondarySectorIdByName
+                              )}
+                            </td>
                             <td className="py-3 pr-4 align-middle text-center whitespace-normal break-words text-slate-700">
                               {c.ownership || "N/A"}
                             </td>
                             <td className="py-3 pr-4 align-middle text-center whitespace-normal break-words text-slate-700">
                               {(() => {
                                 // Prefer new investors array from Get_new_companies_with_investors
-                                if (Array.isArray(c.investors) && c.investors.length > 0) {
-                                  const names = c.investors
-                                    .map((inv) => (inv.name || "").trim())
-                                    .filter((name) => name.length > 0);
-                                  if (names.length > 0) {
-                                    return names.join(", ");
-                                  }
+                                if (
+                                  Array.isArray(c.investors) &&
+                                  c.investors.length > 0
+                                ) {
+                                  return renderInvestorLinks(
+                                    c.investors as Array<{
+                                      id?: number;
+                                      name?: string;
+                                    }>
+                                  );
                                 }
 
                                 // Fallback to legacy companies_investors, if present
