@@ -19,6 +19,8 @@ interface ArticleDetail {
   // Some API variants may nest under Content
   Content?: { Content_type?: string; Content_Type?: string };
   Body: string;
+  // New field added to API response (Xano Content table column)
+  summary?: unknown;
   sectors: Array<{
     id: number;
     sector_name: string;
@@ -278,12 +280,94 @@ const tryParse = <T,>(val: unknown): T | undefined => {
   return undefined;
 };
 
+// Summary is stored with HTML layout in Xano.
+// We extract bullet "items" (prefer <li>, fallback to <p>/<div>) so the
+// collapsed view can show "first bullet" while expanded shows all.
+const extractSummaryItemsFromHtml = (html: string): string[] => {
+  const trimmed = (html || "").trim();
+  if (!trimmed) return [];
+
+  try {
+    // DOMParser is available because this is a client component.
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(
+      `<div id="__summary_root__">${trimmed}</div>`,
+      "text/html"
+    );
+    const root = doc.getElementById("__summary_root__");
+    if (!root) return [trimmed];
+
+    const liEls = Array.from(root.querySelectorAll("li"));
+    if (liEls.length > 0) {
+      return liEls
+        .map((li) => (li.innerHTML || "").trim())
+        .filter(Boolean);
+    }
+
+    const pEls = Array.from(root.querySelectorAll("p"));
+    if (pEls.length > 0) {
+      return pEls.map((p) => (p.innerHTML || "").trim()).filter(Boolean);
+    }
+
+    // Fallback: treat direct children as "items"
+    const children = Array.from(root.children);
+    if (children.length > 0) {
+      return children
+        .map((el) => (el.innerHTML || "").trim())
+        .filter(Boolean);
+    }
+
+    const text = (root.textContent || "").trim();
+    return text ? [text] : [];
+  } catch {
+    return [trimmed];
+  }
+};
+
+const parseSummaryItems = (val: unknown): string[] => {
+  if (val === null || val === undefined) return [];
+
+  // Array: each entry is either HTML string or plain text
+  if (Array.isArray(val)) {
+    const items = (val as unknown[])
+      .map((x) => (typeof x === "string" ? x : String(x)))
+      .map((s) => s.trim())
+      .filter(Boolean);
+    // If someone stored <li>...</li> chunks, extract their inner HTML
+    const extracted = items.flatMap((s) =>
+      s.includes("<") ? extractSummaryItemsFromHtml(s) : [s]
+    );
+    return extracted.map((s) => s.trim()).filter(Boolean);
+  }
+
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (!trimmed) return [];
+
+    // If stringified array, prefer that.
+    const parsed = tryParse<unknown>(trimmed);
+    if (Array.isArray(parsed)) {
+      return parseSummaryItems(parsed);
+    }
+
+    // Otherwise treat as HTML (preferred) and extract items.
+    const htmlItems = extractSummaryItemsFromHtml(trimmed);
+    if (htmlItems.length > 0) return htmlItems;
+
+    // Plain text fallback
+    return [trimmed];
+  }
+
+  return [String(val)];
+};
+
 const ArticleDetailPage = () => {
   const params = useParams();
   const router = useRouter();
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [companyOfFocus, setCompanyOfFocus] =
     useState<CompanyOfFocusApiItem | null>(null);
   const [companyOfFocusLoading, setCompanyOfFocusLoading] = useState(false);
@@ -391,6 +475,7 @@ const ArticleDetailPage = () => {
 
   useEffect(() => {
     if (articleId) {
+      setSummaryOpen(false);
       fetchArticle();
     }
   }, [articleId]);
@@ -793,6 +878,54 @@ const ArticleDetailPage = () => {
                   <span style={styles.contentTypeBadge}>{ct}</span>
                 </div>
               ) : null;
+            })()}
+
+            {/* Summary (collapsible) */}
+            {(() => {
+              // Summary stored as HTML; render like body (preserve markup)
+              const rawSummary =
+                typeof article.summary === "string"
+                  ? article.summary
+                  : Array.isArray(article.summary)
+                    ? JSON.stringify(article.summary)
+                    : "";
+              const allImageDocs = (article.Related_Documents || []).filter(
+                isImageDoc
+              );
+              const { html: summaryHtml } = rawSummary
+                ? replaceImagePlaceholders(rawSummary, allImageDocs)
+                : { html: "" };
+
+              const items = parseSummaryItems(summaryHtml || article.summary);
+              if (!items.length) return null;
+              const visibleItems = summaryOpen ? items : [items[0]!];
+
+              return (
+                <div className="article-summary" aria-label="Summary section">
+                  <button
+                    type="button"
+                    className="summary-header"
+                    onClick={() => setSummaryOpen((v) => !v)}
+                    aria-expanded={summaryOpen}
+                  >
+                    <span className="summary-title">Summary</span>
+                    <span
+                      className={`summary-chevron ${summaryOpen ? "open" : ""}`}
+                      aria-hidden="true"
+                    >
+                      ▾
+                    </span>
+                  </button>
+                  <ul className="summary-list">
+                    {visibleItems.map((itemHtml, idx) => (
+                      <li
+                        key={`${idx}-${itemHtml}`}
+                        dangerouslySetInnerHTML={{ __html: itemHtml }}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              );
             })()}
 
             {/* Article Body with embedded images from attachments */}
@@ -1477,6 +1610,53 @@ const ArticleDetailPage = () => {
           __html: `
           .article-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
           @media (max-width: 1024px) { .article-layout { grid-template-columns: 1fr; } }
+          /* Summary accordion */
+          .article-summary {
+            border: 1px solid #e5e7eb;
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 24px;
+          }
+          .summary-header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            background: transparent;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            text-align: left;
+          }
+          .summary-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #111827;
+          }
+          .summary-chevron {
+            font-size: 18px;
+            color: #6b7280;
+            line-height: 1;
+            transition: transform 0.2s ease;
+            user-select: none;
+          }
+          .summary-chevron.open {
+            transform: rotate(180deg);
+          }
+          .summary-list {
+            margin: 10px 0 0 0;
+            padding-left: 22px;
+            color: #374151;
+            list-style: disc !important;
+            list-style-position: outside;
+          }
+          .summary-list li {
+            display: list-item !important;
+            margin: 6px 0;
+            line-height: 1.5;
+          }
           /* Preserve HTML formatting inside article body */
           .article-body p { margin: 0 0 1rem 0; }
           .article-body ul { list-style: disc; margin: 0 0 1rem 1.25rem; padding-left: 1.25rem; }
