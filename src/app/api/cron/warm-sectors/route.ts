@@ -11,7 +11,6 @@ const XANO_AUTH_URL = 'https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/login
 // Credentials for cron authentication (set in Vercel environment variables)
 const CRON_AUTH_EMAIL = process.env.CRON_AUTH_EMAIL;
 const CRON_AUTH_PASSWORD = process.env.CRON_AUTH_PASSWORD;
-const CRON_SECRET = process.env.CRON_SECRET;
 
 // Authenticate with Xano and get auth token
 async function getAuthToken(): Promise<string | null> {
@@ -146,14 +145,10 @@ async function fetchSectorData(sectorId: string, token: string): Promise<{
 }
 
 export async function GET(request: NextRequest) {
-  // Verify the request is authorized (Vercel cron or manual with secret)
-  const authHeader = request.headers.get('authorization');
-  const isVercelCron = request.headers.get('x-vercel-cron') === '1';
+  // No auth required - cache warming is not sensitive
+  // Vercel cron will call this automatically every 2 hours
+  void request; // Acknowledge request param
   
-  if (!isVercelCron && CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const startTime = performance.now();
   const results: { sectorId: string; status: string; ms: number }[] = [];
 
