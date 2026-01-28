@@ -4299,3 +4299,6 @@ const CompanyDetail = () => {
 };
 
 export default CompanyDetail;
+
+
+//
