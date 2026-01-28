@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
@@ -111,6 +111,12 @@ interface InsightArticle {
     _is_that_investor: boolean;
   }>;
 }
+
+type GlobalSearchResult = {
+  id: number;
+  title: string;
+  type: string;
+};
 
 // Removed NewCompany interface along with the related UI section
 
@@ -410,6 +416,147 @@ export default function HomeUserPage() {
   const [insightsArticles, setInsightsArticles] = useState<InsightArticle[]>(
     []
   );
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<GlobalSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const searchWrapRef = useRef<HTMLDivElement | null>(null);
+
+  const badgeClassForSearchType = useCallback((type: string): string => {
+    const t = (type || "").toLowerCase().trim();
+    if (t === "company") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    if (t === "investor" || t === "investors")
+      return "bg-amber-50 text-amber-700 border-amber-200";
+    if (t === "advisor" || t === "advisors")
+      return "bg-sky-50 text-sky-700 border-sky-200";
+    if (t === "individual" || t === "individuals")
+      return "bg-indigo-50 text-indigo-700 border-indigo-200";
+    if (t === "corporate_event" || t === "corporate-events" || t === "event")
+      return "bg-purple-50 text-purple-700 border-purple-200";
+    if (t === "insight" || t === "insights" || t === "article")
+      return "bg-blue-50 text-blue-700 border-blue-200";
+    if (t === "sector" || t === "sub_sector" || t === "sub-sector")
+      return "bg-gray-50 text-gray-700 border-gray-200";
+    return "bg-gray-50 text-gray-700 border-gray-200";
+  }, []);
+
+  const resolveSearchHref = useCallback((result: GlobalSearchResult): string => {
+    const t = String(result.type || "")
+      .toLowerCase()
+      .trim();
+    const id = Number(result.id);
+    if (!Number.isFinite(id) || id <= 0) return "";
+
+    if (t === "company") return `/company/${id}`;
+    if (t === "investor" || t === "investors") return `/investors/${id}`;
+    if (t === "advisor" || t === "advisors") return `/advisor/${id}`;
+    if (t === "individual" || t === "individuals") return `/individual/${id}`;
+    if (t === "corporate_event" || t === "corporate-events" || t === "event")
+      return `/corporate-event/${id}`;
+    if (t === "insight" || t === "insights" || t === "article")
+      return `/article/${id}`;
+    if (t === "sector") return `/sector/${id}`;
+    if (t === "sub_sector" || t === "sub-sector") return `/sub-sector/${id}`;
+
+    return "";
+  }, []);
+
+  const fetchGlobalSearch = useCallback(
+    async (q: string, signal: AbortSignal): Promise<GlobalSearchResult[]> => {
+      const endpoint =
+        "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/global_search";
+
+      // Prefer GET with query param (most compatible); fallback to POST(JSON).
+      const url = `${endpoint}?query=${encodeURIComponent(q)}`;
+      const res = await fetch(url, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        signal,
+      });
+
+      if (res.ok) {
+        const data = (await res.json()) as unknown;
+        return Array.isArray(data) ? (data as GlobalSearchResult[]) : [];
+      }
+
+      const res2 = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query: q }),
+        signal,
+      });
+
+      if (!res2.ok) throw new Error(`Search failed (${res2.status})`);
+      const data2 = (await res2.json()) as unknown;
+      return Array.isArray(data2) ? (data2 as GlobalSearchResult[]) : [];
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (isTrialActive) {
+      setSearchOpen(false);
+      return;
+    }
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults([]);
+      setSearchError(null);
+      setSearchLoading(false);
+      return;
+    }
+    if (q.length < 2) {
+      setSearchResults([]);
+      setSearchError(null);
+      setSearchLoading(false);
+      return;
+    }
+
+    const ac = new AbortController();
+    setSearchLoading(true);
+    setSearchError(null);
+    setSearchOpen(true);
+
+    const t = window.setTimeout(async () => {
+      try {
+        const results = await fetchGlobalSearch(q, ac.signal);
+        setSearchResults(results);
+      } catch (err) {
+        const name =
+          err && typeof err === "object" ? String((err as { name?: unknown }).name) : "";
+        if (name === "AbortError") return;
+        setSearchResults([]);
+        setSearchError("Search failed. Please try again.");
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      window.clearTimeout(t);
+      ac.abort();
+    };
+  }, [searchQuery, fetchGlobalSearch, isTrialActive]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const el = searchWrapRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+    };
+  }, [searchOpen]);
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -745,10 +892,87 @@ export default function HomeUserPage() {
           </div>
         )}
         {/* Dashboard Subheader */}
-        <div className="mb-4 sm:mb-6">
+        <div className="flex flex-col gap-3 mb-4 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
             Asymmetrix Dashboard
           </h1>
+
+          <div
+            ref={searchWrapRef}
+            className="relative w-full sm:max-w-xl md:max-w-2xl"
+          >
+            <input
+              type="search"
+              value={searchQuery}
+              disabled={isTrialActive}
+              placeholder={
+                isTrialActive
+                  ? "Search is disabled during trial access"
+                  : "Search companies, investors, advisors…"
+              }
+              className={`w-full px-3 py-2 text-sm rounded-md border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                isTrialActive
+                  ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                  : "bg-white"
+              }`}
+              onFocus={() => {
+                if (!isTrialActive) setSearchOpen(true);
+              }}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+              }}
+            />
+
+            {searchOpen && !isTrialActive && searchQuery.trim().length >= 2 && (
+              <div className="absolute z-50 mt-2 w-full bg-white rounded-md border shadow-lg">
+                {searchLoading ? (
+                  <div className="px-3 py-3 text-xs text-gray-600">
+                    Searching…
+                  </div>
+                ) : searchError ? (
+                  <div className="px-3 py-3 text-xs text-red-600">
+                    {searchError}
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <div className="px-3 py-3 text-xs text-gray-600">
+                    No results
+                  </div>
+                ) : (
+                  <ul className="py-1 max-h-72 overflow-auto">
+                    {searchResults.slice(0, 15).map((r) => {
+                      const href = resolveSearchHref(r);
+                      return (
+                        <li key={`${r.type}-${r.id}`}>
+                          <button
+                            type="button"
+                            className="flex items-start justify-between gap-3 px-3 py-2 w-full text-left hover:bg-gray-50"
+                            onClick={() => {
+                              if (!href) return;
+                              setSearchOpen(false);
+                              setSearchQuery("");
+                              setSearchResults([]);
+                              router.push(href);
+                            }}
+                          >
+                            <span className="text-sm text-gray-900">
+                              {r.title}
+                            </span>
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded-full border ${badgeClassForSearchType(
+                                String(r.type || "")
+                              )}`}
+                            >
+                              {String(r.type).replace(/_/g, " ")}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 xl:grid-cols-[repeat(20,minmax(0,1fr))]">
