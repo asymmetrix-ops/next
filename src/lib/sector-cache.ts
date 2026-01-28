@@ -83,7 +83,7 @@ export function isCacheEmpty(): boolean {
 }
 
 // Trigger background cache warming (called on first cache miss after deploy)
-export async function triggerBackgroundWarming(): Promise<void> {
+export function triggerBackgroundWarming(): void {
   // Prevent multiple triggers
   if (warmingTriggered || warmingInProgress) {
     console.log('[CACHE] ⏭️ Background warming already triggered/in progress, skipping');
@@ -93,32 +93,30 @@ export async function triggerBackgroundWarming(): Promise<void> {
   warmingTriggered = true;
   warmingInProgress = true;
   
-  console.log('[CACHE] 🚀 Triggering background cache warming...');
+  console.log('[CACHE] 🚀 Triggering standalone background cache warming...');
   
-  try {
-    // Call the cron endpoint in the background (fire-and-forget)
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL 
-      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-    
-    // Fire and forget - don't await
-    fetch(`${baseUrl}/api/cron/warm-sectors`, {
-      method: 'GET',
-      headers: {
-        'x-cron-request': 'true',
-      },
-    }).then(() => {
-      console.log('[CACHE] ✅ Background warming request sent');
-      warmingInProgress = false;
-    }).catch((err) => {
-      console.error('[CACHE] ❌ Background warming failed:', err);
-      warmingInProgress = false;
-      warmingTriggered = false; // Allow retry
-    });
-  } catch (error) {
-    console.error('[CACHE] ❌ Failed to trigger background warming:', error);
+  // Build the URL for the cron endpoint
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL 
+    || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+  
+  if (!baseUrl) {
+    console.log('[CACHE] ⚠️ No base URL configured, skipping background warming');
     warmingInProgress = false;
     warmingTriggered = false;
+    return;
   }
+  
+  // Fire and forget - the cron endpoint handles everything standalone
+  fetch(`${baseUrl}/api/cron/warm-sectors`, {
+    method: 'GET',
+  }).then((resp) => {
+    console.log(`[CACHE] ✅ Background warming triggered (status: ${resp.status})`);
+    warmingInProgress = false;
+  }).catch((err) => {
+    console.error('[CACHE] ❌ Background warming failed:', err);
+    warmingInProgress = false;
+    warmingTriggered = false; // Allow retry
+  });
 }
 
 // Reset warming flag (useful for testing)
