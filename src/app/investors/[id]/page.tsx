@@ -224,6 +224,8 @@ interface InvestorData {
   Investment_Team_Roles_past: TeamMember[];
 }
 
+const PDF_SERVICE_BASE_URL = "https://asymmetrix-pdf-service.fly.dev";
+
 // Utility functions
 const formatNumber = (num: number | undefined): string => {
   if (num === undefined || num === null) return "0";
@@ -383,6 +385,7 @@ const InvestorDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [pastPortfolioLoading, setPastPortfolioLoading] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [resolvedIndividualIds, setResolvedIndividualIds] = useState<
     Map<string, number>
   >(new Map());
@@ -1176,6 +1179,88 @@ const InvestorDetailPage = () => {
     fetchPastPortfolioCompanies(page);
   };
 
+  const handleExportPdf = useCallback(async () => {
+    if (!investorId) return;
+    if (!investorData) return;
+
+    try {
+      setExportingPdf(true);
+
+      const response = await fetch(
+        `${PDF_SERVICE_BASE_URL}/api/export-investor-pdf`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            investor: investorData,
+            linkedin: {
+              url:
+                linkedinUrl ||
+                investorData?.Investor?._linkedin_data_of_new_company?.LinkedIn_URL ||
+                null,
+              history: linkedInHistory,
+            },
+            corporate_events: corporateEvents,
+            portfolio: {
+              current: {
+                pagination: portfolioPagination,
+                items: portfolioCompanies,
+              },
+              past: {
+                pagination: pastPortfolioPagination,
+                items: pastPortfolioCompanies,
+              },
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`PDF export failed: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+
+      const sanitizeFilename = (name: string): string => {
+        return name
+          .replace(/[<>:"/\\|?*]/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+      };
+
+      const investorName = investorData?.Investor?.name
+        ? sanitizeFilename(investorData.Investor.name)
+        : `Investor-${investorId}`;
+      const filename = `Asymmetrix ${investorName} Investor Profile.pdf`;
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      alert("Failed to export PDF. Please try again.");
+    } finally {
+      setExportingPdf(false);
+    }
+  }, [
+    corporateEvents,
+    investorData,
+    investorId,
+    linkedInHistory,
+    linkedinUrl,
+    pastPortfolioCompanies,
+    pastPortfolioPagination,
+    portfolioCompanies,
+    portfolioPagination,
+  ]);
+
   if (loading) {
     return (
       <div
@@ -1310,6 +1395,27 @@ const InvestorDetailPage = () => {
       border-radius: 4px;
       cursor: pointer;
       font-size: 14px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .export-button {
+      padding: 8px 16px;
+      background-color: #0075df;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .export-button:disabled {
+      background-color: #9ca3af;
+      cursor: not-allowed;
     }
     .investor-layout {
       display: flex;
@@ -1550,6 +1656,10 @@ const InvestorDetailPage = () => {
         align-self: flex-start !important;
         width: fit-content !important;
       }
+      .export-button {
+        align-self: flex-start !important;
+        width: fit-content !important;
+      }
       .investor-layout {
         flex-direction: column !important;
         gap: 16px !important;
@@ -1631,14 +1741,24 @@ const InvestorDetailPage = () => {
               </div>
             </div>
           </div>
-          <a
-            href={reportMailTo}
-            className="report-button"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Contribute Data
-          </a>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <button
+              onClick={handleExportPdf}
+              disabled={exportingPdf || !investorData}
+              className="export-button"
+              type="button"
+            >
+              {exportingPdf ? "Exporting..." : "Export PDF"}
+            </button>
+            <a
+              href={reportMailTo}
+              className="report-button"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Contribute Data
+            </a>
+          </div>
         </div>
 
         <div className="investor-layout">
