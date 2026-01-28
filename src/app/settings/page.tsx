@@ -9,6 +9,20 @@ import { AlertCard } from "@/components/settings/AlertCard";
 import { EditAlertModal } from "@/components/settings/EditAlertModal";
 import Header from "@/components/Header";
 
+type AuthMeResponse = {
+  id: number;
+  created_at?: number;
+  name?: string;
+  email?: string;
+  Company?: number | string | null;
+  Status?: string;
+  status?: string;
+  _new_company?: {
+    id: number;
+    name?: string;
+  } | null;
+};
+
 export default function SettingsPage() {
   const { user } = useAuth();
   const [alerts, setAlerts] = useState<EmailAlert[]>([]);
@@ -18,6 +32,52 @@ export default function SettingsPage() {
   const [editingAlert, setEditingAlert] = useState<EmailAlert | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [sendTogether, setSendTogether] = useState(true);
+  const [me, setMe] = useState<AuthMeResponse | null>(null);
+  const [meLoading, setMeLoading] = useState(true);
+  const [meError, setMeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setMe(null);
+      setMeLoading(false);
+      setMeError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        setMeLoading(true);
+        setMeError(null);
+
+        const resp = await fetch("/api/auth-me", {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (!resp.ok) {
+          const body = (await resp.json().catch(() => null)) as
+            | { error?: string; message?: string }
+            | null;
+          throw new Error(body?.error || body?.message || "Failed to load user info");
+        }
+
+        const data = (await resp.json()) as AuthMeResponse;
+        setMe(data);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.error("Error loading auth/me:", err);
+        setMeError(err instanceof Error ? err.message : "Failed to load user info");
+        setMe(null);
+      } finally {
+        setMeLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [user?.id]);
 
   const loadAlerts = useCallback(async (showLoading = true) => {
     if (!user?.id) {
@@ -148,14 +208,53 @@ export default function SettingsPage() {
       <Header />
       <div className="w-full px-4 py-8">
         <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Notification Preferences
-            </h1>
-            <p className="text-gray-600">
-              Manage your email notification preferences for corporate events and
-              insights.
-            </p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Notification Preferences
+          </h1>
+          <p className="text-gray-600">
+            Manage your email notification preferences for corporate events and
+            insights.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Your Info</h2>
+            {meLoading && (
+              <span className="text-sm text-gray-500">Loading…</span>
+            )}
           </div>
+
+          {meError && (
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-4">
+              <p className="font-semibold">Error</p>
+              <p>{meError}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <p className="text-sm text-gray-500">Name</p>
+              <p className="text-gray-900">
+                {me?.name || user?.name || "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Email Address</p>
+              <p className="text-gray-900">
+                {me?.email || user?.email || "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Company</p>
+              <p className="text-gray-900">
+                {me?._new_company?.name ||
+                  (me?.Company != null ? String(me.Company) : null) ||
+                  "—"}
+              </p>
+            </div>
+          </div>
+        </div>
 
         {isLoading && <LoadingSpinner />}
 
