@@ -600,6 +600,13 @@ export default function CompaniesModal({
                 .map((s: string) => s.trim())
                 .filter(Boolean)
             : [];
+
+          const arrPcRaw =
+            (it as Record<string, unknown>)["arr_pc"] ?? it.ARR_pc;
+          const arrPc =
+            typeof arrPcRaw === "number" || typeof arrPcRaw === "string"
+              ? arrPcRaw
+              : undefined;
           
           // Create row with ALL columns always present
           const row: CompanyCSVRow = {
@@ -638,6 +645,7 @@ export default function CompaniesModal({
               ? String(it.Rule_of_40)
               : "N/A",
             // Subscription Metrics - always include all fields
+            "Recurring Revenue": CompaniesCSVExporter.formatPercent(arrPc),
             ARR: (it.ARR_m != null && it.ARR_m !== "")
               ? `${it.ARR_m}M`
               : "N/A",
