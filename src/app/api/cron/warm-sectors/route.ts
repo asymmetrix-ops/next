@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 
+// Allow up to 5 minutes for warming all sectors (Vercel Pro/Enterprise)
+// Free tier is limited to 10s, Hobby to 60s
+export const maxDuration = 300;
+
 // Secret key to protect the cron endpoint (set in environment variables)
 const CRON_SECRET = process.env.CRON_SECRET;
 const XANO_SERVICE_TOKEN = process.env.XANO_SERVICE_TOKEN;

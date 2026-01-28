@@ -14,10 +14,5 @@
       "path": "/api/cron/warm-sectors",
       "schedule": "0 */2 * * *"
     }
-  ],
-  "functions": {
-    "api/cron/warm-sectors/route.ts": {
-      "maxDuration": 300
-    }
-  }
+  ]
 }
