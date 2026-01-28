@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { getCachedSectorData, setCachedSectorData, isCacheEmpty, triggerBackgroundWarming } from '@/lib/sector-cache';
 
-export const dynamic = 'force-dynamic';
+// Allow caching at edge
+export const revalidate = 300;
 
 async function fetchJsonWithTimeout(
   url: string,
@@ -47,14 +49,41 @@ export async function GET(
   const startTime = performance.now();
   const sectorId = params.id;
   
-  console.log(`[API] 🚀 Fetching overview data for sector ${sectorId} using aggregated endpoint`);
+  // Check if this is a cron request (can skip auth, but still needs to fetch fresh data)
+  const isCronRequest = request.headers.get('x-cron-request') === 'true';
+  
+  // Check cache first - return immediately if we have fresh data
+  const cachedData = getCachedSectorData(sectorId);
+  if (cachedData && !isCronRequest) {
+    const cacheMs = Math.round(performance.now() - startTime);
+    console.log(`[API] ⚡ Serving sector ${sectorId} from cache in ${cacheMs}ms`);
+    return NextResponse.json({
+      ...cachedData as object,
+      fromCache: true,
+      cacheMs,
+    });
+  }
+  
+  // On cache miss: trigger background warming of ALL sectors (fire-and-forget)
+  // This happens automatically on first request after deploy
+  if (!isCronRequest && isCacheEmpty()) {
+    console.log(`[API] 🔥 Cache empty - triggering background warming for all sectors`);
+    triggerBackgroundWarming(); // Non-blocking, runs in background
+  }
+  
+  console.log(`[API] 🚀 Fetching overview data for sector ${sectorId} from Xano...`);
 
   try {
-    // Get auth token from cookie
+    // Get auth token from cookie (skip for cron requests)
     const cookieStore = cookies();
     const token = cookieStore.get('asymmetrix_auth_token')?.value;
 
-    if (!token) {
+    // For cron requests, use a service token from env
+    const authToken = isCronRequest 
+      ? process.env.XANO_SERVICE_TOKEN 
+      : token;
+
+    if (!authToken && !isCronRequest) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -63,7 +92,7 @@ export async function GET(
 
     const headers = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
     };
 
     // IMPORTANT: Do NOT use `next: { revalidate }` here - it causes fetch to hang in production.
@@ -180,8 +209,8 @@ export async function GET(
     console.log(`[API]    - PE: ${pe ? 'OK' : 'failed'}`);
     console.log(`[API]    - Recent: ${recentTransactions ? 'OK' : 'failed'}`);
 
-    // Return everything in one response (same structure as before for client compatibility)
-    return NextResponse.json({
+    // Build response object
+    const responseData = {
       sectorData,
       splitDatasets: {
         marketMap,
@@ -210,6 +239,15 @@ export async function GET(
         },
       },
       serverFetchTime: totalTime,
+    };
+
+    // Cache the response for future requests (instant <50ms responses)
+    setCachedSectorData(sectorId, responseData);
+    console.log(`[API] 💾 Cached sector ${sectorId} for future requests`);
+
+    return NextResponse.json({
+      ...responseData,
+      fromCache: false,
     });
   } catch (error) {
     console.error('[API] ❌ Error fetching overview data:', error);

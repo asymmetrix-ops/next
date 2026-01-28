@@ -111,6 +111,15 @@ export class ServerDashboardApiService {
       next: { revalidate: 300 },
     });
   }
+
+  // Overview data - contains strategic_acquirers and pe_investors (slowest endpoint ~3-6s)
+  async getSectorOverviewData(sectorId: string) {
+    const qs = new URLSearchParams();
+    qs.append('Sector_id', parseInt(sectorId, 10).toString());
+    return this.request<{ strategic_acquirers?: unknown; pe_investors?: unknown }>(`/overview_data?${qs.toString()}`, {
+      next: { revalidate: 300 },
+    });
+  }
 }
 
 export const serverDashboardApiService = new ServerDashboardApiService();

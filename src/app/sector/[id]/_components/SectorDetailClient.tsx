@@ -1548,9 +1548,8 @@ const SectorDetailPage = ({
     initialStrategicAcquirers || null
   );
   const [splitPERaw, setSplitPERaw] = useState<unknown>(initialPEInvestors || null);
-  // Market map is server-fetched and passed in via props.
-  // Keep it as a stable value (no client re-fetch / no setter needed).
-  const splitMarketMapRaw: unknown = initialMarketMap || null;
+  // Market map - now client-fetched for instant page navigation
+  const [splitMarketMapRaw, setSplitMarketMapRaw] = useState<unknown>(initialMarketMap || null);
   const [splitRecentRaw, setSplitRecentRaw] = useState<unknown>(
     initialRecentTransactions || null
   );
@@ -2244,77 +2243,54 @@ const SectorDetailPage = ({
     loadCities();
   }, [selCountries, selProvinces]);
 
-  // Fetch overview datasets directly from Xano with PROGRESSIVE rendering.
-  // Each request updates UI immediately when it completes - no waiting for slowest one.
-  const fetchOverviewDataProgressive = useCallback(async () => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("asymmetrix_auth_token") : null;
-    if (!token) {
-      setError("Authentication required");
-      return;
+  // Fetch all overview data via Next.js API route (cached for 5 min).
+  // Single request aggregates all Xano calls server-side → faster for users far from Xano.
+  // First request: ~6s (slowest Xano endpoint). Subsequent requests: <200ms (from cache).
+  const fetchOverviewData = useCallback(async () => {
+    try {
+      // Use Next.js API route - it handles auth via cookies and caches the response
+      const resp = await fetch(`/api/sector/${sectorId}/overview`, {
+        method: "GET",
+        credentials: "include", // Send cookies for auth
+      });
+
+      if (!resp.ok) {
+        if (resp.status === 401) {
+          setError("Authentication required");
+        } else {
+          console.error("❌ Overview fetch failed:", resp.status);
+        }
+        return;
+      }
+
+      const data = await resp.json();
+      
+      // Update all state at once from aggregated response
+      if (data.sectorData) {
+        setSectorData(data.sectorData as SectorStatistics);
+      }
+      if (data.splitDatasets) {
+        const { marketMap, strategic, pe, recentTransactions } = data.splitDatasets;
+        if (marketMap) setSplitMarketMapRaw(marketMap);
+        if (strategic) setSplitStrategicRaw(strategic);
+        if (pe) setSplitPERaw(pe);
+        if (recentTransactions) setSplitRecentRaw(recentTransactions);
+      }
+
+      // Log server timing for debugging
+      if (data.timings) {
+        console.log("📊 Server fetch timings:", data.timings);
+      }
+    } catch (e) {
+      console.error("❌ Overview fetch failed:", e);
     }
-
-    const headers = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    };
-
-    const qs = new URLSearchParams();
-    qs.append("Sector_id", sectorId);
-
-    // Fire all requests simultaneously but process each independently as it completes
-    // This shows data progressively rather than waiting for the slowest request
-    
-    // Sector details (fastest ~50ms) - shows header/title immediately
-    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors/${sectorId}`, {
-      method: "GET",
-      headers,
-    })
-      .then(async (resp) => {
-        if (resp.ok) {
-          const data = await resp.json();
-          setSectorData(data as SectorStatistics);
-        }
-      })
-      .catch((e) => console.error("❌ Sector fetch failed:", e));
-
-    // Recent transactions (~2.5s)
-    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${qs.toString()}&top_15=true`, {
-      method: "GET",
-      headers,
-    })
-      .then(async (resp) => {
-        if (resp.ok) {
-          const data = await resp.json();
-          setSplitRecentRaw(data);
-        }
-      })
-      .catch((e) => console.error("❌ Recent transactions fetch failed:", e));
-
-    // Overview data (slowest ~3.5s) - contains strategic + PE (market map moved to sectors_market_map)
-    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/overview_data?${qs.toString()}`, {
-      method: "GET",
-      headers,
-    })
-      .then(async (resp) => {
-        if (resp.ok) {
-          const data = await resp.json();
-          if (data?.strategic_acquirers) setSplitStrategicRaw(data.strategic_acquirers);
-          if (data?.pe_investors) setSplitPERaw(data.pe_investors);
-        }
-      })
-      .catch((e) => console.error("❌ Overview fetch failed:", e));
   }, [sectorId]);
 
-  // Kick off ONLY overview tab data load on initial mount (lazy load other tabs)
-  // Skip if we already have initial server-side data
+  // Kick off data loading on mount
   useEffect(() => {
     if (!sectorId) return;
-    // Only fetch if we don't have initial data
-    const hasInitialData = initialSectorData && initialMarketMap && initialStrategicAcquirers && initialPEInvestors && initialRecentTransactions;
-    if (!hasInitialData) {
-      fetchOverviewDataProgressive();
-    }
-  }, [sectorId, fetchOverviewDataProgressive, initialSectorData, initialMarketMap, initialStrategicAcquirers, initialPEInvestors, initialRecentTransactions]);
+    fetchOverviewData();
+  }, [sectorId, fetchOverviewData]);
 
   useEffect(() => {
     if (activeTab === "public") {
