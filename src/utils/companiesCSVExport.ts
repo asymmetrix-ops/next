@@ -12,6 +12,12 @@ interface Company {
   linkedin_members_latest: number;
   linkedin_members_old: number;
   linkedin_members: number;
+  // Subscription metrics (may be top-level or nested depending on API shape)
+  arr_pc?: number | string;
+  ARR_pc?: number | string;
+  financial_metrics?: Record<string, unknown>;
+  _financial_metrics?: Record<string, unknown>;
+  financialMetrics?: Record<string, unknown>;
 }
 
 export interface CompanyCSVRow {
@@ -42,6 +48,29 @@ export interface CompanyCSVRow {
 }
 
 export class CompaniesCSVExporter {
+  static asNumberOrString(value: unknown): number | string | undefined {
+    return typeof value === "number" || typeof value === "string"
+      ? value
+      : undefined;
+  }
+
+  static getARRPercent(company: Company): number | string | undefined {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const companyAny = company as unknown as Record<string, any>;
+    return this.asNumberOrString(
+      companyAny.arr_pc ??
+        companyAny.ARR_pc ??
+        companyAny.arr_percent ??
+        companyAny.ARR_percent ??
+        companyAny.financial_metrics?.arr_pc ??
+        companyAny.financial_metrics?.ARR_pc ??
+        companyAny._financial_metrics?.arr_pc ??
+        companyAny._financial_metrics?.ARR_pc ??
+        companyAny.financialMetrics?.arr_pc ??
+        companyAny.financialMetrics?.ARR_pc
+    );
+  }
+
   static formatLinkedinMembers(members: number | undefined): string {
     if (members === undefined || members === null) return "0";
     return members.toLocaleString();
@@ -173,6 +202,7 @@ export class CompaniesCSVExporter {
         Country: company.country || "N/A",
         "Company Link": companyLink,
         "Company URL": "",
+        "Recurring Revenue": this.formatPercent(this.getARRPercent(company)),
       };
     });
   }
