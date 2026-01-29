@@ -53,7 +53,7 @@ export async function GET(
   const isCronRequest = request.headers.get('x-cron-request') === 'true';
   
   // Check cache first - return immediately if we have fresh data
-  const cachedData = getCachedSectorData(sectorId);
+  const cachedData = await getCachedSectorData(sectorId);
   if (cachedData && !isCronRequest) {
     const cacheMs = Math.round(performance.now() - startTime);
     console.log(`[API] ⚡ Serving sector ${sectorId} from cache in ${cacheMs}ms`);
@@ -66,9 +66,9 @@ export async function GET(
   
   // On cache miss: trigger background warming of ALL sectors (fire-and-forget)
   // This happens automatically on first request after deploy
-  if (!isCronRequest && isCacheEmpty()) {
+  if (!isCronRequest && (await isCacheEmpty())) {
     console.log(`[API] 🔥 Cache empty - triggering background warming for all sectors`);
-    triggerBackgroundWarming(); // Non-blocking, runs in background
+    triggerBackgroundWarming(request.nextUrl.origin); // Non-blocking, runs in background
   }
   
   console.log(`[API] 🚀 Fetching overview data for sector ${sectorId} from Xano...`);
@@ -242,7 +242,7 @@ export async function GET(
     };
 
     // Cache the response for future requests (instant <50ms responses)
-    setCachedSectorData(sectorId, responseData);
+    await setCachedSectorData(sectorId, responseData);
     console.log(`[API] 💾 Cached sector ${sectorId} for future requests`);
 
     return NextResponse.json({

@@ -190,7 +190,7 @@ export async function GET(request: NextRequest) {
       
       if (data) {
         // Store in cache (same format as API route returns)
-        setCachedSectorData(sectorId, {
+        await setCachedSectorData(sectorId, {
           ...data,
           timings: { cachedByCron: true },
           serverFetchTime: Math.round(performance.now() - sectorStart),
