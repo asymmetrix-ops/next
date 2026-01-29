@@ -43,14 +43,25 @@ export async function getCachedSectorData(sectorId: string): Promise<unknown | n
   const redis = getRedisClient();
   if (redis) {
     try {
-      const raw = await redis.get<string>(key);
-      if (!raw) {
+      const raw = await redis.get<unknown>(key);
+      if (raw == null) {
         console.log(`[CACHE] ❌ MISS for sector ${sectorId}`);
         return null;
       }
-      const data = JSON.parse(raw) as unknown;
+      // Upstash can return an already-parsed JSON value. Also support legacy string values.
+      if (typeof raw === 'string') {
+        try {
+          const parsed = JSON.parse(raw) as unknown;
+          console.log(`[CACHE] ✅ HIT for sector ${sectorId} (redis:string)`);
+          return parsed;
+        } catch {
+          console.error(`[CACHE] ❌ Redis value is not JSON for sector ${sectorId}`);
+          return null;
+        }
+      }
+
       console.log(`[CACHE] ✅ HIT for sector ${sectorId} (redis)`);
-      return data;
+      return raw;
     } catch (e) {
       console.error(`[CACHE] ❌ Redis read/parse failed for sector ${sectorId}:`, e);
       return null;
@@ -83,8 +94,8 @@ export async function setCachedSectorData(sectorId: string, data: unknown): Prom
   const redis = getRedisClient();
   if (redis) {
     try {
-      // Store as a JSON string for deterministic behavior.
-      await redis.set(key, JSON.stringify(data), { ex: CACHE_TTL_SECONDS });
+      // Store as JSON-serializable value (Upstash handles serialization).
+      await redis.set(key, data as never, { ex: CACHE_TTL_SECONDS });
       await redis.set(WARMED_AT_KEY, String(now), { ex: CACHE_TTL_SECONDS });
       console.log(`[CACHE] 💾 SET for sector ${sectorId} (redis)`);
       return;
