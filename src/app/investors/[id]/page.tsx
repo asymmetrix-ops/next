@@ -1029,12 +1029,57 @@ const InvestorDetailPage = () => {
         }
       );
       if (!response.ok) return null;
-      const data = await response.json();
-      const match = data.Individuals_list?.items?.find(
-        (ind: { advisor_individuals: string; id: number }) =>
-          ind.advisor_individuals === individualName
-      );
-      return match?.id ?? null;
+      const data: unknown = await response.json();
+
+      const normalizeName = (name: string) =>
+        name
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, " ");
+
+      const query = normalizeName(individualName);
+
+      const asRecord = (v: unknown): Record<string, unknown> =>
+        typeof v === "object" && v !== null ? (v as Record<string, unknown>) : {};
+
+      const root = asRecord(data);
+      const legacyItems = asRecord(root["Individuals_list"])["items"];
+      const itemsRaw =
+        (Array.isArray(legacyItems) ? legacyItems : undefined) ??
+        (Array.isArray(root["individuals"]) ? root["individuals"] : undefined) ??
+        (Array.isArray(root["items"]) ? root["items"] : undefined) ??
+        [];
+
+      const candidates = (Array.isArray(itemsRaw) ? itemsRaw : [])
+        .map((it) => asRecord(it))
+        .map((it) => {
+          const id = typeof it["id"] === "number" ? it["id"] : Number(it["id"]);
+          const name =
+            typeof it["advisor_individuals"] === "string"
+              ? it["advisor_individuals"]
+              : typeof it["name"] === "string"
+                ? it["name"]
+                : "";
+          return { id, name };
+        })
+        .filter((c) => Number.isFinite(c.id) && c.id > 0 && c.name.length > 0);
+
+      if (candidates.length === 0) return null;
+
+      // 1) Exact match (normalized)
+      const exact = candidates.find((c) => normalizeName(c.name) === query);
+      if (exact) return exact.id;
+
+      // 2) Loose match (contains)
+      const loose =
+        candidates.find((c) => normalizeName(c.name).includes(query)) ||
+        candidates.find((c) => query.includes(normalizeName(c.name)));
+      if (loose) return loose.id;
+
+      // 3) If the search API returns only one candidate, use it.
+      if (candidates.length === 1) return candidates[0].id;
+
+      return null;
     } catch (error) {
       console.error("Error resolving individual by name:", error);
       return null;
