@@ -149,6 +149,26 @@ async function fetchSectorData(sectorId: string, token: string): Promise<{
   }
 }
 
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  const worker = async () => {
+    while (true) {
+      const i = nextIndex++;
+      if (i >= items.length) return;
+      out[i] = await fn(items[i] as T, i);
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.max(1, limit) }, worker));
+  return out;
+}
+
 export async function GET(request: NextRequest) {
   // No auth required - cache warming is not sensitive
   // Vercel cron will call this automatically every 2 hours
@@ -181,43 +201,47 @@ export async function GET(request: NextRequest) {
   console.log(`[CRON] 🔄 Starting standalone cache warm for ${sectorIds.length} sectors...`);
 
   // Step 3: Fetch and cache data for each sector
-  for (const sectorId of sectorIds) {
+  const concurrency = Math.min(
+    Math.max(Number(process.env.CRON_WARM_CONCURRENCY ?? 4), 1),
+    8
+  );
+
+  const perSector = await mapWithConcurrency(sectorIds, concurrency, async (sectorId) => {
     const sectorStart = performance.now();
-    
     try {
-      // Fetch all data directly from Xano
       const data = await fetchSectorData(sectorId, authToken);
-      
+
       if (data) {
-        // Store in cache (same format as API route returns)
         await setCachedSectorData(sectorId, {
           ...data,
           timings: { cachedByCron: true },
           serverFetchTime: Math.round(performance.now() - sectorStart),
         });
-        
+
         const ms = Math.round(performance.now() - sectorStart);
-        results.push({ sectorId, status: 'success', ms });
         console.log(`[CRON] ✅ Sector ${sectorId} cached in ${ms}ms`);
-      } else {
-        const ms = Math.round(performance.now() - sectorStart);
-        results.push({ sectorId, status: 'failed (no data)', ms });
-        console.log(`[CRON] ⚠️ Sector ${sectorId} returned no data`);
+        // Small delay to be nice to Xano (per worker)
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        return { sectorId, status: 'success', ms };
       }
-      
-      // Small delay to be nice to Xano
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
+
+      const ms = Math.round(performance.now() - sectorStart);
+      console.log(`[CRON] ⚠️ Sector ${sectorId} returned no data`);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      return { sectorId, status: 'failed (no data)', ms };
     } catch (error) {
       const ms = Math.round(performance.now() - sectorStart);
-      results.push({
+      console.error(`[CRON] ❌ Sector ${sectorId} failed:`, error);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      return {
         sectorId,
         status: `error: ${error instanceof Error ? error.message : 'unknown'}`,
         ms,
-      });
-      console.error(`[CRON] ❌ Sector ${sectorId} failed:`, error);
+      };
     }
-  }
+  });
+
+  results.push(...perSector);
 
   const totalMs = Math.round(performance.now() - startTime);
   const successCount = results.filter(r => r.status === 'success').length;
@@ -232,4 +256,9 @@ export async function GET(request: NextRequest) {
     sectorsFailed: sectorIds.length - successCount,
     results,
   });
+}
+
+// Convenience alias: some clients (Postman) might use POST by mistake.
+export async function POST(request: NextRequest) {
+  return GET(request);
 }
