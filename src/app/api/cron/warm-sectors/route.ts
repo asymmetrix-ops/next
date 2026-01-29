@@ -172,7 +172,7 @@ async function mapWithConcurrency<T, R>(
 export async function GET(request: NextRequest) {
   // No auth required - cache warming is not sensitive
   // Vercel cron will call this automatically every 2 hours
-  void request; // Acknowledge request param
+  const force = request.nextUrl.searchParams.get('force') === '1' || request.nextUrl.searchParams.get('force') === 'true';
   
   // Vercel cron schedules are evaluated in UTC. To run "once per day at 06:00 London"
   // (including BST daylight savings), we trigger at 05:00 and 06:00 UTC and only
@@ -185,12 +185,13 @@ export async function GET(request: NextRequest) {
     }).format(new Date());
     const londonHour = Number.parseInt(londonHourStr, 10);
 
-    if (londonHour !== 6) {
+    if (!force && londonHour !== 6) {
       console.log(`[CRON] ⏭️ Skipping warm-sectors (London hour=${londonHourStr})`);
       return NextResponse.json({
         success: true,
         skipped: true,
         reason: 'Not 06:00 Europe/London',
+        force,
         londonHour: londonHourStr,
       });
     }

@@ -17,9 +17,15 @@ interface CacheEntry {
 // In-memory cache (works for single server, use Redis for production)
 const cache = new Map<string, CacheEntry>();
 
-// Cache TTL: 2 hours (cron runs every 1-2 hours, so data is always fresh)
-const CACHE_TTL_MS = 2 * 60 * 60 * 1000;
-const CACHE_TTL_SECONDS = Math.floor(CACHE_TTL_MS / 1000);
+// Cache TTL:
+// We run cron once per day at 06:00 Europe/London. To avoid cache misses between runs,
+// keep entries for ~26h by default (covers delays and DST edge cases). Can be overridden via env.
+const DEFAULT_CACHE_TTL_SECONDS = 26 * 60 * 60; // 26h
+const CACHE_TTL_SECONDS = Math.min(
+  Math.max(Number(process.env.SECTOR_CACHE_TTL_SECONDS ?? DEFAULT_CACHE_TTL_SECONDS), 60),
+  7 * 24 * 60 * 60
+);
+const CACHE_TTL_MS = CACHE_TTL_SECONDS * 1000;
 
 const WARMED_AT_KEY = 'sector:cache:warmed_at';
 
@@ -179,7 +185,8 @@ export function triggerBackgroundWarming(origin?: string): void {
   }
   
   // Fire and forget - the cron endpoint handles everything standalone
-  fetch(`${baseUrl}/api/cron/warm-sectors`, {
+  // Use `force=1` so the cron route runs even outside 06:00 London (useful after deploy).
+  fetch(`${baseUrl}/api/cron/warm-sectors?force=1`, {
     method: 'GET',
   }).then((resp) => {
     console.log(`[CACHE] ✅ Background warming triggered (status: ${resp.status})`);
