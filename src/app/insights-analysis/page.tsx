@@ -330,7 +330,7 @@ const InsightsAnalysisPage = () => {
     Provinces: [],
     Cities: [],
     Offset: 1,
-    Per_page: 10,
+    Per_page: 12,
   });
 
   const [searchTerm, setSearchTerm] = useState("");
