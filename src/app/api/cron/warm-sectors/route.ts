@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { setCachedSectorData } from '@/lib/sector-cache';
 
+// This route does real work (network + caching) and must never be pre-rendered at build time.
+// Force dynamic execution so `next build` doesn't attempt static generation for `/api/cron/warm-sectors`.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // Allow up to 5 minutes for warming all sectors (Vercel Pro)
 export const maxDuration = 300;
 
