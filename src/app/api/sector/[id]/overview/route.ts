@@ -66,7 +66,7 @@ export async function GET(
   
   // On cache miss: trigger background warming of ALL sectors (fire-and-forget)
   // This happens automatically on first request after deploy
-  if (!isCronRequest && (await isCacheEmpty())) {
+  if (!isCronRequest && process.env.ENABLE_BACKGROUND_WARMING === 'true' && (await isCacheEmpty())) {
     console.log(`[API] 🔥 Cache empty - triggering background warming for all sectors`);
     triggerBackgroundWarming(request.nextUrl.origin); // Non-blocking, runs in background
   }

@@ -160,6 +160,13 @@ export async function isCacheEmpty(): Promise<boolean> {
 
 // Trigger background cache warming (called on first cache miss after deploy)
 export function triggerBackgroundWarming(origin?: string): void {
+  // Disabled by default: frequent deploys should not trigger expensive warming.
+  // Enable explicitly only if you really want auto-warming on cache-empty.
+  if (process.env.ENABLE_BACKGROUND_WARMING !== 'true') {
+    console.log('[CACHE] ⏭️ Background warming disabled (set ENABLE_BACKGROUND_WARMING=true to enable)');
+    return;
+  }
+
   // Prevent multiple triggers
   if (warmingTriggered || warmingInProgress) {
     console.log('[CACHE] ⏭️ Background warming already triggered/in progress, skipping');
@@ -185,8 +192,7 @@ export function triggerBackgroundWarming(origin?: string): void {
   }
   
   // Fire and forget - the cron endpoint handles everything standalone
-  // Use `force=1` so the cron route runs even outside 06:00 London (useful after deploy).
-  fetch(`${baseUrl}/api/cron/warm-sectors?force=1`, {
+  fetch(`${baseUrl}/api/cron/warm-sectors`, {
     method: 'GET',
   }).then((resp) => {
     console.log(`[CACHE] ✅ Background warming triggered (status: ${resp.status})`);
