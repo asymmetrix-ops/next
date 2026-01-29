@@ -2169,6 +2169,11 @@ const ArticleDetailPage = () => {
             color:#374151;
             font-size:15px;
             line-height:1.6;
+            text-align:left;
+          }
+          .article-summary-preview *,
+          .article-summary-body *{
+            text-align:left;
           }
           .article-summary-preview ul,
           .article-summary-body ul{
