@@ -1264,7 +1264,21 @@ function RecentTransactionsCard({
   );
 }
 
-function MarketMapGrid({ companies }: { companies: SectorCompany[] }) {
+// Total counts per type from API (public_count, pe_count, vc_count, private_count)
+interface MarketMapCounts {
+  public?: number;
+  private_equity_owned?: number;
+  venture_capital_backed?: number;
+  private?: number;
+}
+
+function MarketMapGrid({
+  companies,
+  counts: countsProp,
+}: {
+  companies: SectorCompany[];
+  counts?: MarketMapCounts;
+}) {
   const labelFor = (type: string) =>
     type === "public"
       ? "Public"
@@ -1417,7 +1431,7 @@ function MarketMapGrid({ companies }: { companies: SectorCompany[] }) {
                     {titleFor(type)}
                   </h3>
                   <span className="inline-flex px-2 py-0.5 text-xs rounded bg-slate-100 text-slate-700 border border-slate-200">
-                    {list.length}
+                    {countsProp?.[type as keyof MarketMapCounts] ?? list.length}
                   </span>
                 </div>
                 <a
@@ -2523,6 +2537,23 @@ const SectorDetailPage = ({
     const mapped = mapMarketMapToCompanies(raw);
     return mapped.length > 0 ? mapped : companies;
   }, [preferredSource, companies]);
+
+  // Total counts per type from market_map API (public_count, pe_count, vc_count, private_count)
+  const marketMapCounts: MarketMapCounts | undefined = useMemo(() => {
+    if (!preferredSource) return undefined;
+    const raw = (preferredSource as { market_map?: unknown })?.market_map;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+    const o = raw as Record<string, unknown>;
+    return {
+      public: getFirstMatchingNumber(o, ["public_count", "Public_count"]),
+      private_equity_owned: getFirstMatchingNumber(o, ["pe_count", "Pe_count"]),
+      venture_capital_backed: getFirstMatchingNumber(o, [
+        "vc_count",
+        "Vc_count",
+      ]),
+      private: getFirstMatchingNumber(o, ["private_count", "Private_count"]),
+    };
+  }, [preferredSource]);
 
   // Only block rendering for critical errors (auth/not found)
   if (error) {
@@ -5260,7 +5291,10 @@ const SectorDetailPage = ({
 
             {/* Bottom Row */}
             {marketMapCompanies.length > 0 ? (
-              <MarketMapGrid companies={marketMapCompanies} />
+              <MarketMapGrid
+                companies={marketMapCompanies}
+                counts={marketMapCounts}
+              />
             ) : overviewDataLoaded ? (
               <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5">
                 <h3 className="text-lg font-semibold text-slate-900 mb-4">Market Map</h3>
