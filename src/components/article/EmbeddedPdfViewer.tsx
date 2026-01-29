@@ -91,7 +91,7 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
           ) : pdfUrl ? (
             <iframe
               className="pdf-iframe"
-              src={pdfUrl}
+              src={`${pdfUrl}#toolbar=0&navpanes=0`}
               title={articleTitle}
               loading="lazy"
               // Allow browser PDF viewer controls

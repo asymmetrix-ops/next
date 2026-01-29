@@ -227,11 +227,31 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
   if (blobUrl) {
     const a = document.createElement("a");
     a.href = blobUrl;
-    const headline = (article.Headline || "Article")
-      .toString()
+    
+    // Extract company/subject name from headline (e.g., "Company Analysis – FromCounsel" -> "FromCounsel")
+    const headlineParts = (article.Headline || "").split(/\s*[–—-]\s*/);
+    const subjectName = headlineParts.length > 1 
+      ? headlineParts.slice(1).join(" - ").trim() 
+      : (article.Headline || "Document");
+    
+    const ct = (
+      article.Content_Type ||
+      article.content_type ||
+      article.Content?.Content_type ||
+      article.Content?.Content_Type ||
+      ""
+    ).trim();
+    
+    // Format: "Asymmetrix - [Content Type] - [Content Title]"
+    const filenameBase = ct && subjectName
+      ? `Asymmetrix - ${ct} - ${subjectName}`
+      : `Asymmetrix - ${(article.Headline || "Article").toString()}`;
+    
+    a.download = `${filenameBase
       .replace(/[\\/:*?"<>|]/g, " ")
-      .slice(0, 180);
-    a.download = `Asymmetrix - ${headline}.pdf`;
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 180)}.pdf`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -300,7 +320,17 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
     article.Headline || "Untitled"
   }`;
   const pdfFilename = (() => {
-    const base = `Asymmetrix - ${(article.Headline || "Article").toString()}`;
+    // Extract company/subject name from headline (e.g., "Company Analysis – FromCounsel" -> "FromCounsel")
+    const headlineParts = (article.Headline || "").split(/\s*[–—-]\s*/);
+    const subjectName = headlineParts.length > 1 
+      ? headlineParts.slice(1).join(" - ").trim() 
+      : (article.Headline || "Document");
+    
+    // Format: "Asymmetrix - [Content Type] - [Content Title]"
+    const base = ct && subjectName
+      ? `Asymmetrix - ${ct} - ${subjectName}`
+      : `Asymmetrix - ${(article.Headline || "Article").toString()}`;
+    
     // Sanitize filename for cross-platform safety
     const sanitized = base
       .replace(/[\\/:*?"<>|]/g, " ")

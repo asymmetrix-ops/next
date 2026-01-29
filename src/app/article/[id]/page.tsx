@@ -2065,15 +2065,30 @@ const ArticleDetailPage = () => {
       <Footer />
 
       {/* Embedded PDF Viewer Modal (manual open/generate) */}
-      {showPdfViewer && (
-        <EmbeddedPdfViewer
-          pdfUrl={pdfBlobUrl}
-          isLoading={pdfLoading}
-          onClose={handleClosePdfViewer}
-          articleTitle={article.Headline}
-          variant="modal"
-        />
-      )}
+      {showPdfViewer && (() => {
+        const ct = (
+          article.Content_Type ||
+          article.content_type ||
+          article.Content?.Content_type ||
+          article.Content?.Content_Type ||
+          ""
+        ).trim();
+        // Extract company/subject name from headline (e.g., "Company Analysis – FromCounsel" -> "FromCounsel")
+        const headlineParts = (article.Headline || "").split(/\s*[–—-]\s*/);
+        const subjectName = headlineParts.length > 1 ? headlineParts.slice(1).join(" – ").trim() : (article.Headline || "Document");
+        const pdfTitle = ct && subjectName 
+          ? `Asymmetrix - ${ct} - ${subjectName}`
+          : `Asymmetrix - ${article.Headline || "Document"}`;
+        return (
+          <EmbeddedPdfViewer
+            pdfUrl={pdfBlobUrl}
+            isLoading={pdfLoading}
+            onClose={handleClosePdfViewer}
+            articleTitle={pdfTitle}
+            variant="modal"
+          />
+        );
+      })()}
 
       <style
         dangerouslySetInnerHTML={{

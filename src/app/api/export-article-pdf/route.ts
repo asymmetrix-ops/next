@@ -562,9 +562,21 @@ export async function POST(req: NextRequest) {
     });
     await browser.close();
 
-    const filename = `Asymmetrix - ${(article.Headline || "Article")
-      .toString()
+    // Extract company/subject name from headline (e.g., "Company Analysis – FromCounsel" -> "FromCounsel")
+    const headlineParts = (article.Headline || "").split(/\s*[–—-]\s*/);
+    const subjectName = headlineParts.length > 1 
+      ? headlineParts.slice(1).join(" - ").trim() 
+      : (article.Headline || "Document");
+    
+    // Format: "Asymmetrix - [Content Type] - [Content Title]"
+    const filenameBase = ct && subjectName
+      ? `Asymmetrix - ${ct} - ${subjectName}`
+      : `Asymmetrix - ${article.Headline || "Article"}`;
+    
+    const filename = `${filenameBase
       .replace(/[\\/:*?"<>|]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
       .slice(0, 180)}.pdf`;
     return new Response(pdf, {
       status: 200,
