@@ -16,10 +16,18 @@ interface ArticleDetail {
   Publication_Date: string;
   Headline: string;
   Strapline: string;
+  // New Insights & Analysis section: Summary (same format as Body; often HTML)
+  Summary?: string;
+  summary?: string;
   Content_Type?: string;
   content_type?: string;
   // Some API variants may nest under Content
-  Content?: { Content_type?: string; Content_Type?: string };
+  Content?: {
+    Content_type?: string;
+    Content_Type?: string;
+    Summary?: string;
+    summary?: string;
+  };
   Body: string;
   sectors: Array<{
     id: number;
@@ -308,6 +316,8 @@ const ArticleDetailPage = () => {
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Summary accordion state
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [companyOfFocus, setCompanyOfFocus] =
     useState<CompanyOfFocusApiItem | null>(null);
   const [companyOfFocusLoading, setCompanyOfFocusLoading] = useState(false);
@@ -622,6 +632,83 @@ const ArticleDetailPage = () => {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
+
+  const getRawSummary = (a: ArticleDetail | null): string => {
+    if (!a) return "";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anyA = a as any;
+    const candidate =
+      anyA?.Summary ??
+      anyA?.summary ??
+      anyA?.Content?.Summary ??
+      anyA?.Content?.summary ??
+      "";
+    return typeof candidate === "string" ? candidate : String(candidate ?? "");
+  };
+
+  const stripHtmlToText = (html: string): string => {
+    const input = String(html || "").trim();
+    if (!input) return "";
+    // DOMParser is available in this client component; fallback to regex if needed.
+    try {
+      const doc = new DOMParser().parseFromString(input, "text/html");
+      return (doc.body?.textContent || "").replace(/\s+/g, " ").trim();
+    } catch {
+      return input.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    }
+  };
+
+  const normalizeSummaryHtml = (raw: string): string => {
+    const input = String(raw || "").trim();
+    if (!input) return "";
+
+    // If it already looks like a list (or contains list items), keep it as-is.
+    if (/<\s*(ul|ol|li)\b/i.test(input)) return input;
+
+    const text = stripHtmlToText(input);
+    if (!text) return "";
+
+    // Turn into bullets. Prefer splitting by new lines; fallback to "•" separators.
+    const linesFromNewlines = text
+      .split(/\r?\n+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const lines =
+      linesFromNewlines.length > 1
+        ? linesFromNewlines
+        : text.includes("•")
+          ? text
+              .split("•")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : [text];
+
+    const items = lines
+      .map((line) => line.replace(/^[-*•]\s+/, "").trim())
+      .filter(Boolean)
+      .map((line) => `<li>${escapeHtml(line)}</li>`)
+      .join("");
+
+    return `<ul>${items}</ul>`;
+  };
+
+  const getFirstSummaryBullet = (summaryHtml: string): string => {
+    const input = String(summaryHtml || "").trim();
+    if (!input) return "";
+    try {
+      const doc = new DOMParser().parseFromString(input, "text/html");
+      const li = doc.querySelector("li");
+      const liText = (li?.textContent || "").trim();
+      if (liText) return liText;
+      const text = (doc.body?.textContent || "").trim();
+      if (!text) return "";
+      const parts = text.split(/\r?\n+/).map((s) => s.trim()).filter(Boolean);
+      return (parts[0] || "").trim();
+    } catch {
+      return stripHtmlToText(input);
+    }
+  };
 
   // Resolve attachment URL. Some API responses provide only `path` (e.g. `/vault/...`) and omit `url`.
   const resolveDocumentUrl = (doc: {
@@ -940,6 +1027,11 @@ const ArticleDetailPage = () => {
     );
   }
 
+  const summaryRaw = getRawSummary(article);
+  const summaryHtml = normalizeSummaryHtml(summaryRaw);
+  const summaryPreview = getFirstSummaryBullet(summaryHtml);
+  const hasSummary = Boolean(summaryPreview);
+
   return (
     <div style={{ ...styles.container, maxWidth: "100vw", overflowX: "hidden" }}>
       <Header />
@@ -968,6 +1060,39 @@ const ArticleDetailPage = () => {
                 </div>
               ) : null;
             })()}
+
+            {/* Summary (Insights & Analysis) */}
+            {hasSummary && (
+              <div className="article-summary" style={{ marginBottom: 16 }}>
+                <button
+                  type="button"
+                  className="article-summary-header"
+                  aria-expanded={summaryExpanded}
+                  onClick={() => setSummaryExpanded((v) => !v)}
+                >
+                  <span className="article-summary-title">Summary</span>
+                  <span
+                    className={`article-summary-chevron ${summaryExpanded ? "expanded" : ""}`}
+                    aria-hidden="true"
+                  >
+                    ▼
+                  </span>
+                </button>
+
+                {!summaryExpanded ? (
+                  <div className="article-summary-preview">
+                    <ul>
+                      <li>{summaryPreview}</li>
+                    </ul>
+                  </div>
+                ) : (
+                  <div
+                    className="article-summary-body"
+                    dangerouslySetInnerHTML={{ __html: summaryHtml }}
+                  />
+                )}
+              </div>
+            )}
 
             {/* Inline Audio (audio-only interview / listen module) */}
             {(() => {
@@ -1999,6 +2124,66 @@ const ArticleDetailPage = () => {
           .article-body figure { margin: 1rem 0; }
           .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem; }
           .article-inline-image { margin: 1.25rem 0; }
+          /* Summary module (collapsible) */
+          .article-summary{
+            border:1px solid #e5e7eb;
+            background:#f9fafb;
+            border-radius:12px;
+            overflow:hidden;
+          }
+          .article-summary-header{
+            width:100%;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:12px;
+            padding:12px 14px;
+            background:transparent;
+            border:0;
+            cursor:pointer;
+            text-align:left;
+          }
+          .article-summary-title{
+            font-size:16px;
+            font-weight:700;
+            color:#111827;
+          }
+          .article-summary-chevron{
+            width:28px;
+            height:28px;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            border-radius:9999px;
+            border:1px solid #e5e7eb;
+            background:#fff;
+            color:#111827;
+            font-size:12px;
+            transition: transform 150ms ease;
+            flex-shrink:0;
+          }
+          .article-summary-chevron.expanded{ transform: rotate(180deg); }
+          .article-summary-preview,
+          .article-summary-body{
+            padding:0 14px 12px;
+            color:#374151;
+            font-size:15px;
+            line-height:1.6;
+          }
+          .article-summary-preview ul,
+          .article-summary-body ul{
+            list-style: disc;
+            margin: 0.25rem 0 0 1.25rem;
+            padding-left: 1.25rem;
+          }
+          .article-summary-body ol{
+            list-style: decimal;
+            margin: 0.25rem 0 0 1.25rem;
+            padding-left: 1.25rem;
+          }
+          .article-summary-preview li,
+          .article-summary-body li{ margin-bottom: 0.5rem; }
+          .article-summary-body p{ margin: 0 0 0.75rem 0; }
           /* Audio attachments (WhatsApp-style card) */
           /* Inline audio player (news-style listen module) */
           .inline-audio-player{
