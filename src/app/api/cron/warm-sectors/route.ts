@@ -174,6 +174,31 @@ export async function GET(request: NextRequest) {
   // Vercel cron will call this automatically every 2 hours
   void request; // Acknowledge request param
   
+  // Vercel cron schedules are evaluated in UTC. To run "once per day at 06:00 London"
+  // (including BST daylight savings), we trigger at 05:00 and 06:00 UTC and only
+  // execute the job when it's actually 06:00 in Europe/London.
+  try {
+    const londonHourStr = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London',
+      hour: '2-digit',
+      hour12: false,
+    }).format(new Date());
+    const londonHour = Number.parseInt(londonHourStr, 10);
+
+    if (londonHour !== 6) {
+      console.log(`[CRON] ⏭️ Skipping warm-sectors (London hour=${londonHourStr})`);
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        reason: 'Not 06:00 Europe/London',
+        londonHour: londonHourStr,
+      });
+    }
+  } catch (e) {
+    // If timezone formatting fails for any reason, do not block cron execution.
+    console.warn('[CRON] ⚠️ London time check failed, continuing anyway:', e);
+  }
+
   const startTime = performance.now();
   const results: { sectorId: string; status: string; ms: number }[] = [];
 

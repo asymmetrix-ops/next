@@ -12,7 +12,7 @@
   "crons": [
     {
       "path": "/api/cron/warm-sectors",
-      "schedule": "0 */2 * * *"
+      "schedule": "0 5,6 * * *"
     }
   ]
 }
