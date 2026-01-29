@@ -63,6 +63,7 @@ interface FocusSector {
 
 interface TeamMember {
   Individual_text: string;
+  individuals_id?: number;
   job_titles_id: Array<{ job_title: string }>;
   current_employer_url: string;
 }
@@ -386,9 +387,6 @@ const InvestorDetailPage = () => {
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [pastPortfolioLoading, setPastPortfolioLoading] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
-  const [resolvedIndividualIds, setResolvedIndividualIds] = useState<
-    Map<string, number>
-  >(new Map());
 
   const [error, setError] = useState<string | null>(null);
 
@@ -1007,136 +1005,6 @@ const InvestorDetailPage = () => {
       console.error("Error handling advisor click:", error);
     }
   };
-
-  // Resolve individual id by name via API
-  const resolveIndividualIdByName = async (
-    individualName: string
-  ): Promise<number | null> => {
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const params = new URLSearchParams();
-      params.append("search_query", individualName);
-      params.append("Offset", "1");
-      params.append("Per_page", "10");
-      const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-      if (!response.ok) return null;
-      const data: unknown = await response.json();
-
-      const normalizeName = (name: string) =>
-        name
-          .trim()
-          .toLowerCase()
-          .replace(/\s+/g, " ");
-
-      const query = normalizeName(individualName);
-
-      const asRecord = (v: unknown): Record<string, unknown> =>
-        typeof v === "object" && v !== null ? (v as Record<string, unknown>) : {};
-
-      const root = asRecord(data);
-      const legacyItems = asRecord(root["Individuals_list"])["items"];
-      const itemsRaw =
-        (Array.isArray(legacyItems) ? legacyItems : undefined) ??
-        (Array.isArray(root["individuals"]) ? root["individuals"] : undefined) ??
-        (Array.isArray(root["items"]) ? root["items"] : undefined) ??
-        [];
-
-      const candidates = (Array.isArray(itemsRaw) ? itemsRaw : [])
-        .map((it) => asRecord(it))
-        .map((it) => {
-          const id = typeof it["id"] === "number" ? it["id"] : Number(it["id"]);
-          const name =
-            typeof it["advisor_individuals"] === "string"
-              ? it["advisor_individuals"]
-              : typeof it["name"] === "string"
-                ? it["name"]
-                : "";
-          return { id, name };
-        })
-        .filter((c) => Number.isFinite(c.id) && c.id > 0 && c.name.length > 0);
-
-      if (candidates.length === 0) return null;
-
-      // 1) Exact match (normalized)
-      const exact = candidates.find((c) => normalizeName(c.name) === query);
-      if (exact) return exact.id;
-
-      // 2) Loose match (contains)
-      const loose =
-        candidates.find((c) => normalizeName(c.name).includes(query)) ||
-        candidates.find((c) => query.includes(normalizeName(c.name)));
-      if (loose) return loose.id;
-
-      // 3) If the search API returns only one candidate, use it.
-      if (candidates.length === 1) return candidates[0].id;
-
-      return null;
-    } catch (error) {
-      console.error("Error resolving individual by name:", error);
-      return null;
-    }
-  };
-
-  // Navigate to individual profile by resolving ID from Individuals API
-  const handleTeamMemberClick = async (individualName: string) => {
-    // Check if we already have the ID cached
-    const cachedId = resolvedIndividualIds.get(individualName);
-    if (cachedId) {
-      router.push(`/individual/${cachedId}`);
-      return;
-    }
-
-    // Otherwise resolve it
-    const id = await resolveIndividualIdByName(individualName);
-    if (id) {
-      setResolvedIndividualIds((prev) => {
-        const next = new Map(prev);
-        next.set(individualName, id);
-        return next;
-      });
-      router.push(`/individual/${id}`);
-    } else {
-      console.error("No matching individual found");
-    }
-  };
-
-  // Resolve all individual IDs when investor data loads
-  useEffect(() => {
-    const resolveAllIds = async () => {
-      if (!investorData) return;
-
-      const allNames = new Set<string>();
-      investorData.Investment_Team_Roles_current.forEach((member) => {
-        allNames.add(member.Individual_text);
-      });
-      investorData.Investment_Team_Roles_past.forEach((member) => {
-        allNames.add(member.Individual_text);
-      });
-
-      const resolved = new Map<string, number>();
-      await Promise.all(
-        Array.from(allNames).map(async (name) => {
-          const id = await resolveIndividualIdByName(name);
-          if (id) {
-            resolved.set(name, id);
-          }
-        })
-      );
-
-      setResolvedIndividualIds(resolved);
-    };
-
-    resolveAllIds();
-  }, [investorData]);
 
   const handleCorporateEventDescriptionClick = async (
     eventId?: number,
@@ -1936,11 +1804,10 @@ const InvestorDetailPage = () => {
                 <IndividualCards
                   title="Current:"
                   individuals={Investment_Team_Roles_current.map((member) => ({
-                    id: resolvedIndividualIds.get(member.Individual_text),
+                    id: member.individuals_id,
                     name: member.Individual_text,
                     jobTitles: member.job_titles_id.map((jt) => jt.job_title),
-                    individualId: resolvedIndividualIds.get(member.Individual_text),
-                    onClick: () => handleTeamMemberClick(member.Individual_text),
+                    individualId: member.individuals_id,
                   }))}
                   emptyMessage="Not available"
                 />
@@ -1952,11 +1819,10 @@ const InvestorDetailPage = () => {
                   <IndividualCards
                     title="Past:"
                     individuals={Investment_Team_Roles_past.map((member) => ({
-                      id: resolvedIndividualIds.get(member.Individual_text),
+                      id: member.individuals_id,
                       name: member.Individual_text,
                       jobTitles: member.job_titles_id.map((jt) => jt.job_title),
-                      individualId: resolvedIndividualIds.get(member.Individual_text),
-                      onClick: () => handleTeamMemberClick(member.Individual_text),
+                      individualId: member.individuals_id,
                     }))}
                     emptyMessage="Not available"
                   />

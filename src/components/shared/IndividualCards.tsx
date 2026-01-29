@@ -73,6 +73,8 @@ const IndividualCards: React.FC<IndividualCardsProps> = ({
             }
           };
 
+          const isClickable = person.individualId || person.onClick;
+
           return (
             <div
               key={person.id || person.individualId || index}
@@ -82,10 +84,10 @@ const IndividualCards: React.FC<IndividualCardsProps> = ({
                 borderRadius: "8px",
                 backgroundColor: "#f9fafb",
                 transition: "all 0.2s ease",
-                cursor: person.individualId || person.onClick ? "pointer" : "default",
+                cursor: isClickable ? "pointer" : "default",
               }}
               className="management-card"
-              onClick={person.individualId || person.onClick ? handleClick : undefined}
+              onClick={isClickable ? handleClick : undefined}
             >
               <div
                 style={{
@@ -95,19 +97,30 @@ const IndividualCards: React.FC<IndividualCardsProps> = ({
                   marginBottom: "4px",
                 }}
               >
-                {person.individualId ? (
+                {person.individualId && !person.onClick ? (
                   <Link
                     href={`/individual/${person.individualId}`}
                     style={{
                       color: "#0075df",
-                      textDecoration: "underline",
+                      textDecoration: "none",
+                      cursor: "pointer",
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
                   >
                     {person.name}
                   </Link>
                 ) : (
-                  person.name
+                  <span
+                    style={{
+                      color: "#0075df",
+                      textDecoration: isClickable ? "underline" : "none",
+                      cursor: isClickable ? "pointer" : "default",
+                    }}
+                  >
+                    {person.name}
+                  </span>
                 )}
               </div>
               <div
