@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
+import { SpecialZoomLevel, Viewer, Worker } from "@react-pdf-viewer/core";
+import { pageNavigationPlugin } from "@react-pdf-viewer/page-navigation";
 
 interface EmbeddedPdfViewerProps {
   pdfUrl: string | null;
@@ -18,6 +20,21 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
   variant = "inline",
 }) => {
   const isModal = variant === "modal";
+  const pageNavPlugin = useMemo(() => pageNavigationPlugin(), []);
+  const { CurrentPageLabel, GoToNextPage, GoToPreviousPage } = pageNavPlugin;
+
+  const workerUrl = useMemo(() => {
+    // Bundle pdf.js worker via import.meta.url (works in Next app router)
+    try {
+      return new URL(
+        "pdfjs-dist/build/pdf.worker.min.js",
+        import.meta.url
+      ).toString();
+    } catch {
+      // Fallback: rely on whatever the bundler exposes
+      return "/pdf.worker.min.js";
+    }
+  }, []);
 
   // Handle escape key to close (modal only)
   useEffect(() => {
@@ -59,6 +76,41 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
           <div className="pdf-topbar-title">
             <span className="pdf-topbar-name">{articleTitle}</span>
           </div>
+          <div className="pdf-topbar-nav" aria-label="PDF navigation">
+            <GoToPreviousPage>
+              {({ onClick, isDisabled }) => (
+                <button
+                  type="button"
+                  className="pdf-nav-btn"
+                  onClick={onClick}
+                  disabled={isDisabled}
+                  title="Previous page"
+                >
+                  ‹
+                </button>
+              )}
+            </GoToPreviousPage>
+            <CurrentPageLabel>
+              {({ currentPage, numberOfPages }) => (
+                <span className="pdf-page-label">
+                  {numberOfPages ? `${currentPage + 1} / ${numberOfPages}` : ""}
+                </span>
+              )}
+            </CurrentPageLabel>
+            <GoToNextPage>
+              {({ onClick, isDisabled }) => (
+                <button
+                  type="button"
+                  className="pdf-nav-btn"
+                  onClick={onClick}
+                  disabled={isDisabled}
+                  title="Next page"
+                >
+                  ›
+                </button>
+              )}
+            </GoToNextPage>
+          </div>
           <div className="pdf-topbar-actions">
             <button
               type="button"
@@ -89,14 +141,15 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
               <p>Loading…</p>
             </div>
           ) : pdfUrl ? (
-            <iframe
-              className="pdf-iframe"
-              src={pdfUrl}
-              title={articleTitle}
-              loading="lazy"
-              // Allow browser PDF viewer controls
-              allow="fullscreen"
-            />
+            <div className="pdf-viewer">
+              <Worker workerUrl={workerUrl}>
+                <Viewer
+                  fileUrl={pdfUrl}
+                  plugins={[pageNavPlugin]}
+                  defaultScale={SpecialZoomLevel.PageWidth}
+                />
+              </Worker>
+            </div>
           ) : (
             <div className="pdf-error">Could not load PDF</div>
           )}
@@ -166,6 +219,37 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
           text-overflow: ellipsis;
           max-width: 70vw;
         }
+        .pdf-topbar-nav {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin: 0 10px;
+          flex: 0 0 auto;
+        }
+        .pdf-nav-btn {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          border: 0;
+          background: rgba(255, 255, 255, 0.12);
+          color: #fff;
+          font-size: 18px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .pdf-nav-btn:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+        }
+        .pdf-page-label {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.85);
+          min-width: 64px;
+          text-align: center;
+          font-weight: 600;
+        }
         .pdf-topbar-actions {
           display: flex;
           align-items: center;
@@ -192,11 +276,15 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
           min-height: 0;
           background: #f3f4f6;
         }
-        .pdf-iframe {
+        .pdf-viewer {
           width: 100%;
           height: 100%;
-          border: 0;
           background: #fff;
+          overflow: hidden;
+        }
+        .pdf-viewer :global(.rpv-core__viewer) {
+          width: 100%;
+          height: 100%;
         }
 
         .pdf-loading {
@@ -239,6 +327,9 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
           }
           .pdf-topbar-name {
             max-width: 55vw;
+          }
+          .pdf-topbar-nav {
+            display: none;
           }
         }
       `}</style>

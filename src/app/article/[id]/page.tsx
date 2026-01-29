@@ -558,6 +558,33 @@ const ArticleDetailPage = () => {
 
   // Navigation now handled via <Link> elements to allow right-click/middle-click open in new tabs
 
+  const getContentType = (a: ArticleDetail): string =>
+    (
+      a.Content_Type ||
+      a.content_type ||
+      a.Content?.Content_type ||
+      a.Content?.Content_Type ||
+      ""
+    )
+      .toString()
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const derivePdfTitle = (a: ArticleDetail): string => {
+    const ct = getContentType(a) || "Insights & Analysis";
+    const headline = String(a.Headline || "Untitled").trim();
+
+    // If headline already starts with "Content Type -", strip it for the title portion
+    const escapedCt = ct.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const prefixRegex = new RegExp(
+      `^\\s*${escapedCt}\\s*[-–—:]\\s*`,
+      "i"
+    );
+    const titlePart = headline.replace(prefixRegex, "").trim() || headline;
+
+    return `Asymmetrix - ${ct} - ${titlePart}`.replace(/\s+/g, " ").trim();
+  };
+
   // Robust sector id extraction in case backend changes keys
   const getSectorId = (sector: unknown): number | undefined => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1031,6 +1058,7 @@ const ArticleDetailPage = () => {
   const summaryHtml = normalizeSummaryHtml(summaryRaw);
   const summaryPreview = getFirstSummaryBullet(summaryHtml);
   const hasSummary = Boolean(summaryPreview);
+  const pdfTitle = derivePdfTitle(article);
 
   return (
     <div style={{ ...styles.container, maxWidth: "100vw", overflowX: "hidden" }}>
@@ -1047,13 +1075,7 @@ const ArticleDetailPage = () => {
             <h1 style={styles.heading}>{article.Headline}</h1>
             <p style={styles.strapline}>{article.Strapline}</p>
             {(() => {
-              const ct = (
-                article.Content_Type ||
-                article.content_type ||
-                article.Content?.Content_type ||
-                article.Content?.Content_Type ||
-                ""
-              ).trim();
+              const ct = getContentType(article);
               return ct ? (
                 <div style={styles.contentTypeRow}>
                   <span style={styles.contentTypeBadge}>{ct}</span>
@@ -1177,7 +1199,7 @@ const ArticleDetailPage = () => {
                     pdfUrl={pdf.url}
                     isLoading={false}
                     onClose={() => {}}
-                    articleTitle={pdf.name}
+                    articleTitle={`Asymmetrix - ${pdf.name}`}
                     variant="inline"
                   />
                 ))}
@@ -2070,7 +2092,7 @@ const ArticleDetailPage = () => {
           pdfUrl={pdfBlobUrl}
           isLoading={pdfLoading}
           onClose={handleClosePdfViewer}
-          articleTitle={article.Headline}
+          articleTitle={pdfTitle}
           variant="modal"
         />
       )}

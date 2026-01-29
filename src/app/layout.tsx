@@ -4,6 +4,8 @@ import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import "react-h5-audio-player/lib/styles.css";
+import "@react-pdf-viewer/core/lib/styles/index.css";
+import "@react-pdf-viewer/page-navigation/lib/styles/index.css";
 import { AnalyticsProvider } from "@/components/providers/AnalyticsProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { Toaster } from "react-hot-toast";

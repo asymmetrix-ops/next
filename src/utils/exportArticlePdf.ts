@@ -227,11 +227,28 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
   if (blobUrl) {
     const a = document.createElement("a");
     a.href = blobUrl;
-    const headline = (article.Headline || "Article")
+    const ct = (
+      article.Content_Type ||
+      article.content_type ||
+      article.Content?.Content_type ||
+      article.Content?.Content_Type ||
+      "Insights & Analysis"
+    )
       .toString()
+      .replace(/\s+/g, " ")
+      .trim();
+    const headlineRaw = (article.Headline || "Untitled").toString().trim();
+    const escapedCt = ct.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const prefixRegex = new RegExp(`^\\s*${escapedCt}\\s*[-–—:]\\s*`, "i");
+    const titlePart = headlineRaw.replace(prefixRegex, "").trim() || headlineRaw;
+
+    const base = `Asymmetrix - ${ct} - ${titlePart}`;
+    const safe = base
       .replace(/[\\/:*?"<>|]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
       .slice(0, 180);
-    a.download = `Asymmetrix - ${headline}.pdf`;
+    a.download = `${safe}.pdf`;
     document.body.appendChild(a);
     a.click();
     a.remove();
