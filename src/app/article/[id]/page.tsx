@@ -435,7 +435,7 @@ const ArticleDetailPage = () => {
     }
   }, [articleId, fetchArticle]);
 
-  // Fetch Company_of_Focus details for Company Analysis & Hot Take content
+  // Fetch Company_of_Focus details for Company Analysis, Hot Take, and Deal Analysis content
   useEffect(() => {
     const fetchCompanyOfFocus = async () => {
       if (!article) {
@@ -451,15 +451,20 @@ const ArticleDetailPage = () => {
         ""
       ).trim();
 
-      const isCompanyAnalysisOrHotTake = /^(company\s*analysis|hot\s*take)$/i.test(
-        contentType
-      );
+      const isCompanyAnalysisHotTakeOrDealAnalysis =
+        /^(company\s*analysis|hot\s*take|deal\s*analysis)$/i.test(contentType);
 
-      const hasCompanyOfFocus =
-        (article as unknown as { Company_of_Focus?: unknown })
-          .Company_of_Focus != null;
+      // Only render Company Snapshot / Financial Snapshot when exactly ONE company is tagged
+      // in "Company of Focus". Backend can return a JSON string, an array, or a single id/object.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const companyOfFocusValue = (article as any)?.Company_of_Focus as unknown;
+      const parsedCompanyOfFocusArray = tryParse<unknown[]>(companyOfFocusValue);
+      const hasSingleCompanyOfFocus =
+        Array.isArray(parsedCompanyOfFocusArray)
+          ? parsedCompanyOfFocusArray.length === 1
+          : companyOfFocusValue != null;
 
-      if (!isCompanyAnalysisOrHotTake || !hasCompanyOfFocus) {
+      if (!isCompanyAnalysisHotTakeOrDealAnalysis || !hasSingleCompanyOfFocus) {
         setCompanyOfFocus(null);
         return;
       }
@@ -1305,10 +1310,9 @@ const ArticleDetailPage = () => {
                 article.Content?.Content_Type ||
                 ""
               ).trim();
-              const isCompanyAnalysisOrHotTake = /^(company\s*analysis|hot\s*take)$/i.test(
-                ct
-              );
-              if (!isCompanyAnalysisOrHotTake) return null;
+              const isCompanyAnalysisHotTakeOrDealAnalysis =
+                /^(company\s*analysis|hot\s*take|deal\s*analysis)$/i.test(ct);
+              if (!isCompanyAnalysisHotTakeOrDealAnalysis) return null;
 
               const overview = companyOfFocus.company_overview;
               const financial = companyOfFocus.financial_overview;
@@ -1846,9 +1850,15 @@ const ArticleDetailPage = () => {
                 article.Content?.Content_Type ||
                 ""
               ).trim();
-              const isHotTake = /^(hot\s*take)$/i.test(ct);
+              const isHotTakeOrDealAnalysis = /^(hot\s*take|deal\s*analysis)$/i.test(
+                ct
+              );
               const events = article.Related_Corporate_Event || [];
-              if (!isHotTake || !Array.isArray(events) || events.length === 0) {
+              if (
+                !isHotTakeOrDealAnalysis ||
+                !Array.isArray(events) ||
+                events.length === 0
+              ) {
                 return null;
               }
               return (
