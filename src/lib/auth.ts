@@ -195,7 +195,7 @@ class AuthService {
     }
   }
 
-  // Update password using magic link token (auth required: Bearer token from URL)
+  // Update password using magic link token (token from URL passed in body)
   async updatePassword(
     token: string,
     password: string,
@@ -209,9 +209,12 @@ class AuthService {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ password, confirm_password: confirmPassword }),
+      body: JSON.stringify({
+        password,
+        confirm_password: confirmPassword,
+        token,
+      }),
     });
 
     if (!response.ok) {
