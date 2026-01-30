@@ -1,83 +1,14 @@
 /**
- * Platform-wide search using split APIs (sectors, investors, individuals, events, content, companies, advisors).
- * Client calls /api/search which fetches from all 7 Xano endpoints in parallel on the server.
- * Payload: { query, per_page?: 25, page?: 1, page_type?: string }
+ * Platform-wide global search API and helpers.
+ * API: POST { query, per_page: 25, offset: pageNumber }
+ * Response: { items: [...], pagination: { current_page, per_page, total_results, total_pages, next_page, prev_page, pages_left } }
  */
-
-export const SEARCH_PAGE_TYPES = [
-  "companies",
-  "sectors",
-  "investors",
-  "advisors",
-  "individuals",
-  "corporate events",
-  "insights and analysis",
-] as const;
-
-export type SearchPageType = (typeof SEARCH_PAGE_TYPES)[number];
-
-export const SEARCH_PAGE_TYPE_LABELS: Record<SearchPageType, string> = {
-  companies: "Companies",
-  sectors: "Sectors",
-  investors: "Investors",
-  advisors: "Advisors",
-  individuals: "Individuals",
-  "corporate events": "Corporate Events",
-  "insights and analysis": "Insights & Analysis",
-};
 
 export type GlobalSearchResult = {
   id: number;
   title: string;
   type: string;
-  match_rank?: number;
-  type_order?: number;
-  sort_date?: string;
-  sector_importance?: string;
 };
-
-const TYPE_ORDER: Record<string, number> = {
-  company: 1,
-  companies: 1,
-  investor: 2,
-  investors: 2,
-  advisor: 3,
-  advisors: 3,
-  individual: 4,
-  individuals: 4,
-  sector: 5,
-  sectors: 5,
-  sub_sector: 5,
-  "sub-sector": 5,
-  corporate_event: 6,
-  "corporate-events": 6,
-  event: 6,
-  insight: 7,
-  insights: 7,
-  article: 7,
-};
-
-export function sortSearchResults(results: GlobalSearchResult[]): GlobalSearchResult[] {
-  return [...results].sort((a, b) => {
-    const rankA = a.match_rank ?? 999;
-    const rankB = b.match_rank ?? 999;
-    if (rankA !== rankB) return rankA - rankB;
-
-    const orderA = a.type_order ?? TYPE_ORDER[a.type?.toLowerCase()] ?? 99;
-    const orderB = b.type_order ?? TYPE_ORDER[b.type?.toLowerCase()] ?? 99;
-    if (orderA !== orderB) return orderA - orderB;
-
-    const isEventOrInsight = (t: string) =>
-      ["corporate_event", "corporate-events", "event", "insight", "insights", "article"].includes(
-        (t || "").toLowerCase()
-      );
-    if (isEventOrInsight(a.type) && isEventOrInsight(b.type) && a.sort_date && b.sort_date) {
-      return new Date(b.sort_date).getTime() - new Date(a.sort_date).getTime();
-    }
-
-    return (a.title || "").localeCompare(b.title || "");
-  });
-}
 
 export type GlobalSearchPagination = {
   current_page: number;
@@ -94,29 +25,23 @@ export type GlobalSearchResponse = {
   pagination: GlobalSearchPagination;
 };
 
+const GLOBAL_SEARCH_ENDPOINT =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/global_search";
+
 const PER_PAGE = 25;
 
-export const SEARCH_SOURCES = [
-  "sector",
-  "investor",
-  "individual",
-  "corporate_event",
-  "insight",
-  "company",
-  "advisor",
-] as const;
-
-export type SearchSource = (typeof SEARCH_SOURCES)[number];
-
 /**
- * Fetch from a single search source (for progressive loading).
+ * Fetch paginated search results.
+ * @param query Search query
+ * @param page 1-based page number (offset in API)
+ * @param signal AbortSignal for cancellation
  */
-export async function fetchGlobalSearchBySource(
+export async function fetchGlobalSearchPaginated(
   query: string,
-  source: SearchSource,
+  page: number,
   signal?: AbortSignal
-): Promise<{ items: GlobalSearchResult[] }> {
-  const res = await fetch("/api/search", {
+): Promise<GlobalSearchResponse> {
+  const res = await fetch(GLOBAL_SEARCH_ENDPOINT, {
     method: "POST",
     headers: {
       Accept: "application/json",
@@ -124,127 +49,13 @@ export async function fetchGlobalSearchBySource(
     },
     body: JSON.stringify({
       query: query.trim(),
-      source,
+      per_page: PER_PAGE,
+      offset: page,
     }),
     signal,
-    credentials: "same-origin",
   });
 
-  if (!res.ok) {
-    if (res.status === 401) throw new Error("Authentication required");
-    throw new Error(`Search failed (${res.status})`);
-  }
-
-  const data = (await res.json()) as { items?: GlobalSearchResult[] };
-  const items = Array.isArray(data?.items) ? data.items : [];
-  return { items };
-}
-
-export type ProgressiveSearchOptions = {
-  onBatch: (items: GlobalSearchResult[], source: SearchSource) => void;
-  onComplete: () => void;
-  onError?: (source: SearchSource, err: unknown) => void;
-  signal?: AbortSignal;
-  /** When set, only these sources are queried (e.g. exclude corporate_event and insight). */
-  sources?: SearchSource[];
-};
-
-/** Sources used for portfolio fallback search (followable entities only; no events or content). */
-export const PORTFOLIO_FALLBACK_SOURCES: SearchSource[] = [
-  "sector",
-  "investor",
-  "individual",
-  "company",
-  "advisor",
-];
-
-/**
- * Fetch from all sources in parallel; call onBatch as each source responds (progressive loading).
- */
-export function fetchGlobalSearchProgressive(
-  query: string,
-  pageType: SearchPageType | null,
-  options: ProgressiveSearchOptions
-): void {
-  const { onBatch, onComplete, onError, signal, sources: sourcesOverride } = options;
-  const q = query.trim();
-  if (!q || q.length < 2) {
-    onComplete();
-    return;
-  }
-
-  const typeToSource: Record<string, SearchSource> = {
-    companies: "company",
-    sectors: "sector",
-    investors: "investor",
-    advisors: "advisor",
-    individuals: "individual",
-    "corporate events": "corporate_event",
-    "insights and analysis": "insight",
-  };
-
-  const sources: SearchSource[] =
-    sourcesOverride ??
-    (pageType ? [typeToSource[pageType] ?? "company"] : [...SEARCH_SOURCES]);
-
-  const promises = sources.map((source) =>
-    fetchGlobalSearchBySource(q, source, signal)
-      .then(({ items }) => ({ items, source, error: null as unknown }))
-      .catch((err: unknown) => ({ items: [] as GlobalSearchResult[], source, error: err }))
-  );
-
-  Promise.all(promises).then((results) => {
-    if (signal?.aborted) return;
-
-    const allItems: GlobalSearchResult[] = [];
-    for (const result of results) {
-      if (result.error) {
-        onError?.(result.source, result.error);
-      } else if (result.items.length > 0) {
-        allItems.push(...result.items);
-      }
-    }
-
-    if (allItems.length > 0) {
-      onBatch(allItems, sources[0]);
-    }
-    onComplete();
-    });
-}
-
-/**
- * Fetch paginated search results from our API route (server-side parallel fetch to 7 Xano endpoints).
- */
-export async function fetchGlobalSearchPaginated(
-  query: string,
-  page: number,
-  signal?: AbortSignal,
-  pageType?: SearchPageType | null
-): Promise<GlobalSearchResponse> {
-  const body: Record<string, unknown> = {
-    query: query.trim(),
-    per_page: PER_PAGE,
-    page,
-  };
-  if (pageType) {
-    body.page_type = pageType;
-  }
-
-  const res = await fetch("/api/search", {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-    signal,
-    credentials: "same-origin",
-  });
-
-  if (!res.ok) {
-    if (res.status === 401) throw new Error("Authentication required");
-    throw new Error(`Search failed (${res.status})`);
-  }
+  if (!res.ok) throw new Error(`Search failed (${res.status})`);
 
   const data = (await res.json()) as unknown;
   if (!data || typeof data !== "object") {
@@ -314,13 +125,7 @@ export function resolveSearchHref(result: GlobalSearchResult): string {
     return `/corporate-event/${id}`;
   if (t === "insight" || t === "insights" || t === "article")
     return `/article/${id}`;
-  if (t === "sector" || t === "sectors") {
-    const importance = String(result.sector_importance || "")
-      .trim()
-      .toLowerCase();
-    if (importance === "secondary") return `/sub-sector/${id}`;
-    return `/sector/${id}`;
-  }
+  if (t === "sector") return `/sector/${id}`;
   if (t === "sub_sector" || t === "sub-sector") return `/sub-sector/${id}`;
 
   return "";

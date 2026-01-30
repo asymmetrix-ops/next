@@ -112,11 +112,14 @@ interface InsightArticle {
   }>;
 }
 
-type GlobalSearchResult = {
-  id: number;
-  title: string;
-  type: string;
-};
+import {
+  type GlobalSearchResult,
+  type GlobalSearchPagination,
+  fetchGlobalSearchPaginated,
+  badgeClassForSearchType,
+  resolveSearchHref,
+  getSearchBadgeLabel,
+} from "@/lib/globalSearch";
 
 // Removed NewCompany interface along with the related UI section
 
@@ -423,77 +426,19 @@ export default function HomeUserPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const searchWrapRef = useRef<HTMLDivElement | null>(null);
+  const [searchPopupOpen, setSearchPopupOpen] = useState(false);
+  const [searchPagination, setSearchPagination] =
+    useState<GlobalSearchPagination | null>(null);
+  const [popupResults, setPopupResults] = useState<GlobalSearchResult[]>([]);
+  const [popupLoadingMore, setPopupLoadingMore] = useState(false);
 
-  const badgeClassForSearchType = useCallback((type: string): string => {
-    const t = (type || "").toLowerCase().trim();
-    if (t === "company") return "bg-emerald-50 text-emerald-700 border-emerald-200";
-    if (t === "investor" || t === "investors")
-      return "bg-amber-50 text-amber-700 border-amber-200";
-    if (t === "advisor" || t === "advisors")
-      return "bg-sky-50 text-sky-700 border-sky-200";
-    if (t === "individual" || t === "individuals")
-      return "bg-indigo-50 text-indigo-700 border-indigo-200";
-    if (t === "corporate_event" || t === "corporate-events" || t === "event")
-      return "bg-purple-50 text-purple-700 border-purple-200";
-    if (t === "insight" || t === "insights" || t === "article")
-      return "bg-blue-50 text-blue-700 border-blue-200";
-    if (t === "sector" || t === "sub_sector" || t === "sub-sector")
-      return "bg-gray-50 text-gray-700 border-gray-200";
-    return "bg-gray-50 text-gray-700 border-gray-200";
-  }, []);
-
-  const resolveSearchHref = useCallback((result: GlobalSearchResult): string => {
-    const t = String(result.type || "")
-      .toLowerCase()
-      .trim();
-    const id = Number(result.id);
-    if (!Number.isFinite(id) || id <= 0) return "";
-
-    if (t === "company") return `/company/${id}`;
-    if (t === "investor" || t === "investors") return `/investors/${id}`;
-    if (t === "advisor" || t === "advisors") return `/advisor/${id}`;
-    if (t === "individual" || t === "individuals") return `/individual/${id}`;
-    if (t === "corporate_event" || t === "corporate-events" || t === "event")
-      return `/corporate-event/${id}`;
-    if (t === "insight" || t === "insights" || t === "article")
-      return `/article/${id}`;
-    if (t === "sector") return `/sector/${id}`;
-    if (t === "sub_sector" || t === "sub-sector") return `/sub-sector/${id}`;
-
-    return "";
-  }, []);
-
-  const fetchGlobalSearch = useCallback(
-    async (q: string, signal: AbortSignal): Promise<GlobalSearchResult[]> => {
-      const endpoint =
-        "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/global_search";
-
-      // Prefer GET with query param (most compatible); fallback to POST(JSON).
-      const url = `${endpoint}?query=${encodeURIComponent(q)}`;
-      const res = await fetch(url, {
-        method: "GET",
-        headers: { Accept: "application/json" },
-        signal,
-      });
-
-      if (res.ok) {
-        const data = (await res.json()) as unknown;
-        return Array.isArray(data) ? (data as GlobalSearchResult[]) : [];
-      }
-
-      const res2 = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ query: q }),
-        signal,
-      });
-
-      if (!res2.ok) throw new Error(`Search failed (${res2.status})`);
-      const data2 = (await res2.json()) as unknown;
-      return Array.isArray(data2) ? (data2 as GlobalSearchResult[]) : [];
+  const runSearch = useCallback(
+    async (
+      q: string,
+      page: number,
+      signal?: AbortSignal
+    ): Promise<{ items: GlobalSearchResult[]; pagination: GlobalSearchPagination }> => {
+      return fetchGlobalSearchPaginated(q, page, signal);
     },
     []
   );
@@ -524,13 +469,16 @@ export default function HomeUserPage() {
 
     const t = window.setTimeout(async () => {
       try {
-        const results = await fetchGlobalSearch(q, ac.signal);
-        setSearchResults(results);
+        const { items, pagination } = await runSearch(q, 1, ac.signal);
+        setSearchResults(items);
+        setSearchPagination(pagination);
+        setPopupResults(items);
       } catch (err) {
         const name =
           err && typeof err === "object" ? String((err as { name?: unknown }).name) : "";
         if (name === "AbortError") return;
         setSearchResults([]);
+        setSearchPagination(null);
         setSearchError("Search failed. Please try again.");
       } finally {
         setSearchLoading(false);
@@ -541,7 +489,32 @@ export default function HomeUserPage() {
       window.clearTimeout(t);
       ac.abort();
     };
-  }, [searchQuery, fetchGlobalSearch, isTrialActive]);
+  }, [searchQuery, runSearch, isTrialActive]);
+
+  const handleLoadMoreInPopup = useCallback(async () => {
+    const q = searchQuery.trim();
+    const pag = searchPagination;
+    if (!q || !pag?.next_page) return;
+    setPopupLoadingMore(true);
+    try {
+      const { items, pagination: nextPag } = await runSearch(q, pag.next_page);
+      setPopupResults((prev) => [...prev, ...items]);
+      setSearchPagination(nextPag);
+    } catch {
+      // ignore
+    } finally {
+      setPopupLoadingMore(false);
+    }
+  }, [searchQuery, searchPagination, runSearch]);
+
+  const openSearchPopup = useCallback(() => {
+    setPopupResults(searchResults);
+    setSearchPopupOpen(true);
+  }, [searchResults]);
+
+  const closeSearchPopup = useCallback(() => {
+    setSearchPopupOpen(false);
+  }, []);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -908,7 +881,7 @@ export default function HomeUserPage() {
               placeholder={
                 isTrialActive
                   ? "Search is disabled during trial access"
-                  : "Search companies, investors, advisors…"
+                  : "Search all pages..."
               }
               className={`w-full px-3 py-2 text-sm rounded-md border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                 isTrialActive
@@ -938,31 +911,126 @@ export default function HomeUserPage() {
                     No results
                   </div>
                 ) : (
-                  <ul className="py-1 max-h-72 overflow-auto">
-                    {searchResults.slice(0, 15).map((r) => {
+                  <>
+                    <ul className="py-1 max-h-72 overflow-auto">
+                      {searchResults.slice(0, 25).map((r, idx) => {
+                        const href = resolveSearchHref(r);
+                        const t = String(r.type || "").toLowerCase().trim();
+                        const isInsight =
+                          t === "insight" || t === "insights" || t === "article";
+                        const badgeLabel = getSearchBadgeLabel(r.type);
+                        return (
+                          <li key={`${r.type}-${r.id}-${idx}`}>
+                            <button
+                              type="button"
+                              className="flex items-start justify-between gap-3 px-3 py-2 w-full text-left hover:bg-gray-50"
+                              onClick={() => {
+                                if (!href) return;
+                                setSearchOpen(false);
+                                setSearchQuery("");
+                                setSearchResults([]);
+                                setSearchPopupOpen(false);
+                                router.push(href);
+                              }}
+                            >
+                              <span className="text-sm text-gray-900">
+                                {r.title}
+                              </span>
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-full border shrink-0 ${badgeClassForSearchType(
+                                  String(r.type || "")
+                                )} ${isInsight ? "normal-case" : "uppercase"}`}
+                              >
+                                {badgeLabel}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <div className="px-3 py-3 border-t border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          openSearchPopup();
+                        }}
+                        className="w-full py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
+                      >
+                        View more
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Search results popup */}
+        {searchPopupOpen && (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="search-popup-title"
+            onClick={closeSearchPopup}
+          >
+            <div
+              className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                <h2
+                  id="search-popup-title"
+                  className="text-lg font-semibold text-gray-900"
+                >
+                  Search: &quot;{searchQuery}&quot;
+                </h2>
+                <button
+                  type="button"
+                  onClick={closeSearchPopup}
+                  className="p-2 text-gray-500 rounded-md hover:bg-gray-100 hover:text-gray-700"
+                  aria-label="Close"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                {popupResults.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-4">No results</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {popupResults.map((r, idx) => {
                       const href = resolveSearchHref(r);
+                      const t = String(r.type || "").toLowerCase().trim();
+                      const isInsight =
+                        t === "insight" || t === "insights" || t === "article";
+                      const badgeLabel = getSearchBadgeLabel(r.type);
                       return (
-                        <li key={`${r.type}-${r.id}`}>
+                        <li key={`popup-${r.type}-${r.id}-${idx}`}>
                           <button
                             type="button"
-                            className="flex items-start justify-between gap-3 px-3 py-2 w-full text-left hover:bg-gray-50"
+                            className="flex items-start justify-between gap-3 px-3 py-2.5 w-full text-left rounded-md hover:bg-gray-50"
                             onClick={() => {
                               if (!href) return;
+                              closeSearchPopup();
                               setSearchOpen(false);
                               setSearchQuery("");
                               setSearchResults([]);
                               router.push(href);
                             }}
                           >
-                            <span className="text-sm text-gray-900">
+                            <span className="text-sm text-gray-900 line-clamp-2">
                               {r.title}
                             </span>
                             <span
-                              className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded-full border ${badgeClassForSearchType(
+                              className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-full border shrink-0 ${badgeClassForSearchType(
                                 String(r.type || "")
-                              )}`}
+                              )} ${isInsight ? "normal-case" : "uppercase"}`}
                             >
-                              {String(r.type).replace(/_/g, " ")}
+                              {badgeLabel}
                             </span>
                           </button>
                         </li>
@@ -971,9 +1039,29 @@ export default function HomeUserPage() {
                   </ul>
                 )}
               </div>
-            )}
+              <div className="p-4 border-t border-gray-200 space-y-3">
+                {searchPagination && (
+                  <p className="text-xs text-gray-600">
+                    Page {searchPagination.current_page} of{" "}
+                    {searchPagination.total_pages || 1} · Showing{" "}
+                    {popupResults.length} of {searchPagination.total_results}{" "}
+                    results
+                  </p>
+                )}
+                {searchPagination?.next_page ? (
+                  <button
+                    type="button"
+                    onClick={handleLoadMoreInPopup}
+                    disabled={popupLoadingMore}
+                    className="w-full py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {popupLoadingMore ? "Loading…" : "Load more"}
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 xl:grid-cols-[repeat(20,minmax(0,1fr))]">
           {/* Asymmetrix Data */}
