@@ -32,7 +32,7 @@ function ResetPasswordForm() {
       await authService.resetPassword(token!, password);
       toast.success("Password reset successfully. You can now log in.");
       router.push("/login");
-    } catch (err) {
+    } catch {
       toast.error("Reset failed. The link may have expired. Please request a new one.");
     } finally {
       setIsLoading(false);
