@@ -176,6 +176,25 @@ class AuthService {
     return data;
   }
 
+  // Reset password using magic link token
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const apiUrl =
+      process.env.NEXT_PUBLIC_XANO_API_URL ||
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+
+    const response = await fetch(`${apiUrl}/auth/reset-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token, password: newPassword }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Password reset failed");
+    }
+  }
+
   // Logout
   logout(): void {
     if (typeof window === "undefined") return;
