@@ -16,13 +16,23 @@ const HeroSection = () => {
             <br />
             in the Data & Analytics industry
           </p>
-          {/* Changed to mailto link to avoid 404 */}
-          <a
-            href="mailto:asymmetrix@asymmetrixintelligence.com?subject=Request%20a%20Demo"
-            className="inline-block px-8 py-3 text-lg text-white rounded transition-colors bg-asymmetrix-blue-light hover:bg-asymmetrix-blue-dark"
-          >
-            Request Demo
-          </a>
+          <div className="flex flex-col gap-4 items-start sm:flex-row sm:items-center">
+            {/* Changed to mailto link to avoid 404 */}
+            <a
+              href="mailto:asymmetrix@asymmetrixintelligence.com?subject=Request%20a%20Demo"
+              className="inline-block px-8 py-3 text-lg text-white rounded transition-colors bg-asymmetrix-blue-light hover:bg-asymmetrix-blue-dark"
+            >
+              Request Demo
+            </a>
+            <a
+              href="https://asymmetrixintelligence.substack.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-8 py-3 text-lg text-white rounded transition-colors border border-white/60 hover:border-white hover:bg-white/10"
+            >
+              Newsletter
+            </a>
+          </div>
         </div>
       </div>
     </section>
