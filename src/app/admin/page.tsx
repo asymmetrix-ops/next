@@ -60,7 +60,13 @@ export default function AdminPage() {
   const router = useRouter();
   const { user, isAuthenticated, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<
-    "valuation" | "user-activity" | "content-insights" | "emails" | "content" | "sectors"
+    | "valuation"
+    | "user-activity"
+    | "content-insights"
+    | "page-insights"
+    | "emails"
+    | "content"
+    | "sectors"
   >("valuation");
 
   const hasAccess = useMemo(() => {
@@ -186,6 +192,16 @@ Target company: {query} ({domain})`;
           Content Insights
         </button>
         <button
+          onClick={() => setActiveTab("page-insights")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "page-insights"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Page Insights
+        </button>
+        <button
           onClick={() => setActiveTab("emails")}
           className={`px-3 py-2 -mb-px border-b-2 ${
             activeTab === "emails"
@@ -279,6 +295,7 @@ Target company: {query} ({domain})`;
 
       {activeTab === "user-activity" && <UserActivityTab />}
       {activeTab === "content-insights" && <ContentInsightsTab />}
+      {activeTab === "page-insights" && <PageInsightsTab />}
       {activeTab === "emails" && <EmailsTab />}
       {activeTab === "content" && <ContentTab />}
       {activeTab === "sectors" && <SectorsTab />}
@@ -992,6 +1009,725 @@ function ContentInsightsTab() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// Page Insights Types + reusable helpers (Companies / Sectors / Investors / Advisors / Individuals)
+type PageInsightsView =
+  | "Companies"
+  | "Sectors"
+  | "Investors"
+  | "Advisors"
+  | "Individuals"
+  | "Corporate Events";
+
+type PageInsightsMetrics = {
+  sessions_24h: number;
+  views_24h: number;
+  sessions_7d: number;
+  views_7d: number;
+  sessions_30d: number;
+  views_30d: number;
+  sessions_90d: number;
+  views_90d: number;
+  total_sessions: number;
+  total_views: number;
+  unique_users: number;
+  last_viewed: string | null;
+};
+
+type PageInsightsCompanyRow = {
+  company_id: number;
+  company_name: string;
+} & PageInsightsMetrics;
+
+type PageInsightsSectorRow = {
+  sector_id: number;
+  sector_name: string;
+} & PageInsightsMetrics;
+
+type PageInsightsInvestorRow = {
+  investor_id: number;
+  investor_name: string;
+} & PageInsightsMetrics;
+
+type PageInsightsAdvisorRow = {
+  advisor_id: number;
+  advisor_name: string;
+} & PageInsightsMetrics;
+
+type PageInsightsIndividualRow = {
+  individual_id: number;
+  individual_name: string;
+} & PageInsightsMetrics;
+
+type PageInsightsCorporateEventRow = {
+  event_id: number;
+  event_name: string;
+  deal_type: string | null;
+} & PageInsightsMetrics;
+
+type InsightsColumnDef<T> = { key: keyof T; label: string };
+
+function toXanoTimestamp(v: unknown): number | null {
+  if (!v) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  const raw = String(v).trim();
+  if (!raw) return null;
+  // Xano often returns: "2026-01-16 20:38:59.189+00"
+  const normalized = raw.includes("T") ? raw : raw.replace(" ", "T");
+  const d = new Date(normalized);
+  const ms = d.getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function formatXanoDateTime(v: unknown): string {
+  const ms = toXanoTimestamp(v);
+  if (!ms) return v ? String(v) : "—";
+  const d = new Date(ms);
+  return (
+    d.getFullYear() +
+    "-" +
+    String(d.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(d.getDate()).padStart(2, "0") +
+    " " +
+    String(d.getHours()).padStart(2, "0") +
+    ":" +
+    String(d.getMinutes()).padStart(2, "0")
+  );
+}
+
+function buildInsightsColumns<
+  T extends PageInsightsMetrics & Record<string, unknown>
+>(
+  params: {
+    idKey: keyof T;
+    nameKey: keyof T;
+    idLabel: string;
+    nameLabel: string;
+    extraColumns?: Array<InsightsColumnDef<T>>;
+  }
+): InsightsColumnDef<T>[] {
+  const { idKey, nameKey, idLabel, nameLabel, extraColumns } = params;
+  const metricCols = [
+    ["sessions_24h", "Sessions 24h"],
+    ["views_24h", "Views 24h"],
+    ["sessions_7d", "Sessions 7d"],
+    ["views_7d", "Views 7d"],
+    ["sessions_30d", "Sessions 30d"],
+    ["views_30d", "Views 30d"],
+    ["sessions_90d", "Sessions 90d"],
+    ["views_90d", "Views 90d"],
+    ["total_sessions", "Total Sessions"],
+    ["total_views", "Total Views"],
+    ["unique_users", "Unique Users"],
+    ["last_viewed", "Last Viewed"],
+  ] as const;
+
+  return [
+    { key: idKey, label: idLabel },
+    { key: nameKey, label: nameLabel },
+    ...(extraColumns || []),
+    ...metricCols.map(([k, label]) => ({ key: k as keyof T, label })),
+  ];
+}
+
+function useInsightsData<T>(params: { url: string; enabled: boolean }) {
+  const { url, enabled } = params;
+  const [data, setData] = useState<T[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const loadedOnceRef = useRef(false);
+
+  const run = useMemo(() => {
+    return async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const resp = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => "");
+          throw new Error(`${resp.status} ${resp.statusText} ${text}`);
+        }
+        const json = (await resp.json()) as unknown;
+        const rows = Array.isArray(json) ? (json as T[]) : [];
+        setData(rows);
+        loadedOnceRef.current = true;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to load");
+      } finally {
+        setLoading(false);
+      }
+    };
+  }, [url]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    if (loadedOnceRef.current) return;
+    void run();
+  }, [enabled, run]);
+
+  return { data, loading, error } as const;
+}
+
+function useInsightsSort<T extends Record<string, unknown>>(params: {
+  defaultSortCol: keyof T;
+  defaultSortDir: SortDirection;
+  textSortCol: keyof T;
+}) {
+  const { defaultSortCol, defaultSortDir, textSortCol } = params;
+  const [sortCol, setSortCol] = useState<keyof T>(defaultSortCol);
+  const [sortDir, setSortDir] = useState<SortDirection>(defaultSortDir);
+
+  const onSort = (col: keyof T) => {
+    if (sortCol === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortCol(col);
+    setSortDir(col === textSortCol ? "asc" : "desc");
+  };
+
+  return { sortCol, sortDir, onSort } as const;
+}
+
+function filterAndSortInsightsRows<T extends Record<string, unknown>>(params: {
+  rows: T[];
+  search: string;
+  searchKeys: Array<keyof T>;
+  sortCol: keyof T;
+  sortDir: SortDirection;
+  dateKey?: keyof T;
+}): T[] {
+  const { rows, search, searchKeys, sortCol, sortDir, dateKey } = params;
+  const q = search.trim().toLowerCase();
+
+  const filtered = !q
+    ? rows
+    : rows.filter((r) =>
+        searchKeys.some((k) =>
+          String((r as Record<string, unknown>)[k as string] ?? "")
+            .toLowerCase()
+            .includes(q)
+        )
+      );
+
+  return filtered.slice().sort((a, b) => {
+    if (dateKey && sortCol === dateKey) {
+      const ta = toXanoTimestamp((a as Record<string, unknown>)[dateKey as string]);
+      const tb = toXanoTimestamp((b as Record<string, unknown>)[dateKey as string]);
+      return compareValues(ta, tb, sortDir);
+    }
+    return compareValues(
+      (a as Record<string, unknown>)[sortCol as string],
+      (b as Record<string, unknown>)[sortCol as string],
+      sortDir
+    );
+  });
+}
+
+function InsightsTable<T extends Record<string, unknown>>(props: {
+  columns: Array<InsightsColumnDef<T>>;
+  rows: T[];
+  loading: boolean;
+  error: string | null;
+  sortCol: keyof T;
+  sortDir: SortDirection;
+  onSort: (col: keyof T) => void;
+  getRowKey: (row: T) => string | number;
+  nameKey: keyof T;
+  dateKey?: keyof T;
+}) {
+  const {
+    columns,
+    rows,
+    loading,
+    error,
+    sortCol,
+    sortDir,
+    onSort,
+    getRowKey,
+    nameKey,
+    dateKey,
+  } = props;
+
+  return (
+    <div className="overflow-auto bg-white rounded border">
+      <table className="min-w-full text-sm">
+        <thead className="bg-gray-50 text-gray-700">
+          <tr>
+            {columns.map(({ key, label }) => (
+              <th key={String(key)} className="px-3 py-2 text-left whitespace-nowrap">
+                <button
+                  onClick={() => onSort(key)}
+                  className="inline-flex items-center gap-1 hover:underline"
+                  title="Sort"
+                >
+                  <span>{label}</span>
+                  {sortCol === key && (
+                    <span className="text-xs text-gray-500">
+                      {sortDir === "asc" ? "▲" : "▼"}
+                    </span>
+                  )}
+                </button>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {loading && (
+            <tr>
+              <td className="px-3 py-3 text-center" colSpan={columns.length}>
+                Loading…
+              </td>
+            </tr>
+          )}
+          {error && !loading && (
+            <tr>
+              <td
+                className="px-3 py-3 text-red-700 bg-red-50"
+                colSpan={columns.length}
+              >
+                {error}
+              </td>
+            </tr>
+          )}
+          {!loading && !error && rows.length === 0 && (
+            <tr>
+              <td
+                className="px-3 py-3 text-center text-gray-500"
+                colSpan={columns.length}
+              >
+                No results
+              </td>
+            </tr>
+          )}
+          {!loading &&
+            !error &&
+            rows.map((r) => (
+              <tr key={String(getRowKey(r))} className="border-t">
+                {columns.map(({ key }) => {
+                  const value = (r as Record<string, unknown>)[key as string];
+                  if (dateKey && key === dateKey) {
+                    return (
+                      <td
+                        key={String(key)}
+                        className="px-3 py-2 whitespace-nowrap"
+                      >
+                        {formatXanoDateTime(value)}
+                      </td>
+                    );
+                  }
+                  if (key === nameKey) {
+                    return (
+                      <td key={String(key)} className="px-3 py-2">
+                        {value ? String(value) : "—"}
+                      </td>
+                    );
+                  }
+                  return (
+                    <td key={String(key)} className="px-3 py-2">
+                      {value == null ? "—" : String(value)}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PageInsightsTab() {
+  const [view, setView] = useState<PageInsightsView>("Companies");
+  const [search, setSearch] = useState("");
+
+  // Data (cached per sub-tab)
+  const companiesQ = useInsightsData<PageInsightsCompanyRow>({
+    url: "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/acitvity_by_company",
+    enabled: view === "Companies",
+  });
+  const sectorsQ = useInsightsData<PageInsightsSectorRow>({
+    url: "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/activity_by_sectors",
+    enabled: view === "Sectors",
+  });
+  const investorsQ = useInsightsData<PageInsightsInvestorRow>({
+    url: "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/activity_by_investors",
+    enabled: view === "Investors",
+  });
+  const advisorsQ = useInsightsData<PageInsightsAdvisorRow>({
+    url: "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/acitivity_by_advisor",
+    enabled: view === "Advisors",
+  });
+  const individualsQ = useInsightsData<PageInsightsIndividualRow>({
+    url: "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/activity_by_individual",
+    enabled: view === "Individuals",
+  });
+  const corporateEventsQ = useInsightsData<PageInsightsCorporateEventRow>({
+    url: "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/activity_by_ce",
+    enabled: view === "Corporate Events",
+  });
+
+  // Sort state per sub-tab
+  const companySort = useInsightsSort<PageInsightsCompanyRow>({
+    defaultSortCol: "views_24h",
+    defaultSortDir: "desc",
+    textSortCol: "company_name",
+  });
+  const sectorSort = useInsightsSort<PageInsightsSectorRow>({
+    defaultSortCol: "views_24h",
+    defaultSortDir: "desc",
+    textSortCol: "sector_name",
+  });
+  const investorSort = useInsightsSort<PageInsightsInvestorRow>({
+    defaultSortCol: "views_24h",
+    defaultSortDir: "desc",
+    textSortCol: "investor_name",
+  });
+  const advisorSort = useInsightsSort<PageInsightsAdvisorRow>({
+    defaultSortCol: "views_24h",
+    defaultSortDir: "desc",
+    textSortCol: "advisor_name",
+  });
+  const individualSort = useInsightsSort<PageInsightsIndividualRow>({
+    defaultSortCol: "views_24h",
+    defaultSortDir: "desc",
+    textSortCol: "individual_name",
+  });
+  const corporateEventSort = useInsightsSort<PageInsightsCorporateEventRow>({
+    defaultSortCol: "views_24h",
+    defaultSortDir: "desc",
+    textSortCol: "event_name",
+  });
+
+  const companyColumns = useMemo(
+    () =>
+      buildInsightsColumns<PageInsightsCompanyRow>({
+        idKey: "company_id",
+        nameKey: "company_name",
+        idLabel: "Company ID",
+        nameLabel: "Company",
+      }),
+    []
+  );
+
+  const sectorColumns = useMemo(
+    () =>
+      buildInsightsColumns<PageInsightsSectorRow>({
+        idKey: "sector_id",
+        nameKey: "sector_name",
+        idLabel: "Sector ID",
+        nameLabel: "Sector",
+      }),
+    []
+  );
+
+  const investorColumns = useMemo(
+    () =>
+      buildInsightsColumns<PageInsightsInvestorRow>({
+        idKey: "investor_id",
+        nameKey: "investor_name",
+        idLabel: "Investor ID",
+        nameLabel: "Investor",
+      }),
+    []
+  );
+
+  const advisorColumns = useMemo(
+    () =>
+      buildInsightsColumns<PageInsightsAdvisorRow>({
+        idKey: "advisor_id",
+        nameKey: "advisor_name",
+        idLabel: "Advisor ID",
+        nameLabel: "Advisor",
+      }),
+    []
+  );
+
+  const individualColumns = useMemo(
+    () =>
+      buildInsightsColumns<PageInsightsIndividualRow>({
+        idKey: "individual_id",
+        nameKey: "individual_name",
+        idLabel: "Individual ID",
+        nameLabel: "Individual",
+      }),
+    []
+  );
+
+  const corporateEventColumns = useMemo(
+    () =>
+      buildInsightsColumns<PageInsightsCorporateEventRow>({
+        idKey: "event_id",
+        nameKey: "event_name",
+        idLabel: "Event ID",
+        nameLabel: "Event",
+        extraColumns: [{ key: "deal_type", label: "Deal Type" }],
+      }),
+    []
+  );
+
+  const filteredCompanies = useMemo(() => {
+    return filterAndSortInsightsRows<PageInsightsCompanyRow>({
+      rows: companiesQ.data,
+      search,
+      searchKeys: ["company_id", "company_name"],
+      sortCol: companySort.sortCol,
+      sortDir: companySort.sortDir,
+      dateKey: "last_viewed",
+    });
+  }, [companiesQ.data, search, companySort.sortCol, companySort.sortDir]);
+
+  const filteredSectors = useMemo(() => {
+    return filterAndSortInsightsRows<PageInsightsSectorRow>({
+      rows: sectorsQ.data,
+      search,
+      searchKeys: ["sector_id", "sector_name"],
+      sortCol: sectorSort.sortCol,
+      sortDir: sectorSort.sortDir,
+      dateKey: "last_viewed",
+    });
+  }, [sectorsQ.data, search, sectorSort.sortCol, sectorSort.sortDir]);
+
+  const filteredInvestors = useMemo(() => {
+    return filterAndSortInsightsRows<PageInsightsInvestorRow>({
+      rows: investorsQ.data,
+      search,
+      searchKeys: ["investor_id", "investor_name"],
+      sortCol: investorSort.sortCol,
+      sortDir: investorSort.sortDir,
+      dateKey: "last_viewed",
+    });
+  }, [investorsQ.data, search, investorSort.sortCol, investorSort.sortDir]);
+
+  const filteredAdvisors = useMemo(() => {
+    return filterAndSortInsightsRows<PageInsightsAdvisorRow>({
+      rows: advisorsQ.data,
+      search,
+      searchKeys: ["advisor_id", "advisor_name"],
+      sortCol: advisorSort.sortCol,
+      sortDir: advisorSort.sortDir,
+      dateKey: "last_viewed",
+    });
+  }, [advisorsQ.data, search, advisorSort.sortCol, advisorSort.sortDir]);
+
+  const filteredIndividuals = useMemo(() => {
+    return filterAndSortInsightsRows<PageInsightsIndividualRow>({
+      rows: individualsQ.data,
+      search,
+      searchKeys: ["individual_id", "individual_name"],
+      sortCol: individualSort.sortCol,
+      sortDir: individualSort.sortDir,
+      dateKey: "last_viewed",
+    });
+  }, [individualsQ.data, search, individualSort.sortCol, individualSort.sortDir]);
+
+  const filteredCorporateEvents = useMemo(() => {
+    return filterAndSortInsightsRows<PageInsightsCorporateEventRow>({
+      rows: corporateEventsQ.data,
+      search,
+      searchKeys: ["event_id", "event_name", "deal_type"],
+      sortCol: corporateEventSort.sortCol,
+      sortDir: corporateEventSort.sortDir,
+      dateKey: "last_viewed",
+    });
+  }, [
+    corporateEventsQ.data,
+    search,
+    corporateEventSort.sortCol,
+    corporateEventSort.sortDir,
+  ]);
+
+  return (
+    <div>
+      <h2 className="mb-4 text-xl font-semibold">Page Insights</h2>
+
+      {/* Sub-tabs */}
+      <div className="flex gap-4 mb-6 border-b">
+        <button
+          onClick={() => setView("Companies")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            view === "Companies"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Companies
+        </button>
+        <button
+          onClick={() => setView("Sectors")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            view === "Sectors"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Sectors
+        </button>
+        <button
+          onClick={() => setView("Investors")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            view === "Investors"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Investors
+        </button>
+        <button
+          onClick={() => setView("Advisors")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            view === "Advisors"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Advisors
+        </button>
+        <button
+          onClick={() => setView("Individuals")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            view === "Individuals"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Individuals
+        </button>
+        <button
+          onClick={() => setView("Corporate Events")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            view === "Corporate Events"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Corporate Events
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="mb-4">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={
+            view === "Companies"
+              ? "Search company name or ID"
+              : view === "Sectors"
+              ? "Search sector name or ID"
+              : view === "Investors"
+              ? "Search investor name or ID"
+              : view === "Advisors"
+              ? "Search advisor name or ID"
+              : view === "Individuals"
+              ? "Search individual name or ID"
+              : "Search event name, deal type, or ID"
+          }
+          className="px-3 py-2 w-full rounded border"
+        />
+      </div>
+
+      {view === "Companies" && (
+        <InsightsTable<PageInsightsCompanyRow>
+          columns={companyColumns}
+          rows={filteredCompanies}
+          loading={companiesQ.loading}
+          error={companiesQ.error}
+          sortCol={companySort.sortCol}
+          sortDir={companySort.sortDir}
+          onSort={companySort.onSort}
+          getRowKey={(r) => r.company_id}
+          nameKey="company_name"
+          dateKey="last_viewed"
+        />
+      )}
+
+      {view === "Sectors" && (
+        <InsightsTable<PageInsightsSectorRow>
+          columns={sectorColumns}
+          rows={filteredSectors}
+          loading={sectorsQ.loading}
+          error={sectorsQ.error}
+          sortCol={sectorSort.sortCol}
+          sortDir={sectorSort.sortDir}
+          onSort={sectorSort.onSort}
+          getRowKey={(r) => r.sector_id}
+          nameKey="sector_name"
+          dateKey="last_viewed"
+        />
+      )}
+
+      {view === "Investors" && (
+        <InsightsTable<PageInsightsInvestorRow>
+          columns={investorColumns}
+          rows={filteredInvestors}
+          loading={investorsQ.loading}
+          error={investorsQ.error}
+          sortCol={investorSort.sortCol}
+          sortDir={investorSort.sortDir}
+          onSort={investorSort.onSort}
+          getRowKey={(r) => r.investor_id}
+          nameKey="investor_name"
+          dateKey="last_viewed"
+        />
+      )}
+
+      {view === "Advisors" && (
+        <InsightsTable<PageInsightsAdvisorRow>
+          columns={advisorColumns}
+          rows={filteredAdvisors}
+          loading={advisorsQ.loading}
+          error={advisorsQ.error}
+          sortCol={advisorSort.sortCol}
+          sortDir={advisorSort.sortDir}
+          onSort={advisorSort.onSort}
+          getRowKey={(r) => r.advisor_id}
+          nameKey="advisor_name"
+          dateKey="last_viewed"
+        />
+      )}
+
+      {view === "Individuals" && (
+        <InsightsTable<PageInsightsIndividualRow>
+          columns={individualColumns}
+          rows={filteredIndividuals}
+          loading={individualsQ.loading}
+          error={individualsQ.error}
+          sortCol={individualSort.sortCol}
+          sortDir={individualSort.sortDir}
+          onSort={individualSort.onSort}
+          getRowKey={(r) => r.individual_id}
+          nameKey="individual_name"
+          dateKey="last_viewed"
+        />
+      )}
+
+      {view === "Corporate Events" && (
+        <InsightsTable<PageInsightsCorporateEventRow>
+          columns={corporateEventColumns}
+          rows={filteredCorporateEvents}
+          loading={corporateEventsQ.loading}
+          error={corporateEventsQ.error}
+          sortCol={corporateEventSort.sortCol}
+          sortDir={corporateEventSort.sortDir}
+          onSort={corporateEventSort.onSort}
+          getRowKey={(r) => r.event_id}
+          nameKey="event_name"
+          dateKey="last_viewed"
+        />
+      )}
     </div>
   );
 }
