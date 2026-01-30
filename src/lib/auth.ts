@@ -176,18 +176,42 @@ class AuthService {
     return data;
   }
 
-  // Reset password using magic link token
-  async resetPassword(token: string, newPassword: string): Promise<void> {
+  // Request password reset email (no auth required)
+  async requestPasswordReset(email: string): Promise<void> {
     const apiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
       "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
-    const response = await fetch(`${apiUrl}/auth/reset-password`, {
+    const response = await fetch(`${apiUrl}/request_password_reset`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ token, password: newPassword }),
+      body: JSON.stringify({ email: (email || "").trim().toLowerCase() }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Request failed");
+    }
+  }
+
+  // Update password using magic link token (auth required: Bearer token from URL)
+  async updatePassword(
+    token: string,
+    password: string,
+    confirmPassword: string
+  ): Promise<void> {
+    const apiUrl =
+      process.env.NEXT_PUBLIC_XANO_API_URL ||
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+
+    const response = await fetch(`${apiUrl}/update_password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ password, confirm_password: confirmPassword }),
     });
 
     if (!response.ok) {

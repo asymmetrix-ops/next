@@ -29,7 +29,7 @@ function ResetPasswordForm() {
 
     setIsLoading(true);
     try {
-      await authService.resetPassword(token!, password);
+      await authService.updatePassword(token!, password, confirmPassword);
       toast.success("Password reset successfully. You can now log in.");
       router.push("/login");
     } catch {
