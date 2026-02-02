@@ -492,58 +492,8 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
   );
 };
 
-// Helpers for sector mapping fallbacks and normalization
-const normalizeSectorName = (name: unknown): string => {
-  // API data isn't always reliable; ensure we never call `.trim()` on non-strings.
-  return String(name ?? "").trim().toLowerCase();
-};
+// Helper to get sector info from API response
 
-const FALLBACK_SECONDARY_TO_PRIMARY: Record<string, string> = {
-  [normalizeSectorName("Crypto")]: "Web 3",
-  [normalizeSectorName("Blockchain")]: "Web 3",
-  [normalizeSectorName("DeFi")]: "Web 3",
-  [normalizeSectorName("NFT")]: "Web 3",
-  [normalizeSectorName("Web3")]: "Web 3",
-  [normalizeSectorName("Business Intelligence")]: "Data Analytics",
-  [normalizeSectorName("Data Science")]: "Data Analytics",
-  [normalizeSectorName("Machine Learning")]: "Data Analytics",
-  [normalizeSectorName("AI")]: "Data Analytics",
-  [normalizeSectorName("Analytics")]: "Data Analytics",
-  [normalizeSectorName("Big Data")]: "Data Analytics",
-  [normalizeSectorName("Cloud Computing")]: "Infrastructure",
-  [normalizeSectorName("SaaS")]: "Software",
-  [normalizeSectorName("Cybersecurity")]: "Security",
-  [normalizeSectorName("FinTech")]: "Financial Services",
-  [normalizeSectorName("InsurTech")]: "Financial Services",
-  [normalizeSectorName("PropTech")]: "Real Estate",
-  [normalizeSectorName("HealthTech")]: "Healthcare",
-  [normalizeSectorName("EdTech")]: "Education",
-  [normalizeSectorName("LegalTech")]: "Legal",
-  [normalizeSectorName("HRTech")]: "Human Resources",
-  [normalizeSectorName("MarTech")]: "Marketing",
-  [normalizeSectorName("AdTech")]: "Advertising",
-  [normalizeSectorName("Gaming")]: "Entertainment",
-  [normalizeSectorName("E-commerce")]: "Retail",
-  [normalizeSectorName("Logistics")]: "Supply Chain",
-  [normalizeSectorName("IoT")]: "Internet of Things",
-  [normalizeSectorName("Robotics")]: "Automation",
-};
-
-const mapSecondaryToPrimary = (
-  secondaryName: unknown,
-  apiMap: Record<string, string>
-): string | undefined => {
-  const key = normalizeSectorName(secondaryName);
-  // Prefer API-driven map first (with normalized lookup)
-  const rawKey =
-    typeof secondaryName === "string"
-      ? secondaryName
-      : String(secondaryName ?? "");
-  const apiValue = apiMap[key] || apiMap[rawKey];
-  if (apiValue) return apiValue;
-  // Fallback static map
-  return FALLBACK_SECONDARY_TO_PRIMARY[key];
-};
 
 const getSectorInfo = (sector: unknown): { name: string; id?: number } => {
   if (typeof sector === "string") return { name: sector };
@@ -600,11 +550,9 @@ const renderSectorLinks = (
 // Company Card Component for Mobile - Optimized with React state
 const CompanyCardBase = ({
   company,
-  secondaryToPrimaryMap,
 }: {
   company: Company;
   index: number;
-  secondaryToPrimaryMap: Record<string, string>;
 }) => {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -616,37 +564,12 @@ const CompanyCardBase = ({
   const description = company.description || "N/A";
   const isLong = description.length > 250;
 
-  // Compute primary sectors by combining existing primaries with primaries derived from secondaries
+  // Just use the primary sectors from the API - no derivation needed
   const computedPrimarySectors = React.useMemo(() => {
-    const primaryMap = new Map<string, SectorRef>();
-    const existing = Array.isArray(company.primary_sectors)
+    return Array.isArray(company.primary_sectors)
       ? company.primary_sectors
       : [];
-
-    for (const s of existing) {
-      const { name } = getSectorInfo(s);
-      const key = normalizeSectorName(name);
-      if (key) primaryMap.set(key, s);
-    }
-
-    const derived = Array.isArray(company.secondary_sectors)
-      ? company.secondary_sectors
-          .map((sec) => getSectorInfo(sec).name)
-          .map((name) => mapSecondaryToPrimary(name, secondaryToPrimaryMap))
-          .filter((v): v is string => Boolean(v))
-      : [];
-
-    for (const name of derived) {
-      const key = normalizeSectorName(name);
-      if (key && !primaryMap.has(key)) primaryMap.set(key, name);
-    }
-
-    return Array.from(primaryMap.values());
-  }, [
-    company.primary_sectors,
-    company.secondary_sectors,
-    secondaryToPrimaryMap,
-  ]);
+  }, [company.primary_sectors]);
 
   return React.createElement(
     "div",
@@ -2360,43 +2283,8 @@ const CompanySection = ({
 }) => {
   const router = useRouter();
   const { isTrialActive } = useAuth();
-  const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<
-    Record<string, string>
-  >({});
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
   const [exportsLeft, setExportsLeft] = useState(0);
-
-  // Build a mapping of Secondary sector name -> Primary sector name from API
-  useEffect(() => {
-    let cancelled = false;
-    const loadMap = async () => {
-      try {
-        const allSecondary =
-          await locationsService.getAllSecondarySectorsWithPrimary();
-        if (!cancelled && Array.isArray(allSecondary)) {
-          const map: Record<string, string> = {};
-          for (const sec of allSecondary) {
-            const secName = (sec as { sector_name?: string }).sector_name;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const primary = (sec as any)?.related_primary_sector as
-              | { sector_name?: string }
-              | undefined;
-            const primaryName = primary?.sector_name;
-            if (secName && primaryName) {
-              map[normalizeSectorName(secName)] = primaryName;
-            }
-          }
-          setSecondaryToPrimaryMap(map);
-        }
-      } catch (e) {
-        console.warn("[Companies] Failed to load secondary->primary map", e);
-      }
-    };
-    loadMap();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // Check if any filters are applied
   const hasActiveFilters = () => {
@@ -2849,28 +2737,10 @@ const CompanySection = ({
   const tableRows = useMemo(
     () =>
       companies.map((company, index) => {
-        const primaryMap = new Map<string, SectorRef>();
-        const primaries = Array.isArray(company.primary_sectors)
+        // Just use what the API returns - no derivation needed
+        const primaryDisplay = Array.isArray(company.primary_sectors)
           ? company.primary_sectors
           : [];
-        for (const s of primaries) {
-          const { name } = getSectorInfo(s);
-          const key = normalizeSectorName(name);
-          if (key) primaryMap.set(key, s);
-        }
-
-        const derivedFromSecondary = Array.isArray(company.secondary_sectors)
-          ? company.secondary_sectors
-              .map((sec) => getSectorInfo(sec).name)
-              .map((s) => mapSecondaryToPrimary(s, secondaryToPrimaryMap))
-              .filter((v): v is string => Boolean(v))
-          : [];
-        for (const name of derivedFromSecondary) {
-          const key = normalizeSectorName(name);
-          if (key && !primaryMap.has(key)) primaryMap.set(key, name);
-        }
-
-        const primaryDisplay = Array.from(primaryMap.values());
         const secondaryDisplay = Array.isArray(company.secondary_sectors)
           ? company.secondary_sectors
           : [];
@@ -2924,7 +2794,7 @@ const CompanySection = ({
           </tr>
         );
       }),
-    [companies, handleCompanyClick, secondaryToPrimaryMap]
+    [companies, handleCompanyClick]
   );
 
   const generatePaginationButtons = () => {
@@ -3606,7 +3476,6 @@ const CompanySection = ({
           key: company.id || index,
           company: company,
           index: index,
-          secondaryToPrimaryMap: secondaryToPrimaryMap,
         })
       )
     ),
