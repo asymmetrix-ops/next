@@ -802,8 +802,9 @@ const IndividualsPage = () => {
       // Convert filters to URL parameters for GET request
       const params = new URLSearchParams();
 
-      // Add page and per_page (Offset is a page number: 1, 2, ...)
-      params.append("Offset", filters.page.toString());
+      // Add offset and per_page (Offset is 0-based: 0, 50, 100, ...)
+      const offset = (filters.page - 1) * filters.per_page;
+      params.append("Offset", offset.toString());
       params.append("Per_page", filters.per_page.toString());
 
       // Add search query
