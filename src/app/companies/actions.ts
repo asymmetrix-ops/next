@@ -15,6 +15,7 @@ export interface CompaniesFilters {
   linkedinMembersMin?: number | null;
   linkedinMembersMax?: number | null;
   searchQuery?: string;
+  keywordSearch?: string;
   // Financial Metrics
   revenueMin?: number | null;
   revenueMax?: number | null;
@@ -235,6 +236,11 @@ export async function fetchCompaniesServer(
     // Search query
     if (filters.searchQuery && filters.searchQuery.trim()) {
       params.append("query", filters.searchQuery.trim());
+    }
+
+    // Keyword search (searches across descriptions)
+    if (filters.keywordSearch && filters.keywordSearch.trim()) {
+      params.append("keywords_search", filters.keywordSearch.trim());
     }
 
     const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
