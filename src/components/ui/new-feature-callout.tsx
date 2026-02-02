@@ -14,6 +14,8 @@ type NewFeatureCalloutProps = {
   durationDays?: number;
   /** Tooltip title (default: "New Feature"). */
   titleText?: string;
+  /** Optional tooltip description (small text below title). */
+  descriptionText?: string;
   /** Optional wrapper classes. */
   className?: string;
   children: React.ReactNode;
@@ -51,6 +53,7 @@ export function NewFeatureCallout({
   launchedAt,
   durationDays = 14,
   titleText = "New Feature",
+  descriptionText,
   className,
   children,
 }: NewFeatureCalloutProps) {
@@ -138,7 +141,7 @@ export function NewFeatureCallout({
   return (
     <span
       ref={rootRef}
-      className={cn("relative inline-flex", className)}
+      className={cn("relative inline-block", className)}
     >
       {children}
 
@@ -191,6 +194,12 @@ export function NewFeatureCallout({
                 </svg>
               </button>
             </div>
+
+            {descriptionText ? (
+              <div className="mt-1 text-xs leading-snug text-slate-600">
+                {descriptionText}
+              </div>
+            ) : null}
 
             {/* Arrow */}
             {placement === "top" ? (

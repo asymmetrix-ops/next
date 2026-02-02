@@ -1189,20 +1189,28 @@ const ArticleDetailPage = () => {
             {/* Summary (Insights & Analysis) */}
             {hasSummary && (
               <div className="article-summary" style={{ marginBottom: 16 }}>
-                <button
-                  type="button"
-                  className="article-summary-header"
-                  aria-expanded={summaryExpanded}
-                  onClick={() => setSummaryExpanded((v) => !v)}
+                <NewFeatureCallout
+                  featureKey="article-summary"
+                  launchedAt="2026-02-02T00:00:00.000Z"
+                  titleText="New Feature"
+                  descriptionText="Summary is now collapsible."
+                  className="w-full"
                 >
-                  <span className="article-summary-title">Summary</span>
-                  <span
-                    className={`article-summary-chevron ${summaryExpanded ? "expanded" : ""}`}
-                    aria-hidden="true"
+                  <button
+                    type="button"
+                    className="article-summary-header"
+                    aria-expanded={summaryExpanded}
+                    onClick={() => setSummaryExpanded((v) => !v)}
                   >
-                    ▼
-                  </span>
-                </button>
+                    <span className="article-summary-title">Summary</span>
+                    <span
+                      className={`article-summary-chevron ${summaryExpanded ? "expanded" : ""}`}
+                      aria-hidden="true"
+                    >
+                      ▼
+                    </span>
+                  </button>
+                </NewFeatureCallout>
 
                 {!summaryExpanded ? (
                   <div className="article-summary-preview">
