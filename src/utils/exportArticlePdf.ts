@@ -5,8 +5,15 @@ export interface ExportableArticle {
   Publication_Date?: string;
   Content_Type?: string;
   content_type?: string;
-  Content?: { Content_type?: string; Content_Type?: string };
+  Content?: { 
+    Content_type?: string; 
+    Content_Type?: string;
+    Summary?: string | string[];
+    summary?: string | string[];
+  };
   Body?: string;
+  Summary?: string | string[];
+  summary?: string | string[];
   Company_of_Focus?: unknown;
   sectors?:
     | Array<{
@@ -160,6 +167,34 @@ export async function generateArticlePdfBlobUrl(
     const hasCompanyOfFocus =
       article.Company_of_Focus != null && article.Company_of_Focus !== "";
 
+    // Extract and parse summary field
+    const summaryRaw =
+      article.Summary ??
+      article.summary ??
+      article.Content?.Summary ??
+      article.Content?.summary;
+    
+    const parsedSummary = (() => {
+      if (!summaryRaw) return undefined;
+      // If already an array, use it
+      if (Array.isArray(summaryRaw)) {
+        return summaryRaw.filter((item) => String(item || "").trim());
+      }
+      // Try to parse as JSON
+      if (typeof summaryRaw === "string") {
+        try {
+          const parsed = JSON.parse(summaryRaw);
+          if (Array.isArray(parsed)) {
+            return parsed.filter((item) => String(item || "").trim());
+          }
+        } catch {
+          // Not JSON, return as string
+        }
+        return summaryRaw.trim() || undefined;
+      }
+      return undefined;
+    })();
+
     const payload = {
       id: article.id,
       Headline: article.Headline || "",
@@ -167,6 +202,7 @@ export async function generateArticlePdfBlobUrl(
       Publication_Date: article.Publication_Date || "",
       Content_Type: ct,
       Company_of_Focus: hasCompanyOfFocus,
+      summary: parsedSummary,
       Body: article.Body || "",
       companies_mentioned: companies
         .map((c) => ({ id: c?.id, name: c?.name }))
