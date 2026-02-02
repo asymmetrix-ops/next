@@ -16,6 +16,7 @@ const XANO_AUTH_URL = 'https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/login
 // Credentials for cron authentication (set in Vercel environment variables)
 const CRON_AUTH_EMAIL = process.env.CRON_AUTH_EMAIL;
 const CRON_AUTH_PASSWORD = process.env.CRON_AUTH_PASSWORD;
+const CRON_MANUAL_SECRET = process.env.CRON_MANUAL_SECRET;
 
 // Authenticate with Xano and get auth token
 async function getAuthToken(): Promise<string | null> {
@@ -173,6 +174,12 @@ export async function GET(request: NextRequest) {
   // No auth required - cache warming is not sensitive
   // Vercel cron will call this automatically every 2 hours
   const force = request.nextUrl.searchParams.get('force') === '1' || request.nextUrl.searchParams.get('force') === 'true';
+  if (force) {
+    const provided = request.headers.get('x-cron-manual-secret') ?? '';
+    if (!CRON_MANUAL_SECRET || provided !== CRON_MANUAL_SECRET) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+  }
   
   // Vercel cron schedules are evaluated in UTC. To run "once per day at 06:00 London"
   // (including BST daylight savings), we trigger at 05:00 and 06:00 UTC and only

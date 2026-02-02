@@ -10,6 +10,7 @@ const XANO_AUTH_URL = 'https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/login
 
 const CRON_AUTH_EMAIL = process.env.CRON_AUTH_EMAIL;
 const CRON_AUTH_PASSWORD = process.env.CRON_AUTH_PASSWORD;
+const CRON_MANUAL_SECRET = process.env.CRON_MANUAL_SECRET;
 
 function getRedisClient(): Redis | null {
   if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
@@ -60,6 +61,12 @@ function isLondonSixAM(): { ok: boolean; londonHour: string } {
 
 export async function GET(request: NextRequest) {
   const force = request.nextUrl.searchParams.get('force') === '1' || request.nextUrl.searchParams.get('force') === 'true';
+  if (force) {
+    const provided = request.headers.get('x-cron-manual-secret') ?? '';
+    if (!CRON_MANUAL_SECRET || provided !== CRON_MANUAL_SECRET) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+  }
 
   try {
     const { ok, londonHour } = isLondonSixAM();
