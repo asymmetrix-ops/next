@@ -921,11 +921,26 @@ export default function HomeUserPage() {
                         const badgeLabel = getSearchBadgeLabel(r.type);
                         return (
                           <li key={`${r.type}-${r.id}-${idx}`}>
-                            <button
-                              type="button"
-                              className="flex items-start justify-between gap-3 px-3 py-2 w-full text-left hover:bg-gray-50"
-                              onClick={() => {
-                                if (!href) return;
+                            <a
+                              href={href || "#"}
+                              className="group flex items-start justify-between gap-3 px-3 py-2 w-full hover:bg-blue-50 hover:shadow-sm no-underline cursor-pointer transition-all duration-150 rounded-md"
+                              onClick={(e) => {
+                                if (!href) {
+                                  e.preventDefault();
+                                  return;
+                                }
+                                // Allow default behavior for right-click, ctrl+click, cmd+click, etc.
+                                if (
+                                  e.defaultPrevented ||
+                                  e.button !== 0 ||
+                                  e.metaKey ||
+                                  e.ctrlKey ||
+                                  e.shiftKey ||
+                                  e.altKey
+                                ) {
+                                  return;
+                                }
+                                e.preventDefault();
                                 setSearchOpen(false);
                                 setSearchQuery("");
                                 setSearchResults([]);
@@ -933,7 +948,7 @@ export default function HomeUserPage() {
                                 router.push(href);
                               }}
                             >
-                              <span className="text-sm text-gray-900">
+                              <span className="text-sm text-gray-900 group-hover:text-blue-700 transition-colors">
                                 {r.title}
                               </span>
                               <span
@@ -943,7 +958,7 @@ export default function HomeUserPage() {
                               >
                                 {badgeLabel}
                               </span>
-                            </button>
+                            </a>
                           </li>
                         );
                       })}
@@ -1010,11 +1025,26 @@ export default function HomeUserPage() {
                       const badgeLabel = getSearchBadgeLabel(r.type);
                       return (
                         <li key={`popup-${r.type}-${r.id}-${idx}`}>
-                          <button
-                            type="button"
-                            className="flex items-start justify-between gap-3 px-3 py-2.5 w-full text-left rounded-md hover:bg-gray-50"
-                            onClick={() => {
-                              if (!href) return;
+                          <a
+                            href={href || "#"}
+                            className="group flex items-start justify-between gap-3 px-3 py-2.5 w-full rounded-md hover:bg-blue-50 hover:shadow-sm no-underline cursor-pointer transition-all duration-150"
+                            onClick={(e) => {
+                              if (!href) {
+                                e.preventDefault();
+                                return;
+                              }
+                              // Allow default behavior for right-click, ctrl+click, cmd+click, etc.
+                              if (
+                                e.defaultPrevented ||
+                                e.button !== 0 ||
+                                e.metaKey ||
+                                e.ctrlKey ||
+                                e.shiftKey ||
+                                e.altKey
+                              ) {
+                                return;
+                              }
+                              e.preventDefault();
                               closeSearchPopup();
                               setSearchOpen(false);
                               setSearchQuery("");
@@ -1022,7 +1052,7 @@ export default function HomeUserPage() {
                               router.push(href);
                             }}
                           >
-                            <span className="text-sm text-gray-900 line-clamp-2">
+                            <span className="text-sm text-gray-900 group-hover:text-blue-700 line-clamp-2 transition-colors">
                               {r.title}
                             </span>
                             <span
@@ -1032,7 +1062,7 @@ export default function HomeUserPage() {
                             >
                               {badgeLabel}
                             </span>
-                          </button>
+                          </a>
                         </li>
                       );
                     })}
