@@ -1155,7 +1155,7 @@ const ArticleDetailPage = () => {
   const summaryRaw = getRawSummary(article);
   const summaryHtml = normalizeSummaryHtml(summaryRaw);
   const summaryPreview = getFirstSummaryBullet(summaryHtml);
-  const hasSummary = Boolean(summaryPreview);
+  const hasSummary = Boolean(summaryHtml && summaryPreview);
 
   return (
     <div style={{ ...styles.container, maxWidth: "100vw", overflowX: "hidden" }}>
