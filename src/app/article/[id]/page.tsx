@@ -988,6 +988,96 @@ const ArticleDetailPage = () => {
     return `Source: ${trimmed}`;
   };
 
+  // Helpers for Related Corporate Event (defensive against API shape changes)
+  const normalizeNonEmptyText = (value: unknown): string => {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "string") return value.trim();
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? String(value) : "";
+    }
+    if (typeof value === "boolean") return value ? "Yes" : "No";
+    if (typeof value === "object") {
+      const rec = value as Record<string, unknown>;
+      const name = rec?.name;
+      if (typeof name === "string") return name.trim();
+    }
+    const asString = String(value).trim();
+    return asString && asString !== "[object Object]" ? asString : "";
+  };
+
+  const pickFirstNonEmpty = (
+    obj: unknown,
+    keys: string[]
+  ): { key?: string; value?: unknown } => {
+    if (!obj || typeof obj !== "object") return {};
+    const rec = obj as Record<string, unknown>;
+    for (const k of keys) {
+      const v = rec?.[k];
+      if (v === null || v === undefined) continue;
+      const asText = normalizeNonEmptyText(v);
+      // If the value is a non-empty scalar or a named object, accept it
+      if (asText) return { key: k, value: v };
+      // If it's an array/object, keep looking (handled by list extractor)
+      if (Array.isArray(v)) return { key: k, value: v };
+      if (typeof v === "object") return { key: k, value: v };
+    }
+    return {};
+  };
+
+  const formatEventNumberLike = (value: unknown): string => {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value.toLocaleString("en-US") : "";
+    }
+    const trimmed = String(value).trim();
+    if (!trimmed) return "";
+    // If it's a clean numeric string, format with commas; otherwise keep as-is (e.g. "$500m")
+    const num = Number(trimmed.replace(/,/g, ""));
+    if (!Number.isFinite(num)) return trimmed;
+    return num.toLocaleString("en-US");
+  };
+
+  const extractPartyNames = (value: unknown): string[] => {
+    if (value === null || value === undefined) return [];
+
+    // Support JSON-stringified arrays
+    const parsed = tryParse<unknown[]>(value);
+    const arr: unknown[] = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(value)
+        ? value
+        : [value];
+
+    const names: string[] = [];
+    for (const item of arr) {
+      if (item === null || item === undefined) continue;
+      if (typeof item === "string") {
+        const t = item.trim();
+        if (t) names.push(t);
+        continue;
+      }
+      if (typeof item === "object") {
+        const rec = item as Record<string, unknown>;
+        const direct = normalizeNonEmptyText(rec?.name);
+        if (direct) {
+          names.push(direct);
+          continue;
+        }
+        // Some Xano relation arrays are like { _new_company: { name } }
+        const nested = rec?._new_company;
+        const nestedName = normalizeNonEmptyText(nested);
+        if (nestedName) {
+          names.push(nestedName);
+          continue;
+        }
+      }
+      const fallback = normalizeNonEmptyText(item);
+      if (fallback) names.push(fallback);
+    }
+
+    return Array.from(new Set(names.map((n) => n.trim()).filter(Boolean)));
+  };
+
   if (loading) {
     return (
       <div style={styles.container}>
@@ -1870,10 +1960,99 @@ const ArticleDetailPage = () => {
                     const announcementDate = ev?.announcement_date;
                     const closedDate = ev?.closed_date;
                     const displayDate = closedDate || announcementDate;
-                    const targetName = ev?.target?.name;
+                    const targetName =
+                      normalizeNonEmptyText(ev?.target?.name) ||
+                      normalizeNonEmptyText(
+                        (ev as unknown as Record<string, unknown>)?.target_name
+                      ) ||
+                      normalizeNonEmptyText(
+                        (ev as unknown as Record<string, unknown>)?.Target
+                      );
                     const dealType = ev?.deal_type;
-                    const primarySectors = ev?.primary_sectors || [];
-                    const secondarySectors = ev?.secondary_sectors || [];
+
+                    // New deal fields (only render if populated)
+                    const { value: investmentAmountRawTop } = pickFirstNonEmpty(ev, [
+                      "investment_amount",
+                      "Investment_Amount",
+                      "investment_amount_m",
+                      "amount_invested",
+                      "Amount_Invested",
+                      "deal_value",
+                      "Deal_Value",
+                      "equity_investment",
+                      "equity_investment_amount",
+                    ]);
+                    // Also support nested shape: investment_data.investment_amount_m
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const investmentAmountRaw =
+                      investmentAmountRawTop ??
+                      (ev as any)?.investment_data?.investment_amount_m ??
+                      (ev as any)?.investment_data?.investment_amount ??
+                      (ev as any)?.investment_data?.amount;
+                    const investmentAmount = formatEventNumberLike(
+                      investmentAmountRaw
+                    );
+
+                    const { value: enterpriseValueRawTop } = pickFirstNonEmpty(ev, [
+                      "enterprise_value",
+                      "Enterprise_Value",
+                      "enterprise_value_m",
+                      "Enterprise_Value_m",
+                      "ev",
+                      "ev_m",
+                    ]);
+                    // Also support nested shape: ev_data.enterprise_value_m
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const enterpriseValueRaw =
+                      enterpriseValueRawTop ??
+                      (ev as any)?.ev_data?.enterprise_value_m ??
+                      (ev as any)?.ev_data?.enterprise_value ??
+                      (ev as any)?.ev_data?.ev_m ??
+                      (ev as any)?.ev_data?.ev;
+                    const enterpriseValue = formatEventNumberLike(
+                      enterpriseValueRaw
+                    );
+
+                    const { value: dealStageRaw } = pickFirstNonEmpty(ev, [
+                      "deal_stage",
+                      "Deal_Stage",
+                      "stage",
+                      "Stage",
+                      "deal_status",
+                      "Deal_Status",
+                    ]);
+                    const dealStage = normalizeNonEmptyText(dealStageRaw);
+
+                    const buyersInvestors = extractPartyNames(
+                      pickFirstNonEmpty(ev, [
+                        "buyers",
+                        "buyer",
+                        "buyers_investors",
+                        "buyers_investor",
+                        "Buyer_Investor",
+                        "investors",
+                        "Investor",
+                        "acquirers",
+                        "acquirer",
+                        "Acquirer",
+                        "buyers_and_investors",
+                      ]).value
+                    ).join(", ");
+
+                    const divestor = normalizeNonEmptyText(
+                      pickFirstNonEmpty(ev, [
+                        "divestor",
+                        "divestior",
+                        "divestitor",
+                        "Divestor",
+                        "seller",
+                        "Seller",
+                        "vendor",
+                        "Vendor",
+                        "selling_party",
+                        "Selling_Party",
+                      ]).value
+                    );
 
                     const formatEventDate = (dateStr?: string) => {
                       if (!dateStr) return null;
@@ -1944,6 +2123,20 @@ const ArticleDetailPage = () => {
                               <span style={styles.value}>{targetName}</span>
                             </div>
                           )}
+                          {buyersInvestors && (
+                            <div style={styles.infoRow}>
+                              <span style={styles.label}>
+                                Buyer(s) / Investor(s)
+                              </span>
+                              <span style={styles.value}>{buyersInvestors}</span>
+                            </div>
+                          )}
+                          {divestor && (
+                            <div style={styles.infoRow}>
+                              <span style={styles.label}>Divestor</span>
+                              <span style={styles.value}>{divestor}</span>
+                            </div>
+                          )}
                           {dealType && (
                             <div style={styles.infoRow}>
                               <span style={styles.label}>Deal Type</span>
@@ -1963,102 +2156,22 @@ const ArticleDetailPage = () => {
                               </span>
                             </div>
                           )}
-                          {primarySectors.length > 0 && (
+                          {dealStage && (
                             <div style={styles.infoRow}>
-                              <span style={styles.label}>Primary</span>
-                              <span
-                                style={{
-                                  ...styles.value,
-                                  display: "flex",
-                                  flexWrap: "wrap",
-                                  justifyContent: "flex-end",
-                                  gap: "6px",
-                                }}
-                              >
-                                {primarySectors
-                                  .filter((s) => s?.sector_name)
-                                  .map((s, sIdx) => {
-                                    const sectorId = s?.id;
-                                    const sectorName = s?.sector_name || "";
-                                    const separator =
-                                      sIdx <
-                                      primarySectors.filter((s) => s?.sector_name).length - 1
-                                        ? ", "
-                                        : "";
-                                    if (typeof sectorId === "number") {
-                                      return (
-                                        <span key={`primary-${sectorId}-${sIdx}`}>
-                                          <Link
-                                            href={`/sector/${sectorId}`}
-                                            style={{
-                                              color: "#2563eb",
-                                              textDecoration: "none",
-                                            }}
-                                            prefetch={false}
-                                          >
-                                            {sectorName}
-                                          </Link>
-                                          {separator}
-                                        </span>
-                                      );
-                                    }
-                                    return (
-                                      <span key={`primary-na-${sIdx}`}>
-                                        {sectorName}
-                                        {separator}
-                                      </span>
-                                    );
-                                  })}
-                              </span>
+                              <span style={styles.label}>Deal Stage</span>
+                              <span style={styles.value}>{dealStage}</span>
                             </div>
                           )}
-                          {secondarySectors.length > 0 && (
+                          {investmentAmount && (
                             <div style={styles.infoRow}>
-                              <span style={styles.label}>Sectors</span>
-                              <span
-                                style={{
-                                  ...styles.value,
-                                  display: "flex",
-                                  flexWrap: "wrap",
-                                  justifyContent: "flex-end",
-                                  gap: "6px",
-                                }}
-                              >
-                                {secondarySectors
-                                  .filter((s) => s?.sector_name)
-                                  .map((s, sIdx) => {
-                                    const sectorId = s?.id;
-                                    const sectorName = s?.sector_name || "";
-                                    const separator =
-                                      sIdx <
-                                      secondarySectors.filter((s) => s?.sector_name).length - 1
-                                        ? ", "
-                                        : "";
-                                    if (typeof sectorId === "number") {
-                                      return (
-                                        <span key={`secondary-${sectorId}-${sIdx}`}>
-                                          <Link
-                                            href={`/sub-sector/${sectorId}`}
-                                            style={{
-                                              color: "#2563eb",
-                                              textDecoration: "none",
-                                            }}
-                                            prefetch={false}
-                                          >
-                                            {sectorName}
-                                          </Link>
-                                          {separator}
-                                        </span>
-                                      );
-                                    }
-                                    return (
-                                      <span key={`secondary-na-${sIdx}`}>
-                                        {sectorName}
-                                        {separator}
-                                      </span>
-                                    );
-                                  })}
-                              </span>
+                              <span style={styles.label}>Investment Amount</span>
+                              <span style={styles.value}>{investmentAmount}</span>
+                            </div>
+                          )}
+                          {enterpriseValue && (
+                            <div style={styles.infoRow}>
+                              <span style={styles.label}>Enterprise Value</span>
+                              <span style={styles.value}>{enterpriseValue}</span>
                             </div>
                           )}
                         </div>
