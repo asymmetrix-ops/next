@@ -11,6 +11,7 @@ const XANO_AUTH_URL = 'https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/login
 const CRON_AUTH_EMAIL = process.env.CRON_AUTH_EMAIL;
 const CRON_AUTH_PASSWORD = process.env.CRON_AUTH_PASSWORD;
 const CRON_MANUAL_SECRET = process.env.CRON_MANUAL_SECRET;
+const XANO_SERVICE_TOKEN = process.env.XANO_SERVICE_TOKEN;
 
 function getRedisClient(): Redis | null {
   if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
@@ -100,7 +101,7 @@ export async function GET(request: NextRequest) {
     7 * 24 * 60 * 60
   );
 
-  const token = await getAuthToken();
+  const token = XANO_SERVICE_TOKEN || (await getAuthToken());
   if (!token) {
     return NextResponse.json(
       { success: false, error: 'Failed to authenticate with Xano' },
