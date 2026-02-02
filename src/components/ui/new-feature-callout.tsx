@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { cn } from "@/utils/cn";
 
 type NewFeatureCalloutProps = {
-  /** Unique id for this feature, used for dismissal storage. */
+  /** Unique id for this feature (kept for future / analytics). */
   featureKey: string;
   /** Feature go-live date/time. Accepts Date or ISO string. */
   launchedAt: Date | string;
@@ -14,12 +14,16 @@ type NewFeatureCalloutProps = {
   durationDays?: number;
   /** Tooltip title (default: "New Feature"). */
   titleText?: string;
+  /**
+   * If true, dismissing persists via localStorage (default: false).
+   * When false, the tooltip shows again on every page entry.
+   */
+  persistDismissal?: boolean;
   /** Optional wrapper classes. */
   className?: string;
   children: React.ReactNode;
 };
 
-const STORAGE_PREFIX = "asymmetrix:new-feature-dismissed:";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function toMs(input: Date | string): number | null {
@@ -51,14 +55,11 @@ export function NewFeatureCallout({
   launchedAt,
   durationDays = 14,
   titleText = "New Feature",
+  persistDismissal = false,
   className,
   children,
 }: NewFeatureCalloutProps) {
   const launchedAtMs = React.useMemo(() => toMs(launchedAt), [launchedAt]);
-  const storageKey = React.useMemo(
-    () => `${STORAGE_PREFIX}${featureKey}`,
-    [featureKey]
-  );
 
   const [ready, setReady] = React.useState(false);
   const [dismissed, setDismissed] = React.useState(false);
@@ -75,12 +76,19 @@ export function NewFeatureCallout({
   }, [durationDays, launchedAtMs]);
 
   React.useEffect(() => {
-    const stored = safeGet(storageKey);
-    const isDismissed = Boolean(stored);
-    setDismissed(isDismissed);
-    setOpen(!isDismissed);
+    // Show on every page entry by default.
+    if (persistDismissal) {
+      const storageKey = `asymmetrix:new-feature-dismissed:${featureKey}`;
+      const stored = safeGet(storageKey);
+      const isDismissed = Boolean(stored);
+      setDismissed(isDismissed);
+      setOpen(!isDismissed);
+    } else {
+      setDismissed(false);
+      setOpen(true);
+    }
     setReady(true);
-  }, [storageKey]);
+  }, [featureKey, persistDismissal]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -105,14 +113,11 @@ export function NewFeatureCallout({
         if (root.contains(e.target)) return;
         if (popover && popover.contains(e.target)) return;
       }
-      // Treat clicking away as acknowledgement to prevent repeated popovers.
-      safeSet(storageKey, String(Date.now()));
       setDismissed(true);
       setOpen(false);
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      safeSet(storageKey, String(Date.now()));
       setDismissed(true);
       setOpen(false);
     };
@@ -124,13 +129,15 @@ export function NewFeatureCallout({
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open, storageKey]);
+  }, [open]);
 
   const visible = ready && withinWindow && !dismissed;
   if (!visible) return <>{children}</>;
 
   const dismiss = () => {
-    safeSet(storageKey, String(Date.now()));
+    if (persistDismissal) {
+      safeSet(`asymmetrix:new-feature-dismissed:${featureKey}`, String(Date.now()));
+    }
     setDismissed(true);
     setOpen(false);
   };
