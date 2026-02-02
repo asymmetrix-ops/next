@@ -685,7 +685,9 @@ const ArticleDetailPage = () => {
     // Try to parse as JSON array (handles JSON-encoded strings)
     try {
       const parsed = JSON.parse(input);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
+        // If it's an empty array or array with only empty values, return empty
+        if (parsed.length === 0) return "";
         const items = parsed
           .map((item) => String(item || "").trim())
           .filter(Boolean)
@@ -1192,8 +1194,7 @@ const ArticleDetailPage = () => {
                 <NewFeatureCallout
                   featureKey="article-summary"
                   launchedAt="2026-02-02T00:00:00.000Z"
-                  titleText="New Feature"
-                  descriptionText="Summary is now collapsible."
+                  titleText="New Summary"
                   className="w-full"
                 >
                   <button

@@ -14,8 +14,6 @@ type NewFeatureCalloutProps = {
   durationDays?: number;
   /** Tooltip title (default: "New Feature"). */
   titleText?: string;
-  /** Optional tooltip description (small text below title). */
-  descriptionText?: string;
   /** Optional wrapper classes. */
   className?: string;
   children: React.ReactNode;
@@ -53,7 +51,6 @@ export function NewFeatureCallout({
   launchedAt,
   durationDays = 14,
   titleText = "New Feature",
-  descriptionText,
   className,
   children,
 }: NewFeatureCalloutProps) {
@@ -153,7 +150,7 @@ export function NewFeatureCallout({
             role="dialog"
             aria-label={titleText}
             className={cn(
-              "fixed z-[9999] w-48 rounded-lg border border-slate-200 bg-white p-2 shadow-lg"
+              "fixed z-[9999] w-44 rounded-lg border border-blue-500/30 bg-gradient-to-b from-blue-600 to-blue-700 p-2 shadow-lg shadow-blue-900/20"
             )}
             style={{
               left: anchorRect.right,
@@ -165,7 +162,7 @@ export function NewFeatureCallout({
             }}
           >
             <div className="flex items-start justify-between gap-2">
-              <div className="text-xs font-semibold text-slate-900">
+              <div className="text-xs font-semibold text-white">
                 {titleText}
               </div>
               <button
@@ -174,8 +171,8 @@ export function NewFeatureCallout({
                 onClick={dismiss}
                 className={cn(
                   "inline-flex h-6 w-6 items-center justify-center rounded-md",
-                  "text-slate-500 hover:bg-slate-100 hover:text-slate-900",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                  "text-white/80 hover:bg-white/10 hover:text-white",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-blue-700"
                 )}
               >
                 <svg
@@ -195,22 +192,16 @@ export function NewFeatureCallout({
               </button>
             </div>
 
-            {descriptionText ? (
-              <div className="mt-1 text-xs leading-snug text-slate-600">
-                {descriptionText}
-              </div>
-            ) : null}
-
             {/* Arrow */}
             {placement === "top" ? (
               <>
-                <div className="pointer-events-none absolute -bottom-[9px] right-5 h-0 w-0 border-x-[9px] border-x-transparent border-t-[9px] border-t-slate-200" />
-                <div className="pointer-events-none absolute -bottom-2 right-5 h-0 w-0 border-x-8 border-x-transparent border-t-8 border-t-white" />
+                <div className="pointer-events-none absolute -bottom-[9px] right-5 h-0 w-0 border-x-[9px] border-x-transparent border-t-[9px] border-t-blue-500/30" />
+                <div className="pointer-events-none absolute -bottom-2 right-5 h-0 w-0 border-x-8 border-x-transparent border-t-8 border-t-blue-700" />
               </>
             ) : (
               <>
-                <div className="pointer-events-none absolute -top-[9px] right-5 h-0 w-0 border-x-[9px] border-x-transparent border-b-[9px] border-b-slate-200" />
-                <div className="pointer-events-none absolute -top-2 right-5 h-0 w-0 border-x-8 border-x-transparent border-b-8 border-b-white" />
+                <div className="pointer-events-none absolute -top-[9px] right-5 h-0 w-0 border-x-[9px] border-x-transparent border-b-[9px] border-b-blue-500/30" />
+                <div className="pointer-events-none absolute -top-2 right-5 h-0 w-0 border-x-8 border-x-transparent border-b-8 border-b-blue-600" />
               </>
             )}
           </div>,
