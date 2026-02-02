@@ -21,6 +21,7 @@ import PreviousCorporateEventsSection, {
   PreviousCorporateEventRow,
 } from "@/components/transaction/PreviousCorporateEventsSection";
 import { Button } from "@/components/ui/button";
+import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
 
 // Type-safe check for Data & Analytics company flag
 const isDataAnalyticsCompany = (candidate: unknown): boolean => {
@@ -955,14 +956,19 @@ const CorporateEventDetail = ({
 
   const reportButton = (
     <div className="flex gap-2">
-      <Button
-        onClick={handleExportPdf}
-        disabled={isExportingPdf || !corporateEventId}
-        size="sm"
-        className="shadow-md bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+      <NewFeatureCallout
+        featureKey="corporate-event-pdf-export"
+        launchedAt="2026-02-02T00:00:00.000Z"
       >
-        {isExportingPdf ? "Exporting..." : "Export PDF"}
-      </Button>
+        <Button
+          onClick={handleExportPdf}
+          disabled={isExportingPdf || !corporateEventId}
+          size="sm"
+          className="shadow-md bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+        >
+          {isExportingPdf ? "Exporting..." : "Export PDF"}
+        </Button>
+      </NewFeatureCallout>
       <Button
         asChild
         size="sm"

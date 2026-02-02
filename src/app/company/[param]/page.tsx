@@ -9,6 +9,7 @@ import Footer from "@/components/Footer";
 import { useRightClick } from "@/hooks/useRightClick";
 import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
 import IndividualCards from "@/components/shared/IndividualCards";
+import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
 import {
   LineChart,
   Line,
@@ -2249,20 +2250,25 @@ const CompanyDetail = () => {
               </div>
             </div>
             <div style={styles.headerRight}>
-              <button
-                onClick={handleExportPdf}
-                disabled={exportingPdf || !company?.id}
-                style={{
-                  ...styles.reportButton,
-                  backgroundColor: exportingPdf ? "#9ca3af" : "#0075df",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  cursor:
-                    exportingPdf || !company?.id ? "not-allowed" : "pointer",
-                }}
+              <NewFeatureCallout
+                featureKey="company-profile-pdf-export"
+                launchedAt="2026-02-02T00:00:00.000Z"
               >
-                {exportingPdf ? "Exporting..." : "Export PDF"}
-              </button>
+                <button
+                  onClick={handleExportPdf}
+                  disabled={exportingPdf || !company?.id}
+                  style={{
+                    ...styles.reportButton,
+                    backgroundColor: exportingPdf ? "#9ca3af" : "#0075df",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    cursor:
+                      exportingPdf || !company?.id ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {exportingPdf ? "Exporting..." : "Export PDF"}
+                </button>
+              </NewFeatureCallout>
               <a
                 style={{
                   ...styles.reportButton,

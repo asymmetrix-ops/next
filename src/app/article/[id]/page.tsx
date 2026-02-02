@@ -1,4 +1,4 @@
-"use client";
+  "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -8,6 +8,7 @@ import Footer from "@/components/Footer";
 import { generateArticlePdfBlobUrl } from "@/utils/exportArticlePdf";
 import InlineAudioPlayer from "@/components/article/InlineAudioPlayer";
 import EmbeddedPdfViewer from "@/components/article/EmbeddedPdfViewer";
+import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
 
 // Types for the article detail page
 interface ArticleDetail {
@@ -638,7 +639,7 @@ const ArticleDetailPage = () => {
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
 
-  const getRawSummary = (a: ArticleDetail | null): string => {
+  const getRawSummary = (a: ArticleDetail | null): string | unknown[] => {
     if (!a) return "";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const anyA = a as any;
@@ -648,6 +649,9 @@ const ArticleDetailPage = () => {
       anyA?.Content?.Summary ??
       anyA?.Content?.summary ??
       "";
+    // If it's already an array, return it as-is
+    if (Array.isArray(candidate)) return candidate;
+    // If it's a string, return it
     return typeof candidate === "string" ? candidate : String(candidate ?? "");
   };
 
@@ -663,9 +667,35 @@ const ArticleDetailPage = () => {
     }
   };
 
-  const normalizeSummaryHtml = (raw: string): string => {
+  const normalizeSummaryHtml = (raw: string | unknown[]): string => {
+    // Handle array input (already parsed by API)
+    if (Array.isArray(raw)) {
+      if (raw.length === 0) return "";
+      const items = raw
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+        .map((line) => `<li>${escapeHtml(line)}</li>`)
+        .join("");
+      return items ? `<ul>${items}</ul>` : "";
+    }
+
     const input = String(raw || "").trim();
     if (!input) return "";
+
+    // Try to parse as JSON array (handles JSON-encoded strings)
+    try {
+      const parsed = JSON.parse(input);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const items = parsed
+          .map((item) => String(item || "").trim())
+          .filter(Boolean)
+          .map((line) => `<li>${escapeHtml(line)}</li>`)
+          .join("");
+        return items ? `<ul>${items}</ul>` : "";
+      }
+    } catch {
+      // Not a JSON array, continue with existing logic
+    }
 
     // If it already looks like a list (or contains list items), keep it as-is.
     if (/<\s*(ul|ol|li)\b/i.test(input)) return input;
@@ -1331,59 +1361,64 @@ const ArticleDetailPage = () => {
                 </p>
                 {/* View PDF Button (auto-detect attachment; otherwise generate) */}
                 {ENABLE_PDF_EXPORT && (
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleViewPdf();
-                    }}
-                    style={{
-                      backgroundColor: "#0a66c2",
-                      color: "white",
-                      fontWeight: 600,
-                      padding: "12px 18px",
-                      borderRadius: 6,
-                      border: "none",
-                      cursor: "pointer",
-                      fontSize: 14,
-                      textAlign: "center",
-                      whiteSpace: "nowrap",
-                      marginLeft: "auto",
-                      minHeight: "44px",
-                      minWidth: "120px",
-                      touchAction: "manipulation",
-                      WebkitTapHighlightColor: "transparent",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
-                    onMouseOver={(e) =>
-                      ((e.target as HTMLButtonElement).style.backgroundColor =
-                        "#004182")
-                    }
-                    onMouseOut={(e) =>
-                      ((e.target as HTMLButtonElement).style.backgroundColor =
-                        "#0a66c2")
-                    }
+                  <NewFeatureCallout
+                    featureKey="article-pdf-export"
+                    launchedAt="2026-02-02T00:00:00.000Z"
                   >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      style={{ flexShrink: 0 }}
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleViewPdf();
+                      }}
+                      style={{
+                        backgroundColor: "#0a66c2",
+                        color: "white",
+                        fontWeight: 600,
+                        padding: "12px 18px",
+                        borderRadius: 6,
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: 14,
+                        textAlign: "center",
+                        whiteSpace: "nowrap",
+                        marginLeft: "auto",
+                        minHeight: "44px",
+                        minWidth: "120px",
+                        touchAction: "manipulation",
+                        WebkitTapHighlightColor: "transparent",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "8px",
+                      }}
+                      onMouseOver={(e) =>
+                        ((e.target as HTMLButtonElement).style.backgroundColor =
+                          "#004182")
+                      }
+                      onMouseOut={(e) =>
+                        ((e.target as HTMLButtonElement).style.backgroundColor =
+                          "#0a66c2")
+                      }
                     >
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14 2 14 8 20 8" />
-                      <line x1="16" y1="13" x2="8" y2="13" />
-                      <line x1="16" y1="17" x2="8" y2="17" />
-                    </svg>
-                    {detectedPdfs.length > 0 ? "View PDF" : "Generate PDF"}
-                  </button>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ flexShrink: 0 }}
+                      >
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                      </svg>
+                      {detectedPdfs.length > 0 ? "View PDF" : "Generate PDF"}
+                    </button>
+                  </NewFeatureCallout>
                 )}
               </div>
             </div>
@@ -1960,6 +1995,20 @@ const ArticleDetailPage = () => {
                     const announcementDate = ev?.announcement_date;
                     const closedDate = ev?.closed_date;
                     const displayDate = closedDate || announcementDate;
+                    type EventNestedNumbers = {
+                      investment_data?: {
+                        investment_amount_m?: unknown;
+                        investment_amount?: unknown;
+                        amount?: unknown;
+                      };
+                      ev_data?: {
+                        enterprise_value_m?: unknown;
+                        enterprise_value?: unknown;
+                        ev_m?: unknown;
+                        ev?: unknown;
+                      };
+                    };
+                    const evNested = ev as unknown as EventNestedNumbers;
                     const targetName =
                       normalizeNonEmptyText(ev?.target?.name) ||
                       normalizeNonEmptyText(
@@ -1983,12 +2032,11 @@ const ArticleDetailPage = () => {
                       "equity_investment_amount",
                     ]);
                     // Also support nested shape: investment_data.investment_amount_m
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const investmentAmountRaw =
                       investmentAmountRawTop ??
-                      (ev as any)?.investment_data?.investment_amount_m ??
-                      (ev as any)?.investment_data?.investment_amount ??
-                      (ev as any)?.investment_data?.amount;
+                      evNested.investment_data?.investment_amount_m ??
+                      evNested.investment_data?.investment_amount ??
+                      evNested.investment_data?.amount;
                     const investmentAmount = formatEventNumberLike(
                       investmentAmountRaw
                     );
@@ -2002,13 +2050,12 @@ const ArticleDetailPage = () => {
                       "ev_m",
                     ]);
                     // Also support nested shape: ev_data.enterprise_value_m
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const enterpriseValueRaw =
                       enterpriseValueRawTop ??
-                      (ev as any)?.ev_data?.enterprise_value_m ??
-                      (ev as any)?.ev_data?.enterprise_value ??
-                      (ev as any)?.ev_data?.ev_m ??
-                      (ev as any)?.ev_data?.ev;
+                      evNested.ev_data?.enterprise_value_m ??
+                      evNested.ev_data?.enterprise_value ??
+                      evNested.ev_data?.ev_m ??
+                      evNested.ev_data?.ev;
                     const enterpriseValue = formatEventNumberLike(
                       enterpriseValueRaw
                     );

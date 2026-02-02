@@ -10,6 +10,7 @@ import { useRightClick } from "@/hooks/useRightClick";
 import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
 import { type CorporateEvent as CorporateEventsTableEvent } from "@/components/corporate-events/CorporateEventsTable";
 import IndividualCards from "@/components/shared/IndividualCards";
+import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
 import {
   LineChart,
   Line,
@@ -1655,14 +1656,19 @@ const InvestorDetailPage = () => {
             </div>
           </div>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button
-              onClick={handleExportPdf}
-              disabled={exportingPdf || !investorData}
-              className="export-button"
-              type="button"
+            <NewFeatureCallout
+              featureKey="investor-profile-pdf-export"
+              launchedAt="2026-02-02T00:00:00.000Z"
             >
-              {exportingPdf ? "Exporting..." : "Export PDF"}
-            </button>
+              <button
+                onClick={handleExportPdf}
+                disabled={exportingPdf || !investorData}
+                className="export-button"
+                type="button"
+              >
+                {exportingPdf ? "Exporting..." : "Export PDF"}
+              </button>
+            </NewFeatureCallout>
             <a
               href={reportMailTo}
               className="report-button"
