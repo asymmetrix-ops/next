@@ -131,6 +131,10 @@ interface NewCorporateEvent {
   description?: string;
   announcement_date?: string;
   deal_type?: string;
+  // New API field (present in Get_new_company.new_counterparties items)
+  target_hq_country?: string | null;
+  // Some endpoints / exports may use this legacy-ish naming
+  target_hq?: string | null;
   target_company?: {
     id?: number;
     name?: string;
@@ -376,7 +380,12 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                 const legacyTargetId =
                   newEvent.target_counterparty?.new_company_counterparty;
                 const targetCountry =
-                  legacyTarget?._location?.Country || "Not Available";
+                  (typeof newEvent.target_hq_country === "string" &&
+                    newEvent.target_hq_country.trim()) ||
+                  (typeof newEvent.target_hq === "string" &&
+                    newEvent.target_hq.trim()) ||
+                  legacyTarget?._location?.Country ||
+                  "Not Available";
 
                 // Get advisors
                 const newAdvisors = newEvent.advisors || [];
