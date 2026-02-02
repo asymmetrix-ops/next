@@ -1194,7 +1194,7 @@ const ArticleDetailPage = () => {
                 <NewFeatureCallout
                   featureKey="article-summary"
                   launchedAt="2026-02-02T00:00:00.000Z"
-                  titleText="New Summary"
+                  titleText="New Feature"
                   className="w-full"
                 >
                   <button
