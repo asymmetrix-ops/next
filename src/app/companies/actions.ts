@@ -1,6 +1,64 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { Redis } from "@upstash/redis";
+
+function getRedisClient(): Redis | null {
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    return Redis.fromEnv();
+  }
+  return null;
+}
+
+function isEmptyFilters(filters: CompaniesFilters): boolean {
+  const hasArray = (arr?: unknown[]) => Array.isArray(arr) && arr.length > 0;
+  const hasStr = (s?: string) => typeof s === "string" && s.trim().length > 0;
+  const hasNum = (n?: number | null) => n != null;
+
+  return !(
+    hasArray(filters.countries) ||
+    hasArray(filters.provinces) ||
+    hasArray(filters.cities) ||
+    hasArray(filters.continentalRegions) ||
+    hasArray(filters.subRegions) ||
+    hasArray(filters.primarySectors) ||
+    hasArray(filters.secondarySectors) ||
+    hasArray(filters.hybridBusinessFocuses) ||
+    hasArray(filters.ownershipTypes) ||
+    hasNum(filters.linkedinMembersMin) ||
+    hasNum(filters.linkedinMembersMax) ||
+    hasStr(filters.searchQuery) ||
+    hasStr(filters.keywordSearch) ||
+    // Financial Metrics
+    hasNum(filters.revenueMin) ||
+    hasNum(filters.revenueMax) ||
+    hasNum(filters.ebitdaMin) ||
+    hasNum(filters.ebitdaMax) ||
+    hasNum(filters.enterpriseValueMin) ||
+    hasNum(filters.enterpriseValueMax) ||
+    hasNum(filters.revenueMultipleMin) ||
+    hasNum(filters.revenueMultipleMax) ||
+    hasNum(filters.revenueGrowthMin) ||
+    hasNum(filters.revenueGrowthMax) ||
+    hasNum(filters.ebitdaMarginMin) ||
+    hasNum(filters.ebitdaMarginMax) ||
+    hasNum(filters.ruleOf40Min) ||
+    hasNum(filters.ruleOf40Max) ||
+    // Subscription Metrics
+    hasNum(filters.arrMin) ||
+    hasNum(filters.arrMax) ||
+    hasNum(filters.arrPcMin) ||
+    hasNum(filters.arrPcMax) ||
+    hasNum(filters.churnMin) ||
+    hasNum(filters.churnMax) ||
+    hasNum(filters.grrMin) ||
+    hasNum(filters.grrMax) ||
+    hasNum(filters.nrrMin) ||
+    hasNum(filters.nrrMax) ||
+    hasNum(filters.newClientsRevenueGrowthMin) ||
+    hasNum(filters.newClientsRevenueGrowthMax)
+  );
+}
 
 export interface CompaniesFilters {
   countries?: string[];
@@ -93,8 +151,28 @@ export async function fetchCompaniesServer(
       return null;
     }
 
-    const perPage = 25;
+    // Initial list should be fast: cache only page 1 with no filters.
+    // Default page size requested: 20.
+    const perPage = 20;
     const offset = page;
+
+    const redis = getRedisClient();
+    const isInitial = page === 1 && isEmptyFilters(filters);
+    const ttlSeconds = Math.min(
+      Math.max(Number(process.env.COMPANIES_INITIAL_TTL_SECONDS ?? 26 * 60 * 60), 60),
+      7 * 24 * 60 * 60
+    );
+
+    if (redis && isInitial) {
+      // Shared cache key (still requires auth to access this server action).
+      const key = `companies:initial:v1:per${perPage}`;
+      try {
+        const cached = await redis.get<CompaniesResponse>(key);
+        if (cached) return cached;
+      } catch (e) {
+        console.error("[COMPANIES CACHE] ❌ Redis read failed:", e);
+      }
+    }
 
     const params = new URLSearchParams();
     params.append("Offset", offset.toString());
@@ -260,6 +338,16 @@ export async function fetchCompaniesServer(
     }
 
     const data: CompaniesResponse = await response.json();
+
+    if (redis && isInitial) {
+      const key = `companies:initial:v1:per${perPage}`;
+      try {
+        await redis.set(key, data as never, { ex: ttlSeconds });
+      } catch (e) {
+        console.error("[COMPANIES CACHE] ❌ Redis write failed:", e);
+      }
+    }
+
     return data;
   } catch (error) {
     console.error("Error fetching companies:", error);

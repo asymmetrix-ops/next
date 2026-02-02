@@ -328,7 +328,7 @@ const useCompaniesAPI = () => {
     nextPage: null as number | null,
     prevPage: null as number | null,
     offset: 0,
-    perPage: 25,
+    perPage: 20,
     pageTotal: 0,
   });
   const [ownershipCounts, setOwnershipCounts] = useState({
