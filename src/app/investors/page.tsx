@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, memo, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -214,6 +214,9 @@ const InvestorsPage = () => {
   );
   const [portfolioMin, setPortfolioMin] = useState<number>(0);
   const [portfolioMax, setPortfolioMax] = useState<number>(0);
+  
+  // Track if initial mount is complete to prevent duplicate API calls
+  const isInitialMount = useRef(true);
 
   // Fetch data from API (same as companies page)
   const fetchCountries = async () => {
@@ -542,6 +545,11 @@ const InvestorsPage = () => {
     fetchSubRegions();
     // Initial fetch of all investors
     fetchInvestors(filters);
+    
+    // Mark initial mount as complete after a short delay
+    setTimeout(() => {
+      isInitialMount.current = false;
+    }, 100);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -586,6 +594,8 @@ const InvestorsPage = () => {
 
   // Auto-apply new location region filters as on Companies page
   useEffect(() => {
+    if (isInitialMount.current) return;
+    
     if (
       selectedContinentalRegions.length > 0 ||
       selectedSubRegions.length > 0
@@ -597,6 +607,8 @@ const InvestorsPage = () => {
 
   // Auto-refresh results when Investor Types change
   useEffect(() => {
+    if (isInitialMount.current) return;
+    
     const updatedFilters = {
       ...filters,
       Investor_Types: selectedInvestorTypes,
@@ -787,240 +799,191 @@ const InvestorsPage = () => {
       : description;
   };
 
-  const tableRows = investors.map((investor, index) => {
-    // Truncate description for display
+  // Memoized table row component for better performance
+  const InvestorRow = memo(({ investor, index, onNavigate, isPriority }: { investor: Investor; index: number; onNavigate: (id: number) => void; isPriority?: boolean }) => {
     const description = investor.description || "N/A";
     const isDescriptionLong = description.length > 220;
     const truncatedDescription = isDescriptionLong
       ? description.substring(0, 220) + "..."
       : description;
+    const [isExpanded, setIsExpanded] = useState(false);
 
-    return React.createElement(
-      "tr",
-      { key: index },
-      React.createElement(
-        "td",
-        null,
-        investor.linkedin_logo
-          ? React.createElement("img", {
-              src: `data:image/jpeg;base64,${investor.linkedin_logo}`,
-              alt: `${investor.company_name} logo`,
-              className: "investor-logo",
-              loading: "lazy",
-            })
-          : React.createElement(
-              "div",
-              {
-                style: {
-                  width: "60px",
-                  height: "40px",
-                  backgroundColor: "#f7fafc",
-                  borderRadius: "4px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "10px",
-                  color: "#718096",
-                },
-              },
-              "No Logo"
-            )
-      ),
-      React.createElement(
-        "td",
-        null,
-        investor.original_new_company_id
-          ? React.createElement(
-              "a",
-              {
-                href: `/investors/${investor.original_new_company_id}`,
-                className: "investor-name",
-                style: {
-                  textDecoration: "underline",
-                  color: "#0075df",
-                  cursor: "pointer",
-                  fontWeight: "500",
-                },
-                onClick: (e: React.MouseEvent<HTMLAnchorElement>) => {
-                  if (
-                    e.defaultPrevented ||
-                    e.button !== 0 ||
-                    e.metaKey ||
-                    e.ctrlKey ||
-                    e.shiftKey ||
-                    e.altKey
-                  ) {
-                    return;
-                  }
-                  e.preventDefault();
-                  router.push(`/investors/${investor.original_new_company_id}`);
-                },
-                title: "Open investor",
-              },
-              investor.company_name || "N/A"
-            )
-          : React.createElement(
-              "span",
-              { className: "investor-name" },
-              investor.company_name || "N/A"
-            )
-      ),
-      React.createElement(
-        "td",
-        null,
-        investor.investor_type && investor.investor_type.length > 0
-          ? investor.investor_type.join(", ")
-          : "N/A"
-      ),
-      React.createElement(
-        "td",
-        { className: "investor-description" },
-        React.createElement(
-          "div",
-          {
-            className: "investor-description-truncated",
-            id: `description-${index}`,
-            style: { display: isDescriptionLong ? "block" : "none" },
-          },
-          truncatedDescription
-        ),
-        React.createElement(
-          "div",
-          {
-            className: "investor-description-full",
-            id: `description-full-${index}`,
-            style: { display: isDescriptionLong ? "none" : "block" },
-          },
-          description
-        ),
-        isDescriptionLong &&
-          React.createElement(
-            "span",
-            {
-              className: "expand-description",
-              onClick: () => {
-                const truncatedEl = document.getElementById(
-                  `description-${index}`
-                );
-                const fullEl = document.getElementById(
-                  `description-full-${index}`
-                );
-                const expandEl = document.getElementById(`expand-${index}`);
-                if (truncatedEl && fullEl && expandEl) {
-                  if (truncatedEl.style.display === "block") {
-                    truncatedEl.style.display = "none";
-                    fullEl.style.display = "block";
-                    expandEl.textContent = "Collapse description";
-                  } else {
-                    truncatedEl.style.display = "block";
-                    fullEl.style.display = "none";
-                    expandEl.textContent = "Expand description";
-                  }
+    return (
+      <tr key={investor.id || index}>
+        <td>
+          {investor.linkedin_logo ? (
+            <img
+              src={`data:image/jpeg;base64,${investor.linkedin_logo}`}
+              alt={`${investor.company_name} logo`}
+              className="investor-logo"
+              loading={isPriority ? "eager" : "lazy"}
+              decoding="async"
+              fetchPriority={isPriority ? "high" : undefined}
+            />
+          ) : (
+            <div
+              style={{
+                width: "60px",
+                height: "40px",
+                backgroundColor: "#f7fafc",
+                borderRadius: "4px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "10px",
+                color: "#718096",
+              }}
+            >
+              No Logo
+            </div>
+          )}
+        </td>
+        <td>
+          {investor.original_new_company_id ? (
+            <a
+              href={`/investors/${investor.original_new_company_id}`}
+              className="investor-name"
+              style={{
+                textDecoration: "underline",
+                color: "#0075df",
+                cursor: "pointer",
+                fontWeight: "500",
+              }}
+              onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                if (
+                  e.defaultPrevented ||
+                  e.button !== 0 ||
+                  e.metaKey ||
+                  e.ctrlKey ||
+                  e.shiftKey ||
+                  e.altKey
+                ) {
+                  return;
                 }
-              },
-              id: `expand-${index}`,
-            },
-            "Expand description"
-          )
-      ),
-      React.createElement(
-        "td",
-        null,
-        formatNumber(investor.number_of_active_investments)
-      ),
-      React.createElement(
-        "td",
-        { className: "sectors-list" },
-        investor.da_primary_sector_names &&
+                e.preventDefault();
+                onNavigate(investor.original_new_company_id!);
+              }}
+              title="Open investor"
+            >
+              {investor.company_name || "N/A"}
+            </a>
+          ) : (
+            <span className="investor-name">{investor.company_name || "N/A"}</span>
+          )}
+        </td>
+        <td>
+          {investor.investor_type && investor.investor_type.length > 0
+            ? investor.investor_type.join(", ")
+            : "N/A"}
+        </td>
+        <td className="investor-description">
+          {isDescriptionLong ? (
+            <>
+              <div style={{ display: isExpanded ? "none" : "block" }}>
+                {truncatedDescription}
+              </div>
+              <div style={{ display: isExpanded ? "block" : "none" }}>
+                {description}
+              </div>
+              <span
+                className="expand-description"
+                onClick={() => setIsExpanded(!isExpanded)}
+              >
+                {isExpanded ? "Collapse description" : "Expand description"}
+              </span>
+            </>
+          ) : (
+            description
+          )}
+        </td>
+        <td>{formatNumber(investor.number_of_active_investments)}</td>
+        <td className="sectors-list">
+          {investor.da_primary_sector_names &&
           investor.da_primary_sector_names.length > 0
-          ? investor.da_primary_sector_names.join(", ")
-          : "N/A"
-      ),
-      React.createElement("td", null, formatNumber(investor.linkedin_members)),
-      React.createElement("td", null, investor.country || "N/A")
+            ? investor.da_primary_sector_names.slice(0, 3).join(", ") + 
+              (investor.da_primary_sector_names.length > 3 ? "..." : "")
+            : "N/A"}
+        </td>
+        <td>{formatNumber(investor.linkedin_members)}</td>
+        <td>{investor.country || "N/A"}</td>
+      </tr>
     );
   });
 
-  // Investor Card Component for mobile
-  const InvestorCard = (investor: Investor, index: number) => {
+  // Memoized Investor Card Component for mobile
+  const InvestorCard = memo(({ investor, index, onNavigate }: { investor: Investor; index: number; onNavigate: (id: number) => void }) => {
     const description = investor.description || "N/A";
     const isDescriptionLong = description.length > 220;
     const truncatedDescription = truncateDescription(description);
+    const [isExpanded, setIsExpanded] = useState(false);
 
-    return React.createElement(
-      "div",
-      {
-        key: index,
-        className: "investor-card",
-        style: {
+    return (
+      <div
+        key={investor.id || index}
+        className="investor-card"
+        style={{
           backgroundColor: "white",
           borderRadius: "12px",
           padding: "16px",
           marginBottom: "12px",
           boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
           border: "1px solid #e2e8f0",
-        },
-      },
-      React.createElement(
-        "div",
-        {
-          style: {
+        }}
+      >
+        <div
+          style={{
             display: "flex",
             alignItems: "center",
             marginBottom: "12px",
             gap: "12px",
-          },
-        },
-        investor.linkedin_logo
-          ? React.createElement("img", {
-              src: `data:image/jpeg;base64,${investor.linkedin_logo}`,
-              alt: `${investor.company_name} logo`,
-              style: {
+          }}
+        >
+          {investor.linkedin_logo ? (
+            <img
+              src={`data:image/jpeg;base64,${investor.linkedin_logo}`}
+              alt={`${investor.company_name} logo`}
+              style={{
                 width: "50px",
                 height: "35px",
                 objectFit: "contain",
                 borderRadius: "4px",
-              },
-            })
-          : React.createElement(
-              "div",
-              {
-                style: {
-                  width: "50px",
-                  height: "35px",
-                  backgroundColor: "#f7fafc",
-                  borderRadius: "4px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "10px",
-                  color: "#718096",
-                },
-              },
-              "No Logo"
-            ),
-        React.createElement(
-          "div",
-          {
-            style: {
-              flex: "1",
-            },
-          },
-          React.createElement(
-            "a",
-            {
-              href: investor.original_new_company_id
-                ? `/investors/${investor.original_new_company_id}`
-                : undefined,
-              style: {
+              }}
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <div
+              style={{
+                width: "50px",
+                height: "35px",
+                backgroundColor: "#f7fafc",
+                borderRadius: "4px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "10px",
+                color: "#718096",
+              }}
+            >
+              No Logo
+            </div>
+          )}
+          <div style={{ flex: "1" }}>
+            <a
+              href={
+                investor.original_new_company_id
+                  ? `/investors/${investor.original_new_company_id}`
+                  : undefined
+              }
+              style={{
                 fontSize: "16px",
                 fontWeight: "600",
                 color: "#0075df",
                 textDecoration: "underline",
                 cursor: "pointer",
                 marginBottom: "4px",
-              },
-              onClick: (e: React.MouseEvent<HTMLAnchorElement>) => {
+              }}
+              onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
                 if (
                   !investor.original_new_company_id ||
                   e.defaultPrevented ||
@@ -1032,181 +995,115 @@ const InvestorsPage = () => {
                 )
                   return;
                 e.preventDefault();
-                router.push(`/investors/${investor.original_new_company_id}`);
-              },
-            },
-            investor.company_name || "N/A"
-          ),
-          React.createElement(
-            "div",
-            {
-              style: {
-                fontSize: "14px",
-                color: "#4a5568",
-              },
-            },
-            investor.investor_type && investor.investor_type.length > 0
-              ? investor.investor_type.join(", ")
-              : "N/A"
-          )
-        )
-      ),
-      React.createElement(
-        "div",
-        {
-          style: {
+                onNavigate(investor.original_new_company_id);
+              }}
+            >
+              {investor.company_name || "N/A"}
+            </a>
+            <div style={{ fontSize: "14px", color: "#4a5568" }}>
+              {investor.investor_type && investor.investor_type.length > 0
+                ? investor.investor_type.join(", ")
+                : "N/A"}
+            </div>
+          </div>
+        </div>
+        <div
+          style={{
             fontSize: "14px",
             color: "#4a5568",
             lineHeight: "1.4",
             marginBottom: "12px",
-          },
-        },
-        React.createElement(
-          "div",
-          {
-            id: `card-description-${index}`,
-            style: { display: isDescriptionLong ? "block" : "none" },
-          },
-          truncatedDescription
-        ),
-        React.createElement(
-          "div",
-          {
-            id: `card-description-full-${index}`,
-            style: { display: isDescriptionLong ? "none" : "block" },
-          },
-          description
-        ),
-        isDescriptionLong &&
-          React.createElement(
-            "span",
-            {
-              style: {
-                color: "#0075df",
-                textDecoration: "underline",
-                cursor: "pointer",
-                fontSize: "12px",
-                marginTop: "4px",
-                display: "block",
-              },
-              onClick: () => {
-                const truncatedEl = document.getElementById(
-                  `card-description-${index}`
-                );
-                const fullEl = document.getElementById(
-                  `card-description-full-${index}`
-                );
-                if (truncatedEl && fullEl) {
-                  if (truncatedEl.style.display === "block") {
-                    truncatedEl.style.display = "none";
-                    fullEl.style.display = "block";
-                  } else {
-                    truncatedEl.style.display = "block";
-                    fullEl.style.display = "none";
-                  }
-                }
-              },
-            },
-            "Expand description"
-          )
-      ),
-      React.createElement(
-        "div",
-        {
-          style: {
+          }}
+        >
+          {isDescriptionLong ? (
+            <>
+              <div style={{ display: isExpanded ? "none" : "block" }}>
+                {truncatedDescription}
+              </div>
+              <div style={{ display: isExpanded ? "block" : "none" }}>
+                {description}
+              </div>
+              <span
+                style={{
+                  color: "#0075df",
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  marginTop: "4px",
+                  display: "block",
+                }}
+                onClick={() => setIsExpanded(!isExpanded)}
+              >
+                {isExpanded ? "Collapse description" : "Expand description"}
+              </span>
+            </>
+          ) : (
+            description
+          )}
+        </div>
+        <div
+          style={{
             display: "flex",
             flexDirection: "column",
             gap: "8px",
             fontSize: "12px",
             borderTop: "1px solid #e2e8f0",
             paddingTop: "12px",
-          },
-        },
-        React.createElement(
-          "div",
-          {
-            style: {
+          }}
+        >
+          <div
+            style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
               padding: "8px 0",
               borderBottom: "1px solid #f1f5f9",
-            },
-          },
-          React.createElement(
-            "span",
-            { style: { color: "#4a5568", fontWeight: "500" } },
-            "Portfolio:"
-          ),
-          React.createElement(
-            "span",
-            { style: { fontWeight: "600", color: "#1a202c" } },
-            formatNumber(investor.number_of_active_investments)
-          )
-        ),
-        React.createElement(
-          "div",
-          {
-            style: {
+            }}
+          >
+            <span style={{ color: "#4a5568", fontWeight: "500" }}>Portfolio:</span>
+            <span style={{ fontWeight: "600", color: "#1a202c" }}>
+              {formatNumber(investor.number_of_active_investments)}
+            </span>
+          </div>
+          <div
+            style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
               padding: "8px 0",
               borderBottom: "1px solid #f1f5f9",
-            },
-          },
-          React.createElement(
-            "span",
-            { style: { color: "#4a5568", fontWeight: "500" } },
-            "LinkedIn:"
-          ),
-          React.createElement(
-            "span",
-            { style: { fontWeight: "600", color: "#1a202c" } },
-            formatNumber(investor.linkedin_members)
-          )
-        ),
-        React.createElement(
-          "div",
-          {
-            style: {
+            }}
+          >
+            <span style={{ color: "#4a5568", fontWeight: "500" }}>LinkedIn:</span>
+            <span style={{ fontWeight: "600", color: "#1a202c" }}>
+              {formatNumber(investor.linkedin_members)}
+            </span>
+          </div>
+          <div
+            style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
               padding: "8px 0",
               borderBottom: "1px solid #f1f5f9",
-            },
-          },
-          React.createElement(
-            "span",
-            { style: { color: "#4a5568", fontWeight: "500" } },
-            "Country:"
-          ),
-          React.createElement(
-            "span",
-            { style: { fontWeight: "600", color: "#1a202c" } },
-            investor.country || "N/A"
-          )
-        ),
-        React.createElement(
-          "div",
-          {
-            style: {
+            }}
+          >
+            <span style={{ color: "#4a5568", fontWeight: "500" }}>Country:</span>
+            <span style={{ fontWeight: "600", color: "#1a202c" }}>
+              {investor.country || "N/A"}
+            </span>
+          </div>
+          <div
+            style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
               padding: "8px 0",
-            },
-          },
-          React.createElement(
-            "span",
-            { style: { color: "#4a5568", fontWeight: "500" } },
-            "Sectors:"
-          ),
-          React.createElement(
-            "span",
-            {
-              style: {
+            }}
+          >
+            <span style={{ color: "#4a5568", fontWeight: "500" }}>Sectors:</span>
+            <span
+              style={{
                 fontWeight: "600",
                 color: "#1a202c",
                 textAlign: "right",
@@ -1214,19 +1111,64 @@ const InvestorsPage = () => {
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
-              },
-            },
-            investor.da_primary_sector_names &&
+              }}
+            >
+              {investor.da_primary_sector_names &&
               investor.da_primary_sector_names.length > 0
-              ? investor.da_primary_sector_names.join(", ")
-              : "N/A"
-          )
-        )
-      )
+                ? investor.da_primary_sector_names.join(", ")
+                : "N/A"}
+            </span>
+          </div>
+        </div>
+      </div>
     );
-  };
+  });
+
+  InvestorRow.displayName = "InvestorRow";
+  InvestorCard.displayName = "InvestorCard";
+
+  // Navigation handler
+  const handleNavigate = useCallback((id: number) => {
+    router.push(`/investors/${id}`);
+  }, [router]);
+
+  // Skeleton loader for initial load
+  const TableSkeleton = () => (
+    <table className="investor-table">
+      <thead>
+        <tr>
+          <th>Logo</th>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Current D&A Portfolio Companies</th>
+          <th>D&A Primary Sectors</th>
+          <th>LinkedIn Members</th>
+          <th>Country</th>
+        </tr>
+      </thead>
+      <tbody>
+        {[...Array(10)].map((_, i) => (
+          <tr key={i}>
+            <td><div className="loading-skeleton" style={{ width: "60px", height: "40px" }} /></td>
+            <td><div className="loading-skeleton" style={{ width: "100%", height: "20px" }} /></td>
+            <td><div className="loading-skeleton" style={{ width: "100%", height: "20px" }} /></td>
+            <td><div className="loading-skeleton" style={{ width: "100%", height: "40px" }} /></td>
+            <td><div className="loading-skeleton" style={{ width: "60px", height: "20px" }} /></td>
+            <td><div className="loading-skeleton" style={{ width: "100%", height: "20px" }} /></td>
+            <td><div className="loading-skeleton" style={{ width: "60px", height: "20px" }} /></td>
+            <td><div className="loading-skeleton" style={{ width: "80%", height: "20px" }} /></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 
   const style = `
+    * {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
     .investor-section {
       padding: 16px 24px;
       border-radius: 8px;
@@ -1269,7 +1211,20 @@ const InvestorsPage = () => {
       color: #000;
       font-weight: 600;
     }
-    .investor-table { width: 100%; background: #fff; padding: 16px 16px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
+    .investor-table { 
+      width: 100%; 
+      background: #fff; 
+      padding: 16px 16px; 
+      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); 
+      border-radius: 16px; 
+      border-collapse: collapse; 
+      table-layout: fixed;
+      content-visibility: auto;
+      contain-intrinsic-size: auto 500px;
+    }
+    .investor-table tbody {
+      content-visibility: auto;
+    }
     .investor-table th:nth-child(1) { width: 8%; }  /* Logo */
     .investor-table th:nth-child(2) { width: 12%; } /* Name */
     .investor-table th:nth-child(3) { width: 10%; } /* Type */
@@ -1334,15 +1289,27 @@ const InvestorsPage = () => {
       font-size: 12px;
       margin-top: 4px;
       display: block;
+      will-change: transform;
     }
     .sectors-list {
       max-width: 250px;
       line-height: 1.3;
+      contain: layout style;
     }
     .loading {
       text-align: center;
       padding: 40px;
       color: #666;
+    }
+    .loading-skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: loading 1.5s ease-in-out infinite;
+      border-radius: 4px;
+    }
+    @keyframes loading {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
     }
     .error {
       text-align: center;
@@ -1391,6 +1358,10 @@ const InvestorsPage = () => {
     }
     .investor-cards {
       display: none;
+    }
+    .investor-card {
+      content-visibility: auto;
+      contain-intrinsic-size: auto 300px;
     }
     @media (max-width: 768px) {
       .investor-table {
@@ -1470,6 +1441,37 @@ const InvestorsPage = () => {
       }
     }
   `;
+
+  // Memoize investor rows to prevent unnecessary re-renders
+  const investorRows = useMemo(
+    () =>
+      investors.map((investor, index) => (
+        <InvestorRow
+          key={investor.id || index}
+          investor={investor}
+          index={index}
+          onNavigate={handleNavigate}
+          isPriority={index < 5}
+        />
+      )),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [investors, handleNavigate]
+  );
+
+  // Memoize investor cards for mobile
+  const investorCards = useMemo(
+    () =>
+      investors.map((investor, index) => (
+        <InvestorCard
+          key={investor.id || index}
+          investor={investor}
+          index={index}
+          onNavigate={handleNavigate}
+        />
+      )),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [investors, handleNavigate]
+  );
 
   // Generate pagination buttons
   const generatePaginationButtons = () => {
@@ -1958,15 +1960,13 @@ const InvestorsPage = () => {
 
           {/* Error Display */}
           {error && <div style={styles.error}>{error}</div>}
-
-          {/* Loading Display */}
-          {loading && <div style={styles.loading}>Loading investors...</div>}
         </div>
       </div>
 
       {/* Investors Table Section */}
       <div className="investor-section">
         {/* Statistics Block */}
+        {!loading && investors.length > 0 && (
         <div className="investor-stats">
           <h2 className="stats-title">Investors</h2>
           <div className="stats-grid">
@@ -2042,30 +2042,42 @@ const InvestorsPage = () => {
             </div>
           </div>
         </div>
+        )}
 
-        {/* Desktop Table */}
-        <table className="investor-table">
-          <thead>
-            <tr>
-              <th>Logo</th>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Description</th>
-              <th>Current D&A Portfolio Companies</th>
-              <th>D&A Primary Sectors</th>
-              <th>LinkedIn Members</th>
-              <th>Country</th>
-            </tr>
-          </thead>
-          <tbody>{tableRows}</tbody>
-        </table>
+        {/* Show skeleton on initial load, otherwise show table */}
+        {loading && investors.length === 0 ? (
+          <TableSkeleton />
+        ) : (
+          <>
+            {/* Desktop Table */}
+            <table className="investor-table">
+              <thead>
+                <tr>
+                  <th>Logo</th>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                  <th>Current D&A Portfolio Companies</th>
+                  <th>D&A Primary Sectors</th>
+                  <th>LinkedIn Members</th>
+                  <th>Country</th>
+                </tr>
+              </thead>
+              <tbody>
+                {investorRows}
+              </tbody>
+            </table>
 
-        {/* Mobile Cards */}
-        <div className="investor-cards">
-          {investors.map((investor, index) => InvestorCard(investor, index))}
-        </div>
+            {/* Mobile Cards */}
+            <div className="investor-cards">
+              {investorCards}
+            </div>
+          </>
+        )}
 
-        <div className="pagination">{generatePaginationButtons()}</div>
+        {!loading && investors.length > 0 && (
+          <div className="pagination">{generatePaginationButtons()}</div>
+        )}
       </div>
 
       <Footer />
