@@ -110,6 +110,10 @@ interface Filters {
   nrrMax: number | null;
   newClientsRevenueGrowthMin: number | null;
   newClientsRevenueGrowthMax: number | null;
+  // LinkedIn Growth Metrics
+  minGrowthPercent: number | null;
+  maxGrowthPercent: number | null;
+  timeFrame: string;
 }
 
 interface CompaniesResponse {
@@ -519,6 +523,17 @@ const useCompaniesAPI = () => {
           }
           if (filtersToUse.newClientsRevenueGrowthMax != null) {
             params.append("New_Clients_Revenue_Growth_max", filtersToUse.newClientsRevenueGrowthMax.toString());
+          }
+
+          // LinkedIn Growth Metrics
+          if (filtersToUse.minGrowthPercent != null) {
+            params.append("min_growth_percent", filtersToUse.minGrowthPercent.toString());
+          }
+          if (filtersToUse.maxGrowthPercent != null) {
+            params.append("max_growth_percent", filtersToUse.maxGrowthPercent.toString());
+          }
+          if (filtersToUse.timeFrame && filtersToUse.timeFrame.trim()) {
+            params.append("time_frame", filtersToUse.timeFrame.trim());
           }
 
           if (filtersToUse.searchQuery && filtersToUse.searchQuery.trim()) {
@@ -1035,6 +1050,11 @@ const CompanyDashboard = ({
   const [newClientsRevenueGrowthMin, setNewClientsRevenueGrowthMin] = useState<number | null>(null);
   const [newClientsRevenueGrowthMax, setNewClientsRevenueGrowthMax] = useState<number | null>(null);
 
+  // LinkedIn Growth Metrics
+  const [minGrowthPercent, setMinGrowthPercent] = useState<number | null>(null);
+  const [maxGrowthPercent, setMaxGrowthPercent] = useState<number | null>(null);
+  const [timeFrame, setTimeFrame] = useState<string>("");
+
   // Loading states
   const [loadingCountries, setLoadingCountries] = useState(false);
   const [loadingProvinces, setLoadingProvinces] = useState(false);
@@ -1287,6 +1307,10 @@ const CompanyDashboard = ({
       nrrMax,
       newClientsRevenueGrowthMin,
       newClientsRevenueGrowthMax,
+      // LinkedIn Growth Metrics
+      minGrowthPercent,
+      maxGrowthPercent,
+      timeFrame,
     };
     console.log("Searching with filters:", filters);
 
@@ -1336,6 +1360,10 @@ const CompanyDashboard = ({
     nrrMax,
     newClientsRevenueGrowthMin,
     newClientsRevenueGrowthMax,
+    // LinkedIn Growth Metrics
+    minGrowthPercent,
+    maxGrowthPercent,
+    timeFrame,
   ]);
 
   // Auto-run search if initialSearch prop is provided
@@ -2050,6 +2078,46 @@ const CompanyDashboard = ({
                     }
                   />
                 </div>
+
+                <span style={styles.label}>LinkedIn Growth (%) Range</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min %"
+                    value={minGrowthPercent ?? ""}
+                    onChange={(e) =>
+                      setMinGrowthPercent(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max %"
+                    value={maxGrowthPercent ?? ""}
+                    onChange={(e) =>
+                      setMaxGrowthPercent(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
+                <span style={styles.label}>Growth Time Frame</span>
+                <select
+                  style={styles.select}
+                  value={timeFrame}
+                  onChange={(e) => setTimeFrame(e.target.value)}
+                >
+                  <option value="">Select Time Frame</option>
+                  <option value="Last Quarter">Last Quarter</option>
+                  <option value="Last Year">Last Year</option>
+                  <option value="Last 4 Quarters">Last 4 Quarters</option>
+                  <option value="YTD">YTD</option>
+                  <option value="Last 2 Years">Last 2 Years</option>
+                </select>
               </div>
               <div style={styles.gridItem}>
                 <h3 style={styles.subHeading} className="filters-sub-heading">
@@ -2559,7 +2627,11 @@ const CompanySection = ({
       currentFilters.nrrMin !== null ||
       currentFilters.nrrMax !== null ||
       currentFilters.newClientsRevenueGrowthMin !== null ||
-      currentFilters.newClientsRevenueGrowthMax !== null
+      currentFilters.newClientsRevenueGrowthMax !== null ||
+      // LinkedIn Growth Metrics
+      currentFilters.minGrowthPercent !== null ||
+      currentFilters.maxGrowthPercent !== null ||
+      (currentFilters.timeFrame && currentFilters.timeFrame.trim() !== "")
     );
   };
 
@@ -2648,6 +2720,13 @@ const CompanySection = ({
         appendIfValue("NRR_max", f.nrrMax);
         appendIfValue("New_Clients_Revenue_Growth_min", f.newClientsRevenueGrowthMin);
         appendIfValue("New_Clients_Revenue_Growth_max", f.newClientsRevenueGrowthMax);
+
+        // LinkedIn Growth Metrics for export
+        appendIfValue("min_growth_percent", f.minGrowthPercent);
+        appendIfValue("max_growth_percent", f.maxGrowthPercent);
+        if (f.timeFrame && f.timeFrame.trim()) {
+          params.append("time_frame", f.timeFrame.trim());
+        }
 
         if (f.searchQuery && f.searchQuery.trim()) {
           params.append("query", f.searchQuery.trim());
