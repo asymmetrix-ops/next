@@ -19,7 +19,7 @@ function getRedisClient(): Redis | null {
   }
   return null;
 }
-
+  
 async function getAuthToken(): Promise<string | null> {
   if (!CRON_AUTH_EMAIL || !CRON_AUTH_PASSWORD) {
     console.error('[CRON] ❌ Missing CRON_AUTH_EMAIL or CRON_AUTH_PASSWORD environment variables');

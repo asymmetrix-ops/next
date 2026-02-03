@@ -157,19 +157,22 @@ export function NewFeatureCallout({
             role="dialog"
             aria-label={titleText}
             className={cn(
-              "fixed z-[9999] w-44 rounded-lg border border-blue-500/30 bg-gradient-to-b from-blue-600 to-blue-700 p-2 shadow-lg shadow-blue-900/20"
+              "fixed z-[9999] w-fit min-w-40 max-w-[240px] rounded-2xl",
+              "bg-slate-900/95 text-white backdrop-blur-md",
+              "ring-1 ring-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.35)]",
+              "px-4 py-3"
             )}
             style={{
               left: anchorRect.right,
               top: placement === "top" ? anchorRect.top : anchorRect.bottom,
               transform:
                 placement === "top"
-                  ? "translate(calc(-100% + 0px), calc(-100% - 12px))"
-                  : "translate(calc(-100% + 0px), 12px)",
+                  ? "translate(calc(-100% + 0px), calc(-100% - 10px))"
+                  : "translate(calc(-100% + 0px), 10px)",
             }}
           >
-            <div className="flex items-start justify-between gap-2">
-              <div className="text-xs font-semibold text-white">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold tracking-tight">
                 {titleText}
               </div>
               <button
@@ -177,14 +180,14 @@ export function NewFeatureCallout({
                 aria-label="Dismiss"
                 onClick={dismiss}
                 className={cn(
-                  "inline-flex h-6 w-6 items-center justify-center rounded-md",
-                  "text-white/80 hover:bg-white/10 hover:text-white",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-blue-700"
+                  "inline-flex h-7 w-7 items-center justify-center rounded-full",
+                  "text-white/70 hover:bg-white/10 hover:text-white",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
                 )}
               >
                 <svg
-                  width="14"
-                  height="14"
+                  width="16"
+                  height="16"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -198,19 +201,6 @@ export function NewFeatureCallout({
                 </svg>
               </button>
             </div>
-
-            {/* Arrow */}
-            {placement === "top" ? (
-              <>
-                <div className="pointer-events-none absolute -bottom-[9px] right-5 h-0 w-0 border-x-[9px] border-x-transparent border-t-[9px] border-t-blue-500/30" />
-                <div className="pointer-events-none absolute -bottom-2 right-5 h-0 w-0 border-x-8 border-x-transparent border-t-8 border-t-blue-700" />
-              </>
-            ) : (
-              <>
-                <div className="pointer-events-none absolute -top-[9px] right-5 h-0 w-0 border-x-[9px] border-x-transparent border-b-[9px] border-b-blue-500/30" />
-                <div className="pointer-events-none absolute -top-2 right-5 h-0 w-0 border-x-8 border-x-transparent border-b-8 border-b-blue-600" />
-              </>
-            )}
           </div>,
           document.body
         )}
