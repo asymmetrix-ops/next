@@ -22,6 +22,9 @@ import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { fetchCompaniesServer, CompaniesFilters as ServerFilters } from "./actions";
 
+// Feature flags (master only)
+const ENABLE_COMPANIES_KEYWORD_SEARCH = false;
+
 // Extended CSV row type that includes financial and subscription metrics
 interface CompanyCSVRow extends BaseCompanyCSVRow {
   Revenue?: string;
@@ -369,7 +372,9 @@ const useCompaniesAPI = () => {
           linkedinMembersMin: filtersToUse.linkedinMembersMin,
           linkedinMembersMax: filtersToUse.linkedinMembersMax,
           searchQuery: filtersToUse.searchQuery,
-          keywordSearch: filtersToUse.keywordSearch,
+          keywordSearch: ENABLE_COMPANIES_KEYWORD_SEARCH
+            ? filtersToUse.keywordSearch
+            : "",
           // Financial Metrics
           revenueMin: filtersToUse.revenueMin,
           revenueMax: filtersToUse.revenueMax,
@@ -1043,7 +1048,7 @@ const CompanyDashboard = ({
       linkedinMembersMin,
       linkedinMembersMax,
       searchQuery: searchTerm,
-      keywordSearch: keywordSearch,
+      keywordSearch: ENABLE_COMPANIES_KEYWORD_SEARCH ? keywordSearch : "",
       // Financial Metrics min/max
       revenueMin,
       revenueMax,
@@ -2205,20 +2210,6 @@ const CompanyDashboard = ({
                   onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                 />
               </div>
-              <div style={styles.searchDiv}>
-                <span style={{ fontSize: "14px", color: "#4a5568", marginBottom: "4px" }}>
-                  Keywords (Description)
-                </span>
-                <input
-                  type="text"
-                  placeholder="Search in descriptions"
-                  value={keywordSearch}
-                  onChange={(e) => setKeywordSearch(e.target.value)}
-                  style={styles.input}
-                  className="filters-input"
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                />
-              </div>
             </div>
             <button
               style={{ ...styles.button, marginTop: "12px" }}
@@ -2302,7 +2293,8 @@ const CompanySection = ({
       currentFilters.linkedinMembersMin !== null ||
       currentFilters.linkedinMembersMax !== null ||
       currentFilters.searchQuery.trim() !== "" ||
-      currentFilters.keywordSearch.trim() !== "" ||
+      (ENABLE_COMPANIES_KEYWORD_SEARCH &&
+        currentFilters.keywordSearch.trim() !== "") ||
       // Financial Metrics
       currentFilters.revenueMin !== null ||
       currentFilters.revenueMax !== null ||
@@ -2425,7 +2417,11 @@ const CompanySection = ({
         }
 
         // Keyword search (searches across descriptions)
-        if (f.keywordSearch && f.keywordSearch.trim()) {
+        if (
+          ENABLE_COMPANIES_KEYWORD_SEARCH &&
+          f.keywordSearch &&
+          f.keywordSearch.trim()
+        ) {
           params.append("keywords_search", f.keywordSearch.trim());
         }
       }
