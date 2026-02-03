@@ -18,6 +18,21 @@ const CRON_AUTH_EMAIL = process.env.CRON_AUTH_EMAIL;
 const CRON_AUTH_PASSWORD = process.env.CRON_AUTH_PASSWORD;
 const CRON_MANUAL_SECRET = process.env.CRON_MANUAL_SECRET;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function extractSectorsList(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  if (isRecord(value)) {
+    const sectors = value['sectors'];
+    if (Array.isArray(sectors)) return sectors;
+    const items = value['items'];
+    if (Array.isArray(items)) return items;
+  }
+  return [];
+}
+
 // Authenticate with Xano and get auth token
 async function getAuthToken(): Promise<string | null> {
   if (!CRON_AUTH_EMAIL || !CRON_AUTH_PASSWORD) {
@@ -128,12 +143,12 @@ async function fetchSectorIds(token: string): Promise<string[]> {
       return [];
     }
 
-    const data = out.data as any;
-    const sectors = Array.isArray(data) ? data : (data?.sectors || data?.items || []);
+    const data = out.data;
+    const sectors = extractSectorsList(data);
 
     // Also cache the full sector list for the /sectors list-view.
     try {
-      const listPayload = Array.isArray(data) ? { sectors } : (data?.sectors ? data : { sectors });
+      const listPayload = isRecord(data) && Array.isArray(data['sectors']) ? data : { sectors };
       await setCachedSectorsList(listPayload);
       console.log('[CRON] 💾 Sector list cached for list-view');
     } catch (e) {
@@ -141,8 +156,19 @@ async function fetchSectorIds(token: string): Promise<string[]> {
     }
 
     const ids = sectors
-      .map((s: { id?: number; Sector_id?: number }) => String(s.id || s.Sector_id))
-      .filter((id: string) => id && id !== 'undefined');
+      .map((s) => {
+        if (!isRecord(s)) return '';
+        const id = s['id'];
+        const sectorId = s['Sector_id'];
+        const val =
+          typeof id === 'number' || typeof id === 'string'
+            ? id
+            : typeof sectorId === 'number' || typeof sectorId === 'string'
+              ? sectorId
+              : '';
+        return String(val);
+      })
+      .filter((id) => id && id !== 'undefined');
     
     console.log(`[CRON] Found ${ids.length} sectors to warm`);
     return ids;
@@ -195,7 +221,10 @@ async function fetchSectorData(sectorId: string, token: string): Promise<{
     const recentData = recentOut.data;
 
     // Extract market map from response structure
-    const marketMap = (marketMapData as any)?.market_map ?? marketMapData;
+    const marketMap =
+      isRecord(marketMapData) && 'market_map' in marketMapData
+        ? (marketMapData as Record<string, unknown>)['market_map']
+        : marketMapData;
 
     return {
       sectorData,

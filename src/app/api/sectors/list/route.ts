@@ -10,6 +10,27 @@ const XANO_AUTH_URL = 'https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/login
 const CRON_AUTH_EMAIL = process.env.CRON_AUTH_EMAIL;
 const CRON_AUTH_PASSWORD = process.env.CRON_AUTH_PASSWORD;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function extractSectors(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  if (isRecord(value)) {
+    const sectors = value['sectors'];
+    if (Array.isArray(sectors)) return sectors;
+    const items = value['items'];
+    if (Array.isArray(items)) return items;
+  }
+  return [];
+}
+
+function sectorNameLower(value: unknown): string {
+  if (!isRecord(value)) return '';
+  const name = value['sector_name'];
+  return typeof name === 'string' ? name.toLowerCase() : '';
+}
+
 async function getAuthToken(): Promise<string | null> {
   if (!CRON_AUTH_EMAIL || !CRON_AUTH_PASSWORD) return null;
   try {
@@ -32,16 +53,13 @@ export async function GET(request: NextRequest) {
   const cached = await getCachedSectorsList();
   if (cached) {
     if (!search) return NextResponse.json(cached);
-    const obj = cached as { sectors?: unknown[] } | unknown;
-    const sectors = (obj && typeof obj === 'object' && Array.isArray((obj as { sectors?: unknown[] }).sectors))
-      ? ((obj as { sectors: any[] }).sectors)
-      : (Array.isArray(cached) ? (cached as any[]) : []);
+    const sectors = extractSectors(cached);
 
     const filtered = sectors.filter((s) => {
-      const name = String((s as any)?.sector_name ?? '').toLowerCase();
-      return name.includes(search);
+      return sectorNameLower(s).includes(search);
     });
-    return NextResponse.json({ ...(typeof obj === 'object' && obj ? obj : {}), sectors: filtered });
+    if (isRecord(cached)) return NextResponse.json({ ...cached, sectors: filtered });
+    return NextResponse.json({ sectors: filtered });
   }
 
   // Cache miss: best-effort fetch from Xano using cron creds (public list-view data).
@@ -65,14 +83,12 @@ export async function GET(request: NextRequest) {
   }
 
   const data = await resp.json();
-  const sectors = Array.isArray(data) ? data : (data?.sectors ?? data?.items ?? []);
-  const payload = Array.isArray(data) ? { sectors } : (data?.sectors ? data : { sectors });
+  const sectors = extractSectors(data);
+  const payload = isRecord(data) && Array.isArray(data['sectors']) ? data : { sectors };
   await setCachedSectorsList(payload);
 
   if (!search) return NextResponse.json(payload);
-  const filtered = (payload.sectors ?? []).filter((s: any) =>
-    String(s?.sector_name ?? '').toLowerCase().includes(search)
-  );
-  return NextResponse.json({ ...payload, sectors: filtered });
+  const filtered = sectors.filter((s) => sectorNameLower(s).includes(search));
+  return NextResponse.json(isRecord(payload) ? { ...payload, sectors: filtered } : { sectors: filtered });
 }
 
