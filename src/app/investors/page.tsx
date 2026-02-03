@@ -447,8 +447,8 @@ const InvestorsPage = () => {
         });
       }
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/investors_with_d_a_list?${params.toString()}`;
-      console.log("[Investors] Fetch URL:", url);
+      // Use our cached proxy endpoint (Redis-backed for initial page).
+      const url = `/api/investors/list?${params.toString()}`;
 
       const requestId = ++lastRequestIdRef.current;
 
@@ -469,17 +469,6 @@ const InvestorsPage = () => {
       }
 
       const data: InvestorsResponse = await response.json();
-      console.log("[Investors] Response keys:", Object.keys(data || {}));
-      const dataAny = data as unknown as {
-        investors?: Record<string, unknown>;
-      };
-      if (dataAny?.investors) {
-        console.log(
-          "[Investors] investors keys:",
-          Object.keys(dataAny.investors || {})
-        );
-      }
-
       // Ignore stale responses
       if (requestId === lastRequestIdRef.current) {
         setInvestors(data.investors.items);
