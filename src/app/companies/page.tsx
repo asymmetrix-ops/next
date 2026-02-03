@@ -82,6 +82,7 @@ interface Filters {
   linkedinMembersMin: number | null;
   linkedinMembersMax: number | null;
   searchQuery: string;
+  keywordSearch: string;
   // Financial Metrics
   revenueMin: number | null;
   revenueMax: number | null;
@@ -539,6 +540,11 @@ const useCompaniesAPI = () => {
           if (filtersToUse.searchQuery && filtersToUse.searchQuery.trim()) {
             params.append("query", filtersToUse.searchQuery.trim());
           }
+
+          // Keyword search (searches across descriptions)
+          if (filtersToUse.keywordSearch && filtersToUse.keywordSearch.trim()) {
+            params.append("keywords_search", filtersToUse.keywordSearch.trim());
+          }
         }
         // When no filters are present, only send Offset and Per_page
 
@@ -977,6 +983,7 @@ const CompanyDashboard = ({
   initialSearch?: string;
 }) => {
   const [searchTerm, setSearchTerm] = useState(initialSearch || "");
+  const [keywordSearch, setKeywordSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
   // Filter data state
@@ -1279,6 +1286,7 @@ const CompanyDashboard = ({
       linkedinMembersMin,
       linkedinMembersMax,
       searchQuery: searchTerm,
+      keywordSearch: keywordSearch,
       // Financial Metrics min/max
       revenueMin,
       revenueMax,
@@ -1332,6 +1340,7 @@ const CompanyDashboard = ({
     linkedinMembersMin,
     linkedinMembersMax,
     searchTerm,
+    keywordSearch,
     // Financial Metrics min/max
     revenueMin,
     revenueMax,
@@ -2472,32 +2481,64 @@ const CompanyDashboard = ({
             <h3 style={styles.subHeading} className="filters-sub-heading">
               Search for Company
             </h3>
-            <div style={styles.searchDiv}>
-              <input
-                type="text"
-                placeholder="Enter company name here"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={styles.input}
-                className="filters-input"
-                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-              />
-              <button
-                style={styles.button}
-                className="filters-button"
-                onClick={handleSearch}
-                onMouseOver={(e) =>
-                  ((e.target as HTMLButtonElement).style.backgroundColor =
-                    "#005bb5")
-                }
-                onMouseOut={(e) =>
-                  ((e.target as HTMLButtonElement).style.backgroundColor =
-                    "#0075df")
-                }
-              >
-                Search
-              </button>
+            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+              <div style={styles.searchDiv}>
+                <span
+                  style={{
+                    fontSize: "14px",
+                    color: "#4a5568",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Company Name
+                </span>
+                <input
+                  type="text"
+                  placeholder="Enter company name here"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={styles.input}
+                  className="filters-input"
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                />
+              </div>
+
+              <div style={styles.searchDiv}>
+                <span
+                  style={{
+                    fontSize: "14px",
+                    color: "#4a5568",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Keywords (Description)
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search in descriptions"
+                  value={keywordSearch}
+                  onChange={(e) => setKeywordSearch(e.target.value)}
+                  style={styles.input}
+                  className="filters-input"
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                />
+              </div>
             </div>
+            <button
+              style={{ ...styles.button, marginTop: "12px" }}
+              className="filters-button"
+              onClick={handleSearch}
+              onMouseOver={(e) =>
+                ((e.target as HTMLButtonElement).style.backgroundColor =
+                  "#005bb5")
+              }
+              onMouseOut={(e) =>
+                ((e.target as HTMLButtonElement).style.backgroundColor =
+                  "#0075df")
+              }
+            >
+              Search
+            </button>
           </div>
 
           <button
@@ -2600,6 +2641,7 @@ const CompanySection = ({
       currentFilters.linkedinMembersMin !== null ||
       currentFilters.linkedinMembersMax !== null ||
       currentFilters.searchQuery.trim() !== "" ||
+      currentFilters.keywordSearch.trim() !== "" ||
       // Financial Metrics
       currentFilters.revenueMin !== null ||
       currentFilters.revenueMax !== null ||
@@ -2730,6 +2772,11 @@ const CompanySection = ({
 
         if (f.searchQuery && f.searchQuery.trim()) {
           params.append("query", f.searchQuery.trim());
+        }
+
+        // Keyword search (searches across descriptions)
+        if (f.keywordSearch && f.keywordSearch.trim()) {
+          params.append("keywords_search", f.keywordSearch.trim());
         }
       }
 
