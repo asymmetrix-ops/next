@@ -28,6 +28,12 @@ const CACHE_TTL_SECONDS = Math.min(
 const CACHE_TTL_MS = CACHE_TTL_SECONDS * 1000;
 
 const WARMED_AT_KEY = 'sector:cache:warmed_at';
+const SECTOR_LIST_KEY = 'sectors:list:v1';
+const DEFAULT_SECTOR_LIST_TTL_SECONDS = DEFAULT_CACHE_TTL_SECONDS;
+const SECTOR_LIST_TTL_SECONDS = Math.min(
+  Math.max(Number(process.env.SECTOR_LIST_TTL_SECONDS ?? DEFAULT_SECTOR_LIST_TTL_SECONDS), 60),
+  7 * 24 * 60 * 60
+);
 
 function getRedisClient(): Redis | null {
   // Upstash Redis REST env vars:
@@ -118,6 +124,48 @@ export async function setCachedSectorData(sectorId: string, data: unknown): Prom
   });
 
   console.log(`[CACHE] 💾 SET for sector ${sectorId}`);
+}
+
+export async function getCachedSectorsList(): Promise<unknown | null> {
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      const raw = await redis.get<unknown>(SECTOR_LIST_KEY);
+      if (raw == null) return null;
+      return raw;
+    } catch (e) {
+      console.error('[CACHE] ❌ Redis read failed for sector list:', e);
+      return null;
+    }
+  }
+
+  const entry = cache.get(SECTOR_LIST_KEY);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    cache.delete(SECTOR_LIST_KEY);
+    return null;
+  }
+  return entry.data;
+}
+
+export async function setCachedSectorsList(data: unknown): Promise<void> {
+  const now = Date.now();
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      await redis.set(SECTOR_LIST_KEY, data as never, { ex: SECTOR_LIST_TTL_SECONDS });
+      return;
+    } catch (e) {
+      console.error('[CACHE] ❌ Redis write failed for sector list:', e);
+      // fall back to in-memory
+    }
+  }
+
+  cache.set(SECTOR_LIST_KEY, {
+    data,
+    timestamp: now,
+    expiresAt: now + SECTOR_LIST_TTL_SECONDS * 1000,
+  });
 }
 
 export function getCacheStats(): { size: number; keys: string[] } {

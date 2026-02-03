@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { setCachedSectorData } from '@/lib/sector-cache';
+import { setCachedSectorData, setCachedSectorsList } from '@/lib/sector-cache';
 
 // This route does real work (network + caching) and must never be pre-rendered at build time.
 // Force dynamic execution so `next build` doesn't attempt static generation for `/api/cron/warm-sectors`.
@@ -68,31 +68,78 @@ function getXanoHeaders(token: string) {
 }
 
 // Fetch with timeout
-async function fetchWithTimeout(url: string, token: string, timeoutMs = 30000): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, {
-      method: 'GET',
-      headers: getXanoHeaders(token),
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
+const DEFAULT_FETCH_TIMEOUT_MS = 45000;
+
+async function fetchJsonWithTimeout(
+  url: string,
+  token: string,
+  timeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
+  retries = 1
+): Promise<{ ok: boolean; status: number; data: unknown | null; error?: string; ms: number }> {
+  const start = performance.now();
+  const doAttempt = async (attempt: number) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: getXanoHeaders(token),
+        signal: controller.signal,
+        cache: 'no-store',
+      });
+      const status = res.status;
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        return { ok: false, status, data: null, error: text || `HTTP ${status}`, ms: performance.now() - start };
+      }
+      const data = await res.json().catch(() => null);
+      return { ok: true, status, data, ms: performance.now() - start };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const isAbort =
+        e instanceof DOMException ? e.name === 'AbortError' : msg.toLowerCase().includes('aborted');
+      const canRetry = attempt < retries;
+      if (canRetry) {
+        // small backoff
+        await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+        return doAttempt(attempt + 1);
+      }
+      return {
+        ok: false,
+        status: 0,
+        data: null,
+        error: isAbort ? `timeout after ${timeoutMs}ms` : msg,
+        ms: performance.now() - start,
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
+  return doAttempt(0);
 }
 
 // Fetch list of sector IDs from Xano
 async function fetchSectorIds(token: string): Promise<string[]> {
   try {
-    const resp = await fetchWithTimeout(`${XANO_BASE}/Primary_sectors_with_companies_counts`, token);
-    if (!resp.ok) {
-      console.error('[CRON] Failed to fetch sector list:', resp.status);
+    const out = await fetchJsonWithTimeout(`${XANO_BASE}/Primary_sectors_with_companies_counts`, token, DEFAULT_FETCH_TIMEOUT_MS, 2);
+    if (!out.ok) {
+      console.error('[CRON] Failed to fetch sector list:', out.status, out.error);
       return [];
     }
 
-    const data = await resp.json();
-    const sectors = Array.isArray(data) ? data : (data.sectors || data.items || []);
+    const data = out.data as any;
+    const sectors = Array.isArray(data) ? data : (data?.sectors || data?.items || []);
+
+    // Also cache the full sector list for the /sectors list-view.
+    try {
+      const listPayload = Array.isArray(data) ? { sectors } : (data?.sectors ? data : { sectors });
+      await setCachedSectorsList(listPayload);
+      console.log('[CRON] 💾 Sector list cached for list-view');
+    } catch (e) {
+      console.error('[CRON] ❌ Failed to cache sector list:', e);
+    }
+
     const ids = sectors
       .map((s: { id?: number; Sector_id?: number }) => String(s.id || s.Sector_id))
       .filter((id: string) => id && id !== 'undefined');
@@ -118,22 +165,37 @@ async function fetchSectorData(sectorId: string, token: string): Promise<{
   const qs = `Sector_id=${sectorId}`;
   
   try {
-    // Fetch all 4 endpoints in parallel
-    const [sectorResp, marketMapResp, overviewResp, recentResp] = await Promise.all([
-      fetchWithTimeout(`${XANO_BASE}/sectors/${sectorId}`, token),
-      fetchWithTimeout(`${XANO_BASE}/sectors_market_map?${qs}`, token),
-      fetchWithTimeout(`${XANO_BASE}/overview_data?${qs}`, token),
-      fetchWithTimeout(`${XANO_BASE}/sectors_resent_trasnactions?${qs}&top_15=true`, token),
+    const timeoutMs = Math.min(
+      Math.max(Number(process.env.CRON_FETCH_TIMEOUT_MS ?? DEFAULT_FETCH_TIMEOUT_MS), 5000),
+      120000
+    );
+    const retries = Math.min(Math.max(Number(process.env.CRON_FETCH_RETRIES ?? 1), 0), 3);
+
+    // Fetch all 4 endpoints in parallel (no-throw)
+    const [sectorOut, marketMapOut, overviewOut, recentOut] = await Promise.all([
+      fetchJsonWithTimeout(`${XANO_BASE}/sectors/${sectorId}`, token, timeoutMs, retries),
+      fetchJsonWithTimeout(`${XANO_BASE}/sectors_market_map?${qs}`, token, timeoutMs, retries),
+      fetchJsonWithTimeout(`${XANO_BASE}/overview_data?${qs}`, token, timeoutMs, retries),
+      fetchJsonWithTimeout(`${XANO_BASE}/sectors_resent_trasnactions?${qs}&top_15=true`, token, timeoutMs, retries),
     ]);
 
-    // Parse responses
-    const sectorData = sectorResp.ok ? await sectorResp.json() : null;
-    const marketMapData = marketMapResp.ok ? await marketMapResp.json() : null;
-    const overviewData = overviewResp.ok ? await overviewResp.json() : null;
-    const recentData = recentResp.ok ? await recentResp.json() : null;
+    if (!sectorOut.ok || !marketMapOut.ok || !overviewOut.ok || !recentOut.ok) {
+      console.warn(`[CRON] ⚠️ Sector ${sectorId} incomplete fetch`, {
+        sector: { ok: sectorOut.ok, status: sectorOut.status, error: sectorOut.error },
+        market: { ok: marketMapOut.ok, status: marketMapOut.status, error: marketMapOut.error },
+        overview: { ok: overviewOut.ok, status: overviewOut.status, error: overviewOut.error },
+        recent: { ok: recentOut.ok, status: recentOut.status, error: recentOut.error },
+      });
+      return null;
+    }
+
+    const sectorData = sectorOut.data;
+    const marketMapData = marketMapOut.data;
+    const overviewData = overviewOut.data as Record<string, unknown> | null;
+    const recentData = recentOut.data;
 
     // Extract market map from response structure
-    const marketMap = marketMapData?.market_map ?? marketMapData;
+    const marketMap = (marketMapData as any)?.market_map ?? marketMapData;
 
     return {
       sectorData,

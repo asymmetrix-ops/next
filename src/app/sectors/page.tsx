@@ -300,6 +300,7 @@ const normalizeSectorName = (name: string | undefined | null): string =>
 const SectorsSection = () => {
   const router = useRouter();
   const [sectors, setSectors] = useState<Sector[]>([]);
+  const [allSectors, setAllSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>("sector_name");
@@ -332,42 +333,60 @@ const SectorsSection = () => {
     }
   });
 
-  // Fetch sectors data
+  // Fetch sector list (cached) once, then filter client-side.
   const fetchSectors = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-
-      const baseUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Primary_sectors_with_companies_counts`;
-
-      const url =
-        searchTerm.trim().length > 0
-          ? `${baseUrl}?search=${encodeURIComponent(searchTerm.trim())}&sort=`
-          : baseUrl;
-
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
+      // Preferred: hit our cached endpoint (backed by Redis + warmed by cron).
+      const response = await fetch("/api/sectors/list", { method: "GET" });
 
       if (!response.ok) {
         throw new Error(`API request failed: ${response.statusText}`);
       }
 
       const data: SectorsResponse = await response.json();
-      setSectors(data.sectors || []);
+      const list = data.sectors || [];
+      setAllSectors(list);
+      setSectors(list);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch sectors");
-      console.error("Error fetching sectors:", err);
+      // Fallback to direct Xano fetch (keeps page working even if cache is empty).
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const baseUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Primary_sectors_with_companies_counts`;
+        const response = await fetch(baseUrl, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        });
+        if (!response.ok) throw new Error(`API request failed: ${response.statusText}`);
+        const data: SectorsResponse = await response.json();
+        const list = data.sectors || [];
+        setAllSectors(list);
+        setSectors(list);
+      } catch (e) {
+        setError(err instanceof Error ? err.message : "Failed to fetch sectors");
+        console.error("Error fetching sectors:", err, e);
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // Apply search term locally (instant)
+  useEffect(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) {
+      setSectors(allSectors);
+      return;
+    }
+    setSectors(
+      allSectors.filter((s) => (s.sector_name || "").toLowerCase().includes(q))
+    );
+  }, [searchTerm, allSectors]);
 
   useEffect(() => {
     // Load mapping in background (used for counts enrichment if needed later)
