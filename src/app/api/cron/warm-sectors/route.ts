@@ -67,8 +67,8 @@ function getXanoHeaders(token: string) {
   };
 }
 
-// Fetch with timeout
-const DEFAULT_FETCH_TIMEOUT_MS = 45000;
+// Fetch with timeout (default 60s)
+const DEFAULT_FETCH_TIMEOUT_MS = 60000;
 
 async function fetchJsonWithTimeout(
   url: string,
