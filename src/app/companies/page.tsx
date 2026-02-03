@@ -750,7 +750,7 @@ const CompanyDashboard = ({
   initialSearch?: string;
 }) => {
   const [searchTerm, setSearchTerm] = useState(initialSearch || "");
-  const [keywordSearch, setKeywordSearch] = useState("");
+  const [keywordSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
   // Filter data state
