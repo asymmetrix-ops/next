@@ -632,13 +632,18 @@ const CorporateEventsTable = ({
   // else compute from `secondary_sectors` / `_sectors_secondary`.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const derivePrimaryFromCompany = (company: any | undefined): string => {
+    const cleanNames = (values: Array<string | undefined | null>): string[] =>
+      values
+        .map((v) => (v || "").trim())
+        .filter((v) => v.length > 0 && !/not available/i.test(v));
+
     const primaryNew = company?.primary_sectors as
       | Array<string | { sector_name: string }>
       | undefined;
     if (Array.isArray(primaryNew) && primaryNew.length > 0) {
-      const names = primaryNew
-        .map((s) => (typeof s === "string" ? s : s.sector_name))
-        .filter(Boolean) as string[];
+      const names = cleanNames(
+        primaryNew.map((s) => (typeof s === "string" ? s : s.sector_name))
+      );
       if (names.length > 0) return names.join(", ");
     }
 
@@ -646,17 +651,23 @@ const CorporateEventsTable = ({
       | { sector_name: string }[]
       | undefined;
     if (Array.isArray(primaryLegacy) && primaryLegacy.length > 0) {
-      return primaryLegacy.map((s) => s.sector_name).join(", ");
+      const names = cleanNames(primaryLegacy.map((s) => s.sector_name));
+      if (names.length > 0) return names.join(", ");
     }
 
     // Use derived_parent_primaries from API instead of computing from secondary
     const derivedParentPrimaries = company?.derived_parent_primaries as
       | Array<string | { sector_name: string }>
       | undefined;
-    if (Array.isArray(derivedParentPrimaries) && derivedParentPrimaries.length > 0) {
-      const names = derivedParentPrimaries
-        .map((s) => (typeof s === "string" ? s : s.sector_name))
-        .filter(Boolean) as string[];
+    if (
+      Array.isArray(derivedParentPrimaries) &&
+      derivedParentPrimaries.length > 0
+    ) {
+      const names = cleanNames(
+        derivedParentPrimaries.map((s) =>
+          typeof s === "string" ? s : s.sector_name
+        )
+      );
       if (names.length > 0) return names.join(", ");
     }
 
