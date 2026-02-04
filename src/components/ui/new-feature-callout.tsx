@@ -166,11 +166,26 @@ export function NewFeatureCallout({
             )}
             style={
               isMobile
-                ? {
-                    left: anchorRect.left + anchorRect.width / 2,
-                    top: anchorRect.bottom + 10,
-                    transform: "translate(-50%, 0)",
-                  }
+                ? (() => {
+                    const padding = 16;
+                    const halfPopoverMax = 120;
+                    const viewportW =
+                      typeof window !== "undefined" ? window.innerWidth : 800;
+                    const center =
+                      anchorRect.left + anchorRect.width / 2;
+                    const clampedLeft = Math.max(
+                      padding + halfPopoverMax,
+                      Math.min(
+                        viewportW - padding - halfPopoverMax,
+                        center
+                      )
+                    );
+                    return {
+                      left: clampedLeft,
+                      top: anchorRect.bottom + 10,
+                      transform: "translate(-50%, 0)",
+                    };
+                  })()
                 : {
                     left: anchorRect.right,
                     top: placement === "top" ? anchorRect.top : anchorRect.bottom,

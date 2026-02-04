@@ -394,33 +394,28 @@ const IndividualCard: React.FC<{ individual: Individual }> = ({
     >
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
           marginBottom: "12px",
-          gap: "12px",
         }}
       >
-        <div style={{ flex: "1" }}>
-          {createClickableElement(
-            `/individual/${individual.id}`,
-            individual.advisor_individuals || "N/A",
-            undefined,
-            {
-              fontSize: "16px",
-              fontWeight: "600",
-              marginBottom: "4px",
-              display: "block",
-            }
-          )}
-          <div style={{ fontSize: "14px", color: "#4a5568" }}>
-            {formatLocation(individual._locations_individual)}
-          </div>
+        {createClickableElement(
+          `/individual/${individual.id}`,
+          individual.advisor_individuals || "N/A",
+          undefined,
+          {
+            fontSize: "16px",
+            fontWeight: "600",
+            marginBottom: "4px",
+            display: "block",
+          }
+        )}
+        <div style={{ fontSize: "14px", color: "#4a5568" }}>
+          {formatLocation(individual._locations_individual)}
         </div>
       </div>
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
+          display: "flex",
+          flexDirection: "column",
           gap: "8px",
           fontSize: "12px",
         }}
@@ -428,57 +423,45 @@ const IndividualCard: React.FC<{ individual: Individual }> = ({
         <div
           style={{
             display: "flex",
-            justifyContent: "space-between",
-            padding: "4px 0",
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: "4px 6px",
+            alignItems: "baseline",
           }}
         >
-          <span style={{ color: "#4a5568" }}>Company:</span>
+          <span style={{ color: "#4a5568", flexShrink: 0 }}>Company:</span>
           {individual.current_company && resolveCompanyHref(individual) ? (
-            createClickableElement(
-              resolveCompanyHref(individual) as string,
-              individual.current_company,
-              undefined,
-              {
-                fontWeight: "600",
-                maxWidth: "60%",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                display: "inline-block",
-              }
-            )
-          ) : (
-            <span
-              style={{
-                fontWeight: "600",
-                maxWidth: "60%",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                color: "#6b7280",
-              }}
-            >
-              N/A
+            <span style={{ minWidth: 0, flex: "1 1 auto" }}>
+              {createClickableElement(
+                resolveCompanyHref(individual) as string,
+                individual.current_company,
+                undefined,
+                {
+                  fontWeight: "600",
+                  wordBreak: "break-word",
+                }
+              )}
             </span>
+          ) : (
+            <span style={{ fontWeight: "600", color: "#6b7280" }}>N/A</span>
           )}
         </div>
         <div
           style={{
             display: "flex",
-            justifyContent: "space-between",
-            padding: "4px 0",
-            gridColumn: "1 / -1",
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: "4px 6px",
+            alignItems: "baseline",
           }}
         >
-          <span style={{ color: "#4a5568" }}>Roles:</span>
+          <span style={{ color: "#4a5568", flexShrink: 0 }}>Roles:</span>
           <span
             style={{
               fontWeight: "600",
-              textAlign: "right",
-              maxWidth: "60%",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
+              minWidth: 0,
+              flex: "1 1 auto",
+              wordBreak: "break-word",
             }}
           >
             {individual.current_roles
@@ -1109,17 +1092,20 @@ const IndividualsPage = () => {
       display: none;
     }
     @media (max-width: 768px) {
+      .individuals-max-width {
+        padding: 24px 12px !important;
+      }
       .individual-table {
         display: none !important;
       }
       .individual-cards {
         display: block !important;
-        padding: 8px !important;
+        padding: 0 !important;
       }
       .pagination {
         flex-wrap: wrap !important;
         gap: 8px !important;
-        padding: 16px 8px !important;
+        padding: 16px 12px !important;
       }
       .pagination-button {
         padding: 8px 10px !important;
@@ -1132,10 +1118,10 @@ const IndividualsPage = () => {
         font-size: 13px !important;
       }
       .individual-section {
-        padding: 20px 8px !important;
+        padding: 20px 12px !important;
       }
       .individual-stats {
-        padding: 20px 16px !important;
+        padding: 20px 12px !important;
       }
       .stats-title {
         font-size: 20px !important;
@@ -1160,7 +1146,7 @@ const IndividualsPage = () => {
         gap: 16px !important;
       }
       .filters-card {
-        padding: 20px 16px !important;
+        padding: 20px 12px !important;
       }
       .filters-heading {
         font-size: 20px !important;
@@ -1193,7 +1179,7 @@ const IndividualsPage = () => {
 
       {/* Filters Section */}
       <div style={styles.container}>
-        <div style={styles.maxWidth}>
+        <div style={styles.maxWidth} className="individuals-max-width">
           <div style={styles.card} className="filters-card">
             <h2 style={styles.heading} className="filters-heading">
               Individuals

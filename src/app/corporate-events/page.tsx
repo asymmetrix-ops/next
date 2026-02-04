@@ -434,7 +434,7 @@ const CorporateEventsTable = ({
               );
             })()}
           </div>
-          <div className="corporate-event-card-info-item">
+          <div className="corporate-event-card-info-item corporate-event-card-info-type-row">
             <span className="corporate-event-card-info-label">Type:</span>
             {(() => {
               const fundingStage =
@@ -461,19 +461,14 @@ const CorporateEventsTable = ({
               }
 
               return (
-                <>
+                <span className="corporate-event-card-info-badges">
                   {event.deal_type && (
                     <span className="pill pill-blue">{event.deal_type}</span>
                   )}
                   {fundingStage && (
-                    <span
-                      className="pill pill-green"
-                      style={{ marginLeft: "4px" }}
-                    >
-                      {fundingStage}
-                    </span>
+                    <span className="pill pill-green">{fundingStage}</span>
                   )}
-                </>
+                </span>
               );
             })()}
           </div>
@@ -1926,10 +1921,11 @@ const CorporateEventsPage = () => {
     .corporate-event-card-date { font-size: 14px; color: #4a5568; }
     .corporate-event-card-info { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; }
     .corporate-event-card-info-item { display: flex; justify-content: space-between; padding: 4px 0; }
-    .corporate-event-card-info-label { color: #4a5568; }
+    .corporate-event-card-info-label { color: #4a5568; margin-right: 6px; }
     .corporate-event-card-info-value { font-weight: 600; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .corporate-event-card-info-value-link { font-weight: 600; color: #0075df; text-decoration: underline; cursor: pointer; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .corporate-event-card-info-full-width { grid-column: 1 / -1; }
+    .corporate-event-card-info-type-row .corporate-event-card-info-badges { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; flex: 1 1 auto; min-width: 0; }
     .search-row { display: flex; align-items: center; gap: 12px; }
     .search-row .filters-input { margin: 0; max-width: 340px; }
     .search-row .filters-button { margin: 0; max-width: 140px; }
@@ -1958,10 +1954,10 @@ const CorporateEventsPage = () => {
       }
       .corporate-event-cards {
         display: block !important;
-        padding: 8px !important;
+        padding: 6px 4px !important;
       }
       .corporate-event-card {
-        padding: 12px !important;
+        padding: 10px 8px !important;
         margin-bottom: 8px !important;
       }
       .corporate-event-card-title {
@@ -1972,16 +1968,33 @@ const CorporateEventsPage = () => {
         font-size: 13px !important;
       }
       .corporate-event-card-info {
+        grid-template-columns: 1fr !important;
         gap: 6px !important;
         font-size: 11px !important;
       }
       .corporate-event-card-info-item {
+        justify-content: flex-start !important;
         padding: 3px 0 !important;
+      }
+      .corporate-event-card-info-full-width .corporate-event-card-info-value {
+        text-align: left !important;
+      }
+      .corporate-event-card-info-type-row {
+        align-items: flex-start !important;
+      }
+      .corporate-event-card-info-type-row .corporate-event-card-info-badges {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        gap: 4px !important;
       }
       .corporate-event-card-info-value,
       .corporate-event-card-info-value-link {
         max-width: 55% !important;
         font-size: 11px !important;
+      }
+      .corporate-event-card .pill {
+        font-size: 11px !important;
+        padding: 2px 6px !important;
       }
       .pagination {
         flex-wrap: wrap !important;

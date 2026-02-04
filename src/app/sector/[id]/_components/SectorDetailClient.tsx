@@ -897,159 +897,252 @@ function MostActiveTableCard({
         </div>
       </div>
       <div className="px-5 pb-5">
-        <div className="overflow-auto" style={{ maxHeight: "28rem" }}>
-          <table className="min-w-full text-sm table-fixed">
-            <colgroup>
-              <col style={{ width: "38%" }} />
-              <col style={{ width: "24%" }} />
-              <col style={{ width: "38%" }} />
-            </colgroup>
-            <thead className="bg-slate-50/80">
-              <tr className="hover:bg-slate-50/80">
-                <th className="py-3 font-semibold text-left text-slate-700">
-                  {isInvestorTable ? "Investor" : "Acquirer"}
-                </th>
-                <th className="py-3 font-semibold text-center text-slate-700">
-                  Deals
-                </th>
-                <th className="py-3 font-semibold text-left text-slate-700">
-                  {mostRecentHeader ?? "Most Recent"}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {!hasItems ? (
-                <tr>
-                  <td
-                    colSpan={3}
-                    className="py-6 text-sm text-center text-slate-500"
-                  >
-                    Not available
-                  </td>
-                </tr>
-              ) : (
-                items.slice(0, 25).map((it) => {
-                  const linkUrl = isInvestorTable
-                    ? `/investors/${it.id}`
-                    : `/company/${it.id}`;
-                  return (
-                    <tr
-                      key={`${title}-${it.name}`}
-                      className={`transition-colors duration-150 hover:bg-slate-50/50 ${
-                        it.id ? "cursor-pointer" : ""
-                      }`}
-                      onClick={() => {
-                        if (it.id) {
-                          window.location.href = linkUrl;
-                        }
-                      }}
-                    >
-                      <td className="py-3 pr-4">
-                        {it.id ? (
-                          <a href={linkUrl} className="flex gap-3 items-center">
-                            {it.logoUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={it.logoUrl}
-                                alt={it.name}
-                                className="object-contain w-8 h-8 rounded-lg"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = "none";
-                                  const fallback =
-                                    target.nextElementSibling as HTMLElement | null;
-                                  if (fallback) fallback.style.display = "flex";
-                                }}
-                              />
-                            ) : null}
-                            <div
-                              className={`${
-                                it.logoUrl ? "hidden" : "flex"
-                              } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
-                                accentClasses.gradient
-                              }`}
-                            >
-                              <BuildingOfficeIcon className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <span className="font-medium text-blue-600 underline">
-                                {it.name}
-                              </span>
-                              {showBadge && badgeLabel && (
-                                <span
-                                  className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
-                                >
-                                  {badgeLabel}
-                                </span>
-                              )}
-                            </div>
-                          </a>
-                        ) : (
-                          <div className="flex gap-3 items-center">
-                            {it.logoUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={it.logoUrl}
-                                alt={it.name}
-                                className="object-contain w-8 h-8 rounded-lg"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = "none";
-                                  const fallback =
-                                    target.nextElementSibling as HTMLElement | null;
-                                  if (fallback) fallback.style.display = "flex";
-                                }}
-                              />
-                            ) : null}
-                            <div
-                              className={`${
-                                it.logoUrl ? "hidden" : "flex"
-                              } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
-                                accentClasses.gradient
-                              }`}
-                            >
-                              <BuildingOfficeIcon className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-slate-900">
-                                {it.name}
-                              </p>
-                              {showBadge && badgeLabel && (
-                                <span
-                                  className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
-                                >
-                                  {badgeLabel}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3 text-center">
-                        <div
-                          className={`inline-flex justify-center items-center w-8 h-8 rounded-full ${accentClasses.countBg}`}
-                        >
-                          <span className="text-sm font-bold">
-                            {formatNumber(it.count)}
+        <div className="overflow-auto md:max-h-[28rem]" style={{ maxHeight: "28rem" }}>
+          {/* Mobile: card list */}
+          <div className="block space-y-3 md:hidden">
+            {!hasItems ? (
+              <div className="py-6 text-sm text-center text-slate-500">
+                Not available
+              </div>
+            ) : (
+              items.slice(0, 25).map((it) => {
+                const linkUrl = isInvestorTable
+                  ? `/investors/${it.id}`
+                  : `/company/${it.id}`;
+                const content = (
+                  <>
+                    <div className="flex gap-3 items-center min-w-0 flex-1">
+                      {it.logoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={it.logoUrl}
+                          alt={it.name}
+                          className="object-contain w-8 h-8 rounded-lg flex-shrink-0"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = "none";
+                            const fallback =
+                              target.nextElementSibling as HTMLElement | null;
+                            if (fallback) fallback.style.display = "flex";
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className={`${
+                          it.logoUrl ? "hidden" : "flex"
+                        } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br flex-shrink-0 ${
+                          accentClasses.gradient
+                        }`}
+                      >
+                        <BuildingOfficeIcon className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-900 truncate">
+                          {it.name}
+                        </p>
+                        {showBadge && badgeLabel && (
+                          <span
+                            className={`inline-block mt-0.5 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
+                          >
+                            {badgeLabel}
                           </span>
-                        </div>
-                      </td>
-                      <td className="py-3">
-                        <div>
-                          <p className="text-sm font-medium text-slate-900">
-                            {it.mostRecentTarget || "N/A"}
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {it.closedDate || "N/A"}
-                          </p>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 items-center justify-between mt-2 pt-2 border-t border-slate-100">
+                      <span className="text-xs text-slate-500">Deals</span>
+                      <div
+                        className={`inline-flex justify-center items-center w-8 h-8 rounded-full flex-shrink-0 ${accentClasses.countBg}`}
+                      >
+                        <span className="text-sm font-bold">
+                          {formatNumber(it.count)}
+                        </span>
+                      </div>
+                      <div className="text-right min-w-0 flex-1">
+                        <p className="text-xs font-medium text-slate-900 truncate">
+                          {it.mostRecentTarget || "N/A"}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {it.closedDate || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                );
+                return it.id ? (
+                  <a
+                    key={`${title}-${it.name}`}
+                    href={linkUrl}
+                    className="block p-3 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors"
+                  >
+                    {content}
+                  </a>
+                ) : (
+                  <div
+                    key={`${title}-${it.name}`}
+                    className="block p-3 rounded-lg border border-slate-200 bg-slate-50/50"
+                  >
+                    {content}
+                  </div>
+                );
+              })
+            )}
+          </div>
+          {/* Desktop: table */}
+          <div className="hidden md:block overflow-auto" style={{ maxHeight: "28rem" }}>
+            <table className="min-w-full text-sm table-fixed">
+              <colgroup>
+                <col style={{ width: "38%" }} />
+                <col style={{ width: "24%" }} />
+                <col style={{ width: "38%" }} />
+              </colgroup>
+              <thead className="bg-slate-50/80">
+                <tr className="hover:bg-slate-50/80">
+                  <th className="py-3 font-semibold text-left text-slate-700">
+                    {isInvestorTable ? "Investor" : "Acquirer"}
+                  </th>
+                  <th className="py-3 font-semibold text-center text-slate-700">
+                    Deals
+                  </th>
+                  <th className="py-3 font-semibold text-left text-slate-700">
+                    {mostRecentHeader ?? "Most Recent"}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {!hasItems ? (
+                  <tr>
+                    <td
+                      colSpan={3}
+                      className="py-6 text-sm text-center text-slate-500"
+                    >
+                      Not available
+                    </td>
+                  </tr>
+                ) : (
+                  items.slice(0, 25).map((it) => {
+                    const linkUrl = isInvestorTable
+                      ? `/investors/${it.id}`
+                      : `/company/${it.id}`;
+                    return (
+                      <tr
+                        key={`${title}-${it.name}`}
+                        className={`transition-colors duration-150 hover:bg-slate-50/50 ${
+                          it.id ? "cursor-pointer" : ""
+                        }`}
+                        onClick={() => {
+                          if (it.id) {
+                            window.location.href = linkUrl;
+                          }
+                        }}
+                      >
+                        <td className="py-3 pr-4">
+                          {it.id ? (
+                            <a href={linkUrl} className="flex gap-3 items-center">
+                              {it.logoUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={it.logoUrl}
+                                  alt={it.name}
+                                  className="object-contain w-8 h-8 rounded-lg"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = "none";
+                                    const fallback =
+                                      target.nextElementSibling as HTMLElement | null;
+                                    if (fallback) fallback.style.display = "flex";
+                                  }}
+                                />
+                              ) : null}
+                              <div
+                                className={`${
+                                  it.logoUrl ? "hidden" : "flex"
+                                } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
+                                  accentClasses.gradient
+                                }`}
+                              >
+                                <BuildingOfficeIcon className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <span className="font-medium text-blue-600 underline">
+                                  {it.name}
+                                </span>
+                                {showBadge && badgeLabel && (
+                                  <span
+                                    className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
+                                  >
+                                    {badgeLabel}
+                                  </span>
+                                )}
+                              </div>
+                            </a>
+                          ) : (
+                            <div className="flex gap-3 items-center">
+                              {it.logoUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={it.logoUrl}
+                                  alt={it.name}
+                                  className="object-contain w-8 h-8 rounded-lg"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = "none";
+                                    const fallback =
+                                      target.nextElementSibling as HTMLElement | null;
+                                    if (fallback) fallback.style.display = "flex";
+                                  }}
+                                />
+                              ) : null}
+                              <div
+                                className={`${
+                                  it.logoUrl ? "hidden" : "flex"
+                                } justify-center items-center w-8 h-8 rounded-lg text-white text-xs font-semibold bg-gradient-to-br ${
+                                  accentClasses.gradient
+                                }`}
+                              >
+                                <BuildingOfficeIcon className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-slate-900">
+                                  {it.name}
+                                </p>
+                                {showBadge && badgeLabel && (
+                                  <span
+                                    className={`inline-block mt-1 px-2 py-0.5 border rounded text-xs ${accentClasses.badge}`}
+                                  >
+                                    {badgeLabel}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 text-center">
+                          <div
+                            className={`inline-flex justify-center items-center w-8 h-8 rounded-full ${accentClasses.countBg}`}
+                          >
+                            <span className="text-sm font-bold">
+                              {formatNumber(it.count)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3">
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">
+                              {it.mostRecentTarget || "N/A"}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {it.closedDate || "N/A"}
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -1110,154 +1203,288 @@ function RecentTransactionsCard({
         </div>
       </div>
       <div className="px-5 pb-5">
-        <div className="overflow-auto" style={{ maxHeight: "28rem" }}>
-          <table className="min-w-full text-sm table-fixed">
-            <thead className="bg-slate-50/80">
-              <tr className="hover:bg-slate-50/80">
-                <th className="py-3 w-1/2 font-semibold text-left text-slate-700">
-                  Target
-                </th>
-                <th className="py-3 font-semibold text-left text-slate-700">
-                  Buyer/Investor
-                </th>
-                <th className="py-3 font-semibold text-left text-slate-700">
-                  Deal Type
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {hasItems ? (
-                transactions.slice(0, 25).map((t, idx) => {
-                  const announcementDate = t.date ? new Date(t.date) : null;
-                  const valueDisplay = t.value ? `$${t.value}M` : null;
-                  const href = t.eventId
-                    ? `/corporate-event/${t.eventId}`
-                    : t.targetCompanyId
-                    ? `/company/${t.targetCompanyId}`
-                    : undefined;
-                  return (
-                    <tr
-                      key={`tx-${idx}`}
-                      className={`transition-colors duration-150 hover:bg-slate-50/50 ${
-                        href ? "cursor-pointer" : ""
-                      }`}
-                      onClick={() => {
-                        if (href) {
-                          window.location.href = href;
-                        }
-                      }}
-                    >
-                      <td className="py-3 pr-4">
-                        <div className="flex gap-3 items-center">
-                          {t.targetLogoUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={t.targetLogoUrl}
-                              alt={t.target}
-                              className="object-contain w-8 h-8 rounded-lg"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = "none";
-                                const fallback =
-                                  target.nextElementSibling as HTMLElement | null;
-                                if (fallback) fallback.style.display = "flex";
-                              }}
-                            />
-                          ) : null}
-                          <div
-                            className={`${
-                              t.targetLogoUrl ? "hidden" : "flex"
-                            } justify-center items-center w-8 h-8 text-xs font-semibold text-white bg-gradient-to-br from-orange-500 to-red-500 rounded-lg`}
+        <div className="overflow-auto md:max-h-[28rem]" style={{ maxHeight: "28rem" }}>
+          {/* Mobile: card list */}
+          <div className="block space-y-3 md:hidden">
+            {!hasItems ? (
+              <div className="py-6 text-sm text-center text-slate-500">
+                Not available
+              </div>
+            ) : (
+              transactions.slice(0, 25).map((t, idx) => {
+                const announcementDate = t.date ? new Date(t.date) : null;
+                const valueDisplay = t.value ? `$${t.value}M` : null;
+                const href = t.eventId
+                  ? `/corporate-event/${t.eventId}`
+                  : t.targetCompanyId
+                  ? `/company/${t.targetCompanyId}`
+                  : undefined;
+                const content = (
+                  <>
+                    <div className="flex gap-3 items-start min-w-0">
+                      {t.targetLogoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={t.targetLogoUrl}
+                          alt={t.target}
+                          className="object-contain w-8 h-8 rounded-lg flex-shrink-0"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = "none";
+                            const fallback =
+                              target.nextElementSibling as HTMLElement | null;
+                            if (fallback) fallback.style.display = "flex";
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className={`${
+                          t.targetLogoUrl ? "hidden" : "flex"
+                        } justify-center items-center w-8 h-8 text-xs font-semibold text-white bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex-shrink-0`}
+                      >
+                        {(t.target || "?").charAt(0)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-slate-900 break-words">
+                          {t.target || "-"}
+                        </p>
+                        {announcementDate &&
+                          !Number.isNaN(announcementDate.getTime()) && (
+                            <div className="flex gap-1 items-center mt-0.5">
+                              <svg
+                                className="w-3 h-3 text-slate-400 flex-shrink-0"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
+                                <rect
+                                  x="3"
+                                  y="4"
+                                  width="18"
+                                  height="18"
+                                  rx="2"
+                                />
+                                <path d="M16 2v4M8 2v4M3 10h18" />
+                              </svg>
+                              <p className="text-xs text-slate-500">
+                                {announcementDate.toLocaleDateString(
+                                  undefined,
+                                  {
+                                    month: "short",
+                                    day: "2-digit",
+                                    year: "numeric",
+                                  }
+                                )}
+                              </p>
+                            </div>
+                          )}
+                      </div>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
+                      <p className="text-xs font-semibold text-slate-500">
+                        Buyer/Investor
+                      </p>
+                      <p className="text-sm font-medium text-slate-900 break-words">
+                        {t.buyer || "-"}
+                      </p>
+                      {valueDisplay && (
+                        <p className="text-xs text-slate-500">{valueDisplay}</p>
+                      )}
+                    </div>
+                    {(t.type || t.seller) && (
+                      <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap gap-1">
+                        {t.type && (
+                          <span
+                            className={`inline-block px-2 py-1 border rounded text-xs ${getDealTypeBadge(
+                              t.type
+                            )}`}
                           >
-                            {(t.target || "?").charAt(0)}
+                            {t.type.replace(/_/g, " ")}
+                          </span>
+                        )}
+                        {t.seller && (
+                          <span
+                            className={`inline-block px-2 py-1 border rounded text-xs ${getStatusBadge(
+                              t.seller
+                            )}`}
+                          >
+                            {t.seller}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+                return href ? (
+                  <a
+                    key={`tx-${idx}`}
+                    href={href}
+                    className="block p-3 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors"
+                  >
+                    {content}
+                  </a>
+                ) : (
+                  <div
+                    key={`tx-${idx}`}
+                    className="block p-3 rounded-lg border border-slate-200 bg-slate-50/50"
+                  >
+                    {content}
+                  </div>
+                );
+              })
+            )}
+          </div>
+          {/* Desktop: table */}
+          <div className="hidden md:block overflow-auto" style={{ maxHeight: "28rem" }}>
+            <table className="min-w-full text-sm table-fixed">
+              <thead className="bg-slate-50/80">
+                <tr className="hover:bg-slate-50/80">
+                  <th className="py-3 w-1/2 font-semibold text-left text-slate-700">
+                    Target
+                  </th>
+                  <th className="py-3 font-semibold text-left text-slate-700">
+                    Buyer/Investor
+                  </th>
+                  <th className="py-3 font-semibold text-left text-slate-700">
+                    Deal Type
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {hasItems ? (
+                  transactions.slice(0, 25).map((t, idx) => {
+                    const announcementDate = t.date ? new Date(t.date) : null;
+                    const valueDisplay = t.value ? `$${t.value}M` : null;
+                    const href = t.eventId
+                      ? `/corporate-event/${t.eventId}`
+                      : t.targetCompanyId
+                      ? `/company/${t.targetCompanyId}`
+                      : undefined;
+                    return (
+                      <tr
+                        key={`tx-${idx}`}
+                        className={`transition-colors duration-150 hover:bg-slate-50/50 ${
+                          href ? "cursor-pointer" : ""
+                        }`}
+                        onClick={() => {
+                          if (href) {
+                            window.location.href = href;
+                          }
+                        }}
+                      >
+                        <td className="py-3 pr-4">
+                          <div className="flex gap-3 items-center">
+                            {t.targetLogoUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={t.targetLogoUrl}
+                                alt={t.target}
+                                className="object-contain w-8 h-8 rounded-lg"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = "none";
+                                  const fallback =
+                                    target.nextElementSibling as HTMLElement | null;
+                                  if (fallback) fallback.style.display = "flex";
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className={`${
+                                t.targetLogoUrl ? "hidden" : "flex"
+                              } justify-center items-center w-8 h-8 text-xs font-semibold text-white bg-gradient-to-br from-orange-500 to-red-500 rounded-lg`}
+                            >
+                              {(t.target || "?").charAt(0)}
+                            </div>
+                            <div>
+                              <p className="font-medium text-slate-900">
+                                {t.target || "-"}
+                              </p>
+                              {announcementDate &&
+                                !Number.isNaN(announcementDate.getTime()) && (
+                                  <div className="flex gap-1 items-center mt-1">
+                                    <svg
+                                      className="w-3 h-3 text-slate-400"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                    >
+                                      <rect
+                                        x="3"
+                                        y="4"
+                                        width="18"
+                                        height="18"
+                                        rx="2"
+                                      />
+                                      <path d="M16 2v4M8 2v4M3 10h18" />
+                                    </svg>
+                                    <p className="text-xs text-slate-500">
+                                      {announcementDate.toLocaleDateString(
+                                        undefined,
+                                        {
+                                          month: "short",
+                                          day: "2-digit",
+                                          year: "numeric",
+                                        }
+                                      )}
+                                    </p>
+                                  </div>
+                                )}
+                            </div>
                           </div>
+                        </td>
+                        <td className="py-3 pr-4">
                           <div>
                             <p className="font-medium text-slate-900">
-                              {t.target || "-"}
+                              {t.buyer || "-"}
                             </p>
-                            {announcementDate &&
-                              !Number.isNaN(announcementDate.getTime()) && (
-                                <div className="flex gap-1 items-center mt-1">
-                                  <svg
-                                    className="w-3 h-3 text-slate-400"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                  >
-                                    <rect
-                                      x="3"
-                                      y="4"
-                                      width="18"
-                                      height="18"
-                                      rx="2"
-                                    />
-                                    <path d="M16 2v4M8 2v4M3 10h18" />
-                                  </svg>
-                                  <p className="text-xs text-slate-500">
-                                    {announcementDate.toLocaleDateString(
-                                      undefined,
-                                      {
-                                        month: "short",
-                                        day: "2-digit",
-                                        year: "numeric",
-                                      }
-                                    )}
-                                  </p>
-                                </div>
-                              )}
+                            {valueDisplay && (
+                              <p className="mt-1 text-xs text-slate-500">
+                                {valueDisplay}
+                              </p>
+                            )}
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-3 pr-4">
-                        <div>
-                          <p className="font-medium text-slate-900">
-                            {t.buyer || "-"}
-                          </p>
-                          {valueDisplay && (
-                            <p className="mt-1 text-xs text-slate-500">
-                              {valueDisplay}
-                            </p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3">
-                        <div className="space-y-1">
-                          {t.type && (
-                            <span
-                              className={`inline-block px-2 py-1 border rounded text-xs ${getDealTypeBadge(
-                                t.type
-                              )}`}
-                            >
-                              {t.type.replace(/_/g, " ")}
-                            </span>
-                          )}
-                          {t.seller && (
-                            <span
-                              className={`inline-block px-2 py-1 border rounded text-xs ${getStatusBadge(
-                                t.seller
-                              )} ml-1`}
-                            >
-                              {t.seller}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td
-                    colSpan={3}
-                    className="py-6 text-sm text-center text-slate-500"
-                  >
-                    Not available
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                        </td>
+                        <td className="py-3">
+                          <div className="space-y-1">
+                            {t.type && (
+                              <span
+                                className={`inline-block px-2 py-1 border rounded text-xs ${getDealTypeBadge(
+                                  t.type
+                                )}`}
+                              >
+                                {t.type.replace(/_/g, " ")}
+                              </span>
+                            )}
+                            {t.seller && (
+                              <span
+                                className={`inline-block px-2 py-1 border rounded text-xs ${getStatusBadge(
+                                  t.seller
+                                )} ml-1`}
+                              >
+                                {t.seller}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={3}
+                      className="py-6 text-sm text-center text-slate-500"
+                    >
+                      Not available
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -1424,24 +1651,24 @@ function MarketMapGrid({
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {Object.entries(categorized).map(([type, list]) => (
             <div key={type} className="space-y-4">
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex gap-3 items-center">
+              <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+                <div className="flex gap-3 items-center min-w-0">
                   {getIcon(type)}
-                  <h3 className="font-semibold text-slate-900">
+                  <h3 className="font-semibold text-slate-900 truncate">
                     {titleFor(type)}
                   </h3>
-                  <span className="inline-flex px-2 py-0.5 text-xs rounded bg-slate-100 text-slate-700 border border-slate-200">
+                  <span className="inline-flex flex-shrink-0 px-2 py-0.5 text-xs rounded bg-slate-100 text-slate-700 border border-slate-200">
                     {countsProp?.[type as keyof MarketMapCounts] ?? list.length}
                   </span>
                 </div>
                 <a
                   href={`?tab=all&ownership=${encodeURIComponent(type)}`}
-                  className="px-3 py-1.5 text-sm border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50"
+                  className="flex-shrink-0 px-3 py-1.5 text-sm border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50"
                 >
                   View All
                 </a>
               </div>
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                 {list.slice(0, 12).map((company) => (
                   <a
                     key={company.id}

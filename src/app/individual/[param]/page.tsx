@@ -224,7 +224,10 @@ export default function IndividualProfilePage() {
         </Head>
       )}
       <Header />
-      <div style={{ flex: "1", padding: "32px", width: "100%" }}>
+      <div
+        className="individual-profile-content"
+        style={{ flex: "1", padding: "32px", width: "100%" }}
+      >
         {/* Page Header */}
         <div
           style={{
@@ -964,6 +967,20 @@ export default function IndividualProfilePage() {
           </div>
         </div>
       </div>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @media (max-width: 768px) {
+              .individual-profile-content {
+                padding-left: 12px !important;
+                padding-right: 12px !important;
+                padding-top: 24px !important;
+                padding-bottom: 24px !important;
+              }
+            }
+          `,
+        }}
+      />
       <Footer />
     </div>
   );
