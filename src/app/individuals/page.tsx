@@ -860,7 +860,8 @@ const IndividualsPage = () => {
         params.append("statuses", filters.Statuses.join(","));
       }
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`;
+      // Use our cached proxy endpoint (Redis-backed for initial page).
+      const url = `/api/individuals/list?${params.toString()}`;
 
       const requestId = ++lastRequestIdRef.current;
       const response = await fetch(url, {
