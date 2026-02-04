@@ -280,7 +280,7 @@ export default function AboutUs() {
                 </div>
                 <div className="flex-1">
                   <h4 className="mb-1 text-xl font-bold text-gray-900">
-                    Nina
+                    Nina Brandler
                   </h4>
                   <p className="mb-3 text-sm text-gray-600">Research Intern</p>
                   <div className="flex gap-2">
