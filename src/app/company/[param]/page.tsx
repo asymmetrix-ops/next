@@ -2059,7 +2059,7 @@ const CompanyDetail = () => {
         gap: "6px",
       },
       maxWidth: {
-        padding: "16px",
+        padding: "16px 4px",
       },
       card: {
         padding: "14px 12px",
@@ -2212,6 +2212,7 @@ const CompanyDetail = () => {
       gap: 16px;
     }
     @media (max-width: 768px) {
+      .company-detail-content { padding: 16px 0 !important; }
       .insights-grid {
         grid-template-columns: 1fr !important;
         gap: 12px !important;
@@ -2221,10 +2222,13 @@ const CompanyDetail = () => {
       .mobile-financial-metrics { display: block !important; }
       .desktop-linkedin-section { display: none !important; }
       .management-grid { grid-template-columns: 1fr !important; }
-      .overview-card { padding: 12px 12px !important; }
       .overview-card .info-row { padding: 8px 0 !important; display: block !important; }
       .overview-card .info-label { font-size: 12px !important; color: #718096 !important; margin-bottom: 2px !important; }
       .overview-card .info-value { font-size: 13px !important; line-height: 1.35 !important; display: block !important; margin-left: 0 !important; word-break: break-word !important; overflow-wrap: break-word !important; }
+      .overview-card { padding: 14px 8px !important; }
+      .overview-grid { grid-template-columns: 1fr !important; }
+      .overview-description { order: 2; margin-top: 16px !important; }
+      .overview-fields { order: 1; }
     }
   `;
 
@@ -2232,7 +2236,7 @@ const CompanyDetail = () => {
     <div className="company-detail-page" style={styles.container}>
       <Header />
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <div style={styles.maxWidth}>
+        <div className="company-detail-content" style={styles.maxWidth}>
           {/* Header */}
           <div style={styles.header}>
             <div style={styles.headerLeft}>
@@ -2291,7 +2295,7 @@ const CompanyDetail = () => {
               <h2 style={styles.sectionTitle}>Overview</h2>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }} className="overview-grid">
                 {/* Left column: Basic fields */}
-                <div>
+                <div className="overview-fields">
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
                   Primary Sector(s):
@@ -2635,7 +2639,7 @@ const CompanyDetail = () => {
               </div>
                 </div>
                 {/* Right column: Description */}
-                <div style={{ 
+                <div className="overview-description" style={{ 
                   padding: '16px', 
                   backgroundColor: '#f9fafb', 
                   borderRadius: '8px',

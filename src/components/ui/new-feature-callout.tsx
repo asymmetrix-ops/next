@@ -68,6 +68,7 @@ export function NewFeatureCallout({
   const popoverRef = React.useRef<HTMLDivElement | null>(null);
   const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null);
   const [placement, setPlacement] = React.useState<"top" | "bottom">("top");
+  const [isMobile, setIsMobile] = React.useState(false);
 
   const withinWindow = React.useMemo(() => {
     if (launchedAtMs === null) return false;
@@ -95,6 +96,7 @@ export function NewFeatureCallout({
     const update = () => {
       const el = rootRef.current;
       if (!el) return;
+      setIsMobile(typeof window !== "undefined" && window.innerWidth <= 768);
       const rect = el.getBoundingClientRect();
       setAnchorRect(rect);
       // If there's not enough space above, flip to bottom.
@@ -162,14 +164,22 @@ export function NewFeatureCallout({
               "ring-1 ring-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.35)]",
               "px-4 py-3"
             )}
-            style={{
-              left: anchorRect.right,
-              top: placement === "top" ? anchorRect.top : anchorRect.bottom,
-              transform:
-                placement === "top"
-                  ? "translate(calc(-100% + 0px), calc(-100% - 10px))"
-                  : "translate(calc(-100% + 0px), 10px)",
-            }}
+            style={
+              isMobile
+                ? {
+                    left: anchorRect.left + anchorRect.width / 2,
+                    top: anchorRect.bottom + 10,
+                    transform: "translate(-50%, 0)",
+                  }
+                : {
+                    left: anchorRect.right,
+                    top: placement === "top" ? anchorRect.top : anchorRect.bottom,
+                    transform:
+                      placement === "top"
+                        ? "translate(calc(-100% + 0px), calc(-100% - 10px))"
+                        : "translate(calc(-100% + 0px), 10px)",
+                  }
+            }
           >
             <div className="flex items-center justify-between gap-3">
               <div className="text-sm font-semibold tracking-tight">
