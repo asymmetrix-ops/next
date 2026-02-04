@@ -69,28 +69,32 @@ export default function AdminPage() {
     | "sectors"
   >("valuation");
 
-  const hasAccess = useMemo(() => {
+  // Only authenticated users with admin role may access; others are redirected.
+  const isAdmin = useMemo(() => {
     if (!user) return false;
-    const normalizedStatus = (
-      user.Status ||
-      user.status ||
-      user.role ||
+    const status = (
+      user.Status ??
+      user.status ??
+      user.role ??
       ""
-    ).toString();
-    if (normalizedStatus.toLowerCase() === "admin") return true;
-    const roles = user.roles || [];
-    return roles.map((r) => r.toLowerCase()).includes("admin");
+    ).toString().toLowerCase();
+    if (status === "admin") return true;
+    const roles = (user.roles ?? []).map((r) => String(r).toLowerCase());
+    return roles.includes("admin");
   }, [user]);
 
+  const canAccessAdmin = !loading && !!user && isAuthenticated && isAdmin;
+
   useEffect(() => {
-    if (!loading) {
-      if (!isAuthenticated) {
-        router.replace("/login");
-      } else if (!hasAccess) {
-        router.replace("/");
-      }
+    if (loading) return;
+    if (!isAuthenticated) {
+      router.replace("/login");
+      return;
     }
-  }, [isAuthenticated, hasAccess, loading, router]);
+    if (!isAdmin) {
+      router.replace("/");
+    }
+  }, [isAuthenticated, isAdmin, loading, router]);
 
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
@@ -148,10 +152,10 @@ Target company: {query} ({domain})`;
     }
   }
 
-  if (loading || !isAuthenticated || !hasAccess) {
+  if (!canAccessAdmin) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div>Loading…</div>
+        <div>{loading ? "Loading…" : "Access denied."}</div>
       </div>
     );
   }
