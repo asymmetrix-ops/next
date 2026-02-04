@@ -1095,42 +1095,44 @@ const CorporateEventsTable = ({
                       return nodes;
                     })()}
                   </div>
-                  <div className="muted-row">
-                    <strong>Secondary:</strong>{" "}
-                    {(() => {
-                      if (
-                        !secondaryText ||
-                        /not available/i.test(secondaryText)
-                      ) {
-                        return secondaryText || "Not available";
-                      }
-                      const names = secondaryText
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter(Boolean);
-                      if (names.length === 0) return secondaryText;
-                      const nodes: React.ReactNode[] = [];
-                      names.forEach((name, idx) => {
-                        const id = secondaryNameToId[normalizeSectorName(name)];
-                        if (typeof id === "number") {
-                          nodes.push(
-                            <a
-                              key={`${name}-${id}`}
-                              href={`/sub-sector/${id}`}
-                              className="link-blue"
-                            >
-                              {name}
-                            </a>
-                          );
-                        } else {
-                          nodes.push(<span key={`${name}-na`}>{name}</span>);
+                  {!(!primaryText || /not available/i.test(primaryText)) && (
+                    <div className="muted-row">
+                      <strong>Secondary:</strong>{" "}
+                      {(() => {
+                        if (
+                          !secondaryText ||
+                          /not available/i.test(secondaryText)
+                        ) {
+                          return secondaryText || "Not available";
                         }
-                        if (idx < names.length - 1)
-                          nodes.push(<span key={`sep2-${idx}`}>, </span>);
-                      });
-                      return nodes;
-                    })()}
-                  </div>
+                        const names = secondaryText
+                          .split(",")
+                          .map((s) => s.trim())
+                          .filter(Boolean);
+                        if (names.length === 0) return secondaryText;
+                        const nodes: React.ReactNode[] = [];
+                        names.forEach((name, idx) => {
+                          const id = secondaryNameToId[normalizeSectorName(name)];
+                          if (typeof id === "number") {
+                            nodes.push(
+                              <a
+                                key={`${name}-${id}`}
+                                href={`/sub-sector/${id}`}
+                                className="link-blue"
+                              >
+                                {name}
+                              </a>
+                            );
+                          } else {
+                            nodes.push(<span key={`${name}-na`}>{name}</span>);
+                          }
+                          if (idx < names.length - 1)
+                            nodes.push(<span key={`sep2-${idx}`}>, </span>);
+                        });
+                        return nodes;
+                      })()}
+                    </div>
+                  )}
                 </td>
               </tr>
             );
