@@ -31,6 +31,8 @@ interface AdvisorsFilters {
   geographical_sub_region?: string[];
   primarySectors: number[];
   secondarySectors: number[];
+  corporate_events_advised_min?: number | null;
+  corporate_events_advised_max?: number | null;
   searchQuery: string;
   page: number;
   per_page: number;
@@ -96,6 +98,8 @@ const AdvisorsPage = () => {
     cities: [],
     primarySectors: [],
     secondarySectors: [],
+    corporate_events_advised_min: null,
+    corporate_events_advised_max: null,
     searchQuery: "",
     page: 1,
     per_page: 25,
@@ -159,6 +163,10 @@ const AdvisorsPage = () => {
   const [selectedSecondarySectors, setSelectedSecondarySectors] = useState<
     number[]
   >([]);
+  const [corporateEventsAdvisedMin, setCorporateEventsAdvisedMin] =
+    useState<string>("");
+  const [corporateEventsAdvisedMax, setCorporateEventsAdvisedMax] =
+    useState<string>("");
 
   // Fetch data from API (same as companies page)
   const fetchCountries = useCallback(async () => {
@@ -342,6 +350,19 @@ const AdvisorsPage = () => {
         });
       }
 
+      if (typeof filters.corporate_events_advised_min === "number") {
+        params.append(
+          "corporate_events_advised_min",
+          filters.corporate_events_advised_min.toString()
+        );
+      }
+      if (typeof filters.corporate_events_advised_max === "number") {
+        params.append(
+          "corporate_events_advised_max",
+          filters.corporate_events_advised_max.toString()
+        );
+      }
+
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_list?${params.toString()}`;
 
       console.log("[Advisors] Fetch list URL:", url);
@@ -493,6 +514,19 @@ const AdvisorsPage = () => {
           filtersForCounts.secondarySectors.join(",")
         );
 
+      if (typeof filtersForCounts.corporate_events_advised_min === "number") {
+        params.append(
+          "corporate_events_advised_min",
+          filtersForCounts.corporate_events_advised_min.toString()
+        );
+      }
+      if (typeof filtersForCounts.corporate_events_advised_max === "number") {
+        params.append(
+          "corporate_events_advised_max",
+          filtersForCounts.corporate_events_advised_max.toString()
+        );
+      }
+
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_counts?${params.toString()}`;
       console.log("[Advisors] Fetch counts URL:", url);
       const response = await fetch(url, {
@@ -581,6 +615,17 @@ const AdvisorsPage = () => {
 
   // Handle search
   const handleSearch = () => {
+    const parseOptionalInt = (value: string): number | null => {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      const n = Number(trimmed);
+      if (!Number.isFinite(n)) return null;
+      return Math.trunc(n);
+    };
+
+    const minVal = parseOptionalInt(corporateEventsAdvisedMin);
+    const maxVal = parseOptionalInt(corporateEventsAdvisedMax);
+
     const updatedFilters = {
       ...filters,
       searchQuery: searchTerm,
@@ -591,6 +636,8 @@ const AdvisorsPage = () => {
       cities: selectedCities,
       primarySectors: selectedPrimarySectors,
       secondarySectors: selectedSecondarySectors,
+      corporate_events_advised_min: minVal,
+      corporate_events_advised_max: maxVal,
       page: 1, // Reset to first page when searching
     };
     setFilters(updatedFilters);
@@ -701,6 +748,18 @@ const AdvisorsPage = () => {
       fontSize: "16px",
       marginBottom: "8px",
       marginTop: "14px",
+    },
+    numberInput: {
+      width: "100%",
+      padding: "13px 14px",
+      border: "1px solid #e2e8f0",
+      borderRadius: "6px",
+      fontSize: "16px",
+      color: "#111827",
+      outline: "none",
+      marginBottom: "0px",
+      appearance: "textfield" as const,
+      background: "white",
     },
     select: {
       width: "100%",
@@ -2107,6 +2166,30 @@ const AdvisorsPage = () => {
                       })}
                     </div>
                   )}
+
+                  <span style={styles.label}>
+                    # of Corporate Events Advised (Range)
+                  </span>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      placeholder="Min"
+                      value={corporateEventsAdvisedMin}
+                      onChange={(e) => setCorporateEventsAdvisedMin(e.target.value)}
+                      style={styles.numberInput}
+                    />
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      placeholder="Max"
+                      value={corporateEventsAdvisedMax}
+                      onChange={(e) => setCorporateEventsAdvisedMax(e.target.value)}
+                      style={styles.numberInput}
+                    />
+                  </div>
                 </div>
               </div>
             )}
