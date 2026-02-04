@@ -300,12 +300,14 @@ const SectorsSection = () => {
   const [error, setError] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>("sector_name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [searchTerm, setSearchTerm] = useState<string>("");
+  // Keep input separate from the applied query so we only search on button click.
+  const [searchInput, setSearchInput] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const handleSectorClick = (sectorId: number) => {
     const basePath = `/sector/${sectorId}`;
     const href =
-      searchTerm.trim().length > 0 ? `${basePath}?tab=subsectors` : basePath;
+      searchQuery.trim().length > 0 ? `${basePath}?tab=subsectors` : basePath;
     router.push(href);
   };
 
@@ -369,17 +371,69 @@ const SectorsSection = () => {
     }
   };
 
-  // Apply search term locally (instant)
+  const handleSearch = () => {
+    setSearchQuery(searchInput.trim());
+  };
+
+  // Apply search term:
+  // - empty -> show cached results
+  // - non-empty -> fetch directly from Xano using GET + bearer auth, then render results
   useEffect(() => {
-    const q = searchTerm.trim().toLowerCase();
+    const q = searchQuery.trim();
     if (!q) {
+      // Only reset to cached list when query is cleared via Search button.
       setSectors(allSectors);
       return;
     }
-    setSectors(
-      allSectors.filter((s) => (s.sector_name || "").toLowerCase().includes(q))
-    );
-  }, [searchTerm, allSectors]);
+
+    const controller = new AbortController();
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) {
+          throw new Error("Authentication required");
+        }
+
+        const baseUrl =
+          "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Primary_sectors_with_companies_counts";
+        const params = new URLSearchParams();
+        params.set("sort", "");
+        params.set("search", q);
+
+        const resp = await fetch(`${baseUrl}?${params.toString()}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => "");
+          throw new Error(
+            `API request failed (${resp.status}): ${resp.statusText || ""} ${text}`.trim()
+          );
+        }
+
+        const data: SectorsResponse = await resp.json();
+        const list = data.sectors || [];
+        setSectors(list);
+      } catch (e) {
+        if ((e as { name?: string })?.name === "AbortError") return;
+        setError(e instanceof Error ? e.message : "Failed to search sectors");
+        // Keep showing previous results rather than blanking the page
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    return () => {
+      controller.abort();
+    };
+  }, [searchQuery, allSectors]);
 
   useEffect(() => {
     // Note: we intentionally do NOT preload secondary→primary mapping here.
@@ -518,12 +572,12 @@ const SectorsSection = () => {
         },
         React.createElement("input", {
           type: "text",
-          value: searchTerm,
+          value: searchInput,
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-            setSearchTerm(e.target.value),
+            setSearchInput(e.target.value),
           onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
             if (e.key === "Enter") {
-              fetchSectors();
+              handleSearch();
             }
           },
           placeholder: "Search sectors or sub-sectors",
@@ -540,7 +594,7 @@ const SectorsSection = () => {
         React.createElement(
           "button",
           {
-            onClick: () => fetchSectors(),
+            onClick: () => handleSearch(),
             style: {
               padding: "8px 16px",
               borderRadius: "8px",
@@ -658,7 +712,7 @@ const SectorsSection = () => {
           key: sector.id,
           sector,
           href:
-            searchTerm.trim().length > 0
+            searchQuery.trim().length > 0
               ? `/sector/${sector.id}?tab=subsectors`
               : `/sector/${sector.id}`,
           onClick: () => handleSectorClick(sector.id),
