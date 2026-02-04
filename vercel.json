@@ -21,6 +21,10 @@
     {
       "path": "/api/cron/warm-investors",
       "schedule": "0 5,6 * * 1-5"
+    },
+    {
+      "path": "/api/cron/warm-advisors",
+      "schedule": "0 5,6 * * 1-5"
     }
   ]
 }
