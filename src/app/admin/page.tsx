@@ -3137,6 +3137,11 @@ function ContentTab() {
     const buildFormData = (mode: ArrayMode) => {
       const fd = new FormData();
 
+      // For PATCH updates, Xano expects content_id in payload (in addition to URL param)
+      if (editingContentId !== null) {
+        fd.append("content_id", String(editingContentId));
+      }
+
       // Scalars
       // Xano: this should resolve to null (Publication_Date is always null for this flow)
       fd.append("Publication_Date", "");
