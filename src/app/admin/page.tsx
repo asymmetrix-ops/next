@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import EmailEditor from "react-email-editor";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import TiptapSimpleEditor from "@/components/ui/TiptapSimpleEditor";
 import { locationsService } from "@/lib/locationsService";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useRouter } from "next/navigation";
@@ -1993,6 +1994,50 @@ function EmailsTab() {
   const [sending, setSending] = useState(false);
   const [editorReady, setEditorReady] = useState(false);
   const [pendingHtml, setPendingHtml] = useState<string | null>(null);
+  const imageUploadRegisteredRef = useRef(false);
+
+  const UNLAYER_PROJECT_ID: number | null = (() => {
+    const raw = process.env.NEXT_PUBLIC_UNLAYER_PROJECT_ID;
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  })();
+
+  const XANO_IMAGE_UPLOAD_URL =
+    "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/upload_image_file";
+
+  async function uploadImageToXano(file: File): Promise<string> {
+    const token = localStorage.getItem("asymmetrix_auth_token");
+    const fd = new FormData();
+    fd.append("file", file, file.name);
+
+    const resp = await fetch(XANO_IMAGE_UPLOAD_URL, {
+      method: "POST",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        // IMPORTANT: do NOT set Content-Type for multipart/form-data
+      },
+      body: fd,
+    });
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => "");
+      throw new Error(`Image upload failed: ${resp.status} ${txt}`);
+    }
+    const json = (await resp.json().catch(() => ({}))) as Record<string, unknown>;
+    const urlCandidate =
+      (json as { url?: string }).url ||
+      (json as { file?: { url?: string } }).file?.url ||
+      (json as { image?: { url?: string } }).image?.url ||
+      (json as { path?: string }).path ||
+      (json as { file?: { path?: string } }).file?.path ||
+      "";
+    const url =
+      urlCandidate && urlCandidate.startsWith("/vault/")
+        ? `https://xdil-abvj-o7rq.e2.xano.io${urlCandidate}`
+        : urlCandidate;
+    if (!url) throw new Error("Image upload response missing url");
+    return url;
+  }
   interface EmailTemplate {
     id: number;
     Headline?: string | null;
@@ -2034,7 +2079,7 @@ function EmailsTab() {
       const containerMatch = fullHtml.match(/<table[^>]*class="container"[^>]*>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<\/table>/i);
       if (containerMatch && containerMatch[1]) {
         return containerMatch[1].trim();
-      }
+      } 
       const divMatch = fullHtml.match(/<body[^>]*>[\s\S]*?<div[^>]*>([\s\S]*?)<\/div>[\s\S]*?<\/body>/i);
       if (divMatch && divMatch[1]) {
         return divMatch[1].trim();
@@ -2232,9 +2277,48 @@ function EmailsTab() {
         <EmailEditor
           ref={unlayerRef as unknown as never}
           minHeight={500}
+          options={{
+            ...(UNLAYER_PROJECT_ID ? { projectId: UNLAYER_PROJECT_ID } : {}),
+            user: {
+              id: "admin",
+            },
+          } as never}
           onReady={() => {
             readyResolveRef.current?.();
             setEditorReady(true);
+            // Ensure image uploads go to Xano (not Unlayer)
+            if (!imageUploadRegisteredRef.current) {
+              imageUploadRegisteredRef.current = true;
+              const editor = (unlayerRef.current as { editor?: unknown } | null)
+                ?.editor as
+                | {
+                    registerCallback?: (
+                      type: string,
+                      cb: (file: unknown, done: (data: unknown) => void) => void
+                    ) => void;
+                  }
+                | undefined;
+              editor?.registerCallback?.("image", async (file: unknown, done) => {
+                try {
+                  const f =
+                    file instanceof File
+                      ? file
+                      : (file as { attachments?: unknown[] })?.attachments?.[0] instanceof
+                        File
+                      ? ((file as { attachments?: unknown[] }).attachments![0] as File)
+                      : null;
+                  if (!f) throw new Error("No image file provided");
+                  const url = await uploadImageToXano(f);
+                  done({ progress: 100, url });
+                } catch (e) {
+                  console.error("Image upload failed:", e);
+                  done({ progress: 100, url: "" });
+                  alert(
+                    e instanceof Error ? e.message : "Failed to upload image to Xano"
+                  );
+                }
+              });
+            }
             if (pendingHtml) {
               void safeLoadHtml(pendingHtml);
               setPendingHtml(null);
@@ -2389,9 +2473,8 @@ function EmailsTab() {
   );
 }
 function ContentTab() {
-  const editorContainerRef = useRef<HTMLDivElement | null>(null);
-  const unlayerRef = useRef<unknown>(null);
   const [html, setHtml] = useState("");
+  const [bodyHtml, setBodyHtml] = useState<string>("<p></p>");
   const [headline, setHeadline] = useState("");
   const [strapline, setStrapline] = useState("");
   const [contentType, setContentType] = useState("");
@@ -2399,8 +2482,42 @@ function ContentTab() {
   const [singleRecipient, setSingleRecipient] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [sending, setSending] = useState(false);
-  const [editorReady, setEditorReady] = useState(false);
-  const [pendingHtml, setPendingHtml] = useState<string | null>(null);
+
+  const XANO_IMAGE_UPLOAD_URL =
+    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/images";
+
+  async function uploadImageToXano(file: File): Promise<string> {
+    const token = localStorage.getItem("asymmetrix_auth_token");
+    const fd = new FormData();
+    fd.append("img", file, file.name);
+
+    const resp = await fetch(XANO_IMAGE_UPLOAD_URL, {
+      method: "POST",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        // IMPORTANT: do NOT set Content-Type for multipart/form-data
+      },
+      body: fd,
+    });
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => "");
+      throw new Error(`Image upload failed: ${resp.status} ${txt}`);
+    }
+    const json = (await resp.json().catch(() => ({}))) as Record<string, unknown>;
+    const urlCandidate =
+      (json as { url?: string }).url ||
+      (json as { file?: { url?: string } }).file?.url ||
+      (json as { image?: { url?: string } }).image?.url ||
+      (json as { path?: string }).path ||
+      (json as { file?: { path?: string } }).file?.path ||
+      "";
+    const url =
+      urlCandidate && urlCandidate.startsWith("/vault/")
+        ? `https://xdil-abvj-o7rq.e2.xano.io${urlCandidate}`
+        : urlCandidate;
+    if (!url) throw new Error("Image upload response missing url");
+    return url;
+  }
 
   // Company + sector metadata (for content creation workflows)
   interface SimpleCompany {
@@ -2438,20 +2555,123 @@ function ContentTab() {
     SimpleCorporateEvent[]
   >([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(false);
+  const corporateEventsDebounceRef = useRef<number | null>(null);
 
   // Related documents (local only for now)
   const [relatedDocuments, setRelatedDocuments] = useState<File[]>([]);
 
-  interface EmailTemplate {
+  // Summary (array of strings)
+  const [summaryItems, setSummaryItems] = useState<string[]>([]);
+  const [summaryInput, setSummaryInput] = useState("");
+
+  // MP3 uploads (uploaded to API, stored as URLs for Related_Documents)
+  interface UploadedMp3 {
+    id?: number;
+    url: string;
+    name: string;
+    path?: string;
+  }
+  const [uploadedMp3s, setUploadedMp3s] = useState<UploadedMp3[]>([]);
+  const [uploadingMp3, setUploadingMp3] = useState(false);
+  const mp3InputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleMp3Upload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploadingMp3(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const newUploads: UploadedMp3[] = [];
+
+      for (const file of Array.from(files)) {
+        const fd = new FormData();
+        fd.append("file", file);
+
+        const resp = await fetch(
+          "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/upload_mp3_file",
+          {
+            method: "POST",
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: fd,
+          }
+        );
+
+        if (resp.ok) {
+          const json = await resp.json().catch(() => ({} as Record<string, unknown>));
+          // Try to extract url/id/path from response - adapt based on actual API response shape
+          const urlCandidate =
+            (json as { url?: string }).url ||
+            (json as { file?: { url?: string } }).file?.url ||
+            (json as { mp3?: { url?: string } }).mp3?.url ||
+            (json as { path?: string }).path ||
+            "";
+          const idCandidate =
+            (json as { id?: number }).id ||
+            (json as { file?: { id?: number } }).file?.id ||
+            (json as { mp3?: { id?: number } }).mp3?.id;
+          const pathCandidate =
+            (json as { path?: string }).path ||
+            (json as { file?: { path?: string } }).file?.path ||
+            (json as { mp3?: { path?: string } }).mp3?.path ||
+            "";
+
+          if (urlCandidate || pathCandidate) {
+            newUploads.push({
+              id: idCandidate,
+              url: urlCandidate || pathCandidate,
+              name: file.name,
+              path: pathCandidate,
+            });
+          }
+        } else {
+          console.error(`Failed to upload ${file.name}: ${resp.status}`);
+        }
+      }
+
+      setUploadedMp3s((prev) => [...prev, ...newUploads]);
+    } catch (err) {
+      console.error("Error uploading MP3 file(s):", err);
+      alert("Error uploading MP3 file(s)");
+    } finally {
+      setUploadingMp3(false);
+      if (mp3InputRef.current) {
+        mp3InputRef.current.value = "";
+      }
+    }
+  };
+
+  const removeMp3 = (index: number) => {
+    setUploadedMp3s((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Content articles for "Edit Content" dropdown
+  // Note: API returns arrays that can be either just IDs or objects
+  interface ContentArticle {
     id: number;
     Headline?: string | null;
+    Strapline?: string | null;
     Body?: string | null;
+    Content_Type?: string | null;
+    Visibility?: string | null;
+    summary?: string[] | null;
+    // Can be array of IDs or array of objects
+    Company_of_Focus?: Array<number | { id: number; company_name?: string; name?: string }> | null;
+    companies_mentioned?: Array<number | { id: number; company_name?: string; name?: string }> | null;
+    // Sectors come as objects with sector_name (no id)
+    sectors?: Array<{ id?: number; sector_name?: string }> | null;
+    // Can be array of IDs or array of objects
+    Related_Corporate_Event?: Array<number | { id: number; [key: string]: unknown }> | null;
+    Related_Documents?: Array<{ id?: number; url?: string; path?: string; name?: string; access?: string; type?: string; size?: number; mime?: string }> | string[] | null;
+    Body_Design?: string | null;
     Publication_Date?: unknown;
     created_at?: number;
   }
-  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
-  const [templatesLoading, setTemplatesLoading] = useState(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<number | "">("");
+  const [allContentArticles, setAllContentArticles] = useState<ContentArticle[]>([]);
+  const [contentArticlesLoading, setContentArticlesLoading] = useState(false);
+  const [selectedEditContentId, setSelectedEditContentId] = useState<number | "">("");
+  const [editingContentId, setEditingContentId] = useState<number | null>(null);
+  const [visibility, setVisibility] = useState<string>("Admin");
 
   function extractInnerContent(fullHtml: string): string {
     // If it's a full HTML document, extract the inner content
@@ -2498,63 +2718,10 @@ function ContentTab() {
     }
   }
 
-  const readyResolveRef = useRef<(() => void) | null>(null);
-  const readyP = useRef<Promise<void> | null>(null);
-  if (!readyP.current) {
-    readyP.current = new Promise<void>((res) => (readyResolveRef.current = res));
-  }
+  const UNLAYER_DESIGN_RE = /<!--\s*UNLAYER_DESIGN:([A-Za-z0-9+/=]+)\s*-->/;
 
-  async function getEditorApi() {
-    await readyP.current;
-    type EditorRef = {
-      editor?: {
-        exportHtml?: (cb: (d: { html?: string }) => void) => void;
-        loadDesign?: (design: unknown) => void;
-      };
-    };
-    const ref = unlayerRef.current as EditorRef | null;
-    const api = ref?.editor as
-      | {
-          exportHtml?: (cb: (d: { html?: string }) => void) => void;
-          loadDesign?: (design: unknown) => void;
-        }
-      | undefined;
-    if (!api?.exportHtml || !api?.loadDesign) {
-      throw new Error("Email editor API not available yet.");
-    }
-    return api;
-  }
-
-  async function safeExportHtml(): Promise<{ html?: string }> {
-    const api = await getEditorApi();
-    return await new Promise<{ html?: string }>((resolve) =>
-      api.exportHtml?.((d: { html?: string }) => resolve(d))
-    );
-  }
-
-  async function safeLoadHtml(rawHtml: string): Promise<void> {
-    const innerHtml = extractInnerContent(rawHtml);
-    const api = await getEditorApi();
-    api.loadDesign?.({
-      body: {
-        rows: [
-          {
-            cells: [1],
-            columns: [
-              {
-                contents: [
-                  {
-                    type: "html",
-                    values: { html: innerHtml },
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-        values: { backgroundColor: "#ffffff", contentWidth: "600px" },
-      },
-    } as unknown);
+  function stripUnlayerDesignComment(bodyHtml: string): string {
+    return bodyHtml.replace(UNLAYER_DESIGN_RE, "").trim();
   }
 
   // Fetch content types (same source as Insights & Analysis)
@@ -2658,9 +2825,12 @@ function ContentTab() {
     }
   };
 
-  const searchCorporateEvents = async () => {
-    const q = corporateEventsQuery.trim();
-    if (!q) return;
+  const searchCorporateEvents = async (query: string) => {
+    const q = query.trim();
+    if (!q) {
+      setCorporateEventsResults([]);
+      return;
+    }
     try {
       setCorporateEventsLoading(true);
       const token = localStorage.getItem("asymmetrix_auth_token");
@@ -2681,9 +2851,12 @@ function ContentTab() {
         return;
       }
       const json = (await resp.json().catch(() => null)) as
-        | { items?: Array<Record<string, unknown>> }
+        | { items?: Array<Record<string, unknown>>; result1?: { items?: Array<Record<string, unknown>> } }
         | null;
-      const items = Array.isArray(json?.items) ? json!.items! : [];
+      const items =
+        (Array.isArray(json?.items) ? json!.items! : []) ||
+        (Array.isArray(json?.result1?.items) ? json!.result1!.items! : []) ||
+        [];
 
       const mapped = items
         .map((it) => {
@@ -2700,26 +2873,12 @@ function ContentTab() {
           if (!Number.isFinite(idNum) || idNum <= 0) return null;
 
           const dealType = String(it.deal_type ?? it.Deal_type ?? "").trim();
-          const announcementDate = String(
-            it.announcement_date ?? it.Announcement_date ?? ""
-          ).trim();
-          const targetCounterparty = it.target_counterparty as
-            | { new_company?: { name?: unknown } }
-            | undefined;
-          const targetName = String(
-            targetCounterparty?.new_company?.name ?? ""
-          ).trim();
-          const targetLabel = String(it.target_label ?? "").trim();
           const description = String(it.description ?? "").trim();
 
-          const labelParts = [
-            dealType || undefined,
-            targetLabel || targetName || undefined,
-            announcementDate || undefined,
-          ].filter(Boolean) as string[];
+          // Requirement: show deal type + description in dropdown
           const label =
-            labelParts.join(" • ") ||
-            (description ? description.slice(0, 80) : `Corporate Event #${idNum}`);
+            [dealType || undefined, description || undefined].filter(Boolean).join(" • ") ||
+            `Corporate Event #${idNum}`;
 
           return { id: idNum, label } satisfies SimpleCorporateEvent;
         })
@@ -2741,36 +2900,195 @@ function ContentTab() {
     return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
   }
 
+  // Fetch all content articles for "Edit Content" dropdown
   useEffect(() => {
     let cancelled = false;
-    async function loadTemplates() {
+    async function loadContentArticles() {
       try {
-        setTemplatesLoading(true);
+        setContentArticlesLoading(true);
+        const token = localStorage.getItem("asymmetrix_auth_token");
         const res = await fetch(
-          "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content",
-          { method: "GET", headers: { "Content-Type": "application/json" } }
+          "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content",
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          }
         );
         const data = await res.json();
         if (!cancelled && Array.isArray(data)) {
-          setTemplates(data as EmailTemplate[]);
+          setAllContentArticles(data as ContentArticle[]);
         }
       } catch {
         // ignore
       } finally {
-        if (!cancelled) setTemplatesLoading(false);
+        if (!cancelled) setContentArticlesLoading(false);
       }
     }
-    loadTemplates();
+    loadContentArticles();
     return () => {
       cancelled = true;
     };
   }, []);
 
+  // Handler to pre-load content article fields into form
+  const handleEditContentSelect = async (contentId: number) => {
+    const article = allContentArticles.find((c) => c.id === contentId);
+    if (!article) return;
+
+    // Set editing mode
+    setEditingContentId(contentId);
+
+    // Pre-load headline and strapline
+    setHeadline(article.Headline || "");
+    setStrapline(article.Strapline || "");
+
+    // Pre-load content type
+    if (article.Content_Type) {
+      setContentType(article.Content_Type);
+    }
+
+    // Pre-load visibility
+    if (article.Visibility) {
+      setVisibility(article.Visibility);
+    }
+
+    // Pre-load summary array
+    if (Array.isArray(article.summary)) {
+      setSummaryItems(article.summary);
+    } else {
+      setSummaryItems([]);
+    }
+
+    // Pre-load Company of Focus
+    // API can return either array of IDs [4453] or array of objects [{id: 4453, company_name: "..."}]
+    if (Array.isArray(article.Company_of_Focus)) {
+      const companies: SimpleCompany[] = article.Company_of_Focus.map((c) => {
+        if (typeof c === "number") {
+          // Just an ID
+          return { id: c, name: `Company #${c}` };
+        } else {
+          // Object with id and possibly name
+          return {
+            id: c.id,
+            name: c.company_name || c.name || `Company #${c.id}`,
+          };
+        }
+      });
+      setCompanyOfFocus(companies);
+      setCofResults(companies); // Also add to search results so they show up
+    } else {
+      setCompanyOfFocus([]);
+    }
+
+    // Pre-load companies mentioned
+    // API can return either array of IDs or array of objects
+    if (Array.isArray(article.companies_mentioned)) {
+      const companies: SimpleCompany[] = article.companies_mentioned.map((c) => {
+        if (typeof c === "number") {
+          // Just an ID
+          return { id: c, name: `Company #${c}` };
+        } else {
+          // Object with id and possibly name
+          return {
+            id: c.id,
+            name: c.company_name || c.name || `Company #${c.id}`,
+          };
+        }
+      });
+      setCompaniesMentioned(companies);
+      setMentionedResults(companies); // Also add to search results
+    } else {
+      setCompaniesMentioned([]);
+    }
+
+    // Pre-load sectors
+    // API returns objects with sector_name but no id, need to match with allSectors
+    if (Array.isArray(article.sectors)) {
+      const sectorIds: number[] = [];
+      for (const s of article.sectors) {
+        if (s.id) {
+          // Has id directly
+          sectorIds.push(s.id);
+        } else if (s.sector_name) {
+          // Find matching sector by name
+          const matchingSector = allSectors.find(
+            (sec) => sec.sector_name === s.sector_name
+          );
+          if (matchingSector) {
+            sectorIds.push(matchingSector.id);
+          }
+        }
+      }
+      setSelectedSectorIds(sectorIds);
+    } else {
+      setSelectedSectorIds([]);
+    }
+
+    // Pre-load related corporate events
+    // API can return either array of IDs [2807, 877] or array of objects
+    if (Array.isArray(article.Related_Corporate_Event)) {
+      const events: SimpleCorporateEvent[] = article.Related_Corporate_Event.map((e) => {
+        if (typeof e === "number") {
+          // Just an ID
+          return { id: e, label: `Event #${e}` };
+        } else {
+          // Object with id and possibly label/description
+          return {
+            id: e.id,
+            label: String(e.label || e.description || `Event #${e.id}`).slice(0, 80),
+          };
+        }
+      });
+      setSelectedCorporateEvents(events);
+      setCorporateEventsResults(events); // Also add to search results
+    } else {
+      setSelectedCorporateEvents([]);
+    }
+
+    // Pre-load Related_Documents as uploaded MP3s (if they're URLs)
+    if (Array.isArray(article.Related_Documents)) {
+      const mp3s: UploadedMp3[] = [];
+      for (const doc of article.Related_Documents) {
+        if (typeof doc === "string") {
+          // It's a URL string
+          if (doc) {
+            mp3s.push({ url: doc, name: doc.split("/").pop() || "Document", path: doc });
+          }
+        } else if (doc && typeof doc === "object") {
+          // It's an object with url/path/name
+          const url = doc.url || doc.path || "";
+          if (url) {
+            mp3s.push({
+              id: doc.id,
+              url: url,
+              name: doc.name || url.split("/").pop() || "Document",
+              path: doc.path || "",
+            });
+          }
+        }
+      }
+      setUploadedMp3s(mp3s);
+    } else {
+      setUploadedMp3s([]);
+    }
+
+    // Clear local file uploads when editing existing content
+    setRelatedDocuments([]);
+
+    // Pre-load editor: take existing HTML (strip legacy Unlayer marker if present)
+    const rawBody = String(article.Body || "");
+    const cleaned = rawBody ? stripUnlayerDesignComment(rawBody) : "";
+    const nextBodyHtml = cleaned ? extractInnerContent(cleaned) : "";
+    setBodyHtml(nextBodyHtml || "<p></p>");
+    setHtml("");
+  };
+
   const handleExport = async () => {
     try {
-      const exported = await safeExportHtml();
-    const rawHtml = exported?.html || "";
-    const sanitized = sanitizeHtml(rawHtml);
+      const sanitized = sanitizeHtml(bodyHtml);
       const branded = buildBrandedEmailHtml({
         bodyHtml: `<div>${sanitized}</div>`,
         subject: contentType,
@@ -2778,7 +3096,7 @@ function ContentTab() {
       setHtml(branded);
     } catch (err) {
       console.error("Failed to export HTML:", err);
-      alert("Email editor is not ready yet. Try again in a few seconds.");
+      alert("Failed to export HTML. Try again.");
     }
   };
 
@@ -2808,18 +3126,7 @@ function ContentTab() {
       alert("Content Type is required");
       return;
     }
-
-    let exported: { html?: string };
-    try {
-      exported = await safeExportHtml();
-    } catch (err) {
-      console.error("Failed to export HTML:", err);
-      alert("Content editor is not ready yet. Try again in a few seconds.");
-      return;
-    }
-
-      const rawHtml = exported?.html || "";
-      const sanitized = sanitizeHtml(rawHtml);
+    const sanitized = sanitizeHtml(bodyHtml);
     const Body = `<div>${sanitized}</div>`;
 
     const companyOfFocusIds = companyOfFocus.map((c) => c.id);
@@ -2837,7 +3144,7 @@ function ContentTab() {
       fd.append("Strapline", Strapline);
       fd.append("Content_Type", Content_Type);
       fd.append("Body", Body);
-      fd.append("Visibility", "Admin");
+      fd.append("Visibility", visibility);
 
       // Arrays of IDs (send as repeated [] keys)
       const k = (base: string) => (mode === "bracketed" ? `${base}[]` : base);
@@ -2849,10 +3156,23 @@ function ContentTab() {
       for (const id of relatedCorporateEventIds)
         fd.append(k("Related_Corporate_Event"), String(id));
 
-      // Attachments: repeated keys
+      // Attachments: repeated keys for local files
       const fileKey = mode === "bracketed" ? "files[]" : "files";
       for (const file of relatedDocuments) {
         fd.append(fileKey, file, file.name);
+      }
+
+      // MP3 files (already uploaded, include URLs/paths in Related_Documents array)
+      const mp3Key = mode === "bracketed" ? "Related_Documents[]" : "Related_Documents";
+      for (const mp3 of uploadedMp3s) {
+        // Send the URL or path of the uploaded MP3 file
+        fd.append(mp3Key, mp3.url || mp3.path || "");
+      }
+
+      // Summary array of strings
+      const summaryKey = mode === "bracketed" ? "summary[]" : "summary";
+      for (const item of summaryItems) {
+        fd.append(summaryKey, item);
       }
 
       return fd;
@@ -2868,19 +3188,21 @@ function ContentTab() {
         })
       );
 
+      const isEditing = editingContentId !== null;
+      const apiUrl = isEditing
+        ? `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/${editingContentId}`
+        : "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/new_content";
+
       const tryOnce = async (mode: ArrayMode) => {
         const fd = buildFormData(mode);
-        const res = await fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/new_content",
-        {
-          method: "POST",
+        const res = await fetch(apiUrl, {
+          method: isEditing ? "PATCH" : "POST",
           headers: {
-              Authorization: `Bearer ${token}`,
-              // IMPORTANT: do NOT set Content-Type for multipart/form-data
-            },
-            body: fd,
-          }
-        );
+            Authorization: `Bearer ${token}`,
+            // IMPORTANT: do NOT set Content-Type for multipart/form-data
+          },
+          body: fd,
+        });
         const text = await res.text().catch(() => "");
         return { res, text };
       };
@@ -2895,10 +3217,28 @@ function ContentTab() {
       }
 
       if (!res.ok) {
-        throw new Error(`Failed to create content: ${res.status} ${text}`);
+        throw new Error(`Failed to ${isEditing ? "update" : "create"} content: ${res.status} ${text}`);
       }
 
-      alert("Content created successfully");
+      alert(isEditing ? "Content updated successfully" : "Content created successfully");
+      
+      // Refresh content articles list after successful save
+      if (isEditing) {
+        const refreshRes = await fetch(
+          "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content",
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        const refreshData = await refreshRes.json();
+        if (Array.isArray(refreshData)) {
+          setAllContentArticles(refreshData as ContentArticle[]);
+        }
+      }
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to create content");
     } finally {
@@ -2934,38 +3274,52 @@ function ContentTab() {
       )}
 
       <div className="mb-3">
-        <label className="block mb-1 text-sm font-medium">Template</label>
-        <select
-          className="p-2 w-full border"
-          value={selectedTemplateId}
-          onChange={(e) => {
-            const val = e.target.value;
-            if (val === "") {
-              setSelectedTemplateId("");
+        <label className="block mb-1 text-sm font-medium">Edit Content</label>
+        <SearchableSelect
+          options={allContentArticles.map((c) => ({
+            value: c.id,
+            label: c.Headline ? String(c.Headline) : `Content #${c.id}`,
+          }))}
+          value={selectedEditContentId}
+          onChange={(value) => {
+            if (value === "" || value === null || value === undefined) {
+              setSelectedEditContentId("");
+              setEditingContentId(null);
+              // Reset form to empty state when deselecting
+              setHeadline("");
+              setStrapline("");
+              setContentType("");
+              setVisibility("Admin");
+              setSummaryItems([]);
+              setCompanyOfFocus([]);
+              setCompaniesMentioned([]);
+              setSelectedSectorIds([]);
+              setSelectedCorporateEvents([]);
+              setUploadedMp3s([]);
+              setRelatedDocuments([]);
+              setBodyHtml("<p></p>");
+              setHtml("");
               return;
             }
-            const idNum = Number(val);
-            setSelectedTemplateId(idNum);
-            const t = templates.find((x) => x.id === idNum);
-            if (t?.Body) {
-              const bodyHtml = String(t.Body);
-              if (editorReady) {
-                void safeLoadHtml(bodyHtml);
-              } else {
-                setPendingHtml(bodyHtml);
-              }
+            const idNum = typeof value === "number" ? value : Number(value);
+            if (!isNaN(idNum)) {
+              setSelectedEditContentId(idNum);
+              void handleEditContentSelect(idNum);
             }
           }}
-        >
-          <option value="" disabled={templatesLoading}>
-            {templatesLoading ? "Loading templates..." : "Choose a template"}
-          </option>
-          {templates.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.Headline ? String(t.Headline) : `Template #${t.id}`}
-            </option>
-          ))}
-        </select>
+          placeholder={
+            contentArticlesLoading
+              ? "Loading content..."
+              : "Search and select content to edit"
+          }
+          disabled={contentArticlesLoading}
+          style={{ width: "100%" }}
+        />
+        {editingContentId && (
+          <div className="mt-1 text-xs text-blue-600">
+            Editing content ID: {editingContentId}
+          </div>
+        )}
       </div>
 
       <div className="mb-3">
@@ -2981,6 +3335,20 @@ function ContentTab() {
               {ct}
             </option>
           ))}
+        </select>
+      </div>
+
+      <div className="mb-3">
+        <label className="block mb-1 text-sm font-medium">Visibility</label>
+        <select
+          className="p-2 w-full border"
+          value={visibility}
+          onChange={(e) => setVisibility(e.target.value)}
+        >
+          <option value="Admin">Admin</option>
+          <option value="Published">Published</option>
+          <option value="Draft">Draft</option>
+          <option value="Private">Private</option>
         </select>
       </div>
 
@@ -3172,23 +3540,6 @@ function ContentTab() {
         <label className="block mb-1 text-sm font-medium">
           Related Corporate Events (select one or more)
         </label>
-        <div className="flex gap-2 mb-2">
-          <input
-            type="text"
-            className="flex-1 p-2 border rounded"
-            placeholder="Search corporate events"
-            value={corporateEventsQuery}
-            onChange={(e) => setCorporateEventsQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && searchCorporateEvents()}
-          />
-          <button
-            className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
-            onClick={searchCorporateEvents}
-            disabled={corporateEventsLoading}
-          >
-            {corporateEventsLoading ? "Searching…" : "Search"}
-          </button>
-        </div>
         <SearchableSelect
           options={corporateEventsResults.map((ev) => ({
             value: ev.id,
@@ -3206,14 +3557,28 @@ function ContentTab() {
               }
             }
           }}
+          onSearchTermChange={(term) => {
+            setCorporateEventsQuery(term);
+            if (corporateEventsDebounceRef.current) {
+              window.clearTimeout(corporateEventsDebounceRef.current);
+            }
+            corporateEventsDebounceRef.current = window.setTimeout(() => {
+              void searchCorporateEvents(term);
+            }, 250);
+          }}
           placeholder={
             corporateEventsLoading
-              ? "Loading corporate events..."
-              : corporateEventsResults.length === 0
-              ? "Search above to load corporate events"
-              : "Select corporate event to add"
+              ? "Searching corporate events..."
+              : "Search corporate events (type to search)"
           }
-          disabled={corporateEventsLoading || corporateEventsResults.length === 0}
+          loading={corporateEventsLoading}
+          loadingText="Searching…"
+          noOptionsText={
+            corporateEventsQuery.trim()
+              ? "No corporate events found"
+              : "Start typing to search corporate events"
+          }
+          disabled={false}
           style={{ width: "100%" }}
         />
         {selectedCorporateEvents.length > 0 && (
@@ -3282,6 +3647,102 @@ function ContentTab() {
         )}
       </div>
 
+      <div className="mt-4">
+        <label className="block mb-1 text-sm font-medium">
+          MP3 Upload (upload one or more)
+        </label>
+        <div className="flex gap-2 items-center">
+          <input
+            ref={mp3InputRef}
+            type="file"
+            accept=".mp3,audio/mpeg"
+            multiple
+            className="block flex-1 p-2 border rounded bg-white"
+            onChange={(e) => handleMp3Upload(e.target.files)}
+            disabled={uploadingMp3}
+          />
+          {uploadingMp3 && (
+            <span className="text-sm text-gray-500">Uploading...</span>
+          )}
+        </div>
+        {uploadedMp3s.length > 0 && (
+          <div className="mt-2 space-y-2">
+            {uploadedMp3s.map((mp3, idx) => (
+              <div
+                key={`${mp3.name}-${mp3.url}-${idx}`}
+                className="flex justify-between items-center p-2 rounded border bg-white"
+              >
+                <div className="text-sm">
+                  <div className="font-medium">{mp3.name}</div>
+                  <div className="text-xs text-gray-500 truncate max-w-xs">
+                    {mp3.url || mp3.path}
+                  </div>
+                </div>
+                <button
+                  className="px-3 py-1 text-sm text-white bg-red-600 rounded"
+                  onClick={() => removeMp3(idx)}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4">
+        <label className="block mb-1 text-sm font-medium">Summary</label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            className="flex-1 p-2 border rounded"
+            placeholder="Enter summary item"
+            value={summaryInput}
+            onChange={(e) => setSummaryInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && summaryInput.trim()) {
+                e.preventDefault();
+                setSummaryItems([...summaryItems, summaryInput.trim()]);
+                setSummaryInput("");
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50"
+            onClick={() => {
+              if (summaryInput.trim()) {
+                setSummaryItems([...summaryItems, summaryInput.trim()]);
+                setSummaryInput("");
+              }
+            }}
+            disabled={!summaryInput.trim()}
+          >
+            Add
+          </button>
+        </div>
+        {summaryItems.length > 0 && (
+          <div className="mt-2 space-y-2">
+            {summaryItems.map((item, idx) => (
+              <div
+                key={`summary-${idx}`}
+                className="flex justify-between items-center p-2 rounded border bg-white"
+              >
+                <div className="text-sm flex-1">{item}</div>
+                <button
+                  className="px-3 py-1 text-sm text-white bg-red-600 rounded ml-2"
+                  onClick={() =>
+                    setSummaryItems(summaryItems.filter((_, i) => i !== idx))
+                  }
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 gap-3 mt-4 md:grid-cols-2">
         <div>
           <label className="block mb-1 text-sm font-medium">Headline</label>
@@ -3305,19 +3766,18 @@ function ContentTab() {
         </div>
       </div>
 
-      <div className="border" ref={editorContainerRef}>
-        <EmailEditor
-          ref={unlayerRef as unknown as never}
-          minHeight={500}
-          onReady={() => {
-            readyResolveRef.current?.();
-            setEditorReady(true);
-            if (pendingHtml) {
-              void safeLoadHtml(pendingHtml);
-              setPendingHtml(null);
-            }
-          }}
+      <div className="mt-4">
+        <label className="block mb-1 text-sm font-medium">Body</label>
+        <TiptapSimpleEditor
+          valueHtml={bodyHtml}
+          onChangeHtml={setBodyHtml}
+          onUploadImage={uploadImageToXano}
+          placeholder="Write the article body..."
+          minHeightPx={500}
         />
+        <p className="mt-1 text-xs text-gray-500">
+          Images are uploaded to Xano and inserted automatically.
+        </p>
       </div>
 
       <div className="flex gap-2 mt-4">
@@ -3339,8 +3799,33 @@ function ContentTab() {
           onClick={submitNewContent}
           disabled={sending}
         >
-          {sending ? "Submitting…" : "Submit"}
+          {sending ? "Submitting…" : editingContentId ? "Update Content" : "Create Content"}
         </button>
+        {editingContentId && (
+          <button
+            className="px-4 py-2 text-white bg-gray-500 rounded hover:bg-gray-600"
+            onClick={() => {
+              setSelectedEditContentId("");
+              setEditingContentId(null);
+              // Reset form to empty state
+              setHeadline("");
+              setStrapline("");
+              setContentType("");
+              setVisibility("Admin");
+              setSummaryItems([]);
+              setCompanyOfFocus([]);
+              setCompaniesMentioned([]);
+              setSelectedSectorIds([]);
+              setSelectedCorporateEvents([]);
+              setUploadedMp3s([]);
+              setRelatedDocuments([]);
+              setBodyHtml("<p></p>");
+              setHtml("");
+            }}
+          >
+            Clear / New Content
+          </button>
+        )}
       </div>
 
       {html && (
