@@ -176,6 +176,52 @@ class AuthService {
     return data;
   }
 
+  // Request password reset email (no auth required)
+  async requestPasswordReset(email: string): Promise<void> {
+    const apiUrl =
+      process.env.NEXT_PUBLIC_XANO_API_URL ||
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+
+    const response = await fetch(`${apiUrl}/request_password_reset`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email: (email || "").trim().toLowerCase() }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Request failed");
+    }
+  }
+
+  // Update password using magic link token (token from URL passed in body)
+  async updatePassword(
+    token: string,
+    password: string,
+    confirmPassword: string
+  ): Promise<void> {
+    const apiUrl =
+      process.env.NEXT_PUBLIC_XANO_API_URL ||
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+
+    const response = await fetch(`${apiUrl}/update_password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        password,
+        confirm_password: confirmPassword,
+        token,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Password reset failed");
+    }
+  }
+
   // Logout
   logout(): void {
     if (typeof window === "undefined") return;
