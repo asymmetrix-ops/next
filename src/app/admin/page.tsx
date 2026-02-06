@@ -2008,13 +2008,14 @@ function EmailsTab() {
 
   async function uploadImageToXano(file: File): Promise<string> {
     const token = localStorage.getItem("asymmetrix_auth_token");
+    if (!token) throw new Error("Authentication required");
     const fd = new FormData();
     fd.append("file", file, file.name);
 
     const resp = await fetch(XANO_IMAGE_UPLOAD_URL, {
       method: "POST",
       headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        Authorization: `Bearer ${token}`,
         // IMPORTANT: do NOT set Content-Type for multipart/form-data
       },
       body: fd,
@@ -2488,13 +2489,14 @@ function ContentTab() {
 
   async function uploadImageToXano(file: File): Promise<string> {
     const token = localStorage.getItem("asymmetrix_auth_token");
+    if (!token) throw new Error("Authentication required");
     const fd = new FormData();
     fd.append("img", file, file.name);
 
     const resp = await fetch(XANO_IMAGE_UPLOAD_URL, {
       method: "POST",
       headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        Authorization: `Bearer ${token}`,
         // IMPORTANT: do NOT set Content-Type for multipart/form-data
       },
       body: fd,
@@ -2570,16 +2572,47 @@ function ContentTab() {
     url: string;
     name: string;
     path?: string;
+    size?: number;
+    mime?: string;
+    type?: string;
+    access?: string;
+    meta?: Record<string, unknown>;
   }
   const [uploadedMp3s, setUploadedMp3s] = useState<UploadedMp3[]>([]);
   const [uploadingMp3, setUploadingMp3] = useState(false);
   const mp3InputRef = useRef<HTMLInputElement | null>(null);
+
+  const XANO_BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io";
+
+  function toVaultPath(v: string): string {
+    const raw = String(v || "").trim();
+    const i = raw.indexOf("/vault/");
+    if (i >= 0) return raw.slice(i);
+    return raw.startsWith("/vault/") ? raw : raw;
+  }
+
+  function toAbsoluteXanoUrl(v: string): string {
+    const raw = String(v || "").trim();
+    if (!raw) return "";
+    if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+    if (raw.startsWith("/vault/")) return `${XANO_BASE_URL}${raw}`;
+    return raw;
+  }
+
+  function encodeIdList(ids: number[]): string {
+    const cleaned = ids.filter((n) => Number.isFinite(n) && n > 0);
+    if (cleaned.length === 0) return "";
+    if (cleaned.length === 1) return String(cleaned[0]);
+    // Xano sometimes stores arrays like "{1,2,3}" (as seen in GET content: Company_of_Focus)
+    return `{${cleaned.join(",")}}`;
+  }
 
   const handleMp3Upload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setUploadingMp3(true);
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) throw new Error("Authentication required");
       const newUploads: UploadedMp3[] = [];
 
       for (const file of Array.from(files)) {
@@ -2591,7 +2624,7 @@ function ContentTab() {
           {
             method: "POST",
             headers: {
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              Authorization: `Bearer ${token}`,
             },
             body: fd,
           }
@@ -2617,11 +2650,27 @@ function ContentTab() {
             "";
 
           if (urlCandidate || pathCandidate) {
+            const absUrl = toAbsoluteXanoUrl(urlCandidate || pathCandidate);
+            const vaultPath = toVaultPath(pathCandidate || urlCandidate || absUrl);
+            const mime = file.type || "audio/mpeg";
+            const type =
+              mime.startsWith("image/")
+                ? "image"
+                : mime === "application/pdf"
+                ? "pdf"
+                : mime.startsWith("audio/")
+                ? "mp3"
+                : "file";
             newUploads.push({
               id: idCandidate,
-              url: urlCandidate || pathCandidate,
+              url: absUrl || urlCandidate || pathCandidate,
               name: file.name,
-              path: pathCandidate,
+              path: vaultPath,
+              size: file.size,
+              mime,
+              type,
+              access: "public",
+              meta: { validated: false },
             });
           }
         } else {
@@ -2662,7 +2711,7 @@ function ContentTab() {
     sectors?: Array<{ id?: number; sector_name?: string }> | null;
     // Can be array of IDs or array of objects
     Related_Corporate_Event?: Array<number | { id: number; [key: string]: unknown }> | null;
-    Related_Documents?: Array<{ id?: number; url?: string; path?: string; name?: string; access?: string; type?: string; size?: number; mime?: string }> | string[] | null;
+    Related_Documents?: unknown[] | null;
     Body_Design?: string | null;
     Publication_Date?: unknown;
     created_at?: number;
@@ -3055,19 +3104,44 @@ function ContentTab() {
         if (typeof doc === "string") {
           // It's a URL string
           if (doc) {
-            mp3s.push({ url: doc, name: doc.split("/").pop() || "Document", path: doc });
-          }
-        } else if (doc && typeof doc === "object") {
-          // It's an object with url/path/name
-          const url = doc.url || doc.path || "";
-          if (url) {
+            const absUrl = toAbsoluteXanoUrl(doc);
+            const vaultPath = toVaultPath(doc);
             mp3s.push({
-              id: doc.id,
-              url: url,
-              name: doc.name || url.split("/").pop() || "Document",
-              path: doc.path || "",
+              url: absUrl || doc,
+              name: doc.split("/").pop() || "Document",
+              path: vaultPath || doc,
+              mime: "audio/mpeg",
+              type: "file",
+              size: 0,
+              access: "public",
+              meta: { validated: false },
             });
           }
+        } else if (doc && typeof doc === "object") {
+          // GET /content returns Related_Documents as flat objects:
+          // { meta, mime, name, path, size, type, access, (optional url) }
+          const src = doc as Record<string, unknown>;
+          const urlRaw = String(src.url || src.path || "").trim();
+          const absUrl = toAbsoluteXanoUrl(urlRaw);
+          const vaultPath = toVaultPath(String(src.path || urlRaw || absUrl || "").trim());
+          if (!absUrl && !vaultPath) continue;
+          const meta =
+            src.meta && typeof src.meta === "object"
+              ? (src.meta as Record<string, unknown>)
+              : { validated: false };
+          mp3s.push({
+            url: absUrl || urlRaw,
+            name:
+              String(src.name || "").trim() ||
+              (absUrl || vaultPath).split("/").pop() ||
+              "Document",
+            path: vaultPath,
+            access: String(src.access || "public"),
+            type: String(src.type || "file") || "file",
+            size: typeof src.size === "number" ? src.size : Number(src.size) || 0,
+            mime: String(src.mime || ""),
+            meta,
+          });
         }
       }
       setUploadedMp3s(mp3s);
@@ -3133,54 +3207,63 @@ function ContentTab() {
     const companiesMentionedIds = companiesMentioned.map((c) => c.id);
     const relatedCorporateEventIds = selectedCorporateEvents.map((e) => e.id);
 
-    type ArrayMode = "bracketed" | "plain";
-    const buildFormData = (mode: ArrayMode) => {
-      const fd = new FormData();
+    const buildJsonPayload = (): Record<string, string> => {
+      const payload: Record<string, string> = {};
 
       // For PATCH updates, Xano expects content_id in payload (in addition to URL param)
       if (editingContentId !== null) {
-        fd.append("content_id", String(editingContentId));
+        payload.content_id = String(editingContentId);
       }
 
       // Scalars
-      // Xano: this should resolve to null (Publication_Date is always null for this flow)
-      fd.append("Publication_Date", "");
-      fd.append("Headline", Headline);
-      fd.append("Strapline", Strapline);
-      fd.append("Content_Type", Content_Type);
-      fd.append("Body", Body);
-      fd.append("Visibility", visibility);
+      payload.Publication_Date = "";
+      payload.Headline = Headline;
+      payload.Strapline = Strapline;
+      payload.Content_Type = Content_Type;
+      payload.Body = Body;
+      payload.Visibility = visibility;
 
-      // Arrays of IDs (send as repeated [] keys)
-      const k = (base: string) => (mode === "bracketed" ? `${base}[]` : base);
-      for (const id of companyOfFocusIds)
-        fd.append(k("Company_of_Focus"), String(id));
-      for (const id of selectedSectorIds) fd.append(k("sectors"), String(id));
-      for (const id of companiesMentionedIds)
-        fd.append(k("companies_mentioned"), String(id));
-      for (const id of relatedCorporateEventIds)
-        fd.append(k("Related_Corporate_Event"), String(id));
+      // IDs: scalar strings (matches your working curl)
+      const cof = encodeIdList(companyOfFocusIds);
+      const secs = encodeIdList(selectedSectorIds);
+      const mentioned = encodeIdList(companiesMentionedIds);
+      const evs = encodeIdList(relatedCorporateEventIds);
+      if (cof) payload.Company_of_Focus = cof;
+      if (secs) payload.sectors = secs;
+      if (mentioned) payload.companies_mentioned = mentioned;
+      if (evs) payload.Related_Corporate_Event = evs;
 
-      // Attachments: repeated keys for local files
-      const fileKey = mode === "bracketed" ? "files[]" : "files";
-      for (const file of relatedDocuments) {
-        fd.append(fileKey, file, file.name);
-      }
+      // Related_Documents: flat indexed keys (matches your working curl)
+      uploadedMp3s.forEach((d, i) => {
+        const absUrl = toAbsoluteXanoUrl(d.url || "");
+        const vaultPath = toVaultPath(d.path || d.url || absUrl);
+        if (!vaultPath) return;
+        const mime = (d.mime || "").trim();
+        const type = (d.type || "").trim() || "file";
+        const sizeNum = typeof d.size === "number" ? d.size : Number(d.size) || 0;
+        const access = (d.access || "public").trim() || "public";
+        const name = (d.name || "").trim();
+        const meta =
+          d.meta && Object.keys(d.meta).length ? d.meta : { validated: false };
 
-      // MP3 files (already uploaded, include URLs/paths in Related_Documents array)
-      const mp3Key = mode === "bracketed" ? "Related_Documents[]" : "Related_Documents";
-      for (const mp3 of uploadedMp3s) {
-        // Send the URL or path of the uploaded MP3 file
-        fd.append(mp3Key, mp3.url || mp3.path || "");
-      }
+        payload[`Related_Documents_${i}_url`] =
+          absUrl || `${XANO_BASE_URL}${vaultPath}`;
+        payload[`Related_Documents_${i}_mime`] = mime;
+        payload[`Related_Documents_${i}_name`] = name;
+        payload[`Related_Documents_${i}_path`] = vaultPath;
+        payload[`Related_Documents_${i}_size`] = String(sizeNum);
+        payload[`Related_Documents_${i}_type`] = type;
+        payload[`Related_Documents_${i}_access`] = access;
 
-      // Summary array of strings
-      const summaryKey = mode === "bracketed" ? "summary[]" : "summary";
-      for (const item of summaryItems) {
-        fd.append(summaryKey, item);
-      }
+        for (const [k, v] of Object.entries(meta)) {
+          payload[`Related_Documents_${i}_meta_${k}`] = String(v);
+        }
+      });
 
-      return fd;
+      // Summary as string (matches your working curl)
+      payload.summary = JSON.stringify(summaryItems);
+
+      return payload;
     };
 
     setSending(true);
@@ -3197,29 +3280,21 @@ function ContentTab() {
       const apiUrl = isEditing
         ? `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/${editingContentId}`
         : "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/new_content";
-
-      const tryOnce = async (mode: ArrayMode) => {
-        const fd = buildFormData(mode);
-        const res = await fetch(apiUrl, {
-          method: isEditing ? "PATCH" : "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            // IMPORTANT: do NOT set Content-Type for multipart/form-data
-          },
-          body: fd,
-        });
-        const text = await res.text().catch(() => "");
-        return { res, text };
-      };
-
-      // Xano often needs bracketed keys to consistently treat single values as arrays.
-      // Try bracketed first, then fall back to plain repeated keys.
-      let { res, text } = await tryOnce("bracketed");
-      if (!res.ok) {
-        const retry = await tryOnce("plain");
-        res = retry.res;
-        text = retry.text;
+      if (relatedDocuments.length > 0) {
+        alert(
+          "Direct file attachments are not supported for this endpoint yet. Upload files to Xano first, then attach via Related Documents."
+        );
+        return;
       }
+      const res = await fetch(apiUrl, {
+        method: isEditing ? "PATCH" : "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(buildJsonPayload()),
+      });
+      const text = await res.text().catch(() => "");
 
       if (!res.ok) {
         throw new Error(`Failed to ${isEditing ? "update" : "create"} content: ${res.status} ${text}`);
