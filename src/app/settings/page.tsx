@@ -8,6 +8,8 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { AlertCard } from "@/components/settings/AlertCard";
 import { EditAlertModal } from "@/components/settings/EditAlertModal";
 import Header from "@/components/Header";
+import { toast } from "react-hot-toast";
+import { authService } from "@/lib/auth";
 
 type AuthMeResponse = {
   id: number;
@@ -35,6 +37,7 @@ export default function SettingsPage() {
   const [me, setMe] = useState<AuthMeResponse | null>(null);
   const [meLoading, setMeLoading] = useState(true);
   const [meError, setMeError] = useState<string | null>(null);
+  const [isSendingResetLink, setIsSendingResetLink] = useState(false);
 
   useEffect(() => {
     if (!user?.id) {
@@ -203,6 +206,24 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSendResetPasswordLink = async () => {
+    const email = (me?.email || user?.email || "").trim();
+    if (!email) {
+      toast.error("No email address found for your account.");
+      return;
+    }
+
+    setIsSendingResetLink(true);
+    try {
+      await authService.requestPasswordReset(email);
+      toast.success("Password reset link sent. Check your email.");
+    } catch {
+      toast.error("Could not send reset link. Please try again.");
+    } finally {
+      setIsSendingResetLink(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -253,6 +274,25 @@ export default function SettingsPage() {
                   "—"}
               </p>
             </div>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-gray-900">Password</p>
+              <p className="text-sm text-gray-600">
+                Send yourself a password reset link.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleSendResetPasswordLink}
+              disabled={
+                isSendingResetLink || !((me?.email || user?.email || "").trim())
+              }
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSendingResetLink ? "Sending…" : "Reset password"}
+            </button>
           </div>
         </div>
 
