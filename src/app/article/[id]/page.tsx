@@ -311,6 +311,13 @@ const tryParse = <T,>(val: unknown): T | undefined => {
   return undefined;
 };
 
+// Content types where we want to show Company of Focus overview/financial snapshots on I&A.
+// Note: backend data sometimes contains typos (e.g., "Executive Inteview"), so be permissive.
+const isCompanyOfFocusSnapshotEligibleContentType = (contentType: string) =>
+  /^(company\s*analysis|hot\s*take|deal\s*analysis|executive\s*interv?iew|company\s*brief)$/i.test(
+    (contentType || "").trim()
+  );
+
 const ArticleDetailPage = () => {
   const params = useParams();
   const router = useRouter();
@@ -436,7 +443,7 @@ const ArticleDetailPage = () => {
     }
   }, [articleId, fetchArticle]);
 
-  // Fetch Company_of_Focus details for Company Analysis, Hot Take, and Deal Analysis content
+  // Fetch Company_of_Focus details for eligible I&A content types
   useEffect(() => {
     const fetchCompanyOfFocus = async () => {
       if (!article) {
@@ -452,8 +459,8 @@ const ArticleDetailPage = () => {
         ""
       ).trim();
 
-      const isCompanyAnalysisHotTakeOrDealAnalysis =
-        /^(company\s*analysis|hot\s*take|deal\s*analysis)$/i.test(contentType);
+      const isEligibleContentType =
+        isCompanyOfFocusSnapshotEligibleContentType(contentType);
 
       // Only render Company Snapshot / Financial Snapshot when exactly ONE company is tagged
       // in "Company of Focus". Backend can return a JSON string, an array, or a single id/object.
@@ -463,9 +470,11 @@ const ArticleDetailPage = () => {
       const hasSingleCompanyOfFocus =
         Array.isArray(parsedCompanyOfFocusArray)
           ? parsedCompanyOfFocusArray.length === 1
-          : companyOfFocusValue != null;
+          : typeof companyOfFocusValue === "string"
+            ? companyOfFocusValue.trim().length > 0
+            : companyOfFocusValue != null;
 
-      if (!isCompanyAnalysisHotTakeOrDealAnalysis || !hasSingleCompanyOfFocus) {
+      if (!isEligibleContentType || !hasSingleCompanyOfFocus) {
         setCompanyOfFocus(null);
         return;
       }
@@ -1444,9 +1453,7 @@ const ArticleDetailPage = () => {
                 article.Content?.Content_Type ||
                 ""
               ).trim();
-              const isCompanyAnalysisHotTakeOrDealAnalysis =
-                /^(company\s*analysis|hot\s*take|deal\s*analysis)$/i.test(ct);
-              if (!isCompanyAnalysisHotTakeOrDealAnalysis) return null;
+              if (!isCompanyOfFocusSnapshotEligibleContentType(ct)) return null;
 
               const overview = companyOfFocus.company_overview;
               const financial = companyOfFocus.financial_overview;
@@ -1563,7 +1570,7 @@ const ArticleDetailPage = () => {
                           marginBottom: "12px",
                          }}
                       >
-                         Company Snapshot
+                         Company Overview
                       </h2>
                       <div>
                         {companyOfFocus?.id && companyOfFocus?.name && (
