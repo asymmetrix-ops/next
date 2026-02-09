@@ -911,7 +911,11 @@ export default function HomeUserPage() {
 
           <div
             ref={searchWrapRef}
-            className="relative w-full sm:max-w-xl md:max-w-2xl"
+            className={`relative w-full sm:max-w-xl md:max-w-2xl rounded-lg border-2 bg-white shadow-sm ${
+              isTrialActive
+                ? "border-gray-200"
+                : "border-blue-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"
+            }`}
           >
             <input
               type="search"
@@ -922,10 +926,10 @@ export default function HomeUserPage() {
                   ? "Search is disabled during trial access"
                   : "Search all pages..."
               }
-              className={`w-full px-3 py-2 text-sm rounded-md border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+              className={`w-full px-4 py-3 text-base rounded-lg border-0 bg-transparent focus:outline-none focus:ring-0 ${
                 isTrialActive
-                  ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-                  : "bg-white"
+                  ? "text-gray-500 cursor-not-allowed"
+                  : "text-gray-900 placeholder-gray-500"
               }`}
               onFocus={() => {
                 if (!isTrialActive) setSearchOpen(true);
@@ -936,7 +940,7 @@ export default function HomeUserPage() {
             />
 
             {searchOpen && !isTrialActive && searchQuery.trim().length >= 2 && (
-              <div className="absolute z-50 mt-2 w-full bg-white rounded-md border shadow-lg">
+              <div className="absolute z-50 mt-2 w-full bg-white rounded-lg border-2 border-blue-200 shadow-lg">
                 {searchLoading ? (
                   <div className="px-3 py-3 text-xs text-gray-600">
                     Searching…
