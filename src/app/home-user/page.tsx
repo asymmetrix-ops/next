@@ -115,10 +115,13 @@ interface InsightArticle {
 import {
   type GlobalSearchResult,
   type GlobalSearchPagination,
+  type SearchPageType,
   fetchGlobalSearchPaginated,
   badgeClassForSearchType,
   resolveSearchHref,
   getSearchBadgeLabel,
+  SEARCH_PAGE_TYPES,
+  SEARCH_PAGE_TYPE_LABELS,
 } from "@/lib/globalSearch";
 
 // Removed NewCompany interface along with the related UI section
@@ -431,14 +434,19 @@ export default function HomeUserPage() {
     useState<GlobalSearchPagination | null>(null);
   const [popupResults, setPopupResults] = useState<GlobalSearchResult[]>([]);
   const [popupLoadingMore, setPopupLoadingMore] = useState(false);
+  const [searchPageType, setSearchPageType] = useState<SearchPageType | null>(
+    null
+  );
+  const [popupFiltering, setPopupFiltering] = useState(false);
 
   const runSearch = useCallback(
     async (
       q: string,
       page: number,
-      signal?: AbortSignal
+      signal?: AbortSignal,
+      pageType?: SearchPageType | null
     ): Promise<{ items: GlobalSearchResult[]; pagination: GlobalSearchPagination }> => {
-      return fetchGlobalSearchPaginated(q, page, signal);
+      return fetchGlobalSearchPaginated(q, page, signal, pageType);
     },
     []
   );
@@ -497,7 +505,12 @@ export default function HomeUserPage() {
     if (!q || !pag?.next_page) return;
     setPopupLoadingMore(true);
     try {
-      const { items, pagination: nextPag } = await runSearch(q, pag.next_page);
+      const { items, pagination: nextPag } = await runSearch(
+        q,
+        pag.next_page,
+        undefined,
+        searchPageType
+      );
       setPopupResults((prev) => [...prev, ...items]);
       setSearchPagination(nextPag);
     } catch {
@@ -505,16 +518,42 @@ export default function HomeUserPage() {
     } finally {
       setPopupLoadingMore(false);
     }
-  }, [searchQuery, searchPagination, runSearch]);
+  }, [searchQuery, searchPagination, runSearch, searchPageType]);
 
   const openSearchPopup = useCallback(() => {
     setPopupResults(searchResults);
+    setSearchPageType(null);
     setSearchPopupOpen(true);
   }, [searchResults]);
 
   const closeSearchPopup = useCallback(() => {
     setSearchPopupOpen(false);
+    setSearchPageType(null);
   }, []);
+
+  const handleSearchFilterChange = useCallback(
+    async (pageType: SearchPageType | null) => {
+      setSearchPageType(pageType);
+      const q = searchQuery.trim();
+      if (!q) return;
+      setPopupFiltering(true);
+      try {
+        const { items, pagination } = await runSearch(
+          q,
+          1,
+          undefined,
+          pageType ?? undefined
+        );
+        setPopupResults(items);
+        setSearchPagination(pagination);
+      } catch {
+        // ignore
+      } finally {
+        setPopupFiltering(false);
+      }
+    },
+    [searchQuery, runSearch]
+  );
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -1012,8 +1051,43 @@ export default function HomeUserPage() {
                   </svg>
                 </button>
               </div>
+              <div className="flex flex-wrap gap-2 p-4 border-b border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => handleSearchFilterChange(null)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    searchPageType === null
+                      ? "bg-gray-900 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  All
+                </button>
+                {SEARCH_PAGE_TYPES.map((pt) => (
+                  <button
+                    key={pt}
+                    type="button"
+                    onClick={() => handleSearchFilterChange(pt)}
+                    disabled={popupFiltering}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
+                      searchPageType === pt
+                        ? "bg-gray-900 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    }`}
+                  >
+                    {SEARCH_PAGE_TYPE_LABELS[pt]}
+                  </button>
+                ))}
+              </div>
               <div className="flex-1 overflow-y-auto p-4">
-                {popupResults.length === 0 ? (
+                {popupFiltering ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="w-8 h-8 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" />
+                    <span className="ml-2 text-sm text-gray-600">
+                      Searching…
+                    </span>
+                  </div>
+                ) : popupResults.length === 0 ? (
                   <p className="text-sm text-gray-500 py-4">No results</p>
                 ) : (
                   <ul className="space-y-1">
@@ -1055,7 +1129,7 @@ export default function HomeUserPage() {
                             <span className="text-sm text-gray-900 group-hover:text-blue-700 line-clamp-2 transition-colors">
                               {r.title}
                             </span>
-                            <span
+                            <span 
                               className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-full border shrink-0 ${badgeClassForSearchType(
                                 String(r.type || "")
                               )} ${isInsight ? "normal-case" : "uppercase"}`}

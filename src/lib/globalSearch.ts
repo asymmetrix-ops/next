@@ -1,8 +1,30 @@
 /**
  * Platform-wide global search API and helpers.
- * API: POST { query, per_page: 25, offset: pageNumber }
+ * API: POST { query, per_page: 25, offset: pageNumber, page_type?: string }
  * Response: { items: [...], pagination: { current_page, per_page, total_results, total_pages, next_page, prev_page, pages_left } }
  */
+
+export const SEARCH_PAGE_TYPES = [
+  "companies",
+  "sectors",
+  "investors",
+  "advisors",
+  "individuals",
+  "corporate events",
+  "insights and analysis",
+] as const;
+
+export type SearchPageType = (typeof SEARCH_PAGE_TYPES)[number];
+
+export const SEARCH_PAGE_TYPE_LABELS: Record<SearchPageType, string> = {
+  companies: "Companies",
+  sectors: "Sectors",
+  investors: "Investors",
+  advisors: "Advisors",
+  individuals: "Individuals",
+  "corporate events": "Corporate Events",
+  "insights and analysis": "Insights & Analysis",
+};
 
 export type GlobalSearchResult = {
   id: number;
@@ -35,23 +57,30 @@ const PER_PAGE = 25;
  * @param query Search query
  * @param page 1-based page number (offset in API)
  * @param signal AbortSignal for cancellation
+ * @param pageType Optional filter by page type (companies, sectors, investors, etc.)
  */
 export async function fetchGlobalSearchPaginated(
   query: string,
   page: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  pageType?: SearchPageType | null
 ): Promise<GlobalSearchResponse> {
+  const body: Record<string, unknown> = {
+    query: query.trim(),
+    per_page: PER_PAGE,
+    offset: page,
+  };
+  if (pageType) {
+    body.page_type = pageType;
+  }
+
   const res = await fetch(GLOBAL_SEARCH_ENDPOINT, {
     method: "POST",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      query: query.trim(),
-      per_page: PER_PAGE,
-      offset: page,
-    }),
+    body: JSON.stringify(body),
     signal,
   });
 
