@@ -2,10 +2,12 @@ import React from 'react';
 
 export default function TransactionHero({ 
   transaction,
-  reportButton
+  reportButton,
+  sourceUrl
 }: { 
   transaction: { title: string; subtitle?: string };
   reportButton?: React.ReactNode;
+  sourceUrl?: string;
 }) {
   return (
     <div className="relative overflow-hidden" style={{ background: 'var(--gradient-hero)' }}>
@@ -31,6 +33,17 @@ export default function TransactionHero({
               <p className="text-lg text-white/90 leading-relaxed">
                 {transaction.subtitle}
               </p>
+            )}
+            {/* Source button - under description */}
+            {sourceUrl && (
+              <a
+                href={sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center mt-3 px-3 py-1.5 text-sm font-medium rounded-md shadow-md bg-white text-blue-600 hover:bg-white/95 hover:text-blue-700 transition-colors"
+              >
+                Source
+              </a>
             )}
 
             {/* Report Button - single instance: mobile in-flow below text, desktop absolute top-right (no duplicate = no flying badge) */}

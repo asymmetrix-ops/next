@@ -312,6 +312,8 @@ const CorporateEventDetail = ({
     subtitle: event?.long_description || undefined,
   };
 
+  const sourceUrl = event?.investment_data?.investment_amount_source || event?.deal_terms_data?.deal_terms_source;
+
   // Get primary sectors with IDs
   const primarySectors = (() => {
                     const existing = Array.isArray(data.Primary_sectors)
@@ -991,7 +993,7 @@ const CorporateEventDetail = ({
 
   return (
     <div className="bg-slate-50 min-h-screen">
-      <TransactionHero transaction={transactionData} reportButton={reportButton} />
+      <TransactionHero transaction={transactionData} reportButton={reportButton} sourceUrl={sourceUrl} />
 
       <DealMetrics metrics={metricsData} />
 
