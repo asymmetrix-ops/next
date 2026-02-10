@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-const BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:emt0MLoc";
+const BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr";
 
 const SEARCH_ENDPOINTS: { url: string; type: string }[] = [
   { url: `${BASE}/search_sectors`, type: "sector" },
@@ -17,77 +17,7 @@ export type SearchResultItem = {
   id: number;
   title: string;
   type: string;
-  match_rank?: number;
-  type_order?: number;
-  sector_importance?: string;
 };
-
-const TYPE_ORDER: Record<string, number> = {
-  company: 1,
-  companies: 1,
-  investor: 2,
-  investors: 2,
-  advisor: 3,
-  advisors: 3,
-  individual: 4,
-  individuals: 4,
-  sector: 5,
-  sectors: 5,
-  sub_sector: 5,
-  "sub-sector": 5,
-  corporate_event: 6,
-  "corporate-events": 6,
-  event: 6,
-  insight: 7,
-  insights: 7,
-  article: 7,
-};
-
-function normalizeForMatch(input: string): string {
-  // Lowercase, remove diacritics, strip punctuation, normalize whitespace.
-  return String(input || "")
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[_-]+/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
-/**
- * Cross-source comparable match ranking.
- * Lower is better (0 = best).
- */
-function computeMatchRank(query: string, title: string): number {
-  const qRaw = String(query || "").trim();
-  const tRaw = String(title || "").trim();
-  if (!qRaw || !tRaw) return 999;
-
-  const qLower = qRaw.toLowerCase();
-  const tLower = tRaw.toLowerCase();
-  if (tLower === qLower) return 0; // exact (case-insensitive)
-
-  const qNorm = normalizeForMatch(qRaw);
-  const tNorm = normalizeForMatch(tRaw);
-  if (!qNorm || !tNorm) return 999;
-  if (tNorm === qNorm) return 1; // exact ignoring punctuation/diacritics/extra whitespace
-  if (tNorm.startsWith(qNorm)) return 2; // prefix
-  if (tNorm.includes(qNorm)) return 3; // contains
-  return 999;
-}
-
-function compareSearchItems(a: SearchResultItem, b: SearchResultItem): number {
-  const rankA = a.match_rank ?? 999;
-  const rankB = b.match_rank ?? 999;
-  if (rankA !== rankB) return rankA - rankB;
-
-  const orderA = a.type_order ?? TYPE_ORDER[String(a.type || "").toLowerCase()] ?? 99;
-  const orderB = b.type_order ?? TYPE_ORDER[String(b.type || "").toLowerCase()] ?? 99;
-  if (orderA !== orderB) return orderA - orderB;
-
-  return String(a.title || "").localeCompare(String(b.title || ""));
-}
 
 function extractItems(data: unknown, defaultType: string): SearchResultItem[] {
   if (!data || typeof data !== "object") return [];
@@ -110,9 +40,7 @@ function extractItems(data: unknown, defaultType: string): SearchResultItem[] {
         String(rec.title ?? rec.name ?? rec.headline ?? rec.description ?? rec.label ?? "")
           .trim() || "Untitled";
       const itemType = String(rec.type ?? rec.entity_type ?? defaultType).toLowerCase().trim() || defaultType;
-      const sectorImportance =
-        rec.sector_importance != null ? String(rec.sector_importance).trim() : undefined;
-      return { id, title, type: itemType, ...(sectorImportance ? { sector_importance: sectorImportance } : {}) };
+      return { id, title, type: itemType };
     })
     .filter((r): r is SearchResultItem => r !== null);
 }
@@ -198,22 +126,7 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    const allItems = results
-      .flat()
-      .map((item) => {
-        const type = String(item.type || "").toLowerCase().trim();
-        const matchRank = computeMatchRank(query, item.title);
-        const typeOrder = TYPE_ORDER[type] ?? 99;
-        return {
-          ...item,
-          type,
-          match_rank: matchRank,
-          type_order: typeOrder,
-          ...(item.sector_importance ? { sector_importance: item.sector_importance } : {}),
-        } satisfies SearchResultItem;
-      })
-      .sort(compareSearchItems);
-
+    const allItems = results.flat();
     const total = allItems.length;
     const isSingleSource = endpoints.length === 1;
     const effectivePerPage = isSingleSource ? Math.max(total, 1) : perPage;

@@ -1,7 +1,7 @@
 /**
- * Platform-wide global search API and helpers.
- * API: POST { query, per_page: 25, offset: pageNumber, page_type?: string }
- * Response: { items: [...], pagination: { current_page, per_page, total_results, total_pages, next_page, prev_page, pages_left } }
+ * Platform-wide search using split APIs (sectors, investors, individuals, events, content, companies, advisors).
+ * Client calls /api/search which fetches from all 7 Xano endpoints in parallel on the server.
+ * Payload: { query, per_page?: 25, page?: 1, page_type?: string }
  */
 
 export const SEARCH_PAGE_TYPES = [
@@ -47,17 +47,111 @@ export type GlobalSearchResponse = {
   pagination: GlobalSearchPagination;
 };
 
-const GLOBAL_SEARCH_ENDPOINT =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/global_search";
-
 const PER_PAGE = 25;
 
+export const SEARCH_SOURCES = [
+  "sector",
+  "investor",
+  "individual",
+  "corporate_event",
+  "insight",
+  "company",
+  "advisor",
+] as const;
+
+export type SearchSource = (typeof SEARCH_SOURCES)[number];
+
 /**
- * Fetch paginated search results.
- * @param query Search query
- * @param page 1-based page number (offset in API)
- * @param signal AbortSignal for cancellation
- * @param pageType Optional filter by page type (companies, sectors, investors, etc.)
+ * Fetch from a single search source (for progressive loading).
+ */
+export async function fetchGlobalSearchBySource(
+  query: string,
+  source: SearchSource,
+  signal?: AbortSignal
+): Promise<{ items: GlobalSearchResult[] }> {
+  const res = await fetch("/api/search", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query: query.trim(),
+      source,
+    }),
+    signal,
+    credentials: "same-origin",
+  });
+
+  if (!res.ok) {
+    if (res.status === 401) throw new Error("Authentication required");
+    throw new Error(`Search failed (${res.status})`);
+  }
+
+  const data = (await res.json()) as { items?: GlobalSearchResult[] };
+  const items = Array.isArray(data?.items) ? data.items : [];
+  return { items };
+}
+
+export type ProgressiveSearchOptions = {
+  onBatch: (items: GlobalSearchResult[], source: SearchSource) => void;
+  onComplete: () => void;
+  onError?: (source: SearchSource, err: unknown) => void;
+  signal?: AbortSignal;
+};
+
+/**
+ * Fetch from all sources in parallel; call onBatch as each source responds (progressive loading).
+ */
+export function fetchGlobalSearchProgressive(
+  query: string,
+  pageType: SearchPageType | null,
+  options: ProgressiveSearchOptions
+): void {
+  const { onBatch, onComplete, onError, signal } = options;
+  const q = query.trim();
+  if (!q || q.length < 2) {
+    onComplete();
+    return;
+  }
+
+  const typeToSource: Record<string, SearchSource> = {
+    companies: "company",
+    sectors: "sector",
+    investors: "investor",
+    advisors: "advisor",
+    individuals: "individual",
+    "corporate events": "corporate_event",
+    "insights and analysis": "insight",
+  };
+
+  const sources: SearchSource[] = pageType
+    ? [typeToSource[pageType] ?? "company"]
+    : [...SEARCH_SOURCES];
+
+  let pending = sources.length;
+
+  sources.forEach((source) => {
+    fetchGlobalSearchBySource(q, source, signal)
+      .then(({ items }) => {
+        if (items.length > 0) {
+          onBatch(items, source);
+        }
+      })
+      .catch((err) => {
+        onError?.(source, err);
+      })
+      .finally(() => {
+        pending -= 1;
+        if (pending === 0) {
+          onComplete();
+        }
+      });
+  });
+}
+
+/**
+ * Fetch paginated search results from our API route (server-side parallel fetch to 7 Xano endpoints).
  */
 export async function fetchGlobalSearchPaginated(
   query: string,
@@ -68,13 +162,13 @@ export async function fetchGlobalSearchPaginated(
   const body: Record<string, unknown> = {
     query: query.trim(),
     per_page: PER_PAGE,
-    offset: page,
+    page,
   };
   if (pageType) {
     body.page_type = pageType;
   }
 
-  const res = await fetch(GLOBAL_SEARCH_ENDPOINT, {
+  const res = await fetch("/api/search", {
     method: "POST",
     headers: {
       Accept: "application/json",
@@ -82,9 +176,13 @@ export async function fetchGlobalSearchPaginated(
     },
     body: JSON.stringify(body),
     signal,
+    credentials: "same-origin",
   });
 
-  if (!res.ok) throw new Error(`Search failed (${res.status})`);
+  if (!res.ok) {
+    if (res.status === 401) throw new Error("Authentication required");
+    throw new Error(`Search failed (${res.status})`);
+  }
 
   const data = (await res.json()) as unknown;
   if (!data || typeof data !== "object") {

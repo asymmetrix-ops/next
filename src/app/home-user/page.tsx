@@ -116,7 +116,7 @@ import {
   type GlobalSearchResult,
   type GlobalSearchPagination,
   type SearchPageType,
-  fetchGlobalSearchPaginated,
+  fetchGlobalSearchProgressive,
   badgeClassForSearchType,
   resolveSearchHref,
   getSearchBadgeLabel,
@@ -430,23 +430,26 @@ export default function HomeUserPage() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const searchWrapRef = useRef<HTMLDivElement | null>(null);
   const [searchPopupOpen, setSearchPopupOpen] = useState(false);
-  const [searchPagination, setSearchPagination] =
+  const [, setSearchPagination] =
     useState<GlobalSearchPagination | null>(null);
   const [popupResults, setPopupResults] = useState<GlobalSearchResult[]>([]);
-  const [popupLoadingMore, setPopupLoadingMore] = useState(false);
   const [searchPageType, setSearchPageType] = useState<SearchPageType | null>(
     null
   );
   const [popupFiltering, setPopupFiltering] = useState(false);
+  const [searchLoadingSources, setSearchLoadingSources] = useState(false);
+  const searchAbortRef = useRef<AbortController | null>(null);
 
-  const runSearch = useCallback(
-    async (
-      q: string,
-      page: number,
-      signal?: AbortSignal,
-      pageType?: SearchPageType | null
-    ): Promise<{ items: GlobalSearchResult[]; pagination: GlobalSearchPagination }> => {
-      return fetchGlobalSearchPaginated(q, page, signal, pageType);
+  const mergeResults = useCallback(
+    (prev: GlobalSearchResult[], newItems: GlobalSearchResult[]) => {
+      const seen = new Set(prev.map((r) => `${r.type}-${r.id}`));
+      const added = newItems.filter((r) => {
+        const key = `${r.type}-${r.id}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      return [...prev, ...added];
     },
     []
   );
@@ -461,67 +464,79 @@ export default function HomeUserPage() {
       setSearchResults([]);
       setSearchError(null);
       setSearchLoading(false);
+      setSearchLoadingSources(false);
       return;
     }
     if (q.length < 2) {
       setSearchResults([]);
       setSearchError(null);
       setSearchLoading(false);
+      setSearchLoadingSources(false);
       return;
     }
 
     const ac = new AbortController();
+    searchAbortRef.current = ac;
     setSearchLoading(true);
+    setSearchLoadingSources(true);
     setSearchError(null);
     setSearchOpen(true);
+    setSearchResults([]);
 
-    const t = window.setTimeout(async () => {
-      try {
-        const { items, pagination } = await runSearch(q, 1, ac.signal);
-        setSearchResults(items);
-        setSearchPagination(pagination);
-        setPopupResults(items);
-      } catch (err) {
-        const name =
-          err && typeof err === "object" ? String((err as { name?: unknown }).name) : "";
-        if (name === "AbortError") return;
-        setSearchResults([]);
-        setSearchPagination(null);
-        setSearchError("Search failed. Please try again.");
-      } finally {
-        setSearchLoading(false);
-      }
+    const allResultsRef = { current: [] as GlobalSearchResult[] };
+
+    const t = window.setTimeout(() => {
+      fetchGlobalSearchProgressive(q, null, {
+        signal: ac.signal,
+        onBatch: (items) => {
+          if (ac.signal.aborted) return;
+          const merged = mergeResults(allResultsRef.current, items);
+          allResultsRef.current = merged;
+          setSearchResults(merged);
+        },
+        onComplete: () => {
+          if (ac.signal.aborted) return;
+          setSearchLoading(false);
+          setSearchLoadingSources(false);
+          const total = allResultsRef.current.length;
+          const perPage = 25;
+          const totalPages = Math.max(1, Math.ceil(total / perPage));
+          setSearchPagination({
+            current_page: 1,
+            per_page: perPage,
+            total_results: total,
+            total_pages: totalPages,
+            next_page: totalPages > 1 ? 2 : null,
+            prev_page: null,
+            pages_left: Math.max(0, totalPages - 1),
+          });
+        },
+        onError: (_source, err) => {
+          const name =
+            err && typeof err === "object" ? String((err as { name?: unknown }).name) : "";
+          if (name !== "AbortError") {
+            setSearchError("Search failed. Please try again.");
+          }
+        },
+      });
     }, 250);
 
     return () => {
       window.clearTimeout(t);
       ac.abort();
+      searchAbortRef.current = null;
     };
-  }, [searchQuery, runSearch, isTrialActive]);
+  }, [searchQuery, mergeResults, isTrialActive]);
 
-  const handleLoadMoreInPopup = useCallback(async () => {
-    const q = searchQuery.trim();
-    const pag = searchPagination;
-    if (!q || !pag?.next_page) return;
-    setPopupLoadingMore(true);
-    try {
-      const { items, pagination: nextPag } = await runSearch(
-        q,
-        pag.next_page,
-        undefined,
-        searchPageType
-      );
-      setPopupResults((prev) => [...prev, ...items]);
-      setSearchPagination(nextPag);
-    } catch {
-      // ignore
-    } finally {
-      setPopupLoadingMore(false);
-    }
-  }, [searchQuery, searchPagination, runSearch, searchPageType]);
+  const [popupDisplayedCount, setPopupDisplayedCount] = useState(25);
+
+  const handleLoadMoreInPopup = useCallback(() => {
+    setPopupDisplayedCount((prev) => prev + 25);
+  }, []);
 
   const openSearchPopup = useCallback(() => {
     setPopupResults(searchResults);
+    setPopupDisplayedCount(25);
     setSearchPageType(null);
     setSearchPopupOpen(true);
   }, [searchResults]);
@@ -537,22 +552,36 @@ export default function HomeUserPage() {
       const q = searchQuery.trim();
       if (!q) return;
       setPopupFiltering(true);
-      try {
-        const { items, pagination } = await runSearch(
-          q,
-          1,
-          undefined,
-          pageType ?? undefined
-        );
-        setPopupResults(items);
-        setSearchPagination(pagination);
-      } catch {
-        // ignore
-      } finally {
-        setPopupFiltering(false);
-      }
+      setPopupDisplayedCount(25);
+
+      const allResultsRef = { current: [] as GlobalSearchResult[] };
+      fetchGlobalSearchProgressive(q, pageType, {
+        onBatch: (items) => {
+          const merged = mergeResults(allResultsRef.current, items);
+          allResultsRef.current = merged;
+          setPopupResults(merged);
+        },
+        onComplete: () => {
+          const total = allResultsRef.current.length;
+          const perPage = 25;
+          const totalPages = Math.max(1, Math.ceil(total / perPage));
+          setSearchPagination({
+            current_page: 1,
+            per_page: perPage,
+            total_results: total,
+            total_pages: totalPages,
+            next_page: totalPages > 1 ? 2 : null,
+            prev_page: null,
+            pages_left: Math.max(0, totalPages - 1),
+          });
+          setPopupFiltering(false);
+        },
+        onError: () => {
+          setPopupFiltering(false);
+        },
+      });
     },
-    [searchQuery, runSearch]
+    [searchQuery, mergeResults]
   );
 
   useEffect(() => {
@@ -940,11 +969,16 @@ export default function HomeUserPage() {
 
             {searchOpen && !isTrialActive && searchQuery.trim().length >= 2 && (
               <div className="absolute z-50 mt-2 w-full bg-white rounded-lg border-2 border-blue-200 shadow-lg">
-                {searchLoading ? (
+                {searchLoading && searchResults.length === 0 ? (
                   <div className="px-3 py-3 text-xs text-gray-600">
                     Searching…
                   </div>
-                ) : searchError ? (
+                ) : searchLoadingSources && searchResults.length > 0 ? (
+                  <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
+                    Loading more results…
+                  </div>
+                ) : null}
+                {searchError ? (
                   <div className="px-3 py-3 text-xs text-red-600">
                     {searchError}
                   </div>
@@ -1082,7 +1116,7 @@ export default function HomeUserPage() {
                 ))}
               </div>
               <div className="flex-1 overflow-y-auto p-4">
-                {popupFiltering ? (
+                {popupFiltering && popupResults.length === 0 ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="w-8 h-8 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" />
                     <span className="ml-2 text-sm text-gray-600">
@@ -1092,8 +1126,14 @@ export default function HomeUserPage() {
                 ) : popupResults.length === 0 ? (
                   <p className="text-sm text-gray-500 py-4">No results</p>
                 ) : (
-                  <ul className="space-y-1">
-                    {popupResults.map((r, idx) => {
+                  <>
+                    {popupFiltering && (
+                      <div className="pb-2 text-xs text-gray-500">
+                        Loading more results…
+                      </div>
+                    )}
+                    <ul className="space-y-1">
+                    {popupResults.slice(0, popupDisplayedCount).map((r, idx) => {
                       const href = resolveSearchHref(r);
                       const t = String(r.type || "").toLowerCase().trim();
                       const isInsight =
@@ -1142,26 +1182,25 @@ export default function HomeUserPage() {
                         </li>
                       );
                     })}
-                  </ul>
+                    </ul>
+                  </>
                 )}
               </div>
               <div className="p-4 border-t border-gray-200 space-y-3">
-                {searchPagination && (
+                {popupResults.length > 0 && (
                   <p className="text-xs text-gray-600">
-                    Page {searchPagination.current_page} of{" "}
-                    {searchPagination.total_pages || 1} · Showing{" "}
-                    {popupResults.length} of {searchPagination.total_results}{" "}
-                    results
+                    Showing{" "}
+                    {Math.min(popupDisplayedCount, popupResults.length)} of{" "}
+                    {popupResults.length} results
                   </p>
                 )}
-                {searchPagination?.next_page ? (
+                {popupDisplayedCount < popupResults.length ? (
                   <button
                     type="button"
                     onClick={handleLoadMoreInPopup}
-                    disabled={popupLoadingMore}
-                    className="w-full py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="w-full py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
                   >
-                    {popupLoadingMore ? "Loading…" : "Load more"}
+                    Load more
                   </button>
                 ) : null}
               </div>
