@@ -30,7 +30,53 @@ export type GlobalSearchResult = {
   id: number;
   title: string;
   type: string;
+  match_rank?: number;
+  type_order?: number;
+  sort_date?: string;
 };
+
+const TYPE_ORDER: Record<string, number> = {
+  company: 1,
+  companies: 1,
+  investor: 2,
+  investors: 2,
+  advisor: 3,
+  advisors: 3,
+  individual: 4,
+  individuals: 4,
+  sector: 5,
+  sectors: 5,
+  sub_sector: 5,
+  "sub-sector": 5,
+  corporate_event: 6,
+  "corporate-events": 6,
+  event: 6,
+  insight: 7,
+  insights: 7,
+  article: 7,
+};
+
+export function sortSearchResults(results: GlobalSearchResult[]): GlobalSearchResult[] {
+  return [...results].sort((a, b) => {
+    const rankA = a.match_rank ?? 999;
+    const rankB = b.match_rank ?? 999;
+    if (rankA !== rankB) return rankA - rankB;
+
+    const orderA = a.type_order ?? TYPE_ORDER[a.type?.toLowerCase()] ?? 99;
+    const orderB = b.type_order ?? TYPE_ORDER[b.type?.toLowerCase()] ?? 99;
+    if (orderA !== orderB) return orderA - orderB;
+
+    const isEventOrInsight = (t: string) =>
+      ["corporate_event", "corporate-events", "event", "insight", "insights", "article"].includes(
+        (t || "").toLowerCase()
+      );
+    if (isEventOrInsight(a.type) && isEventOrInsight(b.type) && a.sort_date && b.sort_date) {
+      return new Date(b.sort_date).getTime() - new Date(a.sort_date).getTime();
+    }
+
+    return (a.title || "").localeCompare(b.title || "");
+  });
+}
 
 export type GlobalSearchPagination = {
   current_page: number;
