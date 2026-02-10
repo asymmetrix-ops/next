@@ -117,6 +117,7 @@ import {
   type GlobalSearchPagination,
   type SearchPageType,
   fetchGlobalSearchProgressive,
+  sortSearchResults,
   badgeClassForSearchType,
   resolveSearchHref,
   getSearchBadgeLabel,
@@ -492,7 +493,7 @@ export default function HomeUserPage() {
           if (ac.signal.aborted) return;
           const merged = mergeResults(allResultsRef.current, items);
           allResultsRef.current = merged;
-          setSearchResults(merged);
+          setSearchResults(sortSearchResults(merged));
         },
         onComplete: () => {
           if (ac.signal.aborted) return;
@@ -559,7 +560,7 @@ export default function HomeUserPage() {
         onBatch: (items) => {
           const merged = mergeResults(allResultsRef.current, items);
           allResultsRef.current = merged;
-          setPopupResults(merged);
+          setPopupResults(sortSearchResults(merged));
         },
         onComplete: () => {
           const total = allResultsRef.current.length;
