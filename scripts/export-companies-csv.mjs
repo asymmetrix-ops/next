@@ -9,8 +9,7 @@
  *    node scripts/export-companies-csv.mjs [options]
  *
  *  Options:
- *    --countries "United Kingdom,United States"   Filter by countries
- *    --per-page  100                              Items per page (default 100)
+ *    --countries "United Kingdom,United States"   Filter by countries (default: United Kingdom)
  *    --output    my-export.csv                    Output filename
  *    --token     YOUR_AUTH_TOKEN                  Bearer token (or env ASYMMETRIX_TOKEN)
  *    --dictionary                                 Also generate a data-dictionary CSV
@@ -57,10 +56,12 @@ function parseArgs(argv) {
 
 const cliArgs = parseArgs(process.argv);
 
+// Requirement: export should be filtered to United Kingdom companies by default
 const COUNTRIES = cliArgs.countries
   ? cliArgs.countries.split(",").map((s) => s.trim()).filter(Boolean)
-  : [];
-const PER_PAGE = parseInt(cliArgs["per-page"] || "100", 10);
+  : ["United Kingdom"];
+// Requirement: Always fetch 1 company per request
+const PER_PAGE = 1;
 const AUTH_TOKEN = cliArgs.token || process.env.ASYMMETRIX_TOKEN || "";
 const GENERATE_DICTIONARY = Boolean(cliArgs.dictionary);
 const HORIZONTAL = Boolean(cliArgs.horizontal);
@@ -176,7 +177,10 @@ function formatContentJson(articles) {
         id: a?.id ?? null,
         content_type: a?.content_type ?? null,
         visibility: a?.visibility ?? null,
-        publication_date: a?.publication_date ?? null,
+        // Content table fields (when present)
+        "Publication Date":
+          a?.Publication_Date ?? a?.publication_date ?? a?.PublicationDate ?? null,
+        Body: a?.Body ?? a?.body ?? null,
         headline: a?.headline ?? null,
         strapline: a?.strapline ?? null,
       }))
@@ -236,7 +240,7 @@ const COLUMNS = [
   { header: "Corporate Events (JSON)", section: "Corporate Events", value: (c) => formatEventsJson(c.new_counterparties), description: "Corporate events exported as pretty JSON for readability (one array of objects)." },
 
   // ── Insights & Analysis ──
-  { header: "Related Content (JSON)", section: "Insights & Analysis", value: (c) => formatContentJson(c.related_content), description: "Insights & Analysis exported as pretty JSON for readability (one array of objects)." },
+  { header: "Insights & Analysis (JSON)", section: "Insights & Analysis", value: (c) => formatContentJson(c.related_content), description: "Insights & Analysis exported as pretty JSON for readability (one array of objects)." },
 
   // ── Link ──
   { header: "Asymmetrix Profile", section: "Link", value: (c) => safe(c.company_link), description: "URL to the full Asymmetrix company profile." },
@@ -256,7 +260,7 @@ function buildVerticalCsv(companies) {
     lines.push(
       csvRow([`━━━ COMPANY ${ci + 1} of ${companies.length} ━━━`, "", ""])
     );
-    lines.push(csvRow(["Field", "Value", "Description"]));
+    lines.push(csvRow(["Field", "Description", "Value"]));
 
     let lastSection = "";
 
@@ -269,7 +273,7 @@ function buildVerticalCsv(companies) {
       }
 
       const val = String(col.value(company));
-      lines.push(csvRow([col.header, val, col.description || ""]));
+      lines.push(csvRow([col.header, col.description || "", val]));
     }
 
     // Spacer between companies
