@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-const BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr";
+const BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:emt0MLoc";
 
 const SEARCH_ENDPOINTS: { url: string; type: string }[] = [
   { url: `${BASE}/search_sectors`, type: "sector" },
