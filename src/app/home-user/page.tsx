@@ -903,11 +903,123 @@ export default function HomeUserPage() {
             </div>
           </div>
         )}
-        {/* Dashboard Subheader */}
-        <div className="flex flex-col gap-3 mb-4 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
+        {/* Dashboard Subheader - same grid as content for alignment */}
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-4 sm:mb-6 lg:grid-cols-2 xl:grid-cols-[repeat(20,minmax(0,1fr))] items-center">
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl order-1 lg:col-span-2 xl:col-span-4">
             Asymmetrix Dashboard
           </h1>
+          <div
+            ref={searchWrapRef}
+            className={`relative w-full order-2 lg:col-span-1 xl:col-span-8 rounded-lg border-2 bg-white shadow-sm ${
+              isTrialActive
+                ? "border-gray-200"
+                : "border-blue-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"
+            }`}
+          >
+            <input
+              type="search"
+              value={searchQuery}
+              disabled={isTrialActive}
+              placeholder={
+                isTrialActive
+                  ? "Search is disabled during trial access"
+                  : "Search all pages..."
+              }
+              className={`w-full px-4 py-3 text-base rounded-lg border-0 bg-transparent focus:outline-none focus:ring-0 ${
+                isTrialActive
+                  ? "text-gray-500 cursor-not-allowed"
+                  : "text-gray-900 placeholder-gray-500"
+              }`}
+              onFocus={() => {
+                if (!isTrialActive) setSearchOpen(true);
+              }}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+              }}
+            />
+
+            {searchOpen && !isTrialActive && searchQuery.trim().length >= 2 && (
+              <div className="absolute z-50 mt-2 w-full bg-white rounded-lg border-2 border-blue-200 shadow-lg">
+                {searchLoading ? (
+                  <div className="px-3 py-3 text-xs text-gray-600">
+                    Searching…
+                  </div>
+                ) : searchError ? (
+                  <div className="px-3 py-3 text-xs text-red-600">
+                    {searchError}
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <div className="px-3 py-3 text-xs text-gray-600">
+                    No results
+                  </div>
+                ) : (
+                  <>
+                    <ul className="py-1 max-h-72 overflow-auto">
+                      {searchResults.slice(0, 25).map((r, idx) => {
+                        const href = resolveSearchHref(r);
+                        const t = String(r.type || "").toLowerCase().trim();
+                        const isInsight =
+                          t === "insight" || t === "insights" || t === "article";
+                        const badgeLabel = getSearchBadgeLabel(r.type);
+                        return (
+                          <li key={`${r.type}-${r.id}-${idx}`}>
+                            <a
+                              href={href || "#"}
+                              className="group flex items-start justify-between gap-3 px-3 py-2 w-full hover:bg-blue-50 hover:shadow-sm no-underline cursor-pointer transition-all duration-150 rounded-md"
+                              onClick={(e) => {
+                                if (!href) {
+                                  e.preventDefault();
+                                  return;
+                                }
+                                if (
+                                  e.defaultPrevented ||
+                                  e.button !== 0 ||
+                                  e.metaKey ||
+                                  e.ctrlKey ||
+                                  e.shiftKey ||
+                                  e.altKey
+                                ) {
+                                  return;
+                                }
+                                e.preventDefault();
+                                setSearchOpen(false);
+                                setSearchQuery("");
+                                setSearchResults([]);
+                                setSearchPopupOpen(false);
+                                router.push(href);
+                              }}
+                            >
+                              <span className="text-sm text-gray-900 group-hover:text-blue-700 transition-colors">
+                                {r.title}
+                              </span>
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-full border shrink-0 ${badgeClassForSearchType(
+                                  String(r.type || "")
+                                )} ${isInsight ? "normal-case" : "uppercase"}`}
+                              >
+                                {badgeLabel}
+                              </span>
+                            </a>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <div className="px-3 py-3 border-t border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          openSearchPopup();
+                        }}
+                        className="w-full py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
+                      >
+                        View more
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Search results popup */}
@@ -1106,122 +1218,8 @@ export default function HomeUserPage() {
             </div>
           </div>
 
-          {/* Search bar + Insights & Analysis */}
-          <div className="flex flex-col gap-4 order-2 lg:col-span-1 xl:col-span-8">
-            <div
-              ref={searchWrapRef}
-              className={`relative w-full rounded-lg border-2 bg-white shadow-sm ${
-                isTrialActive
-                  ? "border-gray-200"
-                  : "border-blue-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"
-              }`}
-            >
-              <input
-                type="search"
-                value={searchQuery}
-                disabled={isTrialActive}
-                placeholder={
-                  isTrialActive
-                    ? "Search is disabled during trial access"
-                    : "Search all pages..."
-                }
-                className={`w-full px-4 py-3 text-base rounded-lg border-0 bg-transparent focus:outline-none focus:ring-0 ${
-                  isTrialActive
-                    ? "text-gray-500 cursor-not-allowed"
-                    : "text-gray-900 placeholder-gray-500"
-                }`}
-                onFocus={() => {
-                  if (!isTrialActive) setSearchOpen(true);
-                }}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                }}
-              />
-
-              {searchOpen && !isTrialActive && searchQuery.trim().length >= 2 && (
-                <div className="absolute z-50 mt-2 w-full bg-white rounded-lg border-2 border-blue-200 shadow-lg">
-                  {searchLoading ? (
-                    <div className="px-3 py-3 text-xs text-gray-600">
-                      Searching…
-                    </div>
-                  ) : searchError ? (
-                    <div className="px-3 py-3 text-xs text-red-600">
-                      {searchError}
-                    </div>
-                  ) : searchResults.length === 0 ? (
-                    <div className="px-3 py-3 text-xs text-gray-600">
-                      No results
-                    </div>
-                  ) : (
-                    <>
-                      <ul className="py-1 max-h-72 overflow-auto">
-                        {searchResults.slice(0, 25).map((r, idx) => {
-                          const href = resolveSearchHref(r);
-                          const t = String(r.type || "").toLowerCase().trim();
-                          const isInsight =
-                            t === "insight" || t === "insights" || t === "article";
-                          const badgeLabel = getSearchBadgeLabel(r.type);
-                          return (
-                            <li key={`${r.type}-${r.id}-${idx}`}>
-                              <a
-                                href={href || "#"}
-                                className="group flex items-start justify-between gap-3 px-3 py-2 w-full hover:bg-blue-50 hover:shadow-sm no-underline cursor-pointer transition-all duration-150 rounded-md"
-                                onClick={(e) => {
-                                  if (!href) {
-                                    e.preventDefault();
-                                    return;
-                                  }
-                                  if (
-                                    e.defaultPrevented ||
-                                    e.button !== 0 ||
-                                    e.metaKey ||
-                                    e.ctrlKey ||
-                                    e.shiftKey ||
-                                    e.altKey
-                                  ) {
-                                    return;
-                                  }
-                                  e.preventDefault();
-                                  setSearchOpen(false);
-                                  setSearchQuery("");
-                                  setSearchResults([]);
-                                  setSearchPopupOpen(false);
-                                  router.push(href);
-                                }}
-                              >
-                                <span className="text-sm text-gray-900 group-hover:text-blue-700 transition-colors">
-                                  {r.title}
-                                </span>
-                                <span
-                                  className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-full border shrink-0 ${badgeClassForSearchType(
-                                    String(r.type || "")
-                                  )} ${isInsight ? "normal-case" : "uppercase"}`}
-                                >
-                                  {badgeLabel}
-                                </span>
-                              </a>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                      <div className="px-3 py-3 border-t border-gray-200">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            openSearchPopup();
-                          }}
-                          className="w-full py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
-                        >
-                          View more
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col flex-1 bg-white rounded-lg shadow border-2 border-blue-200">
+          {/* Insights & Analysis */}
+          <div className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-2 lg:col-span-1 xl:col-span-8">
             <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700">
@@ -1336,7 +1334,6 @@ export default function HomeUserPage() {
                 </div>
               )}
             </div>
-          </div>
           </div>
 
           {/* Corporate Events */}
