@@ -40,9 +40,17 @@ export const getCounterpartyRole = (event: AdvisorCorporateEvent): string => {
   return role || "Unknown";
 };
 
-// In the new `advisors_ce` payload, `other_advisors` is a JSON string array.
-export const getOtherAdvisorsText = (otherAdvisorsJson?: string | null): string => {
-  const raw = String(otherAdvisorsJson ?? "").trim();
+// In the updated `advisors_ce` payload, `other_advisors` is an array.
+// Keep backward-compatibility if older deployments still send JSON strings.
+export const getOtherAdvisorsText = (otherAdvisors?: unknown): string => {
+  if (Array.isArray(otherAdvisors)) {
+    const names = (otherAdvisors as Array<{ advisor_company_name?: unknown }>)
+      .map((a) => String(a?.advisor_company_name ?? "").trim())
+      .filter(Boolean);
+    return names.length > 0 ? names.join(", ") : "None";
+  }
+
+  const raw = String(otherAdvisors ?? "").trim();
   if (!raw || raw === "[]") return "None";
   try {
     const normalized = raw.replace(/\\u0022/g, '"');

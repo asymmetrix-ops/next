@@ -14,9 +14,11 @@ interface CorporateEventsTableProps {
 export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
   events,
 }) => {
-  const parseJsonArray = <T,>(raw?: string | null): T[] => {
-    if (!raw) return [];
-    const trimmed = String(raw).trim();
+  const coerceArray = <T,>(raw: unknown): T[] => {
+    if (Array.isArray(raw)) return raw as T[];
+    if (raw === null || raw === undefined) return [];
+    if (typeof raw !== "string") return [];
+    const trimmed = raw.trim();
     if (!trimmed || trimmed === "[]") return [];
     try {
       const normalized = trimmed.replace(/\\u0022/g, '"');
@@ -83,7 +85,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
               </td>
               <td className="px-4 py-2 border border-gray-300">
                 {(() => {
-                  const inds = parseJsonArray<{ id?: number; name?: string }>(
+                  const inds = coerceArray<{ id?: number; name?: string }>(
                     event.advisor_individuals
                   )
                     .map((p) => String(p?.name ?? "").trim())

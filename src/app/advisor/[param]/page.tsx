@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Head from "next/head";
@@ -41,8 +41,20 @@ interface AdvisorCorporateEventItem {
   company_advised_role?: string | null;
   enterprise_value_m?: string | number | null;
   currency_name?: string | null;
-  advisor_individuals?: string | null;
-  other_advisors?: string | null;
+  // API updated: these are arrays (not JSON strings)
+  advisor_individuals?: Array<{ id?: number; name?: string }> | null;
+  other_advisors?: Array<{
+    id?: number;
+    individuals_id?: number[];
+    advisor_company_id?: number;
+    advisor_company_name?: string;
+  }> | null;
+  primary_sectors?: Array<{
+    id?: number;
+    is_derived?: boolean;
+    sector_name?: string;
+    sector_importance?: string;
+  }> | null;
 }
 
 // Utility function for chart date formatting
@@ -162,7 +174,6 @@ const formatNumber = (num: number | undefined): string => {
 
 export default function AdvisorProfilePage() {
   const params = useParams();
-  const router = useRouter();
   const advisorId = parseInt(params.param as string);
   const [eventsExpanded, setEventsExpanded] = useState(false);
   const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
@@ -185,11 +196,6 @@ export default function AdvisorProfilePage() {
   });
 
   // Removed: handleAdvisorClick (replaced with createClickableElement in list)
-
-  const handleOtherAdvisorClick = (advisorId: number) => {
-    console.log("Other advisor clicked:", advisorId);
-    router.push(`/advisor/${advisorId}`);
-  };
 
   // Replaced corporate event navigation with right-clickable links via createClickableElement
 
@@ -358,9 +364,11 @@ export default function AdvisorProfilePage() {
     ? (corporateEvents as unknown as AdvisorCorporateEventItem[])
     : [];
 
-  const parseJsonArray = <T,>(raw?: string | null): T[] => {
-    if (!raw) return [];
-    const trimmed = String(raw).trim();
+  const coerceArray = <T,>(raw: unknown): T[] => {
+    if (Array.isArray(raw)) return raw as T[];
+    if (raw === null || raw === undefined) return [];
+    if (typeof raw !== "string") return [];
+    const trimmed = raw.trim();
     if (!trimmed || trimmed === "[]") return [];
     try {
       // Some payloads may contain escaped quotes (\u0022) from Xano
@@ -413,7 +421,8 @@ export default function AdvisorProfilePage() {
     }
     .advisor-layout {
       display: grid;
-      grid-template-columns: 1fr 2fr; /* 1/3 left, 2/3 right */
+      /* Fix left column width so the deals table gets space */
+      grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
       gap: 24px 32px;
       align-items: start;
     }
@@ -473,6 +482,19 @@ export default function AdvisorProfilePage() {
       justify-content: flex-start;
       margin-top: 12px;
     }
+    .toggle-button-primary {
+      background-color: #0075df;
+      color: #ffffff;
+      border: 1px solid #0075df;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-weight: 600;
+      line-height: 1;
+    }
+    .toggle-button-primary:hover {
+      background-color: #005bb5;
+      border-color: #005bb5;
+    }
     .toggle-button {
       color: #3b82f6;
       text-decoration: none;
@@ -492,6 +514,8 @@ export default function AdvisorProfilePage() {
       width: 100%;
       border-collapse: collapse;
       font-size: 14px;
+      /* Keep columns readable; allow horizontal scroll if needed */
+      min-width: 1200px;
     }
     .events-table thead tr {
       border-bottom: 2px solid #e2e8f0;
@@ -508,15 +532,29 @@ export default function AdvisorProfilePage() {
     .events-table td {
       padding: 8px;
       font-size: 12px;
-      word-break: break-word;
-      overflow-wrap: anywhere;
+      /* Global rule: do NOT split words mid-word */
+      word-break: normal;
+      overflow-wrap: normal;
       white-space: normal;
-      line-break: anywhere;
+      line-break: normal;
+    }
+    /* Allow long descriptions to wrap gracefully */
+    .events-table th:nth-child(1),
+    .events-table td:nth-child(1) {
+      overflow-wrap: anywhere;
     }
     .events-table td:nth-child(2) {
       word-break: keep-all;
       overflow-wrap: normal;
       white-space: nowrap;
+    }
+    /* Type column: never split words like "Investme\nnt" */
+    .events-table th:nth-child(3),
+    .events-table td:nth-child(3) {
+      word-break: keep-all;
+      overflow-wrap: normal;
+      white-space: nowrap;
+      line-break: normal;
     }
     .nowrap-token { display: inline-block; white-space: nowrap; }
     .nowrap-token:not(:last-child)::after { content: ", "; }
@@ -608,16 +646,18 @@ export default function AdvisorProfilePage() {
       word-break: keep-all;
       overflow-wrap: normal;
       white-space: nowrap;
+      line-break: normal;
     }
       font-size: 12px;
     }
     .event-card-info-value {
       color: #6b7280;
       font-size: 12px;
-      word-break: break-word;
-      overflow-wrap: anywhere;
+      /* Global rule: do NOT split words mid-word */
+      word-break: normal;
+      overflow-wrap: normal;
       white-space: normal;
-      line-break: anywhere;
+      line-break: normal;
     }
     .loading {
       text-align: center;
@@ -839,93 +879,13 @@ export default function AdvisorProfilePage() {
               )}
             </div>
 
-            {/* Advisors Section */}
-            <div className="advisor-section">
-              <h2 className="section-title">Advisors</h2>
-              
-              {/* Current Advisors */}
-              <div style={{ marginBottom: "20px" }}>
-                <IndividualCards
-                  title="Current:"
-                  individuals={(() => {
-                    // Prefer rolesCurrent from LinkedIn endpoint
-                    if (rolesCurrent.length > 0) {
-                      return rolesCurrent.map((role) => ({
-                        id: role.id,
-                        name: role.advisor_individuals || role.Individual_text || "Unknown",
-                        jobTitles: role.job_titles_id?.map((jt) => jt.job_title) || [],
-                        individualId: role.individuals_id,
-                      }));
-                    }
-                    // Fallback to advisorData.Advisors_individuals_current
-                    if (advisorData.Advisors_individuals_current && advisorData.Advisors_individuals_current.length > 0) {
-                      return advisorData.Advisors_individuals_current.map((individual) => ({
-                        id: individual.id,
-                        name: individual.advisor_individuals,
-                        jobTitles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
-                        individualId: individual.individuals_id,
-                      }));
-                    }
-                    // Final fallback to Advisors_individuals
-                    if (Advisors_individuals && Advisors_individuals.length > 0) {
-                      return Advisors_individuals.map((individual) => ({
-                        id: individual.id,
-                        name: individual.advisor_individuals,
-                        jobTitles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
-                        individualId: individual.individuals_id,
-                      }));
-                    }
-                    return [];
-                  })()}
-                  emptyMessage="Not available"
-                />
-              </div>
-
-              {/* Past Advisors - Only show if there are past advisors */}
-              {(() => {
-                // Get past advisors list
-                let pastAdvisors: IndividualCardItem[] = [];
-                // Prefer rolesPast from LinkedIn endpoint
-                if (rolesPast.length > 0) {
-                  pastAdvisors = rolesPast.map((role) => ({
-                    id: role.id,
-                    name: role.advisor_individuals || role.Individual_text || "Unknown",
-                    jobTitles: role.job_titles_id?.map((jt) => jt.job_title) || [],
-                    individualId: role.individuals_id,
-                  }));
-                }
-                // Fallback to advisorData.Advisors_individuals_past
-                else if (advisorData.Advisors_individuals_past && advisorData.Advisors_individuals_past.length > 0) {
-                  pastAdvisors = advisorData.Advisors_individuals_past.map((individual) => ({
-                    id: individual.id,
-                    name: individual.advisor_individuals,
-                    jobTitles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
-                    individualId: individual.individuals_id,
-                  }));
-                }
-                
-                // Only render if there are past advisors
-                if (pastAdvisors.length > 0) {
-                  return (
-                    <div>
-                      <IndividualCards
-                        title="Past:"
-                        individuals={pastAdvisors}
-                        emptyMessage="Not available"
-                      />
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-            </div>
           </div>
 
           {/* Right Column - Corporate Events */}
           <div className="advisor-right-column">
             <div className="advisor-section">
               <div className="corporate-events-header">
-                <h2 className="section-title">Corporate Events</h2>
+                <h2 className="section-title">Deals Advised</h2>
               </div>
 
               {safeEvents.length > 0 ? (
@@ -940,6 +900,7 @@ export default function AdvisorProfilePage() {
                           <th>Type</th>
                           <th>Counterparty Advised</th>
                           <th>Client Name</th>
+                          <th>Sector(s)</th>
                           <th>Enterprise Value</th>
                           <th>Advisor</th>
                         </tr>
@@ -977,10 +938,47 @@ export default function AdvisorProfilePage() {
                               : String(value);
                           };
 
-                          const individuals = parseJsonArray<{
+                          const individuals = coerceArray<{
                             id?: number;
                             name?: string;
                           }>(event.advisor_individuals);
+
+                          const sectors = coerceArray<{
+                            id?: number;
+                            is_derived?: boolean;
+                            sector_name?: string;
+                            sector_importance?: string;
+                          }>(event.primary_sectors)
+                            .filter(
+                              (s) =>
+                                s &&
+                                typeof s.id === "number" &&
+                                String(s.sector_name || "").trim().length > 0
+                            )
+                            .map((s) => ({
+                              id: s.id as number,
+                              name: String(s.sector_name).trim(),
+                              importance: String(s.sector_importance || "").trim(),
+                              isDerived: Boolean(s.is_derived),
+                            }));
+
+                          // De-dupe, preferring non-derived tags when available
+                          const sectorKey = (s: {
+                            id: number;
+                            importance: string;
+                          }) => `${s.id}:${s.importance.toLowerCase()}`;
+                          const dedupedSectors = (() => {
+                            const sorted = [...sectors].sort((a, b) => {
+                              if (a.isDerived === b.isDerived) return 0;
+                              return a.isDerived ? 1 : -1;
+                            });
+                            const m = new Map<string, (typeof sorted)[number]>();
+                            for (const s of sorted) {
+                              const key = sectorKey(s);
+                              if (!m.has(key)) m.set(key, s);
+                            }
+                            return Array.from(m.values());
+                          })();
 
                           return (
                             <tr key={index}>
@@ -1008,6 +1006,30 @@ export default function AdvisorProfilePage() {
                                       "advisor-link"
                                     )
                                   : companyAdvisedName}
+                              </td>
+                              <td>
+                                {dedupedSectors.length > 0
+                                  ? dedupedSectors.map((s, i) => {
+                                      const isPrimary = s.importance
+                                        .toLowerCase()
+                                        .includes("primary");
+                                      const href = isPrimary
+                                        ? `/sector/${s.id}`
+                                        : `/sub-sector/${s.id}`;
+                                      return (
+                                        <span
+                                          className="nowrap-token"
+                                          key={`${s.id}-${i}`}
+                                        >
+                                          {createClickableElement(
+                                            href,
+                                            s.name,
+                                            "advisor-link"
+                                          )}
+                                        </span>
+                                      );
+                                    })
+                                  : "—"}
                               </td>
                               <td>{getEnterpriseValue()}</td>
                               <td>
@@ -1072,7 +1094,7 @@ export default function AdvisorProfilePage() {
                           : String(value);
                       };
 
-                      const individuals = parseJsonArray<{
+                      const individuals = coerceArray<{
                         id?: number;
                         name?: string;
                       }>(event.advisor_individuals)
@@ -1083,6 +1105,38 @@ export default function AdvisorProfilePage() {
                             String(p.name || "").trim().length > 0
                         )
                         .map((p) => String(p.name));
+
+                      const sectors = coerceArray<{
+                        id?: number;
+                        is_derived?: boolean;
+                        sector_name?: string;
+                        sector_importance?: string;
+                      }>(event.primary_sectors)
+                        .filter(
+                          (s) =>
+                            s &&
+                            typeof s.id === "number" &&
+                            String(s.sector_name || "").trim().length > 0
+                        )
+                        .map((s) => ({
+                          id: s.id as number,
+                          name: String(s.sector_name).trim(),
+                          importance: String(s.sector_importance || "").trim(),
+                          isDerived: Boolean(s.is_derived),
+                        }));
+
+                      const dedupedSectors = (() => {
+                        const sorted = [...sectors].sort((a, b) => {
+                          if (a.isDerived === b.isDerived) return 0;
+                          return a.isDerived ? 1 : -1;
+                        });
+                        const m = new Map<string, (typeof sorted)[number]>();
+                        for (const s of sorted) {
+                          const key = `${s.id}:${s.importance.toLowerCase()}`;
+                          if (!m.has(key)) m.set(key, s);
+                        }
+                        return Array.from(m.values());
+                      })();
 
                       return (
                         <div key={index} className="event-card">
@@ -1130,6 +1184,38 @@ export default function AdvisorProfilePage() {
                                   : companyAdvisedName}
                               </span>
                             </div>
+                            <div
+                              className="event-card-info-item"
+                              style={{ gridColumn: "1 / -1" }}
+                            >
+                              <span className="event-card-info-label">
+                                Sector(s):
+                              </span>
+                              <span className="event-card-info-value">
+                                {dedupedSectors.length > 0
+                                  ? dedupedSectors.map((s, i) => {
+                                      const isPrimary = s.importance
+                                        .toLowerCase()
+                                        .includes("primary");
+                                      const href = isPrimary
+                                        ? `/sector/${s.id}`
+                                        : `/sub-sector/${s.id}`;
+                                      return (
+                                        <span
+                                          className="nowrap-token"
+                                          key={`${s.id}-${i}`}
+                                        >
+                                          {createClickableElement(
+                                            href,
+                                            s.name,
+                                            "advisor-link"
+                                          )}
+                                        </span>
+                                      );
+                                    })
+                                  : "—"}
+                              </span>
+                            </div>
                             <div className="event-card-info-item">
                               <span className="event-card-info-label">Value:</span>
                               <span className="event-card-info-value">
@@ -1159,7 +1245,7 @@ export default function AdvisorProfilePage() {
                     <div className="corporate-events-footer">
                       <button
                         onClick={handleToggleEvents}
-                        className="toggle-button"
+                        className="toggle-button toggle-button-primary"
                       >
                         {eventsExpanded ? "Show less" : "See more"}
                       </button>
@@ -1169,6 +1255,105 @@ export default function AdvisorProfilePage() {
               ) : (
                 <div className="no-events">No corporate events available</div>
               )}
+            </div>
+
+            {/* Advisors Section (moved beneath Deals Advised) */}
+            <div className="advisor-section">
+              <h2 className="section-title">Advisors</h2>
+
+              {/* Current Advisors */}
+              <div style={{ marginBottom: "20px" }}>
+                <IndividualCards
+                  title="Current:"
+                  individuals={(() => {
+                    // Prefer rolesCurrent from LinkedIn endpoint
+                    if (rolesCurrent.length > 0) {
+                      return rolesCurrent.map((role) => ({
+                        id: role.id,
+                        name:
+                          role.advisor_individuals ||
+                          role.Individual_text ||
+                          "Unknown",
+                        jobTitles:
+                          role.job_titles_id?.map((jt) => jt.job_title) || [],
+                        individualId: role.individuals_id,
+                      }));
+                    }
+                    // Fallback to advisorData.Advisors_individuals_current
+                    if (
+                      advisorData.Advisors_individuals_current &&
+                      advisorData.Advisors_individuals_current.length > 0
+                    ) {
+                      return advisorData.Advisors_individuals_current.map(
+                        (individual) => ({
+                          id: individual.id,
+                          name: individual.advisor_individuals,
+                          jobTitles:
+                            individual.job_titles_id?.map((jt) => jt.job_title) ||
+                            [],
+                          individualId: individual.individuals_id,
+                        })
+                      );
+                    }
+                    // Final fallback to Advisors_individuals
+                    if (Advisors_individuals && Advisors_individuals.length > 0) {
+                      return Advisors_individuals.map((individual) => ({
+                        id: individual.id,
+                        name: individual.advisor_individuals,
+                        jobTitles:
+                          individual.job_titles_id?.map((jt) => jt.job_title) || [],
+                        individualId: individual.individuals_id,
+                      }));
+                    }
+                    return [];
+                  })()}
+                  emptyMessage="Not available"
+                />
+              </div>
+
+              {/* Past Advisors - Only show if there are past advisors */}
+              {(() => {
+                let pastAdvisors: IndividualCardItem[] = [];
+
+                // Prefer rolesPast from LinkedIn endpoint
+                if (rolesPast.length > 0) {
+                  pastAdvisors = rolesPast.map((role) => ({
+                    id: role.id,
+                    name:
+                      role.advisor_individuals || role.Individual_text || "Unknown",
+                    jobTitles: role.job_titles_id?.map((jt) => jt.job_title) || [],
+                    individualId: role.individuals_id,
+                  }));
+                }
+                // Fallback to advisorData.Advisors_individuals_past
+                else if (
+                  advisorData.Advisors_individuals_past &&
+                  advisorData.Advisors_individuals_past.length > 0
+                ) {
+                  pastAdvisors = advisorData.Advisors_individuals_past.map(
+                    (individual) => ({
+                      id: individual.id,
+                      name: individual.advisor_individuals,
+                      jobTitles:
+                        individual.job_titles_id?.map((jt) => jt.job_title) || [],
+                      individualId: individual.individuals_id,
+                    })
+                  );
+                }
+
+                if (pastAdvisors.length > 0) {
+                  return (
+                    <div>
+                      <IndividualCards
+                        title="Past:"
+                        individuals={pastAdvisors}
+                        emptyMessage="Not available"
+                      />
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
           </div>
         </div>
