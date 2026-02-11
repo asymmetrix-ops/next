@@ -530,6 +530,7 @@ export default function HomeUserPage() {
   }, [searchQuery, mergeResults, isTrialActive]);
 
   const [popupDisplayedCount, setPopupDisplayedCount] = useState(25);
+  const popupQueryRef = useRef("");
 
   const handleLoadMoreInPopup = useCallback(() => {
     setPopupDisplayedCount((prev) => prev + 25);
@@ -540,7 +541,8 @@ export default function HomeUserPage() {
     setPopupDisplayedCount(25);
     setSearchPageType(null);
     setSearchPopupOpen(true);
-  }, [searchResults]);
+    popupQueryRef.current = searchQuery;
+  }, [searchResults, searchQuery]);
 
   const closeSearchPopup = useCallback(() => {
     setSearchPopupOpen(false);
@@ -550,6 +552,7 @@ export default function HomeUserPage() {
   const handleSearchFilterChange = useCallback(
     async (pageType: SearchPageType | null) => {
       setSearchPageType(pageType);
+      popupQueryRef.current = searchQuery;
       const q = searchQuery.trim();
       if (!q) return;
       setPopupFiltering(true);
@@ -584,6 +587,24 @@ export default function HomeUserPage() {
     },
     [searchQuery, mergeResults]
   );
+
+  useEffect(() => {
+    if (!searchPopupOpen || searchPageType !== null) return;
+    setPopupResults(searchResults);
+    setPopupDisplayedCount(25);
+  }, [searchPopupOpen, searchPageType, searchResults]);
+
+  useEffect(() => {
+    if (!searchPopupOpen || searchPageType === null) return;
+    if (searchQuery === popupQueryRef.current) return;
+    popupQueryRef.current = searchQuery;
+    const q = searchQuery.trim();
+    if (q.length < 2) return;
+    const t = window.setTimeout(() => {
+      handleSearchFilterChange(searchPageType);
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [searchPopupOpen, searchQuery, searchPageType, handleSearchFilterChange]);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -1070,13 +1091,16 @@ export default function HomeUserPage() {
               className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                <h2
+              <div className="flex items-center gap-3 p-4 border-b border-gray-200">
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search all pages..."
+                  className="flex-1 px-4 py-2.5 text-base rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  aria-label="Search"
                   id="search-popup-title"
-                  className="text-lg font-semibold text-gray-900"
-                >
-                  Search: &quot;{searchQuery}&quot;
-                </h2>
+                />
                 <button
                   type="button"
                   onClick={closeSearchPopup}
