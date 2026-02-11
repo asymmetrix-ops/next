@@ -82,6 +82,30 @@ export interface CorporateEventsResponse {
 }
 
 // Corporate Event (new advisors CE endpoint)
+export interface AdvisorCeCompanyRef {
+  id: number;
+  name: string;
+}
+
+export interface AdvisorCeSectorTag {
+  id: number;
+  is_derived?: boolean;
+  sector_name: string;
+  sector_importance?: string; // "Primary" | "Secondary" (backend string)
+}
+
+export interface AdvisorCeOtherAdvisor {
+  id: number;
+  individuals_id?: number[];
+  advisor_company_id: number;
+  advisor_company_name: string;
+}
+
+export interface AdvisorCeAdvisorIndividual {
+  id: number;
+  name: string;
+}
+
 export interface AdvisorCorporateEvent {
   id: number;
   description: string;
@@ -94,10 +118,11 @@ export interface AdvisorCorporateEvent {
   company_advised_id?: number | null;
   company_advised_name?: string | null;
   company_advised_role?: string | null;
-  // These are JSON strings in the API (sometimes empty array string "[]")
-  target_companies?: string | null;
-  other_advisors?: string | null;
-  advisor_individuals?: string | null;
+  // API updated: arrays (not JSON strings)
+  target_companies?: AdvisorCeCompanyRef[] | null;
+  primary_sectors?: AdvisorCeSectorTag[] | null;
+  other_advisors?: AdvisorCeOtherAdvisor[] | null;
+  advisor_individuals?: AdvisorCeAdvisorIndividual[] | null;
 }
 
 // (Legacy advisor corporate events shapes removed; advisor pages now use `advisors_ce`.)

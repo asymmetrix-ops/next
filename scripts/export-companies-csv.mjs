@@ -93,6 +93,21 @@ function safe(val) {
   return val === null || val === undefined ? "" : val;
 }
 
+function formatCurrencyValue(amount, currency, display) {
+  const disp = display === null || display === undefined ? "" : String(display).trim();
+  if (disp) return disp;
+
+  const amt = amount === null || amount === undefined ? "" : String(amount).trim();
+  if (!amt) return "";
+
+  const cur = currency === null || currency === undefined ? "" : String(currency).trim();
+  if (!cur) return amt;
+
+  // Avoid double-prefixing if amount already includes currency
+  if (amt.toUpperCase().startsWith(cur.toUpperCase())) return amt;
+  return `${cur} ${amt}`;
+}
+
 function formatSectors(sectors) {
   if (!Array.isArray(sectors) || sectors.length === 0) return "";
   return sectors
@@ -147,6 +162,35 @@ function formatInvestors(investors) {
   return investors.map((i) => i?.name ?? "").filter(Boolean).join("\n");
 }
 
+function decodeHtmlEntities(input) {
+  if (!input) return "";
+  return String(input)
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'");
+}
+
+// Convert HTML body to readable plain text for CSV/JSON export
+function htmlToText(html) {
+  if (!html) return "";
+  let s = String(html);
+  // Preserve basic paragraph breaks
+  s = s.replace(/<\s*br\s*\/?>/gi, "\n");
+  s = s.replace(/<\/\s*p\s*>/gi, "\n");
+  s = s.replace(/<\/\s*div\s*>/gi, "\n");
+  // Strip remaining tags
+  s = s.replace(/<[^>]*>/g, " ");
+  s = decodeHtmlEntities(s);
+  // Normalize whitespace
+  s = s.replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n");
+  s = s.replace(/[ \t]{2,}/g, " ");
+  s = s.replace(/\n{3,}/g, "\n\n");
+  return s.trim();
+}
+
 function prettyJson(value) {
   try {
     return JSON.stringify(value, null, 2);
@@ -180,7 +224,12 @@ function formatContentJson(articles) {
         // Content table fields (when present)
         "Publication Date":
           a?.Publication_Date ?? a?.publication_date ?? a?.PublicationDate ?? null,
-        Body: a?.Body ?? a?.body ?? null,
+        Body: (() => {
+          const html = a?.Body ?? a?.body ?? null;
+          if (!html) return null;
+          return htmlToText(html);
+        })(),
+        "Body (HTML)": a?.Body ?? a?.body ?? null,
         headline: a?.headline ?? null,
         strapline: a?.strapline ?? null,
       }))
@@ -210,23 +259,80 @@ const COLUMNS = [
   { header: "Parent Company", section: "Company Profile", value: (c) => formatParents(c.have_parent_company), description: "Name of the parent company, if a subsidiary." },
 
   // ── Financial Metrics ──
-  { header: "Revenue Display", section: "Financial Metrics", value: (c) => safe(c.revenue_display), description: "Pre-formatted revenue with currency (e.g. \"USD 14\")." },
-  { header: "Revenue (m)", section: "Financial Metrics", value: (c) => safe(c.revenue_m), description: "Annual revenue in millions." },
-  { header: "Revenue Currency", section: "Financial Metrics", value: (c) => safe(c.rev_currency), description: "Currency code for revenue (USD, GBP, EUR, etc.)." },
+  {
+    header: "Revenue (m)",
+    section: "Financial Metrics",
+    value: (c) =>
+      formatCurrencyValue(
+        c.revenue_m,
+        c.rev_currency,
+        c.revenue_display ?? c.Revenue_display ?? null
+      ),
+    description: "Annual revenue in millions, with currency included (e.g., GBP 5.6).",
+  },
   { header: "Revenue Growth %", section: "Financial Metrics", value: (c) => safe(c.rev_growth_pc), description: "Year-over-year revenue growth rate." },
   { header: "Revenue Multiple", section: "Financial Metrics", value: (c) => safe(c.revenue_multiple), description: "EV / Revenue. How the market values each unit of revenue." },
-  { header: "EBITDA Display", section: "Financial Metrics", value: (c) => safe(c.ebitda_display), description: "Pre-formatted EBITDA with currency." },
-  { header: "EBITDA (m)", section: "Financial Metrics", value: (c) => safe(c.ebitda_m), description: "Earnings Before Interest, Taxes, Depreciation & Amortisation (millions)." },
+  {
+    header: "EBITDA (m)",
+    section: "Financial Metrics",
+    value: (c) =>
+      formatCurrencyValue(
+        c.ebitda_m,
+        c.ebitda_currency,
+        c.ebitda_display ?? c.EBITDA_display ?? null
+      ),
+    description:
+      "Earnings Before Interest, Taxes, Depreciation & Amortisation (millions), with currency included.",
+  },
+  {
+    header: "EBIT (m)",
+    section: "Financial Metrics",
+    value: (c) =>
+      formatCurrencyValue(
+        c.ebit_m,
+        c.ebit_currency,
+        c.ebit_display ?? c.EBIT_display ?? null
+      ),
+    description: "EBIT (millions), with currency included (when available).",
+  },
   { header: "EBITDA Margin %", section: "Financial Metrics", value: (c) => safe(c.ebitda_margin), description: "EBITDA as a % of revenue. Measures operating profitability." },
-  { header: "EV Display", section: "Financial Metrics", value: (c) => safe(c.enterprise_value_display), description: "Pre-formatted enterprise value with currency." },
-  { header: "Enterprise Value (m)", section: "Financial Metrics", value: (c) => safe(c.ev), description: "Enterprise value in millions." },
+  {
+    header: "Enterprise Value (m)",
+    section: "Financial Metrics",
+    value: (c) =>
+      formatCurrencyValue(
+        c.ev,
+        c.ev_currency,
+        c.enterprise_value_display ?? c.Enterprise_Value_display ?? null
+      ),
+    description: "Enterprise value in millions, with currency included.",
+  },
   { header: "Rule of 40", section: "Financial Metrics", value: (c) => safe(c.rule_of_40), description: "Revenue growth % + EBITDA margin %. SaaS benchmark; >40 is strong." },
-  { header: "ARR (m)", section: "Financial Metrics", value: (c) => safe(c.arr_m), description: "Annual Recurring Revenue in millions." },
+  {
+    header: "ARR (m)",
+    section: "Financial Metrics",
+    value: (c) => formatCurrencyValue(c.arr_m, c.arr_currency, null),
+    description: "Annual Recurring Revenue in millions, with currency included.",
+  },
   { header: "Recurring Revenue %", section: "Financial Metrics", value: (c) => safe(c.arr_pc), description: "% of total revenue that is recurring." },
   { header: "Churn %", section: "Financial Metrics", value: (c) => safe(c.churn_pc), description: "Annual customer/revenue churn rate. Lower is better." },
   { header: "GRR %", section: "Financial Metrics", value: (c) => safe(c.grr_pc), description: "Gross Revenue Retention. 100% = zero churn." },
   { header: "NRR", section: "Financial Metrics", value: (c) => safe(c.nrr), description: "Net Revenue Retention incl. expansions. >100% = existing customers growing." },
   { header: "New Client Revenue Growth %", section: "Financial Metrics", value: (c) => safe(c.new_client_growth_pc), description: "Revenue growth from newly acquired clients." },
+  { header: "Number of Clients", section: "Financial Metrics", value: (c) => safe(c.no_of_clients), description: "Number of customers/clients (where tracked)." },
+  {
+    header: "Revenue per Client",
+    section: "Financial Metrics",
+    value: (c) => formatCurrencyValue(c.rev_per_client, c.rev_currency, null),
+    description: "Average annual revenue per client, with currency included (where tracked).",
+  },
+  { header: "Number of Employees", section: "Financial Metrics", value: (c) => safe(c.no_employees), description: "Headcount (where tracked)." },
+  {
+    header: "Revenue per Employee",
+    section: "Financial Metrics",
+    value: (c) => formatCurrencyValue(c.revenue_per_employee, c.rev_currency, null),
+    description: "Average annual revenue per employee, with currency included (where tracked).",
+  },
   { header: "Financial Year", section: "Financial Metrics", value: (c) => safe(c.financial_year), description: "Financial year the metrics relate to." },
 
   // ── People & Investors ──
@@ -342,6 +448,82 @@ async function fetchAllCompanies() {
   return items;
 }
 
+async function runLimited(tasks, limit, worker) {
+  const results = new Array(tasks.length);
+  let idx = 0;
+  const runners = Array.from({ length: Math.max(1, limit) }, async () => {
+    while (idx < tasks.length) {
+      const myIdx = idx++;
+      results[myIdx] = await worker(tasks[myIdx], myIdx);
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+
+async function fetchContentDetail(contentId) {
+  if (!AUTH_TOKEN) return null;
+  if (!contentId) return null;
+  const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/${encodeURIComponent(
+    String(contentId)
+  )}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${AUTH_TOKEN}`,
+      Accept: "application/json",
+    },
+  });
+  if (!res.ok) return null;
+  const json = await res.json().catch(() => null);
+  const raw = Array.isArray(json) ? json[0] : json;
+  if (!raw || typeof raw !== "object") return null;
+  return {
+    Publication_Date:
+      raw?.Publication_Date ?? raw?.publication_date ?? raw?.PublicationDate ?? null,
+    Body: raw?.Body ?? raw?.body ?? null,
+  };
+}
+
+async function enrichRelatedContentBodies(companies) {
+  if (!AUTH_TOKEN) return;
+  const ids = new Set();
+  for (const c of companies || []) {
+    const items = c?.related_content;
+    if (!Array.isArray(items)) continue;
+    for (const a of items) {
+      const id = a?.id;
+      const hasBody = a?.Body != null || a?.body != null;
+      if (id && !hasBody) ids.add(id);
+    }
+  }
+  const uniqueIds = Array.from(ids);
+  if (uniqueIds.length === 0) return;
+
+  console.log(`\nEnriching article bodies: ${uniqueIds.length} items...`);
+  const cache = new Map();
+
+  await runLimited(uniqueIds, 3, async (id) => {
+    const detail = await fetchContentDetail(id);
+    if (detail) cache.set(id, detail);
+  });
+
+  for (const c of companies || []) {
+    const items = c?.related_content;
+    if (!Array.isArray(items)) continue;
+    for (const a of items) {
+      const id = a?.id;
+      if (!id) continue;
+      const detail = cache.get(id);
+      if (!detail) continue;
+      if (a.Body == null && a.body == null) a.Body = detail.Body;
+      if (a.Publication_Date == null && a.PublicationDate == null && a.publication_date == null) {
+        a.Publication_Date = detail.Publication_Date;
+      }
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 //  Main
 // ---------------------------------------------------------------------------
@@ -365,6 +547,9 @@ async function main() {
     console.log("Nothing to export.");
     process.exit(0);
   }
+
+  // If token provided, enrich related content with full article body
+  await enrichRelatedContentBodies(companies);
 
   const BOM = "\uFEFF";
   const csv = HORIZONTAL
