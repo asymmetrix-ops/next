@@ -6,9 +6,6 @@ import Image from "next/image";
 import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import IndividualCards, {
-  type IndividualCardItem,
-} from "@/components/shared/IndividualCards";
 import { useAdvisorProfile } from "../../../hooks/useAdvisorProfile";
 import {
   formatCurrency,
@@ -26,11 +23,27 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useRightClick } from "../../../hooks/useRightClick";
+import IndividualCards, { type IndividualCardItem } from "@/components/shared/IndividualCards";
 
 // Types for LinkedIn History Chart
 interface LinkedInHistory {
   date: string;
   employees_count: number;
+}
+
+// Types for Corporate Events (develop/new endpoint payload)
+interface AdvisorCorporateEventItem {
+  id: number;
+  description?: string | null;
+  announcement_date?: string | null;
+  deal_type?: string | null;
+  company_advised_id?: number | null;
+  company_advised_name?: string | null;
+  company_advised_role?: string | null;
+  enterprise_value_m?: string | number | null;
+  currency_name?: string | null;
+  advisor_individuals?: string | null;
+  other_advisors?: string | null;
 }
 
 // Utility function for chart date formatting
@@ -154,6 +167,7 @@ export default function AdvisorProfilePage() {
   const advisorId = parseInt(params.param as string);
   const [eventsExpanded, setEventsExpanded] = useState(false);
   const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
+  const [daSectors, setDaSectors] = useState<string>("");
   // Roles fetched from the LinkedIn/company endpoint (includes job titles)
   interface RoleItem {
     id: number;
@@ -165,7 +179,6 @@ export default function AdvisorProfilePage() {
   const [rolesCurrent, setRolesCurrent] = useState<RoleItem[]>([]);
   const [rolesPast, setRolesPast] = useState<RoleItem[]>([]);
   const [linkedInHistoryLoading, setLinkedInHistoryLoading] = useState(false);
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const { createClickableElement } = useRightClick();
 
   const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
@@ -186,98 +199,6 @@ export default function AdvisorProfilePage() {
   const handleToggleEvents = () => {
     setEventsExpanded(!eventsExpanded);
   };
-
-  // Handle PDF export
-  const handleExportPdf = useCallback(async () => {
-    if (!advisorId || !advisorData) {
-      console.error("[PDF Export] Advisor ID or data not available");
-      return;
-    }
-
-    setIsExportingPdf(true);
-    try {
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("asymmetrix_auth_token")
-          : null;
-
-      if (!token) {
-        throw new Error("Authentication token not found. Please log in again.");
-      }
-
-      const endpoint =
-        "https://asymmetrix-pdf-service.fly.dev/api/export-advisor-pdf";
-
-      // Prepare the full data payload
-      const payload = {
-        advisor_id: advisorId,
-        advisor: {
-          Advisor: advisorData.Advisor,
-          Advised_DA_sectors: advisorData.Advised_DA_sectors || [],
-          Portfolio_companies_count: advisorData.Portfolio_companies_count || 0,
-          Advisors_individuals: advisorData.Advisors_individuals || [],
-          Advisors_individuals_current: advisorData.Advisors_individuals_current || [],
-          Advisors_individuals_past: advisorData.Advisors_individuals_past || [],
-        },
-        corporate_events: corporateEvents || [],
-        linkedin_history: linkedInHistory || [],
-        management_roles: {
-          current: rolesCurrent || [],
-          past: rolesPast || [],
-        },
-        xano_auth_token: token,
-      };
-
-      console.log("[PDF Export] POST", endpoint, {
-        advisor_id: advisorId,
-        advisor_name: advisorData.Advisor?.name,
-        events_count: (corporateEvents || []).length,
-        linkedin_history_count: linkedInHistory.length,
-        current_roles_count: rolesCurrent.length,
-        past_roles_count: rolesPast.length,
-      });
-
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        throw new Error(`PDF export failed: ${res.status} ${res.statusText}`);
-      }
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const advisorName = (advisorData.Advisor?.name || "Advisor")
-        .toString()
-        .replace(/[\\/:*?"<>|]/g, " ")
-        .slice(0, 180);
-      a.download = `Asymmetrix ${advisorName} Advisor profile.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 3000);
-    } catch (error) {
-      console.error("[PDF Export] Error:", error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to export PDF. Please try again later."
-      );
-    } finally {
-      setIsExportingPdf(false);
-    }
-  }, [
-    advisorId,
-    advisorData,
-    corporateEvents,
-    linkedInHistory,
-    rolesCurrent,
-    rolesPast,
-  ]);
 
   // Fetch LinkedIn history data using the same API pattern as company page
   const fetchLinkedInHistory = useCallback(async () => {
@@ -344,6 +265,49 @@ export default function AdvisorProfilePage() {
       fetchLinkedInHistory();
     }
   }, [advisorId, fetchLinkedInHistory]);
+
+  // Fetch Advised D&A sectors from dedicated endpoint
+  useEffect(() => {
+    if (!advisorId || Number.isNaN(advisorId)) return;
+
+    const fetchSectors = async () => {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const headers: Record<string, string> = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+      const base =
+        "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/da_sectors_for_advisors";
+
+      const parseSectorsList = (arr: unknown): string => {
+        if (!Array.isArray(arr)) return "";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const names = (arr as any[])
+          .map((x) => String(x?.sector_name || "").trim())
+          .filter((s) => s.length > 0);
+        return names.join(", ");
+      };
+
+      // GET only
+      try {
+        const url = `${base}?new_company_id=${encodeURIComponent(
+          String(advisorId)
+        )}`;
+        const res = await fetch(url, {
+          method: "GET",
+          headers,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const sectors = parseSectorsList(data);
+          setDaSectors(sectors || "");
+        }
+      } catch {
+        setDaSectors("");
+      }
+    };
+
+    fetchSectors();
+  }, [advisorId]);
 
   // Update page title when advisor data is loaded
   useEffect(() => {
@@ -428,60 +392,16 @@ export default function AdvisorProfilePage() {
     Advisors_individuals,
   } = advisorData;
 
-  // Map various backend role shapes into the `IndividualCards` format (same as Company -> Management UI)
-  const toIndividualCardItems = (items: Array<unknown>): IndividualCardItem[] => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const list = items as any[];
-    if (!Array.isArray(list)) return [];
-    return list
-      .map((raw) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const r = raw as any;
-        const name =
-          String(r?.advisor_individuals || r?.Individual_text || "").trim() ||
-          "Unknown";
-        const individualId =
-          typeof r?.individuals_id === "number"
-            ? r.individuals_id
-            : parseInt(String(r?.individuals_id ?? ""), 10);
-        const safeIndividualId = Number.isFinite(individualId)
-          ? individualId
-          : undefined;
-        const jobTitles = Array.isArray(r?.job_titles_id)
-          ? (r.job_titles_id as Array<{ job_title?: unknown }>)
-              .map((jt) => String(jt?.job_title ?? "").trim())
-              .filter(Boolean)
-          : [];
-        return {
-          id: typeof r?.id === "number" ? r.id : undefined,
-          name,
-          jobTitles,
-          individualId: safeIndividualId,
-        } satisfies IndividualCardItem;
-      })
-      .filter((p) => Boolean(p.name));
-  };
+  const hq = `${Advisor._locations?.City || ""}, ${
+    Advisor._locations?.State__Province__County || ""
+  }, ${Advisor._locations?.Country || ""}`
+    .replace(/^,\s*/, "")
+    .replace(/,\s*$/, "");
 
-  const advisorsCurrentCards: IndividualCardItem[] =
-    rolesCurrent.length > 0
-      ? toIndividualCardItems(rolesCurrent)
-      : advisorData.Advisors_individuals_current &&
-          advisorData.Advisors_individuals_current.length > 0
-        ? toIndividualCardItems(advisorData.Advisors_individuals_current)
-        : Advisors_individuals && Advisors_individuals.length > 0
-          ? toIndividualCardItems(Advisors_individuals)
-          : [];
-
-  const advisorsPastCards: IndividualCardItem[] =
-    rolesPast.length > 0
-      ? toIndividualCardItems(rolesPast)
-      : advisorData.Advisors_individuals_past &&
-          advisorData.Advisors_individuals_past.length > 0
-        ? toIndividualCardItems(advisorData.Advisors_individuals_past)
-        : [];
-
-  // Corporate Events (new advisors_ce payload) helpers
-  const safeEvents = Array.isArray(corporateEvents) ? corporateEvents : [];
+  // Corporate Events (develop/new payload) helpers
+  const safeEvents: AdvisorCorporateEventItem[] = Array.isArray(corporateEvents)
+    ? (corporateEvents as unknown as AdvisorCorporateEventItem[])
+    : [];
 
   const parseJsonArray = <T,>(raw?: string | null): T[] => {
     if (!raw) return [];
@@ -496,12 +416,6 @@ export default function AdvisorProfilePage() {
       return [];
     }
   };
-
-  const hq = `${Advisor._locations?.City || ""}, ${
-    Advisor._locations?.State__Province__County || ""
-  }, ${Advisor._locations?.Country || ""}`
-    .replace(/^,\s*/, "")
-    .replace(/,\s*$/, "");
 
   const style = `
     .advisor-detail-page {
@@ -535,37 +449,16 @@ export default function AdvisorProfilePage() {
     }
     .report-button {
       padding: 8px 16px;
-      background-color: #dc2626;
+      background-color: #16a34a;
       color: white;
       border: none;
       border-radius: 4px;
       cursor: pointer;
       font-size: 14px;
-      text-decoration: none;
-      display: inline-block;
-    }
-    .export-pdf-button {
-      padding: 8px 16px;
-      background-color: #0075df;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 500;
-      transition: background-color 0.2s;
-    }
-    .export-pdf-button:hover:not(:disabled) {
-      background-color: #005bb5;
-    }
-    .export-pdf-button:disabled {
-      background-color: #9ca3af;
-      cursor: not-allowed;
     }
     .advisor-layout {
       display: grid;
-      /* Give Corporate Events more room (it has many columns) */
-      grid-template-columns: minmax(320px, 1fr) minmax(0, 3fr);
+      grid-template-columns: 1fr 2fr; /* 1/3 left, 2/3 right */
       gap: 24px 32px;
       align-items: start;
     }
@@ -622,8 +515,6 @@ export default function AdvisorProfilePage() {
       width: 100%;
       border-collapse: collapse;
       font-size: 14px;
-      /* Prevent columns from becoming overly narrow; allow horizontal scroll */
-      min-width: 1250px;
     }
     .events-table thead tr {
       border-bottom: 2px solid #e2e8f0;
@@ -741,6 +632,8 @@ export default function AdvisorProfilePage() {
       overflow-wrap: normal;
       white-space: nowrap;
     }
+      font-size: 12px;
+    }
     .event-card-info-value {
       color: #6b7280;
       font-size: 12px;
@@ -754,13 +647,24 @@ export default function AdvisorProfilePage() {
       padding: 40px;
       color: #666;
     }
-
-    /* Advisors (match Company -> Management cards) */
+    .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
+    .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
+    .pill-green { background-color: #dcfce7; color: #15803d; }
+    /* Management/Individual cards hover effects */
     .management-card:hover {
       background-color: #e6f0ff !important;
       border-color: #0075df !important;
       transform: translateY(-2px);
       box-shadow: 0 4px 6px rgba(0, 117, 223, 0.1);
+    }
+    /* Advisors: make cards smaller and fit 2 per row on desktop */
+    .advisor-detail-page .management-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 10px !important;
+    }
+    .advisor-detail-page .management-card {
+      padding: 8px !important;
+      border-radius: 6px !important;
     }
 
     @media (max-width: 768px) {
@@ -780,20 +684,9 @@ export default function AdvisorProfilePage() {
       .advisor-title {
         font-size: 24px !important;
       }
-      .advisor-header > div:last-child {
-        flex-direction: column !important;
-        align-items: stretch !important;
-        width: 100% !important;
-      }
-      .export-pdf-button,
       .report-button {
         align-self: flex-start !important;
         width: fit-content !important;
-        margin-bottom: 8px !important;
-      }
-      .export-pdf-button:last-child,
-      .report-button:last-child {
-        margin-bottom: 0 !important;
       }
       .advisor-layout {
         display: flex !important;
@@ -823,8 +716,7 @@ export default function AdvisorProfilePage() {
         align-items: flex-start !important;
         gap: 8px !important;
       }
-
-      .management-grid {
+      .advisor-detail-page .management-grid {
         grid-template-columns: 1fr !important;
       }
     }
@@ -860,39 +752,18 @@ export default function AdvisorProfilePage() {
               <h1 className="advisor-title">{Advisor.name}</h1>
             </div>
           </div>
-          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-            <button
-              onClick={handleExportPdf}
-              disabled={isExportingPdf || !advisorData}
-              className="export-pdf-button"
-              style={{
-                padding: "8px 16px",
-                backgroundColor: isExportingPdf ? "#9ca3af" : "#0075df",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor:
-                  isExportingPdf || !advisorData ? "not-allowed" : "pointer",
-                fontSize: "14px",
-                fontWeight: 500,
-                transition: "background-color 0.2s",
-              }}
-            >
-              {isExportingPdf ? "Exporting..." : "Export PDF"}
-            </button>
-            <a
-              className="report-button"
-              href={`mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
-                `Report Incorrect Advisor Data – ${Advisor.name} (ID ${Advisor.id})`
-              )}&body=${encodeURIComponent(
-                "Please describe the issue you found for this advisor page."
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Report Incorrect Data
-            </a>
-          </div>
+          <a
+            className="report-button"
+            href={`mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(
+              `Contribute Advisor Data – ${Advisor.name} (ID ${Advisor.id})`
+            )}&body=${encodeURIComponent(
+              "Please describe the data you would like to contribute for this advisor page."
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Contribute Data
+          </a>
         </div>
 
         <div className="advisor-layout">
@@ -905,7 +776,10 @@ export default function AdvisorProfilePage() {
                 <div className="info-item">
                   <span className="info-label">Advised D&A sectors:</span>
                   <span className="info-value">
-                    {formatSectorsList(Advised_DA_sectors) || "Not available"}
+                    {daSectors?.trim()
+                      ? daSectors
+                      : formatSectorsList(Advised_DA_sectors) ||
+                        "Not available"}
                   </span>
                 </div>
                 <div className="info-item">
@@ -973,6 +847,87 @@ export default function AdvisorProfilePage() {
                 </div>
               )}
             </div>
+
+            {/* Advisors Section */}
+            <div className="advisor-section">
+              <h2 className="section-title">Advisors</h2>
+              
+              {/* Current Advisors */}
+              <div style={{ marginBottom: "20px" }}>
+                <IndividualCards
+                  title="Current:"
+                  individuals={(() => {
+                    // Prefer rolesCurrent from LinkedIn endpoint
+                    if (rolesCurrent.length > 0) {
+                      return rolesCurrent.map((role) => ({
+                        id: role.id,
+                        name: role.advisor_individuals || role.Individual_text || "Unknown",
+                        jobTitles: role.job_titles_id?.map((jt) => jt.job_title) || [],
+                        individualId: role.individuals_id,
+                      }));
+                    }
+                    // Fallback to advisorData.Advisors_individuals_current
+                    if (advisorData.Advisors_individuals_current && advisorData.Advisors_individuals_current.length > 0) {
+                      return advisorData.Advisors_individuals_current.map((individual) => ({
+                        id: individual.id,
+                        name: individual.advisor_individuals,
+                        jobTitles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
+                        individualId: individual.individuals_id,
+                      }));
+                    }
+                    // Final fallback to Advisors_individuals
+                    if (Advisors_individuals && Advisors_individuals.length > 0) {
+                      return Advisors_individuals.map((individual) => ({
+                        id: individual.id,
+                        name: individual.advisor_individuals,
+                        jobTitles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
+                        individualId: individual.individuals_id,
+                      }));
+                    }
+                    return [];
+                  })()}
+                  emptyMessage="Not available"
+                />
+              </div>
+
+              {/* Past Advisors - Only show if there are past advisors */}
+              {(() => {
+                // Get past advisors list
+                let pastAdvisors: IndividualCardItem[] = [];
+                // Prefer rolesPast from LinkedIn endpoint
+                if (rolesPast.length > 0) {
+                  pastAdvisors = rolesPast.map((role) => ({
+                    id: role.id,
+                    name: role.advisor_individuals || role.Individual_text || "Unknown",
+                    jobTitles: role.job_titles_id?.map((jt) => jt.job_title) || [],
+                    individualId: role.individuals_id,
+                  }));
+                }
+                // Fallback to advisorData.Advisors_individuals_past
+                else if (advisorData.Advisors_individuals_past && advisorData.Advisors_individuals_past.length > 0) {
+                  pastAdvisors = advisorData.Advisors_individuals_past.map((individual) => ({
+                    id: individual.id,
+                    name: individual.advisor_individuals,
+                    jobTitles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
+                    individualId: individual.individuals_id,
+                  }));
+                }
+                
+                // Only render if there are past advisors
+                if (pastAdvisors.length > 0) {
+                  return (
+                    <div>
+                      <IndividualCards
+                        title="Past:"
+                        individuals={pastAdvisors}
+                        emptyMessage="Not available"
+                      />
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+            </div>
           </div>
 
           {/* Right Column - Corporate Events */}
@@ -981,13 +936,10 @@ export default function AdvisorProfilePage() {
               <div className="corporate-events-header">
                 <h2 className="section-title">Corporate Events</h2>
                 {safeEvents.length > 10 && (
-                    <button
-                      onClick={handleToggleEvents}
-                      className="toggle-button"
-                    >
-                      {eventsExpanded ? "Show less" : "See more"}
-                    </button>
-                  )}
+                  <button onClick={handleToggleEvents} className="toggle-button">
+                    {eventsExpanded ? "Show less" : "See more"}
+                  </button>
+                )}
               </div>
 
               {safeEvents.length > 0 ? (
@@ -1011,7 +963,6 @@ export default function AdvisorProfilePage() {
                           0,
                           eventsExpanded ? undefined : 10
                         ).map((event, index) => {
-                          // Company Advised comes directly from the new endpoint
                           const companyAdvisedId = event.company_advised_id ?? null;
                           const companyAdvisedName =
                             (event.company_advised_name || "").trim() || "—";
@@ -1056,11 +1007,15 @@ export default function AdvisorProfilePage() {
                               <td>
                                 {createClickableElement(
                                   `/corporate-event/${event.id}`,
-                                  event.description,
+                                  event.description || "—",
                                   "event-link"
                                 )}
                               </td>
-                              <td>{formatDate(event.announcement_date)}</td>
+                              <td>
+                                {event.announcement_date
+                                  ? formatDate(event.announcement_date)
+                                  : "—"}
+                              </td>
                               <td>{event.deal_type || "—"}</td>
                               <td>
                                 {companyAdvisedHref
@@ -1185,22 +1140,20 @@ export default function AdvisorProfilePage() {
                         <div key={index} className="event-card">
                           {createClickableElement(
                             `/corporate-event/${event.id}`,
-                            event.description,
+                            event.description || "—",
                             "event-card-title"
                           )}
                           <div className="event-card-info">
                             <div className="event-card-info-item">
-                              <span className="event-card-info-label">
-                                Date:
-                              </span>
+                              <span className="event-card-info-label">Date:</span>
                               <span className="event-card-info-value">
-                                {formatDate(event.announcement_date)}
+                                {event.announcement_date
+                                  ? formatDate(event.announcement_date)
+                                  : "—"}
                               </span>
                             </div>
                             <div className="event-card-info-item">
-                              <span className="event-card-info-label">
-                                Type:
-                              </span>
+                              <span className="event-card-info-label">Type:</span>
                               <span className="event-card-info-value">
                                 {event.deal_type || "—"}
                               </span>
@@ -1220,9 +1173,7 @@ export default function AdvisorProfilePage() {
                               </span>
                             </div>
                             <div className="event-card-info-item">
-                              <span className="event-card-info-label">
-                                Value:
-                              </span>
+                              <span className="event-card-info-label">Value:</span>
                               <span className="event-card-info-value">
                                 {getEnterpriseValue()}
                               </span>
@@ -1276,27 +1227,6 @@ export default function AdvisorProfilePage() {
               ) : (
                 <div className="no-events">No corporate events available</div>
               )}
-            </div>
-
-            {/* Advisors (moved under Corporate Events; match Company -> Management layout) */}
-            <div className="advisor-section">
-              <h2 className="section-title">Advisors</h2>
-
-              <div style={{ marginBottom: "20px" }}>
-                <IndividualCards
-                  title="Current:"
-                  individuals={advisorsCurrentCards}
-                  emptyMessage="Not available"
-                />
-              </div>
-
-              <div>
-                <IndividualCards
-                  title="Past:"
-                  individuals={advisorsPastCards}
-                  emptyMessage="Not available"
-                />
-              </div>
             </div>
           </div>
         </div>
