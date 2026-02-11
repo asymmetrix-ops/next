@@ -328,12 +328,19 @@ type UserActivityRow = {
   user_name: string;
   user_email: string | null;
   company_name: string;
-  sessions_last_30_days: number;
-  sessions_last_90_days: number;
-  page_views_last_30_days: number;
-  page_views_last_90_days: number;
-  total_sessions: number;
-  total_page_views: number;
+  // Newer API fields (as seen in analytics payload)
+  sessions_last_24_hours?: number | null;
+  page_views_last_24_hours?: number | null;
+  sessions_last_7_days?: number | null;
+  page_views_last_7_days?: number | null;
+
+  // Existing/legacy fields (keep optional for backward compatibility)
+  sessions_last_30_days?: number | null;
+  sessions_last_90_days?: number | null;
+  page_views_last_30_days?: number | null;
+  page_views_last_90_days?: number | null;
+  total_sessions?: number | null;
+  total_page_views?: number | null;
   last_activity_timestamp: number | null;
 };
 
@@ -359,6 +366,10 @@ function formatTimestamp(ts: number | null): string {
   } catch {
     return String(ts);
   }
+}
+
+function formatMetric(v: unknown): string {
+  return typeof v === "number" && Number.isFinite(v) ? String(v) : "—";
 }
 
 function compareValues(a: unknown, b: unknown, dir: SortDirection): number {
@@ -486,6 +497,10 @@ function UserActivityTab() {
                   ["user_name", "User Name"],
                   ["user_email", "User Email"],
                   ["company_name", "Company"],
+                  ["sessions_last_24_hours", "Sessions 24h"],
+                  ["page_views_last_24_hours", "Page Views 24h"],
+                  ["sessions_last_7_days", "Sessions 7d"],
+                  ["page_views_last_7_days", "Page Views 7d"],
                   ["sessions_last_30_days", "Sessions 30d"],
                   ["sessions_last_90_days", "Sessions 90d"],
                   ["page_views_last_30_days", "Page Views 30d"],
@@ -515,21 +530,21 @@ function UserActivityTab() {
           <tbody>
             {loadingUa && (
               <tr>
-                <td className="px-3 py-3 text-center" colSpan={11}>
+                <td className="px-3 py-3 text-center" colSpan={15}>
                   Loading…
                 </td>
               </tr>
             )}
             {errorUa && !loadingUa && (
               <tr>
-                <td className="px-3 py-3 text-red-700 bg-red-50" colSpan={11}>
+                <td className="px-3 py-3 text-red-700 bg-red-50" colSpan={15}>
                   {errorUa}
                 </td>
               </tr>
             )}
             {!loadingUa && !errorUa && filtered.length === 0 && (
               <tr>
-                <td className="px-3 py-3 text-center text-gray-500" colSpan={11}>
+                <td className="px-3 py-3 text-center text-gray-500" colSpan={15}>
                   No results
                 </td>
               </tr>
@@ -541,12 +556,30 @@ function UserActivityTab() {
                   <td className="px-3 py-2">{r.user_name}</td>
                   <td className="px-3 py-2">{r.user_email || "—"}</td>
                   <td className="px-3 py-2">{r.company_name}</td>
-                  <td className="px-3 py-2">{r.sessions_last_30_days}</td>
-                  <td className="px-3 py-2">{r.sessions_last_90_days}</td>
-                  <td className="px-3 py-2">{r.page_views_last_30_days}</td>
-                  <td className="px-3 py-2">{r.page_views_last_90_days}</td>
-                  <td className="px-3 py-2">{r.total_sessions}</td>
-                  <td className="px-3 py-2">{r.total_page_views}</td>
+                  <td className="px-3 py-2">
+                    {formatMetric(r.sessions_last_24_hours)}
+                  </td>
+                  <td className="px-3 py-2">
+                    {formatMetric(r.page_views_last_24_hours)}
+                  </td>
+                  <td className="px-3 py-2">{formatMetric(r.sessions_last_7_days)}</td>
+                  <td className="px-3 py-2">
+                    {formatMetric(r.page_views_last_7_days)}
+                  </td>
+                  <td className="px-3 py-2">
+                    {formatMetric(r.sessions_last_30_days)}
+                  </td>
+                  <td className="px-3 py-2">
+                    {formatMetric(r.sessions_last_90_days)}
+                  </td>
+                  <td className="px-3 py-2">
+                    {formatMetric(r.page_views_last_30_days)}
+                  </td>
+                  <td className="px-3 py-2">
+                    {formatMetric(r.page_views_last_90_days)}
+                  </td>
+                  <td className="px-3 py-2">{formatMetric(r.total_sessions)}</td>
+                  <td className="px-3 py-2">{formatMetric(r.total_page_views)}</td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     {formatTimestamp(r.last_activity_timestamp)}
                   </td>
