@@ -9,7 +9,6 @@ import Footer from "@/components/Footer";
 import { useAdvisorProfile } from "../../../hooks/useAdvisorProfile";
 import {
   formatCurrency,
-  formatSectorsList,
   formatDate,
   getAdvisorYearFoundedDisplay,
 } from "../../../utils/advisorHelpers";
@@ -167,7 +166,7 @@ export default function AdvisorProfilePage() {
   const advisorId = parseInt(params.param as string);
   const [eventsExpanded, setEventsExpanded] = useState(false);
   const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
-  const [daSectors, setDaSectors] = useState<string>("");
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   // Roles fetched from the LinkedIn/company endpoint (includes job titles)
   interface RoleItem {
     id: number;
@@ -266,49 +265,6 @@ export default function AdvisorProfilePage() {
     }
   }, [advisorId, fetchLinkedInHistory]);
 
-  // Fetch Advised D&A sectors from dedicated endpoint
-  useEffect(() => {
-    if (!advisorId || Number.isNaN(advisorId)) return;
-
-    const fetchSectors = async () => {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const headers: Record<string, string> = {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      };
-      const base =
-        "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/da_sectors_for_advisors";
-
-      const parseSectorsList = (arr: unknown): string => {
-        if (!Array.isArray(arr)) return "";
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const names = (arr as any[])
-          .map((x) => String(x?.sector_name || "").trim())
-          .filter((s) => s.length > 0);
-        return names.join(", ");
-      };
-
-      // GET only
-      try {
-        const url = `${base}?new_company_id=${encodeURIComponent(
-          String(advisorId)
-        )}`;
-        const res = await fetch(url, {
-          method: "GET",
-          headers,
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const sectors = parseSectorsList(data);
-          setDaSectors(sectors || "");
-        }
-      } catch {
-        setDaSectors("");
-      }
-    };
-
-    fetchSectors();
-  }, [advisorId]);
-
   // Update page title when advisor data is loaded
   useEffect(() => {
     if (advisorData?.Advisor?.name && typeof document !== "undefined") {
@@ -387,7 +343,6 @@ export default function AdvisorProfilePage() {
 
   const {
     Advisor,
-    Advised_DA_sectors,
     Portfolio_companies_count,
     Advisors_individuals,
   } = advisorData;
@@ -493,11 +448,30 @@ export default function AdvisorProfilePage() {
     .info-value {
       color: #6b7280;
     }
+    .description-text {
+      white-space: pre-wrap;
+    }
+    .description-collapsed {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+    }
+    .description-footer {
+      display: flex;
+      justify-content: flex-start;
+      margin-top: 8px;
+    }
     .corporate-events-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 16px;
+    }
+    .corporate-events-footer {
+      display: flex;
+      justify-content: flex-start;
+      margin-top: 12px;
     }
     .toggle-button {
       color: #3b82f6;
@@ -507,6 +481,9 @@ export default function AdvisorProfilePage() {
       border: none;
       cursor: pointer;
       padding: 0;
+      /* Prevent horizontal "jump" when label changes */
+      min-width: 86px;
+      text-align: left;
     }
     .events-table-container {
       overflow-x: auto;
@@ -774,15 +751,6 @@ export default function AdvisorProfilePage() {
               <h2 className="section-title">Overview</h2>
               <div className="info-grid">
                 <div className="info-item">
-                  <span className="info-label">Advised D&A sectors:</span>
-                  <span className="info-value">
-                    {daSectors?.trim()
-                      ? daSectors
-                      : formatSectorsList(Advised_DA_sectors) ||
-                        "Not available"}
-                  </span>
-                </div>
-                <div className="info-item">
                   <span className="info-label">Year founded:</span>
                   <span className="info-value">
                     {getAdvisorYearFoundedDisplay(Advisor)}
@@ -823,9 +791,32 @@ export default function AdvisorProfilePage() {
             {/* Description Section */}
             <div className="advisor-section">
               <h2 className="section-title">Description</h2>
-              <div className="info-value" style={{ whiteSpace: "pre-wrap" }}>
-                {Advisor.description || "Not available"}
-              </div>
+              {Advisor.description ? (
+                <>
+                  <div
+                    className={[
+                      "info-value",
+                      "description-text",
+                      descriptionExpanded ? "" : "description-collapsed",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  >
+                    {Advisor.description}
+                  </div>
+                  <div className="description-footer">
+                    <button
+                      type="button"
+                      className="toggle-button"
+                      onClick={() => setDescriptionExpanded((v) => !v)}
+                    >
+                      {descriptionExpanded ? "Show less" : "Read more"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="info-value">Not available</div>
+              )}
             </div>
 
             {/* Historic LinkedIn Data Section */}
@@ -935,11 +926,6 @@ export default function AdvisorProfilePage() {
             <div className="advisor-section">
               <div className="corporate-events-header">
                 <h2 className="section-title">Corporate Events</h2>
-                {safeEvents.length > 10 && (
-                  <button onClick={handleToggleEvents} className="toggle-button">
-                    {eventsExpanded ? "Show less" : "See more"}
-                  </button>
-                )}
               </div>
 
               {safeEvents.length > 0 ? (
@@ -950,12 +936,12 @@ export default function AdvisorProfilePage() {
                       <thead>
                         <tr>
                           <th>Description</th>
-                          <th>Date Announced</th>
+                          <th>Deal Date</th>
                           <th>Type</th>
-                          <th>Company Advised</th>
+                          <th>Counterparty Advised</th>
+                          <th>Client Name</th>
                           <th>Enterprise Value</th>
-                          <th>Individuals</th>
-                          <th>Other Advisors</th>
+                          <th>Advisor</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -966,9 +952,10 @@ export default function AdvisorProfilePage() {
                           const companyAdvisedId = event.company_advised_id ?? null;
                           const companyAdvisedName =
                             (event.company_advised_name || "").trim() || "—";
-                          const companyAdvisedRole = (
+                          const companyAdvisedRoleRaw = String(
                             event.company_advised_role || ""
-                          ).toLowerCase();
+                          ).trim();
+                          const companyAdvisedRole = companyAdvisedRoleRaw.toLowerCase();
                           const companyAdvisedHref =
                             companyAdvisedId && companyAdvisedName !== "—"
                               ? companyAdvisedRole.includes("investor")
@@ -995,13 +982,6 @@ export default function AdvisorProfilePage() {
                             name?: string;
                           }>(event.advisor_individuals);
 
-                          const otherAdvisors = parseJsonArray<{
-                            advisor_company_id?: number;
-                            advisor_company_name?: string;
-                          }>(event.other_advisors).filter(
-                            (a) => a && a.advisor_company_id && a.advisor_company_name
-                          );
-
                           return (
                             <tr key={index}>
                               <td>
@@ -1017,6 +997,9 @@ export default function AdvisorProfilePage() {
                                   : "—"}
                               </td>
                               <td>{event.deal_type || "—"}</td>
+                              <td>
+                                {companyAdvisedRoleRaw || "—"}
+                              </td>
                               <td>
                                 {companyAdvisedHref
                                   ? createClickableElement(
@@ -1050,27 +1033,6 @@ export default function AdvisorProfilePage() {
                                       ))
                                   : "—"}
                               </td>
-                              <td>
-                                {otherAdvisors.length > 0
-                                  ? otherAdvisors.map((advisor, i) => (
-                                      <span
-                                        className="nowrap-token"
-                                        key={`${advisor.advisor_company_id}-${i}`}
-                                      >
-                                        <span
-                                          onClick={() =>
-                                            handleOtherAdvisorClick(
-                                              advisor.advisor_company_id as number
-                                            )
-                                          }
-                                          className="advisor-link"
-                                        >
-                                          {advisor.advisor_company_name}
-                                        </span>
-                                      </span>
-                                    ))
-                                  : "—"}
-                              </td>
                             </tr>
                           );
                         })}
@@ -1087,9 +1049,10 @@ export default function AdvisorProfilePage() {
                       const companyAdvisedId = event.company_advised_id ?? null;
                       const companyAdvisedName =
                         (event.company_advised_name || "").trim() || "—";
-                      const companyAdvisedRole = (
+                      const companyAdvisedRoleRaw = String(
                         event.company_advised_role || ""
-                      ).toLowerCase();
+                      ).trim();
+                      const companyAdvisedRole = companyAdvisedRoleRaw.toLowerCase();
                       const companyAdvisedHref =
                         companyAdvisedId && companyAdvisedName !== "—"
                           ? companyAdvisedRole.includes("investor")
@@ -1121,21 +1084,6 @@ export default function AdvisorProfilePage() {
                         )
                         .map((p) => String(p.name));
 
-                      const otherAdvisors = parseJsonArray<{
-                        advisor_company_id?: number;
-                        advisor_company_name?: string;
-                      }>(event.other_advisors)
-                        .filter(
-                          (a) =>
-                            a &&
-                            typeof a.advisor_company_id === "number" &&
-                            String(a.advisor_company_name || "").trim().length > 0
-                        )
-                        .map((a) => ({
-                          id: a.advisor_company_id as number,
-                          name: String(a.advisor_company_name),
-                        }));
-
                       return (
                         <div key={index} className="event-card">
                           {createClickableElement(
@@ -1145,7 +1093,9 @@ export default function AdvisorProfilePage() {
                           )}
                           <div className="event-card-info">
                             <div className="event-card-info-item">
-                              <span className="event-card-info-label">Date:</span>
+                              <span className="event-card-info-label">
+                                Deal Date:
+                              </span>
                               <span className="event-card-info-value">
                                 {event.announcement_date
                                   ? formatDate(event.announcement_date)
@@ -1160,7 +1110,15 @@ export default function AdvisorProfilePage() {
                             </div>
                             <div className="event-card-info-item">
                               <span className="event-card-info-label">
-                                Company Advised:
+                                Counterparty Advised:
+                              </span>
+                              <span className="event-card-info-value">
+                                {companyAdvisedRoleRaw || "—"}
+                              </span>
+                            </div>
+                            <div className="event-card-info-item">
+                              <span className="event-card-info-label">
+                                Client Name:
                               </span>
                               <span className="event-card-info-value">
                                 {companyAdvisedHref
@@ -1183,38 +1141,11 @@ export default function AdvisorProfilePage() {
                               style={{ gridColumn: "1 / -1" }}
                             >
                               <span className="event-card-info-label">
-                                Individuals:
+                                Advisor:
                               </span>
                               <span className="event-card-info-value">
                                 {individuals.length > 0
                                   ? individuals.join(", ")
-                                  : "—"}
-                              </span>
-                            </div>
-                            <div
-                              className="event-card-info-item"
-                              style={{ gridColumn: "1 / -1" }}
-                            >
-                              <span className="event-card-info-label">
-                                Other Advisors:
-                              </span>
-                              <span className="event-card-info-value">
-                                {otherAdvisors.length > 0
-                                  ? otherAdvisors.map((a) => (
-                                      <span
-                                        className="nowrap-token"
-                                        key={a.id}
-                                      >
-                                        <span
-                                          onClick={() =>
-                                            handleOtherAdvisorClick(a.id)
-                                          }
-                                          className="advisor-link"
-                                        >
-                                          {a.name}
-                                        </span>
-                                      </span>
-                                    ))
                                   : "—"}
                               </span>
                             </div>
@@ -1223,6 +1154,17 @@ export default function AdvisorProfilePage() {
                       );
                     })}
                   </div>
+
+                  {safeEvents.length > 10 && (
+                    <div className="corporate-events-footer">
+                      <button
+                        onClick={handleToggleEvents}
+                        className="toggle-button"
+                      >
+                        {eventsExpanded ? "Show less" : "See more"}
+                      </button>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="no-events">No corporate events available</div>
