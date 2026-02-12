@@ -10,6 +10,7 @@
  *
  *  Options:
  *    --countries "United Kingdom,United States"   Filter by countries (default: United Kingdom)
+ *    --company-id 1902                           Filter to a single company id
  *    --output    my-export.csv                    Output filename
  *    --token     YOUR_AUTH_TOKEN                  Bearer token (or env ASYMMETRIX_TOKEN)
  *    --dictionary                                 Also generate a data-dictionary CSV
@@ -60,6 +61,7 @@ const cliArgs = parseArgs(process.argv);
 const COUNTRIES = cliArgs.countries
   ? cliArgs.countries.split(",").map((s) => s.trim()).filter(Boolean)
   : ["United Kingdom"];
+const COMPANY_ID = cliArgs["company-id"] ? String(cliArgs["company-id"]).trim() : "";
 // Requirement: Always fetch 1 company per request
 const PER_PAGE = 1;
 const AUTH_TOKEN = cliArgs.token || process.env.ASYMMETRIX_TOKEN || "";
@@ -93,21 +95,6 @@ function safe(val) {
   return val === null || val === undefined ? "" : val;
 }
 
-function formatCurrencyValue(amount, currency, display) {
-  const disp = display === null || display === undefined ? "" : String(display).trim();
-  if (disp) return disp;
-
-  const amt = amount === null || amount === undefined ? "" : String(amount).trim();
-  if (!amt) return "";
-
-  const cur = currency === null || currency === undefined ? "" : String(currency).trim();
-  if (!cur) return amt;
-
-  // Avoid double-prefixing if amount already includes currency
-  if (amt.toUpperCase().startsWith(cur.toUpperCase())) return amt;
-  return `${cur} ${amt}`;
-}
-
 function formatSectors(sectors) {
   if (!Array.isArray(sectors) || sectors.length === 0) return "";
   return sectors
@@ -136,6 +123,25 @@ function getManagementRows(roles) {
 
 function formatManagement(roles) {
   return getManagementRows(roles).join("\n");
+}
+
+function formatManagementJson(roles) {
+  if (!Array.isArray(roles) || roles.length === 0) return "[]";
+  const arr = roles
+    .map((r) => {
+      const name = r?.Individual_text || r?.individual_name || "";
+      const roleNames = Array.isArray(r?.job_titles_id)
+        ? r.job_titles_id
+            .map((t) => (typeof t === "string" ? t : t?.job_title ?? ""))
+            .filter(Boolean)
+        : Array.isArray(r?.job_titles)
+        ? r.job_titles.filter(Boolean)
+        : [];
+      if (!name && roleNames.length === 0) return null;
+      return { name, roles: roleNames };
+    })
+    .filter(Boolean);
+  return prettyJson(arr);
 }
 
 function getSubsidiaryRows(subs) {
@@ -221,15 +227,10 @@ function formatContentJson(articles) {
         id: a?.id ?? null,
         content_type: a?.content_type ?? null,
         visibility: a?.visibility ?? null,
-        // Content table fields (when present)
         "Publication Date":
           a?.Publication_Date ?? a?.publication_date ?? a?.PublicationDate ?? null,
-        Body: (() => {
-          const html = a?.Body ?? a?.body ?? null;
-          if (!html) return null;
-          return htmlToText(html);
-        })(),
-        "Body (HTML)": a?.Body ?? a?.body ?? null,
+        // Keep shape stable; body is intentionally omitted in this export style
+        Body: null,
         headline: a?.headline ?? null,
         strapline: a?.strapline ?? null,
       }))
@@ -242,113 +243,53 @@ function formatContentJson(articles) {
 // ---------------------------------------------------------------------------
 
 const COLUMNS = [
-  // ── Company Profile ──
-  { header: "Company ID", section: "Company Profile", value: (c) => safe(c.id), description: "Unique numeric identifier for the company in the Asymmetrix database." },
-  { header: "Company Name", section: "Company Profile", value: (c) => safe(c.name), description: "Official registered name of the company." },
-  { header: "Description", section: "Company Profile", value: (c) => safe(c.description), description: "Free-text summary of what the company does, its history, products, and market position." },
-  { header: "Ownership", section: "Company Profile", value: (c) => safe(c.ownership), description: "Ownership structure: Private, Public, Private Equity, Venture Capital, Subsidiary, or Closed." },
-  { header: "Website", section: "Company Profile", value: (c) => safe(c.url), description: "The company's own website URL." },
-  { header: "Year Founded", section: "Company Profile", value: (c) => safe(c.year_founded), description: "The year the company was originally founded." },
-  { header: "Former Names", section: "Company Profile", value: (c) => Array.isArray(c.Former_name) ? c.Former_name.filter(Boolean).join("; ") : "", description: "Any previous names the company traded under." },
-  { header: "Country", section: "Company Profile", value: (c) => safe(c.country), description: "Country where the HQ is located." },
-  { header: "Province / State", section: "Company Profile", value: (c) => safe(c.province), description: "State, province, or region of HQ." },
-  { header: "City", section: "Company Profile", value: (c) => safe(c.city), description: "City of HQ." },
-  { header: "Lifecycle Stage", section: "Company Profile", value: (c) => safe(c.Lifecycle_stage?.Lifecycle_Stage), description: "e.g. Startup, Growth, Mature, Private." },
-  { header: "Primary Sectors", section: "Company Profile", value: (c) => formatSectors(c.primary_sectors), description: "Main industry sectors the company operates in." },
-  { header: "Secondary Sectors", section: "Company Profile", value: (c) => formatSectors(c.secondary_sectors), description: "Additional industry sectors." },
-  { header: "Parent Company", section: "Company Profile", value: (c) => formatParents(c.have_parent_company), description: "Name of the parent company, if a subsidiary." },
+  // IMPORTANT: Keep the order, labels, and descriptions aligned to the expected CSV template.
+  { header: "Company ID", section: "Company", value: (c) => safe(c.id), description: "Unique numeric identifier for the company in the Asymmetrix database." },
+  { header: "Company Name", section: "Company", value: (c) => safe(c.name), description: "Official registered name of the company." },
+  { header: "Description", section: "Company", value: (c) => safe(c.description), description: "Free-text summary of what the company does, its history, products, and market position." },
+  { header: "Ownership", section: "Company", value: (c) => safe(c.ownership), description: "Ownership: e.g. Private, Public, Private Equity, Venture Capital, Subsidiary, Acquired or Closed." },
+  { header: "Website", section: "Company", value: (c) => safe(c.url), description: "The company's own website URL." },
+  { header: "Year Founded", section: "Company", value: (c) => safe(c.year_founded), description: "The year the company was originally founded." },
+  { header: "Former Names", section: "Company", value: (c) => Array.isArray(c.Former_name) ? c.Former_name.filter(Boolean).join("; ") : "", description: "Any previous names the company traded under." },
+  { header: "Country", section: "Company", value: (c) => safe(c.country), description: "Country where the HQ is located." },
+  { header: "Province / State", section: "Company", value: (c) => safe(c.province), description: "State, province, or region of HQ." },
+  { header: "City", section: "Company", value: (c) => safe(c.city), description: "City of HQ." },
+  { header: "Lifecycle Stage", section: "Company", value: (c) => safe(c.Lifecycle_stage?.Lifecycle_Stage), description: "e.g. Pre-seed, Seed, Series A, Series B etc, Growth, Buyout" },
+  { header: "Primary Sectors", section: "Company", value: (c) => formatSectors(c.primary_sectors), description: "Primary Data & Analytics industry sectors the company operates in." },
+  { header: "Secondary Sectors", section: "Company", value: (c) => formatSectors(c.secondary_sectors), description: "Secondary Data & Analytics sub-sectors" },
+  { header: "Parent Company", section: "Company", value: (c) => formatParents(c.have_parent_company), description: "Name of the parent company, if a subsidiary or acquired" },
 
-  // ── Financial Metrics ──
-  {
-    header: "Revenue (m)",
-    section: "Financial Metrics",
-    value: (c) =>
-      formatCurrencyValue(
-        c.revenue_m,
-        c.rev_currency,
-        c.revenue_display ?? c.Revenue_display ?? null
-      ),
-    description: "Annual revenue in millions, with currency included (e.g., GBP 5.6).",
-  },
-  { header: "Revenue Growth %", section: "Financial Metrics", value: (c) => safe(c.rev_growth_pc), description: "Year-over-year revenue growth rate." },
-  { header: "Revenue Multiple", section: "Financial Metrics", value: (c) => safe(c.revenue_multiple), description: "EV / Revenue. How the market values each unit of revenue." },
-  {
-    header: "EBITDA (m)",
-    section: "Financial Metrics",
-    value: (c) =>
-      formatCurrencyValue(
-        c.ebitda_m,
-        c.ebitda_currency,
-        c.ebitda_display ?? c.EBITDA_display ?? null
-      ),
-    description:
-      "Earnings Before Interest, Taxes, Depreciation & Amortisation (millions), with currency included.",
-  },
-  {
-    header: "EBIT (m)",
-    section: "Financial Metrics",
-    value: (c) =>
-      formatCurrencyValue(
-        c.ebit_m,
-        c.ebit_currency,
-        c.ebit_display ?? c.EBIT_display ?? null
-      ),
-    description: "EBIT (millions), with currency included (when available).",
-  },
-  { header: "EBITDA Margin %", section: "Financial Metrics", value: (c) => safe(c.ebitda_margin), description: "EBITDA as a % of revenue. Measures operating profitability." },
-  {
-    header: "Enterprise Value (m)",
-    section: "Financial Metrics",
-    value: (c) =>
-      formatCurrencyValue(
-        c.ev,
-        c.ev_currency,
-        c.enterprise_value_display ?? c.Enterprise_Value_display ?? null
-      ),
-    description: "Enterprise value in millions, with currency included.",
-  },
-  { header: "Rule of 40", section: "Financial Metrics", value: (c) => safe(c.rule_of_40), description: "Revenue growth % + EBITDA margin %. SaaS benchmark; >40 is strong." },
-  {
-    header: "ARR (m)",
-    section: "Financial Metrics",
-    value: (c) => formatCurrencyValue(c.arr_m, c.arr_currency, null),
-    description: "Annual Recurring Revenue in millions, with currency included.",
-  },
-  { header: "Recurring Revenue %", section: "Financial Metrics", value: (c) => safe(c.arr_pc), description: "% of total revenue that is recurring." },
-  { header: "Churn %", section: "Financial Metrics", value: (c) => safe(c.churn_pc), description: "Annual customer/revenue churn rate. Lower is better." },
-  { header: "GRR %", section: "Financial Metrics", value: (c) => safe(c.grr_pc), description: "Gross Revenue Retention. 100% = zero churn." },
-  { header: "NRR", section: "Financial Metrics", value: (c) => safe(c.nrr), description: "Net Revenue Retention incl. expansions. >100% = existing customers growing." },
-  { header: "New Client Revenue Growth %", section: "Financial Metrics", value: (c) => safe(c.new_client_growth_pc), description: "Revenue growth from newly acquired clients." },
-  { header: "Number of Clients", section: "Financial Metrics", value: (c) => safe(c.no_of_clients), description: "Number of customers/clients (where tracked)." },
-  {
-    header: "Revenue per Client",
-    section: "Financial Metrics",
-    value: (c) => formatCurrencyValue(c.rev_per_client, c.rev_currency, null),
-    description: "Average annual revenue per client, with currency included (where tracked).",
-  },
-  { header: "Number of Employees", section: "Financial Metrics", value: (c) => safe(c.no_employees), description: "Headcount (where tracked)." },
-  {
-    header: "Revenue per Employee",
-    section: "Financial Metrics",
-    value: (c) => formatCurrencyValue(c.revenue_per_employee, c.rev_currency, null),
-    description: "Average annual revenue per employee, with currency included (where tracked).",
-  },
-  { header: "Financial Year", section: "Financial Metrics", value: (c) => safe(c.financial_year), description: "Financial year the metrics relate to." },
+  { header: "Revenue (m)", section: "Financial", value: (c) => safe(c.revenue_m), description: "Annual revenue in millions." },
+  { header: "Revenue Currency", section: "Financial", value: (c) => safe(c.rev_currency), description: "Currency code for revenue (USD, GBP, EUR, etc.)." },
+  { header: "Revenue Growth %", section: "Financial", value: (c) => safe(c.rev_growth_pc), description: "Year-over-year revenue growth rate." },
+  { header: "Revenue Multiple", section: "Financial", value: (c) => safe(c.revenue_multiple), description: "EV / Revenue. How the market values each unit of revenue." },
+  { header: "EBITDA (m)", section: "Financial", value: (c) => safe(c.ebitda_m), description: "Earnings Before Interest, Taxes, Depreciation & Amortisation (millions)." },
+  { header: "EBITDA Currency", section: "Financial", value: (c) => safe(c.ebitda_currency), description: "Currency code for EBITDA (USD, GBP, EUR, etc.)." },
+  { header: "EBITDA Margin %", section: "Financial", value: (c) => safe(c.ebitda_margin), description: "EBITDA as a % of revenue. Measures operating profitability." },
+  { header: "Enterprise Value (m)", section: "Financial", value: (c) => safe(c.ev), description: "Enterprise value in millions." },
+  { header: "Enterprise Value Currency", section: "Financial", value: (c) => safe(c.ev_currency), description: "Currency code for Enterprise Value (USD, GBP, EUR, etc.)." },
+  { header: "Rule of 40", section: "Financial", value: (c) => safe(c.rule_of_40), description: "Revenue growth % + EBITDA margin %. SaaS benchmark; >40 is strong." },
+  { header: "ARR (m)", section: "Financial", value: (c) => safe(c.arr_m), description: "Annual Recurring Revenue in millions." },
+  { header: "ARR Currency", section: "Financial", value: (c) => safe(c.arr_currency), description: "Currency code for ARR (USD, GBP, EUR, etc.)." },
+  { header: "Recurring Revenue %", section: "Financial", value: (c) => safe(c.arr_pc), description: "% of total revenue that is recurring." },
+  { header: "Churn %", section: "Financial", value: (c) => safe(c.churn_pc), description: "Annual customer/revenue churn rate. Lower is better." },
+  { header: "Upsell %", section: "Financial", value: (c) => safe(c.upsell_pc), description: "Upsell to clients" },
+  { header: "Cross-sell %", section: "Financial", value: (c) => safe(c.cross_sell_pc), description: "Cross sell to clients" },
+  { header: "Price increase %", section: "Financial", value: (c) => safe(c.price_increase_pc), description: "Price increases to clients" },
+  { header: "Revenue from new clients %", section: "Financial", value: (c) => safe(c.rev_expansion_pc), description: "New client revenue" },
+  { header: "GRR %", section: "Financial", value: (c) => safe(c.grr_pc), description: "Gross Revenue Retention. 100% = zero churn." },
+  { header: "NRR %", section: "Financial", value: (c) => safe(c.nrr), description: "Net Revenue Retention incl. expansions. >100% = existing customers growing." },
+  { header: "New Client Revenue Growth %", section: "Financial", value: (c) => safe(c.new_client_growth_pc), description: "Revenue growth from newly acquired clients." },
+  { header: "Financial Year", section: "Financial", value: (c) => safe(c.financial_year), description: "Financial year the metrics relate to." },
 
-  // ── People & Investors ──
-  { header: "Current Management", section: "People & Investors", value: (c) => formatManagement(c.Managmant_Roles_current), description: "Current leadership: Name — Title(s)." },
-  { header: "Past Management", section: "People & Investors", value: (c) => formatManagement(c.Managmant_Roles_past), description: "Former leadership: Name — Title(s)." },
-  { header: "Current Investors", section: "People & Investors", value: (c) => formatInvestors(c.investors_current), description: "Investors currently holding a stake." },
-  { header: "Past Investors", section: "People & Investors", value: (c) => formatInvestors(c.investors_past), description: "Investors that have exited." },
-  { header: "Subsidiaries", section: "People & Investors", value: (c) => formatSubsidiaries(c.have_subsidiaries_companies?.Subsidiaries_companies), description: "Owned companies, with acquisition date." },
+  { header: "Current Management", section: "People", value: (c) => formatManagementJson(c.Managmant_Roles_current), description: "Current leadership: Name — Title(s)." },
+  { header: "Past Management", section: "People", value: (c) => formatManagement(c.Managmant_Roles_past), description: "Former leadership: Name — Title(s)." },
+  { header: "Current Investors", section: "People", value: (c) => formatInvestors(c.investors_current), description: "Investors currently holding a stake." },
+  { header: "Past Investors", section: "People", value: (c) => formatInvestors(c.investors_past), description: "Investors that have exited." },
+  { header: "Subsidiaries", section: "People", value: (c) => formatSubsidiaries(c.have_subsidiaries_companies?.Subsidiaries_companies), description: "Owned companies, with acquisition date." },
 
-  // ── Corporate Events ──
-  { header: "Corporate Events (JSON)", section: "Corporate Events", value: (c) => formatEventsJson(c.new_counterparties), description: "Corporate events exported as pretty JSON for readability (one array of objects)." },
-
-  // ── Insights & Analysis ──
-  { header: "Insights & Analysis (JSON)", section: "Insights & Analysis", value: (c) => formatContentJson(c.related_content), description: "Insights & Analysis exported as pretty JSON for readability (one array of objects)." },
-
-  // ── Link ──
+  { header: "Corporate Events (JSON)", section: "Events", value: (c) => formatEventsJson(c.new_counterparties), description: "Corporate events exported as pretty JSON for readability (one array of objects)." },
+  { header: "Insights & Analysis (JSON)", section: "Content", value: (c) => formatContentJson(c.related_content), description: "Insights & Analysis exported as pretty JSON for readability (one array of objects)." },
   { header: "Asymmetrix Profile", section: "Link", value: (c) => safe(c.company_link), description: "URL to the full Asymmetrix company profile." },
 ];
 
@@ -358,33 +299,16 @@ const COLUMNS = [
 
 function buildVerticalCsv(companies) {
   const lines = [];
+  lines.push(csvRow(["Field", "Description", "Value"]));
 
   for (let ci = 0; ci < companies.length; ci++) {
     const company = companies[ci];
-
-    // Company header divider
-    lines.push(
-      csvRow([`━━━ COMPANY ${ci + 1} of ${companies.length} ━━━`, "", ""])
-    );
-    lines.push(csvRow(["Field", "Description", "Value"]));
-
-    let lastSection = "";
-
     for (const col of COLUMNS) {
-      // Section header
-      if (col.section !== lastSection) {
-        lastSection = col.section;
-        lines.push(csvRow(["", "", ""])); // blank spacer
-        lines.push(csvRow([`── ${col.section} ──`, "", ""]));
-      }
-
       const val = String(col.value(company));
       lines.push(csvRow([col.header, col.description || "", val]));
     }
-
-    // Spacer between companies
-    lines.push(csvRow(["", "", ""]));
-    lines.push(csvRow(["", "", ""]));
+    // Spacer between companies (if more than one)
+    if (ci < companies.length - 1) lines.push(csvRow(["", "", ""]));
   }
 
   return lines.join("\n") + "\n";
@@ -427,6 +351,7 @@ async function fetchPage(page) {
   url.searchParams.set("Offset", String(page));
   url.searchParams.set("Per_page", String(PER_PAGE));
   COUNTRIES.forEach((c) => url.searchParams.append("Countries", c));
+  if (COMPANY_ID) url.searchParams.set("company_id", COMPANY_ID);
 
   const headers = { Accept: "application/json", "Content-Type": "application/json" };
   if (AUTH_TOKEN) headers["Authorization"] = `Bearer ${AUTH_TOKEN}`;
@@ -443,9 +368,11 @@ async function fetchAllCompanies() {
   process.stdout.write("Fetching page 1...");
   const data = await fetchPage(1);
   const items = data.items || [];
+  // Some API deployments ignore Per_page; enforce locally to guarantee output size.
+  const limitedItems = items.slice(0, PER_PAGE);
   const totalItems = data.pagination?.totalItems ?? items.length;
-  console.log(` got ${items.length} items (${totalItems} total in DB).`);
-  return items;
+  console.log(` got ${limitedItems.length} items (${totalItems} total in DB).`);
+  return limitedItems;
 }
 
 async function runLimited(tasks, limit, worker) {
