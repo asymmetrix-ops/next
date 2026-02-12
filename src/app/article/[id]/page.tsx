@@ -676,6 +676,78 @@ const ArticleDetailPage = () => {
     }
   };
 
+  // Some articles contain many empty paragraphs (<p>&nbsp;</p>, <p><br/></p>, etc.)
+  // which, combined with paragraph margins, creates "oceans of white". Normalize here.
+  const normalizeBodyHtmlSpacing = (rawHtml: string): string => {
+    const input = String(rawHtml || "");
+    if (!input.trim()) return "";
+    try {
+      const doc = new DOMParser().parseFromString(input, "text/html");
+
+      const isWhitespaceTextNode = (n: ChildNode) =>
+        n.nodeType === Node.TEXT_NODE &&
+        !String(n.textContent || "")
+          .replace(/\u00a0/g, " ")
+          .trim();
+
+      // Collapse consecutive <br> (including cases with whitespace text nodes between them)
+      for (const el of Array.from(doc.body.querySelectorAll("*"))) {
+        let prevWasBr = false;
+        for (const node of Array.from(el.childNodes)) {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const tag = (node as Element).tagName.toLowerCase();
+            if (tag === "br") {
+              if (prevWasBr) {
+                node.parentNode?.removeChild(node);
+                continue;
+              }
+              prevWasBr = true;
+              continue;
+            }
+          }
+          if (isWhitespaceTextNode(node)) {
+            // Ignore whitespace between BRs
+            continue;
+          }
+          prevWasBr = false;
+        }
+      }
+
+      const hasNonTrivialContent = (el: Element): boolean => {
+        // Keep paragraphs that contain media/structure even if text is empty
+        if (
+          el.querySelector(
+            "img,figure,table,iframe,embed,object,video,audio,svg,pre,code"
+          )
+        ) {
+          return true;
+        }
+        // Also keep anchors (can be icon-only links)
+        if (el.querySelector("a")) return true;
+        const text = String(el.textContent || "")
+          .replace(/\u00a0/g, " ")
+          .trim();
+        if (text) return true;
+        // If inner HTML is only BRs / whitespace / &nbsp; treat as empty
+        const html = String(el.innerHTML || "")
+          .replace(/&nbsp;/gi, " ")
+          .replace(/<br\s*\/?>/gi, "")
+          .replace(/\s+/g, "")
+          .trim();
+        return Boolean(html);
+      };
+
+      // Remove empty paragraphs that otherwise contribute margin whitespace
+      for (const p of Array.from(doc.body.querySelectorAll("p"))) {
+        if (!hasNonTrivialContent(p)) p.remove();
+      }
+
+      return doc.body.innerHTML;
+    } catch {
+      return input;
+    }
+  };
+
   const normalizeSummaryHtml = (raw: string | unknown[]): string => {
     // Handle array input (already parsed by API)
     if (Array.isArray(raw)) {
@@ -1282,6 +1354,8 @@ const ArticleDetailPage = () => {
                   /<(?:embed|object)[^>]*(?:\bsrc|\bdata)=["'][^"']+\.pdf(?:\?[^"']*)?["'][^>]*>[\s\S]*?<\/(?:embed|object)>/gi,
                   ""
                 );
+              const normalizedBody =
+                normalizeBodyHtmlSpacing(bodyWithoutPdfEmbeds);
 
               const allImageDocs = (article.Related_Documents || [])
                 .filter(Boolean)
@@ -1294,7 +1368,7 @@ const ArticleDetailPage = () => {
                 }))
                 .filter((d) => Boolean(d.url));
               const { html: withPlaceholders, usedIndices } =
-                replaceImagePlaceholders(bodyWithoutPdfEmbeds, allImageDocs);
+                replaceImagePlaceholders(normalizedBody, allImageDocs);
               const remainingImages = allImageDocs.filter(
                 (_, idx) => !usedIndices.has(idx)
               );
@@ -2295,7 +2369,7 @@ const ArticleDetailPage = () => {
             .article-main p, .article-main .strapline { font-size: 15px !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
             .article-body { font-size: 15px !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
             .article-body * { max-width: 100% !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
-            .article-body p { margin-bottom: 0.875rem !important; }
+            .article-body p { margin-bottom: 0.7rem !important; }
             .article-body img { max-width: 100% !important; height: auto !important; }
             .article-body iframe, .article-body video, .article-body embed { max-width: 100% !important; height: auto !important; }
             .article-financial-metrics { padding: 12px !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; }
@@ -2311,7 +2385,7 @@ const ArticleDetailPage = () => {
             .article-published-section button { width: auto !important; }
           }
           /* Preserve HTML formatting inside article body */
-          .article-body p { margin: 0 0 1rem 0; }
+          .article-body p { margin: 0 0 0.8rem 0 !important; }
           .article-body ul { list-style: disc; margin: 0 0 1rem 1.25rem; padding-left: 1.25rem; }
           .article-body ol { list-style: decimal; margin: 0 0 1rem 1.25rem; padding-left: 1.25rem; }
           .article-body li { margin-bottom: 0.5rem; }
