@@ -1,7 +1,7 @@
 import { serverAuthService } from "./server-auth";
 import type { FinancialMetricsRow } from "./dashboardApi";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr";
+const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr:develop";
 
 export class ServerDashboardApiService {
   async getFinancialMetrics(filters?: {

@@ -26,7 +26,7 @@ interface UserActivityPayload {
 
 const XANO_ENDPOINT =
   process.env.XANO_USER_ACTIVITY_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/user_activity";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0:develop/user_activity";
 
 const XANO_AUTH_API_URL =
   process.env.NEXT_PUBLIC_XANO_API_URL || "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";

@@ -1,33 +1,15 @@
 "use client";
 
-import React, { Suspense, useState, useEffect, useMemo, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import CompactPagination from "@/components/ui/CompactPagination";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
   ContentArticle,
   InsightsAnalysisResponse,
   InsightsAnalysisFilters,
 } from "../../types/insightsAnalysis";
-import { locationsService } from "@/lib/locationsService";
-import {
-  parseCompanyIdFromSearch,
-  parseContentTypeFromSearch,
-} from "@/lib/fetchAllContentArticles";
-import {
-  fetchInsightsAnalysisDisplayPage,
-  INSIGHTS_DISPLAY_PAGE_SIZE,
-} from "@/lib/insightsAnalysisPagination";
-import {
-  fetchSectorInsightsArticles,
-  parseCorporateEventIdFromSearch,
-  parsePrimarySectorIdsFromSearch,
-} from "@/lib/sectorInsightsArticles";
-import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
-import SeriesArticleCard from "@/components/SeriesArticleCard";
-import { normalizeContentArticles } from "@/lib/contentArticleDisplay";
 
 // Shared styles object
 const styles = {
@@ -35,34 +17,25 @@ const styles = {
     backgroundColor: "#f9fafb",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-    width: "100%",
-    maxWidth: "100%",
-    boxSizing: "border-box" as const,
   },
   maxWidth: {
-    padding: "16px",
+    padding: "32px",
     display: "flex" as const,
     flexDirection: "column" as const,
-    gap: "16px",
-    width: "100%",
-    maxWidth: "100%",
-    boxSizing: "border-box" as const,
+    gap: "24px",
   },
   card: {
     backgroundColor: "white",
     borderRadius: "12px",
     boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-    padding: "20px 24px",
+    padding: "32px 24px",
     marginBottom: "0",
-    boxSizing: "border-box" as const,
-    width: "100%",
-    maxWidth: "100%",
   },
   heading: {
     fontSize: "24px",
     fontWeight: "700",
     color: "#1a202c",
-    marginBottom: "16px",
+    marginBottom: "8px",
     marginTop: "0px",
   },
   subHeading: {
@@ -73,39 +46,30 @@ const styles = {
   },
   searchDiv: {
     display: "flex" as const,
-    flexDirection: "row" as const,
-    gap: "12px",
-    flexWrap: "wrap" as const,
-    alignItems: "flex-start" as const,
-    width: "100%",
-    maxWidth: "100%",
+    flexDirection: "column" as const,
   },
   input: {
     width: "100%",
-    maxWidth: "280px",
-    padding: "10px 12px",
+    maxWidth: "300px",
+    padding: "15px 14px",
     border: "1px solid #e2e8f0",
     borderRadius: "6px",
     fontSize: "14px",
     color: "#4a5568",
     outline: "none",
-    marginBottom: "0",
-    boxSizing: "border-box" as const,
+    marginBottom: "12px",
   },
   button: {
     width: "100%",
-    maxWidth: "120px",
+    maxWidth: "300px",
     backgroundColor: "#0075df",
     color: "white",
     fontWeight: "600",
-    padding: "10px 14px",
+    padding: "15px 14px",
     borderRadius: "6px",
     border: "none",
     cursor: "pointer",
     fontSize: "14px",
-    minHeight: "44px",
-    touchAction: "manipulation",
-    WebkitTapHighlightColor: "transparent",
   },
   linkButton: {
     backgroundColor: "transparent",
@@ -117,43 +81,185 @@ const styles = {
     marginTop: "12px",
   },
   grid: {
-    display: "flex",
-    flexDirection: "row" as const,
-    flexWrap: "nowrap" as const,
-    gap: "16px",
-    marginBottom: "12px",
-    alignItems: "flex-end" as const,
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+    gap: "24px",
+    marginBottom: "24px",
   },
   gridItem: {
     display: "flex",
     flexDirection: "column" as const,
-    gap: "6px",
+    gap: "8px",
   },
   label: {
     fontSize: "14px",
     fontWeight: "500",
     color: "#374151",
     marginBottom: "4px",
-    marginTop: "4px",
   },
   select: {
     width: "100%",
-    maxWidth: "280px",
-    padding: "10px 12px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "6px",
-    fontSize: "14px",
-    color: "#4a5568",
-    outline: "none",
-    backgroundColor: "white",
-    cursor: "pointer",
-    boxSizing: "border-box" as const,
+    maxWidth: "300px",
   },
 };
 
 // Generate pagination buttons (similar to advisors page)
+const generatePaginationButtons = (
+  pagination: {
+    curPage: number;
+    pageTotal: number;
+    prevPage: number | null;
+    nextPage: number | null;
+  },
+  handlePageChange: (page: number) => void
+) => {
+  const buttons = [];
+  const currentPage = pagination.curPage;
+  const totalPages = pagination.pageTotal;
 
-// Insights Analysis Cards Component (uses shared card)
+  // Previous button
+  buttons.push(
+    <button
+      key="prev"
+      className="pagination-button"
+      onClick={() =>
+        handlePageChange(
+          typeof pagination.prevPage === "number"
+            ? pagination.prevPage
+            : currentPage - 1
+        )
+      }
+      disabled={!pagination.prevPage}
+    >
+      &lt;
+    </button>
+  );
+
+  // Page numbers
+  if (totalPages <= 7) {
+    // Show all pages if total is 7 or less
+    for (let i = 1; i <= totalPages; i++) {
+      buttons.push(
+        <button
+          key={i}
+          className={`pagination-button ${i === currentPage ? "active" : ""}`}
+          onClick={() => handlePageChange(i)}
+        >
+          {i.toString()}
+        </button>
+      );
+    }
+  } else {
+    // Show first page
+    buttons.push(
+      <button
+        key={1}
+        className={`pagination-button ${currentPage === 1 ? "active" : ""}`}
+        onClick={() => handlePageChange(1)}
+      >
+        1
+      </button>
+    );
+
+    // Show second page if not first
+    if (currentPage > 2) {
+      buttons.push(
+        <button
+          key={2}
+          className="pagination-button"
+          onClick={() => handlePageChange(2)}
+        >
+          2
+        </button>
+      );
+    }
+
+    // Show ellipsis if needed
+    if (currentPage > 3) {
+      buttons.push(
+        <span key="ellipsis1" className="pagination-ellipsis">
+          ...
+        </span>
+      );
+    }
+
+    // Show current page and neighbors
+    for (
+      let i = Math.max(3, currentPage - 1);
+      i <= Math.min(totalPages - 2, currentPage + 1);
+      i++
+    ) {
+      if (i > 2 && i < totalPages - 1) {
+        buttons.push(
+          <button
+            key={i}
+            className={`pagination-button ${i === currentPage ? "active" : ""}`}
+            onClick={() => handlePageChange(i)}
+          >
+            {i.toString()}
+          </button>
+        );
+      }
+    }
+
+    // Show ellipsis if needed
+    if (currentPage < totalPages - 2) {
+      buttons.push(
+        <span key="ellipsis2" className="pagination-ellipsis">
+          ...
+        </span>
+      );
+    }
+
+    // Show second to last page if not last
+    if (currentPage < totalPages - 1) {
+      buttons.push(
+        <button
+          key={totalPages - 1}
+          className="pagination-button"
+          onClick={() => handlePageChange(totalPages - 1)}
+        >
+          {(totalPages - 1).toString()}
+        </button>
+      );
+    }
+
+    // Show last page
+    buttons.push(
+      <button
+        key={totalPages}
+        className={`pagination-button ${
+          currentPage === totalPages ? "active" : ""
+        }`}
+        onClick={() => handlePageChange(totalPages)}
+      >
+        {totalPages.toString()}
+      </button>
+    );
+  }
+
+  // Next button
+  buttons.push(
+    <button
+      key="next"
+      className="pagination-button"
+      onClick={() =>
+        handlePageChange(
+          typeof pagination.nextPage === "number"
+            ? pagination.nextPage
+            : currentPage + 1
+        )
+      }
+      disabled={!pagination.nextPage}
+    >
+      &gt;
+    </button>
+  );
+
+  return buttons;
+};
+
+// Insights Analysis Cards Component
 const InsightsAnalysisCards = ({
   articles,
   loading,
@@ -161,6 +267,12 @@ const InsightsAnalysisCards = ({
   articles: ContentArticle[];
   loading: boolean;
 }) => {
+  const router = useRouter();
+
+  const handleArticleClick = (articleId: number) => {
+    router.push(`/article/${articleId}`);
+  };
+
   if (loading) {
     return <div className="loading">Loading articles...</div>;
   }
@@ -170,7 +282,7 @@ const InsightsAnalysisCards = ({
   }
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return "-";
+    if (!dateString) return "Not available";
     try {
       return new Date(dateString).toLocaleDateString("en-US", {
         year: "numeric",
@@ -185,7 +297,7 @@ const InsightsAnalysisCards = ({
   const formatSectors = (
     sectors: Array<Array<{ sector_name: string }>> | undefined
   ) => {
-    if (!sectors || sectors.length === 0) return "-";
+    if (!sectors || sectors.length === 0) return "Not available";
     const allSectors = sectors.flat().map((s) => s.sector_name);
     return allSectors.join(", ");
   };
@@ -193,7 +305,7 @@ const InsightsAnalysisCards = ({
   const formatCompanies = (
     companies: ContentArticle["companies_mentioned"] | undefined
   ) => {
-    if (!companies || companies.length === 0) return "-";
+    if (!companies || companies.length === 0) return "Not available";
     return companies.map((c) => c.name).join(", ");
   };
 
@@ -204,100 +316,89 @@ const InsightsAnalysisCards = ({
     if (t === "sector analysis") return "badge badge-sector-analysis";
     if (t === "hot take") return "badge badge-hot-take";
     if (t === "executive interview") return "badge badge-executive-interview";
-    if (t === "news") return "badge badge-news";
     return "badge";
   };
 
   return (
-    <div className="insights-analysis-cards cards-grid">
-      {articles.map((article: ContentArticle, index: number) =>
-        article.is_series && article.series ? (
-          <SeriesArticleCard
-            key={article.id || index}
-            article={article}
-            formatDate={formatDate}
-            formatSectors={formatSectors}
-            formatCompanies={formatCompanies}
-            badgeClassFor={badgeClassFor}
-          />
-        ) : (
-          <InsightsAnalysisCard
-            key={article.id}
-            article={article}
-            showMeta={true}
-            badgeBelowDate={true}
-            showBodyPreview={false}
-            metaStyle="badges"
-          />
-        )
-      )}
+    <div className="insights-analysis-cards">
+      {articles.map((article: ContentArticle, index: number) => (
+        <a
+          key={article.id || index}
+          href={`/article/${article.id}`}
+          className="article-card"
+          onClick={(e) => {
+            if (
+              e.defaultPrevented ||
+              e.button !== 0 ||
+              e.metaKey ||
+              e.ctrlKey ||
+              e.shiftKey ||
+              e.altKey
+            )
+              return;
+            e.preventDefault();
+            handleArticleClick(article.id);
+          }}
+        >
+          {/* Article Title */}
+          <h3 className="article-title">
+            {article.Headline || "Not Available"}
+          </h3>
+
+          {/* Date */}
+          <p className="article-date">{formatDate(article.Publication_Date)}</p>
+          {/* Content Type Badge below date */}
+          {article.Content_Type && (
+            <div className="article-badge-row">
+              <span className={badgeClassFor(article.Content_Type)}>
+                {article.Content_Type}
+              </span>
+            </div>
+          )}
+
+          {/* Strapline/Summary */}
+          <p className="article-summary">
+            {article.Strapline || "No summary available"}
+          </p>
+
+          {/* Companies Section */}
+          <div className="article-meta">
+            <span className="article-meta-label">Companies:</span>
+            <span className="article-meta-value">
+              {formatCompanies(article.companies_mentioned)}
+            </span>
+          </div>
+
+          {/* Sectors Section */}
+          <div className="article-meta">
+            <span className="article-meta-label">Sectors:</span>
+            <span className="article-meta-value">
+              {formatSectors(article.sectors)}
+            </span>
+          </div>
+        </a>
+      ))}
     </div>
   );
 };
 
-const DEFAULT_INSIGHTS_FILTERS: InsightsAnalysisFilters = {
-  search_query: "",
-  primary_sectors_ids: [],
-  Secondary_sectors_ids: [],
-  Countries: [],
-  Provinces: [],
-  Cities: [],
-  Offset: 1,
-  Per_page: INSIGHTS_DISPLAY_PAGE_SIZE,
-};
-
 // Main Insights Analysis Page Component
-const InsightsAnalysisPageContent = () => {
+const InsightsAnalysisPage = () => {
   const { isTrialActive } = useAuth();
-  const searchParams = useSearchParams();
-
-  const companyIdFromUrl = useMemo(
-    () => parseCompanyIdFromSearch(searchParams),
-    [searchParams]
-  );
-
-  const corporateEventIdFromUrl = useMemo(
-    () => parseCorporateEventIdFromSearch(searchParams),
-    [searchParams]
-  );
-
-  const primarySectorIdsFromUrl = useMemo(
-    () => parsePrimarySectorIdsFromSearch(searchParams),
-    [searchParams]
-  );
-
-  const dealNameFromUrl = searchParams.get("deal_name")?.trim() || "";
-  const contentTypeFromUrl = useMemo(
-    () => parseContentTypeFromSearch(searchParams),
-    [searchParams]
-  );
-  const isSectorDealBrowseAll =
-    typeof corporateEventIdFromUrl === "number" &&
-    primarySectorIdsFromUrl.length > 0;
-
-  const applyCompanyFilter = useCallback(
-    (next: InsightsAnalysisFilters): InsightsAnalysisFilters => ({
-      ...next,
-      company_id: companyIdFromUrl ?? next.company_id,
-    }),
-    [companyIdFromUrl]
-  );
-
   // State for filters
-  const [filters, setFilters] = useState<InsightsAnalysisFilters>(
-    DEFAULT_INSIGHTS_FILTERS
-  );
+  const [filters, setFilters] = useState<InsightsAnalysisFilters>({
+    search_query: "",
+    primary_sectors_ids: [],
+    Secondary_sectors_ids: [],
+    Countries: [],
+    Provinces: [],
+    Cities: [],
+    Offset: 1,
+    Per_page: 10,
+  });
 
-  const [companyFilterName, setCompanyFilterName] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
   const [contentTypes, setContentTypes] = useState<string[]>([]);
-  const [primarySectors, setPrimarySectors] = useState<
-    Array<{ id: number; sector_name: string }>
-  >([]);
-  const [transactionStatuses, setTransactionStatuses] = useState<
-    Array<{ id: number; label: string }>
-  >([]);
 
   // State for insights analysis data
   const [articles, setArticles] = useState<ContentArticle[]>([]);
@@ -307,34 +408,31 @@ const InsightsAnalysisPageContent = () => {
     nextPage: null as number | null,
     prevPage: null as number | null,
     offset: 0,
-    perPage: INSIGHTS_DISPLAY_PAGE_SIZE,
+    perPage: 10,
     pageTotal: 0,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchInsightsAnalysis = useCallback(
-    async (incomingFilters: InsightsAnalysisFilters) => {
-      const activeFilters = applyCompanyFilter(incomingFilters);
+  const fetchInsightsAnalysis = async (filters: InsightsAnalysisFilters) => {
+    try {
+      setLoading(true);
+      setError(null);
 
-      try {
-        setLoading(true);
-        setError(null);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) {
+        setError("Authentication required");
+        return;
+      }
 
-        const token = localStorage.getItem("asymmetrix_auth_token");
-        if (!token) {
-          setError("Authentication required");
-          return;
-        }
-
-        if (isTrialActive && !activeFilters.company_id && !isSectorDealBrowseAll) {
+      if (isTrialActive) {
         // Trial: show all Hot Takes, plus 3 most recent Company Analysis and 3 most recent Deal Analysis
         const fetchByType = async (contentType: string, perPage = 100) => {
           const p = new URLSearchParams();
           p.append("Offset", "1");
           p.append("Per_page", String(perPage));
           p.append("content_type", contentType);
-          const u = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${p.toString()}`;
+          const u = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles?${p.toString()}`;
           const res = await fetch(u, {
             method: "GET",
             headers: {
@@ -365,7 +463,7 @@ const InsightsAnalysisPageContent = () => {
           byDateDesc
         );
 
-        setArticles(normalizeContentArticles(combined));
+        setArticles(combined);
         setPagination({
           itemsReceived: combined.length,
           curPage: 1,
@@ -378,100 +476,103 @@ const InsightsAnalysisPageContent = () => {
         return;
       }
 
-        if (isSectorDealBrowseAll && corporateEventIdFromUrl) {
-          const result = await fetchSectorInsightsArticles({
-            primarySectorIds: primarySectorIdsFromUrl,
-            corporateEventId: corporateEventIdFromUrl,
-            page: activeFilters.Offset,
-            token,
-          });
-
-          setArticles(normalizeContentArticles(result.articles));
-          setPagination({
-            itemsReceived: result.total,
-            curPage: result.page,
-            nextPage: result.hasNext ? result.page + 1 : null,
-            prevPage: result.hasPrev ? result.page - 1 : null,
-            offset: result.showingFrom > 0 ? result.showingFrom - 1 : 0,
-            perPage: result.perPage,
-            pageTotal: result.totalPages,
-          });
-          return;
-        }
-
-        const data = await fetchInsightsAnalysisDisplayPage(
-          activeFilters,
-          token,
-          searchParams
+      // Build GET query params per API spec
+      const params = new URLSearchParams();
+      params.append("Offset", String(filters.Offset));
+      params.append("Per_page", String(filters.Per_page));
+      if (filters.search_query)
+        params.append("search_query", filters.search_query);
+      if (filters.Countries?.length)
+        params.append("Countries", filters.Countries.join(","));
+      if (filters.Provinces?.length)
+        params.append("Provinces", filters.Provinces.join(","));
+      if (filters.Cities?.length)
+        params.append("Cities", filters.Cities.join(","));
+      if (filters.primary_sectors_ids?.length)
+        params.append(
+          "primary_sectors_ids",
+          filters.primary_sectors_ids.join(",")
         );
-
-        setArticles(normalizeContentArticles(data.items || []));
-        setPagination({
-          itemsReceived: data.itemsReceived,
-          curPage: data.curPage,
-          nextPage: data.nextPage,
-          prevPage: data.prevPage,
-          offset: data.offset,
-          perPage: INSIGHTS_DISPLAY_PAGE_SIZE,
-          pageTotal: data.pageTotal,
-        });
-      } catch (error) {
-        console.error("Error fetching insights analysis:", error);
-        setError(
-          error instanceof Error
-            ? error.message
-            : "Failed to fetch insights analysis"
+      if (filters.Secondary_sectors_ids?.length)
+        params.append(
+          "Secondary_sectors_ids",
+          filters.Secondary_sectors_ids.join(",")
         );
-      } finally {
-        setLoading(false);
+      const ct = (filters.Content_Type || filters.content_type || "").trim();
+      if (ct) params.append("content_type", ct);
+
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles?${params.toString()}`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    },
-    [applyCompanyFilter, corporateEventIdFromUrl, isSectorDealBrowseAll, isTrialActive, primarySectorIdsFromUrl, searchParams]
-  );
 
-  // Initial data fetch (respect company_id from URL when opened from company profile)
-  useEffect(() => {
-    const companyName = searchParams.get("company_name")?.trim() || "";
-    setCompanyFilterName(companyName);
+      const data: InsightsAnalysisResponse = await response.json();
 
-    const initialFilters = applyCompanyFilter({
-      ...DEFAULT_INSIGHTS_FILTERS,
-      Offset: 1,
-      ...(contentTypeFromUrl
-        ? {
-            Content_Type: contentTypeFromUrl,
-            content_type: contentTypeFromUrl,
-          }
-        : {}),
-    });
-
-    setFilters(initialFilters);
-    if (contentTypeFromUrl) {
-      setShowFilters(true);
+      setArticles(data.items);
+      setPagination({
+        itemsReceived: data.itemsReceived,
+        curPage: data.curPage,
+        nextPage: data.nextPage,
+        prevPage: data.prevPage,
+        offset: data.offset,
+        perPage: filters.Per_page,
+        pageTotal: data.pageTotal,
+      });
+    } catch (error) {
+      console.error("Error fetching insights analysis:", error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch insights analysis"
+      );
+    } finally {
+      setLoading(false);
     }
-    void fetchInsightsAnalysis(initialFilters);
-  }, [
-    companyIdFromUrl,
-    contentTypeFromUrl,
-    corporateEventIdFromUrl,
-    primarySectorIdsFromUrl,
-    searchParams,
-    applyCompanyFilter,
-    fetchInsightsAnalysis,
-  ]);
+  };
 
-  // Fetch content type options and primary sectors (cached via locationsService)
+  // Initial data fetch
+  useEffect(() => {
+    // Initial fetch of all articles
+    fetchInsightsAnalysis(filters);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch content type options
   useEffect(() => {
     const run = async () => {
       try {
-        const [values, sectors, statuses] = await Promise.all([
-          locationsService.getContentTypesForArticles(),
-          locationsService.getPrimarySectors(),
-          locationsService.getTransactionStatuses(),
-        ]);
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) return;
+        const resp = await fetch(
+          "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/content_types_for_articles",
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        if (!resp.ok) return;
+        const data = (await resp.json()) as Array<{
+          Content_Content_Type1: string;
+        }>;
+        const values = Array.from(
+          new Set(
+            (Array.isArray(data) ? data : [])
+              .map((d) => (d?.Content_Content_Type1 || "").trim())
+              .filter(Boolean)
+          )
+        );
         setContentTypes(values);
-        setPrimarySectors(sectors);
-        setTransactionStatuses(statuses);
       } catch {
         // ignore
       }
@@ -480,41 +581,27 @@ const InsightsAnalysisPageContent = () => {
   }, []);
 
   // Handle search
-  const activeCompanyId = companyIdFromUrl ?? filters.company_id;
-
   const handleSearch = () => {
-    const updatedFilters = applyCompanyFilter({
+    const updatedFilters = {
       ...filters,
       search_query: searchTerm,
-      Offset: 1,
-    });
+      Offset: 1, // Reset to first page when searching
+    };
     setFilters(updatedFilters);
-    void fetchInsightsAnalysis(updatedFilters);
+    fetchInsightsAnalysis(updatedFilters);
   };
 
   // Handle page change
   const handlePageChange = (page: number) => {
-    const updatedFilters = applyCompanyFilter({ ...filters, Offset: page });
+    const updatedFilters = { ...filters, Offset: page };
     setFilters(updatedFilters);
-    void fetchInsightsAnalysis(updatedFilters);
+    fetchInsightsAnalysis(updatedFilters);
   };
 
   const style = `
-    * {
-      box-sizing: border-box;
-    }
     .insights-analysis-section {
-      padding: 32px 16px;
+      padding: 32px 24px;
       border-radius: 8px;
-      max-width: 100%;
-      width: 100%;
-      overflow-x: hidden;
-      box-sizing: border-box;
-    }
-    @media (max-width: 640px) {
-      .insights-analysis-section {
-        padding: 16px 12px !important;
-      }
     }
     .insights-analysis-stats {
       background: #fff;
@@ -550,29 +637,14 @@ const InsightsAnalysisPageContent = () => {
       color: #000;
       font-weight: 700;
     }
-    /* Grid System (Container Level) — fixed columns so 12 cards fill rows evenly */
-    .cards-grid {
+    .insights-analysis-cards {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
       gap: 24px;
       padding: 0;
       margin-bottom: 24px;
-      width: 100%;
-      max-width: 100%;
     }
-    @media (max-width: 1400px) {
-      .cards-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-    }
-    @media (max-width: 1024px) {
-      .cards-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-
     .article-card {
-      display: block;
       background-color: white;
       border-radius: 8px;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -580,84 +652,10 @@ const InsightsAnalysisPageContent = () => {
       border: 1px solid #e2e8f0;
       cursor: pointer;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
-      text-decoration: none;
-      color: inherit;
     }
     .article-card:hover {
       transform: translateY(-2px);
       box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-    }
-    .article-card--series {
-      border-color: #c4b5fd;
-      background: linear-gradient(180deg, #ffffff 0%, #faf5ff 100%);
-    }
-    .series-tile-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-    .series-part-badge {
-      display: inline-flex;
-      align-items: center;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
-      color: #5b21b6;
-      background: #ede9fe;
-      border: 1px solid #c4b5fd;
-      border-radius: 9999px;
-      padding: 5px 10px;
-      white-space: nowrap;
-    }
-    .series-tile-controls {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      flex-shrink: 0;
-    }
-    .series-tile-arrow {
-      width: 28px;
-      height: 28px;
-      border-radius: 9999px;
-      border: 1px solid #c4b5fd;
-      background: #ffffff;
-      color: #5b21b6;
-      font-size: 18px;
-      line-height: 1;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      transition: background-color 0.15s ease, border-color 0.15s ease;
-    }
-    .series-tile-arrow:hover:not(:disabled) {
-      background: #ede9fe;
-      border-color: #a78bfa;
-    }
-    .series-tile-arrow:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-    }
-    .series-part-dots {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      margin: 0 0 14px 0;
-    }
-    .series-part-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 9999px;
-      background: #ddd6fe;
-    }
-    .series-part-dot.active {
-      background: #7c3aed;
-      transform: scale(1.15);
     }
     .article-title {
       font-size: 18px;
@@ -666,193 +664,88 @@ const InsightsAnalysisPageContent = () => {
       margin: 0 0 8px 0;
       line-height: 1.3;
     }
-    .article-date {
-      font-size: 14px;
-      color: #718096;
-      margin: 0 0 8px 0;
-    }
-    .article-badge-row {
-      margin-bottom: 8px;
-    }
-    .article-summary {
-      font-size: 14px;
-      color: #4a5568;
-      line-height: 1.5;
-      margin: 0 0 12px 0;
-    }
-    .article-meta {
-      font-size: 13px;
-      color: #4a5568;
-      margin-bottom: 6px;
-    }
-    .article-meta-label {
-      font-weight: 600;
-      margin-right: 4px;
-    }
-    .article-transaction-status-row {
-      margin-bottom: 8px;
-    }
-    .badge-transaction-status {
+    .article-content-type {
       display: inline-block;
       font-size: 12px;
-      font-weight: 600;
-      color: #166534;
-      background: #dcfce7;
-      border: 1px solid #86efac;
+      line-height: 1;
+      color: #374151;
+      background-color: #f3f4f6;
+      padding: 4px 8px;
       border-radius: 9999px;
-      padding: 4px 10px;
+      margin: 0 0 8px 0;
+      font-weight: 600;
+    }
+    .article-date {
+      font-size: 14px;
+      color: #6b7280;
+      margin: 0 0 16px 0;
+      font-weight: 500;
+    }
+    .article-badge-row {
+      margin: -8px 0 16px 0;
+      display: block;
     }
     .badge {
       display: inline-block;
       font-size: 12px;
-      font-weight: 600;
-      padding: 4px 10px;
+      line-height: 1;
+      padding: 6px 10px;
       border-radius: 9999px;
-      background: #edf2f7;
-      color: #2d3748;
+      border: 1px solid transparent;
+      font-weight: 600;
     }
-    .badge-company-analysis { background: #ebf8ff; color: #2b6cb0; }
-    .badge-deal-analysis { background: #fef3c7; color: #92400e; }
-    .badge-sector-analysis { background: #ede9fe; color: #5b21b6; }
-    .badge-hot-take { background: #fee2e2; color: #991b1b; }
-    .badge-executive-interview { background: #d1fae5; color: #065f46; }
-    .badge-news { background: #fff1f2; color: #9f1239; border: 1px solid #fecdd3; }
-
-    /*
-      Card Layout Rules (scoped to Insights & Analysis only).
-      We use !important here to override inline styles inside InsightsAnalysisCard,
-      while keeping the existing visual design intact.
-    */
-    .insights-analysis-section .content-card {
-      display: flex !important;
-      flex-direction: column !important;
-      min-height: 480px !important;
-      padding: 28px !important;
-      box-sizing: border-box !important;
+    .badge-company-analysis {
+      background: #ecfdf5;
+      color: #065f46;
+      border-color: #a7f3d0;
     }
-    .insights-analysis-section .content-card.content-card--news {
-      background: linear-gradient(180deg, #ffffff 0%, #fffafb 100%) !important;
-      border: 1px solid #fecdd3 !important;
-      border-left: 4px solid #e11d48 !important;
+    .badge-deal-analysis {
+      background: #eff6ff;
+      color: #1e40af;
+      border-color: #bfdbfe;
     }
-    .insights-analysis-section .card-header {
-      margin-bottom: 16px !important;
+    .badge-sector-analysis {
+      background: #f5f3ff;
+      color: #5b21b6;
+      border-color: #ddd6fe;
     }
-    .insights-analysis-section .card-title {
-      /* Title should always be fully visible (no clamping) */
-      min-height: 0 !important;
-      display: block !important;
-      overflow: visible !important;
-      text-overflow: unset !important;
-      white-space: normal !important;
-      /* Keep long titles from breaking the grid */
-      overflow-wrap: anywhere;
-      word-break: break-word;
-      line-height: 1.35 !important;
+    .badge-hot-take {
+      background: #fff7ed;
+      color: #9a3412;
+      border-color: #fed7aa;
     }
-    .insights-analysis-section .card-body {
-      flex: 1 !important;
-      display: flex !important;
-      flex-direction: column !important;
-      gap: 16px !important;
-      margin-bottom: 20px !important;
+    .badge-executive-interview {
+      background: #f0fdf4;
+      color: #166534;
+      border-color: #bbf7d0;
     }
-    .insights-analysis-section .card-footer {
-      margin-top: auto !important;
-      padding-top: 20px !important;
-      border-top: 1px solid #E5E7EB !important;
-    }
-
-    /* Content truncation */
-    .insights-analysis-section .description {
-      display: -webkit-box !important;
-      -webkit-line-clamp: 3 !important;
-      -webkit-box-orient: vertical !important;
-      overflow: hidden !important;
-      text-overflow: ellipsis !important;
-      line-height: 1.7 !important;
-      /* Prevent glyph descenders from looking visually clipped */
-      padding-bottom: 2px;
-      overflow-wrap: anywhere;
-    }
-
-    /* Badge containers */
-    .insights-analysis-section .badge-container {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      /* No height clamp needed since we render max 3 + “more” badge */
-    }
-
-    /* Badge styling */
-    .insights-analysis-section .company-badge {
-      /* Match Article page companyTag */
-      background-color: #e8f5e8;
-      color: #2e7d32;
-      padding: 8px 12px;
-      border-radius: 6px;
+    .article-summary {
       font-size: 14px;
-      font-weight: 500;
-      line-height: 1.2;
-      white-space: nowrap;
-      display: inline-flex;
-      align-items: center;
+      color: #374151;
+      line-height: 1.6;
+      margin: 0 0 16px 0;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .insights-analysis-section .sector-badge {
-      /* Match Article page sectorTag */
-      background-color: #f3e5f5;
-      color: #7b1fa2;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 500;
-      line-height: 1.2;
-      white-space: nowrap;
-      display: inline-flex;
-      align-items: center;
+    .article-meta {
+      margin-bottom: 12px;
     }
-    .insights-analysis-section .more-badge {
-      /* Match Article page tag (blue) for overflow indicator */
-      background-color: #e3f2fd;
-      color: #1976d2;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 500;
-      line-height: 1.2;
-      white-space: nowrap;
-      display: inline-flex;
-      align-items: center;
+    .article-meta:last-child {
+      margin-bottom: 0;
     }
-
-    /* Transaction Status bubble (force override inline styles) */
-    .insights-analysis-section .transaction-status-badge {
-      background-color: #e3f2fd !important;
-      color: #0b4aa2 !important;
-      border: 1.5px solid #60a5fa !important;
-      font-weight: 800 !important;
-      font-size: 12px !important;
-      padding: 7px 12px !important;
-      letter-spacing: 0.02em !important;
-      box-shadow: 0 2px 10px rgba(37, 99, 235, 0.18) !important;
-      display: inline-flex !important;
-      max-width: 100% !important;
-      white-space: normal !important;
-      overflow: visible !important;
-      text-overflow: clip !important;
-      word-break: break-word !important;
-      line-height: 1.25 !important;
-    }
-
-    /* Meta label styling (keeps existing palette) */
-    .insights-analysis-section .meta-label {
-      font-size: 12px;
+    .article-meta-label {
+      font-size: 13px;
       font-weight: 600;
       color: #374151;
-      margin-bottom: 8px;
+      margin-right: 8px;
     }
-    .insights-analysis-section .meta-section + .meta-section {
-      margin-top: 12px;
+    .article-meta-value {
+      font-size: 13px;
+      color: #6b7280;
+      line-height: 1.4;
     }
     .loading {
       text-align: center;
@@ -866,84 +759,6 @@ const InsightsAnalysisPageContent = () => {
       background-color: #fed7d7;
       border-radius: 6px;
       margin-bottom: 16px;
-    }
-    .search-bar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 12px;
-      width: 100%;
-      margin-bottom: 0;
-    }
-    .search-bar-input {
-      flex: 1 1 280px;
-      min-width: 220px;
-      max-width: 420px;
-      padding: 10px 12px;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      font-size: 14px;
-      color: #4a5568;
-      outline: none;
-      background: #fff;
-      box-sizing: border-box;
-      min-height: 44px;
-    }
-    .search-bar-input:focus {
-      border-color: #0075df;
-      box-shadow: 0 0 0 2px rgba(0, 117, 223, 0.12);
-    }
-    .search-bar-button {
-      flex: 0 0 auto;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px 16px;
-      border-radius: 6px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      min-height: 44px;
-      white-space: nowrap;
-      box-sizing: border-box;
-      transition: background-color 0.15s, color 0.15s, border-color 0.15s;
-    }
-    .search-bar-button.filters-button {
-      background-color: #0075df;
-      color: #fff;
-    }
-    .search-bar-button.filters-button:hover {
-      background-color: #005bb5;
-    }
-    .search-bar-button:not(.filters-button):hover {
-      background-color: #f8fafc;
-    }
-    .filters-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-      align-items: flex-end;
-      width: 100%;
-    }
-    .filters-input,
-    .filters-select {
-      width: 100%;
-      max-width: 280px;
-      padding: 10px 12px;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      font-size: 14px;
-      color: #4a5568;
-      outline: none;
-      background-color: #fff;
-      box-sizing: border-box;
-      min-height: 44px;
-    }
-    .filters-input:focus,
-    .filters-select:focus {
-      border-color: #0075df;
-      box-shadow: 0 0 0 2px rgba(0, 117, 223, 0.12);
     }
     .pagination {
       display: flex;
@@ -983,12 +798,10 @@ const InsightsAnalysisPageContent = () => {
       font-size: 14px;
     }
     @media (max-width: 768px) {
-      .cards-grid {
-        grid-template-columns: 1fr;
-      }
-      .filters-input, .filters-select {
-        max-width: 100% !important;
-        width: 100% !important;
+      .insights-analysis-cards {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+        padding: 8px !important;
       }
       .pagination {
         flex-wrap: wrap !important;
@@ -1006,7 +819,7 @@ const InsightsAnalysisPageContent = () => {
         font-size: 13px !important;
       }
       .insights-analysis-section {
-        padding: 16px 8px !important;
+        padding: 20px 8px !important;
       }
       .insights-analysis-stats {
         padding: 20px 16px !important;
@@ -1029,10 +842,16 @@ const InsightsAnalysisPageContent = () => {
         font-size: 14px !important;
       }
       .filters-grid {
-        flex-direction: column !important;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+      }
+      .filters-card {
+        padding: 20px 16px !important;
       }
       .filters-heading {
-        margin-bottom: 16px;
+        font-size: 20px !important;
+        margin-bottom: 16px !important;
       }
       .filters-sub-heading {
         font-size: 16px !important;
@@ -1044,230 +863,72 @@ const InsightsAnalysisPageContent = () => {
       .filters-button {
         max-width: 100% !important;
       }
-      .insights-analysis-section .transaction-status-badge {
-        width: fit-content !important;
-        max-width: 100% !important;
-      }
     }
   `;
 
   return (
-    <div className="min-h-screen" style={{ width: "100%", maxWidth: "100vw", overflowX: "hidden" }}>
+    <div className="min-h-screen">
       <Header />
 
       {/* Filters Section (hidden for Trial) */}
       {!isTrialActive && (
         <div style={styles.container}>
           <div style={styles.maxWidth}>
-            <div
-              style={{
-                ...styles.card,
-                ...(showFilters ? {} : { padding: "12px 16px" }),
-              }}
-              className="filters-card"
-            >
-              {/* Page Title */}
-              <h2
-                style={{ ...styles.heading, marginBottom: "16px" }}
-                className="filters-heading"
-              >
+            <div style={styles.card} className="filters-card">
+              <h2 style={styles.heading} className="filters-heading">
                 Insights & Analysis
               </h2>
-              {isSectorDealBrowseAll ? (
-                <p
-                  style={{
-                    margin: "0 0 16px",
-                    fontSize: "14px",
-                    color: "#4a5568",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Showing sector insights for{" "}
-                  <strong style={{ color: "#1a202c" }}>
-                    {dealNameFromUrl || `Deal #${corporateEventIdFromUrl}`}
-                  </strong>
-                </p>
-              ) : activeCompanyId ? (
-                <p
-                  style={{
-                    margin: "0 0 16px",
-                    fontSize: "14px",
-                    color: "#4a5568",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Showing articles for{" "}
-                  <strong style={{ color: "#1a202c" }}>
-                    {companyFilterName || `Company #${activeCompanyId}`}
-                  </strong>
-                </p>
-              ) : contentTypeFromUrl ? (
-                <p
-                  style={{
-                    margin: "0 0 16px",
-                    fontSize: "14px",
-                    color: "#4a5568",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Showing{" "}
-                  <strong style={{ color: "#1a202c" }}>
-                    {contentTypeFromUrl}
-                  </strong>{" "}
-                  reports
-                </p>
-              ) : null}
-
-              {/* Search row – input, Search, Show Filters (same height, global styles) */}
-              <div className="search-bar">
+              <div style={styles.searchDiv}>
                 <input
                   type="text"
                   placeholder="Enter search term here"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="search-bar-input search-bar-input-wide filters-input"
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  style={styles.input}
+                  className="filters-input"
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                 />
+                <select
+                  value={filters.Content_Type || ""}
+                  onChange={(e) => {
+                    const updated = {
+                      ...filters,
+                      Content_Type: e.target.value || undefined,
+                      content_type: e.target.value || undefined,
+                      Offset: 1,
+                    };
+                    setFilters(updated);
+                    fetchInsightsAnalysis(updated);
+                  }}
+                  style={{
+                    ...styles.input,
+                    maxWidth: 280,
+                    paddingRight: 8,
+                  }}
+                >
+                  <option value="">All Content Types</option>
+                  {contentTypes.map((ct) => (
+                    <option key={ct} value={ct}>
+                      {ct}
+                    </option>
+                  ))}
+                </select>
                 <button
-                  type="button"
                   onClick={handleSearch}
-                  className="search-bar-button filters-button"
+                  style={styles.button}
+                  className="filters-button"
+                  onMouseOver={(e) =>
+                    ((e.target as HTMLButtonElement).style.backgroundColor =
+                      "#005bb5")
+                  }
+                  onMouseOut={(e) =>
+                    ((e.target as HTMLButtonElement).style.backgroundColor =
+                      "#0075df")
+                  }
                 >
                   {loading ? "Searching..." : "Search"}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="search-bar-button"
-                  style={{
-                    backgroundColor: "#fff",
-                    color: "#1a202c",
-                    border: "1px solid #e2e8f0",
-                    fontWeight: 500,
-                  }}
-                >
-                  {showFilters ? "Hide Filters" : "Show Filters"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchTerm("");
-                    const resetFilters = applyCompanyFilter({
-                      ...DEFAULT_INSIGHTS_FILTERS,
-                      search_query: "",
-                      Content_Type: undefined,
-                      content_type: undefined,
-                      Transaction_status: undefined,
-                      primary_sectors_ids: [],
-                      Secondary_sectors_ids: [],
-                      Offset: 1,
-                    });
-                    setFilters(resetFilters);
-                    if (!companyIdFromUrl) {
-                      setCompanyFilterName("");
-                    }
-                    void fetchInsightsAnalysis(resetFilters);
-                  }}
-                  className="search-bar-button"
-                  style={{
-                    backgroundColor: "#fff",
-                    color: "#1a202c",
-                    border: "1px solid #e2e8f0",
-                    fontWeight: 500,
-                  }}
-                >
-                  Reset Filters
-                </button>
               </div>
-
-              {/* Expandable filters */}
-              {showFilters && (
-                <div className="filters-grid" style={{ marginTop: "16px" }}>
-                  <div style={styles.gridItem}>
-                    <span style={styles.label}>Content Type</span>
-                    <select
-                      value={filters.Content_Type || ""}
-                      onChange={(e) => {
-                        const updated = applyCompanyFilter({
-                          ...filters,
-                          Content_Type: e.target.value || undefined,
-                          content_type: e.target.value || undefined,
-                          Offset: 1,
-                        });
-                        setFilters(updated);
-                        void fetchInsightsAnalysis(updated);
-                      }}
-                      style={styles.select}
-                      className="filters-select"
-                    >
-                      <option value="">All Content Types</option>
-                      {contentTypes.map((ct) => (
-                        <option key={ct} value={ct}>
-                          {ct}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div style={styles.gridItem}>
-                    <span style={styles.label}>Primary Sector</span>
-                    <select
-                      value={filters.primary_sectors_ids?.[0]?.toString() || ""}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        const updated = applyCompanyFilter({
-                          ...filters,
-                          primary_sectors_ids:
-                            value === ""
-                              ? []
-                              : [Number.parseInt(value, 10)],
-                          Offset: 1,
-                        });
-                        setFilters(updated);
-                        void fetchInsightsAnalysis(updated);
-                      }}
-                      style={styles.select}
-                      className="filters-select"
-                    >
-                      <option value="">All Primary Sectors</option>
-                      {primarySectors.map((sector) => (
-                        <option key={sector.id} value={sector.id}>
-                          {sector.sector_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div style={styles.gridItem}>
-                    <span style={styles.label}>Transaction Status</span>
-                    <select
-                      value={
-                        filters.Transaction_status != null
-                          ? String(filters.Transaction_status)
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const updated = applyCompanyFilter({
-                          ...filters,
-                          Transaction_status: e.target.value
-                            ? Number.parseInt(e.target.value, 10)
-                            : undefined,
-                          Offset: 1,
-                        });
-                        setFilters(updated);
-                        void fetchInsightsAnalysis(updated);
-                      }}
-                      style={styles.select}
-                      className="filters-select"
-                    >
-                      <option value="">All Transaction Statuses</option>
-                      {transactionStatuses.map((status) => (
-                        <option key={status.id} value={status.id}>
-                          {status.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
 
               {/* Error Display */}
               {error && <div className="error">{error}</div>}
@@ -1287,14 +948,9 @@ const InsightsAnalysisPageContent = () => {
         )}
 
         {/* Pagination */}
-        {!isTrialActive && (
-          <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px" }}>
-            <CompactPagination
-              curPage={pagination.curPage}
-              pageTotal={pagination.pageTotal}
-              onPageChange={handlePageChange}
-              disabled={loading}
-            />
+        {!isTrialActive && pagination.pageTotal > 1 && (
+          <div className="pagination">
+            {generatePaginationButtons(pagination, handlePageChange)}
           </div>
         )}
       </div>
@@ -1304,21 +960,5 @@ const InsightsAnalysisPageContent = () => {
     </div>
   );
 };
-
-const InsightsAnalysisPage = () => (
-  <Suspense
-    fallback={
-      <div className="min-h-screen">
-        <Header />
-        <div style={{ padding: "40px", textAlign: "center", color: "#666" }}>
-          Loading insights...
-        </div>
-        <Footer />
-      </div>
-    }
-  >
-    <InsightsAnalysisPageContent />
-  </Suspense>
-);
 
 export default InsightsAnalysisPage;

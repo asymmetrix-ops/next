@@ -1,7 +1,7 @@
 import { authService } from "./auth";
 import { AdvisorResponse, CorporateEventsResponse } from "../types/advisor";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn";
+const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop";
 
 class AdvisorService {
   private getAuthHeaders() {

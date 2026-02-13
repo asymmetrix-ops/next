@@ -17,7 +17,7 @@ export const useInvestorData = (investorId: string) => {
       params.append("new_comp_id", investorId);
 
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_the_investor_new_company?${params.toString()}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/get_the_investor_new_company?${params.toString()}`,
         {
           method: "GET",
           headers: {

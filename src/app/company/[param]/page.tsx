@@ -1042,7 +1042,7 @@ const CompanyDetail = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
-      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${id}`;
+      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${id}`;
 
       // Attempt 1: Standard GET
       const getResponse = await fetch(endpoint, {
@@ -1101,7 +1101,7 @@ const CompanyDetail = () => {
       try {
         const params = new URLSearchParams();
         params.append("new_company_id", String(companyIdForContent));
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/companies_articles?${params.toString()}`;
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/companies_articles?${params.toString()}`;
         const response = await fetch(url, { method: "GET" });
         if (!response.ok) {
           setCompanyArticles([]);
@@ -1134,7 +1134,7 @@ const CompanyDetail = () => {
         Accept: "application/json",
       };
 
-      const base = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics`;
+      const base = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_financial_metrics`;
       // Attempt GET with query param
       const params = new URLSearchParams();
       params.append("new_company_id", String(id));
@@ -1189,7 +1189,7 @@ const CompanyDetail = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
-      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_investors`;
+      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_investors`;
 
       // GET with query param (required by backend)
       const params = new URLSearchParams();
@@ -1233,7 +1233,7 @@ const CompanyDetail = () => {
         Accept: "application/json",
       };
 
-      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/related_transactions`;
+      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/related_transactions`;
       const params = new URLSearchParams();
       params.append("new_company_id", String(id));
       const res = await fetch(`${endpoint}?${params.toString()}`, {

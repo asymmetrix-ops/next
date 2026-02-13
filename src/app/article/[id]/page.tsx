@@ -392,7 +392,7 @@ const ArticleDetailPage = () => {
       }
 
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/${articleId}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/content/${articleId}`,
         {
           method: "GET",
           headers: {
@@ -518,7 +518,7 @@ const ArticleDetailPage = () => {
         }
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/aritcle_company_of_focus?content_id=${encodeURIComponent(
+          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/aritcle_company_of_focus?content_id=${encodeURIComponent(
             articleId
           )}`,
           {

@@ -39,7 +39,7 @@ export async function GET(
     
     const sectorStart = performance.now();
     const sectorRes = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors/${sectorId}`,
+      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sectors/${sectorId}`,
       { 
         method: 'GET', 
         headers,
@@ -50,7 +50,7 @@ export async function GET(
 
     const mmStart = performance.now();
     const marketMapRes = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map?${qs.toString()}`,
+      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sectors_market_map?${qs.toString()}`,
       { 
         method: 'GET', 
         headers,
@@ -61,7 +61,7 @@ export async function GET(
 
     const stratStart = performance.now();
     const strategicRes = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_strategic_acquirers?${qs.toString()}`,
+      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sectors_strategic_acquirers?${qs.toString()}`,
       { 
         method: 'GET', 
         headers,
@@ -72,7 +72,7 @@ export async function GET(
 
     const peStart = performance.now();
     const peRes = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_pe_investors?${qs.toString()}`,
+      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sectors_pe_investors?${qs.toString()}`,
       { 
         method: 'GET', 
         headers,
@@ -83,7 +83,7 @@ export async function GET(
 
     const recentStart = performance.now();
     const recentRes = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${qs.toString()}&top_15=true`,
+      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sectors_resent_trasnactions?${qs.toString()}&top_15=true`,
       { 
         method: 'GET', 
         headers,

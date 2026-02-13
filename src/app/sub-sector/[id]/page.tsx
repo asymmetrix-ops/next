@@ -309,7 +309,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
     try {
       setLoadingFundingStages(true);
       const response = await fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/funding_stage_options"
+        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/funding_stage_options"
       );
       if (!response.ok) {
         throw new Error(`Failed to fetch funding stages: ${response.status}`);
@@ -407,7 +407,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
         params.append("Date_end", nextFilters.Date_end);
       }
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`;
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop/get_all_corporate_events?${params.toString()}`;
 
       const response = await fetch(url, {
         method: "GET",
@@ -1774,7 +1774,7 @@ const SubSectorPage = () => {
           params.append("Max_linkedin_members", "0");
         }
 
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies_with_investors?${params.toString()}`;
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_companies_with_investors?${params.toString()}`;
 
         const response = await fetch(url, {
           method: "GET",
@@ -1947,7 +1947,7 @@ const SubSectorPage = () => {
         params.append("Offset", String(page));
         params.append("Per_page", String(10));
         params.append("Secondary_sectors_ids", String(subSectorId));
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles?${params.toString()}`;
         const resp = await fetch(url, {
           method: "GET",
           headers: {

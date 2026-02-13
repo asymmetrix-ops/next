@@ -300,7 +300,7 @@ const SectorsSection = () => {
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
 
-      const baseUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Primary_sectors_with_companies_counts`;
+      const baseUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/Primary_sectors_with_companies_counts`;
 
       const url =
         searchTerm.trim().length > 0

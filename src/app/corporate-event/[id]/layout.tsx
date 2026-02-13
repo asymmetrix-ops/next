@@ -9,7 +9,7 @@ type LayoutProps = {
 async function fetchEventTitle(id: string): Promise<string | undefined> {
   try {
     const token = cookies().get("asymmetrix_auth_token")?.value;
-    const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_corporate_event_title?id=${encodeURIComponent(
+    const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop/get_corporate_event_title?id=${encodeURIComponent(
       id
     )}`;
     const res = await fetch(url, {

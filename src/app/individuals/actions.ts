@@ -91,7 +91,7 @@ export async function fetchIndividualsServer(
       params.append("statuses", filters.Statuses.join(","));
     }
 
-    const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`;
+    const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop/get_all_individuals?${params.toString()}`;
 
     const response = await fetch(url, {
       method: "GET",

@@ -176,7 +176,7 @@ export const usePortfolioData = (investorId: string) => {
         params.append("per_page", "50");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_investors_current_partfolio?${params.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/get_investors_current_partfolio?${params.toString()}`,
           {
             method: "GET",
             headers: {
@@ -222,7 +222,7 @@ export const usePortfolioData = (investorId: string) => {
         params.append("per_page", "50");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_investors_past_portfolio?${params.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/get_investors_past_portfolio?${params.toString()}`,
           {
             method: "GET",
             headers: {

@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
 
     // Build the Xano URL with all search params
     const apiUrl = new URL(
-      "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events"
+      "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop/get_all_corporate_events"
     );
 
     const processedKeys = new Set<string>();
