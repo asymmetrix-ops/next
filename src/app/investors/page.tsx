@@ -337,7 +337,7 @@ const InvestorsPage = () => {
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
       const response = await fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/Get_investor_types_for_filter",
+        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/Get_investor_types_for_filter",
         {
           method: "GET",
           headers: {
@@ -463,7 +463,7 @@ const InvestorsPage = () => {
         });
       }
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/investors_with_d_a_list?${params.toString()}`;
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/investors_with_d_a_list?${params.toString()}`;
       console.log("[Investors] Fetch URL:", url);
 
       const requestId = ++lastRequestIdRef.current;

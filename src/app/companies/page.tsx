@@ -548,7 +548,7 @@ const useCompaniesAPI = () => {
         }
         // When no filters are present, only send Offset and Per_page
 
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_companies?${params.toString()}`;
         console.log("[Companies] Fetch URL:", url);
 
         const requestId = ++lastRequestIdRef.current;
@@ -2785,7 +2785,7 @@ const CompanySection = ({
       baseParams.append("Offset", "1");
       baseParams.append("Per_page", "25");
       
-      const firstPageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${baseParams.toString()}`;
+      const firstPageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Export_new_companies_csv?${baseParams.toString()}`;
       
       const firstResp = await fetch(firstPageUrl, {
         method: "GET",
@@ -2866,7 +2866,7 @@ const CompanySection = ({
           pageParams.append("Offset", page.toString());
           pageParams.append("Per_page", "25");
           
-          const pageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${pageParams.toString()}`;
+          const pageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Export_new_companies_csv?${pageParams.toString()}`;
           
           const pageResp = await fetch(pageUrl, {
             method: "GET",

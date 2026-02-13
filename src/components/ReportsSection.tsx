@@ -9,7 +9,7 @@ const ReportsSection = async () => {
   let items: PublicArticle[] = [];
   try {
     const res = await fetch(
-      "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/All_Content_Articles_home_public",
+      "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr:develop/All_Content_Articles_home_public",
       { next: { revalidate: 1800 } }
     );
     if (res.ok) {

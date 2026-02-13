@@ -80,7 +80,7 @@ const InvestorDetailPage = () => {
         params.append("per_page", "10");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_all_companies?${params.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/get_all_companies?${params.toString()}`,
           {
             method: "GET",
             headers: {
@@ -130,7 +130,7 @@ const InvestorDetailPage = () => {
         params.append("Per_page", "10");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop/get_all_corporate_events?${params.toString()}`,
           {
             method: "GET",
             headers: {
@@ -179,7 +179,7 @@ const InvestorDetailPage = () => {
         params.append("Per_page", "10");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop/get_all_individuals?${params.toString()}`,
           {
             method: "GET",
             headers: {

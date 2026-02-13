@@ -38,7 +38,7 @@ export const serverAuthService = new ServerAuthServiceImpl();
 
 // API service for server-side use
 export class ServerDashboardApiService {
-  private baseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
+  private baseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop";
 
   private async request<T>(
     endpoint: string,

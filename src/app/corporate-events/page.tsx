@@ -1292,7 +1292,7 @@ const CorporateEventsPage = () => {
     try {
       setLoadingFundingStages(true);
       const response = await fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/funding_stage_options"
+        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/funding_stage_options"
       );
       if (!response.ok) {
         throw new Error(`Failed to fetch funding stages: ${response.status}`);
@@ -1475,7 +1475,7 @@ const CorporateEventsPage = () => {
         params.append("Date_end", filters.Date_end);
       }
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`;
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop/get_all_corporate_events?${params.toString()}`;
 
       const response = await fetch(url, {
         method: "GET",

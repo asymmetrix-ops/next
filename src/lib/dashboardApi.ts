@@ -73,7 +73,7 @@ class DashboardApiService {
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   constructor() {
-    this.baseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr";
+    this.baseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr:develop";
   }
 
   // Make authenticated API request
@@ -261,7 +261,7 @@ class DashboardApiService {
     }
 
     // Use the same authentication method as dashboard API calls
-    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
+    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop";
     const endpoint = "/Primary_sectors_with_companies_counts";
 
     const authHeaders = authService.getAuthHeaders();
@@ -321,7 +321,7 @@ class DashboardApiService {
 
   async getSectorsOverview(): Promise<ApiResponse<Record<string, unknown>>> {
     // Use the same authentication method as dashboard API calls
-    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
+    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop";
     const endpoint = "/sectors_overview";
 
     const authHeaders = authService.getAuthHeaders();
@@ -376,7 +376,7 @@ class DashboardApiService {
     sectorId: number
   ): Promise<ApiResponse<Record<string, unknown>>> {
     // Use the same authentication method as dashboard API calls
-    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
+    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop";
     const endpoint = `/Get_Sector?Sector_id=${sectorId}`;
 
     const authHeaders = authService.getAuthHeaders();

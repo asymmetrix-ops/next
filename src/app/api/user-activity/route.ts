@@ -12,7 +12,7 @@ interface UserActivityPayload {
 
 const XANO_ENDPOINT =
   process.env.XANO_USER_ACTIVITY_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/user_activity";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0:develop/user_activity";
 
 export async function POST(req: NextRequest) {
   try {

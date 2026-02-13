@@ -5,7 +5,7 @@ import {
   CorporateEvent,
 } from "../types/individual";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
+const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop";
 
 class IndividualService {
   private getAuthHeaders() {

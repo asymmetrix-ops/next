@@ -10,7 +10,7 @@ async function fetchCompanyMeta(
 ): Promise<{ name?: string; description?: string; logo?: string } | null> {
   try {
     const res = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${id}`,
+      `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${id}`,
       { next: { revalidate: 300 } }
     );
     if (!res.ok) return null;

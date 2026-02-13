@@ -591,7 +591,7 @@ function EmailsTab() {
       try {
         setTemplatesLoading(true);
         const res = await fetch(
-          "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content",
+          "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR:develop/email_content",
           { method: "GET", headers: { "Content-Type": "application/json" } }
         );
         const data = await res.json();
@@ -770,7 +770,7 @@ function EmailsTab() {
               setSending(true);
               try {
                 const res = await fetch(
-                  "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content",
+                  "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR:develop/email_content",
                   {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -827,7 +827,7 @@ function EmailsTab() {
               setSending(true);
               try {
                 const res = await fetch(
-                  `https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content/${idNum}`,
+                  `https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR:develop/email_content/${idNum}`,
                   {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
@@ -968,7 +968,7 @@ function ContentTab() {
       params.append("Max_linkedin_members", "0");
       params.append("Horizontals_ids", "");
       params.append("query", companyQuery.trim());
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_companies?${params.toString()}`;
       const resp = await fetch(url, {
         method: "GET",
         headers: {
@@ -1055,7 +1055,7 @@ function ContentTab() {
 
       const token = localStorage.getItem("asymmetrix_auth_token");
       const resp = await fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/new_content",
+        "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/new_content",
         {
           method: "POST",
           headers: {
@@ -1151,7 +1151,7 @@ function ContentTab() {
                   fd.append("img", file);
                   const token = localStorage.getItem("asymmetrix_auth_token");
                   const resp = await fetch(
-                    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/images",
+                    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR:develop/images",
                     {
                       method: "POST",
                       headers: {
@@ -1509,7 +1509,7 @@ function SectorsTab() {
       params.append("Max_linkedin_members", "0");
       params.append("Horizontals_ids", "");
       params.append("query", companyQuery.trim());
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_companies?${params.toString()}`;
       const resp = await fetch(url, {
         method: "GET",
         headers: {
@@ -1553,7 +1553,7 @@ function SectorsTab() {
       params.append("Max_linkedin_members", "0");
       params.append("Horizontals_ids", "");
       params.append("query", bulkCompanyQuery.trim());
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_companies?${params.toString()}`;
       const resp = await fetch(url, {
         method: "GET",
         headers: {
@@ -1598,7 +1598,7 @@ function SectorsTab() {
       };
 
       const resp = await fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/company_with_sectors",
+        "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/company_with_sectors",
         {
           method: "PUT",
           headers: {
@@ -1641,7 +1641,7 @@ function SectorsTab() {
       params.append("Offset", String(Math.max(1, page)));
       params.append("Per_page", "50");
       params.append("Sector_id", String(sectorId));
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Get_Sector_s_new_companies?${params.toString()}`;
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/Get_Sector_s_new_companies?${params.toString()}`;
       const resp = await fetch(url, {
         method: "GET",
         headers: {
@@ -1775,7 +1775,7 @@ function SectorsTab() {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
       // Fetch current company to get all sector ids
-      const getUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${company.id}`;
+      const getUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${company.id}`;
       const getRes = await fetch(getUrl, {
         method: "GET",
         headers,
@@ -1793,7 +1793,7 @@ function SectorsTab() {
       );
 
       // PUT strict override
-      const putUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/edit_company_sectors`;
+      const putUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/edit_company_sectors`;
       const putRes = await fetch(putUrl, {
         method: "PUT",
         headers,
@@ -2092,7 +2092,7 @@ function SectorsTab() {
                 for (const c of bulkSelectedCompanies) {
                   try {
                     // Load current
-                    const getUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${c.id}`;
+                    const getUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${c.id}`;
                     const getRes = await fetch(getUrl, {
                       method: "GET",
                       headers,
@@ -2119,7 +2119,7 @@ function SectorsTab() {
                     const needsUpdate =
                       nextIds.length !== currentSectorIds.length;
                     if (needsUpdate) {
-                      const putUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/edit_company_sectors`;
+                      const putUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/edit_company_sectors`;
                       const putRes = await fetch(putUrl, {
                         method: "PUT",
                         headers,

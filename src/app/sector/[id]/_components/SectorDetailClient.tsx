@@ -1565,7 +1565,7 @@ const SectorDetailPage = ({
           params.append("Sector_id", String(sectorIdNum));
         }
 
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Get_Sector_s_new_companies?${params.toString()}`;
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/Get_Sector_s_new_companies?${params.toString()}`;
         const response = await fetch(url, {
           method: "GET",
           headers: {
@@ -1812,7 +1812,7 @@ const SectorDetailPage = ({
           }
         }
 
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_companies?${params.toString()}`;
         const response = await fetch(url, {
           method: "GET",
           headers: {
@@ -1887,7 +1887,7 @@ const SectorDetailPage = ({
         // Explicit mapping: Public ownership type id is 7
         params.append("Ownership_types_ids[]", String(7));
 
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_companies?${params.toString()}`;
         const response = await fetch(url, {
           method: "GET",
           headers: {
@@ -2060,7 +2060,7 @@ const SectorDetailPage = ({
     
     // 1. Sector metadata (name + thesis) - fastest (~69ms via server, direct should be similar)
     const sectorStart = performance.now();
-    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors/${sectorId}`, { 
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sectors/${sectorId}`, { 
       method: 'GET',
       headers,
       credentials: 'include'
@@ -2079,7 +2079,7 @@ const SectorDetailPage = ({
 
     // 2. Market Map
     const mmStart = performance.now();
-    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map?${qs.toString()}`, { 
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sectors_market_map?${qs.toString()}`, { 
       method: 'GET',
       headers,
       credentials: 'include'
@@ -2093,7 +2093,7 @@ const SectorDetailPage = ({
 
     // 3. Strategic Acquirers
     const stratStart = performance.now();
-    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_strategic_acquirers?${qs.toString()}`, { 
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sectors_strategic_acquirers?${qs.toString()}`, { 
       method: 'GET',
       headers,
       credentials: 'include'
@@ -2107,7 +2107,7 @@ const SectorDetailPage = ({
 
     // 4. PE Investors
     const peStart = performance.now();
-    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_pe_investors?${qs.toString()}`, { 
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sectors_pe_investors?${qs.toString()}`, { 
       method: 'GET',
       headers,
       credentials: 'include'
@@ -2121,7 +2121,7 @@ const SectorDetailPage = ({
 
     // 5. Recent Transactions
     const recentStart = performance.now();
-    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${qs.toString()}&top_15=true`, { 
+    fetch(`https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sectors_resent_trasnactions?${qs.toString()}&top_15=true`, { 
       method: 'GET',
       headers,
       credentials: 'include'
@@ -2179,7 +2179,7 @@ const SectorDetailPage = ({
       const qs = new URLSearchParams();
       qs.set("sectors_id", String(Sector_id));
       const resp = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sub_sectors?${qs.toString()}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sub_sectors?${qs.toString()}`,
         {
           method: "GET",
           headers: {
@@ -2725,7 +2725,7 @@ const SectorDetailPage = ({
       try {
         setLoadingFundingStages(true);
         const response = await fetch(
-          "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/funding_stage_options"
+          "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/funding_stage_options"
         );
         if (!response.ok) {
           throw new Error(
@@ -2847,7 +2847,7 @@ const SectorDetailPage = ({
           params.append("Date_end", filters.Date_end);
         }
 
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`;
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop/get_all_corporate_events?${params.toString()}`;
 
         const response = await fetch(url, {
           method: "GET",
@@ -4184,7 +4184,7 @@ const SectorDetailPage = ({
         const ct = (filters.Content_Type || filters.content_type || "").trim();
         if (ct) params.append("content_type", ct);
 
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles?${params.toString()}`;
 
         const response = await fetch(url, {
           method: "GET",
@@ -4243,7 +4243,7 @@ const SectorDetailPage = ({
           const token = localStorage.getItem("asymmetrix_auth_token");
           if (!token) return;
           const resp = await fetch(
-            "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/content_types_for_articles",
+            "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/content_types_for_articles",
             {
               method: "GET",
               headers: {

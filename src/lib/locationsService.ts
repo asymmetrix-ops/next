@@ -1,6 +1,6 @@
 import { authService } from "./auth";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
+const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop";
 
 interface Country {
   locations_Country: string;

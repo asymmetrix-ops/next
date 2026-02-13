@@ -363,7 +363,7 @@ const AdvisorsPage = () => {
         );
       }
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_list?${params.toString()}`;
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_list?${params.toString()}`;
 
       console.log("[Advisors] Fetch list URL:", url);
       const requestId = ++lastRequestIdRef.current;
@@ -527,7 +527,7 @@ const AdvisorsPage = () => {
         );
       }
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_counts?${params.toString()}`;
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_counts?${params.toString()}`;
       console.log("[Advisors] Fetch counts URL:", url);
       const response = await fetch(url, {
         method: "GET",

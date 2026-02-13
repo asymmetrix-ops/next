@@ -432,7 +432,7 @@ const InsightsAnalysisPage = () => {
           p.append("Offset", "1");
           p.append("Per_page", String(perPage));
           p.append("content_type", contentType);
-          const u = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${p.toString()}`;
+          const u = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles?${p.toString()}`;
           const res = await fetch(u, {
             method: "GET",
             headers: {
@@ -501,7 +501,7 @@ const InsightsAnalysisPage = () => {
       const ct = (filters.Content_Type || filters.content_type || "").trim();
       if (ct) params.append("content_type", ct);
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles?${params.toString()}`;
 
       const response = await fetch(url, {
         method: "GET",
@@ -552,7 +552,7 @@ const InsightsAnalysisPage = () => {
         const token = localStorage.getItem("asymmetrix_auth_token");
         if (!token) return;
         const resp = await fetch(
-          "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/content_types_for_articles",
+          "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/content_types_for_articles",
           {
             method: "GET",
             headers: {

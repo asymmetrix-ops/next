@@ -30,7 +30,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const API_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies_dynamic_sql";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_companies_dynamic_sql";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
@@ -391,7 +391,7 @@ async function runLimited(tasks, limit, worker) {
 async function fetchContentDetail(contentId) {
   if (!AUTH_TOKEN) return null;
   if (!contentId) return null;
-  const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/${encodeURIComponent(
+  const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/content/${encodeURIComponent(
     String(contentId)
   )}`;
   const res = await fetch(url, {

@@ -11,7 +11,7 @@ async function fetchAdvisorMeta(
 ): Promise<{ name?: string; description?: string; logo?: string } | null> {
   try {
     const token = cookies().get("asymmetrix_auth_token")?.value;
-    const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_the_advisor_new_company?new_comp_id=${encodeURIComponent(
+    const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_the_advisor_new_company?new_comp_id=${encodeURIComponent(
       id
     )}`;
     const res = await fetch(url, {
