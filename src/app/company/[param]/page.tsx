@@ -307,8 +307,8 @@ interface NewTargetEntity {
 }
 
 interface NewOtherCounterparty {
-  id: number;
-  name: string;
+  id?: number;
+  name?: string;
   page_type?: string;
   counterparty_id?: number;
   is_data_analytics?: boolean;
@@ -334,15 +334,105 @@ interface NewCorporateEvent {
   sellers?: NewCounterpartyMinimal[]; // new: sellers/divestors
   investors?: NewCounterpartyMinimal[]; // new: investors only
   deal_type?: string;
+  investment_data?: {
+    investment_amount_m?: number | string;
+    investment_amount?: number | string;
+    currency?: string | { Currency?: string } | null;
+    _currency?: { Currency?: string };
+    currency_id?: number | string;
+    Funding_stage?: string;
+    funding_stage?: string;
+    investment_amount_url?: string | null;
+  };
+  ev_data?: {
+    enterprise_value_m?: number | string;
+    ev_band?: string;
+    currency?: { Currency?: string };
+    _currency?: { Currency?: string };
+  };
   ev_display?: string | null;
   description?: string;
   announcement_date?: string;
-  investment_display?: string;
+  investment_display?: string | null;
   this_company_status?: string;
   other_counterparties?: NewOtherCounterparty[];
 }
 
 type CompanyCorporateEvent = LegacyCorporateEvent | NewCorporateEvent;
+
+// Related transactions endpoint payload (sector-related corporate events)
+interface RelatedTransactionSectorDisplay {
+  id: number;
+  sector_name: string;
+}
+
+interface RelatedTransactionTarget {
+  id?: number;
+  company_id?: number;
+  name?: string;
+  page_type?: string;
+  logo?: string;
+}
+
+interface RelatedTransactionCounterparty {
+  id?: number;
+  company_id?: number;
+  counterparty_id?: number;
+  name?: string;
+  role?: string;
+  counterparty_announcement_url?: string | null;
+  page_type?: string;
+  logo?: string;
+}
+
+interface RelatedTransaction {
+  id: number;
+  announcement_date?: string;
+  closed_date?: string;
+  deal_type?: string;
+  deal_status?: string;
+  description?: string;
+  investment_data?:
+    | {
+        currency_id?: number | string | null;
+        Funding_stage?: string | null;
+        funding_stage?: string | null;
+        investment_amount_m?: number | string | null;
+        investment_amount_source?: string | null;
+      }
+    | string
+    | null;
+  ev_data?:
+    | {
+        ev_band?: string | null;
+        ev_source?: string | null;
+        currency_id?: number | string | null;
+        EV_source_type?: string | null;
+        enterprise_value_m?: number | string | null;
+      }
+    | string
+    | null;
+  deal_terms_data?:
+    | {
+        deal_terms?: string | null;
+        deal_terms_source?: string | null;
+      }
+    | string
+    | null;
+  target?: RelatedTransactionTarget | string | null;
+  counterparties?: RelatedTransactionCounterparty[] | string | null;
+  advisors?: unknown[] | string | null;
+  amount_raw?: unknown;
+  amount_m?: number | string | null;
+  amount_currency?: string | null;
+  ev_raw?: unknown;
+  ev_m?: number | string | null;
+  ev_currency?: string | null;
+  primary_sectors_display?: RelatedTransactionSectorDisplay[] | string | null;
+  secondary_sectors_display?: RelatedTransactionSectorDisplay[] | string | null;
+  // Some backends may include the source company id
+  new_company_id?: number | null;
+}
 
 
 interface Company {
@@ -878,6 +968,11 @@ const CompanyDetail = () => {
     ParsedInvestorsData | null
   >(null);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [relatedTransactions, setRelatedTransactions] = useState<
+    RelatedTransaction[]
+  >([]);
+  const [relatedTransactionsLoading, setRelatedTransactionsLoading] =
+    useState(false);
 
   // Safely extract a sector id from various backend shapes
   const getSectorId = (sector: unknown): number | undefined => {
@@ -1124,6 +1219,44 @@ const CompanyDetail = () => {
     }
   }, []);
 
+  // Fetch related transactions (auth required) for the company's primary sectors
+  const fetchRelatedTransactions = useCallback(async (id: string | number) => {
+    setRelatedTransactionsLoading(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) {
+        setRelatedTransactions([]);
+        return;
+      }
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      };
+
+      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/related_transactions`;
+      const params = new URLSearchParams();
+      params.append("new_company_id", String(id));
+      const res = await fetch(`${endpoint}?${params.toString()}`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        setRelatedTransactions([]);
+        return;
+      }
+
+      const data = await res.json();
+      setRelatedTransactions(Array.isArray(data) ? (data as RelatedTransaction[]) : []);
+    } catch (err) {
+      console.error("Error fetching related transactions:", err);
+      setRelatedTransactions([]);
+    } finally {
+      setRelatedTransactionsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchCompanyData = async () => {
       setLoading(true);
@@ -1325,6 +1458,7 @@ const CompanyDetail = () => {
       fetchCompanyData();
       fetchFinancialMetrics(companyId);
       fetchCompanyInvestors(companyId);
+      fetchRelatedTransactions(companyId);
     }
   }, [
     companyId,
@@ -1332,6 +1466,7 @@ const CompanyDetail = () => {
     requestCompany,
     fetchFinancialMetrics,
     fetchCompanyInvestors,
+    fetchRelatedTransactions,
   ]);
 
 
@@ -1665,6 +1800,257 @@ const CompanyDetail = () => {
 
   // Use API-provided primary sectors only
   const augmentedPrimarySectors = primarySectors;
+
+  // Build "Related Transactions" (5 most recent) from primary sectors only, excluding events
+  // where this company is itself a counterparty/target.
+  const relatedTransactionEvents: CompanyCorporateEvent[] = (() => {
+    const parseJsonMaybe = <T,>(value: unknown): T | null => {
+      if (!value) return null;
+      if (typeof value === "object") return value as T;
+      if (typeof value !== "string") return null;
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      // Common Xano escaping: \u0022 for quotes; also tolerate CRLF sequences
+      const normalized = trimmed.replace(/\\u0022/g, '"');
+      try {
+        return JSON.parse(normalized) as T;
+      } catch {
+        // Sometimes we get surrounding quotes or double-encoded strings
+        const unquoted = normalized.replace(/^"+|"+$/g, "");
+        try {
+          const first = JSON.parse(unquoted) as unknown;
+          if (typeof first === "string") {
+            const normalized2 = first.replace(/\\u0022/g, '"');
+            return JSON.parse(normalized2) as T;
+          }
+          return first as T;
+        } catch {
+          return null;
+        }
+      }
+    };
+
+    const parseArrayMaybe = <T,>(value: unknown): T[] => {
+      if (Array.isArray(value)) return value as T[];
+      const parsed = parseJsonMaybe<unknown>(value);
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    };
+
+    const parseObjectMaybe = <T,>(value: unknown): T | null => {
+      if (value && typeof value === "object" && !Array.isArray(value))
+        return value as T;
+      const parsed = parseJsonMaybe<unknown>(value);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as T)
+        : null;
+    };
+
+    const primarySectorIds = new Set<number>(
+      (augmentedPrimarySectors || [])
+        .map((s) => s?.sector_id)
+        .filter((v): v is number => typeof v === "number" && Number.isFinite(v))
+    );
+    if (!primarySectorIds.size) return [];
+
+    const thisCompanyId = company?.id;
+    const safeTime = (d?: string) => {
+      if (!d) return 0;
+      const t = Date.parse(d);
+      return Number.isFinite(t) ? t : 0;
+    };
+
+    const isThisCompanyInCounterparties = (tx: RelatedTransaction): boolean => {
+      if (typeof thisCompanyId !== "number") return false;
+      // Some payloads may include it as a direct field
+      if (typeof tx.new_company_id === "number" && tx.new_company_id === thisCompanyId)
+        return true;
+      // Target match (payload may use company_id)
+      const targetObj = parseObjectMaybe<RelatedTransactionTarget>(tx.target);
+      if (
+        (targetObj && typeof targetObj.company_id === "number" && targetObj.company_id === thisCompanyId) ||
+        (targetObj && typeof targetObj.id === "number" && targetObj.id === thisCompanyId)
+      ) {
+        return true;
+      }
+
+      // Counterparty match (payload may include company_id)
+      const cps = parseArrayMaybe<RelatedTransactionCounterparty>(tx.counterparties);
+      return cps.some((cp) => {
+        if (!cp) return false;
+        if (typeof cp.company_id === "number" && cp.company_id === thisCompanyId) return true;
+        if (typeof cp.id === "number" && cp.id === thisCompanyId) return true;
+        if (typeof cp.counterparty_id === "number" && cp.counterparty_id === thisCompanyId)
+          return true;
+        const parsed = parseInt(String((cp as unknown as { id?: unknown }).id ?? ""), 10);
+        return Number.isFinite(parsed) && parsed === thisCompanyId;
+      });
+    };
+
+    const filtered = (relatedTransactions || [])
+      .filter((tx) => tx && typeof tx.id === "number")
+      .filter((tx) => {
+        // Must match at least one of this company's primary sectors
+        const txPrimarySectors = parseArrayMaybe<RelatedTransactionSectorDisplay>(
+          tx.primary_sectors_display
+        );
+        const txPrimaryIds = txPrimarySectors
+          .map((s) => s?.id)
+          .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+        const matchesPrimarySector = txPrimaryIds.some((id) => primarySectorIds.has(id));
+        if (!matchesPrimarySector) return false;
+
+        // Exclude transactions where current company is a counterparty/target
+        if (isThisCompanyInCounterparties(tx)) return false;
+        return true;
+      })
+      .sort((a, b) => safeTime(b.announcement_date) - safeTime(a.announcement_date))
+      .slice(0, 5);
+
+    // Map into the corporate event shape used by the platform tables
+    return filtered.map((tx) => {
+      const targetObj = parseObjectMaybe<RelatedTransactionTarget>(tx.target);
+      const targetCompanyId =
+        targetObj && typeof targetObj.company_id === "number"
+          ? targetObj.company_id
+          : targetObj && typeof targetObj.id === "number"
+          ? targetObj.id
+          : undefined;
+      const targetName =
+        targetObj && typeof targetObj.name === "string" ? targetObj.name.trim() : "";
+      const targetPageType =
+        targetObj && typeof targetObj.page_type === "string"
+          ? targetObj.page_type
+          : undefined;
+
+      const dealTermsObj = parseObjectMaybe<{ deal_terms_source?: string | null }>(
+        tx.deal_terms_data
+      );
+      const investmentObj = parseObjectMaybe<{
+        investment_amount_m?: number | string | null;
+        Funding_stage?: string | null;
+        funding_stage?: string | null;
+        currency_id?: number | string | null;
+        investment_amount_source?: string | null;
+      }>(tx.investment_data);
+      const evObj = parseObjectMaybe<{
+        enterprise_value_m?: number | string | null;
+        ev_band?: string | null;
+      }>(tx.ev_data);
+
+      const targets: NewTargetEntity[] =
+        targetCompanyId && targetName
+          ? [
+              {
+                id: targetCompanyId,
+                name: targetName,
+                page_type: targetPageType,
+                counterparty_announcement_url:
+                  (typeof dealTermsObj?.deal_terms_source === "string"
+                    ? dealTermsObj.deal_terms_source
+                    : undefined) ||
+                  (typeof investmentObj?.investment_amount_source === "string"
+                    ? investmentObj.investment_amount_source
+                    : undefined) ||
+                  undefined,
+              },
+            ]
+          : [];
+
+      const normalizeRoleToStatus = (role?: string): string | undefined => {
+        const r = String(role ?? "").trim().toLowerCase();
+        if (!r) return undefined;
+        if (r.includes("buyer") || r.includes("acquirer")) return "Acquirer";
+        if (r.includes("seller") || r.includes("divestor")) return "Divestor";
+        if (r.includes("investor")) return "Investor";
+        return undefined;
+      };
+
+      const counterpartiesArr = parseArrayMaybe<RelatedTransactionCounterparty>(
+        tx.counterparties
+      );
+      const otherCounterparties: NewOtherCounterparty[] = counterpartiesArr
+        .map((cp) => {
+          const id =
+            typeof cp?.company_id === "number"
+              ? cp.company_id
+              : typeof cp?.counterparty_id === "number"
+              ? cp.counterparty_id
+              : typeof cp?.id === "number"
+              ? cp.id
+              : undefined;
+          const name = typeof cp?.name === "string" ? cp.name : undefined;
+          const page_type =
+            typeof cp?.page_type === "string" ? cp.page_type : undefined;
+          const status = normalizeRoleToStatus(cp?.role);
+
+          return {
+            id,
+            name,
+            page_type,
+            counterparty_id: typeof cp?.company_id === "number" ? cp.company_id : undefined,
+            counterparty_status: status,
+            counterparty_announcement_url:
+              typeof cp?.counterparty_announcement_url === "string"
+                ? cp.counterparty_announcement_url
+                : null,
+          };
+        })
+        .filter((cp) => Boolean(cp.id) || Boolean(cp.name));
+
+      const amountCurrency =
+        typeof tx.amount_currency === "string" ? tx.amount_currency : undefined;
+      const evCurrency = typeof tx.ev_currency === "string" ? tx.ev_currency : undefined;
+
+      const investmentAmountCandidate =
+        tx.amount_m ?? investmentObj?.investment_amount_m;
+      const investmentAmount =
+        investmentAmountCandidate == null ? undefined : investmentAmountCandidate;
+
+      const evAmountCandidate = tx.ev_m ?? evObj?.enterprise_value_m;
+      const evAmount = evAmountCandidate == null ? undefined : evAmountCandidate;
+
+      const evData: NonNullable<NewCorporateEvent["ev_data"]> = {
+        enterprise_value_m: evAmount,
+        ...(typeof evObj?.ev_band === "string" && evObj.ev_band.trim().length > 0
+          ? { ev_band: evObj.ev_band }
+          : {}),
+        ...(evCurrency
+          ? {
+              _currency: { Currency: evCurrency },
+              currency: { Currency: evCurrency },
+            }
+          : {}),
+      };
+
+      const event: NewCorporateEvent = {
+        id: tx.id,
+        description: tx.description,
+        announcement_date: tx.announcement_date,
+        deal_type: tx.deal_type,
+        targets,
+        other_counterparties: otherCounterparties,
+        investment_data: {
+          investment_amount_m: investmentAmount,
+          currency: amountCurrency ?? null,
+          Funding_stage:
+            (investmentObj?.Funding_stage ??
+              investmentObj?.funding_stage ??
+              undefined) ||
+            undefined,
+          currency_id:
+            investmentObj?.currency_id == null
+              ? undefined
+              : investmentObj?.currency_id,
+          investment_amount_url: null,
+        },
+        ev_data: evData,
+        ev_display: null,
+        advisors: [],
+        advisors_names: [],
+      };
+      return event;
+    });
+  })();
 
   // Process location
   const location = company._locations;
@@ -3661,6 +4047,22 @@ const CompanyDetail = () => {
                   No related content found
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Related Transactions - Full Width Section */}
+          {(relatedTransactionsLoading || relatedTransactionEvents.length > 0) && (
+            <div style={{ ...styles.card, marginTop: "24px" }}>
+              <CorporateEventsSection
+                title="Related Transactions"
+                events={relatedTransactionEvents}
+                loading={relatedTransactionsLoading}
+                showSectors={false}
+                maxInitialEvents={5}
+                truncateDescriptionLength={180}
+                hideWhenEmpty={true}
+                titleStyle={styles.sectionTitle}
+              />
             </div>
           )}
 
