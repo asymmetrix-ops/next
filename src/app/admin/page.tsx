@@ -2517,6 +2517,25 @@ function ContentTab() {
   const [recipientEmail, setRecipientEmail] = useState("");
   const [sending, setSending] = useState(false);
 
+  const CONTENT_PREVIEW_STORAGE_KEY = "asymmetrix_content_preview_v1";
+
+  const VISIBILITY_OPTIONS = ["Admin", "Client", "Public"] as const;
+  type Visibility = (typeof VISIBILITY_OPTIONS)[number];
+
+  function coerceVisibility(v: unknown): Visibility {
+    const raw = String(v || "").trim();
+    if (!raw) return "Admin";
+    const lower = raw.toLowerCase();
+    if (lower === "admin") return "Admin";
+    if (lower === "client") return "Client";
+    if (lower === "public") return "Public";
+    // Legacy values
+    if (lower === "published") return "Public";
+    if (lower === "private") return "Client";
+    if (lower === "draft") return "Admin";
+    return "Admin";
+  }
+
   const XANO_IMAGE_UPLOAD_URL =
     "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/images";
 
@@ -2780,7 +2799,7 @@ function ContentTab() {
   const [contentArticlesLoading, setContentArticlesLoading] = useState(false);
   const [selectedEditContentId, setSelectedEditContentId] = useState<number | "">("");
   const [editingContentId, setEditingContentId] = useState<number | null>(null);
-  const [visibility, setVisibility] = useState<string>("Admin");
+  const [visibility, setVisibility] = useState<Visibility>("Admin");
 
   function extractInnerContent(fullHtml: string): string {
     // If it's a full HTML document, extract the inner content
@@ -3061,7 +3080,7 @@ function ContentTab() {
 
     // Pre-load visibility
     if (article.Visibility) {
-      setVisibility(article.Visibility);
+      setVisibility(coerceVisibility(article.Visibility));
     }
 
     // Pre-load summary array
@@ -3225,6 +3244,56 @@ function ContentTab() {
     } catch {}
   };
 
+  const openPreview = () => {
+    const Headline = headline.trim();
+    const Strapline = strapline.trim();
+    const Content_Type = contentType.trim();
+    const Body = `<div>${sanitizeHtml(bodyHtml)}</div>`;
+
+    const relatedDocs = [...uploadedRelatedFiles, ...uploadedMp3Files];
+    const sectorsPreview = selectedSectorIds.map((id) => {
+      const s = allSectors.find((x) => x.id === id);
+      return {
+        id,
+        sector_name: s?.sector_name || String(id),
+        Sector_importance: "Primary",
+      };
+    });
+    const companiesPreview = companiesMentioned.map((c) => ({
+      id: c.id,
+      name: c.name,
+    }));
+    const relatedEventsPreview = selectedCorporateEvents.map((e) => ({
+      id: e.id,
+      description: e.label,
+      deal_type: "",
+    }));
+
+    const payload = {
+      id: editingContentId ?? 0,
+      created_at: Date.now(),
+      Publication_Date: new Date().toISOString(),
+      Headline,
+      Strapline,
+      Content_Type,
+      Body,
+      Summary: summaryItems,
+      summary: summaryItems,
+      sectors: sectorsPreview,
+      companies_mentioned: companiesPreview,
+      Visibility: visibility,
+      Related_Corporate_Event: relatedEventsPreview,
+      ...(relatedDocs.length > 0 ? { Related_Documents: relatedDocs } : {}),
+    };
+
+    try {
+      localStorage.setItem(CONTENT_PREVIEW_STORAGE_KEY, JSON.stringify(payload));
+      window.open("/article/preview", "_blank", "noopener,noreferrer");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to open preview");
+    }
+  };
+
   const submitNewContent = async () => {
     if (sending) return;
     const token = localStorage.getItem("asymmetrix_auth_token");
@@ -3273,8 +3342,11 @@ function ContentTab() {
       payload.companies_mentioned = companiesMentionedIds;
       payload.Related_Corporate_Event = relatedCorporateEventIds;
 
-      // Related_Documents: send array of full stored file objects
-      payload.Related_Documents = [...uploadedRelatedFiles, ...uploadedMp3Files];
+      // Related_Documents: omit entirely if empty
+      const relatedDocs = [...uploadedRelatedFiles, ...uploadedMp3Files];
+      if (relatedDocs.length > 0) {
+        payload.Related_Documents = relatedDocs;
+      }
 
       // Summary as string (matches your working curl)
       payload.summary = JSON.stringify(summaryItems);
@@ -3433,12 +3505,13 @@ function ContentTab() {
         <select
           className="p-2 w-full border"
           value={visibility}
-          onChange={(e) => setVisibility(e.target.value)}
+          onChange={(e) => setVisibility(coerceVisibility(e.target.value))}
         >
-          <option value="Admin">Admin</option>
-          <option value="Published">Published</option>
-          <option value="Draft">Draft</option>
-          <option value="Private">Private</option>
+          {VISIBILITY_OPTIONS.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -3882,6 +3955,15 @@ function ContentTab() {
           disabled={!html}
         >
           Copy HTML
+        </button>
+        <button
+          className="px-4 py-2 text-white bg-emerald-600 rounded disabled:opacity-50"
+          onClick={openPreview}
+          disabled={!headline.trim() || !contentType.trim()}
+          type="button"
+          title="Preview draft in a new tab"
+        >
+          Preview
         </button>
         <button
           className="px-4 py-2 text-white bg-blue-600 rounded disabled:opacity-50"
