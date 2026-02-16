@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import AudioPlayer, { RHAP_UI } from "react-h5-audio-player";
 
-type PlaybackRate = 0.75 | 1 | 1.25 | 1.5;
+type PlaybackRate = 0.75 | 1 | 1.25 | 1.5 | 1.75 | 2;
 
 export default function InlineAudioPlayer(props: {
   src: string;
@@ -18,7 +18,7 @@ export default function InlineAudioPlayer(props: {
 
   const [playbackRate, setPlaybackRate] = useState<PlaybackRate>(initialRate);
 
-  const rates = useMemo<PlaybackRate[]>(() => [0.75, 1, 1.25, 1.5], []);
+  const rates = useMemo<PlaybackRate[]>(() => [0.75, 1, 1.25, 1.5, 1.75, 2], []);
 
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
