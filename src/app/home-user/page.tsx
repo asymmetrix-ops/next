@@ -440,6 +440,7 @@ export default function HomeUserPage() {
   const [popupFiltering, setPopupFiltering] = useState(false);
   const [searchLoadingSources, setSearchLoadingSources] = useState(false);
   const searchAbortRef = useRef<AbortController | null>(null);
+  const popupAbortRef = useRef<AbortController | null>(null);
 
   const mergeResults = useCallback(
     (prev: GlobalSearchResult[], newItems: GlobalSearchResult[]) => {
@@ -545,27 +546,62 @@ export default function HomeUserPage() {
   }, [searchResults, searchQuery]);
 
   const closeSearchPopup = useCallback(() => {
+    popupAbortRef.current?.abort();
+    popupAbortRef.current = null;
+    setPopupFiltering(false);
     setSearchPopupOpen(false);
     setSearchPageType(null);
   }, []);
 
   const handleSearchFilterChange = useCallback(
-    async (pageType: SearchPageType | null) => {
+    (pageType: SearchPageType | null) => {
+      popupAbortRef.current?.abort();
+      popupAbortRef.current = null;
+
       setSearchPageType(pageType);
       popupQueryRef.current = searchQuery;
       const q = searchQuery.trim();
-      if (!q) return;
-      setPopupFiltering(true);
       setPopupDisplayedCount(25);
+      if (!q || q.length < 2) {
+        setPopupResults([]);
+        setPopupFiltering(false);
+        return;
+      }
+
+      // For "All", just mirror the main progressive results (and let the effect keep it updated)
+      if (pageType === null) {
+        setPopupResults(searchResults);
+        setPopupFiltering(false);
+        setSearchPagination({
+          current_page: 1,
+          per_page: 25,
+          total_results: searchResults.length,
+          total_pages: Math.max(1, Math.ceil(searchResults.length / 25)),
+          next_page: searchResults.length > 25 ? 2 : null,
+          prev_page: null,
+          pages_left: Math.max(0, Math.ceil(searchResults.length / 25) - 1),
+        });
+        return;
+      }
+
+      setPopupFiltering(true);
+      // Critical: clear stale results so we don't "carry over" from the previous tab.
+      setPopupResults([]);
+
+      const ac = new AbortController();
+      popupAbortRef.current = ac;
 
       const allResultsRef = { current: [] as GlobalSearchResult[] };
       fetchGlobalSearchProgressive(q, pageType, {
+        signal: ac.signal,
         onBatch: (items) => {
+          if (ac.signal.aborted) return;
           const merged = mergeResults(allResultsRef.current, items);
           allResultsRef.current = merged;
           setPopupResults(sortSearchResults(merged));
         },
         onComplete: () => {
+          if (ac.signal.aborted) return;
           const total = allResultsRef.current.length;
           const perPage = 25;
           const totalPages = Math.max(1, Math.ceil(total / perPage));
@@ -580,12 +616,35 @@ export default function HomeUserPage() {
           });
           setPopupFiltering(false);
         },
-        onError: () => {
+        onError: (_source, err) => {
+          const name =
+            err && typeof err === "object"
+              ? String((err as { name?: unknown }).name)
+              : "";
+          if (name === "AbortError") return;
           setPopupFiltering(false);
         },
       });
     },
-    [searchQuery, mergeResults]
+    [searchQuery, mergeResults, searchResults]
+  );
+
+  const matchesPopupFilter = useCallback(
+    (result: GlobalSearchResult, pageType: SearchPageType | null) => {
+      if (!pageType) return true;
+      const t = String(result.type || "").toLowerCase().trim();
+      const allowed: Record<SearchPageType, string[]> = {
+        companies: ["company", "companies"],
+        sectors: ["sector", "sectors", "sub_sector", "sub-sector"],
+        investors: ["investor", "investors"],
+        advisors: ["advisor", "advisors"],
+        individuals: ["individual", "individuals"],
+        "corporate events": ["corporate_event", "corporate-events", "event"],
+        "insights and analysis": ["insight", "insights", "article"],
+      };
+      return (allowed[pageType] || []).includes(t);
+    },
+    []
   );
 
   useEffect(() => {
@@ -1141,93 +1200,128 @@ export default function HomeUserPage() {
                 ))}
               </div>
               <div className="flex-1 overflow-y-auto p-4">
-                {popupFiltering && popupResults.length === 0 ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="w-8 h-8 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" />
-                    <span className="ml-2 text-sm text-gray-600">
-                      Searching…
-                    </span>
-                  </div>
-                ) : popupResults.length === 0 ? (
-                  <p className="text-sm text-gray-500 py-4">No results</p>
-                ) : (
-                  <>
-                    {popupFiltering && (
-                      <div className="pb-2 text-xs text-gray-500">
-                        Loading more results…
+                {(() => {
+                  const visibleResults =
+                    searchPageType === null
+                      ? popupResults
+                      : popupResults.filter((r) =>
+                          matchesPopupFilter(r, searchPageType)
+                        );
+                  const displayed = visibleResults.slice(0, popupDisplayedCount);
+
+                  if (popupFiltering && visibleResults.length === 0) {
+                    return (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="w-8 h-8 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" />
+                        <span className="ml-2 text-sm text-gray-600">
+                          Searching…
+                        </span>
                       </div>
-                    )}
-                    <ul className="space-y-1">
-                    {popupResults.slice(0, popupDisplayedCount).map((r, idx) => {
-                      const href = resolveSearchHref(r);
-                      const t = String(r.type || "").toLowerCase().trim();
-                      const isInsight =
-                        t === "insight" || t === "insights" || t === "article";
-                      const badgeLabel = getSearchBadgeLabel(r.type);
-                      return (
-                        <li key={`popup-${r.type}-${r.id}-${idx}`}>
-                          <a
-                            href={href || "#"}
-                            className="group flex items-start justify-between gap-3 px-3 py-2.5 w-full rounded-md hover:bg-blue-50 hover:shadow-sm no-underline cursor-pointer transition-all duration-150"
-                            onClick={(e) => {
-                              if (!href) {
-                                e.preventDefault();
-                                return;
-                              }
-                              // Allow default behavior for right-click, ctrl+click, cmd+click, etc.
-                              if (
-                                e.defaultPrevented ||
-                                e.button !== 0 ||
-                                e.metaKey ||
-                                e.ctrlKey ||
-                                e.shiftKey ||
-                                e.altKey
-                              ) {
-                                return;
-                              }
-                              e.preventDefault();
-                              closeSearchPopup();
-                              setSearchOpen(false);
-                              setSearchQuery("");
-                              setSearchResults([]);
-                              router.push(href);
-                            }}
-                          >
-                            <span className="text-sm text-gray-900 group-hover:text-blue-700 line-clamp-2 transition-colors">
-                              {r.title}
-                            </span>
-                            <span 
-                              className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-full border shrink-0 ${badgeClassForSearchType(
-                                String(r.type || "")
-                              )} ${isInsight ? "normal-case" : "uppercase"}`}
-                            >
-                              {badgeLabel}
-                            </span>
-                          </a>
-                        </li>
-                      );
-                    })}
-                    </ul>
-                  </>
-                )}
+                    );
+                  }
+                  if (visibleResults.length === 0) {
+                    return (
+                      <p className="text-sm text-gray-500 py-4">No results</p>
+                    );
+                  }
+                  return (
+                    <>
+                      {popupFiltering && (
+                        <div className="pb-2 text-xs text-gray-500">
+                          Loading more results…
+                        </div>
+                      )}
+                      <ul className="space-y-1">
+                        {displayed.map((r, idx) => {
+                          const href = resolveSearchHref(r);
+                          const t = String(r.type || "").toLowerCase().trim();
+                          const isInsight =
+                            t === "insight" ||
+                            t === "insights" ||
+                            t === "article";
+                          const badgeLabel = getSearchBadgeLabel(r.type);
+                          return (
+                            <li key={`popup-${r.type}-${r.id}-${idx}`}>
+                              <a
+                                href={href || "#"}
+                                className="group flex items-start justify-between gap-3 px-3 py-2.5 w-full rounded-md hover:bg-blue-50 hover:shadow-sm no-underline cursor-pointer transition-all duration-150"
+                                onClick={(e) => {
+                                  if (!href) {
+                                    e.preventDefault();
+                                    return;
+                                  }
+                                  // Allow default behavior for right-click, ctrl+click, cmd+click, etc.
+                                  if (
+                                    e.defaultPrevented ||
+                                    e.button !== 0 ||
+                                    e.metaKey ||
+                                    e.ctrlKey ||
+                                    e.shiftKey ||
+                                    e.altKey
+                                  ) {
+                                    return;
+                                  }
+                                  e.preventDefault();
+                                  closeSearchPopup();
+                                  setSearchOpen(false);
+                                  setSearchQuery("");
+                                  setSearchResults([]);
+                                  router.push(href);
+                                }}
+                              >
+                                <span className="text-sm text-gray-900 group-hover:text-blue-700 line-clamp-2 transition-colors">
+                                  {r.title}
+                                </span>
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-full border shrink-0 ${badgeClassForSearchType(
+                                    String(r.type || "")
+                                  )} ${
+                                    isInsight ? "normal-case" : "uppercase"
+                                  }`}
+                                >
+                                  {badgeLabel}
+                                </span>
+                              </a>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </>
+                  );
+                })()}
               </div>
               <div className="p-4 border-t border-gray-200 space-y-3">
-                {popupResults.length > 0 && (
-                  <p className="text-xs text-gray-600">
-                    Showing{" "}
-                    {Math.min(popupDisplayedCount, popupResults.length)} of{" "}
-                    {popupResults.length} results
-                  </p>
-                )}
-                {popupDisplayedCount < popupResults.length ? (
-                  <button
-                    type="button"
-                    onClick={handleLoadMoreInPopup}
-                    className="w-full py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
-                  >
-                    Load more
-                  </button>
-                ) : null}
+                {(() => {
+                  const visibleResults =
+                    searchPageType === null
+                      ? popupResults
+                      : popupResults.filter((r) =>
+                          matchesPopupFilter(r, searchPageType)
+                        );
+                  const showing = Math.min(
+                    popupDisplayedCount,
+                    visibleResults.length
+                  );
+                  const canLoadMore = showing < visibleResults.length;
+
+                  if (visibleResults.length === 0) return null;
+                  return (
+                    <>
+                      <p className="text-xs text-gray-600">
+                        Showing {showing} of {visibleResults.length} results
+                      </p>
+                      {canLoadMore ? (
+                        <button
+                          type="button"
+                          onClick={handleLoadMoreInPopup}
+                          className="w-full py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
+                        >
+                          Load more
+                        </button>
+                      ) : null}
+                    </>
+                  );
+                })()}
               </div>
             </div>
           </div>
