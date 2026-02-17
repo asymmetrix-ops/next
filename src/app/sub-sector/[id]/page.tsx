@@ -412,7 +412,7 @@ function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
       );
       setCities(citiesData);
     } catch {
-      // ignore
+    
     } finally {
       setLoadingCities(false);
     }
@@ -1911,6 +1911,9 @@ const SubSectorPage = () => {
 
   // Header title lookup
   const [subSectorName, setSubSectorName] = useState<string>("");
+  const [headerPrimarySectors, setHeaderPrimarySectors] = useState<
+    Array<{ id: number; sector_name: string }>
+  >([]);
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
@@ -1926,6 +1929,63 @@ const SubSectorPage = () => {
       }
     };
     if (!Number.isNaN(subSectorId)) run();
+    return () => {
+      cancelled = true;
+    };
+  }, [subSectorId]);
+
+  // Header primary sector(s) lookup for this sub-sector (via Xano API)
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        if (Number.isNaN(subSectorId) || subSectorId <= 0) {
+          setHeaderPrimarySectors([]);
+          return;
+        }
+
+        const token = localStorage.getItem("asymmetrix_auth_token") || "";
+        const authHeader =
+          token.trim().length === 0
+            ? undefined
+            : token.trim().toLowerCase().startsWith("bearer ")
+            ? token.trim()
+            : `Bearer ${token.trim()}`;
+
+        // Browser fetch doesn't reliably send JSON bodies with GET.
+        // Pass sectors_id as a query param instead.
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/Get_Primary_Sectors?sectors_id=${encodeURIComponent(
+          String(subSectorId)
+        )}`;
+
+        const resp = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(authHeader ? { Authorization: authHeader } : {}),
+          },
+        });
+
+        if (!resp.ok) throw new Error(`HTTP error ${resp.status}`);
+        const data = (await resp.json()) as unknown;
+        const list = Array.isArray(data) ? data : [];
+        const normalized = list
+          .map((x) => {
+            const rec = x as { id?: unknown; sector_name?: unknown };
+            return {
+              id: typeof rec.id === "number" ? rec.id : Number(rec.id),
+              sector_name:
+                typeof rec.sector_name === "string" ? rec.sector_name : "",
+            };
+          })
+          .filter((x) => Number.isFinite(x.id) && x.id > 0 && x.sector_name.trim());
+
+        if (!cancelled) setHeaderPrimarySectors(normalized);
+      } catch {
+        if (!cancelled) setHeaderPrimarySectors([]);
+      }
+    };
+    run();
     return () => {
       cancelled = true;
     };
@@ -2365,6 +2425,26 @@ const SubSectorPage = () => {
                   {subSectorName || "Sub-Sector"}
                 </h1>
               </div>
+            </div>
+            <div className="text-sm text-right text-slate-700 whitespace-normal">
+              <span className="font-semibold text-slate-900">
+                Primary Sector(s){headerPrimarySectors.length === 1 ? "" : "s"}:
+              </span>{" "}
+              {headerPrimarySectors.length === 0 ? (
+                <span className="text-slate-500">N/A</span>
+              ) : (
+                headerPrimarySectors.map((s, i) => (
+                  <React.Fragment key={`${s.id}-${s.sector_name}-${i}`}>
+                    <a
+                      href={`/sector/${s.id}`}
+                      className="text-blue-600 underline hover:text-blue-800"
+                    >
+                      {s.sector_name}
+                    </a>
+                    {i < headerPrimarySectors.length - 1 && ", "}
+                  </React.Fragment>
+                ))
+              )}
             </div>
           </div>
         </div>
