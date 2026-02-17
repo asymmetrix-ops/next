@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
+import { trackEvent } from "@/lib/tracking";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 // import { useRightClick } from "@/hooks/useRightClick";
@@ -131,6 +132,7 @@ export default function HomeUserPage() {
   const router = useRouter();
   const {
     isAuthenticated,
+    user,
     logout,
     loading: authLoading,
     isTrialActive,
@@ -441,6 +443,8 @@ export default function HomeUserPage() {
   const [searchLoadingSources, setSearchLoadingSources] = useState(false);
   const searchAbortRef = useRef<AbortController | null>(null);
   const popupAbortRef = useRef<AbortController | null>(null);
+  const searchRunIdRef = useRef(0);
+  const loggedSearchRunIdRef = useRef(0);
 
   const mergeResults = useCallback(
     (prev: GlobalSearchResult[], newItems: GlobalSearchResult[]) => {
@@ -485,6 +489,9 @@ export default function HomeUserPage() {
     setSearchOpen(true);
     setSearchResults([]);
 
+    searchRunIdRef.current += 1;
+    const runId = searchRunIdRef.current;
+
     const allResultsRef = { current: [] as GlobalSearchResult[] };
 
     const t = window.setTimeout(() => {
@@ -495,6 +502,23 @@ export default function HomeUserPage() {
           const merged = mergeResults(allResultsRef.current, items);
           allResultsRef.current = merged;
           setSearchResults(sortSearchResults(merged));
+
+          // Log platform-wide search only once per search run, and only when we actually have results.
+          if (merged.length > 0 && loggedSearchRunIdRef.current !== runId) {
+            loggedSearchRunIdRef.current = runId;
+            const parsedUserId = Number.parseInt(String(user?.id || ""), 10);
+            const userId =
+              Number.isFinite(parsedUserId) && parsedUserId > 0
+                ? parsedUserId
+                : undefined;
+            trackEvent({
+              eventType: "platform_wide_search",
+              userId,
+              pageVisit: "home_user",
+              pageHeading: "Asymmetrix Dashboard",
+              query: q,
+            });
+          }
         },
         onComplete: () => {
           if (ac.signal.aborted) return;
@@ -528,7 +552,7 @@ export default function HomeUserPage() {
       ac.abort();
       searchAbortRef.current = null;
     };
-  }, [searchQuery, mergeResults, isTrialActive]);
+  }, [searchQuery, mergeResults, isTrialActive, user?.id]);
 
   const [popupDisplayedCount, setPopupDisplayedCount] = useState(25);
   const popupQueryRef = useRef("");
@@ -1030,12 +1054,15 @@ export default function HomeUserPage() {
           </h1>
           <div
             ref={searchWrapRef}
-            className={`relative w-full order-2 lg:col-span-1 xl:col-span-8 rounded-lg border-2 bg-white shadow-sm ${
+            className={`global-search-tooltip relative w-full order-2 lg:col-span-1 xl:col-span-8 rounded-lg border-2 bg-white shadow-sm ${
               isTrialActive
                 ? "border-gray-200"
                 : "border-blue-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"
             }`}
           >
+            <div className="global-search-feature-tip" aria-hidden="true">
+              New Feature
+            </div>
             <input
               type="search"
               value={searchQuery}
@@ -2672,6 +2699,45 @@ export default function HomeUserPage() {
         </div>
       </main>
       <Footer />
+
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+          /* Always-visible "New Feature" bubble above search input */
+          .global-search-tooltip{
+            position: relative;
+          }
+          .global-search-feature-tip{
+            position: absolute;
+            left: 0;
+            bottom: calc(100% + 10px);
+            background: rgba(17, 24, 39, 0.95);
+            color: #fff;
+            font-size: 12px;
+            line-height: 1.2;
+            padding: 8px 10px;
+            border-radius: 6px;
+            white-space: nowrap;
+            z-index: 60;
+            pointer-events: none;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+          }
+          .global-search-feature-tip::before{
+            content: '';
+            position: absolute;
+            left: 14px;
+            top: 100%;
+            border: 6px solid transparent;
+            border-top-color: rgba(17, 24, 39, 0.95);
+            z-index: 61;
+            pointer-events: none;
+          }
+          @media (max-width: 640px){
+            .global-search-feature-tip{ max-width: 92vw; }
+          }
+        `,
+        }}
+      />
     </div>
   );
 }

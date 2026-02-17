@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { isActivityTrackingBlockedEmail } from "@/lib/activityTracking";
 
-type EventType = "login" | "page_view" | "logout" | "error";
+type EventType =
+  | "login"
+  | "page_view"
+  | "logout"
+  | "error"
+  | "platform_wide_search";
 
 interface UserActivityPayload {
   user_id: number;
@@ -10,6 +15,7 @@ interface UserActivityPayload {
   page_heading: string;
   session_id: string;
   event_type: EventType;
+  query?: string | null;
 }
 
 const XANO_ENDPOINT =
@@ -117,6 +123,7 @@ export async function POST(req: NextRequest) {
       page_heading = "",
       session_id = "",
       event_type,
+      query = null,
     } = body;
 
     // Drop events when unauthenticated to avoid bot noise
@@ -139,12 +146,28 @@ export async function POST(req: NextRequest) {
       return new NextResponse(null, { status: 204 });
     }
 
-    if (!event_type || !["login", "page_view", "logout", "error"].includes(event_type)) {
+    if (
+      !event_type ||
+      ![
+        "login",
+        "page_view",
+        "logout",
+        "error",
+        "platform_wide_search",
+      ].includes(event_type)
+    ) {
       return NextResponse.json(
         { error: "Invalid or missing event_type" },
         { status: 400 }
       );
     }
+
+    const normalizedQuery =
+      typeof query === "string"
+        ? query.trim().slice(0, 512)
+        : query === null || query === undefined
+          ? null
+          : String(query).trim().slice(0, 512);
 
     const payload: UserActivityPayload = {
       user_id: normalizedUserId,
@@ -153,6 +176,9 @@ export async function POST(req: NextRequest) {
       session_id: String(session_id || ""),
       event_type: event_type as EventType,
     };
+    if (event_type === "platform_wide_search" || normalizedQuery !== null) {
+      payload.query = normalizedQuery;
+    }
 
     const upstream = await fetch(XANO_ENDPOINT, {
       method: "POST",

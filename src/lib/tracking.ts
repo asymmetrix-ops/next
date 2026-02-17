@@ -1,4 +1,9 @@
-export type TrackingEventType = "login" | "page_view" | "logout" | "error";
+export type TrackingEventType =
+  | "login"
+  | "page_view"
+  | "logout"
+  | "error"
+  | "platform_wide_search";
 import { authService } from "@/lib/auth";
 import { isActivityTrackingBlockedEmail } from "@/lib/activityTracking";
 
@@ -8,6 +13,7 @@ export interface TrackingEventInput {
   pageHeading?: string;
   sessionId?: string;
   eventType: TrackingEventType;
+  query?: string | null;
 }
 
 const SESSION_KEY = "asym_session_id";
@@ -336,11 +342,20 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
     event_type: input.eventType,
   } as const;
 
+  const queryValue =
+    typeof input.query === "string"
+      ? input.query.trim().slice(0, 512)
+      : input.query ?? null;
+  const payloadWithQuery =
+    input.eventType === "platform_wide_search" || queryValue !== null
+      ? { ...payload, query: queryValue }
+      : payload;
+
   try {
     await fetch("/api/user-activity", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payloadWithQuery),
       keepalive: input.eventType === "logout" || input.eventType === "error",
     });
   } catch {
