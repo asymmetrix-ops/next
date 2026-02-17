@@ -173,7 +173,8 @@ export default function HomeUserPage() {
     if (key === "corporate events") return "/corporate-events";
     if (key === "individuals") return "/individuals";
     if (key === "primary sectors" || key === "secondary sectors") return "/sectors";
-    if (key === "pe investors" || key === "vc investors") return "/investors";
+    if (key === "pe investors") return "/investors?investorTypeId=23699";
+    if (key === "vc investors") return "/investors?investorTypeId=23877";
     if (key === "advisors") return "/advisors";
     return "";
   };

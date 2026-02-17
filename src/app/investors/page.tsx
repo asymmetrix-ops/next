@@ -218,6 +218,35 @@ const InvestorsPage = () => {
   // Track if initial mount is complete to prevent duplicate API calls
   const isInitialMount = useRef(true);
 
+  const parseInitialInvestorTypeIdsFromUrl = (): number[] => {
+    if (typeof window === "undefined") return [];
+    try {
+      const params = new URLSearchParams(window.location.search);
+
+      const raw: string[] = [];
+      // Preferred param from dashboard links
+      const direct = params.get("investorTypeId");
+      if (direct) raw.push(direct);
+
+      // Support repeated/array-style params if ever used elsewhere
+      params.getAll("investorTypeId").forEach((v) => raw.push(v));
+      params.getAll("Investor_Types[]").forEach((v) => raw.push(v));
+
+      // Support comma-separated list
+      const list = params.get("investorTypeIds");
+      if (list) raw.push(...list.split(","));
+
+      const ids = raw
+        .map((v) => Number(String(v).trim()))
+        .filter((n) => Number.isFinite(n) && n > 0);
+
+      // Dedupe
+      return Array.from(new Set(ids));
+    } catch {
+      return [];
+    }
+  };
+
   // Fetch data from API (same as companies page)
   const fetchCountries = async () => {
     try {
@@ -532,8 +561,22 @@ const InvestorsPage = () => {
     fetchInvestorTypes();
     fetchContinentalRegions();
     fetchSubRegions();
-    // Initial fetch of all investors
-    fetchInvestors(filters);
+
+    const initialInvestorTypeIds = parseInitialInvestorTypeIdsFromUrl();
+    const initialFilters: InvestorsFilters =
+      initialInvestorTypeIds.length > 0
+        ? { ...filters, Investor_Types: initialInvestorTypeIds, page: 1 }
+        : filters;
+
+    if (initialInvestorTypeIds.length > 0) {
+      // Pre-set the "By Type" dropdown and reveal filters
+      setSelectedInvestorTypes(initialInvestorTypeIds);
+      setShowFilters(true);
+      setFilters(initialFilters);
+    }
+
+    // Initial fetch (optionally pre-filtered from URL)
+    fetchInvestors(initialFilters);
     
     // Mark initial mount as complete after a short delay
     setTimeout(() => {
