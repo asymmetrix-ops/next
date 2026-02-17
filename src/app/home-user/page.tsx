@@ -154,6 +154,17 @@ export default function HomeUserPage() {
     }
   };
 
+  const resolveAsymmetrixStatHref = (label: string): string => {
+    const key = String(label || "").toLowerCase().trim();
+    if (key === "companies") return "/companies";
+    if (key === "corporate events") return "/corporate-events";
+    if (key === "individuals") return "/individuals";
+    if (key === "primary sectors" || key === "secondary sectors") return "/sectors";
+    if (key === "pe investors" || key === "vc investors") return "/investors";
+    if (key === "advisors") return "/advisors";
+    return "";
+  };
+
   // Resolve corporate event id from inconsistent API shapes
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getCorporateEventId = (ev: any): number | undefined => {
@@ -1394,26 +1405,63 @@ export default function HomeUserPage() {
             <div className="p-3 sm:p-4">
               {asymmetrixData.length > 0 ? (
                 <div className="space-y-2 sm:space-y-3">
-                  {asymmetrixData.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex justify-between items-center p-2 bg-gray-50 rounded-lg sm:p-2"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <span className="text-base sm:text-lg">
-                          {item.icon}
+                  {asymmetrixData.map((item, index) => {
+                    const href = resolveAsymmetrixStatHref(item.label);
+                    const RowTag = href ? "a" : "div";
+                    return (
+                      <RowTag
+                        // eslint-disable-next-line react/no-array-index-key
+                        key={`${item.label}-${index}`}
+                        href={href || undefined}
+                        className={`group flex justify-between items-center p-2 bg-gray-50 rounded-lg sm:p-2 transition-colors ${
+                          href
+                            ? "cursor-pointer hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                            : ""
+                        }`}
+                        onClick={(e: React.MouseEvent<HTMLElement>) => {
+                          if (!href) return;
+                          // Allow default behavior for right-click, ctrl+click, cmd+click, etc.
+                          if (
+                            e.defaultPrevented ||
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            (e as any).button !== 0 ||
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            (e as any).metaKey ||
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            (e as any).ctrlKey ||
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            (e as any).shiftKey ||
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            (e as any).altKey
+                          ) {
+                            return;
+                          }
+                          e.preventDefault();
+                          router.push(href);
+                        }}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <span className="text-base sm:text-lg">
+                            {item.icon}
+                          </span>
+                          <span
+                            className={`text-xs ${
+                              href
+                                ? "text-gray-700 group-hover:text-blue-700"
+                                : "text-gray-600"
+                            } transition-colors`}
+                          >
+                            {item.label}
+                          </span>
+                        </div>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {parseInt(item.value)
+                            ? parseInt(item.value).toLocaleString()
+                            : item.value}
                         </span>
-                        <span className="text-xs text-gray-600">
-                          {item.label}
-                        </span>
-                      </div>
-                      <span className="text-sm font-semibold text-gray-900">
-                        {parseInt(item.value)
-                          ? parseInt(item.value).toLocaleString()
-                          : item.value}
-                      </span>
-                    </div>
-                  ))}
+                      </RowTag>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="py-6 text-center sm:py-8">
