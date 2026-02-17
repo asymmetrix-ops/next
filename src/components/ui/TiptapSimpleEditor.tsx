@@ -84,6 +84,10 @@ export default function TiptapSimpleEditor({
           "prose max-w-none",
           "focus:outline-none",
           "px-3 py-3",
+          // Reduce list indentation inside the editor
+          "[&_ul]:pl-5 [&_ul]:ml-0 [&_ul]:my-2 [&_ul]:list-outside",
+          "[&_ol]:pl-5 [&_ol]:ml-0 [&_ol]:my-2 [&_ol]:list-outside",
+          "[&_li]:my-1",
         ].join(" "),
         style: `min-height: ${minHeightPx}px;`,
       },

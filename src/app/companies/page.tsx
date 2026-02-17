@@ -106,6 +106,7 @@ interface Filters {
   primarySectors: number[]; // Changed from string[] to number[]
   secondarySectors: number[]; // Changed from string[] to number[]
   hybridBusinessFocuses: number[];
+  exclude_business_focus?: boolean;
   ownershipTypes: number[]; // Changed from string[] to number[]
   linkedinMembersMin: number | null;
   linkedinMembersMax: number | null;
@@ -258,6 +259,27 @@ const styles = {
     marginBottom: "8px",
     marginTop: "14px",
   },
+  toggleRow: {
+    display: "flex" as const,
+    gap: "8px",
+    marginBottom: "8px",
+  },
+  toggleButton: {
+    flex: 1,
+    padding: "8px 10px",
+    borderRadius: "6px",
+    border: "1px solid #e2e8f0",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "700",
+    backgroundColor: "#ffffff",
+    color: "#1a202c",
+  },
+  toggleButtonActive: {
+    backgroundColor: "#0075df",
+    borderColor: "#0075df",
+    color: "#ffffff",
+  },
   select: {
     width: "100%",
     padding: "13px 14px",
@@ -359,51 +381,57 @@ const useCompaniesAPI = () => {
         const requestId = ++lastRequestIdRef.current;
 
         // Convert local Filters type to server action filters
-        const serverFilters: ServerFilters = filtersToUse ? {
-          countries: filtersToUse.countries,
-          provinces: filtersToUse.provinces,
-          cities: filtersToUse.cities,
-          continentalRegions: filtersToUse.continentalRegions,
-          subRegions: filtersToUse.subRegions,
-          primarySectors: filtersToUse.primarySectors,
-          secondarySectors: filtersToUse.secondarySectors,
-          hybridBusinessFocuses: filtersToUse.hybridBusinessFocuses,
-          ownershipTypes: filtersToUse.ownershipTypes,
-          linkedinMembersMin: filtersToUse.linkedinMembersMin,
-          linkedinMembersMax: filtersToUse.linkedinMembersMax,
-          searchQuery: filtersToUse.searchQuery,
-          keywordSearch: ENABLE_COMPANIES_KEYWORD_SEARCH
-            ? filtersToUse.keywordSearch
-            : "",
-          // Financial Metrics
-          revenueMin: filtersToUse.revenueMin,
-          revenueMax: filtersToUse.revenueMax,
-          ebitdaMin: filtersToUse.ebitdaMin,
-          ebitdaMax: filtersToUse.ebitdaMax,
-          enterpriseValueMin: filtersToUse.enterpriseValueMin,
-          enterpriseValueMax: filtersToUse.enterpriseValueMax,
-          revenueMultipleMin: filtersToUse.revenueMultipleMin,
-          revenueMultipleMax: filtersToUse.revenueMultipleMax,
-          revenueGrowthMin: filtersToUse.revenueGrowthMin,
-          revenueGrowthMax: filtersToUse.revenueGrowthMax,
-          ebitdaMarginMin: filtersToUse.ebitdaMarginMin,
-          ebitdaMarginMax: filtersToUse.ebitdaMarginMax,
-          ruleOf40Min: filtersToUse.ruleOf40Min,
-          ruleOf40Max: filtersToUse.ruleOf40Max,
-          // Subscription Metrics
-          arrMin: filtersToUse.arrMin,
-          arrMax: filtersToUse.arrMax,
-          arrPcMin: filtersToUse.arrPcMin,
-          arrPcMax: filtersToUse.arrPcMax,
-          churnMin: filtersToUse.churnMin,
-          churnMax: filtersToUse.churnMax,
-          grrMin: filtersToUse.grrMin,
-          grrMax: filtersToUse.grrMax,
-          nrrMin: filtersToUse.nrrMin,
-          nrrMax: filtersToUse.nrrMax,
-          newClientsRevenueGrowthMin: filtersToUse.newClientsRevenueGrowthMin,
-          newClientsRevenueGrowthMax: filtersToUse.newClientsRevenueGrowthMax,
-        } : {};
+        // Note: build the object first to avoid excess-property checks.
+        const serverFilters: ServerFilters = (() => {
+          if (!filtersToUse) return {};
+          const serverFiltersBase = {
+            countries: filtersToUse.countries,
+            provinces: filtersToUse.provinces,
+            cities: filtersToUse.cities,
+            continentalRegions: filtersToUse.continentalRegions,
+            subRegions: filtersToUse.subRegions,
+            primarySectors: filtersToUse.primarySectors,
+            secondarySectors: filtersToUse.secondarySectors,
+            hybridBusinessFocuses: filtersToUse.hybridBusinessFocuses,
+            exclude_business_focus: filtersToUse.exclude_business_focus,
+            ownershipTypes: filtersToUse.ownershipTypes,
+            linkedinMembersMin: filtersToUse.linkedinMembersMin,
+            linkedinMembersMax: filtersToUse.linkedinMembersMax,
+            searchQuery: filtersToUse.searchQuery,
+            keywordSearch: ENABLE_COMPANIES_KEYWORD_SEARCH
+              ? filtersToUse.keywordSearch
+              : "",
+            // Financial Metrics
+            revenueMin: filtersToUse.revenueMin,
+            revenueMax: filtersToUse.revenueMax,
+            ebitdaMin: filtersToUse.ebitdaMin,
+            ebitdaMax: filtersToUse.ebitdaMax,
+            enterpriseValueMin: filtersToUse.enterpriseValueMin,
+            enterpriseValueMax: filtersToUse.enterpriseValueMax,
+            revenueMultipleMin: filtersToUse.revenueMultipleMin,
+            revenueMultipleMax: filtersToUse.revenueMultipleMax,
+            revenueGrowthMin: filtersToUse.revenueGrowthMin,
+            revenueGrowthMax: filtersToUse.revenueGrowthMax,
+            ebitdaMarginMin: filtersToUse.ebitdaMarginMin,
+            ebitdaMarginMax: filtersToUse.ebitdaMarginMax,
+            ruleOf40Min: filtersToUse.ruleOf40Min,
+            ruleOf40Max: filtersToUse.ruleOf40Max,
+            // Subscription Metrics
+            arrMin: filtersToUse.arrMin,
+            arrMax: filtersToUse.arrMax,
+            arrPcMin: filtersToUse.arrPcMin,
+            arrPcMax: filtersToUse.arrPcMax,
+            churnMin: filtersToUse.churnMin,
+            churnMax: filtersToUse.churnMax,
+            grrMin: filtersToUse.grrMin,
+            grrMax: filtersToUse.grrMax,
+            nrrMin: filtersToUse.nrrMin,
+            nrrMax: filtersToUse.nrrMax,
+            newClientsRevenueGrowthMin: filtersToUse.newClientsRevenueGrowthMin,
+            newClientsRevenueGrowthMax: filtersToUse.newClientsRevenueGrowthMax,
+          };
+          return serverFiltersBase;
+        })();
 
         // Use server action for data fetching
         const data = await fetchCompaniesServer(page, serverFilters);
@@ -784,6 +812,9 @@ const CompanyDashboard = ({
   >([]);
   const [selectedHybridBusinessFocuses, setSelectedHybridBusinessFocuses] =
     useState<number[]>([]);
+  // When true: exclude selected business focus ("Without" toggle)
+  // When false: include selected business focus ("With" toggle)
+  const [excludeBusinessFocus, setExcludeBusinessFocus] = useState(true);
   const [selectedOwnershipTypes, setSelectedOwnershipTypes] = useState<
     number[]
   >([]);
@@ -1044,6 +1075,9 @@ const CompanyDashboard = ({
       primarySectors: selectedPrimarySectors,
       secondarySectors: selectedSecondarySectors,
       hybridBusinessFocuses: selectedHybridBusinessFocuses,
+      // Only send when Hybrid_Data_ids has selections
+      exclude_business_focus:
+        selectedHybridBusinessFocuses.length > 0 ? excludeBusinessFocus : undefined,
       ownershipTypes: selectedOwnershipTypes,
       linkedinMembersMin,
       linkedinMembersMax,
@@ -1094,6 +1128,7 @@ const CompanyDashboard = ({
     selectedPrimarySectors,
     selectedSecondarySectors,
     selectedHybridBusinessFocuses,
+    excludeBusinessFocus,
     selectedOwnershipTypes,
     linkedinMembersMin,
     linkedinMembersMax,
@@ -1659,8 +1694,32 @@ const CompanyDashboard = ({
                 )}
 
                 <span style={styles.label}>
-                  Show Data & Analytics Companies with non-D&A Products/Services
+                  Data & Analytics Companies with non-D&A Products/Services
                 </span>
+                <div style={styles.toggleRow}>
+                  <button
+                    type="button"
+                    onClick={() => setExcludeBusinessFocus(true)}
+                    aria-pressed={excludeBusinessFocus}
+                    style={{
+                      ...styles.toggleButton,
+                      ...(excludeBusinessFocus ? styles.toggleButtonActive : {}),
+                    }}
+                  >
+                    Without
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExcludeBusinessFocus(false)}
+                    aria-pressed={!excludeBusinessFocus}
+                    style={{
+                      ...styles.toggleButton,
+                      ...(!excludeBusinessFocus ? styles.toggleButtonActive : {}),
+                    }}
+                  >
+                    With
+                  </button>
+                </div>
                 <SearchableSelect
                   options={hybridBusinessFocuses.map((focus) => ({
                     value: focus.id,

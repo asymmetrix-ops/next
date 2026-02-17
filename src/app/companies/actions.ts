@@ -69,6 +69,7 @@ export interface CompaniesFilters {
   primarySectors?: number[];
   secondarySectors?: number[];
   hybridBusinessFocuses?: number[];
+  exclude_business_focus?: boolean;
   ownershipTypes?: number[];
   linkedinMembersMin?: number | null;
   linkedinMembersMax?: number | null;
@@ -219,6 +220,9 @@ export async function fetchCompaniesServer(
       filters.hybridBusinessFocuses!.forEach((focusId) => {
         params.append("Hybrid_Data_ids[]", focusId.toString());
       });
+      if (typeof filters.exclude_business_focus === "boolean") {
+        params.append("exclude_business_focus", String(filters.exclude_business_focus));
+      }
     }
 
     // LinkedIn Members
