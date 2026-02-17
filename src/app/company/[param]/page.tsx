@@ -217,18 +217,6 @@ interface CompanyInvestorFromCompanies {
   company_name: string;
 }
 
-// Investors data from investors_data field
-interface InvestorsDataItem {
-  name: string;
-  investor_id: number;
-  new_company_id?: number;
-}
-
-interface ParsedInvestorsData {
-  past: InvestorsDataItem[];
-  current: InvestorsDataItem[];
-}
-
 interface CompanyManagement {
   id: number;
   name: string;
@@ -874,10 +862,6 @@ const CompanyDetail = () => {
     CompanyInvestorFromAPI[]
   >([]);
   const [apiInvestorsLoading, setApiInvestorsLoading] = useState(false);
-  // Investors from investors_data field in company response
-  const [parsedInvestorsData, setParsedInvestorsData] = useState<
-    ParsedInvestorsData | null
-  >(null);
   const [exportingPdf, setExportingPdf] = useState(false);
 
   // Safely extract a sector id from various backend shapes
@@ -1129,7 +1113,6 @@ const CompanyDetail = () => {
     const fetchCompanyData = async () => {
       setLoading(true);
       setError(null);
-      setParsedInvestorsData(null); // Reset investors data
 
       try {
         let data: CompanyResponse;
@@ -1230,40 +1213,6 @@ const CompanyDetail = () => {
             }
           }
         } catch {}
-
-        // Parse investors_data from Get_new_company payload
-        try {
-          const rawInvestorsData = (
-            data as unknown as {
-              investors_data?: Array<{ items?: unknown }>;
-            }
-          )?.investors_data;
-          if (Array.isArray(rawInvestorsData) && rawInvestorsData.length > 0) {
-            for (const entry of rawInvestorsData) {
-              const raw = (entry as { items?: unknown })?.items;
-              let payload: unknown = raw;
-              if (typeof raw === "string") {
-                try {
-                  payload = JSON.parse(raw as string);
-                } catch {
-                  // ignore malformed JSON
-                }
-              }
-              if (payload && typeof payload === "object") {
-                const parsed = payload as ParsedInvestorsData;
-                if (
-                  Array.isArray(parsed.current) ||
-                  Array.isArray(parsed.past)
-                ) {
-                  setParsedInvestorsData(parsed);
-                  break; // use first valid block only
-                }
-              }
-            }
-          }
-        } catch {
-          // non-fatal
-        }
 
         // Parse corporate events from Get_new_company payload (preferred, no auth)
         try {
@@ -2527,79 +2476,6 @@ const CompanyDetail = () => {
                 </span>
                 <div style={styles.value} className="info-value">
                   {(() => {
-                    // Prefer investors from Company._companies_investors (canonical for company page)
-                    if (
-                      Array.isArray(company._companies_investors) &&
-                      company._companies_investors.length > 0
-                    ) {
-                      const list = company._companies_investors
-                        .filter(
-                          (inv) =>
-                            inv &&
-                            typeof inv.original_new_company_id === "number" &&
-                            inv.company_name
-                        )
-                        .map((inv) => ({
-                          id: inv.original_new_company_id,
-                          name: inv.company_name,
-                        }));
-
-                      if (list.length > 0) {
-                        return (
-                          <div style={styles.tagContainer}>
-                            {list.map((inv) => (
-                              <Link
-                                key={`company-investor-${inv.id}`}
-                                href={`/investors/${inv.id}`}
-                                style={styles.companyTag}
-                                onMouseEnter={(e) => {
-                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
-                                }}
-                                onMouseLeave={(e) => {
-                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
-                                }}
-                                prefetch={false}
-                              >
-                                {inv.name}
-                              </Link>
-                            ))}
-                          </div>
-                        );
-                      }
-                    }
-
-                    // Prefer investors from investors_data if available
-                    if (parsedInvestorsData?.current && parsedInvestorsData.current.length > 0) {
-                      const validInvestors = parsedInvestorsData.current.filter(
-                        (investor) =>
-                          investor &&
-                          typeof investor.investor_id === "number" &&
-                          investor.name
-                      );
-                      if (validInvestors.length > 0) {
-                        return (
-                          <div style={styles.tagContainer}>
-                            {validInvestors.map((investor) => (
-                              <Link
-                                key={`investor-${investor.investor_id}`}
-                                href={`/investors/${investor.investor_id}`}
-                                style={styles.companyTag}
-                                onMouseEnter={(e) => {
-                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
-                                }}
-                                onMouseLeave={(e) => {
-                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
-                                }}
-                                prefetch={false}
-                              >
-                                {investor.name}
-                              </Link>
-                            ))}
-                          </div>
-                        );
-                      }
-                    }
-                    // Fallback to API investors
                     if (apiInvestorsLoading) {
                       return "Loading...";
                     }
