@@ -655,10 +655,20 @@ export default function HomeUserPage() {
 
   useEffect(() => {
     if (!searchPopupOpen || searchPageType === null) return;
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      // If the user clears the query while a filtered search is in-flight,
+      // abort and reset so the UI doesn't get "stuck" in loading/disabled state.
+      popupAbortRef.current?.abort();
+      popupAbortRef.current = null;
+      setPopupFiltering(false);
+      setPopupResults([]);
+      setPopupDisplayedCount(25);
+      popupQueryRef.current = searchQuery;
+      return;
+    }
     if (searchQuery === popupQueryRef.current) return;
     popupQueryRef.current = searchQuery;
-    const q = searchQuery.trim();
-    if (q.length < 2) return;
     const t = window.setTimeout(() => {
       handleSearchFilterChange(searchPageType);
     }, 250);
@@ -1208,8 +1218,15 @@ export default function HomeUserPage() {
                           matchesPopupFilter(r, searchPageType)
                         );
                   const displayed = visibleResults.slice(0, popupDisplayedCount);
+                  const allTabLoading =
+                    searchPageType === null &&
+                    searchQuery.trim().length >= 2 &&
+                    (searchLoading || searchLoadingSources);
 
-                  if (popupFiltering && visibleResults.length === 0) {
+                  if (
+                    (popupFiltering || allTabLoading) &&
+                    visibleResults.length === 0
+                  ) {
                     return (
                       <div className="flex items-center justify-center py-12">
                         <div className="w-8 h-8 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" />
@@ -1219,6 +1236,11 @@ export default function HomeUserPage() {
                       </div>
                     );
                   }
+                  if (searchPageType === null && searchError) {
+                    return (
+                      <p className="text-sm text-red-600 py-4">{searchError}</p>
+                    );
+                  }
                   if (visibleResults.length === 0) {
                     return (
                       <p className="text-sm text-gray-500 py-4">No results</p>
@@ -1226,7 +1248,7 @@ export default function HomeUserPage() {
                   }
                   return (
                     <>
-                      {popupFiltering && (
+                      {(popupFiltering || allTabLoading) && (
                         <div className="pb-2 text-xs text-gray-500">
                           Loading more results…
                         </div>
