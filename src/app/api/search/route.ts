@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-const BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:emt0MLoc:develop";
+const BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:emt0MLoc";
 
 const SEARCH_ENDPOINTS: { url: string; type: string }[] = [
   { url: `${BASE}/search_sectors`, type: "sector" },
@@ -19,6 +19,7 @@ export type SearchResultItem = {
   type: string;
   match_rank?: number;
   type_order?: number;
+  sector_importance?: string;
 };
 
 const TYPE_ORDER: Record<string, number> = {
@@ -109,7 +110,9 @@ function extractItems(data: unknown, defaultType: string): SearchResultItem[] {
         String(rec.title ?? rec.name ?? rec.headline ?? rec.description ?? rec.label ?? "")
           .trim() || "Untitled";
       const itemType = String(rec.type ?? rec.entity_type ?? defaultType).toLowerCase().trim() || defaultType;
-      return { id, title, type: itemType };
+      const sectorImportance =
+        rec.sector_importance != null ? String(rec.sector_importance).trim() : undefined;
+      return { id, title, type: itemType, ...(sectorImportance ? { sector_importance: sectorImportance } : {}) };
     })
     .filter((r): r is SearchResultItem => r !== null);
 }
@@ -206,6 +209,7 @@ export async function POST(request: NextRequest) {
           type,
           match_rank: matchRank,
           type_order: typeOrder,
+          ...(item.sector_importance ? { sector_importance: item.sector_importance } : {}),
         } satisfies SearchResultItem;
       })
       .sort(compareSearchItems);

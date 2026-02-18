@@ -33,6 +33,7 @@ export type GlobalSearchResult = {
   match_rank?: number;
   type_order?: number;
   sort_date?: string;
+  sector_importance?: string;
 };
 
 const TYPE_ORDER: Record<string, number> = {
@@ -298,8 +299,10 @@ export function resolveSearchHref(result: GlobalSearchResult): string {
     return `/corporate-event/${id}`;
   if (t === "insight" || t === "insights" || t === "article")
     return `/article/${id}`;
-  if (t === "sector") return `/sector/${id}`;
-  if (t === "sub_sector" || t === "sub-sector") return `/sub-sector/${id}`;
+  if (t === "sector" || t === "sub_sector" || t === "sub-sector") {
+    const importance = String(result.sector_importance || "").trim().toLowerCase();
+    return importance === "secondary" ? `/sub-sector/${id}` : `/sector/${id}`;
+  }
 
   return "";
 }
