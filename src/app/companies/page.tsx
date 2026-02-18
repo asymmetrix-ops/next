@@ -1694,7 +1694,7 @@ const CompanyDashboard = ({
                 )}
 
                 <span style={styles.label}>
-                  Data & Analytics Companies with non-D&A Products/Services
+                Data & Analytics Companies with/without non-D&A Products/Services
                 </span>
                 <div style={styles.toggleRow}>
                   <button
