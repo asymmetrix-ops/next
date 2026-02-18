@@ -491,40 +491,34 @@ export default function AdvisorProfilePage() {
       font-size: 14px;
     }
     .advisor-layout {
-      display: grid;
-      /* Narrow left column so the deals table gets maximum space */
-      grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
-      gap: 24px 20px;
-      align-items: start;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
     }
-    .advisor-left-column { width: 100%; }
-    .advisor-right-column { width: 100%; }
     .advisor-section {
       background-color: white;
       padding: 24px;
       border-radius: 8px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      margin-bottom: 24px;
-    }
-    .advisor-left-column .advisor-section {
-      padding: 16px;
     }
     .section-title {
       margin: 0 0 16px 0;
       font-size: 20px;
       font-weight: bold;
     }
-    .advisor-left-column .section-title {
-      font-size: 16px;
-      margin-bottom: 12px;
+    .info-sections-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+    .info-sections-row .advisor-section {
+      margin-bottom: 0;
     }
     .info-grid {
       display: flex;
       flex-direction: column;
       gap: 12px;
-    }
-    .advisor-left-column .info-grid {
-      gap: 8px;
     }
     .info-item {
       display: flex;
@@ -534,15 +528,11 @@ export default function AdvisorProfilePage() {
     .info-label {
       font-weight: bold;
       color: #374151;
-    }
-    .advisor-left-column .info-label {
-      font-size: 12px;
+      font-size: 13px;
     }
     .info-value {
       color: #6b7280;
-    }
-    .advisor-left-column .info-value {
-      font-size: 12px;
+      font-size: 13px;
     }
     .description-text {
       white-space: pre-wrap;
@@ -668,7 +658,7 @@ export default function AdvisorProfilePage() {
       white-space: nowrap !important;
     }
     .event-link {
-      color: #3b82f6;
+      color: inherit;
       text-decoration: none;
       cursor: pointer;
       word-break: normal;
@@ -676,7 +666,8 @@ export default function AdvisorProfilePage() {
       white-space: normal;
     }
     .event-link:hover {
-      text-decoration: underline;
+      color: #005bb5;
+      text-decoration: none;
     }
     .advisor-link {
       color: #3b82f6;
@@ -838,9 +829,9 @@ export default function AdvisorProfilePage() {
       transform: translateY(-2px);
       box-shadow: 0 4px 6px rgba(0, 117, 223, 0.1);
     }
-    /* Advisors: make cards smaller and fit 2 per row on desktop */
+    /* Advisors: auto-fill columns based on available width */
     .advisor-detail-page .management-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
       gap: 10px !important;
     }
     .advisor-detail-page .management-card {
@@ -870,17 +861,13 @@ export default function AdvisorProfilePage() {
         width: fit-content !important;
       }
       .advisor-layout {
-        display: flex !important;
-        flex-direction: column !important;
         gap: 16px !important;
       }
-      .advisor-left-column,
-      .advisor-right-column {
-        width: 100% !important;
+      .info-sections-row {
+        grid-template-columns: 1fr !important;
       }
       .advisor-section {
         padding: 16px !important;
-        margin-bottom: 16px !important;
       }
       .section-title {
         font-size: 18px !important;
@@ -948,106 +935,8 @@ export default function AdvisorProfilePage() {
         </div>
 
         <div className="advisor-layout">
-          {/* Left Column - Overview */}
-          <div className="advisor-left-column">
-            {/* Overview Section */}
-            <div className="advisor-section">
-              <h2 className="section-title">Overview</h2>
-              <div className="info-grid">
-                <div className="info-item">
-                  <span className="info-label">Year founded:</span>
-                  <span className="info-value">
-                    {getAdvisorYearFoundedDisplay(Advisor)}
-                  </span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">HQ:</span>
-                  <span className="info-value">{hq || "Not available"}</span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">Website:</span>
-                  <span className="info-value">
-                    {Advisor.url ? (
-                      <a
-                        href={Advisor.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: "#3b82f6", textDecoration: "none" }}
-                      >
-                        {Advisor.url}
-                      </a>
-                    ) : (
-                      "Not available"
-                    )}
-                  </span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">
-                    Data & Analytics transactions advised:
-                  </span>
-                  <span className="info-value">
-                    {Portfolio_companies_count}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Description Section */}
-            <div className="advisor-section">
-              <h2 className="section-title">Description</h2>
-              {Advisor.description ? (
-                <>
-                  <div
-                    className={[
-                      "info-value",
-                      "description-text",
-                      descriptionExpanded ? "" : "description-collapsed",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                  >
-                    {Advisor.description}
-                  </div>
-                  <div className="description-footer">
-                    <button
-                      type="button"
-                      className="toggle-button"
-                      onClick={() => setDescriptionExpanded((v) => !v)}
-                    >
-                      {descriptionExpanded ? "Show less" : "Read more"}
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="info-value">Not available</div>
-              )}
-            </div>
-
-            {/* Historic LinkedIn Data Section */}
-            <div className="advisor-section">
-              <h2 className="section-title">Historic LinkedIn Data</h2>
-              {linkedInHistoryLoading ? (
-                <div className="loading">Loading LinkedIn history...</div>
-              ) : linkedInHistory.length > 0 ? (
-                <LinkedInHistoryChart data={linkedInHistory} />
-              ) : (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "24px",
-                    color: "#6b7280",
-                  }}
-                >
-                  No LinkedIn history data available
-                </div>
-              )}
-            </div>
-
-          </div>
-
-          {/* Right Column - Corporate Events */}
-          <div className="advisor-right-column">
-            <div className="advisor-section">
+          {/* Deals Advised */}
+          <div className="advisor-section">
               <div className="corporate-events-header">
                 <h2 className="section-title">Deals Advised</h2>
               </div>
@@ -1512,7 +1401,103 @@ export default function AdvisorProfilePage() {
               )}
             </div>
 
-            {/* Advisors Section (moved beneath Deals Advised) */}
+            {/* Overview / Description / LinkedIn row */}
+            <div className="info-sections-row">
+            {/* Overview Section */}
+            <div className="advisor-section">
+              <h2 className="section-title">Overview</h2>
+              <div className="info-grid">
+                <div className="info-item">
+                  <span className="info-label">Year founded:</span>
+                  <span className="info-value">
+                    {getAdvisorYearFoundedDisplay(Advisor)}
+                  </span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">HQ:</span>
+                  <span className="info-value">{hq || "Not available"}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Website:</span>
+                  <span className="info-value">
+                    {Advisor.url ? (
+                      <a
+                        href={Advisor.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "#3b82f6", textDecoration: "none" }}
+                      >
+                        {Advisor.url}
+                      </a>
+                    ) : (
+                      "Not available"
+                    )}
+                  </span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">
+                    Data & Analytics transactions advised:
+                  </span>
+                  <span className="info-value">
+                    {Portfolio_companies_count}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Description Section */}
+            <div className="advisor-section">
+              <h2 className="section-title">Description</h2>
+              {Advisor.description ? (
+                <>
+                  <div
+                    className={[
+                      "info-value",
+                      "description-text",
+                      descriptionExpanded ? "" : "description-collapsed",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  >
+                    {Advisor.description}
+                  </div>
+                  <div className="description-footer">
+                    <button
+                      type="button"
+                      className="toggle-button"
+                      onClick={() => setDescriptionExpanded((v) => !v)}
+                    >
+                      {descriptionExpanded ? "Show less" : "Read more"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="info-value">Not available</div>
+              )}
+            </div>
+
+            {/* Historic LinkedIn Data Section */}
+            <div className="advisor-section">
+              <h2 className="section-title">Historic LinkedIn Data</h2>
+              {linkedInHistoryLoading ? (
+                <div className="loading">Loading LinkedIn history...</div>
+              ) : linkedInHistory.length > 0 ? (
+                <LinkedInHistoryChart data={linkedInHistory} />
+              ) : (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "24px",
+                    color: "#6b7280",
+                  }}
+                >
+                  No LinkedIn history data available
+                </div>
+              )}
+            </div>
+            </div>{/* end info-sections-row */}
+
+            {/* Advisors Section */}
             <div className="advisor-section">
               <h2 className="section-title">Advisors</h2>
 
@@ -1610,7 +1595,6 @@ export default function AdvisorProfilePage() {
                 return null;
               })()}
             </div>
-          </div>
         </div>
       </div>
 
