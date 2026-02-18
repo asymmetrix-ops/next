@@ -510,10 +510,13 @@ export default function AdvisorProfilePage() {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
       gap: 24px;
-      align-items: start;
+      align-items: stretch;
     }
     .info-sections-row .advisor-section {
       margin-bottom: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
     }
     .info-grid {
       display: flex;
