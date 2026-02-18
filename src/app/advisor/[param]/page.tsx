@@ -178,6 +178,8 @@ export default function AdvisorProfilePage() {
   const params = useParams();
   const advisorId = parseInt(params.param as string);
   const [eventsExpanded, setEventsExpanded] = useState(false);
+  const [exportingDeals, setExportingDeals] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   // Roles fetched from the LinkedIn/company endpoint (includes job titles)
@@ -212,6 +214,410 @@ export default function AdvisorProfilePage() {
 
   const handleToggleEvents = () => {
     setEventsExpanded(!eventsExpanded);
+  };
+
+  const escapeCsvField = (value: string): string => {
+    if (value == null) return "";
+    const s = String(value).trim();
+    if (s.includes('"') || s.includes("\n") || s.includes(",")) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  const coerceUnknownToArray = (raw: unknown): unknown[] => {
+    if (Array.isArray(raw)) return raw;
+    if (raw === null || raw === undefined) return [];
+    if (typeof raw !== "string") return [];
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed === "[]") return [];
+    try {
+      const normalized = trimmed.replace(/\\u0022/g, '"');
+      const parsed = JSON.parse(normalized) as unknown;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const getEventRowForCsv = (event: AdvisorCorporateEventItem): string[] => {
+    const date = event.announcement_date
+      ? formatDate(event.announcement_date)
+      : "—";
+    const counterparty = (event.company_advised_role || event.company_advised_name || "—").trim() || "—";
+    const clientName = (event.company_advised_name || "").trim() || "—";
+    const sectors = (() => {
+      const arr = coerceUnknownToArray(event.primary_sectors as unknown);
+      return arr
+        .map((s) => String((s as { sector_name?: string })?.sector_name || "").trim())
+        .filter(Boolean)
+        .join(", ") || "—";
+    })();
+    let ev = "—";
+    const value = event.enterprise_value_m;
+    const currency = (event.currency_name || "").trim();
+    if (value != null && value !== "") {
+      ev = currency ? formatCurrency(String(value), currency) : String(value);
+    }
+    const individuals = coerceUnknownToArray(event.advisor_individuals as unknown)
+      .map((p) => String((p as { name?: string })?.name || "").trim())
+      .filter(Boolean)
+      .join(", ") || "—";
+    const otherAdvisors = coerceUnknownToArray(event.other_advisors as unknown)
+      .map((a) =>
+        String((a as { advisor_company_name?: string })?.advisor_company_name || "").trim()
+      )
+      .filter(Boolean)
+      .join(", ") || "—";
+    return [
+      event.description ?? "",
+      date,
+      event.deal_type ?? "—",
+      counterparty,
+      clientName,
+      sectors,
+      ev,
+      individuals,
+      otherAdvisors,
+    ];
+  };
+
+  const exportDealsToCsv = () => {
+    if (filteredEvents.length === 0) return;
+    setExportingDeals(true);
+    try {
+      const headers = [
+        "Description",
+        "Date Announced",
+        "Type",
+        "Counterparty Advised",
+        "Client Name",
+        "Sector(s)",
+        "Enterprise Value",
+        "Individuals",
+        "Other Advisors",
+      ];
+      const rows = filteredEvents.map((event) =>
+        getEventRowForCsv(event).map(escapeCsvField).join(",")
+      );
+      const csv = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const urlObj = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = urlObj;
+      a.download = `advisor-${advisorId}-deals-advised-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(urlObj);
+    } catch (err) {
+      console.error("Export Deals Advised failed:", err);
+    } finally {
+      setExportingDeals(false);
+    }
+  };
+
+  const buildAdvisorPageSnapshot = () => {
+    const baseUrl =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "https://www.asymmetrixintelligence.com";
+    const pagePath = `/advisor/${advisorId}`;
+    const pageUrl = `${baseUrl}${pagePath}`;
+
+    const env =
+      process.env.NEXT_PUBLIC_ENVIRONMENT ||
+      process.env.NEXT_PUBLIC_VERCEL_ENV ||
+      "unknown";
+
+    const advisor = advisorData?.Advisor;
+    const loc = advisor?._locations;
+    const hqFormatted = `${loc?.City || ""}, ${loc?.State__Province__County || ""}, ${
+      loc?.Country || ""
+    }`
+      .replace(/^,\s*/, "")
+      .replace(/,\s*$/, "");
+
+    const linkedInNew = advisor?._linkedin_data_of_new_company as
+      | { linkedin_logo?: string; linkedin_employee?: number; linkedin_emp_date?: string }
+      | undefined;
+    const linkedInLegacy = advisor?.linkedin_data as
+      | { LinkedIn_URL?: string; LinkedIn_Employee?: number; LinkedIn_Emp__Date?: string; linkedin_logo?: string }
+      | undefined;
+
+    const normalizedDeals = filteredEvents.map((event) => {
+      const companyAdvisedId = event.company_advised_id ?? null;
+      const companyAdvisedName = (event.company_advised_name || "").trim() || null;
+      const companyAdvisedRole = (event.company_advised_role || "").trim() || null;
+
+      const roleLc = String(companyAdvisedRole || "").toLowerCase();
+      const companyAdvisedPath =
+        companyAdvisedId && companyAdvisedName
+          ? roleLc.includes("investor")
+            ? `/investors/${companyAdvisedId}`
+            : `/company/${companyAdvisedId}`
+          : null;
+
+      const currency = (event.currency_name || "").trim() || null;
+      const value = event.enterprise_value_m ?? null;
+      const evFormatted =
+        value === null || value === undefined || value === ""
+          ? "—"
+          : currency
+          ? formatCurrency(String(value), currency)
+          : String(value);
+
+      const sectorsArr = coerceUnknownToArray(event.primary_sectors as unknown).map(
+        (s) => {
+          const obj = s as {
+            id?: number;
+            sector_name?: string;
+            sector_importance?: string;
+            is_derived?: boolean;
+          };
+          return {
+            id: typeof obj.id === "number" ? obj.id : null,
+            sector_name: obj.sector_name ?? null,
+            sector_importance: obj.sector_importance ?? null,
+            is_derived: typeof obj.is_derived === "boolean" ? obj.is_derived : null,
+          };
+        }
+      );
+
+      const advisorIndividualsArr = coerceUnknownToArray(
+        event.advisor_individuals as unknown
+      ).map((p) => {
+        const obj = p as { id?: number; name?: string };
+        return {
+          id: typeof obj.id === "number" ? obj.id : null,
+          name: obj.name ?? null,
+        };
+      });
+
+      const otherAdvisorsArr = coerceUnknownToArray(event.other_advisors as unknown).map(
+        (a) => {
+          const obj = a as {
+            id?: number;
+            advisor_company_id?: number;
+            advisor_company_name?: string;
+            individuals_id?: number[];
+          };
+          return {
+            id: typeof obj.id === "number" ? obj.id : null,
+            advisor_company_id:
+              typeof obj.advisor_company_id === "number" ? obj.advisor_company_id : null,
+            advisor_company_name: obj.advisor_company_name ?? null,
+            individuals_id: Array.isArray(obj.individuals_id) ? obj.individuals_id : null,
+          };
+        }
+      );
+
+      return {
+        id: event.id,
+        description: event.description ?? null,
+        announcement_date: event.announcement_date ?? null,
+        announcement_date_display: event.announcement_date
+          ? formatDate(event.announcement_date)
+          : "—",
+        deal_type: event.deal_type ?? null,
+        company_advised: {
+          id: companyAdvisedId,
+          name: companyAdvisedName,
+          role: companyAdvisedRole,
+        },
+        enterprise_value: {
+          value_m: value,
+          currency_name: currency,
+          formatted: evFormatted,
+        },
+        sectors: sectorsArr,
+        advisor_individuals: advisorIndividualsArr,
+        other_advisors: otherAdvisorsArr,
+        links: {
+          corporate_event_path: `/corporate-event/${event.id}`,
+          company_advised_path: companyAdvisedPath,
+        },
+      };
+    });
+
+    const buildPeopleLists = () => {
+      const fallbacksUsed: string[] = [];
+
+      const fromRoles = (roles: RoleItem[]) =>
+        roles.map((role) => ({
+          id: role.id,
+          individual_id: role.individuals_id,
+          name:
+            (role.advisor_individuals || role.Individual_text || "").trim() || "Unknown",
+          job_titles: role.job_titles_id?.map((jt) => jt.job_title) || [],
+        }));
+
+      const fromProfileIndividuals = (
+        arr: Array<{
+          id: number;
+          individuals_id: number;
+          advisor_individuals: string;
+          job_titles_id?: Array<{ id?: number; job_title: string }>;
+        }>
+      ) =>
+        arr.map((individual) => ({
+          id: individual.id,
+          individual_id: individual.individuals_id,
+          name: (individual.advisor_individuals || "").trim() || "Unknown",
+          job_titles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
+        }));
+
+      let current: Array<{
+        id: number;
+        individual_id: number;
+        name: string;
+        job_titles: string[];
+      }> = [];
+      let past: Array<{
+        id: number;
+        individual_id: number;
+        name: string;
+        job_titles: string[];
+      }> = [];
+
+      if (rolesCurrent.length > 0) {
+        current = fromRoles(rolesCurrent);
+      } else if (
+        advisorData?.Advisors_individuals_current &&
+        advisorData.Advisors_individuals_current.length > 0
+      ) {
+        current = fromProfileIndividuals(advisorData.Advisors_individuals_current);
+        fallbacksUsed.push("advisor_profile_current");
+      } else if (advisorData?.Advisors_individuals && advisorData.Advisors_individuals.length > 0) {
+        current = fromProfileIndividuals(advisorData.Advisors_individuals);
+        fallbacksUsed.push("advisor_profile_all");
+      }
+
+      if (rolesPast.length > 0) {
+        past = fromRoles(rolesPast);
+      } else if (
+        advisorData?.Advisors_individuals_past &&
+        advisorData.Advisors_individuals_past.length > 0
+      ) {
+        past = fromProfileIndividuals(advisorData.Advisors_individuals_past);
+        fallbacksUsed.push("advisor_profile_past");
+      }
+
+      return { current, past, fallbacksUsed };
+    };
+
+    const { current, past, fallbacksUsed } = buildPeopleLists();
+
+    return {
+      schema_version: "1.0.0",
+      captured_at: new Date().toISOString(),
+      source: {
+        app: "asymmetrix-nextjs",
+        environment: env,
+        page_path: pagePath,
+        page_url: pageUrl,
+        advisor_id: advisorId,
+      },
+      advisor: {
+        id: advisor?.id ?? advisorId,
+        name: advisor?.name ?? "",
+        description: advisor?.description ?? null,
+        website_url: advisor?.url ?? null,
+        year_founded_display: advisor ? getAdvisorYearFoundedDisplay(advisor) : "Not available",
+        hq: {
+          city: loc?.City ?? null,
+          state_province_county: loc?.State__Province__County ?? null,
+          country: loc?.Country ?? null,
+          formatted: hqFormatted,
+        },
+        linkedin: {
+          logo_base64_jpeg: linkedInNew?.linkedin_logo || linkedInLegacy?.linkedin_logo || null,
+          employee_count:
+            typeof linkedInNew?.linkedin_employee === "number"
+              ? linkedInNew.linkedin_employee
+              : typeof linkedInLegacy?.LinkedIn_Employee === "number"
+              ? linkedInLegacy.LinkedIn_Employee
+              : null,
+          employee_count_date: linkedInNew?.linkedin_emp_date || linkedInLegacy?.LinkedIn_Emp__Date || null,
+          linkedin_url: linkedInLegacy?.LinkedIn_URL || null,
+        },
+        portfolio_companies_count: advisorData?.Portfolio_companies_count ?? 0,
+      },
+      deals_advised: {
+        total_count: safeEvents.length,
+        filtered_count: filteredEvents.length,
+        active_filters: {
+          primary_sector_ids: selectedFilterPrimary,
+          secondary_sector_ids: selectedFilterSecondary,
+        },
+        items: normalizedDeals,
+      },
+      linkedin_history: {
+        monthly_employee_counts: linkedInHistory.map((x) => ({
+          date: x.date,
+          employees_count: x.employees_count,
+        })),
+      },
+      advisor_people: {
+        current,
+        past,
+        sources: {
+          preferred: "linkedin_company_endpoint_roles",
+          fallbacks_used: fallbacksUsed,
+        },
+      },
+      deal_filter_option_lists: {
+        primary_sectors: filterPrimarySectors.map((s) => ({
+          id: s.id,
+          sector_name: s.sector_name,
+        })),
+        secondary_sectors: filterSecondarySectors.map((s) => ({
+          id: s.id,
+          sector_name: s.sector_name,
+        })),
+      },
+    };
+  };
+
+  const exportAdvisorPdf = async () => {
+    if (!advisorData?.Advisor) return;
+    setExportingPdf(true);
+    try {
+      const payload = { advisor: buildAdvisorPageSnapshot() };
+      const res = await fetch(
+        "https://asymmetrix-pdf-service.fly.dev/api/export-advisor-pdf",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(
+          `PDF export failed: ${res.status} ${res.statusText}${text ? ` — ${text}` : ""}`
+        );
+      }
+      const blob = await res.blob();
+      const urlObj = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = urlObj;
+      const safeNamePart = (input: string) =>
+        input
+          .trim()
+          .replace(/[^a-zA-Z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 60)
+          .toLowerCase();
+      const advisorName = String(advisorData.Advisor?.name || "").trim();
+      const date = new Date().toISOString().slice(0, 10);
+      const namePart = safeNamePart(advisorName) || `advisor-${advisorId}`;
+      a.download = `${namePart}-${date}.pdf`;
+      a.click();
+      URL.revokeObjectURL(urlObj);
+    } catch (e) {
+      console.error("Export PDF failed:", e);
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   // Fetch LinkedIn history data using the same API pattern as company page
@@ -556,7 +962,39 @@ export default function AdvisorProfilePage() {
       justify-content: space-between;
       align-items: center;
       margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
     }
+    .export-deals-button {
+      padding: 8px 16px;
+      background-color: #16a34a;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .export-deals-button:hover {
+      background-color: #15803d;
+    }
+    .export-deals-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .export-pdf-button {
+      padding: 8px 16px;
+      background-color: #16a34a;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .export-pdf-button:hover { background-color: #15803d; }
+    .export-pdf-button:disabled { opacity: 0.6; cursor: not-allowed; }
     .corporate-events-footer {
       display: flex;
       justify-content: flex-start;
@@ -935,6 +1373,15 @@ export default function AdvisorProfilePage() {
           >
             Contribute Data
           </a>
+          <button
+            type="button"
+            className="export-pdf-button"
+            onClick={exportAdvisorPdf}
+            disabled={exportingPdf || !advisorData?.Advisor}
+            title="Generate and download PDF"
+          >
+            {exportingPdf ? "Exporting PDF..." : "Export PDF"}
+          </button>
         </div>
 
         <div className="advisor-layout">
@@ -942,6 +1389,17 @@ export default function AdvisorProfilePage() {
           <div className="advisor-section">
               <div className="corporate-events-header">
                 <h2 className="section-title">Deals Advised</h2>
+                {filteredEvents.length > 0 && (
+                  <button
+                    type="button"
+                    className="export-deals-button"
+                    onClick={exportDealsToCsv}
+                    disabled={exportingDeals}
+                    title="Export all deals advised to CSV (opens in Excel)"
+                  >
+                    {exportingDeals ? "Exporting..." : "Export Deals Advised"}
+                  </button>
+                )}
               </div>
 
               {/* Sector Filters */}
