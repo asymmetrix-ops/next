@@ -70,6 +70,7 @@ const AdvisorsPage = () => {
     Record<number, boolean>
   >({});
   const [loading, setLoading] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
     itemsReceived: 0,
@@ -1190,6 +1191,119 @@ const AdvisorsPage = () => {
     });
   };
 
+  const escapeCsvField = (value: string): string => {
+    if (value == null) return "";
+    const s = String(value).trim();
+    if (s.includes('"') || s.includes("\n") || s.includes(",")) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  const exportToCsv = async () => {
+    const itemsTotal = pagination.itemsTotal;
+    if (itemsTotal <= 0) return;
+
+    setExportingCsv(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = new URLSearchParams();
+      params.append("page", "1");
+      params.append("per_page", String(itemsTotal));
+
+      if (filters.searchQuery)
+        params.append("search_query", filters.searchQuery);
+      if (filters.countries.length > 0) {
+        filters.countries.forEach((c) => params.append("Countries[]", c));
+      }
+      if (filters.provinces.length > 0) {
+        filters.provinces.forEach((p) => params.append("Provinces[]", p));
+      }
+      if (filters.cities.length > 0) {
+        filters.cities.forEach((c) => params.append("Cities[]", c));
+      }
+      if ((filters.Continental_Region || []).length > 0) {
+        params.append("Continental_Region", (filters.Continental_Region || []).join(","));
+      }
+      if ((filters.geographical_sub_region || []).length > 0) {
+        params.append("geographical_sub_region", (filters.geographical_sub_region || []).join(","));
+      }
+      if (filters.primarySectors.length > 0) {
+        filters.primarySectors.forEach((id) => params.append("primary_sectors_ids[]", String(id)));
+      }
+      if (filters.secondarySectors.length > 0) {
+        filters.secondarySectors.forEach((id) => params.append("Secondary_sectors_ids[]", String(id)));
+      }
+      if (typeof filters.corporate_events_advised_min === "number") {
+        params.append("corporate_events_advised_min", String(filters.corporate_events_advised_min));
+      }
+      if (typeof filters.corporate_events_advised_max === "number") {
+        params.append("corporate_events_advised_max", String(filters.corporate_events_advised_max));
+      }
+
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_list?${params.toString()}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+
+      if (!response.ok) throw new Error(`API request failed: ${response.statusText}`);
+
+      const text = await response.text();
+      let raw: Record<string, unknown> = {};
+      try {
+        raw = JSON.parse(text) as Record<string, unknown>;
+      } catch (e) {
+        console.error("[Advisors] Export: parse error", e);
+        throw e;
+      }
+      const r = raw as { items?: unknown[]; result1?: { items?: unknown[] }; Advisors_companies?: { items?: unknown[] } };
+      const listRoot = r?.items ?? r?.result1?.items ?? r?.Advisors_companies?.items ?? [];
+      const allAdvisors = (listRoot as Advisor[]) || [];
+
+      const baseUrl =
+        typeof window !== "undefined"
+          ? window.location.origin
+          : "https://www.asymmetrixintelligence.com";
+      const headers = [
+        "Name of the company",
+        "Asymmetrix link",
+        "Description",
+        "Number of corporate events advised",
+        "Advised sectors",
+        "Country",
+      ];
+      const rows = allAdvisors.map((advisor) => {
+        const link = `${baseUrl}/advisor/${advisor.id}`;
+        const sectors = advisor.sectors ?? "";
+        return [
+          escapeCsvField(advisor.name ?? ""),
+          escapeCsvField(link),
+          escapeCsvField(advisor.description ?? ""),
+          String(advisor.events_advised ?? 0),
+          escapeCsvField(sectors),
+          escapeCsvField(advisor.country ?? ""),
+        ].join(",");
+      });
+      const csv = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const urlObj = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = urlObj;
+      a.download = `advisors-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(urlObj);
+    } catch (err) {
+      console.error("Export CSV failed:", err);
+      setError(err instanceof Error ? err.message : "Failed to export advisors CSV");
+    } finally {
+      setExportingCsv(false);
+    }
+  };
+
   const style = `
     .advisor-section {
       padding: 16px 24px;
@@ -1202,11 +1316,37 @@ const AdvisorsPage = () => {
       border-radius: 16px;
       margin-bottom: 16px;
     }
+    .stats-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
     .stats-title {
       font-size: 22px;
       font-weight: 700;
       color: #1a202c;
-      margin: 0 0 16px 0;
+      margin: 0;
+    }
+    .export-csv-button {
+      padding: 10px 18px;
+      background: #16a34a;
+      color: #fff;
+      font-weight: 600;
+      font-size: 14px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .export-csv-button:hover {
+      background: #15803d;
+    }
+    .export-csv-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
     .stats-grid {
       display: grid;
@@ -2246,7 +2386,18 @@ const AdvisorsPage = () => {
       <div className="advisor-section">
         {/* Statistics Block */}
         <div className="advisor-stats">
-          <h2 className="stats-title">Advisors</h2>
+          <div className="stats-header">
+            <h2 className="stats-title">Advisors</h2>
+            <button
+              type="button"
+              className="export-csv-button"
+              onClick={exportToCsv}
+              disabled={exportingCsv || pagination.itemsTotal <= 0}
+              title="Export all filtered advisors to CSV"
+            >
+              {exportingCsv ? "Exporting..." : "Export CSV"}
+            </button>
+          </div>
           <div className="stats-grid">
             <div className="stats-column">
               <div className="stats-item">
