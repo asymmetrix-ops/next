@@ -23,6 +23,8 @@ import {
 } from "recharts";
 import { useRightClick } from "../../../hooks/useRightClick";
 import IndividualCards, { type IndividualCardItem } from "@/components/shared/IndividualCards";
+import { locationsService } from "@/lib/locationsService";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 
 // Types for LinkedIn History Chart
 interface LinkedInHistory {
@@ -189,6 +191,13 @@ export default function AdvisorProfilePage() {
   const [rolesCurrent, setRolesCurrent] = useState<RoleItem[]>([]);
   const [rolesPast, setRolesPast] = useState<RoleItem[]>([]);
   const [linkedInHistoryLoading, setLinkedInHistoryLoading] = useState(false);
+  // Sector filter state
+  const [filterPrimarySectors, setFilterPrimarySectors] = useState<Array<{ id: number; sector_name: string }>>([]);
+  const [filterSecondarySectors, setFilterSecondarySectors] = useState<Array<{ id: number; sector_name: string }>>([]);
+  const [selectedFilterPrimary, setSelectedFilterPrimary] = useState<number[]>([]);
+  const [selectedFilterSecondary, setSelectedFilterSecondary] = useState<number[]>([]);
+  const [loadingFilterPrimary, setLoadingFilterPrimary] = useState(false);
+  const [loadingFilterSecondary, setLoadingFilterSecondary] = useState(false);
   const { createClickableElement } = useRightClick();
 
   const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
@@ -278,6 +287,47 @@ export default function AdvisorProfilePage() {
     }
   }, [advisorData?.Advisor?.name]);
 
+  // Fetch primary sectors for deal filters
+  useEffect(() => {
+    let cancelled = false;
+    const fetchPrimary = async () => {
+      setLoadingFilterPrimary(true);
+      try {
+        const data = await locationsService.getPrimarySectors();
+        if (!cancelled) setFilterPrimarySectors(data);
+      } catch {
+        // silent fail
+      } finally {
+        if (!cancelled) setLoadingFilterPrimary(false);
+      }
+    };
+    fetchPrimary();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Fetch secondary sectors when primary selection changes
+  useEffect(() => {
+    if (selectedFilterPrimary.length === 0) {
+      setFilterSecondarySectors([]);
+      setSelectedFilterSecondary([]);
+      return;
+    }
+    let cancelled = false;
+    const fetchSecondary = async () => {
+      setLoadingFilterSecondary(true);
+      try {
+        const data = await locationsService.getSecondarySectors(selectedFilterPrimary);
+        if (!cancelled) setFilterSecondarySectors(data);
+      } catch {
+        // silent fail
+      } finally {
+        if (!cancelled) setLoadingFilterSecondary(false);
+      }
+    };
+    fetchSecondary();
+    return () => { cancelled = true; };
+  }, [selectedFilterPrimary]);
+
   if (loading) {
     return (
       <div
@@ -364,6 +414,27 @@ export default function AdvisorProfilePage() {
     ? (corporateEvents as unknown as AdvisorCorporateEventItem[])
     : [];
 
+  // Client-side sector filtering
+  const filteredEvents = (() => {
+    if (selectedFilterPrimary.length === 0 && selectedFilterSecondary.length === 0) return safeEvents;
+    return safeEvents.filter((event) => {
+      const sectors = coerceArray<{ id?: number; sector_name?: string; sector_importance?: string }>(event.primary_sectors);
+      if (selectedFilterPrimary.length > 0) {
+        const primaryIds = sectors
+          .filter((s) => String(s.sector_importance || "").toLowerCase().includes("primary"))
+          .map((s) => s.id);
+        if (!selectedFilterPrimary.some((id) => primaryIds.includes(id))) return false;
+      }
+      if (selectedFilterSecondary.length > 0) {
+        const secondaryIds = sectors
+          .filter((s) => !String(s.sector_importance || "").toLowerCase().includes("primary"))
+          .map((s) => s.id);
+        if (!selectedFilterSecondary.some((id) => secondaryIds.includes(id))) return false;
+      }
+      return true;
+    });
+  })();
+
   const coerceArray = <T,>(raw: unknown): T[] => {
     if (Array.isArray(raw)) return raw as T[];
     if (raw === null || raw === undefined) return [];
@@ -421,9 +492,9 @@ export default function AdvisorProfilePage() {
     }
     .advisor-layout {
       display: grid;
-      /* Fix left column width so the deals table gets space */
-      grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
-      gap: 24px 32px;
+      /* Narrow left column so the deals table gets maximum space */
+      grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+      gap: 24px 20px;
       align-items: start;
     }
     .advisor-left-column { width: 100%; }
@@ -435,15 +506,25 @@ export default function AdvisorProfilePage() {
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       margin-bottom: 24px;
     }
+    .advisor-left-column .advisor-section {
+      padding: 16px;
+    }
     .section-title {
       margin: 0 0 16px 0;
       font-size: 20px;
       font-weight: bold;
     }
+    .advisor-left-column .section-title {
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
     .info-grid {
       display: flex;
       flex-direction: column;
       gap: 12px;
+    }
+    .advisor-left-column .info-grid {
+      gap: 8px;
     }
     .info-item {
       display: flex;
@@ -454,8 +535,14 @@ export default function AdvisorProfilePage() {
       font-weight: bold;
       color: #374151;
     }
+    .advisor-left-column .info-label {
+      font-size: 12px;
+    }
     .info-value {
       color: #6b7280;
+    }
+    .advisor-left-column .info-value {
+      font-size: 12px;
     }
     .description-text {
       white-space: pre-wrap;
@@ -508,56 +595,60 @@ export default function AdvisorProfilePage() {
       text-align: left;
     }
     .events-table-container {
-      overflow-x: auto;
+      /* no overflow-x: auto — table must always fit without scrolling */
     }
     .events-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 14px;
-      /* Keep columns readable; allow horizontal scroll if needed */
-      min-width: 1200px;
+      font-size: 11px;
+      /* Fixed layout: columns use assigned widths; description wraps */
+      table-layout: fixed;
     }
+    /* Column width distribution (8 cols, description takes the flex space) */
+    .events-table th:nth-child(1) { width: 22%; }  /* Description – wraps */
+    .events-table th:nth-child(2) { width: 10%; }  /* Deal Date */
+    .events-table th:nth-child(3) { width: 10%; }  /* Type */
+    .events-table th:nth-child(4) { width: 11%; }  /* Counterparty Advised */
+    .events-table th:nth-child(5) { width: 13%; }  /* Client Name */
+    .events-table th:nth-child(6) { width: 17%; }  /* Sector(s) */
+    .events-table th:nth-child(7) { width: 9%; }   /* Enterprise Value */
+    .events-table th:nth-child(8) { width: 8%; }   /* Advisor */
     .events-table thead tr {
       border-bottom: 2px solid #e2e8f0;
     }
     .events-table th {
       text-align: left;
-      padding: 8px;
+      padding: 6px 8px;
       font-weight: bold;
-      font-size: 12px;
+      font-size: 11px;
     }
     .events-table tbody tr {
       border-bottom: 1px solid #f1f5f9;
     }
     .events-table td {
-      padding: 8px;
-      font-size: 12px;
-      /* Global rule: do NOT split words mid-word */
+      padding: 6px 8px;
+      font-size: 11px;
       word-break: normal;
       overflow-wrap: normal;
       white-space: normal;
-      line-break: normal;
     }
-    /* Allow long descriptions to wrap gracefully */
+    /* Description: wraps at word boundaries, never mid-character */
     .events-table th:nth-child(1),
     .events-table td:nth-child(1) {
-      overflow-wrap: anywhere;
+      overflow-wrap: break-word;
+      word-break: normal;
     }
-    .events-table td:nth-child(2) {
-      word-break: keep-all;
-      overflow-wrap: normal;
+    /* Short columns: keep on one line */
+    .events-table td:nth-child(2),
+    .events-table th:nth-child(2),
+    .events-table td:nth-child(3),
+    .events-table th:nth-child(3) {
       white-space: nowrap;
-    }
-    /* Type column: never split words like "Investme\nnt" */
-    .events-table th:nth-child(3),
-    .events-table td:nth-child(3) {
-      word-break: keep-all;
-      overflow-wrap: normal;
-      white-space: nowrap;
-      line-break: normal;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .nowrap-token { display: inline-block; white-space: nowrap; }
-    .nowrap-token:not(:last-child)::after { content: ", "; }
+    .nowrap-token:not(:last-child)::after { content: ","; margin-right: 4px; }
     .nowrap-token .advisor-link {
       word-break: keep-all !important;
       overflow-wrap: normal !important;
@@ -580,10 +671,9 @@ export default function AdvisorProfilePage() {
       color: #3b82f6;
       text-decoration: none;
       cursor: pointer;
-      word-break: break-word;
-      overflow-wrap: anywhere;
+      word-break: normal;
+      overflow-wrap: break-word;
       white-space: normal;
-      line-break: anywhere;
     }
     .event-link:hover {
       text-decoration: underline;
@@ -592,10 +682,9 @@ export default function AdvisorProfilePage() {
       color: #3b82f6;
       text-decoration: none;
       cursor: pointer;
-      word-break: break-word;
-      overflow-wrap: anywhere;
+      word-break: normal;
+      overflow-wrap: break-word;
       white-space: normal;
-      line-break: anywhere;
     }
     .advisor-link:hover {
       text-decoration: underline;
@@ -667,6 +756,81 @@ export default function AdvisorProfilePage() {
     .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
     .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
     .pill-green { background-color: #dcfce7; color: #15803d; }
+    /* Deals sector filter */
+    .deals-filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0 16px;
+      border-bottom: 1px solid #e2e8f0;
+      margin-bottom: 14px;
+    }
+    .deals-filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 200px;
+      flex: 1;
+    }
+    .deals-filter-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #374151;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .deals-filter-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .deals-filter-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #e6f0ff;
+      color: #1d4ed8;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .deals-filter-tag-secondary {
+      background: #dcfce7;
+      color: #15803d;
+    }
+    .deals-filter-tag-remove {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: inherit;
+      font-size: 13px;
+      line-height: 1;
+      padding: 0;
+      display: flex;
+      align-items: center;
+    }
+    .deals-filter-clear {
+      background: none;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 11px;
+      color: #6b7280;
+      cursor: pointer;
+      align-self: flex-end;
+      white-space: nowrap;
+    }
+    .deals-filter-clear:hover { background: #f3f4f6; }
+    .deals-filter-result-count {
+      font-size: 11px;
+      color: #6b7280;
+      align-self: flex-end;
+      padding-bottom: 6px;
+      white-space: nowrap;
+    }
     /* Management/Individual cards hover effects */
     .management-card:hover {
       background-color: #e6f0ff !important;
@@ -888,7 +1052,94 @@ export default function AdvisorProfilePage() {
                 <h2 className="section-title">Deals Advised</h2>
               </div>
 
-              {safeEvents.length > 0 ? (
+              {/* Sector Filters */}
+              <div className="deals-filter-bar">
+                <div className="deals-filter-group">
+                  <span className="deals-filter-label">Primary Sector</span>
+                  <SearchableSelect
+                    options={filterPrimarySectors.map((s) => ({ value: s.id, label: s.sector_name }))}
+                    value=""
+                    onChange={(value) => {
+                      if (typeof value === "number" && !selectedFilterPrimary.includes(value)) {
+                        setSelectedFilterPrimary((prev) => [...prev, value]);
+                      }
+                    }}
+                    placeholder={loadingFilterPrimary ? "Loading…" : "Filter by primary sector"}
+                    disabled={loadingFilterPrimary}
+                    style={{ padding: "7px 10px", fontSize: "12px", border: "1px solid #e2e8f0", borderRadius: "6px", width: "100%", color: "#4a5568" }}
+                  />
+                  {selectedFilterPrimary.length > 0 && (
+                    <div className="deals-filter-tags">
+                      {selectedFilterPrimary.map((id) => {
+                        const s = filterPrimarySectors.find((x) => x.id === id);
+                        return (
+                          <span key={id} className="deals-filter-tag">
+                            {s?.sector_name ?? id}
+                            <button
+                              className="deals-filter-tag-remove"
+                              onClick={() => setSelectedFilterPrimary((prev) => prev.filter((x) => x !== id))}
+                            >×</button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="deals-filter-group">
+                  <span className="deals-filter-label">Sub-Sector</span>
+                  <SearchableSelect
+                    options={filterSecondarySectors.map((s) => ({ value: s.id, label: s.sector_name }))}
+                    value=""
+                    onChange={(value) => {
+                      if (typeof value === "number" && !selectedFilterSecondary.includes(value)) {
+                        setSelectedFilterSecondary((prev) => [...prev, value]);
+                      }
+                    }}
+                    placeholder={
+                      loadingFilterSecondary
+                        ? "Loading…"
+                        : selectedFilterPrimary.length === 0
+                        ? "Select primary first"
+                        : "Filter by sub-sector"
+                    }
+                    disabled={loadingFilterSecondary || selectedFilterPrimary.length === 0}
+                    style={{ padding: "7px 10px", fontSize: "12px", border: "1px solid #e2e8f0", borderRadius: "6px", width: "100%", color: "#4a5568" }}
+                  />
+                  {selectedFilterSecondary.length > 0 && (
+                    <div className="deals-filter-tags">
+                      {selectedFilterSecondary.map((id) => {
+                        const s = filterSecondarySectors.find((x) => x.id === id);
+                        return (
+                          <span key={id} className={`deals-filter-tag deals-filter-tag-secondary`}>
+                            {s?.sector_name ?? id}
+                            <button
+                              className="deals-filter-tag-remove"
+                              onClick={() => setSelectedFilterSecondary((prev) => prev.filter((x) => x !== id))}
+                            >×</button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {(selectedFilterPrimary.length > 0 || selectedFilterSecondary.length > 0) && (
+                  <>
+                    <span className="deals-filter-result-count">
+                      {filteredEvents.length} of {safeEvents.length} deals
+                    </span>
+                    <button
+                      className="deals-filter-clear"
+                      onClick={() => { setSelectedFilterPrimary([]); setSelectedFilterSecondary([]); }}
+                    >
+                      Clear filters
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {filteredEvents.length > 0 ? (
                 <>
                   {/* Desktop Table View */}
                   <div className="events-table-container">
@@ -906,7 +1157,7 @@ export default function AdvisorProfilePage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {safeEvents.slice(
+                        {filteredEvents.slice(
                           0,
                           eventsExpanded ? undefined : 10
                         ).map((event, index) => {
@@ -1064,7 +1315,7 @@ export default function AdvisorProfilePage() {
 
                   {/* Mobile Cards View */}
                   <div className="events-cards">
-                    {safeEvents.slice(
+                    {filteredEvents.slice(
                       0,
                       eventsExpanded ? undefined : 10
                     ).map((event, index) => {
@@ -1241,7 +1492,7 @@ export default function AdvisorProfilePage() {
                     })}
                   </div>
 
-                  {safeEvents.length > 10 && (
+                  {filteredEvents.length > 10 && (
                     <div className="corporate-events-footer">
                       <button
                         onClick={handleToggleEvents}
@@ -1253,7 +1504,11 @@ export default function AdvisorProfilePage() {
                   )}
                 </>
               ) : (
-                <div className="no-events">No corporate events available</div>
+                <div className="no-events">
+                  {safeEvents.length > 0
+                    ? "No deals match the selected filters."
+                    : "No corporate events available"}
+                </div>
               )}
             </div>
 
