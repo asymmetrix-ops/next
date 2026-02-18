@@ -324,8 +324,8 @@ const ArticleDetailPage = () => {
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Summary accordion state
-  const [summaryExpanded, setSummaryExpanded] = useState(false);
+  // Summary accordion state (default expanded for Insights & Analysis)
+  const [summaryExpanded, setSummaryExpanded] = useState(true);
   const [companyOfFocus, setCompanyOfFocus] =
     useState<CompanyOfFocusApiItem | null>(null);
   const [companyOfFocusLoading, setCompanyOfFocusLoading] = useState(false);
