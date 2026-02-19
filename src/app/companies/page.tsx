@@ -20,6 +20,7 @@ import {
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { trackEvent } from "@/lib/tracking";
 import { fetchCompaniesServer, CompaniesFilters as ServerFilters } from "./actions";
 
 // Feature flags (master only)
@@ -777,6 +778,7 @@ const CompanyDashboard = ({
   onSearch?: (filters: Filters) => void;
   initialSearch?: string;
 }) => {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState(initialSearch || "");
   const [keywordSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -1162,6 +1164,207 @@ const CompanyDashboard = ({
     nrrMax,
     newClientsRevenueGrowthMin,
     newClientsRevenueGrowthMax,
+  ]);
+
+  const handleSearchClick = useCallback(() => {
+    // Fire-and-forget activity tracking (do not block the actual search)
+    try {
+      const parsedUserId = Number.parseInt(String(user?.id || ""), 10);
+      const userId =
+        Number.isFinite(parsedUserId) && parsedUserId > 0
+          ? (parsedUserId as number)
+          : undefined;
+
+      const query =
+        typeof searchTerm === "string" && searchTerm.trim()
+          ? searchTerm.trim()
+          : null;
+
+      const range = (min: number | null, max: number | null) => {
+        if (min == null && max == null) return undefined;
+        return { min, max };
+      };
+
+      const primarySectorsUsed =
+        selectedPrimarySectors.length > 0
+          ? selectedPrimarySectors.map((id) => {
+              const sector = primarySectors.find((s) => s.id === id);
+              return {
+                sector_id: id,
+                sector_name: sector?.sector_name ?? null,
+              };
+            })
+          : undefined;
+
+      const secondarySectorsUsed =
+        selectedSecondarySectors.length > 0
+          ? selectedSecondarySectors.map((id) => {
+              const sector = secondarySectors.find((s) => s.id === id);
+              return {
+                sector_id: id,
+                sector_name: sector?.sector_name ?? null,
+              };
+            })
+          : undefined;
+
+      const ownershipTypesUsed =
+        selectedOwnershipTypes.length > 0
+          ? selectedOwnershipTypes.map((id) => {
+              const o = ownershipTypes.find((x) => x.id === id);
+              return {
+                ownership_type_id: id,
+                ownership_type_name: o?.ownership ?? null,
+              };
+            })
+          : undefined;
+
+      const hybridFocusUsed =
+        selectedHybridBusinessFocuses.length > 0
+          ? {
+              mode: excludeBusinessFocus ? "without" : "with",
+              focuses: selectedHybridBusinessFocuses.map((id) => {
+                const f = hybridBusinessFocuses.find((x) => x.id === id);
+                return {
+                  focus_id: id,
+                  focus_name: f?.business_focus ?? null,
+                };
+              }),
+            }
+          : undefined;
+
+      const filtersUsed: Record<string, unknown> = {};
+
+      if (selectedContinentalRegions.length > 0) {
+        filtersUsed.continental_regions = selectedContinentalRegions.slice();
+      }
+      if (selectedSubRegions.length > 0) {
+        filtersUsed.sub_regions = selectedSubRegions.slice();
+      }
+      if (selectedCountries.length > 0) {
+        filtersUsed.countries = selectedCountries.slice();
+      }
+      if (selectedProvinces.length > 0) {
+        filtersUsed.provinces = selectedProvinces.slice();
+      }
+      if (selectedCities.length > 0) {
+        filtersUsed.cities = selectedCities.slice();
+      }
+      if (primarySectorsUsed) {
+        filtersUsed.primary_sectors = primarySectorsUsed;
+      }
+      if (secondarySectorsUsed) {
+        filtersUsed.secondary_sectors = secondarySectorsUsed;
+      }
+      if (ownershipTypesUsed) {
+        filtersUsed.ownership_types = ownershipTypesUsed;
+      }
+      if (hybridFocusUsed) {
+        filtersUsed.hybrid_business_focus = hybridFocusUsed;
+      }
+
+      const linkedinRange = range(linkedinMembersMin, linkedinMembersMax);
+      if (linkedinRange) {
+        filtersUsed.linkedin_members = linkedinRange;
+      }
+
+      const financial: Record<string, unknown> = {};
+      const revenueRange = range(revenueMin, revenueMax);
+      const ebitdaRange = range(ebitdaMin, ebitdaMax);
+      const evRange = range(enterpriseValueMin, enterpriseValueMax);
+      const revenueMultipleRange = range(revenueMultipleMin, revenueMultipleMax);
+      const revenueGrowthRange = range(revenueGrowthMin, revenueGrowthMax);
+      const ebitdaMarginRange = range(ebitdaMarginMin, ebitdaMarginMax);
+      const ruleOf40Range = range(ruleOf40Min, ruleOf40Max);
+      if (revenueRange) financial.revenue_m = revenueRange;
+      if (ebitdaRange) financial.ebitda_m = ebitdaRange;
+      if (evRange) financial.enterprise_value_m = evRange;
+      if (revenueMultipleRange) financial.revenue_multiple_x = revenueMultipleRange;
+      if (revenueGrowthRange) financial.revenue_growth_pct = revenueGrowthRange;
+      if (ebitdaMarginRange) financial.ebitda_margin_pct = ebitdaMarginRange;
+      if (ruleOf40Range) financial.rule_of_40_pct = ruleOf40Range;
+      if (Object.keys(financial).length > 0) {
+        filtersUsed.financial_metrics = financial;
+      }
+
+      const subscription: Record<string, unknown> = {};
+      const arrRange = range(arrMin, arrMax);
+      const arrPcRange = range(arrPcMin, arrPcMax);
+      const churnRange = range(churnMin, churnMax);
+      const grrRange = range(grrMin, grrMax);
+      const nrrRange = range(nrrMin, nrrMax);
+      const newClientsRange = range(
+        newClientsRevenueGrowthMin,
+        newClientsRevenueGrowthMax
+      );
+      if (arrRange) subscription.arr_m = arrRange;
+      if (arrPcRange) subscription.arr_pct = arrPcRange;
+      if (churnRange) subscription.churn_pct = churnRange;
+      if (grrRange) subscription.grr_pct = grrRange;
+      if (nrrRange) subscription.nrr_pct = nrrRange;
+      if (newClientsRange)
+        subscription.new_clients_revenue_growth_pct = newClientsRange;
+      if (Object.keys(subscription).length > 0) {
+        filtersUsed.subscription_metrics = subscription;
+      }
+
+      trackEvent({
+        eventType: "company_search",
+        userId,
+        pageHeading: "Asymmetrix – Companies",
+        query,
+        filtersUsed,
+      });
+    } catch {
+      // ignore tracking failures
+    }
+
+    handleSearch();
+  }, [
+    user?.id,
+    searchTerm,
+    selectedContinentalRegions,
+    selectedSubRegions,
+    selectedCountries,
+    selectedProvinces,
+    selectedCities,
+    selectedPrimarySectors,
+    selectedSecondarySectors,
+    selectedOwnershipTypes,
+    selectedHybridBusinessFocuses,
+    excludeBusinessFocus,
+    primarySectors,
+    secondarySectors,
+    ownershipTypes,
+    hybridBusinessFocuses,
+    linkedinMembersMin,
+    linkedinMembersMax,
+    revenueMin,
+    revenueMax,
+    ebitdaMin,
+    ebitdaMax,
+    enterpriseValueMin,
+    enterpriseValueMax,
+    revenueMultipleMin,
+    revenueMultipleMax,
+    revenueGrowthMin,
+    revenueGrowthMax,
+    ebitdaMarginMin,
+    ebitdaMarginMax,
+    ruleOf40Min,
+    ruleOf40Max,
+    arrMin,
+    arrMax,
+    arrPcMin,
+    arrPcMax,
+    churnMin,
+    churnMax,
+    grrMin,
+    grrMax,
+    nrrMin,
+    nrrMax,
+    newClientsRevenueGrowthMin,
+    newClientsRevenueGrowthMax,
+    handleSearch,
   ]);
 
   // Auto-run search if initialSearch prop is provided
@@ -2273,7 +2476,7 @@ const CompanyDashboard = ({
             <button
               style={{ ...styles.button, marginTop: "12px" }}
               className="filters-button"
-              onClick={handleSearch}
+              onClick={handleSearchClick}
               onMouseOver={(e) =>
                 ((e.target as HTMLButtonElement).style.backgroundColor =
                   "#005bb5")

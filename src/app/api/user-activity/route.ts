@@ -7,7 +7,8 @@ type EventType =
   | "page_view"
   | "logout"
   | "error"
-  | "platform_wide_search";
+  | "platform_wide_search"
+  | "company_search";
 
 interface UserActivityPayload {
   user_id: number;
@@ -16,6 +17,7 @@ interface UserActivityPayload {
   session_id: string;
   event_type: EventType;
   query?: string | null;
+  filters_used?: Record<string, unknown>;
 }
 
 const XANO_ENDPOINT =
@@ -124,6 +126,7 @@ export async function POST(req: NextRequest) {
       session_id = "",
       event_type,
       query = null,
+      filters_used,
     } = body;
 
     // Drop events when unauthenticated to avoid bot noise
@@ -154,6 +157,7 @@ export async function POST(req: NextRequest) {
         "logout",
         "error",
         "platform_wide_search",
+        "company_search",
       ].includes(event_type)
     ) {
       return NextResponse.json(
@@ -176,8 +180,19 @@ export async function POST(req: NextRequest) {
       session_id: String(session_id || ""),
       event_type: event_type as EventType,
     };
-    if (event_type === "platform_wide_search" || normalizedQuery !== null) {
+    if (
+      event_type === "platform_wide_search" ||
+      event_type === "company_search" ||
+      normalizedQuery !== null
+    ) {
       payload.query = normalizedQuery;
+    }
+
+    if (event_type === "company_search") {
+      payload.filters_used =
+        filters_used && typeof filters_used === "object"
+          ? (filters_used as Record<string, unknown>)
+          : {};
     }
 
     const upstream = await fetch(XANO_ENDPOINT, {

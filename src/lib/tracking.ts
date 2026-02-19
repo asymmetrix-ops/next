@@ -3,7 +3,8 @@ export type TrackingEventType =
   | "page_view"
   | "logout"
   | "error"
-  | "platform_wide_search";
+  | "platform_wide_search"
+  | "company_search";
 import { authService } from "@/lib/auth";
 import { isActivityTrackingBlockedEmail } from "@/lib/activityTracking";
 
@@ -14,6 +15,7 @@ export interface TrackingEventInput {
   sessionId?: string;
   eventType: TrackingEventType;
   query?: string | null;
+  filtersUsed?: Record<string, unknown>;
 }
 
 const SESSION_KEY = "asym_session_id";
@@ -346,16 +348,26 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
     typeof input.query === "string"
       ? input.query.trim().slice(0, 512)
       : input.query ?? null;
-  const payloadWithQuery =
-    input.eventType === "platform_wide_search" || queryValue !== null
-      ? { ...payload, query: queryValue }
-      : payload;
+  const shouldIncludeQuery =
+    input.eventType === "platform_wide_search" ||
+    input.eventType === "company_search" ||
+    queryValue !== null;
+  const withQuery = shouldIncludeQuery ? { ...payload, query: queryValue } : payload;
+
+  const filtersValue =
+    input.filtersUsed && typeof input.filtersUsed === "object"
+      ? (input.filtersUsed as Record<string, unknown>)
+      : {};
+  const payloadFinal =
+    input.eventType === "company_search"
+      ? { ...withQuery, filters_used: filtersValue }
+      : withQuery;
 
   try {
     await fetch("/api/user-activity", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payloadWithQuery),
+      body: JSON.stringify(payloadFinal),
       keepalive: input.eventType === "logout" || input.eventType === "error",
     });
   } catch {
