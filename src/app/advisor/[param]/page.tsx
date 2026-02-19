@@ -300,7 +300,8 @@ export default function AdvisorProfilePage() {
       const rows = filteredEvents.map((event) =>
         getEventRowForCsv(event).map(escapeCsvField).join(",")
       );
-      const csv = [headers.join(","), ...rows].join("\n");
+      // Prepend UTF-8 BOM so Excel and other tools correctly detect encoding.
+      const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const urlObj = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -889,12 +890,15 @@ export default function AdvisorProfilePage() {
     }
     .report-button {
       padding: 8px 16px;
-      background-color: #16a34a;
-      color: white;
+      background-color: #4b5563; /* neutral gray */
+      color: #ffffff;
       border: none;
       border-radius: 4px;
       cursor: pointer;
       font-size: 14px;
+    }
+    .report-button:hover {
+      background-color: #374151;
     }
     .advisor-layout {
       display: flex;
@@ -984,8 +988,8 @@ export default function AdvisorProfilePage() {
     }
     .export-pdf-button {
       padding: 8px 16px;
-      background-color: #16a34a;
-      color: white;
+      background-color: #0075df; /* blue */
+      color: #ffffff;
       border: none;
       border-radius: 4px;
       cursor: pointer;
@@ -993,7 +997,7 @@ export default function AdvisorProfilePage() {
       font-weight: 600;
       white-space: nowrap;
     }
-    .export-pdf-button:hover { background-color: #15803d; }
+    .export-pdf-button:hover { background-color: #005bb5; }
     .export-pdf-button:disabled { opacity: 0.6; cursor: not-allowed; }
     .corporate-events-footer {
       display: flex;

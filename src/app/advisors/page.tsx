@@ -1269,7 +1269,7 @@ const AdvisorsPage = () => {
           ? window.location.origin
           : "https://www.asymmetrixintelligence.com";
       const headers = [
-        "Name of the company",
+        "Advisor Name",
         "Asymmetrix link",
         "Description",
         "Number of corporate events advised",
