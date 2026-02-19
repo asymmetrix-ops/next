@@ -110,17 +110,19 @@ interface PortfolioResponse {
   pageTotal?: number;
 }
 
-/** New API shape: { current_portfolio?: unknown[]; past_portfolio?: unknown[]; result?: { itemsReceived, curPage, nextPage, prevPage, pageTotal } } */
+/** New API shape: current/past_portfolio arrays + result (current) or results (past) for pagination */
+interface PortfolioResultMeta {
+  itemsReceived?: number;
+  curPage?: number;
+  nextPage?: number | null;
+  prevPage?: number | null;
+  pageTotal?: number;
+}
 interface PortfolioApiResponse {
   current_portfolio?: unknown[];
   past_portfolio?: unknown[];
-  result?: {
-    itemsReceived?: number;
-    curPage?: number;
-    nextPage?: number | null;
-    prevPage?: number | null;
-    pageTotal?: number;
-  };
+  result?: PortfolioResultMeta;
+  results?: PortfolioResultMeta;
 }
 
 interface CorporateEvent {
@@ -619,7 +621,7 @@ const InvestorDetailPage = () => {
         const api = raw as PortfolioApiResponse;
         if (Array.isArray(api.current_portfolio)) {
           const items = api.current_portfolio.map(mapPortfolioItem);
-          const res = api.result;
+          const res = api.result ?? api.results;
           setPortfolioCompanies(items);
           setPortfolioPagination({
             itemsReceived: res?.itemsReceived ?? items.length,
@@ -707,7 +709,7 @@ const InvestorDetailPage = () => {
         const api = raw as PortfolioApiResponse;
         if (Array.isArray(api.past_portfolio)) {
           const items = api.past_portfolio.map(mapPortfolioItem);
-          const res = api.result;
+          const res = api.result ?? api.results;
           setPastPortfolioCompanies(items);
           setPastPortfolioPagination({
             itemsReceived: res?.itemsReceived ?? items.length,
@@ -785,7 +787,7 @@ const InvestorDetailPage = () => {
       const raw = await response.json();
 
       const api = raw as PortfolioApiResponse;
-      const result = api.result;
+      const result = api.result ?? api.results;
       const total = Number(
         result?.itemsReceived ??
         (raw as PortfolioResponse & { itemsreceived?: number }).itemsReceived ??
