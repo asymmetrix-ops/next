@@ -100,14 +100,27 @@ interface PortfolioCompany {
 }
 
 interface PortfolioResponse {
-  items: PortfolioCompany[];
-  itemsReceived: number;
-  curPage: number;
-  nextPage: number | null;
-  prevPage: number | null;
-  offset: number;
-  perPage: number;
-  pageTotal: number;
+  items?: PortfolioCompany[];
+  itemsReceived?: number;
+  curPage?: number;
+  nextPage?: number | null;
+  prevPage?: number | null;
+  offset?: number;
+  perPage?: number;
+  pageTotal?: number;
+}
+
+/** New API shape: { current_portfolio?: unknown[]; past_portfolio?: unknown[]; result?: { itemsReceived, curPage, nextPage, prevPage, pageTotal } } */
+interface PortfolioApiResponse {
+  current_portfolio?: unknown[];
+  past_portfolio?: unknown[];
+  result?: {
+    itemsReceived?: number;
+    curPage?: number;
+    nextPage?: number | null;
+    prevPage?: number | null;
+    pageTotal?: number;
+  };
 }
 
 interface CorporateEvent {
@@ -388,6 +401,7 @@ const InvestorDetailPage = () => {
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [pastPortfolioLoading, setPastPortfolioLoading] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingPortfolio, setExportingPortfolio] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -602,7 +616,21 @@ const InvestorDetailPage = () => {
 
         const raw = await response.json();
 
-        if (Array.isArray(raw)) {
+        const api = raw as PortfolioApiResponse;
+        if (Array.isArray(api.current_portfolio)) {
+          const items = api.current_portfolio.map(mapPortfolioItem);
+          const res = api.result;
+          setPortfolioCompanies(items);
+          setPortfolioPagination({
+            itemsReceived: res?.itemsReceived ?? items.length,
+            curPage: res?.curPage ?? page,
+            nextPage: res?.nextPage ?? null,
+            prevPage: res?.prevPage ?? null,
+            offset: 0,
+            perPage: 50,
+            pageTotal: res?.pageTotal ?? 0,
+          });
+        } else if (Array.isArray(raw)) {
           const items = raw.map(mapPortfolioItem);
           const first = raw[0] ?? {};
           setPortfolioCompanies(items);
@@ -627,8 +655,8 @@ const InvestorDetailPage = () => {
           setPortfolioPagination({
             itemsReceived: data.itemsReceived || 0,
             curPage: data.curPage || 1,
-            nextPage: data.nextPage || null,
-            prevPage: data.prevPage || null,
+            nextPage: data.nextPage ?? null,
+            prevPage: data.prevPage ?? null,
             offset: data.offset || 0,
             perPage: data.perPage || 50,
             pageTotal: data.pageTotal || 0,
@@ -676,7 +704,21 @@ const InvestorDetailPage = () => {
 
         const raw = await response.json();
 
-        if (Array.isArray(raw)) {
+        const api = raw as PortfolioApiResponse;
+        if (Array.isArray(api.past_portfolio)) {
+          const items = api.past_portfolio.map(mapPortfolioItem);
+          const res = api.result;
+          setPastPortfolioCompanies(items);
+          setPastPortfolioPagination({
+            itemsReceived: res?.itemsReceived ?? items.length,
+            curPage: res?.curPage ?? page,
+            nextPage: res?.nextPage ?? null,
+            prevPage: res?.prevPage ?? null,
+            offset: 0,
+            perPage: 50,
+            pageTotal: res?.pageTotal ?? 0,
+          });
+        } else if (Array.isArray(raw)) {
           const items = raw.map(mapPortfolioItem);
           const first = raw[0] ?? {};
           setPastPortfolioCompanies(items);
@@ -701,8 +743,8 @@ const InvestorDetailPage = () => {
           setPastPortfolioPagination({
             itemsReceived: data.itemsReceived || 0,
             curPage: data.curPage || 1,
-            nextPage: data.nextPage || null,
-            prevPage: data.prevPage || null,
+            nextPage: data.nextPage ?? null,
+            prevPage: data.prevPage ?? null,
             offset: data.offset || 0,
             perPage: data.perPage || 50,
             pageTotal: data.pageTotal || 0,
@@ -717,6 +759,165 @@ const InvestorDetailPage = () => {
     },
     [investorId, mapPortfolioItem]
   );
+
+  // Fetch all portfolio items: first request gets itemsReceived, then request with per_page=itemsReceived
+  const fetchAllPortfolioPages = useCallback(
+    async (
+      baseUrl: string,
+      token: string | null
+    ): Promise<PortfolioCompany[]> => {
+      const paramsFirst = new URLSearchParams();
+      paramsFirst.append("new_comp_id", investorId);
+      paramsFirst.append("page", "1");
+      paramsFirst.append("per_page", "50");
+
+      const response = await fetch(`${baseUrl}?${paramsFirst.toString()}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        credentials: "include",
+      });
+
+      if (!response.ok) throw new Error(`Portfolio request failed: ${response.statusText}`);
+
+      const raw = await response.json();
+
+      const api = raw as PortfolioApiResponse;
+      const result = api.result;
+      const total = Number(
+        result?.itemsReceived ??
+        (raw as PortfolioResponse & { itemsreceived?: number }).itemsReceived ??
+        (raw as PortfolioResponse & { itemsreceived?: number }).itemsreceived ??
+        0
+      );
+      const items =
+        Array.isArray(api.current_portfolio)
+          ? api.current_portfolio
+          : Array.isArray(api.past_portfolio)
+            ? api.past_portfolio
+            : Array.isArray(raw)
+              ? raw
+              : (raw as PortfolioResponse)?.items ?? [];
+
+      if (total <= 0) {
+        return items.map(mapPortfolioItem);
+      }
+
+      const paramsExport = new URLSearchParams();
+      paramsExport.append("new_comp_id", investorId);
+      paramsExport.append("page", "1");
+      paramsExport.append("per_page", String(total));
+
+      const responseAll = await fetch(`${baseUrl}?${paramsExport.toString()}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        credentials: "include",
+      });
+
+      if (!responseAll.ok) throw new Error(`Portfolio export request failed: ${responseAll.statusText}`);
+
+      const rawAll = await responseAll.json();
+      const apiAll = rawAll as PortfolioApiResponse;
+      const fullItems =
+        Array.isArray(apiAll.current_portfolio)
+          ? apiAll.current_portfolio
+          : Array.isArray(apiAll.past_portfolio)
+            ? apiAll.past_portfolio
+            : Array.isArray(rawAll)
+              ? rawAll
+              : (rawAll as PortfolioResponse)?.items ?? [];
+      return fullItems.map(mapPortfolioItem);
+    },
+    [investorId, mapPortfolioItem]
+  );
+
+  const escapeCsv = (value: unknown): string => {
+    const str = value === undefined || value === null ? "" : String(value);
+    return `"${str.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
+  };
+
+  const handleExportPortfolio = useCallback(async () => {
+    if (!investorId) return;
+    setExportingPortfolio(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const currentUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_investors_current_partfolio";
+      const pastUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_investors_past_portfolio";
+
+      const [currentItems, pastItems] = await Promise.all([
+        fetchAllPortfolioPages(currentUrl, token),
+        fetchAllPortfolioPages(pastUrl, token),
+      ]);
+
+      const headers = [
+        "Portfolio Type",
+        "Name",
+        "Sectors",
+        "Year Invested",
+        "Year Exited",
+        "Related Individuals",
+        "LinkedIn Members",
+        "Country",
+        "Company Link",
+      ];
+
+      const row = (c: PortfolioCompany, type: "Current" | "Past") => {
+        const link =
+          typeof window !== "undefined"
+            ? `${window.location.origin}/company/${c.id}`
+            : `/company/${c.id}`;
+        const sectors = c.sectors_id.map((s) => s.sector_name).join(", ");
+        const individuals =
+          c.related_to_investor_individuals
+            ?.map((i) => i.name)
+            .filter(Boolean)
+            .join(", ") ?? "";
+        return [
+          type,
+          c.name,
+          sectors,
+          c.year_invested != null && String(c.year_invested).trim() !== "" ? String(c.year_invested) : "",
+          c.year_exited != null && String(c.year_exited).trim() !== "" ? String(c.year_exited) : "",
+          individuals,
+          String(c._linkedin_data_of_new_company?.linkedin_employee ?? 0),
+          c._locations?.Country ?? "",
+          link,
+        ];
+      };
+
+      const rows: string[][] = [
+        headers,
+        ...currentItems.map((c) => row(c, "Current")),
+        ...pastItems.map((c) => row(c, "Past")),
+      ];
+
+      const csvBody = rows.map((r) => r.map(escapeCsv).join(",")).join("\r\n");
+      const BOM = "\uFEFF";
+      const csv = BOM + csvBody;
+
+      const name = investorData?.Investor?.name;
+      const filename = `portfolio_${name ? name.replace(/[<>:"/\\|?*]/g, "") : investorId}_${new Date().toISOString().split("T")[0]}.csv`;
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error exporting portfolio:", err);
+      alert("Failed to export portfolio. Please try again.");
+    } finally {
+      setExportingPortfolio(false);
+    }
+  }, [investorId, fetchAllPortfolioPages, investorData]);
 
   // Fetch corporate events
   const fetchCorporateEvents = useCallback(async () => {
@@ -1669,6 +1870,15 @@ const InvestorDetailPage = () => {
                 {exportingPdf ? "Exporting..." : "Export PDF"}
               </button>
             </NewFeatureCallout>
+            <button
+              onClick={handleExportPortfolio}
+              disabled={exportingPortfolio || !investorData}
+              className="export-button"
+              type="button"
+              style={{ backgroundColor: "#22c55e" }}
+            >
+              {exportingPortfolio ? "Exporting..." : "Export portfolio"}
+            </button>
             <a
               href={reportMailTo}
               className="report-button"

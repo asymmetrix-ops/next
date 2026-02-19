@@ -88,12 +88,24 @@ interface SecondarySector {
   sector_name: string;
 }
 
+interface InvestorCSVRow {
+  Name: string;
+  Type: string;
+  Description: string;
+  "Current D&A Portfolio Companies": string;
+  "D&A Primary Sectors": string;
+  "LinkedIn Members": string;
+  Country: string;
+  "Investor Link": string;
+}
+
 const InvestorsPage = () => {
   const router = useRouter();
 
   // Shared state for investors data
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
     itemsReceived: 0,
@@ -381,6 +393,95 @@ const InvestorsPage = () => {
     }
   }, []);
 
+  const buildInvestorsSearchParams = (filters: InvestorsFilters) => {
+    const params = new URLSearchParams();
+
+    // Static per_page, change only page. Keep existing API param names
+    const page = Math.max(1, filters.page || 1);
+    const perPage = filters.per_page > 0 ? filters.per_page : 50;
+    params.append("page", page.toString());
+    params.append("per_page", perPage.toString());
+
+    // Add search query
+    if (filters.Search_Query) params.append("Search_Query", filters.Search_Query);
+
+    // Add location filters as arrays
+    if (filters.Countries.length > 0) {
+      filters.Countries.forEach((country) => {
+        params.append("Countries[]", country);
+      });
+    }
+
+    if (filters.Provinces.length > 0) {
+      filters.Provinces.forEach((province) => {
+        params.append("Provinces[]", province);
+      });
+    }
+
+    if (filters.Cities.length > 0) {
+      filters.Cities.forEach((city) => {
+        params.append("Cities[]", city);
+      });
+    }
+
+    // Add new region text filters (same param names used on companies page export/search)
+    if ((filters.Continental_Region || []).length > 0) {
+      params.append(
+        "Continental_Region",
+        (filters.Continental_Region || []).join(",")
+      );
+    }
+    if ((filters.geographical_sub_region || []).length > 0) {
+      params.append(
+        "geographical_sub_region",
+        (filters.geographical_sub_region || []).join(",")
+      );
+    }
+
+    // Add sector filters as arrays
+    if (filters.Primary_Sectors.length > 0) {
+      filters.Primary_Sectors.forEach((sector) => {
+        params.append("Primary_Sectors[]", sector.toString());
+      });
+    }
+
+    if (filters.Secondary_Sectors.length > 0) {
+      filters.Secondary_Sectors.forEach((sector) => {
+        params.append("Secondary_Sectors[]", sector.toString());
+      });
+    }
+
+    // Add investor types as arrays
+    if (filters.Investor_Types.length > 0) {
+      filters.Investor_Types.forEach((type) => {
+        params.append("Investor_Types[]", type.toString());
+      });
+    }
+
+    // Add portfolio company range
+    if (filters.Portfolio_Companies_Min > 0) {
+      params.append(
+        "Portfolio_Companies_Min",
+        filters.Portfolio_Companies_Min.toString()
+      );
+    }
+    if (filters.Portfolio_Companies_Max > 0) {
+      params.append(
+        "Portfolio_Companies_Max",
+        filters.Portfolio_Companies_Max.toString()
+      );
+    }
+
+    // Add horizontals if needed
+    if (filters.Horizontals.length > 0) {
+      filters.Horizontals.forEach((horizontal) => {
+        params.append("Horizontals[]", horizontal);
+      });
+    }
+
+    return params;
+  };
+
   // Fetch investors data from API
   const fetchInvestors = useCallback(async (filters: InvestorsFilters) => {
     setLoading(true);
@@ -389,94 +490,8 @@ const InvestorsPage = () => {
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
 
-      // Convert filters to URL parameters for GET request
-      const params = new URLSearchParams();
-
-      // Static per_page, change only page. Keep existing API param names
-      const page = Math.max(1, filters.page || 1);
-      const perPage = filters.per_page > 0 ? filters.per_page : 50;
-      params.append("page", page.toString());
-      params.append("per_page", perPage.toString());
-
-      // Add search query
-      if (filters.Search_Query)
-        params.append("Search_Query", filters.Search_Query);
-
-      // Add location filters as arrays
-      if (filters.Countries.length > 0) {
-        filters.Countries.forEach((country) => {
-          params.append("Countries[]", country);
-        });
-      }
-
-      if (filters.Provinces.length > 0) {
-        filters.Provinces.forEach((province) => {
-          params.append("Provinces[]", province);
-        });
-      }
-
-      if (filters.Cities.length > 0) {
-        filters.Cities.forEach((city) => {
-          params.append("Cities[]", city);
-        });
-      }
-
-      // Add new region text filters (same param names used on companies page export/search)
-      if ((filters.Continental_Region || []).length > 0) {
-        params.append(
-          "Continental_Region",
-          (filters.Continental_Region || []).join(",")
-        );
-      }
-      if ((filters.geographical_sub_region || []).length > 0) {
-        params.append(
-          "geographical_sub_region",
-          (filters.geographical_sub_region || []).join(",")
-        );
-      }
-
-      // Add sector filters as arrays
-      if (filters.Primary_Sectors.length > 0) {
-        filters.Primary_Sectors.forEach((sector) => {
-          params.append("Primary_Sectors[]", sector.toString());
-        });
-      }
-
-      if (filters.Secondary_Sectors.length > 0) {
-        filters.Secondary_Sectors.forEach((sector) => {
-          params.append("Secondary_Sectors[]", sector.toString());
-        });
-      }
-
-      // Add investor types as arrays
-      if (filters.Investor_Types.length > 0) {
-        filters.Investor_Types.forEach((type) => {
-          params.append("Investor_Types[]", type.toString());
-        });
-      }
-
-      // Add portfolio company range
-      if (filters.Portfolio_Companies_Min > 0) {
-        params.append(
-          "Portfolio_Companies_Min",
-          filters.Portfolio_Companies_Min.toString()
-        );
-      }
-      if (filters.Portfolio_Companies_Max > 0) {
-        params.append(
-          "Portfolio_Companies_Max",
-          filters.Portfolio_Companies_Max.toString()
-        );
-      }
-
-      // Add horizontals if needed
-      if (filters.Horizontals.length > 0) {
-        filters.Horizontals.forEach((horizontal) => {
-          params.append("Horizontals[]", horizontal);
-        });
-      }
-
       // Use our cached proxy endpoint (Redis-backed for initial page).
+      const params = buildInvestorsSearchParams(filters);
       const url = `/api/investors/list?${params.toString()}`;
 
       const requestId = ++lastRequestIdRef.current;
@@ -553,6 +568,143 @@ const InvestorsPage = () => {
       setLoading(false);
     }
   }, []);
+
+  const escapeCsvValue = (value: unknown) => {
+    const str = value === undefined || value === null ? "" : String(value);
+    return `"${str.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
+  };
+
+  const convertToCSV = (rows: InvestorCSVRow[]) => {
+    if (rows.length === 0) return "";
+    const headers = Object.keys(rows[0]) as Array<keyof InvestorCSVRow>;
+    const csvBody = [
+      headers.map((h) => escapeCsvValue(h)).join(","),
+      ...rows.map((row) => headers.map((h) => escapeCsvValue(row[h])).join(",")),
+    ].join("\r\n");
+
+    // Prepend UTF-8 BOM to help Excel/Sheets parse correctly
+    const BOM = "\uFEFF";
+    return BOM + csvBody;
+  };
+
+  const downloadCSV = (csvContent: string, filename: string) => {
+    const timestamp = new Date().toISOString().split("T")[0];
+    const fullFilename = `${filename}_${timestamp}.csv`;
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", fullFilename);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportCSV = useCallback(async () => {
+    setExporting(true);
+    setError(null);
+
+    try {
+      const total = Math.max(0, Number(pagination.itemsTotal || 0));
+      if (!total) throw new Error("No results to export");
+
+      const token = localStorage.getItem("asymmetrix_auth_token");
+
+      // IMPORTANT: export should include *all* results, not just the current page.
+      // We request per_page as itemsTotal. If the backend caps per_page anyway,
+      // we fall back to paging until nextPage is null.
+      const exportFilters: InvestorsFilters = {
+        ...filters,
+        page: 1,
+        per_page: total,
+      };
+
+      const all: Investor[] = [];
+      const seen = new Set<string>();
+
+      let page = 1;
+      let nextPage: number | null = 1;
+      let safety = 0;
+
+      while (nextPage && safety < 250) {
+        safety += 1;
+        page = nextPage;
+
+        const params = buildInvestorsSearchParams({ ...exportFilters, page });
+        const url = `/api/investors/list?${params.toString()}`;
+
+        const resp = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        });
+
+        if (!resp.ok) {
+          const errText = await resp.text().catch(() => "");
+          throw new Error(
+            `Export request failed (${resp.status}): ${resp.statusText} ${errText}`.trim()
+          );
+        }
+
+        const data: InvestorsResponse = await resp.json();
+        const items = data.investors.items || [];
+
+        for (const it of items) {
+          const key = String(it.original_new_company_id ?? it.id ?? "");
+          if (key && !seen.has(key)) {
+            seen.add(key);
+            all.push(it);
+          } else if (!key) {
+            all.push(it);
+          }
+        }
+
+        nextPage = data.investors.nextPage;
+      }
+
+      if (all.length === 0) throw new Error("Export returned empty data");
+
+      const rows: InvestorCSVRow[] = all.map((inv) => {
+        const link =
+          typeof window !== "undefined" && inv.original_new_company_id
+            ? `${window.location.origin}/investors/${inv.original_new_company_id}`
+            : inv.original_new_company_id
+              ? `/investors/${inv.original_new_company_id}`
+              : "";
+
+        return {
+          Name: inv.company_name || "N/A",
+          Type:
+            inv.investor_type && inv.investor_type.length > 0
+              ? inv.investor_type.join(", ")
+              : "N/A",
+          Description: inv.description || "N/A",
+          "Current D&A Portfolio Companies": String(
+            inv.number_of_active_investments ?? 0
+          ),
+          "D&A Primary Sectors":
+            inv.da_primary_sector_names && inv.da_primary_sector_names.length > 0
+              ? inv.da_primary_sector_names.join(", ")
+              : "N/A",
+          "LinkedIn Members": String(inv.linkedin_members ?? 0),
+          Country: inv.country || "N/A",
+          "Investor Link": link,
+        };
+      });
+
+      const csv = convertToCSV(rows);
+      downloadCSV(csv, "investors_filtered");
+    } catch (e) {
+      console.error("Error exporting investors CSV:", e);
+      setError(e instanceof Error ? e.message : "Failed to export CSV");
+    } finally {
+      setExporting(false);
+    }
+  }, [filters, pagination.itemsTotal]);
 
   // Initial data fetch
   useEffect(() => {
@@ -2063,13 +2215,48 @@ const InvestorsPage = () => {
                   {summaryData.numberOfHedgeFundInvestments.toLocaleString()}
                 </span>
               </div>
-              <div className="stats-item">
-                <span className="stats-label">
-                  Number of Family Office investments:{" "}
+              <div
+                className="stats-item"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "8px",
+                }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span className="stats-label">
+                    Number of Family Office investments:{" "}
+                  </span>
+                  <span className="stats-value">
+                    {summaryData.numberOfFamilyOfficeInvestments.toLocaleString()}
+                  </span>
                 </span>
-                <span className="stats-value">
-                  {summaryData.numberOfFamilyOfficeInvestments.toLocaleString()}
-                </span>
+                <button
+                  type="button"
+                  onClick={handleExportCSV}
+                  disabled={exporting || loading || pagination.itemsTotal === 0}
+                  title={
+                    pagination.itemsTotal === 0
+                      ? "No results to export"
+                      : undefined
+                  }
+                  style={{
+                    marginLeft: "auto",
+                    padding: "9px 20px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    color: "#fff",
+                    backgroundColor: "#22c55e",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: pagination.itemsTotal === 0 ? "not-allowed" : "pointer",
+                    opacity: exporting || loading || pagination.itemsTotal === 0 ? 0.7 : 1,
+                  }}
+                >
+                  {exporting ? "Exporting…" : "Export CSV"}
+                </button>
               </div>
             </div>
           </div>
