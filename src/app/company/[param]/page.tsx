@@ -1023,18 +1023,12 @@ const CompanyDetail = () => {
   const fetchAuthMe = useCallback(async () => {
     setAuthMeLoading(true);
     try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      // Auth may be cookie-based; do not require a localStorage token.
-      const res = await fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/me",
-        {
-          method: "GET",
-          headers: token
-            ? { Accept: "application/json", Authorization: `Bearer ${token}` }
-            : { Accept: "application/json" },
-          credentials: "include",
-        }
-      );
+      // Use same-origin proxy to avoid CORS (server-to-server call to Xano)
+      const res = await fetch("/api/auth-me", {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        credentials: "include",
+      });
       if (!res.ok) {
         setAuthMe(null);
         return;
@@ -1688,25 +1682,19 @@ const CompanyDetail = () => {
 
     setFollowToggling(true);
     try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      };
-
-      const res = await fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI/users/followed_companies",
-        {
-          method: "POST",
-          headers,
-          credentials: "include",
-          body: JSON.stringify({
-            user_id: userId,
-            new_company_id: newCompanyId,
-          }),
-        }
-      );
+      // Use same-origin proxy to avoid CORS preflight issues
+      const res = await fetch("/api/followed-companies", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          user_id: userId,
+          new_company_id: newCompanyId,
+        }),
+      });
 
       if (!res.ok) {
         const text = await res.text().catch(() => "");
