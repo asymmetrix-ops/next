@@ -593,6 +593,15 @@ const effectiveSourceLabel = (
   return sourceLabel(code);
 };
 
+// Convert source label/code into a display string
+const getSourceText = (
+  label?: string | null,
+  code?: number | string | null
+): string => {
+  const resolved = effectiveSourceLabel(label, code);
+  return resolved ?? "Not available";
+};
+
 // Removed short currency helper; we now display plain numbers
 
 // Normalize various currency representations to a displayable 3-letter code
@@ -1878,7 +1887,7 @@ const CompanyDetail = () => {
     },
     infoRow: {
       display: "grid",
-      gridTemplateColumns: "minmax(180px, 220px) 1fr",
+      gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
       columnGap: "4px",
       alignItems: "center",
       padding: "10px 0",
@@ -1906,6 +1915,13 @@ const CompanyDetail = () => {
       marginLeft: "0",
       wordBreak: "break-word" as const,
       overflowWrap: "break-word" as const,
+    },
+    sourceValue: {
+      fontSize: "12px",
+      color: "#9ca3af",
+      textAlign: "right" as const,
+      whiteSpace: "nowrap" as const,
+      paddingLeft: "8px",
     },
     link: {
       color: "#0075df",
@@ -2854,7 +2870,7 @@ const CompanyDetail = () => {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "minmax(180px, 220px) 1fr",
+                    gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
                     marginTop: "-12px",
                     marginBottom: "4px",
                     fontSize: "13px",
@@ -2866,148 +2882,96 @@ const CompanyDetail = () => {
                   <span style={{ textAlign: "left" }}>
                     {financialMetricsPeriodDisplay}
                   </span>
+                  <span style={{ ...styles.sourceValue, fontSize: "11px" }}>
+                    Source
+                  </span>
                 </div>
               )}
               {!hasIncomeStatementData && (
                 <div style={styles.infoRow}>
                   <span style={styles.label}>Revenue (m):</span>
-                  <span
-                    style={styles.value}
-                    title={
-                      effectiveSourceLabel(
-                        financialMetrics?.Revenue_source_label,
-                        financialMetrics?.Rev_source
-                      )
-                        ? `Source: ${effectiveSourceLabel(
-                            financialMetrics?.Revenue_source_label,
-                            financialMetrics?.Rev_source
-                          )}`
-                        : undefined
-                    }
-                  >
-                    {revenuePlain}
+                  <span style={styles.value}>{revenuePlain}</span>
+                  <span style={styles.sourceValue}>
+                    {getSourceText(
+                      financialMetrics?.Revenue_source_label,
+                      financialMetrics?.Rev_source
+                    )}
                   </span>
                 </div>
               )}
               {!hasIncomeStatementData && (
                 <div style={styles.infoRow}>
                   <span style={styles.label}>EBITDA (m):</span>
-                  <span
-                    style={styles.value}
-                    title={
-                      effectiveSourceLabel(
-                        financialMetrics?.EBITDA_source_label,
-                        financialMetrics?.EBITDA_source
-                      )
-                        ? `Source: ${effectiveSourceLabel(
-                            financialMetrics?.EBITDA_source_label,
-                            financialMetrics?.EBITDA_source
-                          )}`
-                        : undefined
-                    }
-                  >
-                    {ebitdaPlain}
+                  <span style={styles.value}>{ebitdaPlain}</span>
+                  <span style={styles.sourceValue}>
+                    {getSourceText(
+                      financialMetrics?.EBITDA_source_label,
+                      financialMetrics?.EBITDA_source
+                    )}
                   </span>
                 </div>
               )}
               <div style={styles.infoRow}>
                 <span style={styles.label}>Enterprise Value (m):</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.EV_source_label,
-                      financialMetrics?.EV_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.EV_source_label,
-                          financialMetrics?.EV_source
-                        )}`
-                      : undefined
-                  }
-                >
-                  {evPlain}
+                <span style={styles.value}>{evPlain}</span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EV_source_label,
+                    financialMetrics?.EV_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue multiple:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Revenue_multiple_source_label,
-                      financialMetrics?.Rev_x_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Revenue_multiple_source_label,
-                          financialMetrics?.Rev_x_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatMultiple(financialMetrics?.Revenue_multiple)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Revenue_multiple_source_label,
+                    financialMetrics?.Rev_x_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue Growth:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Rev_growth_source_label,
-                      financialMetrics?.Rev_Growth_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Rev_growth_source_label,
-                          financialMetrics?.Rev_Growth_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Rev_Growth_PC)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_growth_source_label,
+                    financialMetrics?.Rev_Growth_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>EBITDA margin:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.EBITDA_margin_source_label,
-                      financialMetrics?.EBITDA_margin_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.EBITDA_margin_source_label,
-                          financialMetrics?.EBITDA_margin_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.EBITDA_margin)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EBITDA_margin_source_label,
+                    financialMetrics?.EBITDA_margin_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Rule of 40:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Rule_of_40_source_label,
-                      financialMetrics?.Rule_of_40_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Rule_of_40_source_label,
-                          financialMetrics?.Rule_of_40_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {(() => {
                     const n = getNumeric(financialMetrics?.Rule_of_40);
                     return n !== undefined
                       ? Math.round(n).toLocaleString()
                       : "Not available";
                   })()}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rule_of_40_source_label,
+                    financialMetrics?.Rule_of_40_source
+                  )}
                 </span>
               </div>
               {hasIncomeStatementData && (
@@ -3135,192 +3099,122 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Recurring Revenue:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.ARR_source_label,
-                      financialMetrics?.ARR_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.ARR_source_label,
-                          financialMetrics?.ARR_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.ARR_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>ARR (m):</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.ARR_source_label,
-                      financialMetrics?.ARR_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.ARR_source_label,
-                          financialMetrics?.ARR_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPlainNumber(financialMetrics?.ARR_m)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Churn:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Churn_source_label,
-                      financialMetrics?.Churn_Source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Churn_source_label,
-                          financialMetrics?.Churn_Source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Churn_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Churn_source_label,
+                    financialMetrics?.Churn_Source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>GRR:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.GRR_source_label,
-                      financialMetrics?.GRR_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.GRR_source_label,
-                          financialMetrics?.GRR_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.GRR_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.GRR_source_label,
+                    financialMetrics?.GRR_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Upsell:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Upsell_source_label,
-                      financialMetrics?.Upsell_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Upsell_source_label,
-                          financialMetrics?.Upsell_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Upsell_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Upsell_source_label,
+                    financialMetrics?.Upsell_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Cross-sell:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Cross_sell_source_label,
-                      financialMetrics?.Cross_sell_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Cross_sell_source_label,
-                          financialMetrics?.Cross_sell_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Cross_sell_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Cross_sell_source_label,
+                    financialMetrics?.Cross_sell_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Price increase:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Price_increase_source_label,
-                      financialMetrics?.Price_increase_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Price_increase_source_label,
-                          financialMetrics?.Price_increase_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Price_increase_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Price_increase_source_label,
+                    financialMetrics?.Price_increase_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue expansion:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Rev_expansion_source_label,
-                      financialMetrics?.Rev_expansion_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Rev_expansion_source_label,
-                          financialMetrics?.Rev_expansion_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Rev_expansion_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_expansion_source_label,
+                    financialMetrics?.Rev_expansion_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>NRR:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.NRR_source_label,
-                      financialMetrics?.NRR_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.NRR_source_label,
-                          financialMetrics?.NRR_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.NRR)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.NRR_source_label,
+                    financialMetrics?.NRR_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>New clients revenue growth:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.New_client_growth_source_label,
-                      financialMetrics?.New_Client_Growth_Source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.New_client_growth_source_label,
-                          financialMetrics?.New_Client_Growth_Source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.New_client_growth_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.New_client_growth_source_label,
+                    financialMetrics?.New_Client_Growth_Source
+                  )}
                 </span>
               </div>
 
@@ -3332,101 +3226,66 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>EBIT (m):</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.EBIT_source_label,
-                      financialMetrics?.EBIT_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.EBIT_source_label,
-                          financialMetrics?.EBIT_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPlainNumber(financialMetrics?.EBIT_m)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EBIT_source_label,
+                    financialMetrics?.EBIT_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Number of clients:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.No_of_Clients_source_label,
-                      financialMetrics?.No_Clients_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.No_of_Clients_source_label,
-                          financialMetrics?.No_Clients_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {typeof financialMetrics?.No_of_Clients === "number"
                     ? financialMetrics.No_of_Clients.toLocaleString()
                     : "Not available"}
                 </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.No_of_Clients_source_label,
+                    financialMetrics?.No_Clients_source
+                  )}
+                </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per client:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Rev_per_client_source_label,
-                      financialMetrics?.Rev_per_client_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Rev_per_client_source_label,
-                          financialMetrics?.Rev_per_client_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatWholeNumber(financialMetrics?.Rev_per_client)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_per_client_source_label,
+                    financialMetrics?.Rev_per_client_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Number of employees:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.No_Employees_source_label,
-                      financialMetrics?.No_Employees_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.No_Employees_source_label,
-                          financialMetrics?.No_Employees_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {typeof financialMetrics?.No_Employees === "number"
                     ? financialMetrics.No_Employees.toLocaleString()
                     : formatNumber(currentEmployeeCount)}
                 </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.No_Employees_source_label,
+                    financialMetrics?.No_Employees_source
+                  )}
+                </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per employee:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Revenue_per_employee_source_label,
-                      financialMetrics?.Rev_per_employee_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Revenue_per_employee_source_label,
-                          financialMetrics?.Rev_per_employee_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatWholeNumber(financialMetrics?.Revenue_per_employee)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Revenue_per_employee_source_label,
+                    financialMetrics?.Rev_per_employee_source
+                  )}
                 </span>
               </div>
               <div style={styles.chartContainer} className="chartContainer">
@@ -3569,7 +3428,7 @@ const CompanyDetail = () => {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "minmax(180px, 220px) 1fr",
+                    gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
                     marginTop: "-10px",
                     marginBottom: "4px",
                     fontSize: "13px",
@@ -3581,148 +3440,96 @@ const CompanyDetail = () => {
                   <span style={{ textAlign: "left" }}>
                     {financialMetricsPeriodDisplay}
                   </span>
+                  <span style={{ ...styles.sourceValue, fontSize: "11px" }}>
+                    Source
+                  </span>
                 </div>
               )}
               {!hasIncomeStatementData && (
                 <div style={styles.infoRow}>
                   <span style={styles.label}>Revenue (m):</span>
-                  <span
-                    style={styles.value}
-                    title={
-                      effectiveSourceLabel(
-                        financialMetrics?.Revenue_source_label,
-                        financialMetrics?.Rev_source
-                      )
-                        ? `Source: ${effectiveSourceLabel(
-                            financialMetrics?.Revenue_source_label,
-                            financialMetrics?.Rev_source
-                          )}`
-                        : undefined
-                    }
-                  >
-                    {revenuePlain}
+                  <span style={styles.value}>{revenuePlain}</span>
+                  <span style={styles.sourceValue}>
+                    {getSourceText(
+                      financialMetrics?.Revenue_source_label,
+                      financialMetrics?.Rev_source
+                    )}
                   </span>
                 </div>
               )}
               {!hasIncomeStatementData && (
                 <div style={styles.infoRow}>
                   <span style={styles.label}>EBITDA (m):</span>
-                  <span
-                    style={styles.value}
-                    title={
-                      effectiveSourceLabel(
-                        financialMetrics?.EBITDA_source_label,
-                        financialMetrics?.EBITDA_source
-                      )
-                        ? `Source: ${effectiveSourceLabel(
-                            financialMetrics?.EBITDA_source_label,
-                            financialMetrics?.EBITDA_source
-                          )}`
-                        : undefined
-                    }
-                  >
-                    {ebitdaPlain}
+                  <span style={styles.value}>{ebitdaPlain}</span>
+                  <span style={styles.sourceValue}>
+                    {getSourceText(
+                      financialMetrics?.EBITDA_source_label,
+                      financialMetrics?.EBITDA_source
+                    )}
                   </span>
                 </div>
               )}
               <div style={styles.infoRow}>
                 <span style={styles.label}>Enterprise Value (m):</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.EV_source_label,
-                      financialMetrics?.EV_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.EV_source_label,
-                          financialMetrics?.EV_source
-                        )}`
-                      : undefined
-                  }
-                >
-                  {evPlain}
+                <span style={styles.value}>{evPlain}</span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EV_source_label,
+                    financialMetrics?.EV_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue multiple:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Revenue_multiple_source_label,
-                      financialMetrics?.Rev_x_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Revenue_multiple_source_label,
-                          financialMetrics?.Rev_x_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatMultiple(financialMetrics?.Revenue_multiple)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Revenue_multiple_source_label,
+                    financialMetrics?.Rev_x_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue Growth:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Rev_growth_source_label,
-                      financialMetrics?.Rev_Growth_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Rev_growth_source_label,
-                          financialMetrics?.Rev_Growth_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Rev_Growth_PC)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_growth_source_label,
+                    financialMetrics?.Rev_Growth_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>EBITDA margin:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.EBITDA_margin_source_label,
-                      financialMetrics?.EBITDA_margin_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.EBITDA_margin_source_label,
-                          financialMetrics?.EBITDA_margin_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.EBITDA_margin)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EBITDA_margin_source_label,
+                    financialMetrics?.EBITDA_margin_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Rule of 40:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Rule_of_40_source_label,
-                      financialMetrics?.Rule_of_40_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Rule_of_40_source_label,
-                          financialMetrics?.Rule_of_40_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {(() => {
                     const n = getNumeric(financialMetrics?.Rule_of_40);
                     return n !== undefined
                       ? Math.round(n).toLocaleString()
                       : "Not available";
                   })()}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rule_of_40_source_label,
+                    financialMetrics?.Rule_of_40_source
+                  )}
                 </span>
               </div>
               {hasIncomeStatementData && (
@@ -3854,192 +3661,122 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Recurring Revenue:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.ARR_source_label,
-                      financialMetrics?.ARR_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.ARR_source_label,
-                          financialMetrics?.ARR_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.ARR_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>ARR (m):</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.ARR_source_label,
-                      financialMetrics?.ARR_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.ARR_source_label,
-                          financialMetrics?.ARR_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPlainNumber(financialMetrics?.ARR_m)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Churn:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Churn_source_label,
-                      financialMetrics?.Churn_Source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Churn_source_label,
-                          financialMetrics?.Churn_Source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Churn_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Churn_source_label,
+                    financialMetrics?.Churn_Source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>GRR:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.GRR_source_label,
-                      financialMetrics?.GRR_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.GRR_source_label,
-                          financialMetrics?.GRR_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.GRR_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.GRR_source_label,
+                    financialMetrics?.GRR_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Upsell:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Upsell_source_label,
-                      financialMetrics?.Upsell_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Upsell_source_label,
-                          financialMetrics?.Upsell_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Upsell_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Upsell_source_label,
+                    financialMetrics?.Upsell_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Cross-sell:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Cross_sell_source_label,
-                      financialMetrics?.Cross_sell_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Cross_sell_source_label,
-                          financialMetrics?.Cross_sell_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Cross_sell_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Cross_sell_source_label,
+                    financialMetrics?.Cross_sell_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Price increase:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Price_increase_source_label,
-                      financialMetrics?.Price_increase_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Price_increase_source_label,
-                          financialMetrics?.Price_increase_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Price_increase_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Price_increase_source_label,
+                    financialMetrics?.Price_increase_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue expansion:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Rev_expansion_source_label,
-                      financialMetrics?.Rev_expansion_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Rev_expansion_source_label,
-                          financialMetrics?.Rev_expansion_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Rev_expansion_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_expansion_source_label,
+                    financialMetrics?.Rev_expansion_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>NRR:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.NRR_source_label,
-                      financialMetrics?.NRR_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.NRR_source_label,
-                          financialMetrics?.NRR_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.NRR)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.NRR_source_label,
+                    financialMetrics?.NRR_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>New clients revenue growth:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.New_client_growth_source_label,
-                      financialMetrics?.New_Client_Growth_Source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.New_client_growth_source_label,
-                          financialMetrics?.New_Client_Growth_Source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.New_client_growth_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.New_client_growth_source_label,
+                    financialMetrics?.New_Client_Growth_Source
+                  )}
                 </span>
               </div>
 
@@ -4051,101 +3788,66 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>EBIT (m):</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.EBIT_source_label,
-                      financialMetrics?.EBIT_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.EBIT_source_label,
-                          financialMetrics?.EBIT_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPlainNumber(financialMetrics?.EBIT_m)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EBIT_source_label,
+                    financialMetrics?.EBIT_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Number of clients:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.No_of_Clients_source_label,
-                      financialMetrics?.No_Clients_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.No_of_Clients_source_label,
-                          financialMetrics?.No_Clients_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {typeof financialMetrics?.No_of_Clients === "number"
                     ? financialMetrics.No_of_Clients.toLocaleString()
                     : "Not available"}
                 </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.No_of_Clients_source_label,
+                    financialMetrics?.No_Clients_source
+                  )}
+                </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per client:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Rev_per_client_source_label,
-                      financialMetrics?.Rev_per_client_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Rev_per_client_source_label,
-                          financialMetrics?.Rev_per_client_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatWholeNumber(financialMetrics?.Rev_per_client)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_per_client_source_label,
+                    financialMetrics?.Rev_per_client_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Number of employees:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.No_Employees_source_label,
-                      financialMetrics?.No_Employees_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.No_Employees_source_label,
-                          financialMetrics?.No_Employees_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {typeof financialMetrics?.No_Employees === "number"
                     ? financialMetrics.No_Employees.toLocaleString()
                     : formatNumber(currentEmployeeCount)}
                 </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.No_Employees_source_label,
+                    financialMetrics?.No_Employees_source
+                  )}
+                </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per employee:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Revenue_per_employee_source_label,
-                      financialMetrics?.Rev_per_employee_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Revenue_per_employee_source_label,
-                          financialMetrics?.Rev_per_employee_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatWholeNumber(financialMetrics?.Revenue_per_employee)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Revenue_per_employee_source_label,
+                    financialMetrics?.Rev_per_employee_source
+                  )}
                 </span>
               </div>
               <div style={styles.chartContainer}>
