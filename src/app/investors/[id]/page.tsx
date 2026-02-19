@@ -1872,15 +1872,6 @@ const InvestorDetailPage = () => {
                 {exportingPdf ? "Exporting..." : "Export PDF"}
               </button>
             </NewFeatureCallout>
-            <button
-              onClick={handleExportPortfolio}
-              disabled={exportingPortfolio || !investorData}
-              className="export-button"
-              type="button"
-              style={{ backgroundColor: "#22c55e" }}
-            >
-              {exportingPortfolio ? "Exporting..." : "Export portfolio"}
-            </button>
             <a
               href={reportMailTo}
               className="report-button"
@@ -2053,7 +2044,27 @@ const InvestorDetailPage = () => {
           <div className="investor-right-column">
             {/* Current Portfolio Section */}
             <div className="investor-section">
-              <h2 className="section-title">Current Portfolio</h2>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                  flexWrap: "wrap",
+                  marginBottom: 12,
+                }}
+              >
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Current Portfolio</h2>
+                <button
+                  onClick={handleExportPortfolio}
+                  disabled={exportingPortfolio || !investorData}
+                  className="export-button"
+                  type="button"
+                  style={{ backgroundColor: "#22c55e" }}
+                >
+                  {exportingPortfolio ? "Exporting..." : "Export Portfolio"}
+                </button>
+              </div>
               {portfolioLoading ? (
                 <div className="loading">
                   Loading current portfolio companies...
