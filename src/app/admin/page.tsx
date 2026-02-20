@@ -110,7 +110,7 @@ Target company: {query} ({domain})`;
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "valuation" | "emails" | "content" | "sectors"
+    "valuation" | "emails" | "content" | "sectors" | "company_searches"
   >("valuation");
 
   async function onSubmit(e: React.FormEvent) {
@@ -194,6 +194,16 @@ Target company: {query} ({domain})`;
         >
           Sectors
         </button>
+        <button
+          onClick={() => setActiveTab("company_searches")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "company_searches"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Company Searches
+        </button>
       </div>
 
       {activeTab === "valuation" && (
@@ -258,6 +268,192 @@ Target company: {query} ({domain})`;
       {activeTab === "emails" && <EmailsTab />}
       {activeTab === "content" && <ContentTab />}
       {activeTab === "sectors" && <SectorsTab />}
+      {activeTab === "company_searches" && <CompanySearchesTab />}
+    </div>
+  );
+}
+
+type CompanySearchesRow = {
+  query: string | null;
+  filters_used: string;
+  search_count: number;
+  unique_users: number;
+  unique_sessions: number;
+};
+
+function CompanySearchesTab() {
+  const [rows, setRows] = useState<CompanySearchesRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [filterQuery, setFilterQuery] = useState("");
+  const [minSearchCount, setMinSearchCount] = useState<number>(0);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/company-searches", {
+        method: "GET",
+        cache: "no-store",
+      });
+      const data = (await res.json().catch(() => null)) as unknown;
+      if (!res.ok) {
+        const msg =
+          typeof (data as { error?: unknown })?.error === "string"
+            ? String((data as { error?: unknown }).error)
+            : "Request failed";
+        throw new Error(msg);
+      }
+      setRows(Array.isArray(data) ? (data as CompanySearchesRow[]) : []);
+    } catch (e) {
+      setRows([]);
+      setError(e instanceof Error ? e.message : "Unexpected error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = filterQuery.trim().toLowerCase();
+    return rows
+      .filter((r) => (Number(r.search_count) || 0) >= (minSearchCount || 0))
+      .filter((r) => {
+        if (!q) return true;
+        const query = String(r.query ?? "").toLowerCase();
+        const filters = String(r.filters_used ?? "").toLowerCase();
+        return query.includes(q) || filters.includes(q);
+      })
+      .sort((a, b) => (Number(b.search_count) || 0) - (Number(a.search_count) || 0));
+  }, [rows, filterQuery, minSearchCount]);
+
+  const totalSearches = useMemo(() => {
+    return filtered.reduce((sum, r) => sum + (Number(r.search_count) || 0), 0);
+  }, [filtered]);
+
+  const prettyFilters = (raw: string) => {
+    const txt = String(raw ?? "");
+    if (!txt.trim()) return "{}";
+    try {
+      const parsed = JSON.parse(txt) as unknown;
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return txt;
+    }
+  };
+
+  return (
+    <div>
+      <h2 className="mb-4 text-xl font-semibold">Company Searches</h2>
+
+      <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-end">
+        <div className="flex-1">
+          <label className="block mb-1 text-sm font-medium">
+            Filter (query / filters)
+          </label>
+          <input
+            value={filterQuery}
+            onChange={(e) => setFilterQuery(e.target.value)}
+            placeholder="e.g. s&p global"
+            className="px-3 py-2 w-full rounded border"
+          />
+        </div>
+        <div className="w-full md:w-48">
+          <label className="block mb-1 text-sm font-medium">
+            Min search count
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={Number.isFinite(minSearchCount) ? minSearchCount : 0}
+            onChange={(e) => setMinSearchCount(Number(e.target.value) || 0)}
+            className="px-3 py-2 w-full rounded border"
+          />
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={load}
+            disabled={loading}
+            className="px-4 py-2 bg-gray-100 rounded border disabled:opacity-50"
+          >
+            {loading ? "Loading…" : "Refresh"}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="p-3 mb-4 text-red-700 bg-red-50 rounded border border-red-300">
+          {error}
+        </div>
+      )}
+
+      <div className="flex gap-4 items-center mb-3 text-sm text-gray-700">
+        <div>
+          <span className="font-medium">{filtered.length}</span> rows
+        </div>
+        <div>
+          <span className="font-medium">{totalSearches}</span> total searches
+        </div>
+      </div>
+
+      <div className="overflow-x-auto bg-white rounded border">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="p-3 text-left">Query</th>
+              <th className="p-3 text-left">Filters used</th>
+              <th className="p-3 text-right">Search count</th>
+              <th className="p-3 text-right">Unique users</th>
+              <th className="p-3 text-right">Unique sessions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && rows.length === 0 ? (
+              <tr>
+                <td className="p-3 text-gray-500" colSpan={5}>
+                  Loading…
+                </td>
+              </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td className="p-3 text-gray-500" colSpan={5}>
+                  No results.
+                </td>
+              </tr>
+            ) : (
+              filtered.map((r, idx) => (
+                <tr key={`${r.query ?? "null"}-${idx}`} className="border-t">
+                  <td className="p-3 align-top">
+                    {r.query ? (
+                      <span className="font-medium">{r.query}</span>
+                    ) : (
+                      <span className="text-gray-500">(empty)</span>
+                    )}
+                  </td>
+                  <td className="p-3 align-top">
+                    <pre className="overflow-auto p-2 max-h-40 text-xs whitespace-pre-wrap bg-gray-50 rounded border">
+                      {prettyFilters(r.filters_used)}
+                    </pre>
+                  </td>
+                  <td className="p-3 text-right align-top tabular-nums">
+                    {Number(r.search_count) || 0}
+                  </td>
+                  <td className="p-3 text-right align-top tabular-nums">
+                    {Number(r.unique_users) || 0}
+                  </td>
+                  <td className="p-3 text-right align-top tabular-nums">
+                    {Number(r.unique_sessions) || 0}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
