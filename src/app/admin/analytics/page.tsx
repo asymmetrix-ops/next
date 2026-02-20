@@ -5,12 +5,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
+  CompanySearchTab,
   ContentInsightsTab,
   PageInsightsTab,
+  PlatformWideSearchTab,
   UserActivityTab,
 } from "./_components/AnalyticsViews";
 
-type AnalyticsTab = "user-activity" | "content-insights" | "page-insights";
+type AnalyticsTab =
+  | "user-activity"
+  | "content-insights"
+  | "page-insights"
+  | "platform-wide-search"
+  | "company-search";
 
 const ALLOWED_ANALYTICS_EMAILS = new Set<string>([
   "j.bochner@asymmetrixintelligence.com",
@@ -106,11 +113,33 @@ export default function AdminAnalyticsPage() {
         >
           Page Insights
         </button>
+        <button
+          onClick={() => setActiveTab("platform-wide-search")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "platform-wide-search"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Platform Wide Search
+        </button>
+        <button
+          onClick={() => setActiveTab("company-search")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "company-search"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Company Search
+        </button>
       </div>
 
       {activeTab === "user-activity" && <UserActivityTab />}
       {activeTab === "content-insights" && <ContentInsightsTab />}
       {activeTab === "page-insights" && <PageInsightsTab />}
+      {activeTab === "platform-wide-search" && <PlatformWideSearchTab />}
+      {activeTab === "company-search" && <CompanySearchTab />}
     </div>
   );
 }

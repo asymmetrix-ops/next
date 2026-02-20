@@ -293,6 +293,339 @@ export function UserActivityTab() {
 }
 
 // -------------------------
+// Platform Wide Search Analytics
+// -------------------------
+
+const PLATFORM_WIDE_SEARCH_ANALYTICS_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/platform_wide_search_analytics";
+
+type PlatformWideSearchRow = {
+  query: string;
+  search_count: number;
+  unique_users: number;
+  unique_sessions: number;
+};
+
+type PlatformWideSearchSortCol =
+  | "query"
+  | "search_count"
+  | "unique_users"
+  | "unique_sessions";
+
+export function PlatformWideSearchTab() {
+  const [data, setData] = useState<PlatformWideSearchRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [sortCol, setSortCol] = useState<PlatformWideSearchSortCol>("search_count");
+  const [sortDir, setSortDir] = useState<SortDirection>("desc");
+
+  useEffect(() => {
+    let aborted = false;
+    async function fetchData() {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const resp = await fetch(PLATFORM_WIDE_SEARCH_ANALYTICS_URL, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => "");
+          throw new Error(`${resp.status} ${resp.statusText} ${text}`);
+        }
+        const json = (await resp.json()) as PlatformWideSearchRow[];
+        if (!aborted) setData(Array.isArray(json) ? json : []);
+      } catch (e) {
+        if (!aborted)
+          setError(e instanceof Error ? e.message : "Failed to load");
+      } finally {
+        if (!aborted) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => {
+      aborted = true;
+    };
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return data
+      .filter((r) => (q ? r.query?.toLowerCase().includes(q) : true))
+      .slice()
+      .sort((a, b) =>
+        compareValues(
+          a[sortCol],
+          b[sortCol],
+          sortDir
+        )
+      );
+  }, [data, search, sortCol, sortDir]);
+
+  function onSort(col: PlatformWideSearchSortCol) {
+    if (sortCol === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir(col === "query" ? "asc" : "desc");
+    }
+  }
+
+  const columns: [PlatformWideSearchSortCol, string][] = [
+    ["query", "Query"],
+    ["search_count", "Search Count"],
+    ["unique_users", "Unique Users"],
+    ["unique_sessions", "Unique Sessions"],
+  ];
+
+  return (
+    <div>
+      <div className="mb-4">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by query..."
+          className="px-3 py-2 w-full max-w-md rounded border"
+        />
+      </div>
+
+      <div className="overflow-auto bg-white rounded border">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-50 text-gray-700">
+            <tr>
+              {columns.map(([key, label]) => (
+                <th key={key} className="px-3 py-2 text-left whitespace-nowrap">
+                  <button
+                    onClick={() => onSort(key)}
+                    className="inline-flex items-center gap-1 hover:underline"
+                    title="Sort"
+                  >
+                    <span>{label}</span>
+                    {sortCol === key && (
+                      <span className="text-xs text-gray-500">
+                        {sortDir === "asc" ? "▲" : "▼"}
+                      </span>
+                    )}
+                  </button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading && (
+              <tr>
+                <td className="px-3 py-3 text-center" colSpan={4}>
+                  Loading…
+                </td>
+              </tr>
+            )}
+            {error && !loading && (
+              <tr>
+                <td className="px-3 py-3 text-red-700 bg-red-50" colSpan={4}>
+                  {error}
+                </td>
+              </tr>
+            )}
+            {!loading && !error && filtered.length === 0 && (
+              <tr>
+                <td className="px-3 py-3 text-center text-gray-500" colSpan={4}>
+                  No results
+                </td>
+              </tr>
+            )}
+            {!loading &&
+              !error &&
+              filtered.map((r, idx) => (
+                <tr key={`${r.query}-${idx}`} className="border-t">
+                  <td className="px-3 py-2">{r.query || "—"}</td>
+                  <td className="px-3 py-2">{formatMetric(r.search_count)}</td>
+                  <td className="px-3 py-2">{formatMetric(r.unique_users)}</td>
+                  <td className="px-3 py-2">{formatMetric(r.unique_sessions)}</td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// -------------------------
+// Company Search Analytics
+// -------------------------
+
+const COMPANY_SEARCH_ANALYTICS_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/get_company_searched";
+
+type CompanySearchRow = {
+  query: string | null;
+  filters_used: string;
+  search_count: number;
+  unique_users: number;
+  unique_sessions: number;
+};
+
+type CompanySearchSortCol =
+  | "query"
+  | "filters_used"
+  | "search_count"
+  | "unique_users"
+  | "unique_sessions";
+
+export function CompanySearchTab() {
+  const [data, setData] = useState<CompanySearchRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [sortCol, setSortCol] = useState<CompanySearchSortCol>("search_count");
+  const [sortDir, setSortDir] = useState<SortDirection>("desc");
+
+  useEffect(() => {
+    let aborted = false;
+    async function fetchData() {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const resp = await fetch(COMPANY_SEARCH_ANALYTICS_URL, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => "");
+          throw new Error(`${resp.status} ${resp.statusText} ${text}`);
+        }
+        const json = (await resp.json()) as CompanySearchRow[];
+        if (!aborted) setData(Array.isArray(json) ? json : []);
+      } catch (e) {
+        if (!aborted)
+          setError(e instanceof Error ? e.message : "Failed to load");
+      } finally {
+        if (!aborted) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => {
+      aborted = true;
+    };
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return data
+      .filter((r) => {
+        if (!q) return true;
+        const queryStr = (r.query ?? "").toLowerCase();
+        const filtersStr = (r.filters_used ?? "").toLowerCase();
+        return queryStr.includes(q) || filtersStr.includes(q);
+      })
+      .slice()
+      .sort((a, b) => compareValues(a[sortCol], b[sortCol], sortDir));
+  }, [data, search, sortCol, sortDir]);
+
+  function onSort(col: CompanySearchSortCol) {
+    if (sortCol === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir(col === "query" || col === "filters_used" ? "asc" : "desc");
+    }
+  }
+
+  const columns: [CompanySearchSortCol, string][] = [
+    ["query", "Query"],
+    ["filters_used", "Filters Used"],
+    ["search_count", "Search Count"],
+    ["unique_users", "Unique Users"],
+    ["unique_sessions", "Unique Sessions"],
+  ];
+
+  return (
+    <div>
+      <div className="mb-4">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by query or filters..."
+          className="px-3 py-2 w-full max-w-md rounded border"
+        />
+      </div>
+
+      <div className="overflow-auto bg-white rounded border">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-50 text-gray-700">
+            <tr>
+              {columns.map(([key, label]) => (
+                <th key={key} className="px-3 py-2 text-left whitespace-nowrap">
+                  <button
+                    onClick={() => onSort(key)}
+                    className="inline-flex items-center gap-1 hover:underline"
+                    title="Sort"
+                  >
+                    <span>{label}</span>
+                    {sortCol === key && (
+                      <span className="text-xs text-gray-500">
+                        {sortDir === "asc" ? "▲" : "▼"}
+                      </span>
+                    )}
+                  </button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading && (
+              <tr>
+                <td className="px-3 py-3 text-center" colSpan={5}>
+                  Loading…
+                </td>
+              </tr>
+            )}
+            {error && !loading && (
+              <tr>
+                <td className="px-3 py-3 text-red-700 bg-red-50" colSpan={5}>
+                  {error}
+                </td>
+              </tr>
+            )}
+            {!loading && !error && filtered.length === 0 && (
+              <tr>
+                <td className="px-3 py-3 text-center text-gray-500" colSpan={5}>
+                  No results
+                </td>
+              </tr>
+            )}
+            {!loading &&
+              !error &&
+              filtered.map((r, idx) => (
+                <tr key={`${r.query ?? ""}-${r.filters_used}-${idx}`} className="border-t">
+                  <td className="px-3 py-2">{r.query ?? "—"}</td>
+                  <td className="px-3 py-2 max-w-xs truncate font-mono text-xs" title={r.filters_used}>
+                    {r.filters_used || "—"}
+                  </td>
+                  <td className="px-3 py-2">{formatMetric(r.search_count)}</td>
+                  <td className="px-3 py-2">{formatMetric(r.unique_users)}</td>
+                  <td className="px-3 py-2">{formatMetric(r.unique_sessions)}</td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// -------------------------
 // Content Insights
 // -------------------------
 
