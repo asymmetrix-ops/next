@@ -962,14 +962,11 @@ export default function HomeUserPage() {
       // Removed New Companies fetch handling
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
-      // If it's an authentication error, redirect to login
       if (
         error instanceof Error &&
         error.message === "Authentication required"
       ) {
-        console.log("Dashboard - Authentication error, redirecting to login");
-        logout();
-        router.push("/login");
+        // Modal is shown by the global auth interceptor; no redirect needed
         return;
       }
     } finally {
@@ -989,8 +986,7 @@ export default function HomeUserPage() {
     }
 
     if (!isAuthenticated) {
-      console.log("Dashboard page - Not authenticated, redirecting to login");
-      router.push("/login");
+      // AuthRouteGuard will show the login modal — no redirect needed
       return;
     }
 

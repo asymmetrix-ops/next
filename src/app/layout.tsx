@@ -11,6 +11,8 @@ import TitleUpdater from "@/components/TitleUpdater";
 import ChunkErrorRecovery from "@/components/ChunkErrorRecovery";
 import TrialRouteGuard from "@/components/TrialRouteGuard";
 import AuthRouteGuard from "@/components/AuthRouteGuard";
+import AuthLoginModal from "@/components/AuthLoginModal";
+import PageRemountOnLogin from "@/components/PageRemountOnLogin";
 import RouteTracker from "@/components/RouteTracker";
 import ErrorTracker from "@/components/ErrorTracker";
 
@@ -141,7 +143,8 @@ export default function RootLayout({
               <RouteTracker />
             </Suspense>
             <ErrorTracker />
-            {children}
+            <PageRemountOnLogin>{children}</PageRemountOnLogin>
+            <AuthLoginModal />
             <Toaster position="top-right" />
           </AnalyticsProvider>
         </AuthProvider>

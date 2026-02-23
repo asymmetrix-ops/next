@@ -1,5 +1,6 @@
 import { authService } from "./auth";
 import { AdvisorResponse, CorporateEventsResponse } from "../types/advisor";
+import { dispatchUnauthorized } from "./authEvents";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn";
 
@@ -35,7 +36,7 @@ class AdvisorService {
     if (!response.ok) {
       if (response.status === 401) {
         authService.logout();
-        window.location.href = "/login";
+        dispatchUnauthorized();
         throw new Error("Authentication required");
       }
       throw new Error(
@@ -69,7 +70,7 @@ class AdvisorService {
     if (!response.ok) {
       if (response.status === 401) {
         authService.logout();
-        window.location.href = "/login";
+        dispatchUnauthorized();
         throw new Error("Authentication required");
       }
       throw new Error(

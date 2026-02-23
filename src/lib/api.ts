@@ -1,4 +1,5 @@
 import { authService } from "./auth";
+import { dispatchUnauthorized } from "./authEvents";
 
 interface ApiResponse<T> {
   data: T;
@@ -41,9 +42,9 @@ class ApiService {
 
     if (!response.ok) {
       if (response.status === 401) {
-        // Token expired or invalid
+        // Token expired or invalid — show the login modal instead of redirecting
         authService.logout();
-        window.location.href = "/login";
+        dispatchUnauthorized();
         throw new Error("Authentication required");
       }
       throw new Error(`API request failed: ${response.statusText}`);

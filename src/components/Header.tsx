@@ -19,7 +19,7 @@ const Header = () => {
     const userId = user?.id ? Number.parseInt(user.id, 10) : 0;
     trackLogout(Number.isFinite(userId) ? userId : 0);
     logout();
-    router.push("/login");
+    router.push("/");
   };
 
   const navItems = [

@@ -1065,7 +1065,7 @@ const CorporateEventDetailPage = () => {
         errorMessage === "Authentication required" ||
         errorMessage.includes("Authentication token not found")
       ) {
-        router.push("/login");
+        // Login modal is handled globally — no redirect needed
         return;
       }
 

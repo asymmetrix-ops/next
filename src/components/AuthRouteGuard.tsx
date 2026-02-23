@@ -1,30 +1,35 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 
 // Routes that should remain accessible even when the user is not authenticated
 // or their token has expired.
-const PUBLIC_PATHS = ["/", "/about-us", "/login", "/register", "/trial-expired"];
+const PUBLIC_PATHS = [
+  "/",
+  "/about-us",
+  "/login",
+  "/trial-expired",
+  "/forgot-password",
+];
 
 export default function AuthRouteGuard() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, setShowLoginModal } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
 
   useEffect(() => {
     if (!pathname || loading) return;
 
-    const isPublicPath = PUBLIC_PATHS.includes(pathname);
+    const isPublicPath = PUBLIC_PATHS.some(
+      (p) => pathname === p || pathname.startsWith(p + "/")
+    );
 
-    // If the user is not authenticated (including when their token has expired
-    // and been cleared) and they're not on a public page, always redirect
-    // them to the login screen regardless of which specific page they were on.
-    if (!isPublicPath && !isAuthenticated) {
-      router.replace("/login");
-    }
-  }, [pathname, isAuthenticated, loading, router]);
+    // Show the login modal overlay instead of redirecting, so the user stays
+    // on the page they came from (e.g. via an email alert link) and can sign
+    // in without losing their context.
+    setShowLoginModal(!isPublicPath && !isAuthenticated);
+  }, [pathname, isAuthenticated, loading, setShowLoginModal]);
 
   return null;
 }
