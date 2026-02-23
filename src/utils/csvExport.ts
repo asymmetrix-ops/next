@@ -150,13 +150,28 @@ export class CSVExporter {
   static convertToCSV(data: CorporateEventCSVRow[]): string {
     if (data.length === 0) return "";
 
-    // Get headers from the first object keys
-    const headers = Object.keys(data[0]);
+    // Use explicit header order so columns don't depend on row[0] shape/order
+    const headers: Array<keyof CorporateEventCSVRow> = [
+      "Description",
+      "Date",
+      "Target Name",
+      "Target HQ",
+      "Primary Sector",
+      "Secondary Sectors",
+      "Deal Type",
+      "Funding Stage",
+      "Amount (m)",
+      "EV (m)",
+      "Buyer(s)/Investor(s)",
+      "Seller(s)",
+      "Advisors",
+      "Corporate Event Link",
+    ];
 
     // Create CSV content
     const csvBody = [
       // Headers row
-      headers.map((header) => `"${header}"`).join(","),
+      headers.map((header) => `"${String(header)}"`).join(","),
       // Data rows
       ...data.map((row) =>
         headers
