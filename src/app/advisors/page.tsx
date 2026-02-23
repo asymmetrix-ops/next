@@ -31,6 +31,8 @@ interface AdvisorsFilters {
   geographical_sub_region?: string[];
   primarySectors: number[];
   secondarySectors: number[];
+  corporate_events_advised_min?: number | null;
+  corporate_events_advised_max?: number | null;
   searchQuery: string;
   page: number;
   per_page: number;
@@ -68,6 +70,7 @@ const AdvisorsPage = () => {
     Record<number, boolean>
   >({});
   const [loading, setLoading] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
     itemsReceived: 0,
@@ -86,12 +89,6 @@ const AdvisorsPage = () => {
     nomad: 0,
   });
   const lastRequestIdRef = useRef(0);
-  const sectorsRequestIdRef = useRef(0);
-
-  // Cache of advisorId -> sectors string fetched from dedicated endpoint
-  const [advisorSectorsById, setAdvisorSectorsById] = useState<
-    Record<number, string>
-  >({});
 
   // Filter state
   const [searchTerm, setSearchTerm] = useState("");
@@ -102,6 +99,8 @@ const AdvisorsPage = () => {
     cities: [],
     primarySectors: [],
     secondarySectors: [],
+    corporate_events_advised_min: null,
+    corporate_events_advised_max: null,
     searchQuery: "",
     page: 1,
     per_page: 25,
@@ -165,6 +164,10 @@ const AdvisorsPage = () => {
   const [selectedSecondarySectors, setSelectedSecondarySectors] = useState<
     number[]
   >([]);
+  const [corporateEventsAdvisedMin, setCorporateEventsAdvisedMin] =
+    useState<string>("");
+  const [corporateEventsAdvisedMax, setCorporateEventsAdvisedMax] =
+    useState<string>("");
 
   // Fetch data from API (same as companies page)
   const fetchCountries = useCallback(async () => {
@@ -348,8 +351,20 @@ const AdvisorsPage = () => {
         });
       }
 
-      // Use our cached proxy endpoint (Redis-backed for initial page).
-      const url = `/api/advisors/list?${params.toString()}`;
+      if (typeof filters.corporate_events_advised_min === "number") {
+        params.append(
+          "corporate_events_advised_min",
+          filters.corporate_events_advised_min.toString()
+        );
+      }
+      if (typeof filters.corporate_events_advised_max === "number") {
+        params.append(
+          "corporate_events_advised_max",
+          filters.corporate_events_advised_max.toString()
+        );
+      }
+
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_list?${params.toString()}`;
 
       console.log("[Advisors] Fetch list URL:", url);
       const requestId = ++lastRequestIdRef.current;
@@ -500,7 +515,20 @@ const AdvisorsPage = () => {
           filtersForCounts.secondarySectors.join(",")
         );
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_counts?${params.toString()}`;
+      if (typeof filtersForCounts.corporate_events_advised_min === "number") {
+        params.append(
+          "corporate_events_advised_min",
+          filtersForCounts.corporate_events_advised_min.toString()
+        );
+      }
+      if (typeof filtersForCounts.corporate_events_advised_max === "number") {
+        params.append(
+          "corporate_events_advised_max",
+          filtersForCounts.corporate_events_advised_max.toString()
+        );
+      }
+
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_counts?${params.toString()}`;
       console.log("[Advisors] Fetch counts URL:", url);
       const response = await fetch(url, {
         method: "GET",
@@ -586,97 +614,19 @@ const AdvisorsPage = () => {
     fetchSecondarySectors();
   }, [selectedPrimarySectors, primarySectors, fetchSecondarySectors]);
 
-  // Fetch Advised D&A sectors for advisors on the current page (from dedicated API)
-  useEffect(() => {
-    if (!advisors || advisors.length === 0) return;
-
-    const currentIds = advisors
-      .map((a) => a?.id)
-      .filter((id): id is number => typeof id === "number" && id > 0);
-
-    // Determine which IDs still need fetching
-    const missingIds = currentIds.filter(
-      (id) => advisorSectorsById[id] === undefined
-    );
-    if (missingIds.length === 0) return;
-
-    const doFetch = async () => {
-      const reqId = ++sectorsRequestIdRef.current;
-      const token = localStorage.getItem("asymmetrix_auth_token");
-
-      // Helper to parse response into a sectors string
-      const parseSectorsList = (arr: unknown): string => {
-        if (!Array.isArray(arr)) return "";
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const names = (arr as any[])
-          .map((x) => String(x?.sector_name || "").trim())
-          .filter((s) => s.length > 0);
-        return names.join(", ");
-      };
-
-      const fetchOne = async (
-        newCompanyId: number
-      ): Promise<[number, string]> => {
-        const base =
-          "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/da_sectors_for_advisors";
-        const headers: Record<string, string> = {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        };
-
-        // GET with query param only
-        try {
-          const url = `${base}?new_company_id=${encodeURIComponent(
-            String(newCompanyId)
-          )}`;
-          const res = await fetch(url, { method: "GET", headers });
-          if (res.ok) {
-            const data = await res.json();
-            const sectors = parseSectorsList(data);
-            return [newCompanyId, sectors || ""];
-          }
-        } catch {
-          // ignore
-        }
-
-        return [newCompanyId, ""];
-      };
-
-      try {
-        // Limit concurrency a bit to be friendly
-        const BATCH_SIZE = 8;
-        const results: Array<[number, string]> = [];
-        for (let i = 0; i < missingIds.length; i += BATCH_SIZE) {
-          const batch = missingIds.slice(i, i + BATCH_SIZE);
-          // eslint-disable-next-line no-await-in-loop
-          const settled = await Promise.all(batch.map((id) => fetchOne(id)));
-          results.push(...settled);
-          // Optionally yield to event loop
-          // eslint-disable-next-line no-await-in-loop
-          await new Promise((r) => setTimeout(r, 0));
-        }
-
-        if (reqId === sectorsRequestIdRef.current && results.length > 0) {
-          setAdvisorSectorsById((prev) => {
-            const next = { ...prev };
-            for (const [id, sectors] of results) {
-              if (typeof id === "number") {
-                next[id] = sectors || "";
-              }
-            }
-            return next;
-          });
-        }
-      } catch (e) {
-        console.error("[Advisors] Failed fetching D&A sectors:", e);
-      }
-    };
-
-    doFetch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [advisors]);
-
   // Handle search
   const handleSearch = () => {
+    const parseOptionalInt = (value: string): number | null => {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      const n = Number(trimmed);
+      if (!Number.isFinite(n)) return null;
+      return Math.trunc(n);
+    };
+
+    const minVal = parseOptionalInt(corporateEventsAdvisedMin);
+    const maxVal = parseOptionalInt(corporateEventsAdvisedMax);
+
     const updatedFilters = {
       ...filters,
       searchQuery: searchTerm,
@@ -687,6 +637,8 @@ const AdvisorsPage = () => {
       cities: selectedCities,
       primarySectors: selectedPrimarySectors,
       secondarySectors: selectedSecondarySectors,
+      corporate_events_advised_min: minVal,
+      corporate_events_advised_max: maxVal,
       page: 1, // Reset to first page when searching
     };
     setFilters(updatedFilters);
@@ -797,6 +749,18 @@ const AdvisorsPage = () => {
       fontSize: "16px",
       marginBottom: "8px",
       marginTop: "14px",
+    },
+    numberInput: {
+      width: "100%",
+      padding: "13px 14px",
+      border: "1px solid #e2e8f0",
+      borderRadius: "6px",
+      fontSize: "16px",
+      color: "#111827",
+      outline: "none",
+      marginBottom: "0px",
+      appearance: "textfield" as const,
+      background: "white",
     },
     select: {
       width: "100%",
@@ -1069,9 +1033,7 @@ const AdvisorsPage = () => {
                 whiteSpace: "nowrap",
               },
             },
-            advisorSectorsById[advisor.id as number]?.trim()
-              ? advisorSectorsById[advisor.id as number]
-              : advisor.sectors || "N/A"
+            advisor.sectors || "N/A"
           )
         )
       )
@@ -1206,9 +1168,7 @@ const AdvisorsPage = () => {
                   ? "sectors-full"
                   : "sectors-truncated",
               },
-              advisorSectorsById[advisor.id as number]?.trim()
-                ? advisorSectorsById[advisor.id as number]
-                : sectorsText
+              sectorsText
             ),
             sectorsIsLong &&
               React.createElement(
@@ -1231,6 +1191,119 @@ const AdvisorsPage = () => {
     });
   };
 
+  const escapeCsvField = (value: string): string => {
+    if (value == null) return "";
+    const s = String(value).trim();
+    if (s.includes('"') || s.includes("\n") || s.includes(",")) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  const exportToCsv = async () => {
+    const itemsTotal = pagination.itemsTotal;
+    if (itemsTotal <= 0) return;
+
+    setExportingCsv(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const params = new URLSearchParams();
+      params.append("page", "1");
+      params.append("per_page", String(itemsTotal));
+
+      if (filters.searchQuery)
+        params.append("search_query", filters.searchQuery);
+      if (filters.countries.length > 0) {
+        filters.countries.forEach((c) => params.append("Countries[]", c));
+      }
+      if (filters.provinces.length > 0) {
+        filters.provinces.forEach((p) => params.append("Provinces[]", p));
+      }
+      if (filters.cities.length > 0) {
+        filters.cities.forEach((c) => params.append("Cities[]", c));
+      }
+      if ((filters.Continental_Region || []).length > 0) {
+        params.append("Continental_Region", (filters.Continental_Region || []).join(","));
+      }
+      if ((filters.geographical_sub_region || []).length > 0) {
+        params.append("geographical_sub_region", (filters.geographical_sub_region || []).join(","));
+      }
+      if (filters.primarySectors.length > 0) {
+        filters.primarySectors.forEach((id) => params.append("primary_sectors_ids[]", String(id)));
+      }
+      if (filters.secondarySectors.length > 0) {
+        filters.secondarySectors.forEach((id) => params.append("Secondary_sectors_ids[]", String(id)));
+      }
+      if (typeof filters.corporate_events_advised_min === "number") {
+        params.append("corporate_events_advised_min", String(filters.corporate_events_advised_min));
+      }
+      if (typeof filters.corporate_events_advised_max === "number") {
+        params.append("corporate_events_advised_max", String(filters.corporate_events_advised_max));
+      }
+
+      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_list?${params.toString()}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+
+      if (!response.ok) throw new Error(`API request failed: ${response.statusText}`);
+
+      const text = await response.text();
+      let raw: Record<string, unknown> = {};
+      try {
+        raw = JSON.parse(text) as Record<string, unknown>;
+      } catch (e) {
+        console.error("[Advisors] Export: parse error", e);
+        throw e;
+      }
+      const r = raw as { items?: unknown[]; result1?: { items?: unknown[] }; Advisors_companies?: { items?: unknown[] } };
+      const listRoot = r?.items ?? r?.result1?.items ?? r?.Advisors_companies?.items ?? [];
+      const allAdvisors = (listRoot as Advisor[]) || [];
+
+      const baseUrl =
+        typeof window !== "undefined"
+          ? window.location.origin
+          : "https://www.asymmetrixintelligence.com";
+      const headers = [
+        "Advisor Name",
+        "Asymmetrix link",
+        "Description",
+        "Number of corporate events advised",
+        "Advised sectors",
+        "Country",
+      ];
+      const rows = allAdvisors.map((advisor) => {
+        const link = `${baseUrl}/advisor/${advisor.id}`;
+        const sectors = advisor.sectors ?? "";
+        return [
+          escapeCsvField(advisor.name ?? ""),
+          escapeCsvField(link),
+          escapeCsvField(advisor.description ?? ""),
+          String(advisor.events_advised ?? 0),
+          escapeCsvField(sectors),
+          escapeCsvField(advisor.country ?? ""),
+        ].join(",");
+      });
+      const csv = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const urlObj = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = urlObj;
+      a.download = `advisors-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(urlObj);
+    } catch (err) {
+      console.error("Export CSV failed:", err);
+      setError(err instanceof Error ? err.message : "Failed to export advisors CSV");
+    } finally {
+      setExportingCsv(false);
+    }
+  };
+
   const style = `
     .advisor-section {
       padding: 16px 24px;
@@ -1243,11 +1316,37 @@ const AdvisorsPage = () => {
       border-radius: 16px;
       margin-bottom: 16px;
     }
+    .stats-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
     .stats-title {
       font-size: 22px;
       font-weight: 700;
       color: #1a202c;
-      margin: 0 0 16px 0;
+      margin: 0;
+    }
+    .export-csv-button {
+      padding: 10px 18px;
+      background: #16a34a;
+      color: #fff;
+      font-weight: 600;
+      font-size: 14px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .export-csv-button:hover {
+      background: #15803d;
+    }
+    .export-csv-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
     .stats-grid {
       display: grid;
@@ -1695,7 +1794,7 @@ const AdvisorsPage = () => {
               <div style={styles.grid} className="filters-grid">
                 <div style={styles.gridItem}>
                   <h3 style={styles.subHeading} className="filters-sub-heading">
-                    Location of Advised events
+                    Location
                   </h3>
                   <span style={styles.label}>By Continental Region</span>
                   <SearchableSelect
@@ -2043,7 +2142,7 @@ const AdvisorsPage = () => {
                 </div>
                 <div style={styles.gridItem}>
                   <h3 style={styles.subHeading} className="filters-sub-heading">
-                    Sector of Advised Events
+                    Sector
                   </h3>
                   <span style={styles.label}>By Primary Sectors</span>
                   <SearchableSelect
@@ -2207,6 +2306,30 @@ const AdvisorsPage = () => {
                       })}
                     </div>
                   )}
+
+                  <span style={styles.label}>
+                    # of Corporate Events Advised (Range)
+                  </span>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      placeholder="Min"
+                      value={corporateEventsAdvisedMin}
+                      onChange={(e) => setCorporateEventsAdvisedMin(e.target.value)}
+                      style={styles.numberInput}
+                    />
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      placeholder="Max"
+                      value={corporateEventsAdvisedMax}
+                      onChange={(e) => setCorporateEventsAdvisedMax(e.target.value)}
+                      style={styles.numberInput}
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -2263,7 +2386,18 @@ const AdvisorsPage = () => {
       <div className="advisor-section">
         {/* Statistics Block */}
         <div className="advisor-stats">
-          <h2 className="stats-title">Advisors</h2>
+          <div className="stats-header">
+            <h2 className="stats-title">Advisors</h2>
+            <button
+              type="button"
+              className="export-csv-button"
+              onClick={exportToCsv}
+              disabled={exportingCsv || pagination.itemsTotal <= 0}
+              title="Export all filtered advisors to CSV"
+            >
+              {exportingCsv ? "Exporting..." : "Export CSV"}
+            </button>
+          </div>
           <div className="stats-grid">
             <div className="stats-column">
               <div className="stats-item">
