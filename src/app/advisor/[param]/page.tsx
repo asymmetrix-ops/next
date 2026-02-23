@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import Head from "next/head";
 import Header from "@/components/Header";
@@ -182,6 +182,10 @@ export default function AdvisorProfilePage() {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const descriptionSectionRef = useRef<HTMLDivElement | null>(null);
+  const descriptionTextRef = useRef<HTMLDivElement | null>(null);
+  const descriptionFooterRef = useRef<HTMLDivElement | null>(null);
+  const [descriptionClampLines, setDescriptionClampLines] = useState(2);
   // Roles fetched from the LinkedIn/company endpoint (includes job titles)
   interface RoleItem {
     id: number;
@@ -205,6 +209,43 @@ export default function AdvisorProfilePage() {
   const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
     advisorId,
   });
+
+  useEffect(() => {
+    if (descriptionExpanded) return;
+    if (!advisorData?.Advisor?.description) return;
+
+    const sectionEl = descriptionSectionRef.current;
+    const textEl = descriptionTextRef.current;
+    const footerEl = descriptionFooterRef.current;
+    if (!sectionEl || !textEl || !footerEl) return;
+
+    const computeClamp = () => {
+      // Use rAF so DOM has laid out before measuring.
+      requestAnimationFrame(() => {
+        const textRect = textEl.getBoundingClientRect();
+        const footerRect = footerEl.getBoundingClientRect();
+
+        const availablePx = Math.max(0, footerRect.top - textRect.top);
+        const computed = getComputedStyle(textEl);
+        const lineHeightRaw = parseFloat(computed.lineHeight);
+        const fontSizeRaw = parseFloat(computed.fontSize);
+        const lineHeightPx = Number.isFinite(lineHeightRaw)
+          ? lineHeightRaw
+          : Number.isFinite(fontSizeRaw)
+          ? fontSizeRaw * 1.2
+          : 16;
+
+        const nextLines = Math.max(2, Math.floor(availablePx / lineHeightPx));
+        setDescriptionClampLines((prev) => (prev === nextLines ? prev : nextLines));
+      });
+    };
+
+    computeClamp();
+    const ro = new ResizeObserver(() => computeClamp());
+    ro.observe(sectionEl);
+    ro.observe(footerEl);
+    return () => ro.disconnect();
+  }, [descriptionExpanded, advisorData?.Advisor?.description]);
 
   // Removed: handleAdvisorClick (replaced with createClickableElement in list)
 
@@ -950,16 +991,24 @@ export default function AdvisorProfilePage() {
     .description-text {
       white-space: pre-wrap;
     }
+    .description-body {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
     .description-collapsed {
       display: -webkit-box;
       -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
       overflow: hidden;
+      white-space: normal;
+      overflow-wrap: break-word;
     }
     .description-footer {
       display: flex;
       justify-content: flex-start;
-      margin-top: 8px;
+      margin-top: auto;
+      padding-top: 8px;
     }
     .corporate-events-header {
       display: flex;
@@ -1911,11 +1960,12 @@ export default function AdvisorProfilePage() {
             </div>
 
             {/* Description Section */}
-            <div className="advisor-section">
+            <div className="advisor-section" ref={descriptionSectionRef}>
               <h2 className="section-title">Description</h2>
               {Advisor.description ? (
-                <>
+                <div className="description-body">
                   <div
+                    ref={descriptionTextRef}
                     className={[
                       "info-value",
                       "description-text",
@@ -1923,10 +1973,15 @@ export default function AdvisorProfilePage() {
                     ]
                       .filter(Boolean)
                       .join(" ")}
+                    style={
+                      descriptionExpanded
+                        ? undefined
+                        : ({ WebkitLineClamp: descriptionClampLines } as React.CSSProperties)
+                    }
                   >
                     {Advisor.description}
                   </div>
-                  <div className="description-footer">
+                  <div className="description-footer" ref={descriptionFooterRef}>
                     <button
                       type="button"
                       className="toggle-button"
@@ -1935,7 +1990,7 @@ export default function AdvisorProfilePage() {
                       {descriptionExpanded ? "Show less" : "Read more"}
                     </button>
                   </div>
-                </>
+                </div>
               ) : (
                 <div className="info-value">Not available</div>
               )}
