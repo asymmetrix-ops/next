@@ -261,6 +261,28 @@ async function mapWithConcurrency<T, R>(
   return out;
 }
 
+// Resolve a Xano auth token: prefer an explicit header, fall back to email/password login.
+async function resolveAuthToken(request: NextRequest): Promise<string | null> {
+  // Accept a pre-existing Xano token via `x-xano-token` or `Authorization: Bearer <token>`
+  const xanoTokenHeader = request.headers.get('x-xano-token');
+  if (xanoTokenHeader) {
+    console.log('[CRON] 🔑 Using token from x-xano-token header');
+    return xanoTokenHeader;
+  }
+
+  const authHeader = request.headers.get('authorization') ?? request.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7).trim();
+    if (token) {
+      console.log('[CRON] 🔑 Using token from Authorization header');
+      return token;
+    }
+  }
+
+  // Fall back to email/password credentials
+  return getAuthToken();
+}
+
 export async function GET(request: NextRequest) {
   // No auth required - cache warming is not sensitive
   // Vercel cron will call this automatically every 2 hours
@@ -301,13 +323,13 @@ export async function GET(request: NextRequest) {
   const startTime = performance.now();
   const results: { sectorId: string; status: string; ms: number }[] = [];
 
-  // Step 1: Authenticate with Xano to get auth token
-  const authToken = await getAuthToken();
+  // Step 1: Resolve a Xano auth token (header-supplied token or email/password login)
+  const authToken = await resolveAuthToken(request);
   
   if (!authToken) {
     return NextResponse.json({
       success: false,
-      error: 'Failed to authenticate with Xano. Check CRON_AUTH_EMAIL and CRON_AUTH_PASSWORD env vars.',
+      error: 'Failed to authenticate with Xano. Supply a token via the Authorization: Bearer <token> or x-xano-token header, or set CRON_AUTH_EMAIL and CRON_AUTH_PASSWORD env vars.',
     }, { status: 500 });
   }
 
