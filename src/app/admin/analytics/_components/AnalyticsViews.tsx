@@ -463,6 +463,75 @@ export function PlatformWideSearchTab() {
 const COMPANY_SEARCH_ANALYTICS_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/get_company_searched";
 
+/** Turn filters_used JSON into readable text for non-technical users. */
+function formatFiltersUsed(raw: string): string {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed || trimmed === "{}") return "None";
+
+  let obj: Record<string, unknown>;
+  try {
+    obj = JSON.parse(trimmed) as Record<string, unknown>;
+  } catch {
+    return raw || "—";
+  }
+
+  const keys = Object.keys(obj);
+  if (keys.length === 0) return "None";
+
+  const lines: string[] = [];
+
+  // ownership_types: [{ ownership_type_id, ownership_type_name }]
+  const ownershipTypes = obj.ownership_types;
+  if (Array.isArray(ownershipTypes) && ownershipTypes.length > 0) {
+    const names = ownershipTypes
+      .map((x) => (x as Record<string, unknown>)?.ownership_type_name)
+      .filter((n): n is string => typeof n === "string");
+    if (names.length) lines.push(`Ownership: ${names.join(", ")}`);
+  }
+
+  // primary_sectors: [{ sector_id, sector_name }]
+  const primarySectors = obj.primary_sectors;
+  if (Array.isArray(primarySectors) && primarySectors.length > 0) {
+    const names = primarySectors
+      .map((x) => (x as Record<string, unknown>)?.sector_name)
+      .filter((n): n is string => typeof n === "string");
+    if (names.length) lines.push(`Primary sectors: ${names.join(", ")}`);
+  }
+
+  // secondary_sectors: [{ sector_id, sector_name }]
+  const secondarySectors = obj.secondary_sectors;
+  if (Array.isArray(secondarySectors) && secondarySectors.length > 0) {
+    const names = secondarySectors
+      .map((x) => (x as Record<string, unknown>)?.sector_name)
+      .filter((n): n is string => typeof n === "string");
+    if (names.length) lines.push(`Secondary sectors: ${names.join(", ")}`);
+  }
+
+  // Any other keys: show key and a short summary
+  const knownKeys = new Set([
+    "ownership_types",
+    "primary_sectors",
+    "secondary_sectors",
+  ]);
+  for (const key of keys) {
+    if (knownKeys.has(key)) continue;
+    const val = obj[key];
+    const label = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    if (Array.isArray(val) && val.length > 0) {
+      const parts = val.map((v) =>
+        typeof v === "object" && v && "name" in (v as object)
+          ? String((v as Record<string, unknown>).name)
+          : String(v)
+      );
+      lines.push(`${label}: ${parts.join(", ")}`);
+    } else if (val != null && val !== "") {
+      lines.push(`${label}: ${String(val)}`);
+    }
+  }
+
+  return lines.length > 0 ? lines.join(" · ") : "None";
+}
+
 type CompanySearchRow = {
   query: string | null;
   filters_used: string;
@@ -610,8 +679,8 @@ export function CompanySearchTab() {
               filtered.map((r, idx) => (
                 <tr key={`${r.query ?? ""}-${r.filters_used}-${idx}`} className="border-t">
                   <td className="px-3 py-2">{r.query ?? "—"}</td>
-                  <td className="px-3 py-2 max-w-xs truncate font-mono text-xs" title={r.filters_used}>
-                    {r.filters_used || "—"}
+                  <td className="px-3 py-2 max-w-md text-gray-700" title={formatFiltersUsed(r.filters_used)}>
+                    {formatFiltersUsed(r.filters_used)}
                   </td>
                   <td className="px-3 py-2">{formatMetric(r.search_count)}</td>
                   <td className="px-3 py-2">{formatMetric(r.unique_users)}</td>
