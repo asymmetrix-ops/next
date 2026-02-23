@@ -12,10 +12,6 @@ interface SearchableSelectProps {
   placeholder?: string;
   disabled?: boolean;
   style?: React.CSSProperties;
-  onSearchTermChange?: (term: string) => void;
-  loading?: boolean;
-  loadingText?: string;
-  noOptionsText?: string;
 }
 
 const SearchableSelect: React.FC<SearchableSelectProps> = ({
@@ -25,10 +21,6 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   placeholder = "Select an option",
   disabled = false,
   style = {},
-  onSearchTermChange,
-  loading = false,
-  loadingText = "Loading...",
-  noOptionsText = "No options found",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -101,10 +93,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const next = e.target.value;
-    setSearchTerm(next);
+    setSearchTerm(e.target.value);
     setHighlightedIndex(-1);
-    onSearchTermChange?.(next);
   };
 
   const handleInputClick = () => {
@@ -187,7 +177,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
             overflowY: "auto",
           }}
         >
-          {loading ? (
+          {filteredOptions.length === 0 ? (
             <div
               style={{
                 padding: "12px 16px",
@@ -195,17 +185,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                 fontSize: "14px",
               }}
             >
-              {loadingText}
-            </div>
-          ) : filteredOptions.length === 0 ? (
-            <div
-              style={{
-                padding: "12px 16px",
-                color: "#a0aec0",
-                fontSize: "14px",
-              }}
-            >
-              {noOptionsText}
+              No options found
             </div>
           ) : (
             filteredOptions.map((option, index) => (

@@ -73,8 +73,6 @@ const IndividualCards: React.FC<IndividualCardsProps> = ({
             }
           };
 
-          const isClickable = person.individualId || person.onClick;
-
           return (
             <div
               key={person.id || person.individualId || index}
@@ -84,10 +82,10 @@ const IndividualCards: React.FC<IndividualCardsProps> = ({
                 borderRadius: "8px",
                 backgroundColor: "#f9fafb",
                 transition: "all 0.2s ease",
-                cursor: isClickable ? "pointer" : "default",
+                cursor: person.individualId || person.onClick ? "pointer" : "default",
               }}
               className="management-card"
-              onClick={isClickable ? handleClick : undefined}
+              onClick={person.individualId || person.onClick ? handleClick : undefined}
             >
               <div
                 style={{
@@ -97,30 +95,19 @@ const IndividualCards: React.FC<IndividualCardsProps> = ({
                   marginBottom: "4px",
                 }}
               >
-                {person.individualId && !person.onClick ? (
+                {person.individualId ? (
                   <Link
                     href={`/individual/${person.individualId}`}
                     style={{
                       color: "#0075df",
-                      textDecoration: "none",
-                      cursor: "pointer",
+                      textDecoration: "underline",
                     }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
+                    onClick={(e) => e.stopPropagation()}
                   >
                     {person.name}
                   </Link>
                 ) : (
-                  <span
-                    style={{
-                      color: "#0075df",
-                      textDecoration: isClickable ? "underline" : "none",
-                      cursor: isClickable ? "pointer" : "default",
-                    }}
-                  >
-                    {person.name}
-                  </span>
+                  person.name
                 )}
               </div>
               <div

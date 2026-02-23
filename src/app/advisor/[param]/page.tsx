@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import Head from "next/head";
@@ -8,7 +8,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAdvisorProfile } from "../../../hooks/useAdvisorProfile";
 import {
-  formatSectorsList,
+  formatCurrency,
   formatDate,
   getAdvisorYearFoundedDisplay,
 } from "../../../utils/advisorHelpers";
@@ -23,11 +23,40 @@ import {
 } from "recharts";
 import { useRightClick } from "../../../hooks/useRightClick";
 import IndividualCards, { type IndividualCardItem } from "@/components/shared/IndividualCards";
+import { locationsService } from "@/lib/locationsService";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 
 // Types for LinkedIn History Chart
 interface LinkedInHistory {
   date: string;
   employees_count: number;
+}
+
+// Types for Corporate Events (develop/new endpoint payload)
+interface AdvisorCorporateEventItem {
+  id: number;
+  description?: string | null;
+  announcement_date?: string | null;
+  deal_type?: string | null;
+  company_advised_id?: number | null;
+  company_advised_name?: string | null;
+  company_advised_role?: string | null;
+  enterprise_value_m?: string | number | null;
+  currency_name?: string | null;
+  // API updated: these are arrays (not JSON strings)
+  advisor_individuals?: Array<{ id?: number; name?: string }> | null;
+  other_advisors?: Array<{
+    id?: number;
+    individuals_id?: number[];
+    advisor_company_id?: number;
+    advisor_company_name?: string;
+  }> | null;
+  primary_sectors?: Array<{
+    id?: number;
+    is_derived?: boolean;
+    sector_name?: string;
+    sector_importance?: string;
+  }> | null;
 }
 
 // Utility function for chart date formatting
@@ -147,11 +176,11 @@ const formatNumber = (num: number | undefined): string => {
 
 export default function AdvisorProfilePage() {
   const params = useParams();
-  const router = useRouter();
   const advisorId = parseInt(params.param as string);
   const [eventsExpanded, setEventsExpanded] = useState(false);
+  const [exportingDeals, setExportingDeals] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
-  const [daSectors, setDaSectors] = useState<string>("");
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const descriptionSectionRef = useRef<HTMLDivElement | null>(null);
   const descriptionTextRef = useRef<HTMLDivElement | null>(null);
@@ -168,6 +197,13 @@ export default function AdvisorProfilePage() {
   const [rolesCurrent, setRolesCurrent] = useState<RoleItem[]>([]);
   const [rolesPast, setRolesPast] = useState<RoleItem[]>([]);
   const [linkedInHistoryLoading, setLinkedInHistoryLoading] = useState(false);
+  // Sector filter state
+  const [filterPrimarySectors, setFilterPrimarySectors] = useState<Array<{ id: number; sector_name: string }>>([]);
+  const [filterSecondarySectors, setFilterSecondarySectors] = useState<Array<{ id: number; sector_name: string }>>([]);
+  const [selectedFilterPrimary, setSelectedFilterPrimary] = useState<number[]>([]);
+  const [selectedFilterSecondary, setSelectedFilterSecondary] = useState<number[]>([]);
+  const [loadingFilterPrimary, setLoadingFilterPrimary] = useState(false);
+  const [loadingFilterSecondary, setLoadingFilterSecondary] = useState(false);
   const { createClickableElement } = useRightClick();
 
   const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
@@ -213,17 +249,417 @@ export default function AdvisorProfilePage() {
 
   // Removed: handleAdvisorClick (replaced with createClickableElement in list)
 
-  const handleOtherAdvisorClick = (advisorId: number) => {
-    console.log("Other advisor clicked:", advisorId);
-    router.push(`/advisor/${advisorId}`);
-  };
-
   // Replaced corporate event navigation with right-clickable links via createClickableElement
 
   // Removed unused handler; replaced by mailto link button
 
   const handleToggleEvents = () => {
     setEventsExpanded(!eventsExpanded);
+  };
+
+  const escapeCsvField = (value: string): string => {
+    if (value == null) return "";
+    const s = String(value).trim();
+    if (s.includes('"') || s.includes("\n") || s.includes(",")) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  const coerceUnknownToArray = (raw: unknown): unknown[] => {
+    if (Array.isArray(raw)) return raw;
+    if (raw === null || raw === undefined) return [];
+    if (typeof raw !== "string") return [];
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed === "[]") return [];
+    try {
+      const normalized = trimmed.replace(/\\u0022/g, '"');
+      const parsed = JSON.parse(normalized) as unknown;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const getEventRowForCsv = (event: AdvisorCorporateEventItem): string[] => {
+    const date = event.announcement_date
+      ? formatDate(event.announcement_date)
+      : "—";
+    const counterparty = (event.company_advised_role || event.company_advised_name || "—").trim() || "—";
+    const clientName = (event.company_advised_name || "").trim() || "—";
+    const sectors = (() => {
+      const arr = coerceUnknownToArray(event.primary_sectors as unknown);
+      return arr
+        .map((s) => String((s as { sector_name?: string })?.sector_name || "").trim())
+        .filter(Boolean)
+        .join(", ") || "—";
+    })();
+    let ev = "—";
+    const value = event.enterprise_value_m;
+    const currency = (event.currency_name || "").trim();
+    if (value != null && value !== "") {
+      ev = currency ? formatCurrency(String(value), currency) : String(value);
+    }
+    const individuals = coerceUnknownToArray(event.advisor_individuals as unknown)
+      .map((p) => String((p as { name?: string })?.name || "").trim())
+      .filter(Boolean)
+      .join(", ") || "—";
+    const otherAdvisors = coerceUnknownToArray(event.other_advisors as unknown)
+      .map((a) =>
+        String((a as { advisor_company_name?: string })?.advisor_company_name || "").trim()
+      )
+      .filter(Boolean)
+      .join(", ") || "—";
+    return [
+      event.description ?? "",
+      date,
+      event.deal_type ?? "—",
+      counterparty,
+      clientName,
+      sectors,
+      ev,
+      individuals,
+      otherAdvisors,
+    ];
+  };
+
+  const exportDealsToCsv = () => {
+    if (filteredEvents.length === 0) return;
+    setExportingDeals(true);
+    try {
+      const headers = [
+        "Description",
+        "Date Announced",
+        "Type",
+        "Counterparty Advised",
+        "Client Name",
+        "Sector(s)",
+        "Enterprise Value",
+        "Individuals",
+        "Other Advisors",
+      ];
+      const rows = filteredEvents.map((event) =>
+        getEventRowForCsv(event).map(escapeCsvField).join(",")
+      );
+      // Prepend UTF-8 BOM so Excel and other tools correctly detect encoding.
+      const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const urlObj = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = urlObj;
+      a.download = `advisor-${advisorId}-deals-advised-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(urlObj);
+    } catch (err) {
+      console.error("Export Deals Advised failed:", err);
+    } finally {
+      setExportingDeals(false);
+    }
+  };
+
+  const buildAdvisorPageSnapshot = () => {
+    const baseUrl =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "https://www.asymmetrixintelligence.com";
+    const pagePath = `/advisor/${advisorId}`;
+    const pageUrl = `${baseUrl}${pagePath}`;
+
+    const env =
+      process.env.NEXT_PUBLIC_ENVIRONMENT ||
+      process.env.NEXT_PUBLIC_VERCEL_ENV ||
+      "unknown";
+
+    const advisor = advisorData?.Advisor;
+    const loc = advisor?._locations;
+    const hqFormatted = `${loc?.City || ""}, ${loc?.State__Province__County || ""}, ${
+      loc?.Country || ""
+    }`
+      .replace(/^,\s*/, "")
+      .replace(/,\s*$/, "");
+
+    const linkedInNew = advisor?._linkedin_data_of_new_company as
+      | { linkedin_logo?: string; linkedin_employee?: number; linkedin_emp_date?: string }
+      | undefined;
+    const linkedInLegacy = advisor?.linkedin_data as
+      | { LinkedIn_URL?: string; LinkedIn_Employee?: number; LinkedIn_Emp__Date?: string; linkedin_logo?: string }
+      | undefined;
+
+    const normalizedDeals = filteredEvents.map((event) => {
+      const companyAdvisedId = event.company_advised_id ?? null;
+      const companyAdvisedName = (event.company_advised_name || "").trim() || null;
+      const companyAdvisedRole = (event.company_advised_role || "").trim() || null;
+
+      const roleLc = String(companyAdvisedRole || "").toLowerCase();
+      const companyAdvisedPath =
+        companyAdvisedId && companyAdvisedName
+          ? roleLc.includes("investor")
+            ? `/investors/${companyAdvisedId}`
+            : `/company/${companyAdvisedId}`
+          : null;
+
+      const currency = (event.currency_name || "").trim() || null;
+      const value = event.enterprise_value_m ?? null;
+      const evFormatted =
+        value === null || value === undefined || value === ""
+          ? "—"
+          : currency
+          ? formatCurrency(String(value), currency)
+          : String(value);
+
+      const sectorsArr = coerceUnknownToArray(event.primary_sectors as unknown).map(
+        (s) => {
+          const obj = s as {
+            id?: number;
+            sector_name?: string;
+            sector_importance?: string;
+            is_derived?: boolean;
+          };
+          return {
+            id: typeof obj.id === "number" ? obj.id : null,
+            sector_name: obj.sector_name ?? null,
+            sector_importance: obj.sector_importance ?? null,
+            is_derived: typeof obj.is_derived === "boolean" ? obj.is_derived : null,
+          };
+        }
+      );
+
+      const advisorIndividualsArr = coerceUnknownToArray(
+        event.advisor_individuals as unknown
+      ).map((p) => {
+        const obj = p as { id?: number; name?: string };
+        return {
+          id: typeof obj.id === "number" ? obj.id : null,
+          name: obj.name ?? null,
+        };
+      });
+
+      const otherAdvisorsArr = coerceUnknownToArray(event.other_advisors as unknown).map(
+        (a) => {
+          const obj = a as {
+            id?: number;
+            advisor_company_id?: number;
+            advisor_company_name?: string;
+            individuals_id?: number[];
+          };
+          return {
+            id: typeof obj.id === "number" ? obj.id : null,
+            advisor_company_id:
+              typeof obj.advisor_company_id === "number" ? obj.advisor_company_id : null,
+            advisor_company_name: obj.advisor_company_name ?? null,
+            individuals_id: Array.isArray(obj.individuals_id) ? obj.individuals_id : null,
+          };
+        }
+      );
+
+      return {
+        id: event.id,
+        description: event.description ?? null,
+        announcement_date: event.announcement_date ?? null,
+        announcement_date_display: event.announcement_date
+          ? formatDate(event.announcement_date)
+          : "—",
+        deal_type: event.deal_type ?? null,
+        company_advised: {
+          id: companyAdvisedId,
+          name: companyAdvisedName,
+          role: companyAdvisedRole,
+        },
+        enterprise_value: {
+          value_m: value,
+          currency_name: currency,
+          formatted: evFormatted,
+        },
+        sectors: sectorsArr,
+        advisor_individuals: advisorIndividualsArr,
+        other_advisors: otherAdvisorsArr,
+        links: {
+          corporate_event_path: `/corporate-event/${event.id}`,
+          company_advised_path: companyAdvisedPath,
+        },
+      };
+    });
+
+    const buildPeopleLists = () => {
+      const fallbacksUsed: string[] = [];
+
+      const fromRoles = (roles: RoleItem[]) =>
+        roles.map((role) => ({
+          id: role.id,
+          individual_id: role.individuals_id,
+          name:
+            (role.advisor_individuals || role.Individual_text || "").trim() || "Unknown",
+          job_titles: role.job_titles_id?.map((jt) => jt.job_title) || [],
+        }));
+
+      const fromProfileIndividuals = (
+        arr: Array<{
+          id: number;
+          individuals_id: number;
+          advisor_individuals: string;
+          job_titles_id?: Array<{ id?: number; job_title: string }>;
+        }>
+      ) =>
+        arr.map((individual) => ({
+          id: individual.id,
+          individual_id: individual.individuals_id,
+          name: (individual.advisor_individuals || "").trim() || "Unknown",
+          job_titles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
+        }));
+
+      let current: Array<{
+        id: number;
+        individual_id: number;
+        name: string;
+        job_titles: string[];
+      }> = [];
+      let past: Array<{
+        id: number;
+        individual_id: number;
+        name: string;
+        job_titles: string[];
+      }> = [];
+
+      if (rolesCurrent.length > 0) {
+        current = fromRoles(rolesCurrent);
+      } else if (
+        advisorData?.Advisors_individuals_current &&
+        advisorData.Advisors_individuals_current.length > 0
+      ) {
+        current = fromProfileIndividuals(advisorData.Advisors_individuals_current);
+        fallbacksUsed.push("advisor_profile_current");
+      } else if (advisorData?.Advisors_individuals && advisorData.Advisors_individuals.length > 0) {
+        current = fromProfileIndividuals(advisorData.Advisors_individuals);
+        fallbacksUsed.push("advisor_profile_all");
+      }
+
+      if (rolesPast.length > 0) {
+        past = fromRoles(rolesPast);
+      } else if (
+        advisorData?.Advisors_individuals_past &&
+        advisorData.Advisors_individuals_past.length > 0
+      ) {
+        past = fromProfileIndividuals(advisorData.Advisors_individuals_past);
+        fallbacksUsed.push("advisor_profile_past");
+      }
+
+      return { current, past, fallbacksUsed };
+    };
+
+    const { current, past, fallbacksUsed } = buildPeopleLists();
+
+    return {
+      schema_version: "1.0.0",
+      captured_at: new Date().toISOString(),
+      source: {
+        app: "asymmetrix-nextjs",
+        environment: env,
+        page_path: pagePath,
+        page_url: pageUrl,
+        advisor_id: advisorId,
+      },
+      advisor: {
+        id: advisor?.id ?? advisorId,
+        name: advisor?.name ?? "",
+        description: advisor?.description ?? null,
+        website_url: advisor?.url ?? null,
+        year_founded_display: advisor ? getAdvisorYearFoundedDisplay(advisor) : "Not available",
+        hq: {
+          city: loc?.City ?? null,
+          state_province_county: loc?.State__Province__County ?? null,
+          country: loc?.Country ?? null,
+          formatted: hqFormatted,
+        },
+        linkedin: {
+          logo_base64_jpeg: linkedInNew?.linkedin_logo || linkedInLegacy?.linkedin_logo || null,
+          employee_count:
+            typeof linkedInNew?.linkedin_employee === "number"
+              ? linkedInNew.linkedin_employee
+              : typeof linkedInLegacy?.LinkedIn_Employee === "number"
+              ? linkedInLegacy.LinkedIn_Employee
+              : null,
+          employee_count_date: linkedInNew?.linkedin_emp_date || linkedInLegacy?.LinkedIn_Emp__Date || null,
+          linkedin_url: linkedInLegacy?.LinkedIn_URL || null,
+        },
+        portfolio_companies_count: advisorData?.Portfolio_companies_count ?? 0,
+      },
+      deals_advised: {
+        total_count: safeEvents.length,
+        filtered_count: filteredEvents.length,
+        active_filters: {
+          primary_sector_ids: selectedFilterPrimary,
+          secondary_sector_ids: selectedFilterSecondary,
+        },
+        items: normalizedDeals,
+      },
+      linkedin_history: {
+        monthly_employee_counts: linkedInHistory.map((x) => ({
+          date: x.date,
+          employees_count: x.employees_count,
+        })),
+      },
+      advisor_people: {
+        current,
+        past,
+        sources: {
+          preferred: "linkedin_company_endpoint_roles",
+          fallbacks_used: fallbacksUsed,
+        },
+      },
+      deal_filter_option_lists: {
+        primary_sectors: filterPrimarySectors.map((s) => ({
+          id: s.id,
+          sector_name: s.sector_name,
+        })),
+        secondary_sectors: filterSecondarySectors.map((s) => ({
+          id: s.id,
+          sector_name: s.sector_name,
+        })),
+      },
+    };
+  };
+
+  const exportAdvisorPdf = async () => {
+    if (!advisorData?.Advisor) return;
+    setExportingPdf(true);
+    try {
+      const payload = { advisor: buildAdvisorPageSnapshot() };
+      const res = await fetch(
+        "https://asymmetrix-pdf-service.fly.dev/api/export-advisor-pdf",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(
+          `PDF export failed: ${res.status} ${res.statusText}${text ? ` — ${text}` : ""}`
+        );
+      }
+      const blob = await res.blob();
+      const urlObj = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = urlObj;
+      const safeNamePart = (input: string) =>
+        input
+          .trim()
+          .replace(/[^a-zA-Z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 60)
+          .toLowerCase();
+      const advisorName = String(advisorData.Advisor?.name || "").trim();
+      const date = new Date().toISOString().slice(0, 10);
+      const namePart = safeNamePart(advisorName) || `advisor-${advisorId}`;
+      a.download = `${namePart}-${date}.pdf`;
+      a.click();
+      URL.revokeObjectURL(urlObj);
+    } catch (e) {
+      console.error("Export PDF failed:", e);
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   // Fetch LinkedIn history data using the same API pattern as company page
@@ -233,7 +669,7 @@ export default function AdvisorProfilePage() {
       const token = localStorage.getItem("asymmetrix_auth_token");
 
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${advisorId}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${advisorId}`,
         {
           method: "GET",
           headers: {
@@ -292,55 +728,53 @@ export default function AdvisorProfilePage() {
     }
   }, [advisorId, fetchLinkedInHistory]);
 
-  // Fetch Advised D&A sectors from dedicated endpoint
-  useEffect(() => {
-    if (!advisorId || Number.isNaN(advisorId)) return;
-
-    const fetchSectors = async () => {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const headers: Record<string, string> = {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      };
-      const base =
-        "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/da_sectors_for_advisors";
-
-      const parseSectorsList = (arr: unknown): string => {
-        if (!Array.isArray(arr)) return "";
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const names = (arr as any[])
-          .map((x) => String(x?.sector_name || "").trim())
-          .filter((s) => s.length > 0);
-        return names.join(", ");
-      };
-
-      // GET only
-      try {
-        const url = `${base}?new_company_id=${encodeURIComponent(
-          String(advisorId)
-        )}`;
-        const res = await fetch(url, {
-          method: "GET",
-          headers,
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const sectors = parseSectorsList(data);
-          setDaSectors(sectors || "");
-        }
-      } catch {
-        setDaSectors("");
-      }
-    };
-
-    fetchSectors();
-  }, [advisorId]);
-
   // Update page title when advisor data is loaded
   useEffect(() => {
     if (advisorData?.Advisor?.name && typeof document !== "undefined") {
       document.title = `Asymmetrix – ${advisorData.Advisor.name}`;
     }
   }, [advisorData?.Advisor?.name]);
+
+  // Fetch primary sectors for deal filters
+  useEffect(() => {
+    let cancelled = false;
+    const fetchPrimary = async () => {
+      setLoadingFilterPrimary(true);
+      try {
+        const data = await locationsService.getPrimarySectors();
+        if (!cancelled) setFilterPrimarySectors(data);
+      } catch {
+        // silent fail
+      } finally {
+        if (!cancelled) setLoadingFilterPrimary(false);
+      }
+    };
+    fetchPrimary();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Fetch secondary sectors when primary selection changes
+  useEffect(() => {
+    if (selectedFilterPrimary.length === 0) {
+      setFilterSecondarySectors([]);
+      setSelectedFilterSecondary([]);
+      return;
+    }
+    let cancelled = false;
+    const fetchSecondary = async () => {
+      setLoadingFilterSecondary(true);
+      try {
+        const data = await locationsService.getSecondarySectors(selectedFilterPrimary);
+        if (!cancelled) setFilterSecondarySectors(data);
+      } catch {
+        // silent fail
+      } finally {
+        if (!cancelled) setLoadingFilterSecondary(false);
+      }
+    };
+    fetchSecondary();
+    return () => { cancelled = true; };
+  }, [selectedFilterPrimary]);
 
   if (loading) {
     return (
@@ -413,7 +847,6 @@ export default function AdvisorProfilePage() {
 
   const {
     Advisor,
-    Advised_DA_sectors,
     Portfolio_companies_count,
     Advisors_individuals,
   } = advisorData;
@@ -423,6 +856,48 @@ export default function AdvisorProfilePage() {
   }, ${Advisor._locations?.Country || ""}`
     .replace(/^,\s*/, "")
     .replace(/,\s*$/, "");
+
+  // Corporate Events (develop/new payload) helpers
+  const safeEvents: AdvisorCorporateEventItem[] = Array.isArray(corporateEvents)
+    ? (corporateEvents as unknown as AdvisorCorporateEventItem[])
+    : [];
+
+  // Client-side sector filtering
+  const filteredEvents = (() => {
+    if (selectedFilterPrimary.length === 0 && selectedFilterSecondary.length === 0) return safeEvents;
+    return safeEvents.filter((event) => {
+      const sectors = coerceArray<{ id?: number; sector_name?: string; sector_importance?: string }>(event.primary_sectors);
+      if (selectedFilterPrimary.length > 0) {
+        const primaryIds = sectors
+          .filter((s) => String(s.sector_importance || "").toLowerCase().includes("primary"))
+          .map((s) => s.id);
+        if (!selectedFilterPrimary.some((id) => primaryIds.includes(id))) return false;
+      }
+      if (selectedFilterSecondary.length > 0) {
+        const secondaryIds = sectors
+          .filter((s) => !String(s.sector_importance || "").toLowerCase().includes("primary"))
+          .map((s) => s.id);
+        if (!selectedFilterSecondary.some((id) => secondaryIds.includes(id))) return false;
+      }
+      return true;
+    });
+  })();
+
+  const coerceArray = <T,>(raw: unknown): T[] => {
+    if (Array.isArray(raw)) return raw as T[];
+    if (raw === null || raw === undefined) return [];
+    if (typeof raw !== "string") return [];
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed === "[]") return [];
+    try {
+      // Some payloads may contain escaped quotes (\u0022) from Xano
+      const normalized = trimmed.replace(/\\u0022/g, '"');
+      const parsed = JSON.parse(normalized) as unknown;
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+      return [];
+    }
+  };
 
   const style = `
     .advisor-detail-page {
@@ -456,32 +931,43 @@ export default function AdvisorProfilePage() {
     }
     .report-button {
       padding: 8px 16px;
-      background-color: #16a34a;
-      color: white;
+      background-color: #4b5563; /* neutral gray */
+      color: #ffffff;
       border: none;
       border-radius: 4px;
       cursor: pointer;
       font-size: 14px;
     }
-    .advisor-layout {
-      display: grid;
-      grid-template-columns: 1fr 2fr; /* 1/3 left, 2/3 right */
-      gap: 24px 32px;
-      align-items: start;
+    .report-button:hover {
+      background-color: #374151;
     }
-    .advisor-left-column { width: 100%; }
-    .advisor-right-column { width: 100%; }
+    .advisor-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
     .advisor-section {
       background-color: white;
       padding: 24px;
       border-radius: 8px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      margin-bottom: 24px;
     }
     .section-title {
       margin: 0 0 16px 0;
       font-size: 20px;
       font-weight: bold;
+    }
+    .info-sections-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+      gap: 24px;
+      align-items: stretch;
+    }
+    .info-sections-row .advisor-section {
+      margin-bottom: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
     }
     .info-grid {
       display: flex;
@@ -496,9 +982,11 @@ export default function AdvisorProfilePage() {
     .info-label {
       font-weight: bold;
       color: #374151;
+      font-size: 13px;
     }
     .info-value {
       color: #6b7280;
+      font-size: 13px;
     }
     .description-text {
       white-space: pre-wrap;
@@ -527,6 +1015,56 @@ export default function AdvisorProfilePage() {
       justify-content: space-between;
       align-items: center;
       margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .export-deals-button {
+      padding: 8px 16px;
+      background-color: #16a34a;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .export-deals-button:hover {
+      background-color: #15803d;
+    }
+    .export-deals-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .export-pdf-button {
+      padding: 8px 16px;
+      background-color: #0075df; /* blue */
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .export-pdf-button:hover { background-color: #005bb5; }
+    .export-pdf-button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .corporate-events-footer {
+      display: flex;
+      justify-content: flex-start;
+      margin-top: 12px;
+    }
+    .toggle-button-primary {
+      background-color: #0075df;
+      color: #ffffff;
+      border: 1px solid #0075df;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-weight: 600;
+      line-height: 1;
+    }
+    .toggle-button-primary:hover {
+      background-color: #005bb5;
+      border-color: #005bb5;
     }
     .toggle-button {
       color: #3b82f6;
@@ -536,42 +1074,65 @@ export default function AdvisorProfilePage() {
       border: none;
       cursor: pointer;
       padding: 0;
+      /* Prevent horizontal "jump" when label changes */
+      min-width: 86px;
+      text-align: left;
     }
     .events-table-container {
-      overflow-x: auto;
+      /* no overflow-x: auto — table must always fit without scrolling */
     }
     .events-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 14px;
+      font-size: 11px;
+      /* Fixed layout: columns use assigned widths; description wraps */
+      table-layout: fixed;
     }
+    /* Column width distribution (8 cols, description takes the flex space) */
+    .events-table th:nth-child(1) { width: 22%; }  /* Description – wraps */
+    .events-table th:nth-child(2) { width: 10%; }  /* Deal Date */
+    .events-table th:nth-child(3) { width: 10%; }  /* Type */
+    .events-table th:nth-child(4) { width: 11%; }  /* Counterparty Advised */
+    .events-table th:nth-child(5) { width: 13%; }  /* Client Name */
+    .events-table th:nth-child(6) { width: 17%; }  /* Sector(s) */
+    .events-table th:nth-child(7) { width: 9%; }   /* Enterprise Value */
+    .events-table th:nth-child(8) { width: 8%; }   /* Advisor */
     .events-table thead tr {
       border-bottom: 2px solid #e2e8f0;
     }
     .events-table th {
       text-align: left;
-      padding: 8px;
+      padding: 6px 8px;
       font-weight: bold;
-      font-size: 12px;
+      font-size: 11px;
     }
     .events-table tbody tr {
       border-bottom: 1px solid #f1f5f9;
     }
     .events-table td {
-      padding: 8px;
-      font-size: 12px;
-      word-break: break-word;
-      overflow-wrap: anywhere;
-      white-space: normal;
-      line-break: anywhere;
-    }
-    .events-table td:nth-child(2) {
-      word-break: keep-all;
+      padding: 6px 8px;
+      font-size: 11px;
+      word-break: normal;
       overflow-wrap: normal;
+      white-space: normal;
+    }
+    /* Description: wraps at word boundaries, never mid-character */
+    .events-table th:nth-child(1),
+    .events-table td:nth-child(1) {
+      overflow-wrap: break-word;
+      word-break: normal;
+    }
+    /* Short columns: keep on one line */
+    .events-table td:nth-child(2),
+    .events-table th:nth-child(2),
+    .events-table td:nth-child(3),
+    .events-table th:nth-child(3) {
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .nowrap-token { display: inline-block; white-space: nowrap; }
-    .nowrap-token:not(:last-child)::after { content: ", "; }
+    .nowrap-token:not(:last-child)::after { content: ","; margin-right: 4px; }
     .nowrap-token .advisor-link {
       word-break: keep-all !important;
       overflow-wrap: normal !important;
@@ -591,25 +1152,24 @@ export default function AdvisorProfilePage() {
       white-space: nowrap !important;
     }
     .event-link {
-      color: #3b82f6;
+      color: inherit;
       text-decoration: none;
       cursor: pointer;
-      word-break: break-word;
-      overflow-wrap: anywhere;
+      word-break: normal;
+      overflow-wrap: break-word;
       white-space: normal;
-      line-break: anywhere;
     }
     .event-link:hover {
-      text-decoration: underline;
+      color: #005bb5;
+      text-decoration: none;
     }
     .advisor-link {
       color: #3b82f6;
       text-decoration: none;
       cursor: pointer;
-      word-break: break-word;
-      overflow-wrap: anywhere;
+      word-break: normal;
+      overflow-wrap: break-word;
       white-space: normal;
-      line-break: anywhere;
     }
     .advisor-link:hover {
       text-decoration: underline;
@@ -660,16 +1220,18 @@ export default function AdvisorProfilePage() {
       word-break: keep-all;
       overflow-wrap: normal;
       white-space: nowrap;
+      line-break: normal;
     }
       font-size: 12px;
     }
     .event-card-info-value {
       color: #6b7280;
       font-size: 12px;
-      word-break: break-word;
-      overflow-wrap: anywhere;
+      /* Global rule: do NOT split words mid-word */
+      word-break: normal;
+      overflow-wrap: normal;
       white-space: normal;
-      line-break: anywhere;
+      line-break: normal;
     }
     .loading {
       text-align: center;
@@ -679,6 +1241,81 @@ export default function AdvisorProfilePage() {
     .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
     .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
     .pill-green { background-color: #dcfce7; color: #15803d; }
+    /* Deals sector filter */
+    .deals-filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0 16px;
+      border-bottom: 1px solid #e2e8f0;
+      margin-bottom: 14px;
+    }
+    .deals-filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 200px;
+      flex: 1;
+    }
+    .deals-filter-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #374151;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .deals-filter-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .deals-filter-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #e6f0ff;
+      color: #1d4ed8;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .deals-filter-tag-secondary {
+      background: #dcfce7;
+      color: #15803d;
+    }
+    .deals-filter-tag-remove {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: inherit;
+      font-size: 13px;
+      line-height: 1;
+      padding: 0;
+      display: flex;
+      align-items: center;
+    }
+    .deals-filter-clear {
+      background: none;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 11px;
+      color: #6b7280;
+      cursor: pointer;
+      align-self: flex-end;
+      white-space: nowrap;
+    }
+    .deals-filter-clear:hover { background: #f3f4f6; }
+    .deals-filter-result-count {
+      font-size: 11px;
+      color: #6b7280;
+      align-self: flex-end;
+      padding-bottom: 6px;
+      white-space: nowrap;
+    }
     /* Management/Individual cards hover effects */
     .management-card:hover {
       background-color: #e6f0ff !important;
@@ -686,9 +1323,9 @@ export default function AdvisorProfilePage() {
       transform: translateY(-2px);
       box-shadow: 0 4px 6px rgba(0, 117, 223, 0.1);
     }
-    /* Advisors: make cards smaller and fit 2 per row on desktop */
+    /* Advisors: auto-fill columns based on available width */
     .advisor-detail-page .management-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
       gap: 10px !important;
     }
     .advisor-detail-page .management-card {
@@ -718,17 +1355,13 @@ export default function AdvisorProfilePage() {
         width: fit-content !important;
       }
       .advisor-layout {
-        display: flex !important;
-        flex-direction: column !important;
         gap: 16px !important;
       }
-      .advisor-left-column,
-      .advisor-right-column {
-        width: 100% !important;
+      .info-sections-row {
+        grid-template-columns: 1fr !important;
       }
       .advisor-section {
         padding: 16px !important;
-        margin-bottom: 16px !important;
       }
       .section-title {
         font-size: 18px !important;
@@ -793,24 +1426,501 @@ export default function AdvisorProfilePage() {
           >
             Contribute Data
           </a>
+          <button
+            type="button"
+            className="export-pdf-button"
+            onClick={exportAdvisorPdf}
+            disabled={exportingPdf || !advisorData?.Advisor}
+            title="Generate and download PDF"
+          >
+            {exportingPdf ? "Exporting PDF..." : "Export PDF"}
+          </button>
         </div>
 
         <div className="advisor-layout">
-          {/* Left Column - Overview */}
-          <div className="advisor-left-column">
+          {/* Deals Advised */}
+          <div className="advisor-section">
+              <div className="corporate-events-header">
+                <h2 className="section-title">Deals Advised</h2>
+                {filteredEvents.length > 0 && (
+                  <button
+                    type="button"
+                    className="export-deals-button"
+                    onClick={exportDealsToCsv}
+                    disabled={exportingDeals}
+                    title="Export all deals advised to CSV (opens in Excel)"
+                  >
+                    {exportingDeals ? "Exporting..." : "Export Deals Advised"}
+                  </button>
+                )}
+              </div>
+
+              {/* Sector Filters */}
+              <div className="deals-filter-bar">
+                <div className="deals-filter-group">
+                  <span className="deals-filter-label">Primary Sector</span>
+                  <SearchableSelect
+                    options={filterPrimarySectors.map((s) => ({ value: s.id, label: s.sector_name }))}
+                    value=""
+                    onChange={(value) => {
+                      if (typeof value === "number" && !selectedFilterPrimary.includes(value)) {
+                        setSelectedFilterPrimary((prev) => [...prev, value]);
+                      }
+                    }}
+                    placeholder={loadingFilterPrimary ? "Loading…" : "Filter by primary sector"}
+                    disabled={loadingFilterPrimary}
+                    style={{ padding: "7px 10px", fontSize: "12px", border: "1px solid #e2e8f0", borderRadius: "6px", width: "100%", color: "#4a5568" }}
+                  />
+                  {selectedFilterPrimary.length > 0 && (
+                    <div className="deals-filter-tags">
+                      {selectedFilterPrimary.map((id) => {
+                        const s = filterPrimarySectors.find((x) => x.id === id);
+                        return (
+                          <span key={id} className="deals-filter-tag">
+                            {s?.sector_name ?? id}
+                            <button
+                              className="deals-filter-tag-remove"
+                              onClick={() => setSelectedFilterPrimary((prev) => prev.filter((x) => x !== id))}
+                            >×</button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="deals-filter-group">
+                  <span className="deals-filter-label">Sub-Sector</span>
+                  <SearchableSelect
+                    options={filterSecondarySectors.map((s) => ({ value: s.id, label: s.sector_name }))}
+                    value=""
+                    onChange={(value) => {
+                      if (typeof value === "number" && !selectedFilterSecondary.includes(value)) {
+                        setSelectedFilterSecondary((prev) => [...prev, value]);
+                      }
+                    }}
+                    placeholder={
+                      loadingFilterSecondary
+                        ? "Loading…"
+                        : selectedFilterPrimary.length === 0
+                        ? "Select primary first"
+                        : "Filter by sub-sector"
+                    }
+                    disabled={loadingFilterSecondary || selectedFilterPrimary.length === 0}
+                    style={{ padding: "7px 10px", fontSize: "12px", border: "1px solid #e2e8f0", borderRadius: "6px", width: "100%", color: "#4a5568" }}
+                  />
+                  {selectedFilterSecondary.length > 0 && (
+                    <div className="deals-filter-tags">
+                      {selectedFilterSecondary.map((id) => {
+                        const s = filterSecondarySectors.find((x) => x.id === id);
+                        return (
+                          <span key={id} className={`deals-filter-tag deals-filter-tag-secondary`}>
+                            {s?.sector_name ?? id}
+                            <button
+                              className="deals-filter-tag-remove"
+                              onClick={() => setSelectedFilterSecondary((prev) => prev.filter((x) => x !== id))}
+                            >×</button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {(selectedFilterPrimary.length > 0 || selectedFilterSecondary.length > 0) && (
+                  <>
+                    <span className="deals-filter-result-count">
+                      {filteredEvents.length} of {safeEvents.length} deals
+                    </span>
+                    <button
+                      className="deals-filter-clear"
+                      onClick={() => { setSelectedFilterPrimary([]); setSelectedFilterSecondary([]); }}
+                    >
+                      Clear filters
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {filteredEvents.length > 0 ? (
+                <>
+                  {/* Desktop Table View */}
+                  <div className="events-table-container">
+                    <table className="events-table">
+                      <thead>
+                        <tr>
+                          <th>Description</th>
+                          <th>Deal Date</th>
+                          <th>Type</th>
+                          <th>Counterparty Advised</th>
+                          <th>Client Name</th>
+                          <th>Sector(s)</th>
+                          <th>Enterprise Value</th>
+                          <th>Advisor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredEvents.slice(
+                          0,
+                          eventsExpanded ? undefined : 10
+                        ).map((event, index) => {
+                          const companyAdvisedId = event.company_advised_id ?? null;
+                          const companyAdvisedName =
+                            (event.company_advised_name || "").trim() || "—";
+                          const companyAdvisedRoleRaw = String(
+                            event.company_advised_role || ""
+                          ).trim();
+                          const companyAdvisedRole = companyAdvisedRoleRaw.toLowerCase();
+                          const companyAdvisedHref =
+                            companyAdvisedId && companyAdvisedName !== "—"
+                              ? companyAdvisedRole.includes("investor")
+                                ? `/investors/${companyAdvisedId}`
+                                : `/company/${companyAdvisedId}`
+                              : undefined;
+
+                          const getEnterpriseValue = () => {
+                            const value = event.enterprise_value_m;
+                            const currency = (event.currency_name || "").trim();
+                            if (value === null || value === undefined || value === "")
+                              return "—";
+                            if (currency) {
+                              return formatCurrency(String(value), currency);
+                            }
+                            const n = Number(String(value).replace(/,/g, ""));
+                            return Number.isFinite(n)
+                              ? `${Math.round(n).toLocaleString()}M`
+                              : String(value);
+                          };
+
+                          const individuals = coerceArray<{
+                            id?: number;
+                            name?: string;
+                          }>(event.advisor_individuals);
+
+                          const sectors = coerceArray<{
+                            id?: number;
+                            is_derived?: boolean;
+                            sector_name?: string;
+                            sector_importance?: string;
+                          }>(event.primary_sectors)
+                            .filter(
+                              (s) =>
+                                s &&
+                                typeof s.id === "number" &&
+                                String(s.sector_name || "").trim().length > 0
+                            )
+                            .map((s) => ({
+                              id: s.id as number,
+                              name: String(s.sector_name).trim(),
+                              importance: String(s.sector_importance || "").trim(),
+                              isDerived: Boolean(s.is_derived),
+                            }));
+
+                          // De-dupe, preferring non-derived tags when available
+                          const sectorKey = (s: {
+                            id: number;
+                            importance: string;
+                          }) => `${s.id}:${s.importance.toLowerCase()}`;
+                          const dedupedSectors = (() => {
+                            const sorted = [...sectors].sort((a, b) => {
+                              if (a.isDerived === b.isDerived) return 0;
+                              return a.isDerived ? 1 : -1;
+                            });
+                            const m = new Map<string, (typeof sorted)[number]>();
+                            for (const s of sorted) {
+                              const key = sectorKey(s);
+                              if (!m.has(key)) m.set(key, s);
+                            }
+                            return Array.from(m.values());
+                          })();
+
+                          return (
+                            <tr key={index}>
+                              <td>
+                                {createClickableElement(
+                                  `/corporate-event/${event.id}`,
+                                  event.description || "—",
+                                  "event-link"
+                                )}
+                              </td>
+                              <td>
+                                {event.announcement_date
+                                  ? formatDate(event.announcement_date)
+                                  : "—"}
+                              </td>
+                              <td>{event.deal_type || "—"}</td>
+                              <td>
+                                {companyAdvisedRoleRaw || "—"}
+                              </td>
+                              <td>
+                                {companyAdvisedHref
+                                  ? createClickableElement(
+                                      companyAdvisedHref,
+                                      companyAdvisedName,
+                                      "advisor-link"
+                                    )
+                                  : companyAdvisedName}
+                              </td>
+                              <td>
+                                {dedupedSectors.length > 0
+                                  ? dedupedSectors.map((s, i) => {
+                                      const isPrimary = s.importance
+                                        .toLowerCase()
+                                        .includes("primary");
+                                      const href = isPrimary
+                                        ? `/sector/${s.id}`
+                                        : `/sub-sector/${s.id}`;
+                                      return (
+                                        <span
+                                          className="nowrap-token"
+                                          key={`${s.id}-${i}`}
+                                        >
+                                          {createClickableElement(
+                                            href,
+                                            s.name,
+                                            "advisor-link"
+                                          )}
+                                        </span>
+                                      );
+                                    })
+                                  : "—"}
+                              </td>
+                              <td>{getEnterpriseValue()}</td>
+                              <td>
+                                {individuals.length > 0
+                                  ? individuals
+                                      .filter(
+                                        (p) =>
+                                          p &&
+                                          typeof p.id === "number" &&
+                                          String(p.name || "").trim().length > 0
+                                      )
+                                      .map((p, i) => (
+                                        <span
+                                          className="nowrap-token"
+                                          key={`${p.id}-${i}`}
+                                        >
+                                          {createClickableElement(
+                                            `/individual/${p.id}`,
+                                            String(p.name),
+                                            "advisor-link"
+                                          )}
+                                        </span>
+                                      ))
+                                  : "—"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile Cards View */}
+                  <div className="events-cards">
+                    {filteredEvents.slice(
+                      0,
+                      eventsExpanded ? undefined : 10
+                    ).map((event, index) => {
+                      const companyAdvisedId = event.company_advised_id ?? null;
+                      const companyAdvisedName =
+                        (event.company_advised_name || "").trim() || "—";
+                      const companyAdvisedRoleRaw = String(
+                        event.company_advised_role || ""
+                      ).trim();
+                      const companyAdvisedRole = companyAdvisedRoleRaw.toLowerCase();
+                      const companyAdvisedHref =
+                        companyAdvisedId && companyAdvisedName !== "—"
+                          ? companyAdvisedRole.includes("investor")
+                            ? `/investors/${companyAdvisedId}`
+                            : `/company/${companyAdvisedId}`
+                          : undefined;
+
+                      const getEnterpriseValue = () => {
+                        const value = event.enterprise_value_m;
+                        const currency = (event.currency_name || "").trim();
+                        if (value === null || value === undefined || value === "")
+                          return "—";
+                        if (currency) return formatCurrency(String(value), currency);
+                        const n = Number(String(value).replace(/,/g, ""));
+                        return Number.isFinite(n)
+                          ? `${Math.round(n).toLocaleString()}M`
+                          : String(value);
+                      };
+
+                      const individuals = coerceArray<{
+                        id?: number;
+                        name?: string;
+                      }>(event.advisor_individuals)
+                        .filter(
+                          (p) =>
+                            p &&
+                            typeof p.id === "number" &&
+                            String(p.name || "").trim().length > 0
+                        )
+                        .map((p) => String(p.name));
+
+                      const sectors = coerceArray<{
+                        id?: number;
+                        is_derived?: boolean;
+                        sector_name?: string;
+                        sector_importance?: string;
+                      }>(event.primary_sectors)
+                        .filter(
+                          (s) =>
+                            s &&
+                            typeof s.id === "number" &&
+                            String(s.sector_name || "").trim().length > 0
+                        )
+                        .map((s) => ({
+                          id: s.id as number,
+                          name: String(s.sector_name).trim(),
+                          importance: String(s.sector_importance || "").trim(),
+                          isDerived: Boolean(s.is_derived),
+                        }));
+
+                      const dedupedSectors = (() => {
+                        const sorted = [...sectors].sort((a, b) => {
+                          if (a.isDerived === b.isDerived) return 0;
+                          return a.isDerived ? 1 : -1;
+                        });
+                        const m = new Map<string, (typeof sorted)[number]>();
+                        for (const s of sorted) {
+                          const key = `${s.id}:${s.importance.toLowerCase()}`;
+                          if (!m.has(key)) m.set(key, s);
+                        }
+                        return Array.from(m.values());
+                      })();
+
+                      return (
+                        <div key={index} className="event-card">
+                          {createClickableElement(
+                            `/corporate-event/${event.id}`,
+                            event.description || "—",
+                            "event-card-title"
+                          )}
+                          <div className="event-card-info">
+                            <div className="event-card-info-item">
+                              <span className="event-card-info-label">
+                                Deal Date:
+                              </span>
+                              <span className="event-card-info-value">
+                                {event.announcement_date
+                                  ? formatDate(event.announcement_date)
+                                  : "—"}
+                              </span>
+                            </div>
+                            <div className="event-card-info-item">
+                              <span className="event-card-info-label">Type:</span>
+                              <span className="event-card-info-value">
+                                {event.deal_type || "—"}
+                              </span>
+                            </div>
+                            <div className="event-card-info-item">
+                              <span className="event-card-info-label">
+                                Counterparty Advised:
+                              </span>
+                              <span className="event-card-info-value">
+                                {companyAdvisedRoleRaw || "—"}
+                              </span>
+                            </div>
+                            <div className="event-card-info-item">
+                              <span className="event-card-info-label">
+                                Client Name:
+                              </span>
+                              <span className="event-card-info-value">
+                                {companyAdvisedHref
+                                  ? createClickableElement(
+                                      companyAdvisedHref,
+                                      companyAdvisedName,
+                                      "advisor-link"
+                                    )
+                                  : companyAdvisedName}
+                              </span>
+                            </div>
+                            <div
+                              className="event-card-info-item"
+                              style={{ gridColumn: "1 / -1" }}
+                            >
+                              <span className="event-card-info-label">
+                                Sector(s):
+                              </span>
+                              <span className="event-card-info-value">
+                                {dedupedSectors.length > 0
+                                  ? dedupedSectors.map((s, i) => {
+                                      const isPrimary = s.importance
+                                        .toLowerCase()
+                                        .includes("primary");
+                                      const href = isPrimary
+                                        ? `/sector/${s.id}`
+                                        : `/sub-sector/${s.id}`;
+                                      return (
+                                        <span
+                                          className="nowrap-token"
+                                          key={`${s.id}-${i}`}
+                                        >
+                                          {createClickableElement(
+                                            href,
+                                            s.name,
+                                            "advisor-link"
+                                          )}
+                                        </span>
+                                      );
+                                    })
+                                  : "—"}
+                              </span>
+                            </div>
+                            <div className="event-card-info-item">
+                              <span className="event-card-info-label">Value:</span>
+                              <span className="event-card-info-value">
+                                {getEnterpriseValue()}
+                              </span>
+                            </div>
+                            <div
+                              className="event-card-info-item"
+                              style={{ gridColumn: "1 / -1" }}
+                            >
+                              <span className="event-card-info-label">
+                                Advisor:
+                              </span>
+                              <span className="event-card-info-value">
+                                {individuals.length > 0
+                                  ? individuals.join(", ")
+                                  : "—"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {filteredEvents.length > 10 && (
+                    <div className="corporate-events-footer">
+                      <button
+                        onClick={handleToggleEvents}
+                        className="toggle-button toggle-button-primary"
+                      >
+                        {eventsExpanded ? "Show less" : "See more"}
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="no-events">
+                  {safeEvents.length > 0
+                    ? "No deals match the selected filters."
+                    : "No corporate events available"}
+                </div>
+              )}
+            </div>
+
+            {/* Overview / Description / LinkedIn row */}
+            <div className="info-sections-row">
             {/* Overview Section */}
             <div className="advisor-section">
               <h2 className="section-title">Overview</h2>
               <div className="info-grid">
-                <div className="info-item">
-                  <span className="info-label">Advised D&A sectors:</span>
-                  <span className="info-value">
-                    {daSectors?.trim()
-                      ? daSectors
-                      : formatSectorsList(Advised_DA_sectors) ||
-                        "Not available"}
-                  </span>
-                </div>
                 <div className="info-item">
                   <span className="info-label">Year founded:</span>
                   <span className="info-value">
@@ -905,11 +2015,12 @@ export default function AdvisorProfilePage() {
                 </div>
               )}
             </div>
+            </div>{/* end info-sections-row */}
 
             {/* Advisors Section */}
             <div className="advisor-section">
               <h2 className="section-title">Advisors</h2>
-              
+
               {/* Current Advisors */}
               <div style={{ marginBottom: "20px" }}>
                 <IndividualCards
@@ -919,26 +2030,38 @@ export default function AdvisorProfilePage() {
                     if (rolesCurrent.length > 0) {
                       return rolesCurrent.map((role) => ({
                         id: role.id,
-                        name: role.advisor_individuals || role.Individual_text || "Unknown",
-                        jobTitles: role.job_titles_id?.map((jt) => jt.job_title) || [],
+                        name:
+                          role.advisor_individuals ||
+                          role.Individual_text ||
+                          "Unknown",
+                        jobTitles:
+                          role.job_titles_id?.map((jt) => jt.job_title) || [],
                         individualId: role.individuals_id,
                       }));
                     }
                     // Fallback to advisorData.Advisors_individuals_current
-                    if (advisorData.Advisors_individuals_current && advisorData.Advisors_individuals_current.length > 0) {
-                      return advisorData.Advisors_individuals_current.map((individual) => ({
-                        id: individual.id,
-                        name: individual.advisor_individuals,
-                        jobTitles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
-                        individualId: individual.individuals_id,
-                      }));
+                    if (
+                      advisorData.Advisors_individuals_current &&
+                      advisorData.Advisors_individuals_current.length > 0
+                    ) {
+                      return advisorData.Advisors_individuals_current.map(
+                        (individual) => ({
+                          id: individual.id,
+                          name: individual.advisor_individuals,
+                          jobTitles:
+                            individual.job_titles_id?.map((jt) => jt.job_title) ||
+                            [],
+                          individualId: individual.individuals_id,
+                        })
+                      );
                     }
                     // Final fallback to Advisors_individuals
                     if (Advisors_individuals && Advisors_individuals.length > 0) {
                       return Advisors_individuals.map((individual) => ({
                         id: individual.id,
                         name: individual.advisor_individuals,
-                        jobTitles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
+                        jobTitles:
+                          individual.job_titles_id?.map((jt) => jt.job_title) || [],
                         individualId: individual.individuals_id,
                       }));
                     }
@@ -950,28 +2073,34 @@ export default function AdvisorProfilePage() {
 
               {/* Past Advisors - Only show if there are past advisors */}
               {(() => {
-                // Get past advisors list
                 let pastAdvisors: IndividualCardItem[] = [];
+
                 // Prefer rolesPast from LinkedIn endpoint
                 if (rolesPast.length > 0) {
                   pastAdvisors = rolesPast.map((role) => ({
                     id: role.id,
-                    name: role.advisor_individuals || role.Individual_text || "Unknown",
+                    name:
+                      role.advisor_individuals || role.Individual_text || "Unknown",
                     jobTitles: role.job_titles_id?.map((jt) => jt.job_title) || [],
                     individualId: role.individuals_id,
                   }));
                 }
                 // Fallback to advisorData.Advisors_individuals_past
-                else if (advisorData.Advisors_individuals_past && advisorData.Advisors_individuals_past.length > 0) {
-                  pastAdvisors = advisorData.Advisors_individuals_past.map((individual) => ({
-                    id: individual.id,
-                    name: individual.advisor_individuals,
-                    jobTitles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
-                    individualId: individual.individuals_id,
-                  }));
+                else if (
+                  advisorData.Advisors_individuals_past &&
+                  advisorData.Advisors_individuals_past.length > 0
+                ) {
+                  pastAdvisors = advisorData.Advisors_individuals_past.map(
+                    (individual) => ({
+                      id: individual.id,
+                      name: individual.advisor_individuals,
+                      jobTitles:
+                        individual.job_titles_id?.map((jt) => jt.job_title) || [],
+                      individualId: individual.individuals_id,
+                    })
+                  );
                 }
-                
-                // Only render if there are past advisors
+
                 if (pastAdvisors.length > 0) {
                   return (
                     <div>
@@ -986,376 +2115,6 @@ export default function AdvisorProfilePage() {
                 return null;
               })()}
             </div>
-          </div>
-
-          {/* Right Column - Corporate Events */}
-          <div className="advisor-right-column">
-            <div className="advisor-section">
-              <div className="corporate-events-header">
-                <h2 className="section-title">Corporate Events</h2>
-                {corporateEvents?.New_Events_Wits_Advisors &&
-                  corporateEvents.New_Events_Wits_Advisors.length > 10 && (
-                    <button
-                      onClick={handleToggleEvents}
-                      className="toggle-button"
-                    >
-                      {eventsExpanded ? "Show less" : "See more"}
-                    </button>
-                  )}
-              </div>
-
-              {corporateEvents?.New_Events_Wits_Advisors &&
-              corporateEvents.New_Events_Wits_Advisors.length > 0 ? (
-                <>
-                  {/* Desktop Table View */}
-                  <div className="events-table-container">
-                    <table className="events-table">
-                      <thead>
-                        <tr>
-                          <th>Description</th>
-                          <th>Date Announced</th>
-                          <th>Type</th>
-                          <th>Counterparty Advised</th>
-                          <th>Other Counterparties</th>
-                          <th>Enterprise Value</th>
-                          <th>Individuals</th>
-                          <th>Other Advisors</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {corporateEvents.New_Events_Wits_Advisors.slice(
-                          0,
-                          eventsExpanded ? undefined : 10
-                        ).map((event, index) => {
-                          // Helper functions to extract data
-                          const getCounterpartyAdvised = () => {
-                            const advised =
-                              event
-                                ._counterparty_advised_of_corporate_events?.[0];
-                            return (
-                              advised?._counterpartys_type
-                                ?.counterparty_status || "—"
-                            );
-                          };
-
-                          const getOtherCounterparties = () => {
-                            if (
-                              !event._other_counterparties_of_corporate_events
-                                ?.length
-                            )
-                              return "—";
-                            return event._other_counterparties_of_corporate_events.map(
-                              (cp, i) => (
-                                <span
-                                  key={`${cp.id}-${i}`}
-                                  className="other-counterparty-name"
-                                >
-                                  <span
-                                    className="advisor-link"
-                                    onClick={() => {
-                                      if (cp._is_that_investor) {
-                                        router.push(`/investors/${cp.id}`);
-                                      } else {
-                                        router.push(`/company/${cp.id}`);
-                                      }
-                                    }}
-                                  >
-                                    {cp.name}
-                                  </span>
-                                  {i <
-                                  event._other_counterparties_of_corporate_events!
-                                    .length -
-                                    1
-                                    ? ", "
-                                    : ""}
-                                </span>
-                              )
-                            );
-                          };
-
-                          const getEnterpriseValue = () => {
-                            if (
-                              !event.ev_data?.enterprise_value_m ||
-                              !event.ev_data?._currency ||
-                              !event.ev_data._currency.Currency
-                            )
-                              return "—";
-                            const value = parseFloat(
-                              event.ev_data.enterprise_value_m
-                            );
-                            const currency = event.ev_data._currency.Currency;
-                            return `${currency}${value.toLocaleString()}`;
-                          };
-
-                          const getIndividuals = () => {
-                            if (
-                              !event
-                                .__related_to_corporate_event_advisors_individuals
-                                ?.length
-                            )
-                              return "—";
-                            return event.__related_to_corporate_event_advisors_individuals
-                              .map(
-                                (ind) => ind._individuals?.advisor_individuals
-                              )
-                              .filter(Boolean)
-                              .join(", ");
-                          };
-
-                          const getOtherAdvisors = () => {
-                            if (
-                              !event._other_advisors_of_corporate_event?.length
-                            )
-                              return "—";
-                            return event._other_advisors_of_corporate_event
-                              .map((advisor) => ({
-                                name: advisor._new_company?.name,
-                                id: advisor._new_company?.id,
-                              }))
-                              .filter((advisor) => advisor.name && advisor.id);
-                          };
-
-                          return (
-                            <tr key={index}>
-                              <td>
-                                {createClickableElement(
-                                  `/corporate-event/${event.id}`,
-                                  event.description,
-                                  "event-link"
-                                )}
-                              </td>
-                              <td>{formatDate(event.announcement_date)}</td>
-                              <td>{event.deal_type || "—"}</td>
-                              <td>{getCounterpartyAdvised()}</td>
-                              <td>{getOtherCounterparties()}</td>
-                              <td>{getEnterpriseValue()}</td>
-                              <td>
-                                {(() => {
-                                  const list = getIndividuals();
-                                  if (!list || list === "—") return list;
-                                  return String(list)
-                                    .split(/\s*,\s*/)
-                                    .filter(Boolean)
-                                    .map((name, i) => (
-                                      <span
-                                        className="nowrap-token"
-                                        key={`${name}-${i}`}
-                                      >
-                                        {name}
-                                      </span>
-                                    ));
-                                })()}
-                              </td>
-                              <td>
-                                {(() => {
-                                  const advisors = getOtherAdvisors();
-                                  if (advisors === "—") return "—";
-                                  return advisors.map((advisor) => (
-                                    <span
-                                      className="nowrap-token"
-                                      key={advisor.id}
-                                    >
-                                      <span
-                                        onClick={() =>
-                                          handleOtherAdvisorClick(advisor.id)
-                                        }
-                                        className="advisor-link"
-                                      >
-                                        {advisor.name}
-                                      </span>
-                                    </span>
-                                  ));
-                                })()}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Mobile Cards View */}
-                  <div className="events-cards">
-                    {corporateEvents.New_Events_Wits_Advisors.slice(
-                      0,
-                      eventsExpanded ? undefined : 10
-                    ).map((event, index) => {
-                      // Same helper functions for mobile cards
-                      const getCounterpartyAdvised = () => {
-                        const advised =
-                          event._counterparty_advised_of_corporate_events?.[0];
-                        return (
-                          advised?._counterpartys_type?.counterparty_status ||
-                          "—"
-                        );
-                      };
-
-                      const getOtherCounterparties = () => {
-                        if (
-                          !event._other_counterparties_of_corporate_events
-                            ?.length
-                        )
-                          return "—";
-                        return event._other_counterparties_of_corporate_events
-                          .map((cp) => cp.name)
-                          .filter(Boolean)
-                          .join(", ");
-                      };
-
-                      const getEnterpriseValue = () => {
-                        if (
-                          !event.ev_data?.enterprise_value_m ||
-                          !event.ev_data?._currency ||
-                          !event.ev_data._currency.Currency
-                        )
-                          return "—";
-                        const value = parseFloat(
-                          event.ev_data.enterprise_value_m
-                        );
-                        const currency = event.ev_data._currency.Currency;
-                        return `${currency}${value.toLocaleString()}`;
-                      };
-
-                      const getIndividuals = () => {
-                        if (
-                          !event
-                            .__related_to_corporate_event_advisors_individuals
-                            ?.length
-                        )
-                          return "—";
-                        return event.__related_to_corporate_event_advisors_individuals
-                          .map((ind) => ind._individuals?.advisor_individuals)
-                          .filter(Boolean)
-                          .join(", ");
-                      };
-
-                      const getOtherAdvisors = () => {
-                        if (!event._other_advisors_of_corporate_event?.length)
-                          return "—";
-                        return event._other_advisors_of_corporate_event
-                          .map((advisor) => ({
-                            name: advisor._new_company?.name,
-                            id: advisor._new_company?.id,
-                          }))
-                          .filter((advisor) => advisor.name && advisor.id);
-                      };
-
-                      return (
-                        <div key={index} className="event-card">
-                          {createClickableElement(
-                            `/corporate-event/${event.id}`,
-                            event.description,
-                            "event-card-title"
-                          )}
-                          <div className="event-card-info">
-                            <div className="event-card-info-item">
-                              <span className="event-card-info-label">
-                                Date:
-                              </span>
-                              <span className="event-card-info-value">
-                                {formatDate(event.announcement_date)}
-                              </span>
-                            </div>
-                            <div className="event-card-info-item">
-                              <span className="event-card-info-label">
-                                Type:
-                              </span>
-                              <span className="event-card-info-value">
-                                {event.deal_type || "—"}
-                              </span>
-                            </div>
-                            <div className="event-card-info-item">
-                              <span className="event-card-info-label">
-                                Counterparty:
-                              </span>
-                              <span className="event-card-info-value">
-                                {getCounterpartyAdvised()}
-                              </span>
-                            </div>
-                            <div className="event-card-info-item">
-                              <span className="event-card-info-label">
-                                Value:
-                              </span>
-                              <span className="event-card-info-value">
-                                {getEnterpriseValue()}
-                              </span>
-                            </div>
-                            <div
-                              className="event-card-info-item"
-                              style={{ gridColumn: "1 / -1" }}
-                            >
-                              <span className="event-card-info-label">
-                                Other Counterparties:
-                              </span>
-                              <span className="event-card-info-value">
-                                {getOtherCounterparties()}
-                              </span>
-                            </div>
-                            <div
-                              className="event-card-info-item"
-                              style={{ gridColumn: "1 / -1" }}
-                            >
-                              <span className="event-card-info-label">
-                                Individuals:
-                              </span>
-                              <span className="event-card-info-value">
-                                {(() => {
-                                  const list = getIndividuals();
-                                  if (!list || list === "—") return list;
-                                  return String(list)
-                                    .split(/\s*,\s*/)
-                                    .filter(Boolean)
-                                    .map((name, i) => (
-                                      <span
-                                        className="nowrap-token"
-                                        key={`${name}-${i}`}
-                                      >
-                                        {name}
-                                      </span>
-                                    ));
-                                })()}
-                              </span>
-                            </div>
-                            <div
-                              className="event-card-info-item"
-                              style={{ gridColumn: "1 / -1" }}
-                            >
-                              <span className="event-card-info-label">
-                                Other Advisors:
-                              </span>
-                              <span className="event-card-info-value">
-                                {(() => {
-                                  const advisors = getOtherAdvisors();
-                                  if (advisors === "—") return "—";
-                                  return advisors.map((advisor) => (
-                                    <span
-                                      className="nowrap-token"
-                                      key={advisor.id}
-                                    >
-                                      <span
-                                        onClick={() =>
-                                          handleOtherAdvisorClick(advisor.id)
-                                        }
-                                        className="advisor-link"
-                                      >
-                                        {advisor.name}
-                                      </span>
-                                    </span>
-                                  ));
-                                })()}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              ) : (
-                <div className="no-events">No corporate events available</div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
 
