@@ -8,6 +8,7 @@ export interface CorporateEventCSVRow {
   "Primary Sector": string;
   "Secondary Sectors": string;
   "Deal Type": string;
+  "Funding Stage": string;
   "Amount (m)": string;
   "EV (m)": string;
   "Buyer(s)/Investor(s)": string;
@@ -104,6 +105,17 @@ export class CSVExporter {
           ? `${window.location.origin}/corporate-event/${event.id}`
           : `/corporate-event/${event.id}`;
 
+      const fundingStage =
+        (
+          ((event as unknown as {
+            investment_data?: { Funding_stage?: string; funding_stage?: string };
+          }).investment_data?.Funding_stage ||
+            (event as unknown as {
+              investment_data?: { Funding_stage?: string; funding_stage?: string };
+            }).investment_data?.funding_stage ||
+            "") as string
+        ).trim() || "Not Available";
+
       return {
         Description: event.description || "Not Available",
         Date: this.formatDate(event.announcement_date),
@@ -118,6 +130,7 @@ export class CSVExporter {
           formatSectorList(target?.secondary_sectors) ||
           this.formatSectors(target?._sectors_secondary),
         "Deal Type": event.deal_type || "Not Available",
+        "Funding Stage": fundingStage,
         "Amount (m)": this.formatCurrency(
           event.investment_data?.investment_amount_m,
           event.investment_data?.currency?.Currency
@@ -203,6 +216,7 @@ export class CSVExporter {
       primary_sector: string;
       secondary_sectors: string;
       deal_type: string;
+      funding_stage: string;
       amount_m: number | null;
       ev_m: number | null;
       buyers_investors: string;
@@ -254,6 +268,7 @@ export class CSVExporter {
         "Primary Sector": safeString(item.primary_sector),
         "Secondary Sectors": safeString(item.secondary_sectors),
         "Deal Type": safeString(item.deal_type),
+        "Funding Stage": safeString(item.funding_stage),
         "Amount (m)": formattedAmount,
         "EV (m)": formattedEV,
         "Buyer(s)/Investor(s)": safeString(item.buyers_investors),
@@ -274,6 +289,7 @@ export class CSVExporter {
       primary_sector: string;
       secondary_sectors: string;
       deal_type: string;
+      funding_stage: string;
       amount_m: number | null;
       ev_m: number | null;
       buyers_investors: string;
