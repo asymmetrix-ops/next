@@ -30,7 +30,13 @@ export const useAdvisorProfile = ({ advisorId }: UseAdvisorProfileProps) => {
       );
 
       setAdvisorData(completeProfile.advisor);
-      setCorporateEvents(completeProfile.events?.events || []);
+      const eventsPayload = completeProfile.events;
+      const events =
+        (eventsPayload as CorporateEventsResponse | null | undefined)?.events ||
+        (eventsPayload as CorporateEventsResponse | null | undefined)
+          ?.New_Events_Wits_Advisors ||
+        [];
+      setCorporateEvents(Array.isArray(events) ? events : []);
     } catch (err) {
       const errorMessage =
         err instanceof Error

@@ -72,9 +72,42 @@ export interface AdvisorIndividual {
   job_titles_id?: Array<{ id?: number; job_title: string }>;
 }
 
+type AdvisorCorporateEventBase =
+  | CorporateEvent
+  | {
+      id: number;
+      description?: string | null;
+      announcement_date?: string | null;
+      deal_type?: string | null;
+      company_advised_role?: string | null;
+      company_advised_id?: number | null;
+      company_advised_name?: string | null;
+      enterprise_value_m?: string | number | null;
+      currency_name?: string | null;
+      advisor_individuals?: Array<{ id?: number; name?: string }> | null;
+      other_advisors?: Array<{
+        id?: number;
+        advisor_company_id?: number;
+        advisor_company_name?: string;
+        individuals_id?: number[];
+      }> | null;
+      primary_sectors?: Array<{
+        id?: number;
+        is_derived?: boolean;
+        sector_name?: string;
+        sector_importance?: string;
+      }> | null;
+    };
+
+export type AdvisorCorporateEvent = AdvisorCorporateEventBase & {
+  company_advised_role?: string | null;
+};
+
 // Corporate Events Response Interface
+// Backends have shipped multiple payload shapes over time; support both.
 export interface CorporateEventsResponse {
-  New_Events_Wits_Advisors: CorporateEvent[];
+  events?: AdvisorCorporateEvent[];
+  New_Events_Wits_Advisors?: AdvisorCorporateEvent[];
 }
 
 // Corporate Event
