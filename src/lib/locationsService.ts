@@ -1,6 +1,6 @@
 import { authService } from "./auth";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
+const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/";
 
 interface Country {
   locations_Country: string;
@@ -331,7 +331,7 @@ class LocationsService {
   // Investor type options used by Investors page filters.
   async getInvestorTypes(): Promise<InvestorType[]> {
     return this.fetchFirstOk<InvestorType[]>(
-      ["Get_Investor_Types", "get_investor_types", "investor_type_options"],
+      ["Get_investor_types_for_filter", "Get_Investor_Types", "get_investor_types", "investor_type_options"],
       "Failed to fetch investor types"
     );
   }
