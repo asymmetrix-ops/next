@@ -60,10 +60,28 @@ const decodeHtmlEntities = (input: string): string => {
 
 const stripHtmlToText = (html: string | undefined | null): string => {
   if (!html) return "";
-  // First decode entities, then strip tags and collapse whitespace
-  const decoded = decodeHtmlEntities(html);
-  const withoutTags = decoded.replace(/<[^>]*>/g, " ");
-  return withoutTags.replace(/\s+/g, " ").trim();
+
+  if (typeof window !== "undefined") {
+    const div = document.createElement("div");
+    div.innerHTML = html;
+    // Remove heading elements so section titles don't appear in the card preview
+    div.querySelectorAll("h1,h2,h3,h4,h5,h6").forEach((el) => el.remove());
+    const text = (div.textContent || div.innerText || "").trim();
+    return text.replace(/\s+/g, " ").trim();
+  }
+
+  // Server-side fallback: strip heading tags + their content first, then remaining tags
+  return html
+    .replace(/<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/gi, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 };
 
 const formatSectors = (
