@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
+import { CE_CACHE_KEY } from '@/lib/ce-cache-key';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -17,7 +18,6 @@ const XANO_SERVICE_TOKEN = process.env.XANO_SERVICE_TOKEN;
 const DEFAULT_PAGE = 1;
 const DEFAULT_PER_PAGE = 25;
 
-export const CE_CACHE_KEY = `corporate-events:initial:v1:page${DEFAULT_PAGE}:per${DEFAULT_PER_PAGE}`;
 
 function getRedisClient(): Redis | null {
   if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {

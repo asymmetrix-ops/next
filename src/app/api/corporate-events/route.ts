@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { Redis } from "@upstash/redis";
-import { CE_CACHE_KEY } from "@/app/api/cron/warm-ce/route";
+import { CE_CACHE_KEY } from "@/lib/ce-cache-key";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +22,11 @@ function isDefaultRequest(searchParams: URLSearchParams): boolean {
 
   // Any extra filter param means it's a filtered request — skip cache
   const ignoredKeys = new Set(["Page", "Per_page"]);
-  for (const key of searchParams.keys()) {
-    if (!ignoredKeys.has(key)) return false;
-  }
+  let hasExtraKeys = false;
+  searchParams.forEach((_value, key) => {
+    if (!ignoredKeys.has(key)) hasExtraKeys = true;
+  });
+  if (hasExtraKeys) return false;
   return true;
 }
 
