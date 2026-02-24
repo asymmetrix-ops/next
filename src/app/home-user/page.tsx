@@ -1553,7 +1553,10 @@ export default function HomeUserPage() {
             <div className="flex-1 p-3 overflow-y-auto sm:p-4">
               {insightsArticles.length > 0 ? (
                 <div className="space-y-4">
-                  {insightsArticles.slice(0, 10).map((article) => {
+                  {[...insightsArticles]
+                    .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
+                    .slice(0, 10)
+                    .map((article) => {
                     const ct = (
                       article.Content_Type ||
                       article.content_type ||
