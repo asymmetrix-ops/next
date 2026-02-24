@@ -1362,12 +1362,14 @@ const CompanyDetail = () => {
 
     try {
       setExportingPdf(true);
+      const token = localStorage.getItem("asymmetrix_auth_token");
       const response = await fetch(
         "https://asymmetrix-pdf-service.fly.dev/api/export-company-pdf",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({ company_id: company.id }),
         }
