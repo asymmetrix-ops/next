@@ -699,58 +699,76 @@ function TabNavigation({
   );
 }
 
-function SectorThesisCard({
-  sectorData,
-}: {
-  sectorData: SectorStatistics | null;
-}) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [showButton, setShowButton] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+function RecentInsightsCard({ sectorId }: { sectorId: string }) {
+  const [articles, setArticles] = useState<ContentArticle[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Handle both old (nested) and new (flat) API response formats
-  const sectorName = 
-    (sectorData as { sector_name?: string })?.sector_name || // New flat format
-    sectorData?.Sector?.sector_name;    // Old nested format
-  const thesisHtml = 
-    (sectorData as { Sector_thesis?: string })?.Sector_thesis || // New flat format
-    sectorData?.Sector?.Sector_thesis;    // Old nested format
-
-  const normalizedThesisHtml = useMemo(() => {
-    if (!thesisHtml) return "";
-    const looksEncoded =
-      thesisHtml.includes("&lt;") &&
-      thesisHtml.includes("&gt;");
-    const result = looksEncoded
-      ? thesisHtml
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/&amp;/g, "&")
-      : thesisHtml;
-    
-    if (result.includes('<ul>') || result.includes('<li>')) {
-      // HTML contains ul/li tags
-    }
-    
-    return result;
-  }, [thesisHtml]);
-
-  // Check if content exceeds container height
   useEffect(() => {
-    if (contentRef.current && containerRef.current && thesisHtml) {
-      const contentHeight = contentRef.current.scrollHeight;
-      const containerHeight = containerRef.current.clientHeight;
-      // Show button if content is taller than available container space
-      setShowButton(contentHeight > containerHeight - 48); // -48 for button height + margin
+    const fetchArticles = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const sectorIdNum = Number(sectorId);
+        if (Number.isNaN(sectorIdNum)) return;
+
+        const params = new URLSearchParams();
+        params.append("primary_sectors_ids[]", String(sectorIdNum));
+
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/articles_based_on_sectors?${params.toString()}`;
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const arr: ContentArticle[] = Array.isArray(data) ? data : [];
+        const sorted = arr
+          .sort((a, b) =>
+            new Date(b.Publication_Date).getTime() -
+            new Date(a.Publication_Date).getTime()
+          )
+          .slice(0, 3);
+        setArticles(sorted);
+      } catch {
+        // silent fail
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (sectorId) fetchArticles();
+  }, [sectorId]);
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "";
+    try {
+      return new Date(dateString).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch {
+      return "";
     }
-  }, [thesisHtml]);
+  };
+
+  const getBadgeStyle = (contentType?: string): React.CSSProperties => {
+    const t = (contentType || "").toLowerCase();
+    if (t === "company analysis") return { background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0" };
+    if (t === "deal analysis") return { background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe" };
+    if (t === "sector analysis") return { background: "#f5f3ff", color: "#5b21b6", border: "1px solid #ddd6fe" };
+    if (t === "hot take") return { background: "#fff7ed", color: "#9a3412", border: "1px solid #fed7aa" };
+    if (t === "executive interview") return { background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" };
+    return { background: "#f8fafc", color: "#475569", border: "1px solid #e2e8f0" };
+  };
 
   return (
-    <div 
-      className="bg-white rounded-xl border shadow-lg border-slate-200/60 flex flex-col"
-      style={{ height: isExpanded ? 'auto' : '535px' }}
-    >
+    <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 flex flex-col h-full" style={{ minHeight: "535px" }}>
       <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
         <div className="flex justify-between items-center">
           <div className="flex gap-3 items-center">
@@ -762,88 +780,71 @@ function SectorThesisCard({
                 stroke="currentColor"
                 strokeWidth="2"
               >
-                <path d="M12 19V6M5 12h14" />
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
               </svg>
             </span>
-            <span className="font-semibold text-slate-900">Sector Thesis</span>
+            <span className="font-semibold text-slate-900">Recent Insights &amp; Analysis</span>
           </div>
-          {sectorName && (
-            <span className="text-xs px-2.5 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
-              {sectorName}
-            </span>
-          )}
+          <a
+            href="?tab=insights"
+            className="text-xs text-blue-600 hover:text-blue-800 font-medium underline flex-shrink-0"
+          >
+            View All
+          </a>
         </div>
       </div>
-      <div 
-        ref={containerRef}
-        className="px-5 py-5 flex flex-col flex-1 overflow-hidden"
-      >
-        {thesisHtml ? (
-          <>
-            <div
-              ref={contentRef}
-              className="sector-thesis-content text-slate-700 flex-1"
-              style={{
-                fontSize: '14px',
-                lineHeight: '1.7',
-                overflow: isExpanded ? 'visible' : 'hidden',
-              }}
-              dangerouslySetInnerHTML={{ __html: normalizedThesisHtml }}
-            />
-            {showButton && (
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors self-start flex-shrink-0"
-              >
-                {isExpanded ? 'See Less' : 'See More'}
-              </button>
-            )}
-            {/* Inline styles for this specific component */}
-            <style
-              dangerouslySetInnerHTML={{
-                __html: `
-                  .sector-thesis-content ul { 
-                    list-style-type: disc !important; 
-                    list-style: disc !important; 
-                    margin: 0 0 1rem 0 !important; 
-                    padding-left: 1.5rem !important; 
-                    display: block !important;
-                  }
-                  .sector-thesis-content ol { 
-                    list-style-type: decimal !important; 
-                    list-style: decimal !important; 
-                    margin: 0 0 1rem 0 !important; 
-                    padding-left: 1.5rem !important; 
-                    display: block !important;
-                  }
-                  .sector-thesis-content li { 
-                    margin-bottom: 0.5rem !important; 
-                    display: list-item !important;
-                    list-style-type: inherit !important;
-                    list-style-position: outside !important;
-                  }
-                  .sector-thesis-content ul ul { 
-                    margin-top: 0.5rem !important; 
-                    margin-bottom: 0.5rem !important; 
-                    padding-left: 1.25rem !important; 
-                  }
-                  .sector-thesis-content p { margin: 0 0 1rem 0; }
-                  .sector-thesis-content h1, .sector-thesis-content h2, .sector-thesis-content h3, .sector-thesis-content h4, .sector-thesis-content h5, .sector-thesis-content h6 { margin: 1.25rem 0 0.75rem; font-weight: 700; }
-                  .sector-thesis-content a { color: #2563eb; text-decoration: underline; }
-                `,
-              }}
-            />
-          </>
+      <div className="px-5 py-5 flex flex-col flex-1">
+        {loading ? (
+          <div className="space-y-4 animate-pulse">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="space-y-2 pb-4 border-b border-slate-100 last:border-0">
+                <div className="h-4 bg-slate-200 rounded w-1/4"></div>
+                <div className="h-5 bg-slate-200 rounded w-5/6"></div>
+                <div className="h-3 bg-slate-200 rounded w-full"></div>
+                <div className="h-3 bg-slate-200 rounded w-4/5"></div>
+              </div>
+            ))}
+          </div>
+        ) : articles.length === 0 ? (
+          <div className="flex flex-col items-center justify-center flex-1 py-8 text-center">
+            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+              <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            <p className="text-slate-500 text-sm">No insights available for this sector yet</p>
+          </div>
         ) : (
-          <div className="text-sm text-slate-600 space-y-2">
-            <p>
-              A detailed sector thesis is not yet available for
-              {sectorName ? ` the ${sectorName} sector.` : " this sector."}
-            </p>
-            <p>
-              You can still use the market map, recent transactions, and investor
-              activity on this page to understand how this space is evolving.
-            </p>
+          <div className="divide-y divide-slate-100">
+            {articles.map((article) => (
+              <a
+                key={article.id}
+                href={`/article/${article.id}`}
+                className="block py-4 first:pt-0 last:pb-0 group hover:bg-slate-50/50 -mx-5 px-5 transition-colors duration-150 rounded-lg"
+              >
+                <div className="flex items-center gap-2 mb-1.5">
+                  {article.Content_Type && (
+                    <span
+                      className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full leading-none flex-shrink-0"
+                      style={getBadgeStyle(article.Content_Type)}
+                    >
+                      {article.Content_Type}
+                    </span>
+                  )}
+                  <span className="text-xs text-slate-400 flex-shrink-0">
+                    {formatDate(article.Publication_Date)}
+                  </span>
+                </div>
+                <h3 className="text-sm font-semibold text-slate-900 leading-snug mb-1.5 group-hover:text-blue-700 transition-colors line-clamp-2">
+                  {article.Headline || "Untitled"}
+                </h3>
+                {article.Strapline && (
+                  <p className="text-xs text-slate-500 leading-relaxed line-clamp-3">
+                    {article.Strapline}
+                  </p>
+                )}
+              </a>
+            ))}
           </div>
         )}
       </div>
@@ -5409,18 +5410,7 @@ const SectorDetailPage = ({
             {/* Top Row - Changed from grid to flex */}
             <div className="flex flex-col lg:flex-row gap-6">
               <div className="lg:w-1/2">
-                {sectorData ? (
-                  <SectorThesisCard sectorData={sectorData} />
-                ) : (
-                  <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 p-5 animate-pulse">
-                    <div className="h-6 bg-slate-200 rounded w-1/3 mb-4"></div>
-                    <div className="space-y-2">
-                      <div className="h-4 bg-slate-200 rounded"></div>
-                      <div className="h-4 bg-slate-200 rounded"></div>
-                      <div className="h-4 bg-slate-200 rounded w-5/6"></div>
-                    </div>
-                  </div>
-                )}
+                <RecentInsightsCard sectorId={sectorId} />
               </div>
               <div className="lg:w-1/2">
                 {recentTransactions.length > 0 ? (
