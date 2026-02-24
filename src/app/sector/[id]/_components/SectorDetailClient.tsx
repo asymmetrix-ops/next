@@ -727,12 +727,10 @@ function RecentInsightsCard({ sectorId }: { sectorId: string }) {
 
         const data = await response.json();
         const arr: ContentArticle[] = Array.isArray(data) ? data : [];
-        const sorted = arr
-          .sort((a, b) =>
-            new Date(b.Publication_Date).getTime() -
-            new Date(a.Publication_Date).getTime()
-          )
-          .slice(0, 3);
+        const sorted = arr.sort((a, b) =>
+          new Date(b.Publication_Date).getTime() -
+          new Date(a.Publication_Date).getTime()
+        );
         setArticles(sorted);
       } catch {
         // silent fail
@@ -768,7 +766,7 @@ function RecentInsightsCard({ sectorId }: { sectorId: string }) {
   };
 
   return (
-    <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 flex flex-col h-full" style={{ minHeight: "535px" }}>
+    <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 flex flex-col overflow-hidden" style={{ height: "535px" }}>
       <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
         <div className="flex justify-between items-center">
           <div className="flex gap-3 items-center">
@@ -793,20 +791,20 @@ function RecentInsightsCard({ sectorId }: { sectorId: string }) {
           </a>
         </div>
       </div>
-      <div className="px-5 py-5 flex flex-col flex-1">
+      <div className="px-5 py-4 flex-1 overflow-hidden">
         {loading ? (
-          <div className="space-y-4 animate-pulse">
+          <div className="space-y-3 animate-pulse">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="space-y-2 pb-4 border-b border-slate-100 last:border-0">
-                <div className="h-4 bg-slate-200 rounded w-1/4"></div>
-                <div className="h-5 bg-slate-200 rounded w-5/6"></div>
+              <div key={i} className="space-y-1.5 pb-3 border-b border-slate-100 last:border-0">
+                <div className="h-3.5 bg-slate-200 rounded w-1/4"></div>
+                <div className="h-4 bg-slate-200 rounded w-5/6"></div>
                 <div className="h-3 bg-slate-200 rounded w-full"></div>
                 <div className="h-3 bg-slate-200 rounded w-4/5"></div>
               </div>
             ))}
           </div>
         ) : articles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center flex-1 py-8 text-center">
+          <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
               <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
@@ -815,14 +813,14 @@ function RecentInsightsCard({ sectorId }: { sectorId: string }) {
             <p className="text-slate-500 text-sm">No insights available for this sector yet</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 overflow-hidden h-full">
             {articles.map((article) => (
               <a
                 key={article.id}
                 href={`/article/${article.id}`}
-                className="block py-4 first:pt-0 last:pb-0 group hover:bg-slate-50/50 -mx-5 px-5 transition-colors duration-150 rounded-lg"
+                className="block py-3 first:pt-0 group hover:bg-slate-50/50 -mx-5 px-5 transition-colors duration-150"
               >
-                <div className="flex items-center gap-2 mb-1.5">
+                <div className="flex items-center gap-2 mb-1">
                   {article.Content_Type && (
                     <span
                       className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full leading-none flex-shrink-0"
@@ -835,11 +833,11 @@ function RecentInsightsCard({ sectorId }: { sectorId: string }) {
                     {formatDate(article.Publication_Date)}
                   </span>
                 </div>
-                <h3 className="text-sm font-semibold text-slate-900 leading-snug mb-1.5 group-hover:text-blue-700 transition-colors line-clamp-2">
+                <h3 className="text-sm font-semibold text-slate-900 leading-snug mb-1 group-hover:text-blue-700 transition-colors line-clamp-1">
                   {article.Headline || "Untitled"}
                 </h3>
                 {article.Strapline && (
-                  <p className="text-xs text-slate-500 leading-relaxed line-clamp-3">
+                  <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
                     {article.Strapline}
                   </p>
                 )}
@@ -1186,8 +1184,8 @@ function RecentTransactionsCard({
   };
 
   return (
-    <div className="bg-white rounded-xl border shadow-lg border-slate-200/60" style={{ height: '535px' }}>
-      <div className="px-5 py-4 border-b border-slate-100">
+    <div className="bg-white rounded-xl border shadow-lg border-slate-200/60 flex flex-col overflow-hidden" style={{ height: '535px' }}>
+      <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
         <div className="flex gap-3 items-center text-xl">
           <span className="inline-flex justify-center items-center w-8 h-8 bg-orange-50 rounded-lg">
             <svg
@@ -1203,8 +1201,8 @@ function RecentTransactionsCard({
           <span className="text-slate-900">Recent Transactions</span>
         </div>
       </div>
-      <div className="px-5 pb-5">
-        <div className="overflow-auto md:max-h-[28rem]" style={{ maxHeight: "28rem" }}>
+      <div className="px-5 pb-5 flex-1 overflow-hidden">
+        <div className="overflow-auto h-full">
           {/* Mobile: card list */}
           <div className="block space-y-3 md:hidden">
             {!hasItems ? (
@@ -1337,7 +1335,7 @@ function RecentTransactionsCard({
             )}
           </div>
           {/* Desktop: table */}
-          <div className="hidden md:block overflow-auto" style={{ maxHeight: "28rem" }}>
+          <div className="hidden md:block overflow-auto h-full">
             <table className="min-w-full text-sm table-fixed">
               <thead className="bg-slate-50/80">
                 <tr className="hover:bg-slate-50/80">
