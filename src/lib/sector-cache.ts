@@ -257,3 +257,24 @@ export function resetWarmingFlag(): void {
   warmingTriggered = false;
   warmingInProgress = false;
 }
+
+// Invalidate cache for a specific sector (used by DB triggers / webhooks)
+export async function invalidateCachedSectorData(sectorId: string): Promise<void> {
+  const key = `sector:${sectorId}:overview`;
+  const redis = getRedisClient();
+  if (redis) {
+    await redis.del(key);
+  } else {
+    cache.delete(key);
+  }
+}
+
+// Invalidate the sector list cache
+export async function invalidateCachedSectorsList(): Promise<void> {
+  const redis = getRedisClient();
+  if (redis) {
+    await redis.del(SECTOR_LIST_KEY);
+  } else {
+    cache.delete(SECTOR_LIST_KEY);
+  }
+}
