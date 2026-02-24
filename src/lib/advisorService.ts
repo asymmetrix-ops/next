@@ -2,7 +2,10 @@ import { authService } from "./auth";
 import { AdvisorResponse, CorporateEventsResponse } from "../types/advisor";
 import { dispatchUnauthorized } from "./authEvents";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn";
+const isDevelopBranch = process.env.NEXT_PUBLIC_ENVIRONMENT === "develop";
+const BASE_URL = isDevelopBranch
+  ? "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop"
+  : "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn";
 
 class AdvisorService {
   private getAuthHeaders() {

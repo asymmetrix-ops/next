@@ -668,8 +668,13 @@ export default function AdvisorProfilePage() {
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
 
+      const linkedInApiBase =
+        process.env.NEXT_PUBLIC_ENVIRONMENT === "develop"
+          ? "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop"
+          : "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${advisorId}`,
+        `${linkedInApiBase}/Get_new_company/${advisorId}`,
         {
           method: "GET",
           headers: {
