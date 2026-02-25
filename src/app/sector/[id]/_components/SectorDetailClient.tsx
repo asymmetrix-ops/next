@@ -813,7 +813,7 @@ function RecentInsightsCard({ sectorId }: { sectorId: string }) {
             <p className="text-slate-500 text-sm">No insights available for this sector yet</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 overflow-auto h-full">
+          <div className="divide-y divide-slate-100 overflow-y-auto overflow-x-hidden h-full">
             {articles.map((article) => (
               <a
                 key={article.id}

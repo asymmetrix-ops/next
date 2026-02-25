@@ -1812,7 +1812,7 @@ const CompanyDetail = () => {
     maxWidth: {
       width: "100%",
       maxWidth: "100%",
-      padding: "32px",
+      padding: "24px",
       flex: "1",
       display: "flex",
       flexDirection: "column" as const,
@@ -1874,7 +1874,7 @@ const CompanyDetail = () => {
     card: {
       backgroundColor: "white",
       borderRadius: "12px",
-      padding: "32px 24px",
+      padding: "24px 20px",
       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
       // Important for CSS grid: allow cards to shrink so inner overflow containers can scroll
       minWidth: 0,
@@ -2115,6 +2115,9 @@ const CompanyDetail = () => {
     .responsiveGrid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 24px; max-width: 100%; }
     .responsiveGrid > * { min-width: 0; }
     .card { background: white; border-radius: 12px; min-width: 0; }
+    /* Give Overview right column more room on desktop */
+    .overview-card .info-row { grid-template-columns: minmax(140px, 170px) 1fr auto !important; }
+    .overview-card .info-label { width: 170px !important; }
     /* Hover tooltips for metric values using title attribute */
     .desktop-financial-metrics span[title],
     .mobile-financial-metrics span[title] {
@@ -2295,7 +2298,14 @@ const CompanyDetail = () => {
                   </a>
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }} className="overview-grid">
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 0.75fr) minmax(0, 1.25fr)",
+                  gap: "24px",
+                }}
+                className="overview-grid"
+              >
                 {/* Left column: Basic fields */}
                 <div className="overview-fields">
               <div style={styles.infoRow} className="info-row">
@@ -2721,7 +2731,7 @@ const CompanyDetail = () => {
                             </p>
                           </div>
                         ) : (
-                          <div className="divide-y divide-slate-100 overflow-auto h-full">
+                          <div className="divide-y divide-slate-100 overflow-y-auto overflow-x-hidden h-full">
                             {[...companyArticles]
                               .sort((a, b) => {
                                 const dateA = a.Publication_Date
