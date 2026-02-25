@@ -59,7 +59,7 @@ const IndividualCards: React.FC<IndividualCardsProps> = ({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
           gap: "12px",
         }}
         className="management-grid"

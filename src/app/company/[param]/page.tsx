@@ -20,7 +20,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ContentArticle } from "@/types/insightsAnalysis";
-import { InsightsAnalysisCard } from "@/components/InsightsAnalysisCard";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
 
@@ -2204,62 +2203,98 @@ const CompanyDetail = () => {
       <Header />
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="company-detail-content" style={styles.maxWidth}>
-          {/* Header */}
-          <div style={styles.header}>
-            <div style={styles.headerLeft}>
-              <CompanyLogo
-                logo={company._linkedin_data_of_new_company?.linkedin_logo}
-                name={company.name}
-              />
-              <div>
-                <h1 style={styles.companyName}>{company.name}</h1>
-                {formerNameDisplay && (
-                  <div style={styles.formerName}>
-                    (Formerly {formerNameDisplay})
-                  </div>
-                )}
-              </div>
-            </div>
-            <div style={styles.headerRight}>
-              <NewFeatureCallout
-                featureKey="company-profile-pdf-export"
-                launchedAt="2026-02-02T00:00:00.000Z"
-              >
-                <button
-                  onClick={handleExportPdf}
-                  disabled={exportingPdf || !company?.id}
-                  style={{
-                    ...styles.reportButton,
-                    backgroundColor: exportingPdf ? "#9ca3af" : "#0075df",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    cursor:
-                      exportingPdf || !company?.id ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {exportingPdf ? "Exporting..." : "Export PDF"}
-                </button>
-              </NewFeatureCallout>
-              <a
-                style={{
-                  ...styles.reportButton,
-                  display: "inline-flex",
-                  alignItems: "center",
-                }}
-                href="mailto:asymmetrix@asymmetrixintelligence.com?subject=Report%20Incorrect%20Company%20Data&body=Please%20describe%20the%20issue%20you%20found."
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Contribute Data
-              </a>
-            </div>
-          </div>
-
           {/* Desktop grid */}
           <div style={styles.responsiveGrid} className="responsiveGrid">
             {/* Overview card */}
             <div style={styles.card} className="card overview-card">
-              <h2 style={styles.sectionTitle}>Overview</h2>
+              {/* Company header moved into Overview */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "16px",
+                  paddingBottom: "16px",
+                  marginBottom: "16px",
+                  borderBottom: "1px solid #e2e8f0",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "16px",
+                    minWidth: 0,
+                  }}
+                >
+                  <CompanyLogo
+                    logo={company._linkedin_data_of_new_company?.linkedin_logo}
+                    name={company.name}
+                  />
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: "22px",
+                        fontWeight: 700,
+                        color: "#1a202c",
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {company.name}
+                    </div>
+                    {formerNameDisplay && (
+                      <div style={{ ...styles.formerName, marginTop: "4px" }}>
+                        (Formerly {formerNameDisplay})
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <NewFeatureCallout
+                    featureKey="company-profile-pdf-export"
+                    launchedAt="2026-02-02T00:00:00.000Z"
+                  >
+                    <button
+                      onClick={handleExportPdf}
+                      disabled={exportingPdf || !company?.id}
+                      style={{
+                        ...styles.reportButton,
+                        backgroundColor: exportingPdf ? "#9ca3af" : "#0075df",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        cursor:
+                          exportingPdf || !company?.id
+                            ? "not-allowed"
+                            : "pointer",
+                      }}
+                    >
+                      {exportingPdf ? "Exporting..." : "Export PDF"}
+                    </button>
+                  </NewFeatureCallout>
+                  <a
+                    style={{
+                      ...styles.reportButton,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      backgroundColor: "#38a169",
+                    }}
+                    href="mailto:asymmetrix@asymmetrixintelligence.com?subject=Report%20Incorrect%20Company%20Data&body=Please%20describe%20the%20issue%20you%20found."
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Contribute Data
+                  </a>
+                </div>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }} className="overview-grid">
                 {/* Left column: Basic fields */}
                 <div className="overview-fields">
@@ -2531,33 +2566,6 @@ const CompanyDetail = () => {
                   })()}
                 </div>
               </div>
-                </div>
-                {/* Right column: Description */}
-                <div className="overview-description" style={{ 
-                  padding: '16px', 
-                  backgroundColor: '#f9fafb', 
-                  borderRadius: '8px',
-                  border: '1px solid #e2e8f0'
-                }}>
-                  <h3 style={{ 
-                    fontSize: '14px', 
-                    fontWeight: '600', 
-                    color: '#4a5568',
-                    marginBottom: '12px',
-                    marginTop: '0'
-                  }}>
-                    Description:
-                  </h3>
-                  <div style={{ 
-                    fontSize: '14px', 
-                    color: '#1a202c', 
-                    lineHeight: '1.6' 
-                  }}>
-                    {company.description || "No description available"}
-                  </div>
-                </div>
-              </div>
-              {/* Management moved into Overview */}
               {hasManagement && (
                 <div style={{ marginTop: "16px" }}>
                   <h3
@@ -2569,7 +2577,7 @@ const CompanyDetail = () => {
                   >
                     Management
                   </h3>
-                  
+
                   {/* Current Management */}
                   <div style={{ marginBottom: "20px" }}>
                     <IndividualCards
@@ -2607,7 +2615,218 @@ const CompanyDetail = () => {
                   </div>
                 </div>
               )}
+                </div>
+                {/* Right column: Description + Insights */}
+                <div
+                  className="overview-description"
+                  style={{
+                    alignSelf: "start",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "16px",
+                    minWidth: 0,
+                  }}
+                >
+                  {/* Description */}
+                  <div
+                    style={{
+                      padding: "16px",
+                      backgroundColor: "#f9fafb",
+                      borderRadius: "8px",
+                      border: "1px solid #e2e8f0",
+                    }}
+                  >
+                    <h3
+                      style={{
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        color: "#4a5568",
+                        marginBottom: "12px",
+                        marginTop: "0",
+                      }}
+                    >
+                      Description:
+                    </h3>
+                    <div
+                      style={{
+                        fontSize: "14px",
+                        color: "#1a202c",
+                        lineHeight: "1.6",
+                      }}
+                    >
+                      {company.description || "No description available"}
+                    </div>
+                  </div>
 
+                  {/* Insights & Analysis (scrollable card) */}
+                  {(articlesLoading || companyArticles.length > 0) && (
+                    <div
+                      className="bg-white rounded-xl border shadow-lg border-slate-200/60 flex flex-col overflow-hidden"
+                      style={{ height: "535px" }}
+                    >
+                      <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
+                        <div className="flex justify-between items-center">
+                          <div className="flex gap-3 items-center min-w-0">
+                            <span className="inline-flex justify-center items-center w-8 h-8 bg-blue-50 rounded-lg flex-shrink-0">
+                              <svg
+                                className="w-4 h-4 text-blue-600"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
+                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                              </svg>
+                            </span>
+                            <span className="font-semibold text-slate-900 truncate">
+                              Recent Insights &amp; Analysis
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="px-5 py-4 flex-1 overflow-hidden">
+                        {articlesLoading ? (
+                          <div className="space-y-3 animate-pulse">
+                            {[1, 2, 3].map((i) => (
+                              <div
+                                key={i}
+                                className="space-y-1.5 pb-3 border-b border-slate-100 last:border-0"
+                              >
+                                <div className="h-3.5 bg-slate-200 rounded w-1/4"></div>
+                                <div className="h-4 bg-slate-200 rounded w-5/6"></div>
+                                <div className="h-3 bg-slate-200 rounded w-full"></div>
+                                <div className="h-3 bg-slate-200 rounded w-4/5"></div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : companyArticles.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center h-full text-center">
+                            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                              <svg
+                                className="w-6 h-6 text-slate-400"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                                />
+                              </svg>
+                            </div>
+                            <p className="text-slate-500 text-sm">
+                              No insights available for this company yet
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-slate-100 overflow-auto h-full">
+                            {[...companyArticles]
+                              .sort((a, b) => {
+                                const dateA = a.Publication_Date
+                                  ? new Date(a.Publication_Date).getTime()
+                                  : 0;
+                                const dateB = b.Publication_Date
+                                  ? new Date(b.Publication_Date).getTime()
+                                  : 0;
+                                return dateB - dateA;
+                              })
+                              .map((article) => {
+                                const contentType = (article.Content_Type || "")
+                                  .toLowerCase()
+                                  .trim();
+                                const badgeStyle =
+                                  contentType === "company analysis"
+                                    ? {
+                                        background: "#ecfdf5",
+                                        color: "#065f46",
+                                        border: "1px solid #a7f3d0",
+                                      }
+                                    : contentType === "deal analysis"
+                                    ? {
+                                        background: "#eff6ff",
+                                        color: "#1e40af",
+                                        border: "1px solid #bfdbfe",
+                                      }
+                                    : contentType === "sector analysis"
+                                    ? {
+                                        background: "#f5f3ff",
+                                        color: "#5b21b6",
+                                        border: "1px solid #ddd6fe",
+                                      }
+                                    : contentType === "hot take"
+                                    ? {
+                                        background: "#fff7ed",
+                                        color: "#9a3412",
+                                        border: "1px solid #fed7aa",
+                                      }
+                                    : contentType === "executive interview"
+                                    ? {
+                                        background: "#f0fdf4",
+                                        color: "#166534",
+                                        border: "1px solid #bbf7d0",
+                                      }
+                                    : {
+                                        background: "#f8fafc",
+                                        color: "#475569",
+                                        border: "1px solid #e2e8f0",
+                                      };
+
+                                const dateLabel = (() => {
+                                  if (!article.Publication_Date) return "";
+                                  try {
+                                    return new Date(
+                                      article.Publication_Date
+                                    ).toLocaleDateString("en-US", {
+                                      year: "numeric",
+                                      month: "long",
+                                      day: "numeric",
+                                    });
+                                  } catch {
+                                    return "";
+                                  }
+                                })();
+
+                                return (
+                                  <a
+                                    key={article.id}
+                                    href={`/article/${article.id}`}
+                                    className="block py-3 first:pt-0 group hover:bg-slate-50/50 -mx-5 px-5 transition-colors duration-150"
+                                  >
+                                    <div className="flex items-center gap-2 mb-1">
+                                      {article.Content_Type && (
+                                        <span
+                                          className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full leading-none flex-shrink-0"
+                                          style={badgeStyle}
+                                        >
+                                          {article.Content_Type}
+                                        </span>
+                                      )}
+                                      {dateLabel && (
+                                        <span className="text-xs text-slate-400 flex-shrink-0">
+                                          {dateLabel}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <h3 className="text-sm font-semibold text-slate-900 leading-snug mb-1 group-hover:text-blue-700 transition-colors line-clamp-1">
+                                      {article.Headline || "Untitled"}
+                                    </h3>
+                                    {article.Strapline && (
+                                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
+                                        {article.Strapline}
+                                      </p>
+                                    )}
+                                  </a>
+                                );
+                              })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
               {/* Corporate Events moved into Overview */}
               <CorporateEventsSection
                 events={corporateEvents}
@@ -3358,58 +3577,6 @@ const CompanyDetail = () => {
 
             {/* Market Overview removed */}
           </div>
-
-          {/* Insights & Analysis - Full Width Section */}
-          {(articlesLoading || companyArticles.length > 0) && (
-            <div style={{ ...styles.card, marginTop: "24px" }}>
-              <h2 style={styles.sectionTitle}>
-                Insights & Analysis
-              </h2>
-              {articlesLoading ? (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "20px",
-                    color: "#666",
-                    fontSize: "14px",
-                  }}
-                >
-                  Loading content...
-                </div>
-              ) : companyArticles.length > 0 ? (
-                <div className="insights-grid">
-                  {[...companyArticles]
-                    .sort((a, b) => {
-                      const dateA = a.Publication_Date
-                        ? new Date(a.Publication_Date).getTime()
-                        : 0;
-                      const dateB = b.Publication_Date
-                        ? new Date(b.Publication_Date).getTime()
-                        : 0;
-                      return dateB - dateA; // Most recent first (descending)
-                    })
-                    .map((article) => (
-                      <InsightsAnalysisCard
-                        key={article.id}
-                        article={article}
-                        showMeta={false}
-                      />
-                    ))}
-                </div>
-              ) : (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "20px",
-                    color: "#666",
-                    fontSize: "14px",
-                  }}
-                >
-                  No related content found
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Mobile Financial Metrics */}
           <div
