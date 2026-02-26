@@ -42,7 +42,7 @@ export function FollowButton({
     setLoading(true);
     try {
       if (isFollowed) {
-        await unfollowPortfolioEntity({ followKey });
+        await unfollowPortfolioEntity({ followKey, entityId });
       } else {
         await followPortfolioEntity({ followKey, entityId });
       }

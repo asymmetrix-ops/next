@@ -12,6 +12,7 @@ type FollowArgs = {
 
 type UnfollowArgs = {
   followKey: PortfolioFollowKey;
+  entityId: number;
 };
 
 export async function followPortfolioEntity({ followKey, entityId }: FollowArgs) {
@@ -51,7 +52,10 @@ export async function followPortfolioEntity({ followKey, entityId }: FollowArgs)
   return data;
 }
 
-export async function unfollowPortfolioEntity({ followKey }: UnfollowArgs) {
+export async function unfollowPortfolioEntity({
+  followKey,
+  entityId,
+}: UnfollowArgs) {
   const token =
     typeof window !== "undefined"
       ? localStorage.getItem("asymmetrix_auth_token")
@@ -67,7 +71,7 @@ export async function unfollowPortfolioEntity({ followKey }: UnfollowArgs) {
     method: "POST",
     headers,
     credentials: "include",
-    body: JSON.stringify({ [followKey]: null }),
+    body: JSON.stringify({ [followKey]: entityId }),
   });
 
   const text = await res.text().catch(() => "");
