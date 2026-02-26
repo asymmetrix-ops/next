@@ -1,6 +1,12 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from "react";
 import { authService } from "@/lib/auth";
 import { getTrialInfo, TrialInfo } from "@/lib/trial";
 import {
@@ -107,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Listen for the global "session expired" signal fired by the fetch
   // interceptor (below) or any service file that calls dispatchUnauthorized().
-  useEffect(() => {
+  useLayoutEffect(() => {
     const handleUnauthorized = () => {
       authService.logout();
       setIsAuthenticated(false);
@@ -125,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // When the backend returns { code: "ERROR_CODE_UNAUTHORIZED" } in the body
   // (expired token mid-session), it fires the auth:unauthorized event so the
   // login modal appears without redirecting away from the current page.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const original = window.fetch;
 
     window.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {

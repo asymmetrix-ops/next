@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { dispatchUnauthorized } from "@/lib/authEvents";
 import { useRightClick } from "@/hooks/useRightClick";
 import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
 import IndividualCards from "@/components/shared/IndividualCards";
@@ -948,6 +949,12 @@ const CompanyDetail = () => {
         headers,
         credentials: "include",
       });
+      if (getResponse.status === 401) {
+        // Ensure the global login modal opens even if the fetch interceptor
+        // hasn't been attached yet (e.g. during initial mount ordering).
+        dispatchUnauthorized();
+        throw new Error("Authentication required");
+      }
       if (getResponse.ok) {
         return (await Promise.race([
           getResponse.json(),
@@ -970,6 +977,10 @@ const CompanyDetail = () => {
           credentials: "include",
           body: JSON.stringify(body),
         });
+        if (postResponse.status === 401) {
+          dispatchUnauthorized();
+          throw new Error("Authentication required");
+        }
         if (postResponse.ok) {
           return (await Promise.race([
             postResponse.json(),
@@ -1272,6 +1283,20 @@ const CompanyDetail = () => {
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to fetch company data";
+        const isUnauthorized =
+          message === "Authentication required" ||
+          message.includes("ERROR_CODE_UNAUTHORIZED") ||
+          message.includes("This token is expired") ||
+          message.includes("API request failed: 401");
+
+        if (isUnauthorized) {
+          // Let the AuthProvider show the login modal; avoid rendering the red error state.
+          dispatchUnauthorized();
+          setError(null);
+          console.error("Unauthorized while loading company:", err);
+          return;
+        }
+
         setError(message);
         console.error("Error fetching company data:", err);
       } finally {
