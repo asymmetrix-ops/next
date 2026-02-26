@@ -2761,6 +2761,18 @@ const CompanyDetail = () => {
                                 const contentType = (article.Content_Type || "")
                                   .toLowerCase()
                                   .trim();
+                                const pinnedRaw = (
+                                  article as unknown as { pinned?: unknown }
+                                )?.pinned;
+                                const isPinned =
+                                  pinnedRaw === true ||
+                                  pinnedRaw === 1 ||
+                                  String(pinnedRaw ?? "")
+                                    .trim()
+                                    .toLowerCase() === "yes" ||
+                                  String(pinnedRaw ?? "")
+                                    .trim()
+                                    .toLowerCase() === "true";
                                 const badgeStyle =
                                   contentType === "company analysis"
                                     ? {
@@ -2826,6 +2838,32 @@ const CompanyDetail = () => {
                                           style={badgeStyle}
                                         >
                                           {article.Content_Type}
+                                        </span>
+                                      )}
+                                      {isPinned && (
+                                        <span
+                                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full leading-none flex-shrink-0"
+                                          style={{
+                                            background: "#fff7ed",
+                                            color: "#9a3412",
+                                            border: "1px solid #fed7aa",
+                                          }}
+                                          title="Pinned"
+                                        >
+                                          <svg
+                                            width="12"
+                                            height="12"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            aria-hidden="true"
+                                          >
+                                            <path
+                                              d="M14 3L21 10L19 12L16 9L10 15V18L8 20V15L3 10L5 8H8L14 3Z"
+                                              fill="currentColor"
+                                            />
+                                          </svg>
+                                          Pinned
                                         </span>
                                       )}
                                       {dateLabel && (
