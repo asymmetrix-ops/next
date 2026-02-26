@@ -2757,17 +2757,7 @@ const CompanyDetail = () => {
                           </div>
                         ) : (
                           <div className="divide-y divide-slate-100 overflow-y-auto overflow-x-hidden h-full">
-                            {[...companyArticles]
-                              .sort((a, b) => {
-                                const dateA = a.Publication_Date
-                                  ? new Date(a.Publication_Date).getTime()
-                                  : 0;
-                                const dateB = b.Publication_Date
-                                  ? new Date(b.Publication_Date).getTime()
-                                  : 0;
-                                return dateB - dateA;
-                              })
-                              .map((article) => {
+                            {companyArticles.map((article) => {
                                 const contentType = (article.Content_Type || "")
                                   .toLowerCase()
                                   .trim();
