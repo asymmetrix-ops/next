@@ -5108,36 +5108,38 @@ const SectorDetailPage = ({
       <div className="space-y-6">
         {/* Filters Section */}
         <div className="p-8 bg-white rounded-xl border shadow-lg border-slate-200/60">
-          <div className="space-y-4 max-w-md">
-            <input
-              type="text"
-              placeholder="Enter search term here"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="px-4 py-3 w-full rounded-md border border-slate-300"
-              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-            />
-            <select
-              value={filters.Content_Type || ""}
-              onChange={(e) => {
-                const updated = {
-                  ...filters,
-                  Content_Type: e.target.value || undefined,
-                  content_type: e.target.value || undefined,
-                  Offset: 1,
-                };
-                setFilters(updated);
-                fetchInsightsAnalysis(updated);
-              }}
-              className="px-4 py-3 w-full rounded-md border border-slate-300"
-            >
-              <option value="">All Content Types</option>
-              {contentTypes.map((ct) => (
-                <option key={ct} value={ct}>
-                  {ct}
-                </option>
-              ))}
-            </select>
+          <div className="space-y-4 max-w-2xl">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                type="text"
+                placeholder="Enter search term here"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="px-4 py-3 w-full rounded-md border border-slate-300"
+                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+              />
+              <select
+                value={filters.Content_Type || ""}
+                onChange={(e) => {
+                  const updated = {
+                    ...filters,
+                    Content_Type: e.target.value || undefined,
+                    content_type: e.target.value || undefined,
+                    Offset: 1,
+                  };
+                  setFilters(updated);
+                  fetchInsightsAnalysis(updated);
+                }}
+                className="px-4 py-3 w-full rounded-md border border-slate-300"
+              >
+                <option value="">All Content Types</option>
+                {contentTypes.map((ct) => (
+                  <option key={ct} value={ct}>
+                    {ct}
+                  </option>
+                ))}
+              </select>
+            </div>
             <button
               onClick={handleSearch}
               className="px-6 py-3 w-full font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700"
