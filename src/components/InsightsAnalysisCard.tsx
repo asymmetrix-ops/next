@@ -7,6 +7,11 @@ import type { ContentArticle } from "@/types/insightsAnalysis";
 interface InsightsAnalysisCardProps {
   article: ContentArticle;
   /**
+   * Optional link override (e.g. add tracking query params).
+   * Defaults to `/article/${article.id}`.
+   */
+  href?: string;
+  /**
    * When true, shows companies and sector metadata.
    * On contextual surfaces (company / corporate event detail pages),
    * we typically hide this to keep the card compact.
@@ -242,11 +247,13 @@ const badgeClassFor = (contentType?: string): React.CSSProperties => {
 
 export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
   article,
+  href,
   showMeta = true,
   badgeBelowDate = false,
   metaStyle = "text",
 }) => {
   const router = useRouter();
+  const resolvedHref = href || `/article/${article.id}`;
 
   // Robust content type detection across backend shapes
   const effectiveContentType = React.useMemo(() => {
@@ -298,12 +305,12 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
       return;
     }
     e.preventDefault();
-    router.push(`/article/${article.id}`);
+    router.push(resolvedHref);
   };
 
   return (
     <a
-      href={`/article/${article.id}`}
+      href={resolvedHref}
       onClick={handleClick}
       className="content-card"
       style={{
