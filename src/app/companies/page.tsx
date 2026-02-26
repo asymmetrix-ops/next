@@ -212,7 +212,7 @@ const styles = {
   },
   input: {
     width: "100%",
-    maxWidth: "300px",
+    maxWidth: "560px",
     padding: "8px 12px",
     border: "1px solid #e2e8f0",
     borderRadius: "6px",
@@ -2457,8 +2457,15 @@ const CompanyDashboard = ({
             <h3 style={styles.subHeading} className="filters-sub-heading">
               Search for Company
             </h3>
-            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-              <div style={styles.searchDiv}>
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                flexWrap: "wrap",
+                alignItems: "flex-end",
+              }}
+            >
+              <div style={{ ...styles.searchDiv, flex: "1 1 420px", minWidth: "240px" }}>
                 <span style={{ fontSize: "14px", color: "#4a5568", marginBottom: "4px" }}>
                   Company Name
                 </span>
@@ -2467,27 +2474,35 @@ const CompanyDashboard = ({
                   placeholder="Enter company name here"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  style={styles.input}
+                  style={{ ...styles.input, maxWidth: "none", marginBottom: "0" }}
                   className="filters-input"
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSearchClick();
+                  }}
                 />
               </div>
+              <button
+                style={{
+                  ...styles.button,
+                  width: "auto",
+                  maxWidth: "none",
+                  marginTop: "0",
+                  whiteSpace: "nowrap",
+                }}
+                className="filters-button"
+                onClick={handleSearchClick}
+                onMouseOver={(e) =>
+                  ((e.target as HTMLButtonElement).style.backgroundColor =
+                    "#005bb5")
+                }
+                onMouseOut={(e) =>
+                  ((e.target as HTMLButtonElement).style.backgroundColor =
+                    "#0075df")
+                }
+              >
+                Search
+              </button>
             </div>
-            <button
-              style={{ ...styles.button, marginTop: "12px" }}
-              className="filters-button"
-              onClick={handleSearchClick}
-              onMouseOver={(e) =>
-                ((e.target as HTMLButtonElement).style.backgroundColor =
-                  "#005bb5")
-              }
-              onMouseOut={(e) =>
-                ((e.target as HTMLButtonElement).style.backgroundColor =
-                  "#0075df")
-              }
-            >
-              Search
-            </button>
           </div>
 
           <button
