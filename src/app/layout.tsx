@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { AnalyticsProvider } from "@/components/providers/AnalyticsProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
+import { PortfolioHydrator } from "@/components/providers/PortfolioHydrator";
 import { Toaster } from "react-hot-toast";
 import TitleUpdater from "@/components/TitleUpdater";
 
@@ -128,6 +129,7 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <AuthProvider>
+          <PortfolioHydrator />
           <AnalyticsProvider>
             <TitleUpdater />
             {children}

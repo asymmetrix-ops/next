@@ -6,6 +6,7 @@ import Image from "next/image";
 import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { FollowButton } from "@/components/FollowButton";
 import { useAdvisorProfile } from "../../../hooks/useAdvisorProfile";
 import {
   formatCurrency,
@@ -1414,6 +1415,15 @@ export default function AdvisorProfilePage() {
               <h1 className="advisor-title">{Advisor.name}</h1>
             </div>
           </div>
+          {Advisor?.id != null && Number.isFinite(Advisor.id) && (
+            <FollowButton
+              followKey="followed_advisors"
+              entityId={Advisor.id}
+              label="Advisor"
+              className="report-button"
+              style={{ marginRight: 8 }}
+            />
+          )}
           <a
             className="report-button"
             href={`mailto:asymmetrix@asymmetrixintelligence.com?subject=${encodeURIComponent(

@@ -6,6 +6,7 @@ import Image from "next/image";
 import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { FollowButton } from "@/components/FollowButton";
 import { useRightClick } from "@/hooks/useRightClick";
 import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
 import { type CorporateEvent as CorporateEventsTableEvent } from "@/components/corporate-events/CorporateEventsTable";
@@ -1742,6 +1743,15 @@ const InvestorDetailPage = () => {
             </div>
           </div>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            {investorId &&
+              !Number.isNaN(Number(investorId)) && (
+                <FollowButton
+                  followKey="followed_investors"
+                  entityId={Number(investorId)}
+                  label="Investor"
+                  className="export-button"
+                />
+              )}
             <button
               onClick={handleExportPdf}
               disabled={exportingPdf || !investorData}

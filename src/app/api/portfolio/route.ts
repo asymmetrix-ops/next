@@ -62,7 +62,8 @@ async function fetchWithAuthFallback(
 }
 
 const XANO_PORTFOLIO_BASE_URLS = [
-  "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R",
+  "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI",
+  "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI:develop",
 ] as const;
 
 export async function GET() {
@@ -82,7 +83,7 @@ export async function GET() {
 
     const authApiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
 
     const authResp = await fetchWithAuth(`${authApiUrl}/auth/me`, token, {
       method: "GET",
@@ -112,7 +113,7 @@ export async function GET() {
 
     const upstreamResp = await fetchWithAuthFallback(
       XANO_PORTFOLIO_BASE_URLS.map(
-        (b) => `${b}/get_users_lists?user_id=${encodeURIComponent(String(userId))}`
+        (b) => `${b}/get_users_portfolio?user_id=${encodeURIComponent(String(userId))}`
       ),
       token,
       { method: "GET" }
@@ -130,7 +131,7 @@ export async function GET() {
       return NextResponse.json(
         {
           error: "Upstream empty response",
-          hint: "Xano returned 200 with an empty body for get_users_lists.",
+          hint: "Xano returned 200 with an empty body for get_users_portfolio.",
         },
         { status: 502 }
       );
@@ -154,15 +155,15 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { cookies, headers } = await import("next/headers");
-    const tokenCookie = (await cookies()).get("asymmetrix_auth_token")?.value;
-    const reqHeaders = await headers();
-    const tokenHeader = reqHeaders.get("x-asym-token");
-    const authHeader = reqHeaders.get("authorization");
-    const tokenFromAuth =
-      authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+    const tokenCookie = (await import("next/headers"))
+      .cookies()
+      .get("asymmetrix_auth_token")?.value;
 
-    const token = tokenCookie || tokenHeader || tokenFromAuth;
+    const tokenHeader = (await import("next/headers"))
+      .headers()
+      .get("x-asym-token");
+
+    const token = tokenCookie || tokenHeader;
     if (!token) {
       return NextResponse.json({ error: "Missing auth token" }, { status: 401 });
     }
@@ -193,7 +194,7 @@ export async function POST(req: Request) {
 
     const authApiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
 
     const authResp = await fetchWithAuth(`${authApiUrl}/auth/me`, token, {
       method: "GET",

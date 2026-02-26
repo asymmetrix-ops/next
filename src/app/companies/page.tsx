@@ -166,12 +166,6 @@ interface ExportCompanyJson {
   Financial_Year?: number | string;
 }
 
-// Auth `/auth/me` shape (subset)
-interface AuthMePayload {
-  id: number;
-  followed_companies?: unknown[] | null;
-}
-
 // Shared styles object
 const styles = {
   container: {
@@ -327,46 +321,6 @@ const truncateDescription = (
   return { text: truncated, isLong };
 };
 
-const toFiniteInt = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const n = Number.parseInt(value.trim(), 10);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-};
-
-// Normalize followed_companies into numeric company ids (robust to backend shapes)
-const extractFollowedCompanyIds = (payload: unknown): number[] => {
-  if (!Array.isArray(payload)) return [];
-  const ids: number[] = [];
-  for (const item of payload) {
-    if (typeof item === "number" && Number.isFinite(item)) {
-      ids.push(item);
-      continue;
-    }
-    if (typeof item === "string") {
-      const n = toFiniteInt(item);
-      if (n !== null) ids.push(n);
-      continue;
-    }
-    if (item && typeof item === "object") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const obj = item as any;
-      const candidate =
-        obj?.new_company_id ?? obj?.company_id ?? obj?.id ?? obj?.new_company;
-      const n = toFiniteInt(candidate);
-      if (n !== null) ids.push(n);
-    }
-  }
-  return ids;
-};
-
-type CompaniesFetchOptions = {
-  followedOnly?: boolean;
-  followedCompanyIds?: number[];
-};
-
 // API service
 const useCompaniesAPI = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -394,11 +348,7 @@ const useCompaniesAPI = () => {
   });
 
   const fetchCompanies = useCallback(
-    async (
-      page: number = 1,
-      filters?: Filters,
-      options?: CompaniesFetchOptions
-    ) => {
+    async (page: number = 1, filters?: Filters) => {
       setLoading(true);
       setError(null);
 
@@ -409,10 +359,6 @@ const useCompaniesAPI = () => {
 
       // Use current filters if no filters provided (for pagination)
       const filtersToUse = filters !== undefined ? filters : currentFilters;
-      const followedOnly = Boolean(options?.followedOnly);
-      const followedCompanyIds = Array.isArray(options?.followedCompanyIds)
-        ? options!.followedCompanyIds!
-        : [];
 
       try {
         const token = localStorage.getItem("asymmetrix_auth_token");
@@ -424,36 +370,6 @@ const useCompaniesAPI = () => {
         const params = new URLSearchParams();
         params.append("Offset", offset.toString());
         params.append("Per_page", perPage.toString());
-
-        // Followed tab: if user has no followed companies, short-circuit to empty results
-        if (followedOnly && followedCompanyIds.length === 0) {
-          setCompanies([]);
-          setPagination({
-            itemsReceived: 0,
-            curPage: 1,
-            nextPage: null,
-            prevPage: null,
-            offset: 0,
-            perPage,
-            pageTotal: 0,
-          });
-          setOwnershipCounts({
-            publicCompanies: 0,
-            peOwnedCompanies: 0,
-            vcOwnedCompanies: 0,
-            privateCompanies: 0,
-            subsidiaryCompanies: 0,
-          });
-          return;
-        }
-
-        if (followedOnly && followedCompanyIds.length > 0) {
-          // Support both comma-separated + array syntax to match backend expectations
-          params.append("followed_companies_ids", followedCompanyIds.join(","));
-          followedCompanyIds.forEach((id) =>
-            params.append("followed_companies_ids[]", String(id))
-          );
-        }
 
         // Add filters to the request using API's expected param names
         if (filtersToUse) {
@@ -2646,10 +2562,6 @@ const CompanySection = ({
   ownershipCounts,
   fetchCompanies,
   currentFilters,
-  isFollowedTab,
-  followedCompanyIds,
-  followedAuthUserId,
-  followedAuthLoading,
 }: {
   companies: Company[];
   loading: boolean;
@@ -2670,16 +2582,8 @@ const CompanySection = ({
     privateCompanies: number;
     subsidiaryCompanies: number;
   };
-  fetchCompanies: (
-    page?: number,
-    filters?: Filters,
-    options?: CompaniesFetchOptions
-  ) => Promise<void>;
+  fetchCompanies: (page?: number, filters?: Filters) => Promise<void>;
   currentFilters: Filters | undefined;
-  isFollowedTab: boolean;
-  followedCompanyIds: number[];
-  followedAuthUserId: number | null;
-  followedAuthLoading: boolean;
 }) => {
   const router = useRouter();
   const { isTrialActive } = useAuth();
@@ -2786,14 +2690,6 @@ const CompanySection = ({
 
       const token = localStorage.getItem("asymmetrix_auth_token");
       const params = new URLSearchParams();
-
-      // Followed tab filter
-      if (isFollowedTab && Array.isArray(followedCompanyIds) && followedCompanyIds.length > 0) {
-        params.append("followed_companies_ids", followedCompanyIds.join(","));
-        followedCompanyIds.forEach((id) =>
-          params.append("followed_companies_ids[]", String(id))
-        );
-      }
 
       // Apply filters if present
       const f = currentFilters;
@@ -3132,7 +3028,7 @@ const CompanySection = ({
         CompaniesCSVExporter.exportCompanies(companies, "companies_filtered");
       }
     }
-  }, [currentFilters, companies, isFollowedTab, followedCompanyIds]);
+  }, [currentFilters, companies]);
 
   const handleCompanyClick = useCallback(
     (companyId: number) => {
@@ -3143,15 +3039,9 @@ const CompanySection = ({
 
   const handlePageChange = useCallback(
     (page: number) => {
-      fetchCompanies(
-        page,
-        currentFilters,
-        isFollowedTab
-          ? { followedOnly: true, followedCompanyIds }
-          : { followedOnly: false }
-      );
+      fetchCompanies(page, currentFilters);
     },
-    [fetchCompanies, currentFilters, isFollowedTab, followedCompanyIds]
+    [fetchCompanies, currentFilters]
   );
 
   const tableRows = useMemo(
@@ -3688,34 +3578,6 @@ const CompanySection = ({
     );
   }
 
-  if (
-    !loading &&
-    isFollowedTab &&
-    companies.length === 0
-  ) {
-    const msg = followedAuthLoading
-      ? "Loading followed companies..."
-      : !followedAuthUserId
-      ? "Sign in to view your followed companies."
-      : "You haven't followed any companies yet.";
-
-    return React.createElement(
-      "div",
-      { className: "company-section" },
-      React.createElement(
-        "div",
-        {
-          className: "company-stats",
-          style: { textAlign: "center", color: "#4a5568" },
-        },
-        msg
-      ),
-      React.createElement("style", {
-        dangerouslySetInnerHTML: { __html: style },
-      })
-    );
-  }
-
   return React.createElement(
     "div",
     { className: "company-section" },
@@ -3899,7 +3761,7 @@ const CompanySection = ({
       )
     ),
     // Export Button - Show only when filters are applied
-    (hasActiveFilters() || isFollowedTab) &&
+    hasActiveFilters() &&
       companies.length > 0 &&
       React.createElement(
         "div",
@@ -3983,79 +3845,12 @@ const CompaniesPage = () => {
     currentFilters,
   } = useCompaniesAPI();
 
-  type CompaniesTab = "all" | "followed";
-  const [activeTab, setActiveTab] = useState<CompaniesTab>("all");
-  const [followedAuthUserId, setFollowedAuthUserId] = useState<number | null>(
-    null
-  );
-  const [followedCompanyIds, setFollowedCompanyIds] = useState<number[]>([]);
-  const [followedAuthLoading, setFollowedAuthLoading] = useState(false);
-  const didInitTabEffect = useRef(false);
-
-  const refreshFollowedCompanies = useCallback(async () => {
-    setFollowedAuthLoading(true);
-    try {
-      const res = await fetch("/api/auth-me", {
-        method: "GET",
-        headers: { Accept: "application/json" },
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        setFollowedAuthUserId(null);
-        setFollowedCompanyIds([]);
-        // Trigger empty state for followed tab
-        fetchCompanies(1, undefined, { followedOnly: true, followedCompanyIds: [] });
-        return;
-      }
-
-      const data = (await res.json()) as unknown;
-      const userId =
-        data && typeof data === "object" && typeof (data as AuthMePayload).id === "number"
-          ? (data as AuthMePayload).id
-          : null;
-      const ids = extractFollowedCompanyIds(
-        (data as AuthMePayload | null)?.followed_companies
-      );
-      setFollowedAuthUserId(userId);
-      setFollowedCompanyIds(ids);
-      fetchCompanies(1, undefined, { followedOnly: true, followedCompanyIds: ids });
-    } catch {
-      setFollowedAuthUserId(null);
-      setFollowedCompanyIds([]);
-      fetchCompanies(1, undefined, { followedOnly: true, followedCompanyIds: [] });
-    } finally {
-      setFollowedAuthLoading(false);
-    }
-  }, [fetchCompanies]);
-
-  useEffect(() => {
-    // Avoid double-fetch on first mount (useCompaniesAPI already loads All Companies once)
-    if (!didInitTabEffect.current) {
-      didInitTabEffect.current = true;
-      if (activeTab === "followed") refreshFollowedCompanies();
-      return;
-    }
-    if (activeTab === "followed") {
-      refreshFollowedCompanies();
-    } else {
-      // Reload full list when leaving followed tab
-      fetchCompanies(1, undefined, { followedOnly: false });
-    }
-  }, [activeTab, fetchCompanies, refreshFollowedCompanies]);
-
   const handleSearch = useCallback(
     (filters: Filters) => {
       console.log("Searching with filters:", filters);
-      fetchCompanies(
-        1,
-        filters,
-        activeTab === "followed"
-          ? { followedOnly: true, followedCompanyIds }
-          : { followedOnly: false }
-      );
+      fetchCompanies(1, filters);
     },
-    [fetchCompanies, activeTab, followedCompanyIds]
+    [fetchCompanies]
   );
 
   const [initialSearch, setInitialSearch] = useState<string | undefined>(
@@ -4073,51 +3868,6 @@ const CompaniesPage = () => {
   return (
     <div className="min-h-screen">
       <Header />
-      <div
-        style={{
-          padding: "12px 16px 0",
-          display: "flex",
-          gap: "8px",
-          flexWrap: "wrap",
-        }}
-      >
-        <button
-          onClick={() => setActiveTab("all")}
-          style={{
-            padding: "8px 12px",
-            borderRadius: "999px",
-            border: activeTab === "all" ? "1px solid #111827" : "1px solid #d1d5db",
-            background: activeTab === "all" ? "#111827" : "#ffffff",
-            color: activeTab === "all" ? "#ffffff" : "#111827",
-            fontWeight: 600,
-            fontSize: "14px",
-            cursor: "pointer",
-          }}
-        >
-          All Companies
-        </button>
-        <button
-          onClick={() => setActiveTab("followed")}
-          style={{
-            padding: "8px 12px",
-            borderRadius: "999px",
-            border:
-              activeTab === "followed"
-                ? "1px solid #111827"
-                : "1px solid #d1d5db",
-            background: activeTab === "followed" ? "#111827" : "#ffffff",
-            color: activeTab === "followed" ? "#ffffff" : "#111827",
-            fontWeight: 600,
-            fontSize: "14px",
-            cursor: "pointer",
-          }}
-        >
-          Followed Companies
-          {!followedAuthLoading && followedAuthUserId
-            ? ` (${followedCompanyIds.length})`
-            : ""}
-        </button>
-      </div>
       <CompanyDashboard onSearch={handleSearch} initialSearch={initialSearch} />
       <CompanySection
         companies={companies}
@@ -4127,10 +3877,6 @@ const CompaniesPage = () => {
         ownershipCounts={ownershipCounts}
         fetchCompanies={fetchCompanies}
         currentFilters={currentFilters}
-        isFollowedTab={activeTab === "followed"}
-        followedCompanyIds={followedCompanyIds}
-        followedAuthUserId={followedAuthUserId}
-        followedAuthLoading={followedAuthLoading}
       />
       <Footer />
     </div>

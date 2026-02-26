@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 // import Image from "next/image";
 import Header from "@/components/Header";
+import { FollowButton } from "@/components/FollowButton";
 import Footer from "@/components/Footer";
 import { locationsService } from "@/lib/locationsService";
 import { BuildingOfficeIcon } from "@heroicons/react/24/outline";
@@ -4729,6 +4730,14 @@ const SectorDetailPage = ({
               </div>
             </div>
             <div className="flex items-center space-x-6">
+              {sectorId &&
+                !Number.isNaN(Number(sectorId)) && (
+                  <FollowButton
+                    followKey="followed_sectors"
+                    entityId={Number(sectorId)}
+                    label="Sector"
+                  />
+                )}
               <div className="flex justify-center items-center w-8 h-8 rounded-full bg-slate-200">
                 <BuildingOfficeIcon className="w-4 h-4 text-slate-600" />
               </div>

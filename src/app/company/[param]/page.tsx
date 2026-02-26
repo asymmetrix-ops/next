@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { FollowButton } from "@/components/FollowButton";
 import { useRightClick } from "@/hooks/useRightClick";
 import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
 import IndividualCards from "@/components/shared/IndividualCards";
@@ -22,12 +23,6 @@ import { ContentArticle } from "@/types/insightsAnalysis";
 import { InsightsAnalysisCard } from "@/components/InsightsAnalysisCard";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
-
-// Auth `/auth/me` shape (subset)
-interface AuthMePayload {
-  id: number;
-  followed_companies?: unknown[] | null;
-}
 
 // Types for API integration
 interface CompanyLocation {
@@ -612,41 +607,6 @@ const getNumeric = (value?: number | string | null): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 
-const toFiniteInt = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const n = parseInt(value.trim(), 10);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-};
-
-// Normalize followed_companies into numeric company ids (robust to backend shapes)
-const extractFollowedCompanyIds = (payload: unknown): number[] => {
-  if (!Array.isArray(payload)) return [];
-  const ids: number[] = [];
-  for (const item of payload) {
-    if (typeof item === "number" && Number.isFinite(item)) {
-      ids.push(item);
-      continue;
-    }
-    if (typeof item === "string") {
-      const n = toFiniteInt(item);
-      if (n !== null) ids.push(n);
-      continue;
-    }
-    if (item && typeof item === "object") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const obj = item as any;
-      const candidate =
-        obj?.new_company_id ?? obj?.company_id ?? obj?.id ?? obj?.new_company;
-      const n = toFiniteInt(candidate);
-      if (n !== null) ids.push(n);
-    }
-  }
-  return ids;
-};
-
 // Format as a whole number with thousands separators (e.g. 54170 -> "54,170")
 const formatWholeNumber = (value?: number | string | null): string => {
   const n = getNumeric(value);
@@ -1014,42 +974,6 @@ const CompanyDetail = () => {
   >([]);
   const [relatedTransactionsLoading, setRelatedTransactionsLoading] =
     useState(false);
-
-  // Follow company (auth/me + toggle endpoint)
-  const [authMe, setAuthMe] = useState<AuthMePayload | null>(null);
-  const [authMeLoading, setAuthMeLoading] = useState(false);
-  const [followToggling, setFollowToggling] = useState(false);
-
-  const fetchAuthMe = useCallback(async () => {
-    setAuthMeLoading(true);
-    try {
-      // Use same-origin proxy to avoid CORS (server-to-server call to Xano)
-      const res = await fetch("/api/auth-me", {
-        method: "GET",
-        headers: { Accept: "application/json" },
-        credentials: "include",
-      });
-      if (!res.ok) {
-        setAuthMe(null);
-        return;
-      }
-      const data = (await res.json()) as unknown;
-      if (data && typeof data === "object" && typeof (data as AuthMePayload).id === "number") {
-        setAuthMe(data as AuthMePayload);
-      } else {
-        setAuthMe(null);
-      }
-    } catch {
-      setAuthMe(null);
-    } finally {
-      setAuthMeLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!companyId) return;
-    fetchAuthMe();
-  }, [companyId, fetchAuthMe]);
 
   // Safely extract a sector id from various backend shapes
   const getSectorId = (sector: unknown): number | undefined => {
@@ -1659,59 +1583,6 @@ const CompanyDetail = () => {
       setExportingPdf(false);
     }
   }, [company?.id, company?.name]);
-
-  const viewingCompanyId =
-    typeof company?.id === "number" && Number.isFinite(company.id)
-      ? company.id
-      : toFiniteInt(companyId);
-
-  const isFollowingCompany =
-    viewingCompanyId !== null &&
-    extractFollowedCompanyIds(authMe?.followed_companies).includes(
-      viewingCompanyId
-    );
-
-  const handleToggleFollowCompany = useCallback(async () => {
-    const userId = authMe?.id;
-    const newCompanyId =
-      typeof company?.id === "number" && Number.isFinite(company.id)
-        ? company.id
-        : toFiniteInt(companyId);
-
-    if (!userId || newCompanyId === null) return;
-
-    setFollowToggling(true);
-    try {
-      // Use same-origin proxy to avoid CORS preflight issues
-      const res = await fetch("/api/followed-companies", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          user_id: userId,
-          new_company_id: newCompanyId,
-        }),
-      });
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(
-          `Follow toggle failed: ${res.status} ${res.statusText} ${text}`
-        );
-      }
-
-      // Refresh `auth/me` to get the server-truth followed_companies array
-      await fetchAuthMe();
-    } catch (e) {
-      console.error("Error toggling followed company:", e);
-      alert("Failed to update follow status. Please try again.");
-    } finally {
-      setFollowToggling(false);
-    }
-  }, [authMe?.id, company?.id, companyId, fetchAuthMe]);
 
   if (loading) {
     return (
@@ -2765,42 +2636,14 @@ const CompanyDetail = () => {
               </div>
             </div>
             <div style={styles.headerRight}>
-              <button
-                onClick={handleToggleFollowCompany}
-                disabled={
-                  followToggling ||
-                  authMeLoading ||
-                  !authMe?.id ||
-                  viewingCompanyId === null
-                }
-                title={
-                  !authMe?.id
-                    ? "Sign in to follow companies"
-                    : isFollowingCompany
-                    ? "Unfollow this company"
-                    : "Follow this company"
-                }
-                style={{
-                  ...styles.reportButton,
-                  backgroundColor: isFollowingCompany ? "#ef4444" : "#7c3aed",
-                  border: "none",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  cursor:
-                    followToggling ||
-                    authMeLoading ||
-                    !authMe?.id ||
-                    viewingCompanyId === null
-                      ? "not-allowed"
-                      : "pointer",
-                }}
-              >
-                {followToggling
-                  ? "Updating..."
-                  : isFollowingCompany
-                  ? "Unfollow Company"
-                  : "Follow Company"}
-              </button>
+              {company?.id != null && Number.isFinite(company.id) && (
+                <FollowButton
+                  followKey="followed_companies"
+                  entityId={company.id}
+                  label="Company"
+                  style={styles.reportButton}
+                />
+              )}
               <button
                 onClick={handleExportPdf}
                 disabled={exportingPdf || !company?.id}
