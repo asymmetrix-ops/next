@@ -6,6 +6,7 @@ import Image from "next/image";
 import Head from "next/head";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { FollowButton } from "@/components/FollowButton";
 import { useIndividualProfile } from "../../../hooks/useIndividualProfile";
 import {
   formatIndividualLocation,
@@ -241,6 +242,13 @@ export default function IndividualProfilePage() {
               </h1>
             </div>
           </div>
+          {individualId && !Number.isNaN(individualId) && (
+            <FollowButton
+              followKey="followed_individuals"
+              entityId={individualId}
+              label="Individual"
+            />
+          )}
           <a
             href={`mailto:a.boden@asymmetrixintelligence.com?subject=${encodeURIComponent(
               `Report Incorrect Individual Data – ${
