@@ -197,18 +197,24 @@ async function fetchSectorData(sectorId: string, token: string): Promise<{
     );
     const retries = Math.min(Math.max(Number(process.env.CRON_FETCH_RETRIES ?? 1), 0), 3);
 
-    // Fetch all 4 endpoints in parallel (no-throw)
-    const [sectorOut, marketMapOut, overviewOut, recentOut] = await Promise.all([
+    // Fetch all 7 endpoints in parallel (no-throw)
+    const [sectorOut, mmPublicOut, mmPeOut, mmVcOut, mmPrivateOut, overviewOut, recentOut] = await Promise.all([
       fetchJsonWithTimeout(`${XANO_BASE}/sectors/${sectorId}`, token, timeoutMs, retries),
-      fetchJsonWithTimeout(`${XANO_BASE}/sectors_market_map?${qs}`, token, timeoutMs, retries),
+      fetchJsonWithTimeout(`${XANO_BASE}/sectors_market_map_public?${qs}`, token, timeoutMs, retries),
+      fetchJsonWithTimeout(`${XANO_BASE}/sectors_market_map_pe?${qs}`, token, timeoutMs, retries),
+      fetchJsonWithTimeout(`${XANO_BASE}/sectors_market_map_vc?${qs}`, token, timeoutMs, retries),
+      fetchJsonWithTimeout(`${XANO_BASE}/sectors_market_map_private?${qs}`, token, timeoutMs, retries),
       fetchJsonWithTimeout(`${XANO_BASE}/overview_data?${qs}`, token, timeoutMs, retries),
       fetchJsonWithTimeout(`${XANO_BASE}/sectors_resent_trasnactions?${qs}&top_15=true`, token, timeoutMs, retries),
     ]);
 
-    if (!sectorOut.ok || !marketMapOut.ok || !overviewOut.ok || !recentOut.ok) {
+    if (!sectorOut.ok || !mmPublicOut.ok || !mmPeOut.ok || !mmVcOut.ok || !mmPrivateOut.ok || !overviewOut.ok || !recentOut.ok) {
       console.warn(`[CRON] ⚠️ Sector ${sectorId} incomplete fetch`, {
         sector: { ok: sectorOut.ok, status: sectorOut.status, error: sectorOut.error },
-        market: { ok: marketMapOut.ok, status: marketMapOut.status, error: marketMapOut.error },
+        mmPublic: { ok: mmPublicOut.ok, status: mmPublicOut.status, error: mmPublicOut.error },
+        mmPe: { ok: mmPeOut.ok, status: mmPeOut.status, error: mmPeOut.error },
+        mmVc: { ok: mmVcOut.ok, status: mmVcOut.status, error: mmVcOut.error },
+        mmPrivate: { ok: mmPrivateOut.ok, status: mmPrivateOut.status, error: mmPrivateOut.error },
         overview: { ok: overviewOut.ok, status: overviewOut.status, error: overviewOut.error },
         recent: { ok: recentOut.ok, status: recentOut.status, error: recentOut.error },
       });
@@ -216,15 +222,21 @@ async function fetchSectorData(sectorId: string, token: string): Promise<{
     }
 
     const sectorData = sectorOut.data;
-    const marketMapData = marketMapOut.data;
     const overviewData = overviewOut.data as Record<string, unknown> | null;
     const recentData = recentOut.data;
 
-    // Extract market map from response structure
-    const marketMap =
-      isRecord(marketMapData) && 'market_map' in marketMapData
-        ? (marketMapData as Record<string, unknown>)['market_map']
-        : marketMapData;
+    const extractCompanies = (data: unknown): unknown[] => {
+      if (isRecord(data) && Array.isArray(data['companies'])) return data['companies'] as unknown[];
+      if (Array.isArray(data)) return data;
+      return [];
+    };
+
+    const marketMap = {
+      public: extractCompanies(mmPublicOut.data),
+      pe: extractCompanies(mmPeOut.data),
+      vc: extractCompanies(mmVcOut.data),
+      private: extractCompanies(mmPrivateOut.data),
+    };
 
     return {
       sectorData,
