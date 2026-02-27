@@ -867,6 +867,22 @@ export default function AdvisorProfilePage() {
     ? (corporateEvents as unknown as AdvisorCorporateEventItem[])
     : [];
 
+  const coerceArray = <T,>(raw: unknown): T[] => {
+    if (Array.isArray(raw)) return raw as T[];
+    if (raw === null || raw === undefined) return [];
+    if (typeof raw !== "string") return [];
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed === "[]") return [];
+    try {
+      // Some payloads may contain escaped quotes (\u0022) from Xano
+      const normalized = trimmed.replace(/\\u0022/g, '"');
+      const parsed = JSON.parse(normalized) as unknown;
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+      return [];
+    }
+  };
+
   // Client-side sector filtering
   const filteredEvents = (() => {
     if (selectedFilterPrimary.length === 0 && selectedFilterSecondary.length === 0) return safeEvents;
@@ -887,22 +903,6 @@ export default function AdvisorProfilePage() {
       return true;
     });
   })();
-
-  const coerceArray = <T,>(raw: unknown): T[] => {
-    if (Array.isArray(raw)) return raw as T[];
-    if (raw === null || raw === undefined) return [];
-    if (typeof raw !== "string") return [];
-    const trimmed = raw.trim();
-    if (!trimmed || trimmed === "[]") return [];
-    try {
-      // Some payloads may contain escaped quotes (\u0022) from Xano
-      const normalized = trimmed.replace(/\\u0022/g, '"');
-      const parsed = JSON.parse(normalized) as unknown;
-      return Array.isArray(parsed) ? (parsed as T[]) : [];
-    } catch {
-      return [];
-    }
-  };
 
   const style = `
     .advisor-detail-page {
