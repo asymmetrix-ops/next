@@ -2770,6 +2770,23 @@ const SectorDetailPage = ({
     const raw = (preferredSource as { market_map?: unknown })?.market_map;
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
     const o = raw as Record<string, unknown>;
+
+    // New format: {public: [...], pe: [...], vc: [...], private: [...]} — derive counts from array lengths
+    const publicArr = Array.isArray(o["public"]) ? o["public"] : undefined;
+    const peArr = Array.isArray(o["pe"]) ? o["pe"] : undefined;
+    const vcArr = Array.isArray(o["vc"]) ? o["vc"] : undefined;
+    const privateArr = Array.isArray(o["private"]) ? o["private"] : undefined;
+
+    if (publicArr || peArr || vcArr || privateArr) {
+      return {
+        public: publicArr?.length ?? 0,
+        private_equity_owned: peArr?.length ?? 0,
+        venture_capital_backed: vcArr?.length ?? 0,
+        private: privateArr?.length ?? 0,
+      };
+    }
+
+    // Legacy format: explicit count fields
     return {
       public: getFirstMatchingNumber(o, ["public_count", "Public_count"]),
       private_equity_owned: getFirstMatchingNumber(o, ["pe_count", "Pe_count"]),
