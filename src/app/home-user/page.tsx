@@ -526,7 +526,7 @@ export default function HomeUserPage() {
           if (ac.signal.aborted) return;
           const merged = mergeResults(allResultsRef.current, items);
           allResultsRef.current = merged;
-          setSearchResults(sortSearchResults(merged));
+          setSearchResults(merged);
 
           // Log platform-wide search only once per search run, and only when we actually have results.
           if (merged.length > 0 && loggedSearchRunIdRef.current !== runId) {
@@ -547,6 +547,7 @@ export default function HomeUserPage() {
         },
         onComplete: () => {
           if (ac.signal.aborted) return;
+          setSearchResults(sortSearchResults(allResultsRef.current));
           setSearchLoading(false);
           setSearchLoadingSources(false);
           const total = allResultsRef.current.length;
@@ -647,10 +648,11 @@ export default function HomeUserPage() {
           if (ac.signal.aborted) return;
           const merged = mergeResults(allResultsRef.current, items);
           allResultsRef.current = merged;
-          setPopupResults(sortSearchResults(merged));
+          setPopupResults(merged);
         },
         onComplete: () => {
           if (ac.signal.aborted) return;
+          setPopupResults(sortSearchResults(allResultsRef.current));
           const total = allResultsRef.current.length;
           const perPage = 25;
           const totalPages = Math.max(1, Math.ceil(total / perPage));
