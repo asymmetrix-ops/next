@@ -1914,6 +1914,10 @@ const CorporateEventsPage = () => {
       color: #000;
       font-size: 14px;
     }
+    .stat-chip { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid #E2E8F0; border-radius: 20px; padding: 4px 12px 4px 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+    .stat-chip-dot { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0; }
+    .stat-chip-label { font-size: 12px; color: #64748B; font-weight: 500; }
+    .stat-chip-value { font-size: 13px; font-weight: 700; color: #0F172A; }
     .corporate-event-cards { display: none; }
     .corporate-event-card { background-color: white; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; }
     .corporate-event-card-header { display: flex; align-items: center; margin-bottom: 12px; gap: 12px; }
@@ -2073,11 +2077,110 @@ const CorporateEventsPage = () => {
             }}
             className="filters-card"
           >
-            {showFilters && (
-              <h2 style={styles.heading} className="filters-heading">
-                Filters
+            {/* Page Title + Stats Chips — always visible at top */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "12px",
+                marginBottom: "16px",
+              }}
+            >
+              <h2 style={{ ...styles.heading, marginBottom: 0 }}>
+                Corporate Events
               </h2>
-            )}
+              {summaryData.acquisitions > 0 && (
+                <>
+                  <div
+                    style={{
+                      width: 1,
+                      height: 28,
+                      background: "#E2E8F0",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "8px",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                    }}
+                  >
+                    {[
+                      {
+                        label: "Acquisitions",
+                        value: summaryData.acquisitions,
+                        color: "#2563EB",
+                        letter: "A",
+                      },
+                      {
+                        label: "Investments",
+                        value: summaryData.investments,
+                        color: "#0891B2",
+                        letter: "I",
+                      },
+                      {
+                        label: "IPOs",
+                        value: summaryData.ipos,
+                        color: "#7C3AED",
+                        letter: "↑",
+                      },
+                    ].map((s) => (
+                      <div key={s.label} className="stat-chip">
+                        <div
+                          className="stat-chip-dot"
+                          style={{ background: s.color }}
+                        >
+                          {s.letter}
+                        </div>
+                        <span className="stat-chip-label">{s.label}:</span>
+                        <span className="stat-chip-value">
+                          {s.value?.toLocaleString() || "0"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Search Row — always visible, directly under title */}
+            <div style={{ marginBottom: "4px" }}>
+              <div className="search-row">
+                <input
+                  type="text"
+                  placeholder="Enter search terms here"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ ...styles.input, marginBottom: 0, maxWidth: 340 }}
+                  className="filters-input"
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                />
+                <button
+                  onClick={handleSearch}
+                  style={{ ...styles.button, marginTop: 0, maxWidth: 140 }}
+                  className="filters-button"
+                  onMouseOver={(e) =>
+                    ((e.target as HTMLButtonElement).style.backgroundColor =
+                      "#005bb5")
+                  }
+                  onMouseOut={(e) =>
+                    ((e.target as HTMLButtonElement).style.backgroundColor =
+                      "#0075df")
+                  }
+                >
+                  {loading ? "Searching..." : "Search"}
+                </button>
+              </div>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                style={styles.linkButton}
+              >
+                {showFilters ? "Hide & Reset Filters" : "Show Filters"}
+              </button>
+            </div>
 
             {showFilters && (
               <div style={styles.grid} className="filters-grid">
@@ -2293,6 +2396,45 @@ const CorporateEventsPage = () => {
                       ))}
                     </div>
                   )}
+
+                  {/* Announcement Date */}
+                  <h3
+                    style={{ ...styles.subHeading, marginTop: "20px" }}
+                    className="filters-sub-heading"
+                  >
+                    Announcement Date
+                  </h3>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "20px",
+                      flexWrap: "wrap",
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      <span style={styles.label}>Start</span>
+                      <input
+                        type="date"
+                        value={dateStart}
+                        onChange={(e) => setDateStart(e.target.value)}
+                        style={{ ...styles.input, marginBottom: 0 }}
+                        className="filters-input"
+                        placeholder="dd/mm/yyyy"
+                      />
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      <span style={styles.label}>End</span>
+                      <input
+                        type="date"
+                        value={dateEnd}
+                        onChange={(e) => setDateEnd(e.target.value)}
+                        style={{ ...styles.input, marginBottom: 0 }}
+                        className="filters-input"
+                        placeholder="dd/mm/yyyy"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div style={styles.gridItem}>
@@ -2921,74 +3063,9 @@ const CorporateEventsPage = () => {
                   )}
                 </div>
 
-                <div style={{ ...styles.gridItem, gridColumn: "span 2" }}>
-                  <h3 style={styles.subHeading} className="filters-sub-heading">
-                    Announcement Date
-                  </h3>
-                  <span style={styles.label}>Start</span>
-                  <input
-                    type="date"
-                    value={dateStart}
-                    onChange={(e) => setDateStart(e.target.value)}
-                    style={styles.input}
-                    className="filters-input"
-                    placeholder="dd/mm/yyyy"
-                  />
-
-                  <span style={styles.label}>End</span>
-                  <input
-                    type="date"
-                    value={dateEnd}
-                    onChange={(e) => setDateEnd(e.target.value)}
-                    style={styles.input}
-                    className="filters-input"
-                    placeholder="dd/mm/yyyy"
-                  />
-                </div>
-
                 {/* Removed inline grid Search section to reduce space; use compact search row below */}
               </div>
             )}
-
-            {/* Compact Search Row */}
-            <div style={{ marginTop: showFilters ? "20px" : "0" }}>
-              {showFilters && (
-                <h3 style={styles.subHeading}>Search Corporate Events</h3>
-              )}
-              <div className="search-row">
-                <input
-                  type="text"
-                  placeholder="Enter search terms here"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{ ...styles.input, marginBottom: 0, maxWidth: 340 }}
-                  className="filters-input"
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                />
-                <button
-                  onClick={handleSearch}
-                  style={{ ...styles.button, marginTop: 0, maxWidth: 140 }}
-                  className="filters-button"
-                  onMouseOver={(e) =>
-                    ((e.target as HTMLButtonElement).style.backgroundColor =
-                      "#005bb5")
-                  }
-                  onMouseOut={(e) =>
-                    ((e.target as HTMLButtonElement).style.backgroundColor =
-                      "#0075df")
-                  }
-                >
-                  {loading ? "Searching..." : "Search"}
-                </button>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              style={styles.linkButton}
-            >
-              {showFilters ? "Hide & Reset Filters" : "Show Filters"}
-            </button>
 
             {/* Error Display */}
             {error && <div className="error">{error}</div>}
@@ -3003,33 +3080,6 @@ const CorporateEventsPage = () => {
 
       {/* Corporate Events Table Section */}
       <div className="corporate-event-section">
-        {/* Statistics Block */}
-        {summaryData.acquisitions > 0 && (
-          <div className="corporate-event-stats">
-            <h2 className="stats-title">Corporate Events</h2>
-            <div className="stats-grid">
-              <div className="stats-item">
-                <span className="stats-label">Acquisitions:</span>
-                <span className="stats-value">
-                  {summaryData.acquisitions?.toLocaleString() || "0"}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">Investments:</span>
-                <span className="stats-value">
-                  {summaryData.investments?.toLocaleString() || "0"}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">IPOs:</span>
-                <span className="stats-value">
-                  {summaryData.ipos?.toLocaleString() || "0"}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Export Button - Show only when filters are applied */}
         {hasActiveFilters() && corporateEvents.length > 0 && (
           <div
