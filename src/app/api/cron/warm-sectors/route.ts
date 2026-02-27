@@ -370,11 +370,19 @@ export async function GET(request: NextRequest) {
       const data = await fetchSectorData(sectorId, authToken);
 
       if (data) {
-        await setCachedSectorData(sectorId, {
+        const mm = data.splitDatasets.marketMap as Record<string, unknown[]>;
+        console.log(`[CRON] 📊 Sector ${sectorId} marketMap: public=${mm.public?.length ?? 0}, pe=${mm.pe?.length ?? 0}, vc=${mm.vc?.length ?? 0}, private=${mm.private?.length ?? 0}`);
+        console.log(`[CRON] 📊 Sector ${sectorId} strategic=${Array.isArray(data.splitDatasets.strategic) ? data.splitDatasets.strategic.length : (data.splitDatasets.strategic ? 'obj' : 'null')}, pe_investors=${Array.isArray(data.splitDatasets.pe) ? data.splitDatasets.pe.length : (data.splitDatasets.pe ? 'obj' : 'null')}, recentTx=${Array.isArray(data.splitDatasets.recentTransactions) ? data.splitDatasets.recentTransactions.length : (data.splitDatasets.recentTransactions ? 'obj' : 'null')}`);
+
+        const payload = {
           ...data,
           timings: { cachedByCron: true },
           serverFetchTime: Math.round(performance.now() - sectorStart),
-        });
+        };
+        console.log(`[CRON] 📦 Sector ${sectorId} cache payload keys: ${Object.keys(payload).join(', ')}`);
+        console.log(`[CRON] 📦 Sector ${sectorId} splitDatasets keys: ${Object.keys(payload.splitDatasets).join(', ')}`);
+
+        await setCachedSectorData(sectorId, payload);
 
         const ms = Math.round(performance.now() - sectorStart);
         console.log(`[CRON] ✅ Sector ${sectorId} cached in ${ms}ms`);

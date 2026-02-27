@@ -110,27 +110,39 @@ export async function GET(
     const qs = new URLSearchParams();
     qs.append('Sector_id', parseInt(sectorId, 10).toString());
     
-    const [overviewOut, sectorOut, recentOut, marketOut] = await Promise.all([
+    const [overviewOut, sectorOut, recentOut, mmPublicOut, mmPeOut, mmVcOut, mmPrivateOut] = await Promise.all([
       fetchJsonWithTimeout(
         `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/overview_data?${qs.toString()}`,
         fetchInit,
         timeoutMs
       ),
-      // Still need sector details separately for thesis etc.
       fetchJsonWithTimeout(
         `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors/${sectorId}`,
         fetchInit,
         timeoutMs
       ),
-      // Recent transactions not included in overview_data, fetch separately
       fetchJsonWithTimeout(
         `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_resent_trasnactions?${qs.toString()}&top_15=true`,
         fetchInit,
         timeoutMs
       ),
-      // Market map moved out of overview_data → dedicated endpoint
       fetchJsonWithTimeout(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map?${qs.toString()}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map_public?${qs.toString()}`,
+        fetchInit,
+        timeoutMs
+      ),
+      fetchJsonWithTimeout(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map_pe?${qs.toString()}`,
+        fetchInit,
+        timeoutMs
+      ),
+      fetchJsonWithTimeout(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map_vc?${qs.toString()}`,
+        fetchInit,
+        timeoutMs
+      ),
+      fetchJsonWithTimeout(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sectors_market_map_private?${qs.toString()}`,
         fetchInit,
         timeoutMs
       ),
@@ -142,7 +154,10 @@ export async function GET(
       overview: Math.round(overviewOut.ms),
       sector: Math.round(sectorOut.ms),
       recent: Math.round(recentOut.ms),
-      market: Math.round(marketOut.ms),
+      mmPublic: Math.round(mmPublicOut.ms),
+      mmPe: Math.round(mmPeOut.ms),
+      mmVc: Math.round(mmVcOut.ms),
+      mmPrivate: Math.round(mmPrivateOut.ms),
     });
 
     // Log any errors
@@ -150,7 +165,10 @@ export async function GET(
       overviewOut.error && `overview: ${overviewOut.error}`,
       sectorOut.error && `sector: ${sectorOut.error}`,
       recentOut.error && `recent: ${recentOut.error}`,
-      marketOut.error && `market: ${marketOut.error}`,
+      mmPublicOut.error && `mmPublic: ${mmPublicOut.error}`,
+      mmPeOut.error && `mmPe: ${mmPeOut.error}`,
+      mmVcOut.error && `mmVc: ${mmVcOut.error}`,
+      mmPrivateOut.error && `mmPrivate: ${mmPrivateOut.error}`,
     ].filter(Boolean);
     if (errors.length > 0) {
       console.log(`[API] ⚠️ Fetch errors:`, errors.join(', '));
@@ -164,15 +182,25 @@ export async function GET(
     if (overviewData) {
       console.log(`[API] 🔍 overview_data keys:`, Object.keys(overviewData));
     }
-    
-    // overview_data now returns: strategic_acquirers, pe_investors (market map is separate)
-    const marketMap =
-      (marketOut.data as { market_map?: unknown } | null)?.market_map ??
-      marketOut.data ??
-      null;
+
+    const extractCompanies = (data: unknown): unknown[] => {
+      if (data && typeof data === 'object' && !Array.isArray(data) && Array.isArray((data as Record<string, unknown>)['companies'])) {
+        return (data as Record<string, unknown>)['companies'] as unknown[];
+      }
+      if (Array.isArray(data)) return data;
+      return [];
+    };
+
+    const marketMap = {
+      public: extractCompanies(mmPublicOut.data),
+      pe: extractCompanies(mmPeOut.data),
+      vc: extractCompanies(mmVcOut.data),
+      private: extractCompanies(mmPrivateOut.data),
+    };
+    console.log(`[API] 📊 marketMap: public=${marketMap.public.length}, pe=${marketMap.pe.length}, vc=${marketMap.vc.length}, private=${marketMap.private.length}`);
+
     const strategic = overviewData?.strategic_acquirers ?? null;
     const pe = overviewData?.pe_investors ?? null;
-    // Recent transactions from separate endpoint
     const recentTransactions = recentOut.data ?? null;
 
     // Debug logging: inspect what the backend is returning for the sector thesis
@@ -204,7 +232,7 @@ export async function GET(
     const totalTime = performance.now() - startTime;
     console.log(`[API] ✅ Overview data fetched in ${totalTime.toFixed(0)}ms`);
     console.log(`[API]    - Sector: ${sectorData ? 'OK' : 'failed'}`);
-    console.log(`[API]    - Market Map: ${marketMap ? 'OK' : 'failed'}`);
+    console.log(`[API]    - Market Map: public=${marketMap.public.length} pe=${marketMap.pe.length} vc=${marketMap.vc.length} private=${marketMap.private.length}`);
     console.log(`[API]    - Strategic: ${strategic ? 'OK' : 'failed'}`);
     console.log(`[API]    - PE: ${pe ? 'OK' : 'failed'}`);
     console.log(`[API]    - Recent: ${recentTransactions ? 'OK' : 'failed'}`);
@@ -223,19 +251,28 @@ export async function GET(
         overviewMs: Math.round(overviewOut.ms),
         sectorMs: Math.round(sectorOut.ms),
         recentMs: Math.round(recentOut.ms),
-        marketMs: Math.round(marketOut.ms),
+        mmPublicMs: Math.round(mmPublicOut.ms),
+        mmPeMs: Math.round(mmPeOut.ms),
+        mmVcMs: Math.round(mmVcOut.ms),
+        mmPrivateMs: Math.round(mmPrivateOut.ms),
         timeoutMs,
         statuses: {
           overview: overviewOut.status,
           sector: sectorOut.status,
           recent: recentOut.status,
-          market: marketOut.status,
+          mmPublic: mmPublicOut.status,
+          mmPe: mmPeOut.status,
+          mmVc: mmVcOut.status,
+          mmPrivate: mmPrivateOut.status,
         },
         errors: {
           overview: overviewOut.error,
           sector: sectorOut.error,
           recent: recentOut.error,
-          market: marketOut.error,
+          mmPublic: mmPublicOut.error,
+          mmPe: mmPeOut.error,
+          mmVc: mmVcOut.error,
+          mmPrivate: mmPrivateOut.error,
         },
       },
       serverFetchTime: totalTime,
