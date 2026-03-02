@@ -542,13 +542,14 @@ function EmailsTab() {
   const [sending, setSending] = useState(false);
 
   const XANO_IMAGE_UPLOAD_URL =
-    "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/upload_image_file";
+    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/images";
 
   async function uploadImageToXano(file: File): Promise<string> {
     const token = localStorage.getItem("asymmetrix_auth_token");
     if (!token) throw new Error("Authentication required");
     const fd = new FormData();
-    fd.append("file", file, file.name);
+    // Match Content tab upload shape (Xano expects "img")
+    fd.append("img", file, file.name);
 
     const resp = await fetch(XANO_IMAGE_UPLOAD_URL, {
       method: "POST",
