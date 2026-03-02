@@ -10,12 +10,15 @@ type EventType =
   | "platform_wide_search"
   | "company_search";
 
+type DeviceType = "mobile" | "desktop";
+
 interface UserActivityPayload {
   user_id: number;
   page_visit: string;
   page_heading: string;
   session_id: string;
   event_type: EventType;
+  device?: DeviceType;
   query?: string | null;
   filters_used?: Record<string, unknown>;
 }
@@ -125,6 +128,7 @@ export async function POST(req: NextRequest) {
       page_heading = "",
       session_id = "",
       event_type,
+      device,
       query = null,
       filters_used,
     } = body;
@@ -180,6 +184,9 @@ export async function POST(req: NextRequest) {
       session_id: String(session_id || ""),
       event_type: event_type as EventType,
     };
+    if (device === "mobile" || device === "desktop") {
+      payload.device = device;
+    }
     if (
       event_type === "platform_wide_search" ||
       event_type === "company_search" ||

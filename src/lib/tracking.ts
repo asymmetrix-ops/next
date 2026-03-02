@@ -7,6 +7,7 @@ export type TrackingEventType =
   | "company_search";
 import { authService } from "@/lib/auth";
 import { isActivityTrackingBlockedEmail } from "@/lib/activityTracking";
+import { getDeviceType } from "@/lib/device";
 
 export interface TrackingEventInput {
   userId?: number;
@@ -342,6 +343,7 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
     page_heading: heading,
     session_id: input.sessionId ?? getOrCreateSessionId(),
     event_type: input.eventType,
+    device: getDeviceType(),
   } as const;
 
   const queryValue =
