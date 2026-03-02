@@ -246,8 +246,9 @@ const styles = {
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(5, 1fr)",
-    gap: "16px 40px",
-    marginBottom: "20px",
+    gap: "12px 20px",
+    marginBottom: "12px",
+    marginTop: "12px",
   },
   gridItem: {
     display: "flex" as const,
@@ -257,8 +258,8 @@ const styles = {
     color: "#00050B",
     fontWeight: "600",
     fontSize: "16px",
-    marginBottom: "8px",
-    marginTop: "14px",
+    marginBottom: "6px",
+    marginTop: "8px",
   },
   toggleRow: {
     display: "flex" as const,
@@ -1383,6 +1384,89 @@ const CompanyDashboard = ({
     handleSearch,
   ]);
 
+  const handleResetFilters = useCallback(() => {
+    setSearchTerm("");
+    setSelectedContinentalRegions([]);
+    setSelectedSubRegions([]);
+    setSelectedCountries([]);
+    setSelectedProvinces([]);
+    setSelectedCities([]);
+    setSelectedPrimarySectors([]);
+    setSelectedSecondarySectors([]);
+    setSelectedHybridBusinessFocuses([]);
+    setSelectedOwnershipTypes([]);
+    setLinkedinMembersMin(null);
+    setLinkedinMembersMax(null);
+    setRevenueMin(null);
+    setRevenueMax(null);
+    setEbitdaMin(null);
+    setEbitdaMax(null);
+    setEnterpriseValueMin(null);
+    setEnterpriseValueMax(null);
+    setRevenueMultipleMin(null);
+    setRevenueMultipleMax(null);
+    setRevenueGrowthMin(null);
+    setRevenueGrowthMax(null);
+    setEbitdaMarginMin(null);
+    setEbitdaMarginMax(null);
+    setRuleOf40Min(null);
+    setRuleOf40Max(null);
+    setArrMin(null);
+    setArrMax(null);
+    setArrPcMin(null);
+    setArrPcMax(null);
+    setChurnMin(null);
+    setChurnMax(null);
+    setGrrMin(null);
+    setGrrMax(null);
+    setNrrMin(null);
+    setNrrMax(null);
+    setNewClientsRevenueGrowthMin(null);
+    setNewClientsRevenueGrowthMax(null);
+    const emptyFilters: Filters = {
+      countries: [],
+      provinces: [],
+      cities: [],
+      continentalRegions: [],
+      subRegions: [],
+      primarySectors: [],
+      secondarySectors: [],
+      hybridBusinessFocuses: [],
+      ownershipTypes: [],
+      linkedinMembersMin: null,
+      linkedinMembersMax: null,
+      searchQuery: "",
+      keywordSearch: "",
+      revenueMin: null,
+      revenueMax: null,
+      ebitdaMin: null,
+      ebitdaMax: null,
+      enterpriseValueMin: null,
+      enterpriseValueMax: null,
+      revenueMultipleMin: null,
+      revenueMultipleMax: null,
+      revenueGrowthMin: null,
+      revenueGrowthMax: null,
+      ebitdaMarginMin: null,
+      ebitdaMarginMax: null,
+      ruleOf40Min: null,
+      ruleOf40Max: null,
+      arrMin: null,
+      arrMax: null,
+      arrPcMin: null,
+      arrPcMax: null,
+      churnMin: null,
+      churnMax: null,
+      grrMin: null,
+      grrMax: null,
+      nrrMin: null,
+      nrrMax: null,
+      newClientsRevenueGrowthMin: null,
+      newClientsRevenueGrowthMax: null,
+    };
+    if (onSearch) onSearch(emptyFilters);
+  }, [onSearch]);
+
   // Auto-run search if initialSearch prop is provided
   useEffect(() => {
     if (initialSearch) {
@@ -1536,7 +1620,20 @@ const CompanyDashboard = ({
                 fontWeight: 500,
               }}
             >
-              {showFilters ? "Hide & Reset Filters" : "Show Filters"}
+              {showFilters ? "Hide Filters" : "Show Filters"}
+            </button>
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="search-bar-button"
+              style={{
+                backgroundColor: "#fff",
+                color: "#1a202c",
+                border: "1px solid #e2e8f0",
+                fontWeight: 500,
+              }}
+            >
+              Reset Filters
             </button>
           </div>
 
@@ -1571,7 +1668,7 @@ const CompanyDashboard = ({
                 {selectedContinentalRegions.length > 0 && (
                   <div
                     style={{
-                      marginTop: "8px",
+                      marginTop: "6px",
                       display: "flex",
                       flexWrap: "wrap",
                       gap: "4px",
@@ -1633,7 +1730,7 @@ const CompanyDashboard = ({
                 {selectedSubRegions.length > 0 && (
                   <div
                     style={{
-                      marginTop: "8px",
+                      marginTop: "6px",
                       display: "flex",
                       flexWrap: "wrap",
                       gap: "4px",

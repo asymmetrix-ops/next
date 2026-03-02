@@ -663,6 +663,34 @@ const AdvisorsPage = () => {
     // Fetch will be triggered by the filters effect
   };
 
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setSelectedContinentalRegions([]);
+    setSelectedSubRegions([]);
+    setSelectedCountries([]);
+    setSelectedProvinces([]);
+    setSelectedCities([]);
+    setSelectedPrimarySectors([]);
+    setSelectedSecondarySectors([]);
+    setCorporateEventsAdvisedMin("");
+    setCorporateEventsAdvisedMax("");
+    const resetFilters: AdvisorsFilters = {
+      countries: [],
+      provinces: [],
+      cities: [],
+      Continental_Region: [],
+      geographical_sub_region: [],
+      primarySectors: [],
+      secondarySectors: [],
+      corporate_events_advised_min: null,
+      corporate_events_advised_max: null,
+      searchQuery: "",
+      page: 1,
+      per_page: 25,
+    };
+    setFilters(resetFilters);
+  };
+
   const styles = {
     container: {
       backgroundColor: "#f9fafb",
@@ -694,7 +722,7 @@ const AdvisorsPage = () => {
       fontSize: "20px",
       fontWeight: "600",
       color: "#1a202c",
-      marginBottom: "12px",
+      marginBottom: "8px",
     },
     searchDiv: {
       display: "flex" as const,
@@ -736,8 +764,9 @@ const AdvisorsPage = () => {
     grid: {
       display: "grid",
       gridTemplateColumns: "repeat(2, 1fr)",
-      gap: "12px 24px",
-      marginBottom: "16px",
+      gap: "12px 20px",
+      marginBottom: "12px",
+      marginTop: "12px",
     },
     gridItem: {
       display: "flex" as const,
@@ -747,8 +776,8 @@ const AdvisorsPage = () => {
       color: "#00050B",
       fontWeight: "600",
       fontSize: "16px",
-      marginBottom: "8px",
-      marginTop: "14px",
+      marginBottom: "6px",
+      marginTop: "8px",
     },
     numberInput: {
       width: "100%",
@@ -1944,7 +1973,20 @@ const AdvisorsPage = () => {
                   fontWeight: 500,
                 }}
               >
-                {showFilters ? "Hide & Reset Filters" : "Show Filters"}
+                {showFilters ? "Hide Filters" : "Show Filters"}
+              </button>
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="search-bar-button"
+                style={{
+                  backgroundColor: "#fff",
+                  color: "#1a202c",
+                  border: "1px solid #e2e8f0",
+                  fontWeight: 500,
+                }}
+              >
+                Reset Filters
               </button>
               <button
                 type="button"

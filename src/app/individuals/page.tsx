@@ -126,7 +126,8 @@ const styles = {
     fontSize: "14px",
     fontWeight: "500",
     color: "#4a5568",
-    marginBottom: "8px",
+    marginBottom: "6px",
+    marginTop: "8px",
   },
   select: {
     width: "100%",
@@ -136,7 +137,9 @@ const styles = {
   grid: {
     display: "grid" as const,
     gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" as const,
-    gap: "24px",
+    gap: "12px 20px",
+    marginTop: "12px",
+    marginBottom: "12px",
   },
   gridItem: {
     display: "flex" as const,
@@ -980,6 +983,35 @@ const IndividualsPage = () => {
     fetchIndividuals(updatedFilters);
   };
 
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setSelectedContinentalRegions([]);
+    setSelectedSubRegions([]);
+    setSelectedCountries([]);
+    setSelectedProvinces([]);
+    setSelectedCities([]);
+    setSelectedPrimarySectors([]);
+    setSelectedSecondarySectors([]);
+    setSelectedJobTitles([]);
+    setSelectedStatuses([]);
+    const resetFilters: IndividualsFilters = {
+      Countries: [],
+      Provinces: [],
+      Cities: [],
+      Continental_Region: [],
+      geographical_sub_region: [],
+      Primary_Sectors: [],
+      Secondary_Sectors: [],
+      Job_Titles: [],
+      Statuses: [],
+      Search_Query: "",
+      page: 1,
+      per_page: 50,
+    };
+    setFilters(resetFilters);
+    fetchIndividuals(resetFilters);
+  };
+
   const style = `
     .loading-skeleton {
       background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
@@ -1331,7 +1363,20 @@ const IndividualsPage = () => {
                   fontWeight: 500,
                 }}
               >
-                {showFilters ? "Hide & Reset Filters" : "Show Filters"}
+                {showFilters ? "Hide Filters" : "Show Filters"}
+              </button>
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="search-bar-button"
+                style={{
+                  backgroundColor: "#fff",
+                  color: "#1a202c",
+                  border: "1px solid #e2e8f0",
+                  fontWeight: 500,
+                }}
+              >
+                Reset Filters
               </button>
             </div>
 

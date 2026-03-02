@@ -116,8 +116,9 @@ const styles = {
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(3, 1fr)",
-    gap: "16px 40px",
-    marginBottom: "20px",
+    gap: "12px 20px",
+    marginBottom: "12px",
+    marginTop: "12px",
     alignItems: "start" as const,
   },
   gridItem: {
@@ -128,8 +129,8 @@ const styles = {
     color: "#00050B",
     fontWeight: "600",
     fontSize: "16px",
-    marginBottom: "8px",
-    marginTop: "14px",
+    marginBottom: "6px",
+    marginTop: "8px",
   },
   select: {
     width: "100%",
@@ -1669,6 +1670,43 @@ const CorporateEventsPage = () => {
     fetchCorporateEvents(updatedFilters);
   };
 
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setDateStart("");
+    setDateEnd("");
+    setSelectedContinentalRegions([]);
+    setSelectedSubRegions([]);
+    setSelectedCountries([]);
+    setSelectedProvinces([]);
+    setSelectedCities([]);
+    setSelectedPrimarySectors([]);
+    setSelectedSecondarySectors([]);
+    setSelectedEventTypes([]);
+    setSelectedDealStatuses([]);
+    setSelectedBuyerInvestorTypes([]);
+    setSelectedFundingStages([]);
+    const resetFilters: CorporateEventsFilters = {
+      Countries: [],
+      Provinces: [],
+      Cities: [],
+      continentalRegions: [],
+      subRegions: [],
+      primary_sectors_ids: [],
+      Secondary_sectors_ids: [],
+      deal_types: [],
+      Deal_Status: [],
+      Buyer_Investor_Types: [],
+      Funding_stage: [],
+      Date_start: null,
+      Date_end: null,
+      search_query: "",
+      Page: 1,
+      Per_page: 25,
+    };
+    setFilters(resetFilters);
+    fetchCorporateEvents(resetFilters);
+  };
+
   // Helper function to build filter parameters for API calls
   const buildFilterParams = (): URLSearchParams => {
     const params = new URLSearchParams();
@@ -2162,7 +2200,20 @@ const CorporateEventsPage = () => {
                   fontWeight: 500,
                 }}
               >
-                {showFilters ? "Hide & Reset Filters" : "Show Filters"}
+                {showFilters ? "Hide Filters" : "Show Filters"}
+              </button>
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="search-bar-button"
+                style={{
+                  backgroundColor: "#fff",
+                  color: "#1a202c",
+                  border: "1px solid #e2e8f0",
+                  fontWeight: 500,
+                }}
+              >
+                Reset Filters
               </button>
               <button
                 type="button"

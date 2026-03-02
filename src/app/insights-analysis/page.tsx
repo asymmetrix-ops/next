@@ -102,19 +102,20 @@ const styles = {
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-    gap: "24px",
-    marginBottom: "24px",
+    gap: "12px 20px",
+    marginBottom: "12px",
   },
   gridItem: {
     display: "flex",
     flexDirection: "column" as const,
-    gap: "8px",
+    gap: "6px",
   },
   label: {
     fontSize: "14px",
     fontWeight: "500",
     color: "#374151",
     marginBottom: "4px",
+    marginTop: "4px",
   },
   select: {
     width: "100%",
@@ -862,13 +863,39 @@ const InsightsAnalysisPage = () => {
                     fontWeight: 500,
                   }}
                 >
-                  {showFilters ? "Hide & Reset Filters" : "Show Filters"}
+                  {showFilters ? "Hide Filters" : "Show Filters"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm("");
+                    const resetFilters: InsightsAnalysisFilters = {
+                      ...filters,
+                      search_query: "",
+                      Content_Type: undefined,
+                      content_type: undefined,
+                      primary_sectors_ids: [],
+                      Secondary_sectors_ids: [],
+                      Offset: 1,
+                    };
+                    setFilters(resetFilters);
+                    fetchInsightsAnalysis(resetFilters);
+                  }}
+                  className="search-bar-button"
+                  style={{
+                    backgroundColor: "#fff",
+                    color: "#1a202c",
+                    border: "1px solid #e2e8f0",
+                    fontWeight: 500,
+                  }}
+                >
+                  Reset Filters
                 </button>
               </div>
 
               {/* Expandable filters */}
               {showFilters && (
-                <div style={{ ...styles.grid, marginTop: "16px" }}>
+                <div style={{ ...styles.grid, marginTop: "12px" }}>
                   <div style={styles.gridItem}>
                     <span style={styles.label}>Content Type</span>
                     <select
