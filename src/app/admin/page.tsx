@@ -540,6 +540,7 @@ function EmailsTab() {
   const [singleRecipient, setSingleRecipient] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [sending, setSending] = useState(false);
+  const EMAIL_PREVIEW_STORAGE_KEY = "asymmetrix_email_preview_v1";
 
   const XANO_IMAGE_UPLOAD_URL =
     "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/images";
@@ -644,13 +645,16 @@ function EmailsTab() {
     };
   }, []);
 
-  const handleExport = () => {
+  const buildCurrentEmailHtml = (subjectOverride?: string) => {
     const sanitized = sanitizeHtml(bodyHtml);
-    const branded = buildBrandedEmailHtml({
+    return buildBrandedEmailHtml({
       bodyHtml: `<div>${sanitized}</div>`,
-      subject,
+      subject: (subjectOverride ?? subject).trim(),
     });
-    setHtml(branded);
+  };
+
+  const handleExport = () => {
+    setHtml(buildCurrentEmailHtml(subject));
   };
 
   const handleCopy = async () => {
@@ -658,6 +662,27 @@ function EmailsTab() {
     try {
       await navigator.clipboard.writeText(html);
     } catch {}
+  };
+
+  const openEmailPreview = () => {
+    const subjectTrimmed = subject.trim();
+    if (!subjectTrimmed) return;
+    const brandedHtml = buildCurrentEmailHtml(subjectTrimmed);
+    setHtml(brandedHtml);
+    try {
+      localStorage.setItem(
+        EMAIL_PREVIEW_STORAGE_KEY,
+        JSON.stringify({
+          created_at: Date.now(),
+          subject: subjectTrimmed,
+          html: brandedHtml,
+          to: singleRecipient ? recipientEmail.trim() : "",
+        })
+      );
+      window.open("/email/preview", "_blank", "noopener,noreferrer");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to open preview");
+    }
   };
 
   return (
@@ -750,6 +775,7 @@ function EmailsTab() {
         <button
           className="px-4 py-2 text-white bg-purple-600 rounded"
           onClick={handleExport}
+          type="button"
         >
           Export HTML
         </button>
@@ -757,8 +783,18 @@ function EmailsTab() {
           className="px-4 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
           onClick={handleCopy}
           disabled={!html}
+          type="button"
         >
           Copy HTML
+        </button>
+        <button
+          className="px-4 py-2 text-white bg-emerald-600 rounded disabled:opacity-50"
+          onClick={openEmailPreview}
+          disabled={!subject.trim()}
+          type="button"
+          title="Preview email in a new tab"
+        >
+          Preview
         </button>
         {selectedTemplateId === "" ? (
           <button
@@ -768,12 +804,7 @@ function EmailsTab() {
               const subjectTrimmed = subject.trim();
               if (!subjectTrimmed) return;
 
-              const sanitized = sanitizeHtml(bodyHtml);
-              const bodyContent = `<div>${sanitized}</div>`;
-              const brandedHtml = buildBrandedEmailHtml({
-                bodyHtml: bodyContent,
-                subject: subjectTrimmed,
-              });
+              const brandedHtml = buildCurrentEmailHtml(subjectTrimmed);
               setHtml(brandedHtml);
 
               setSending(true);
@@ -802,6 +833,7 @@ function EmailsTab() {
               }
             }}
             disabled={sending || !subject.trim()}
+            type="button"
           >
             Submit
           </button>
@@ -815,12 +847,7 @@ function EmailsTab() {
               const subjectTrimmed = subject.trim();
               if (!subjectTrimmed) return;
 
-              const sanitized = sanitizeHtml(bodyHtml);
-              const bodyContent = `<div>${sanitized}</div>`;
-              const brandedHtml = buildBrandedEmailHtml({
-                bodyHtml: bodyContent,
-                subject: subjectTrimmed,
-              });
+              const brandedHtml = buildCurrentEmailHtml(subjectTrimmed);
               setHtml(brandedHtml);
 
               setSending(true);
@@ -850,6 +877,7 @@ function EmailsTab() {
               }
             }}
             disabled={sending || !subject.trim()}
+            type="button"
           >
             Save
           </button>
