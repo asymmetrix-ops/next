@@ -24,6 +24,7 @@ const Header = () => {
 
   const navItems = [
     "Dashboard",
+    "My Portfolio",
     "Companies",
     "Sectors",
     "Investors",
@@ -221,6 +222,8 @@ const Header = () => {
                   switch (label) {
                     case "Dashboard":
                       return "/home-user";
+                    case "My Portfolio":
+                      return "/my-portfolio";
                     case "Companies":
                       return "/companies";
                     case "Sectors":
@@ -341,6 +344,8 @@ const Header = () => {
               switch (label) {
                 case "Dashboard":
                   return "/home-user";
+                case "My Portfolio":
+                  return "/my-portfolio";
                 case "Companies":
                   return "/companies";
                 case "Sectors":

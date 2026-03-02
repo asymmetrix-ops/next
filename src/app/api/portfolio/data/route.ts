@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 const XANO_PORTFOLIO_BASE_URLS = [
-  "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R",
+  "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI",
+  "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI:develop",
 ] as const;
 
 const toNonEmptyString = (v: unknown) => {
@@ -55,7 +56,7 @@ async function fetchWithAuthFallback(
 async function getUserIdFromToken(token: string) {
   const authApiUrl =
     process.env.NEXT_PUBLIC_XANO_API_URL ||
-    "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+    "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
 
   const authResp = await fetchWithAuth(`${authApiUrl}/auth/me`, token, {
     method: "GET",
@@ -98,19 +99,15 @@ async function getUserIdFromToken(token: string) {
 async function proxyPortfolioData(
   token: string,
   userId: number,
-  search: string | null,
-  userListId: string | null
+  search: string | null
 ) {
   // Xano routes are method-specific; calling the wrong method often returns 404 (not 405).
   // Spec for this endpoint indicates GET, with user_id + optional search.
   const qs = new URLSearchParams();
   qs.set("user_id", String(userId));
   if (search) qs.set("search", search);
-  if (userListId) {
-    qs.set("user_lists_id", userListId);
-  }
   const upstreamGetUrls = XANO_PORTFOLIO_BASE_URLS.map(
-    (b) => `${b}/list/data?${qs.toString()}`
+    (b) => `${b}/portfolio/data?${qs.toString()}`
   );
 
   const getResp = await fetchWithAuthFallback(upstreamGetUrls, token, {
@@ -125,12 +122,9 @@ async function proxyPortfolioData(
     const payload: Record<string, unknown> = {
       user_id: userId,
       ...(search ? { search } : {}),
-      ...(userListId
-        ? { user_lists_id: Number.parseInt(userListId, 10) }
-        : {}),
     };
 
-    const upstreamPostUrls = upstreamBaseUrlsWithPath("/list/data");
+    const upstreamPostUrls = upstreamBaseUrlsWithPath("/portfolio/data");
     return fetchWithAuthFallback(upstreamPostUrls, token, {
       method: "POST",
       body: JSON.stringify(payload),
@@ -157,10 +151,6 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const search = toNonEmptyString(url.searchParams.get("search"));
-    const userListId =
-      toNonEmptyString(url.searchParams.get("user_lists_id")) ||
-      toNonEmptyString(url.searchParams.get("user_list_id")) ||
-      toNonEmptyString(url.searchParams.get("user_portfolio_id"));
 
     const userIdResult = await getUserIdFromToken(token);
     if (!userIdResult.ok) {
@@ -177,8 +167,7 @@ export async function GET(req: Request) {
     const upstreamResp = await proxyPortfolioData(
       token,
       userIdResult.userId,
-      search,
-      userListId
+      search
     );
 
     const text = await upstreamResp.text().catch(() => "");
