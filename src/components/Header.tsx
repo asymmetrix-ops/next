@@ -24,7 +24,6 @@ const Header = () => {
 
   const navItems = [
     "Dashboard",
-    "My Portfolio",
     "Companies",
     "Sectors",
     "Investors",
@@ -33,6 +32,7 @@ const Header = () => {
     "Corporate Events",
     "Insights & Analysis",
     "Financial Metrics",
+    "My Portfolio",
     "Settings",
   ];
 
