@@ -11,9 +11,11 @@ class EmailAlertsService {
   private baseUrl: string;
 
   constructor() {
+    // Email Alerts are served from a different Xano API group than the main app APIs.
+    // Allow overriding via env, but default to the known Email Alerts base.
     this.baseUrl =
-      process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+      process.env.NEXT_PUBLIC_XANO_EMAIL_ALERTS_API_URL ||
+      "https://xdil-abvj-o7rq.e2.xano.io/api:1-YVocmu";
   }
 
   // Make authenticated API request
