@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import EmailEditor from "react-email-editor";
+
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import TiptapSimpleEditor from "@/components/ui/TiptapSimpleEditor";
 import { locationsService } from "@/lib/locationsService";
@@ -534,23 +534,12 @@ function buildBrandedEmailHtml(params: {
 }
 
 function EmailsTab() {
-  const editorContainerRef = useRef<HTMLDivElement | null>(null);
-  const unlayerRef = useRef<unknown>(null);
+  const [bodyHtml, setBodyHtml] = useState<string>("<p></p>");
   const [html, setHtml] = useState("");
   const [subject, setSubject] = useState("");
   const [singleRecipient, setSingleRecipient] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [sending, setSending] = useState(false);
-  const [editorReady, setEditorReady] = useState(false);
-  const [pendingHtml, setPendingHtml] = useState<string | null>(null);
-  const imageUploadRegisteredRef = useRef(false);
-
-  const UNLAYER_PROJECT_ID: number | null = (() => {
-    const raw = process.env.NEXT_PUBLIC_UNLAYER_PROJECT_ID;
-    if (!raw) return null;
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : null;
-  })();
 
   const XANO_IMAGE_UPLOAD_URL =
     "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/upload_image_file";
@@ -565,7 +554,6 @@ function EmailsTab() {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
-        // IMPORTANT: do NOT set Content-Type for multipart/form-data
       },
       body: fd,
     });
@@ -588,6 +576,7 @@ function EmailsTab() {
     if (!url) throw new Error("Image upload response missing url");
     return url;
   }
+
   interface EmailTemplate {
     id: number;
     Headline?: string | null;
@@ -600,103 +589,33 @@ function EmailsTab() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | "">("");
 
   function extractInnerContent(fullHtml: string): string {
-    // If it's a full HTML document, extract the inner content
-    // Look for the content inside the container table/td
     try {
-      // Create a temporary DOM parser to extract content safely
       const parser = new DOMParser();
-      const doc = parser.parseFromString(fullHtml, 'text/html');
-      
-      // Try to find the container table
-      const container = doc.querySelector('table.container, .container table, table[class*="container"]');
+      const doc = parser.parseFromString(fullHtml, "text/html");
+
+      const container = doc.querySelector(
+        'table.container, .container table, table[class*="container"]'
+      );
       if (container) {
-        const td = container.querySelector('td');
-        if (td) {
-          return td.innerHTML.trim();
-        }
+        const td = container.querySelector("td");
+        if (td) return td.innerHTML.trim();
       }
-      
-      // Try to find any div inside body
-      const bodyDiv = doc.body?.querySelector('div');
-      if (bodyDiv) {
-        return bodyDiv.innerHTML.trim();
-      }
-      
-      // If no wrapper found, return body content or as-is
+
+      const bodyDiv = doc.body?.querySelector("div");
+      if (bodyDiv) return bodyDiv.innerHTML.trim();
+
       return doc.body?.innerHTML.trim() || fullHtml;
     } catch {
-      // Fallback: regex extraction
-      const containerMatch = fullHtml.match(/<table[^>]*class="container"[^>]*>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<\/table>/i);
-      if (containerMatch && containerMatch[1]) {
-        return containerMatch[1].trim();
-      } 
-      const divMatch = fullHtml.match(/<body[^>]*>[\s\S]*?<div[^>]*>([\s\S]*?)<\/div>[\s\S]*?<\/body>/i);
-      if (divMatch && divMatch[1]) {
-        return divMatch[1].trim();
-      }
+      const containerMatch = fullHtml.match(
+        /<table[^>]*class="container"[^>]*>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<\/table>/i
+      );
+      if (containerMatch?.[1]) return containerMatch[1].trim();
+      const divMatch = fullHtml.match(
+        /<body[^>]*>[\s\S]*?<div[^>]*>([\s\S]*?)<\/div>[\s\S]*?<\/body>/i
+      );
+      if (divMatch?.[1]) return divMatch[1].trim();
       return fullHtml;
     }
-  }
-
-  const readyResolveRef = useRef<(() => void) | null>(null);
-  const readyP = useRef<Promise<void> | null>(null);
-  if (!readyP.current) {
-    readyP.current = new Promise<void>(
-      (res) => (readyResolveRef.current = res)
-    );
-  }
-
-  async function getEditorApi() {
-    await readyP.current;
-    type EditorRef = {
-      editor?: {
-        exportHtml?: (cb: (d: { html?: string }) => void) => void;
-        loadDesign?: (design: unknown) => void;
-      };
-    };
-    const ref = unlayerRef.current as EditorRef | null;
-    const api = ref?.editor as
-      | {
-          exportHtml?: (cb: (d: { html?: string }) => void) => void;
-          loadDesign?: (design: unknown) => void;
-        }
-      | undefined;
-    if (!api?.exportHtml || !api?.loadDesign) {
-      throw new Error("Email editor API not available yet.");
-    }
-    return api;
-  }
-
-  async function safeExportHtml(): Promise<{ html?: string }> {
-    const api = await getEditorApi();
-    return await new Promise<{ html?: string }>((resolve) =>
-      api.exportHtml?.((d: { html?: string }) => resolve(d))
-    );
-  }
-
-  async function safeLoadHtml(rawHtml: string): Promise<void> {
-    const innerHtml = extractInnerContent(rawHtml);
-    const api = await getEditorApi();
-    api.loadDesign?.({
-      body: {
-        rows: [
-          {
-            cells: [1],
-            columns: [
-              {
-                contents: [
-                  {
-                    type: "html",
-                    values: { html: innerHtml },
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-        values: { backgroundColor: "#ffffff", contentWidth: "600px" },
-      },
-    } as unknown);
   }
 
   useEffect(() => {
@@ -724,20 +643,13 @@ function EmailsTab() {
     };
   }, []);
 
-  const handleExport = async () => {
-    try {
-      const exported = await safeExportHtml();
-      const rawHtml = exported?.html || "";
-      const sanitized = sanitizeHtml(rawHtml);
-      const branded = buildBrandedEmailHtml({
-        bodyHtml: `<div>${sanitized}</div>`,
-        subject,
-      });
-      setHtml(branded);
-    } catch (err) {
-      console.error("Failed to export HTML:", err);
-      alert("Email editor is not ready yet. Try again in a few seconds.");
-    }
+  const handleExport = () => {
+    const sanitized = sanitizeHtml(bodyHtml);
+    const branded = buildBrandedEmailHtml({
+      bodyHtml: `<div>${sanitized}</div>`,
+      subject,
+    });
+    setHtml(branded);
   };
 
   const handleCopy = async () => {
@@ -791,12 +703,8 @@ function EmailsTab() {
             if (t) {
               setSubject(String(t.Headline ?? ""));
               if (t.Body) {
-                const bodyHtml = String(t.Body);
-                if (editorReady) {
-                  void safeLoadHtml(bodyHtml);
-                } else {
-                  setPendingHtml(bodyHtml);
-                }
+                const inner = extractInnerContent(String(t.Body));
+                setBodyHtml(inner || "<p></p>");
               }
             }
           }}
@@ -823,58 +731,18 @@ function EmailsTab() {
         />
       </div>
 
-      <div className="border" ref={editorContainerRef}>
-        <EmailEditor
-          ref={unlayerRef as unknown as never}
-          minHeight={500}
-          options={{
-            ...(UNLAYER_PROJECT_ID ? { projectId: UNLAYER_PROJECT_ID } : {}),
-            user: {
-              id: "admin",
-            },
-          } as never}
-          onReady={() => {
-            readyResolveRef.current?.();
-            setEditorReady(true);
-            // Ensure image uploads go to Xano (not Unlayer)
-            if (!imageUploadRegisteredRef.current) {
-              imageUploadRegisteredRef.current = true;
-              const editor = (unlayerRef.current as { editor?: unknown } | null)
-                ?.editor as
-                | {
-                    registerCallback?: (
-                      type: string,
-                      cb: (file: unknown, done: (data: unknown) => void) => void
-                    ) => void;
-                  }
-                | undefined;
-              editor?.registerCallback?.("image", async (file: unknown, done) => {
-                try {
-                  const f =
-                    file instanceof File
-                      ? file
-                      : (file as { attachments?: unknown[] })?.attachments?.[0] instanceof
-                        File
-                      ? ((file as { attachments?: unknown[] }).attachments![0] as File)
-                      : null;
-                  if (!f) throw new Error("No image file provided");
-                  const url = await uploadImageToXano(f);
-                  done({ progress: 100, url });
-                } catch (e) {
-                  console.error("Image upload failed:", e);
-                  done({ progress: 100, url: "" });
-                  alert(
-                    e instanceof Error ? e.message : "Failed to upload image to Xano"
-                  );
-                }
-              });
-            }
-            if (pendingHtml) {
-              void safeLoadHtml(pendingHtml);
-              setPendingHtml(null);
-            }
-          }}
+      <div className="mt-4">
+        <label className="block mb-1 text-sm font-medium">Body</label>
+        <TiptapSimpleEditor
+          valueHtml={bodyHtml}
+          onChangeHtml={setBodyHtml}
+          onUploadImage={uploadImageToXano}
+          placeholder="Write the email body..."
+          minHeightPx={500}
         />
+        <p className="mt-1 text-xs text-gray-500">
+          Images are uploaded to Xano and inserted automatically.
+        </p>
       </div>
 
       <div className="flex gap-2 mt-4">
@@ -899,22 +767,10 @@ function EmailsTab() {
               const subjectTrimmed = subject.trim();
               if (!subjectTrimmed) return;
 
-              let exported: { html?: string };
-              try {
-                exported = await safeExportHtml();
-              } catch (err) {
-                console.error("Failed to export HTML:", err);
-                alert(
-                  "Email editor is not ready yet. Try again in a few seconds."
-                );
-                return;
-              }
-
-              const rawHtml = exported?.html || "";
-              const sanitized = sanitizeHtml(rawHtml);
-              const bodyHtml = `<div>${sanitized}</div>`;
+              const sanitized = sanitizeHtml(bodyHtml);
+              const bodyContent = `<div>${sanitized}</div>`;
               const brandedHtml = buildBrandedEmailHtml({
-                bodyHtml,
+                bodyHtml: bodyContent,
                 subject: subjectTrimmed,
               });
               setHtml(brandedHtml);
@@ -958,22 +814,10 @@ function EmailsTab() {
               const subjectTrimmed = subject.trim();
               if (!subjectTrimmed) return;
 
-              let exported: { html?: string };
-              try {
-                exported = await safeExportHtml();
-              } catch (err) {
-                console.error("Failed to export HTML:", err);
-                alert(
-                  "Email editor is not ready yet. Try again in a few seconds."
-                );
-                return;
-              }
-
-              const rawHtml = exported?.html || "";
-              const sanitized = sanitizeHtml(rawHtml);
-              const bodyHtml = `<div>${sanitized}</div>`;
+              const sanitized = sanitizeHtml(bodyHtml);
+              const bodyContent = `<div>${sanitized}</div>`;
               const brandedHtml = buildBrandedEmailHtml({
-                bodyHtml,
+                bodyHtml: bodyContent,
                 subject: subjectTrimmed,
               });
               setHtml(brandedHtml);
