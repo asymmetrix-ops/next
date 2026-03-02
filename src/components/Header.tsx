@@ -31,6 +31,7 @@ const Header = () => {
     "Individuals",
     "Corporate Events",
     "Insights & Analysis",
+    "Settings",
   ];
 
   const styles = {
@@ -241,6 +242,8 @@ const Header = () => {
                       return "/corporate-events";
                     case "Insights & Analysis":
                       return "/insights-analysis";
+                    case "Settings":
+                      return "/settings";
                     default:
                       if (/^insights/i.test(label)) return "/insights-analysis";
                       return "#";
@@ -357,6 +360,8 @@ const Header = () => {
                   return "/corporate-events";
                 case "Insights & Analysis":
                   return "/insights-analysis";
+                case "Settings":
+                  return "/settings";
                 default:
                   if (/^insights/i.test(label)) return "/insights-analysis";
                   return "#";
