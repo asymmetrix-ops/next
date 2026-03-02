@@ -1183,12 +1183,19 @@ function ContentTab() {
     Body_Design?: string | null;
     Publication_Date?: unknown;
     created_at?: number;
+    Created_by?: number | null;
   }
   const [allContentArticles, setAllContentArticles] = useState<ContentArticle[]>([]);
   const [contentArticlesLoading, setContentArticlesLoading] = useState(false);
   const [selectedEditContentId, setSelectedEditContentId] = useState<number | "">("");
   const [editingContentId, setEditingContentId] = useState<number | null>(null);
   const [visibility, setVisibility] = useState<Visibility>("Admin");
+
+  // Created by (single user from asymmetrix_users)
+  type SimpleUser = { id: number; name: string };
+  const [allUsers, setAllUsers] = useState<SimpleUser[]>([]);
+  const [createdByUserId, setCreatedByUserId] = useState<number | "">("");
+  const [usersLoading, setUsersLoading] = useState(false);
 
   function extractInnerContent(fullHtml: string): string {
     // If it's a full HTML document, extract the inner content
@@ -1250,6 +1257,47 @@ function ContentTab() {
         if (!cancelled) setContentTypes(values);
       } catch {
         if (!cancelled) setContentTypes([]);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fetch users for "Created by" dropdown
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        setUsersLoading(true);
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        const res = await fetch(
+          "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI/asymmetrix_users",
+          {
+            method: "GET",
+            headers,
+            credentials: "include",
+          }
+        );
+        if (!res.ok || cancelled) return;
+        const data = await res.json().catch(() => null);
+        if (Array.isArray(data)) {
+          const users: SimpleUser[] = (data as Array<{ id: number; name?: string }>)
+            .map((u) => ({ id: Number(u.id), name: String(u.name ?? "").trim() || `User #${u.id}` }))
+            .filter((u) => u.id && u.name);
+          if (!cancelled) setAllUsers(users);
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setUsersLoading(false);
       }
     };
     run();
@@ -1470,6 +1518,14 @@ function ContentTab() {
     // Pre-load visibility
     if (article.Visibility) {
       setVisibility(coerceVisibility(article.Visibility));
+    }
+
+    // Pre-load Created by (if API returns it)
+    const createdBy = (article as { Created_by?: number | null }).Created_by;
+    if (typeof createdBy === "number" && createdBy > 0) {
+      setCreatedByUserId(createdBy);
+    } else {
+      setCreatedByUserId("");
     }
 
     // Pre-load summary array
@@ -1740,6 +1796,11 @@ function ContentTab() {
       // Summary as string (matches your working curl)
       payload.summary = JSON.stringify(summaryItems);
 
+      // Created by (user id)
+      if (typeof createdByUserId === "number" && createdByUserId > 0) {
+        payload.Created_by = createdByUserId;
+      }
+
       return payload;
     };
 
@@ -1841,6 +1902,7 @@ function ContentTab() {
               setStrapline("");
               setContentType("");
               setVisibility("Admin");
+              setCreatedByUserId("");
               setSummaryItems([]);
               setCompanyOfFocus([]);
               setCompaniesMentioned([]);
@@ -1899,6 +1961,28 @@ function ContentTab() {
           {VISIBILITY_OPTIONS.map((v) => (
             <option key={v} value={v}>
               {v}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-3">
+        <label className="block mb-1 text-sm font-medium">Created by</label>
+        <select
+          className="p-2 w-full border"
+          value={createdByUserId === "" ? "" : createdByUserId}
+          onChange={(e) => {
+            const val = e.target.value;
+            setCreatedByUserId(val === "" ? "" : Number(val));
+          }}
+          disabled={usersLoading}
+        >
+          <option value="">
+            {usersLoading ? "Loading users..." : "Choose a user (optional)"}
+          </option>
+          {allUsers.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name}
             </option>
           ))}
         </select>
@@ -2372,6 +2456,7 @@ function ContentTab() {
               setStrapline("");
               setContentType("");
               setVisibility("Admin");
+              setCreatedByUserId("");
               setSummaryItems([]);
               setCompanyOfFocus([]);
               setCompaniesMentioned([]);
