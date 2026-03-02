@@ -1433,8 +1433,8 @@ export default function HomeUserPage() {
         )}
 
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 xl:grid-cols-[repeat(20,minmax(0,1fr))]">
-          {/* Asymmetrix Data */}
-          <div className="bg-white rounded-lg shadow order-1 lg:col-span-2 xl:col-span-4">
+          {/* Asymmetrix Data - last on mobile, first on lg+ */}
+          <div className="bg-white rounded-lg shadow order-3 lg:order-1 lg:col-span-2 xl:col-span-4">
             <div className="p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-2">
                 <img
@@ -1518,8 +1518,8 @@ export default function HomeUserPage() {
             </div>
           </div>
 
-          {/* Insights & Analysis */}
-          <div className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-2 lg:col-span-1 xl:col-span-8">
+          {/* Insights & Analysis - first on mobile */}
+          <div className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-1 lg:order-2 lg:col-span-1 xl:col-span-8">
             <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700">
@@ -1639,8 +1639,8 @@ export default function HomeUserPage() {
             </div>
           </div>
 
-          {/* Corporate Events */}
-          <div className="flex flex-col bg-white rounded-lg shadow order-3 lg:col-span-1 xl:col-span-8">
+          {/* Corporate Events - second on mobile */}
+          <div className="flex flex-col bg-white rounded-lg shadow order-2 lg:order-3 lg:col-span-1 xl:col-span-8">
             <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-2">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-700">
