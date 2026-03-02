@@ -1265,7 +1265,7 @@ function ContentTab() {
     };
   }, []);
 
-  // Fetch users for "Created by" dropdown
+  // Fetch users for "Created by" dropdown (via API route to avoid CORS)
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
@@ -1278,14 +1278,11 @@ function ContentTab() {
         if (token) {
           headers["Authorization"] = `Bearer ${token}`;
         }
-        const res = await fetch(
-          "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI/asymmetrix_users",
-          {
-            method: "GET",
-            headers,
-            credentials: "include",
-          }
-        );
+        const res = await fetch("/api/asymmetrix-users", {
+          method: "GET",
+          headers,
+          credentials: "include",
+        });
         if (!res.ok || cancelled) return;
         const data = await res.json().catch(() => null);
         if (Array.isArray(data)) {
