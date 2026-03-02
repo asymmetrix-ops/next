@@ -1305,6 +1305,16 @@ const AdvisorsPage = () => {
   };
 
   const style = `
+    .loading-skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+      border-radius: 4px;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
     .advisor-section {
       padding: 16px 24px;
       border-radius: 8px;
@@ -1610,6 +1620,35 @@ const AdvisorsPage = () => {
     }
   `;
 
+  const TableSkeleton = () => (
+    <table className="advisor-table">
+      <thead>
+        <tr>
+          <th>Logo</th>
+          <th>Advisor</th>
+          <th>Description</th>
+          <th># Corporate Events Advised</th>
+          <th>Advised D&A Sectors</th>
+          <th>LinkedIn Members</th>
+          <th>Country</th>
+        </tr>
+      </thead>
+      <tbody>
+        {[...Array(10)].map((_, i) => (
+          <tr key={i}>
+            <td><div className="loading-skeleton" style={{ width: "48px", height: "36px" }} /></td>
+            <td><div className="loading-skeleton" style={{ width: "90%", height: "18px" }} /></td>
+            <td><div className="loading-skeleton" style={{ width: "100%", height: "40px" }} /></td>
+            <td><div className="loading-skeleton" style={{ width: "60px", height: "18px" }} /></td>
+            <td><div className="loading-skeleton" style={{ width: "100%", height: "18px" }} /></td>
+            <td><div className="loading-skeleton" style={{ width: "60px", height: "18px" }} /></td>
+            <td><div className="loading-skeleton" style={{ width: "70%", height: "18px" }} /></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
   // Generate pagination buttons
   const generatePaginationButtons = () => {
     const buttons = [];
@@ -1784,11 +1823,145 @@ const AdvisorsPage = () => {
             }}
             className="filters-card"
           >
-            {showFilters && (
-              <h2 style={styles.heading} className="filters-heading">
-                Filters
-              </h2>
-            )}
+            {/* Page Title */}
+            <h2
+              style={{ ...styles.heading, marginBottom: "16px" }}
+              className="filters-heading"
+            >
+              Advisors
+            </h2>
+
+            {/* Stat cards row – 5 cards: type name, X advisors */}
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                flexWrap: "wrap",
+                marginBottom: "16px",
+              }}
+            >
+              {[
+                {
+                  label: "Financial Advisors",
+                  value: countsData.financialAdvisors,
+                  color: "#2563EB",
+                  letter: "FA",
+                },
+                {
+                  label: "Commercial Due Diligence",
+                  value: countsData.commercialDueDiligence,
+                  color: "#0891B2",
+                  letter: "CD",
+                },
+                {
+                  label: "Vendor Due Diligence",
+                  value: countsData.vendorDueDiligence,
+                  color: "#7C3AED",
+                  letter: "VD",
+                },
+                {
+                  label: "Management Team Advisory",
+                  value: countsData.managementTeamAdvisory,
+                  color: "#059669",
+                  letter: "MT",
+                },
+                {
+                  label: "NOMAD",
+                  value: countsData.nomad,
+                  color: "#b45309",
+                  letter: "NO",
+                },
+              ].map((card) => (
+                <div
+                  key={card.label}
+                  style={{
+                    flex: "1 1 160px",
+                    minWidth: "140px",
+                    background: "#fff",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: "8px",
+                    padding: "12px 14px",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                    <div
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        color: "#fff",
+                        flexShrink: 0,
+                        background: card.color,
+                      }}
+                    >
+                      {card.letter}
+                    </div>
+                    <span style={{ fontSize: "14px", fontWeight: 600, color: "#1a202c" }}>
+                      {card.label}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: "13px", color: "#64748B" }}>
+                    <span style={{ fontWeight: 700, color: "#0F172A", fontSize: "15px" }}>
+                      {card.value.toLocaleString()}
+                    </span>{" "}
+                    advisors
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Search row – input, Search, Show Filters, Export CSV (same height) */}
+            <div className="search-bar" style={{ flexWrap: "wrap", gap: "12px", marginBottom: "0" }}>
+              <input
+                type="text"
+                placeholder="Enter name here"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-bar-input search-bar-input-wide filters-input"
+                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+              />
+              <button
+                type="button"
+                className="search-bar-button filters-button"
+                onClick={handleSearch}
+              >
+                {loading ? "Searching..." : "Search"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowFilters(!showFilters)}
+                className="search-bar-button"
+                style={{
+                  backgroundColor: "#fff",
+                  color: "#1a202c",
+                  border: "1px solid #e2e8f0",
+                  fontWeight: 500,
+                }}
+              >
+                {showFilters ? "Hide & Reset Filters" : "Show Filters"}
+              </button>
+              <button
+                type="button"
+                className="search-bar-button"
+                onClick={exportToCsv}
+                disabled={exportingCsv || pagination.itemsTotal <= 0}
+                title="Export all filtered advisors to CSV"
+                style={{
+                  backgroundColor: "#22c55e",
+                  minWidth: "120px",
+                  opacity: exportingCsv || pagination.itemsTotal <= 0 ? 0.7 : 1,
+                  cursor: pagination.itemsTotal <= 0 ? "not-allowed" : "pointer",
+                }}
+              >
+                {exportingCsv ? "Exporting…" : "Export CSV"}
+              </button>
+            </div>
 
             {showFilters && (
               <div style={styles.grid} className="filters-grid">
@@ -2333,109 +2506,15 @@ const AdvisorsPage = () => {
                 </div>
               </div>
             )}
-
-            <div style={{ marginTop: showFilters ? "20px" : "0" }}>
-              {showFilters && (
-                <h3 style={styles.subHeading}>Search for Advisors</h3>
-              )}
-              <div className="search-row">
-                <input
-                  type="text"
-                  placeholder="Enter name here"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{ ...styles.input, marginBottom: 0 }}
-                  className="filters-input"
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                />
-                <button
-                  style={styles.button}
-                  className="filters-button"
-                  onClick={handleSearch}
-                  onMouseOver={(e) =>
-                    ((e.target as HTMLButtonElement).style.backgroundColor =
-                      "#005bb5")
-                  }
-                  onMouseOut={(e) =>
-                    ((e.target as HTMLButtonElement).style.backgroundColor =
-                      "#0075df")
-                  }
-                >
-                  {loading ? "Searching..." : "Search"}
-                </button>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              style={styles.linkButton}
-            >
-              {showFilters ? "Hide & Reset Filters" : "Show Filters"}
-            </button>
           </div>
 
           {/* Error Display */}
           {error && <div style={styles.error}>{error}</div>}
-
-          {/* Loading Display */}
-          {loading && <div style={styles.loading}>Loading advisors...</div>}
         </div>
       </div>
 
       {/* Advisors Table Section */}
       <div className="advisor-section">
-        {/* Statistics Block */}
-        <div className="advisor-stats">
-          <div className="stats-header">
-            <h2 className="stats-title">Advisors</h2>
-            <button
-              type="button"
-              className="export-csv-button"
-              onClick={exportToCsv}
-              disabled={exportingCsv || pagination.itemsTotal <= 0}
-              title="Export all filtered advisors to CSV"
-            >
-              {exportingCsv ? "Exporting..." : "Export CSV"}
-            </button>
-          </div>
-          <div className="stats-grid">
-            <div className="stats-column">
-              <div className="stats-item">
-                <span className="stats-label">Financial Advisors: </span>
-                <span className="stats-value">
-                  {countsData.financialAdvisors.toLocaleString()}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">Commercial Due Diligence: </span>
-                <span className="stats-value">
-                  {countsData.commercialDueDiligence.toLocaleString()}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">Vendor Due Diligence: </span>
-                <span className="stats-value">
-                  {countsData.vendorDueDiligence.toLocaleString()}
-                </span>
-              </div>
-            </div>
-            <div className="stats-column">
-              <div className="stats-item">
-                <span className="stats-label">Management Team Advisory: </span>
-                <span className="stats-value">
-                  {countsData.managementTeamAdvisory.toLocaleString()}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">NOMAD: </span>
-                <span className="stats-value">
-                  {countsData.nomad.toLocaleString()}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Mobile Cards */}
         {!loading && (
           <div className="advisor-cards" key={`cards-${pagination.curPage}`}>
@@ -2461,10 +2540,8 @@ const AdvisorsPage = () => {
           </table>
         )}
 
-        {/* Loading state for table */}
-        {loading && (
-          <div style={styles.loading}>Loading page {filters.page}...</div>
-        )}
+        {/* Skeleton on initial load */}
+        {loading && advisors.length === 0 && <TableSkeleton />}
 
         <div className="pagination">{generatePaginationButtons()}</div>
       </div>

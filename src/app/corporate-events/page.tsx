@@ -54,27 +54,27 @@ const styles = {
     padding: "16px",
     display: "flex" as const,
     flexDirection: "column" as const,
-    gap: "12px",
+    gap: "16px",
   },
   card: {
     backgroundColor: "white",
-    borderRadius: "8px",
-    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-    padding: "16px",
+    borderRadius: "12px",
+    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+    padding: "20px 24px",
     marginBottom: "0",
   },
   heading: {
-    fontSize: "20px",
+    fontSize: "24px",
     fontWeight: "700",
     color: "#1a202c",
-    marginBottom: "4px",
+    marginBottom: "8px",
     marginTop: "0px",
   },
   subHeading: {
-    fontSize: "16px",
+    fontSize: "20px",
     fontWeight: "600",
     color: "#1a202c",
-    marginBottom: "8px",
+    marginBottom: "12px",
   },
   searchDiv: {
     display: "flex" as const,
@@ -1662,34 +1662,12 @@ const CorporateEventsPage = () => {
     fetchCorporateEvents(updatedFilters);
   };
 
-  // Check if any filters are applied
-  const hasActiveFilters = () => {
-    return (
-      selectedCountries.length > 0 ||
-      selectedContinentalRegions.length > 0 ||
-      selectedSubRegions.length > 0 ||
-      selectedProvinces.length > 0 ||
-      selectedCities.length > 0 ||
-      selectedPrimarySectors.length > 0 ||
-      selectedSecondarySectors.length > 0 ||
-      selectedEventTypes.length > 0 ||
-      selectedDealStatuses.length > 0 ||
-      selectedBuyerInvestorTypes.length > 0 ||
-      selectedFundingStages.length > 0 ||
-      searchTerm.trim() !== "" ||
-      dateStart !== "" ||
-      dateEnd !== ""
-    );
-  };
-
   // Handle page change
   const handlePageChange = (page: number) => {
     const updatedFilters = { ...filters, Page: page };
     setFilters(updatedFilters);
     fetchCorporateEvents(updatedFilters);
   };
-
-  // Removed hasActiveFilters; export button now shows when results exist
 
   // Helper function to build filter parameters for API calls
   const buildFilterParams = (): URLSearchParams => {
@@ -2037,10 +2015,8 @@ const CorporateEventsPage = () => {
         grid-template-columns: 1fr !important;
         gap: 16px !important;
       }
-      .filters-card { padding: 16px 16px !important; }
       .filters-heading {
-        font-size: 20px !important;
-        margin-bottom: 16px !important;
+        margin-bottom: 16px;
       }
       .filters-sub-heading {
         font-size: 16px !important;
@@ -2077,108 +2053,131 @@ const CorporateEventsPage = () => {
             }}
             className="filters-card"
           >
-            {/* Page Title + Stats Chips — always visible at top */}
+            {/* Page Title */}
+            <h2
+              style={{ ...styles.heading, marginBottom: "16px" }}
+              className="filters-heading"
+            >
+              Corporate Events
+            </h2>
+
+            {/* Stat cards row – 3 cards: Acquisitions, Investments, IPOs */}
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
-                flexWrap: "wrap",
                 gap: "12px",
+                flexWrap: "wrap",
                 marginBottom: "16px",
               }}
             >
-              <h2 style={{ ...styles.heading, marginBottom: 0 }}>
-                Corporate Events
-              </h2>
-              {summaryData.acquisitions > 0 && (
-                <>
-                  <div
-                    style={{
-                      width: 1,
-                      height: 28,
-                      background: "#E2E8F0",
-                      flexShrink: 0,
-                    }}
-                  />
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "8px",
-                      flexWrap: "wrap",
-                      alignItems: "center",
-                    }}
-                  >
-                    {[
-                      {
-                        label: "Acquisitions",
-                        value: summaryData.acquisitions,
-                        color: "#2563EB",
-                        letter: "A",
-                      },
-                      {
-                        label: "Investments",
-                        value: summaryData.investments,
-                        color: "#0891B2",
-                        letter: "I",
-                      },
-                      {
-                        label: "IPOs",
-                        value: summaryData.ipos,
-                        color: "#7C3AED",
-                        letter: "↑",
-                      },
-                    ].map((s) => (
-                      <div key={s.label} className="stat-chip">
-                        <div
-                          className="stat-chip-dot"
-                          style={{ background: s.color }}
-                        >
-                          {s.letter}
-                        </div>
-                        <span className="stat-chip-label">{s.label}:</span>
-                        <span className="stat-chip-value">
-                          {s.value?.toLocaleString() || "0"}
-                        </span>
-                      </div>
-                    ))}
+              {[
+                {
+                  label: "Acquisitions",
+                  value: summaryData.acquisitions,
+                  color: "#2563EB",
+                  letter: "A",
+                },
+                {
+                  label: "Investments",
+                  value: summaryData.investments,
+                  color: "#0891B2",
+                  letter: "I",
+                },
+                {
+                  label: "IPOs",
+                  value: summaryData.ipos,
+                  color: "#7C3AED",
+                  letter: "↑",
+                },
+              ].map((card) => (
+                <div
+                  key={card.label}
+                  style={{
+                    flex: "1 1 160px",
+                    minWidth: "140px",
+                    background: "#fff",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: "8px",
+                    padding: "12px 14px",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                    <div
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        color: "#fff",
+                        flexShrink: 0,
+                        background: card.color,
+                      }}
+                    >
+                      {card.letter}
+                    </div>
+                    <span style={{ fontSize: "14px", fontWeight: 600, color: "#1a202c" }}>
+                      {card.label}
+                    </span>
                   </div>
-                </>
-              )}
+                  <div style={{ fontSize: "13px", color: "#64748B" }}>
+                    <span style={{ fontWeight: 700, color: "#0F172A", fontSize: "15px" }}>
+                      {card.value.toLocaleString()}
+                    </span>{" "}
+                    events
+                  </div>
+                </div>
+              ))}
             </div>
 
-            {/* Search Row — always visible, directly under title */}
-            <div style={{ marginBottom: "4px" }}>
-              <div className="search-row">
-                <input
-                  type="text"
-                  placeholder="Enter search terms here"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{ ...styles.input, marginBottom: 0, maxWidth: 340 }}
-                  className="filters-input"
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                />
-                <button
-                  onClick={handleSearch}
-                  style={{ ...styles.button, marginTop: 0, maxWidth: 140 }}
-                  className="filters-button"
-                  onMouseOver={(e) =>
-                    ((e.target as HTMLButtonElement).style.backgroundColor =
-                      "#005bb5")
-                  }
-                  onMouseOut={(e) =>
-                    ((e.target as HTMLButtonElement).style.backgroundColor =
-                      "#0075df")
-                  }
-                >
-                  {loading ? "Searching..." : "Search"}
-                </button>
-              </div>
+            {/* Search row – input, Search, Show Filters, Export CSV (same height) */}
+            <div className="search-bar" style={{ flexWrap: "wrap", gap: "12px", marginBottom: "0" }}>
+              <input
+                type="text"
+                placeholder="Enter search terms here"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-bar-input search-bar-input-wide filters-input"
+                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+              />
               <button
+                type="button"
+                onClick={handleSearch}
+                className="search-bar-button filters-button"
+              >
+                {loading ? "Searching..." : "Search"}
+              </button>
+              <button
+                type="button"
                 onClick={() => setShowFilters(!showFilters)}
-                style={styles.linkButton}
+                className="search-bar-button"
+                style={{
+                  backgroundColor: "#fff",
+                  color: "#1a202c",
+                  border: "1px solid #e2e8f0",
+                  fontWeight: 500,
+                }}
               >
                 {showFilters ? "Hide & Reset Filters" : "Show Filters"}
+              </button>
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                disabled={loading || exporting || isTrialActive}
+                title={isTrialActive ? "Export disabled during Trial" : undefined}
+                className="search-bar-button"
+                style={{
+                  backgroundColor: "#22c55e",
+                  minWidth: "120px",
+                  opacity: loading || exporting || isTrialActive ? 0.7 : 1,
+                  cursor: isTrialActive ? "not-allowed" : "pointer",
+                }}
+              >
+                {exporting ? "Exporting…" : "Export CSV"}
               </button>
             </div>
 
@@ -3080,26 +3079,6 @@ const CorporateEventsPage = () => {
 
       {/* Corporate Events Table Section */}
       <div className="corporate-event-section">
-        {/* Export Button - Show only when filters are applied */}
-        {hasActiveFilters() && corporateEvents.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginBottom: "16px",
-            }}
-          >
-            <button
-              onClick={handleExportCSV}
-              className="export-button"
-              disabled={loading || exporting || isTrialActive}
-              title={isTrialActive ? "Export disabled during Trial" : undefined}
-            >
-              {exporting ? "Exporting..." : "Export CSV"}
-            </button>
-          </div>
-        )}
-
         {/* Results Table */}
         {corporateEvents.length > 0 && (
           <CorporateEventsTable events={corporateEvents} loading={loading} />

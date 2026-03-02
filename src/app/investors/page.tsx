@@ -1488,10 +1488,10 @@ const InvestorsPage = () => {
     .loading-skeleton {
       background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
       background-size: 200% 100%;
-      animation: loading 1.5s ease-in-out infinite;
+      animation: shimmer 1.5s ease-in-out infinite;
       border-radius: 4px;
     }
-    @keyframes loading {
+    @keyframes shimmer {
       0% { background-position: 200% 0; }
       100% { background-position: -200% 0; }
     }
@@ -1831,11 +1831,159 @@ const InvestorsPage = () => {
               ...(showFilters ? {} : { padding: "12px 16px" }),
             }}
           >
-            {showFilters && (
-              <h2 className="filters-heading" style={styles.heading}>
-                Filters
-              </h2>
-            )}
+            {/* Page Title */}
+            <h2
+              style={{ ...styles.heading, marginBottom: "16px" }}
+              className="filters-heading"
+            >
+              Investors
+            </h2>
+
+            {/* Stat cards row – 5 cards: type name, X investors, Y investments */}
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                flexWrap: "wrap",
+                marginBottom: "16px",
+              }}
+            >
+              {[
+                {
+                  label: "Private Equity",
+                  investors: summaryData.privateEquityCount,
+                  investments: summaryData.numberOfPEInvestments,
+                  color: "#2563EB",
+                  letter: "PE",
+                },
+                {
+                  label: "Venture Capital",
+                  investors: summaryData.ventureCapitalCount,
+                  investments: summaryData.numberOfVCInvestments,
+                  color: "#7C3AED",
+                  letter: "VC",
+                },
+                {
+                  label: "Asset Managers",
+                  investors: summaryData.assetManagementCount,
+                  investments: summaryData.numberOfAssetManagerInvestments,
+                  color: "#059669",
+                  letter: "AM",
+                },
+                {
+                  label: "Hedge Fund",
+                  investors: summaryData.hedgeFundCount,
+                  investments: summaryData.numberOfHedgeFundInvestments,
+                  color: "#b45309",
+                  letter: "HF",
+                },
+                {
+                  label: "Family Office",
+                  investors: summaryData.familyOfficeCount,
+                  investments: summaryData.numberOfFamilyOfficeInvestments,
+                  color: "#be185d",
+                  letter: "FO",
+                },
+              ].map((card) => (
+                <div
+                  key={card.label}
+                  style={{
+                    flex: "1 1 160px",
+                    minWidth: "140px",
+                    background: "#fff",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: "8px",
+                    padding: "12px 14px",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                    <div
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        color: "#fff",
+                        flexShrink: 0,
+                        background: card.color,
+                      }}
+                    >
+                      {card.letter}
+                    </div>
+                    <span style={{ fontSize: "14px", fontWeight: 600, color: "#1a202c" }}>
+                      {card.label}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: "13px", color: "#64748B" }}>
+                    <span style={{ fontWeight: 700, color: "#0F172A", fontSize: "15px" }}>
+                      {card.investors.toLocaleString()}
+                    </span>{" "}
+                    investors
+                  </div>
+                  <div style={{ fontSize: "13px", color: "#64748B", marginTop: "2px" }}>
+                    <span style={{ fontWeight: 500, color: "#0F172A" }}>
+                      {card.investments.toLocaleString()}
+                    </span>{" "}
+                    investments
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Search row – input, Search, Show Filters, Export CSV (same height) */}
+            <div className="search-bar" style={{ flexWrap: "wrap", gap: "12px", marginBottom: "0" }}>
+              <input
+                type="text"
+                placeholder="Enter name here"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-bar-input search-bar-input-wide filters-input"
+                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+              />
+              <button
+                type="button"
+                className="search-bar-button filters-button"
+                onClick={handleSearch}
+              >
+                {loading ? "Searching..." : "Search"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (showFilters) handleResetFilters();
+                  setShowFilters(!showFilters);
+                }}
+                className="search-bar-button"
+                style={{
+                  backgroundColor: "#fff",
+                  color: "#1a202c",
+                  border: "1px solid #e2e8f0",
+                  fontWeight: 500,
+                }}
+              >
+                {showFilters ? "Hide & Reset Filters" : "Show Filters"}
+              </button>
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                disabled={exporting || loading || pagination.itemsTotal === 0}
+                title={pagination.itemsTotal === 0 ? "No results to export" : undefined}
+                className="search-bar-button"
+                style={{
+                  backgroundColor: "#22c55e",
+                  minWidth: "120px",
+                  opacity: exporting || loading || pagination.itemsTotal === 0 ? 0.7 : 1,
+                  cursor: pagination.itemsTotal === 0 ? "not-allowed" : "pointer",
+                }}
+              >
+                {exporting ? "Exporting…" : "Export CSV"}
+              </button>
+            </div>
 
             {showFilters && (
               <div className="filters-grid" style={styles.grid}>
@@ -2098,48 +2246,6 @@ const InvestorsPage = () => {
                 </div>
               </div>
             )}
-
-            <div style={{ marginTop: showFilters ? "20px" : "0" }}>
-              {showFilters && (
-                <h3 style={styles.subHeading}>Search for Investor</h3>
-              )}
-              <div className="search-row">
-                <input
-                  type="text"
-                  placeholder="Enter name here"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{ ...styles.input, marginBottom: 0, maxWidth: 340 }}
-                  className="filters-input"
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                />
-                <button
-                  style={{ ...styles.button, marginTop: 0, maxWidth: 140 }}
-                  className="filters-button"
-                  onClick={handleSearch}
-                  onMouseOver={(e) =>
-                    ((e.target as HTMLButtonElement).style.backgroundColor =
-                      "#005bb5")
-                  }
-                  onMouseOut={(e) =>
-                    ((e.target as HTMLButtonElement).style.backgroundColor =
-                      "#0075df")
-                  }
-                >
-                  {loading ? "Searching..." : "Search"}
-                </button>
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                if (showFilters) handleResetFilters();
-                setShowFilters(!showFilters);
-              }}
-              style={styles.linkButton}
-            >
-              {showFilters ? "Hide & Reset Filters" : "Show Filters"}
-            </button>
           </div>
 
           {/* Error Display */}
@@ -2149,120 +2255,6 @@ const InvestorsPage = () => {
 
       {/* Investors Table Section */}
       <div className="investor-section">
-        {/* Statistics Block */}
-        {!loading && investors.length > 0 && (
-        <div className="investor-stats">
-          <h2 className="stats-title">Investors</h2>
-          <div className="stats-grid">
-            <div className="stats-column">
-              <div className="stats-item">
-                <span className="stats-label">Private Equity: </span>
-                <span className="stats-value">
-                  {summaryData.privateEquityCount.toLocaleString()}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">Venture Capital: </span>
-                <span className="stats-value">
-                  {summaryData.ventureCapitalCount.toLocaleString()}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">Asset Managers: </span>
-                <span className="stats-value">
-                  {summaryData.assetManagementCount.toLocaleString()}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">Hedge Fund: </span>
-                <span className="stats-value">
-                  {summaryData.hedgeFundCount.toLocaleString()}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">Family Office: </span>
-                <span className="stats-value">
-                  {summaryData.familyOfficeCount.toLocaleString()}
-                </span>
-              </div>
-            </div>
-            <div className="stats-column">
-              <div className="stats-item">
-                <span className="stats-label">Number of PE investments: </span>
-                <span className="stats-value">
-                  {summaryData.numberOfPEInvestments.toLocaleString()}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">Number of VC investments: </span>
-                <span className="stats-value">
-                  {summaryData.numberOfVCInvestments.toLocaleString()}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">
-                  Number of Asset Management investments:{" "}
-                </span>
-                <span className="stats-value">
-                  {summaryData.numberOfAssetManagerInvestments.toLocaleString()}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">
-                  Number Hedge Fund investments:{" "}
-                </span>
-                <span className="stats-value">
-                  {summaryData.numberOfHedgeFundInvestments.toLocaleString()}
-                </span>
-              </div>
-              <div
-                className="stats-item"
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: "8px",
-                }}
-              >
-                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span className="stats-label">
-                    Number of Family Office investments:{" "}
-                  </span>
-                  <span className="stats-value">
-                    {summaryData.numberOfFamilyOfficeInvestments.toLocaleString()}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  onClick={handleExportCSV}
-                  disabled={exporting || loading || pagination.itemsTotal === 0}
-                  title={
-                    pagination.itemsTotal === 0
-                      ? "No results to export"
-                      : undefined
-                  }
-                  style={{
-                    marginLeft: "auto",
-                    padding: "9px 20px",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: "#fff",
-                    backgroundColor: "#22c55e",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: pagination.itemsTotal === 0 ? "not-allowed" : "pointer",
-                    opacity: exporting || loading || pagination.itemsTotal === 0 ? 0.7 : 1,
-                  }}
-                >
-                  {exporting ? "Exporting…" : "Export CSV"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        )}
-
         {/* Show skeleton on initial load, otherwise show table */}
         {loading && investors.length === 0 ? (
           <TableSkeleton />

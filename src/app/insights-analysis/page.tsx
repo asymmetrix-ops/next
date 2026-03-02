@@ -26,7 +26,7 @@ const styles = {
     padding: "16px",
     display: "flex" as const,
     flexDirection: "column" as const,
-    gap: "24px",
+    gap: "16px",
     width: "100%",
     maxWidth: "100%",
     boxSizing: "border-box" as const,
@@ -334,6 +334,7 @@ const InsightsAnalysisPage = () => {
   });
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
   const [contentTypes, setContentTypes] = useState<string[]>([]);
   const [primarySectors, setPrimarySectors] = useState<
     Array<{ id: number; sector_name: string }>
@@ -747,9 +748,6 @@ const InsightsAnalysisPage = () => {
       .cards-grid {
         grid-template-columns: 1fr;
       }
-      .filters-card {
-        padding: 16px 12px !important;
-      }
       .filters-input, .filters-select {
         max-width: 100% !important;
         width: 100% !important;
@@ -797,12 +795,8 @@ const InsightsAnalysisPage = () => {
         grid-template-columns: 1fr !important;
         gap: 16px !important;
       }
-      .filters-card {
-        padding: 20px 16px !important;
-      }
       .filters-heading {
-        font-size: 20px !important;
-        margin-bottom: 16px !important;
+        margin-bottom: 16px;
       }
       .filters-sub-heading {
         font-size: 16px !important;
@@ -825,83 +819,111 @@ const InsightsAnalysisPage = () => {
       {!isTrialActive && (
         <div style={styles.container}>
           <div style={styles.maxWidth}>
-            <div style={styles.card} className="filters-card">
-              <h2 style={styles.heading} className="filters-heading">
+            <div
+              style={{
+                ...styles.card,
+                ...(showFilters ? {} : { padding: "12px 16px" }),
+              }}
+              className="filters-card"
+            >
+              {/* Page Title */}
+              <h2
+                style={{ ...styles.heading, marginBottom: "16px" }}
+                className="filters-heading"
+              >
                 Insights & Analysis
               </h2>
-              <div style={styles.searchDiv}>
+
+              {/* Search row – input, Search, Show Filters (same height, global styles) */}
+              <div className="search-bar" style={{ flexWrap: "wrap", gap: "12px", marginBottom: "0" }}>
                 <input
                   type="text"
                   placeholder="Enter search term here"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  style={styles.input}
-                  className="filters-input"
+                  className="search-bar-input search-bar-input-wide filters-input"
                   onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                 />
-                <select
-                  value={filters.Content_Type || ""}
-                  onChange={(e) => {
-                    const updated = {
-                      ...filters,
-                      Content_Type: e.target.value || undefined,
-                      content_type: e.target.value || undefined,
-                      Offset: 1,
-                    };
-                    setFilters(updated);
-                    fetchInsightsAnalysis(updated);
-                  }}
-                  style={styles.select}
-                >
-                  <option value="">All Content Types</option>
-                  {contentTypes.map((ct) => (
-                    <option key={ct} value={ct}>
-                      {ct}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={
-                    filters.primary_sectors_ids?.[0]?.toString() || ""
-                  }
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    const updated = {
-                      ...filters,
-                      primary_sectors_ids:
-                        value === ""
-                          ? []
-                          : [Number.parseInt(value, 10)],
-                      Offset: 1, // Reset to first page when filtering
-                    };
-                    setFilters(updated);
-                    fetchInsightsAnalysis(updated);
-                  }}
-                  style={styles.select}
-                >
-                  <option value="">All Primary Sectors</option>
-                  {primarySectors.map((sector) => (
-                    <option key={sector.id} value={sector.id}>
-                      {sector.sector_name}
-                    </option>
-                  ))}
-                </select>
                 <button
+                  type="button"
                   onClick={handleSearch}
-                  style={styles.button}
-                  className="filters-button"
-                  onMouseOver={(e) =>
-                    ((e.target as HTMLButtonElement).style.backgroundColor =
-                      "#005bb5")
-                  }
-                  onMouseOut={(e) =>
-                    ((e.target as HTMLButtonElement).style.backgroundColor =
-                      "#0075df")
-                  }
+                  className="search-bar-button filters-button"
                 >
                   {loading ? "Searching..." : "Search"}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="search-bar-button"
+                  style={{
+                    backgroundColor: "#fff",
+                    color: "#1a202c",
+                    border: "1px solid #e2e8f0",
+                    fontWeight: 500,
+                  }}
+                >
+                  {showFilters ? "Hide & Reset Filters" : "Show Filters"}
+                </button>
               </div>
+
+              {/* Expandable filters */}
+              {showFilters && (
+                <div style={{ ...styles.grid, marginTop: "16px" }}>
+                  <div style={styles.gridItem}>
+                    <span style={styles.label}>Content Type</span>
+                    <select
+                      value={filters.Content_Type || ""}
+                      onChange={(e) => {
+                        const updated = {
+                          ...filters,
+                          Content_Type: e.target.value || undefined,
+                          content_type: e.target.value || undefined,
+                          Offset: 1,
+                        };
+                        setFilters(updated);
+                        fetchInsightsAnalysis(updated);
+                      }}
+                      style={styles.select}
+                      className="filters-input"
+                    >
+                      <option value="">All Content Types</option>
+                      {contentTypes.map((ct) => (
+                        <option key={ct} value={ct}>
+                          {ct}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={styles.gridItem}>
+                    <span style={styles.label}>Primary Sector</span>
+                    <select
+                      value={filters.primary_sectors_ids?.[0]?.toString() || ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const updated = {
+                          ...filters,
+                          primary_sectors_ids:
+                            value === ""
+                              ? []
+                              : [Number.parseInt(value, 10)],
+                          Offset: 1,
+                        };
+                        setFilters(updated);
+                        fetchInsightsAnalysis(updated);
+                      }}
+                      style={styles.select}
+                      className="filters-input"
+                    >
+                      <option value="">All Primary Sectors</option>
+                      {primarySectors.map((sector) => (
+                        <option key={sector.id} value={sector.id}>
+                          {sector.sector_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
 
               {/* Error Display */}
               {error && <div className="error">{error}</div>}

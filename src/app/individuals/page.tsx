@@ -59,16 +59,16 @@ const styles = {
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   },
   maxWidth: {
-    padding: "32px",
+    padding: "16px",
     display: "flex" as const,
     flexDirection: "column" as const,
-    gap: "24px",
+    gap: "16px",
   },
   card: {
     backgroundColor: "white",
     borderRadius: "12px",
     boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-    padding: "32px 24px",
+    padding: "20px 24px",
     marginBottom: "0",
   },
   heading: {
@@ -485,7 +485,28 @@ const IndividualsTable = ({
   const { createClickableElement } = useRightClick();
 
   if (loading) {
-    return <div className="loading">Loading individuals...</div>;
+    return (
+      <table className="individual-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Current Companies</th>
+            <th>Current Roles</th>
+            <th>Location</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[...Array(10)].map((_, i) => (
+            <tr key={i}>
+              <td><div className="loading-skeleton" style={{ width: "80%", height: "18px" }} /></td>
+              <td><div className="loading-skeleton" style={{ width: "90%", height: "18px" }} /></td>
+              <td><div className="loading-skeleton" style={{ width: "70%", height: "18px" }} /></td>
+              <td><div className="loading-skeleton" style={{ width: "60%", height: "18px" }} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
   }
 
   if (!individuals || individuals.length === 0) {
@@ -960,6 +981,17 @@ const IndividualsPage = () => {
   };
 
   const style = `
+    .loading-skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+      border-radius: 4px;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .search-row { display: flex; align-items: center; gap: 12px; }
     .individual-section {
       padding: 32px 24px;
       border-radius: 8px;
@@ -1180,14 +1212,128 @@ const IndividualsPage = () => {
       {/* Filters Section */}
       <div style={styles.container}>
         <div style={styles.maxWidth} className="individuals-max-width">
-          <div style={styles.card} className="filters-card">
-            <h2 style={styles.heading} className="filters-heading">
+          <div
+            style={{
+              ...styles.card,
+              ...(showFilters ? {} : { padding: "12px 16px" }),
+            }}
+            className="filters-card"
+          >
+            {/* Page Title */}
+            <h2
+              style={{ ...styles.heading, marginBottom: "16px" }}
+              className="filters-heading"
+            >
               Individuals
             </h2>
-            <p style={{ color: "#666", marginBottom: "16px" }}>
-              Search and filter individuals by location, sectors, job titles,
-              and more.
-            </p>
+
+            {/* Stat cards row – 6 cards: type name, X individuals */}
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                flexWrap: "wrap",
+                marginBottom: "16px",
+              }}
+            >
+              {[
+                {
+                  label: "Individuals",
+                  value: summaryData.totalIndividuals,
+                  color: "#2563EB",
+                  letter: "I",
+                },
+                { label: "CEOs", value: summaryData.ceos, color: "#0891B2", letter: "C" },
+                { label: "Founders", value: summaryData.founders, color: "#7C3AED", letter: "F" },
+                {
+                  label: "Current Roles",
+                  value: summaryData.currentRoles,
+                  color: "#059669",
+                  letter: "CR",
+                },
+                { label: "Chairs", value: summaryData.chairs, color: "#b45309", letter: "Ch" },
+                {
+                  label: "Past Roles",
+                  value: summaryData.pastRoles,
+                  color: "#be185d",
+                  letter: "PR",
+                },
+              ].map((card) => (
+                <div
+                  key={card.label}
+                  style={{
+                    flex: "1 1 160px",
+                    minWidth: "140px",
+                    background: "#fff",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: "8px",
+                    padding: "12px 14px",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                    <div
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        color: "#fff",
+                        flexShrink: 0,
+                        background: card.color,
+                      }}
+                    >
+                      {card.letter}
+                    </div>
+                    <span style={{ fontSize: "14px", fontWeight: 600, color: "#1a202c" }}>
+                      {card.label}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: "13px", color: "#64748B" }}>
+                    <span style={{ fontWeight: 700, color: "#0F172A", fontSize: "15px" }}>
+                      {card.value.toLocaleString()}
+                    </span>{" "}
+                    individuals
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Search row – input, Search, Show Filters (same height) */}
+            <div className="search-bar" style={{ flexWrap: "wrap", gap: "12px", marginBottom: "0" }}>
+              <input
+                type="text"
+                placeholder="Enter name here"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-bar-input search-bar-input-wide filters-input"
+                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+              />
+              <button
+                type="button"
+                className="search-bar-button filters-button"
+                onClick={handleSearch}
+              >
+                {loading ? "Searching..." : "Search"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowFilters(!showFilters)}
+                className="search-bar-button"
+                style={{
+                  backgroundColor: "#fff",
+                  color: "#1a202c",
+                  border: "1px solid #e2e8f0",
+                  fontWeight: 500,
+                }}
+              >
+                {showFilters ? "Hide & Reset Filters" : "Show Filters"}
+              </button>
+            </div>
 
             {showFilters && (
               <div style={styles.grid} className="filters-grid">
@@ -1853,122 +1999,17 @@ const IndividualsPage = () => {
                   )}
                 </div>
 
-                <div style={styles.gridItem}>
-                  <h3 style={styles.subHeading} className="filters-sub-heading">
-                    Search
-                  </h3>
-                  <span style={styles.label}>Search for Individuals</span>
-                  <input
-                    type="text"
-                    placeholder="Enter name here"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    style={styles.input}
-                    className="filters-input"
-                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                  />
-                  <button
-                    onClick={handleSearch}
-                    style={styles.button}
-                    className="filters-button"
-                    onMouseOver={(e) =>
-                      ((e.target as HTMLButtonElement).style.backgroundColor =
-                        "#005bb5")
-                    }
-                    onMouseOut={(e) =>
-                      ((e.target as HTMLButtonElement).style.backgroundColor =
-                        "#0075df")
-                    }
-                  >
-                    {loading ? "Searching..." : "Search"}
-                  </button>
-                </div>
               </div>
             )}
-
-            {/* Compact search always visible */}
-            {!showFilters && (
-              <div style={{ marginTop: 8 }}>
-                <input
-                  type="text"
-                  placeholder="Enter name here"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{ ...styles.input, maxWidth: 360, marginBottom: 8 }}
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                />
-                <button
-                  onClick={handleSearch}
-                  style={{ ...styles.button, maxWidth: 140 }}
-                >
-                  {loading ? "Searching..." : "Search"}
-                </button>
-              </div>
-            )}
-
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              style={styles.linkButton}
-            >
-              {showFilters ? "Hide Filters" : "Show Filters"}
-            </button>
 
             {/* Error Display */}
             {error && <div className="error">{error}</div>}
-
-            {/* Loading Display */}
-            {loading && <div className="loading">Loading individuals...</div>}
           </div>
         </div>
       </div>
 
       {/* Individuals Table Section */}
       <div className="individual-section">
-        {/* Statistics Block */}
-        {summaryData.totalIndividuals > 0 && (
-          <div className="individual-stats">
-            <h2 className="stats-title">Individuals</h2>
-            <div className="stats-grid">
-              <div className="stats-item">
-                <span className="stats-label">Individuals:</span>
-                <span className="stats-value">
-                  {summaryData.totalIndividuals?.toLocaleString() || "0"}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">CEOs:</span>
-                <span className="stats-value">
-                  {summaryData.ceos?.toLocaleString() || "0"}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">Current roles:</span>
-                <span className="stats-value">
-                  {summaryData.currentRoles?.toLocaleString() || "0"}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">Chair:</span>
-                <span className="stats-value">
-                  {summaryData.chairs?.toLocaleString() || "0"}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">Past roles:</span>
-                <span className="stats-value">
-                  {summaryData.pastRoles?.toLocaleString() || "0"}
-                </span>
-              </div>
-              <div className="stats-item">
-                <span className="stats-label">Founder:</span>
-                <span className="stats-value">
-                  {summaryData.founders?.toLocaleString() || "0"}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Results Table */}
         {individuals.length > 0 && (
           <IndividualsTable individuals={individuals} loading={loading} />

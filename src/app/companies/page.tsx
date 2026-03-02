@@ -774,9 +774,25 @@ CompanyDescription.displayName = "CompanyDescription";
 const CompanyDashboard = ({
   onSearch,
   initialSearch,
+  totalCount = 0,
+  ownershipCounts = {
+    publicCompanies: 0,
+    peOwnedCompanies: 0,
+    vcOwnedCompanies: 0,
+    privateCompanies: 0,
+    subsidiaryCompanies: 0,
+  },
 }: {
   onSearch?: (filters: Filters) => void;
   initialSearch?: string;
+  totalCount?: number;
+  ownershipCounts?: {
+    publicCompanies: number;
+    peOwnedCompanies: number;
+    vcOwnedCompanies: number;
+    privateCompanies: number;
+    subsidiaryCompanies: number;
+  };
 }) => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState(initialSearch || "");
@@ -1390,10 +1406,139 @@ const CompanyDashboard = ({
   return (
     <div style={styles.container}>
       <div style={styles.maxWidth}>
-        <div style={styles.card} className="filters-card">
-          <h2 style={styles.heading} className="filters-heading">
-            Filters
+        <div
+          style={{
+            ...styles.card,
+            ...(showFilters ? {} : { padding: "12px 16px" }),
+          }}
+          className="filters-card"
+        >
+          {/* Page Title */}
+          <h2
+            style={{ ...styles.heading, marginBottom: "16px" }}
+            className="filters-heading"
+          >
+            Companies
           </h2>
+
+          {/* Stat cards row – 5 cards: type name, X companies */}
+          <div
+            style={{
+              display: "flex",
+              gap: "12px",
+              flexWrap: "wrap",
+              marginBottom: "16px",
+            }}
+          >
+            {[
+              {
+                label: "Companies",
+                value: totalCount,
+                color: "#2563EB",
+                letter: "C",
+              },
+              {
+                label: "Public",
+                value: ownershipCounts.publicCompanies,
+                color: "#0891B2",
+                letter: "P",
+              },
+              {
+                label: "PE-owned",
+                value: ownershipCounts.peOwnedCompanies,
+                color: "#7C3AED",
+                letter: "PE",
+              },
+              {
+                label: "VC-owned",
+                value: ownershipCounts.vcOwnedCompanies,
+                color: "#059669",
+                letter: "VC",
+              },
+              {
+                label: "Private",
+                value: ownershipCounts.privateCompanies,
+                color: "#b45309",
+                letter: "Pr",
+              },
+            ].map((card) => (
+              <div
+                key={card.label}
+                style={{
+                  flex: "1 1 160px",
+                  minWidth: "140px",
+                  background: "#fff",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: "8px",
+                  padding: "12px 14px",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                  <div
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: "50%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      color: "#fff",
+                      flexShrink: 0,
+                      background: card.color,
+                    }}
+                  >
+                    {card.letter}
+                  </div>
+                  <span style={{ fontSize: "14px", fontWeight: 600, color: "#1a202c" }}>
+                    {card.label}
+                  </span>
+                </div>
+                <div style={{ fontSize: "13px", color: "#64748B" }}>
+                  <span style={{ fontWeight: 700, color: "#0F172A", fontSize: "15px" }}>
+                    {card.value.toLocaleString()}
+                  </span>{" "}
+                  companies
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Search row – input, Search, Show Filters, Export CSV (same height) */}
+          <div className="search-bar" style={{ flexWrap: "wrap", gap: "12px", marginBottom: "0" }}>
+            <input
+              type="text"
+              placeholder="Enter company name here"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-bar-input search-bar-input-wide filters-input"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSearchClick();
+              }}
+            />
+            <button
+              type="button"
+              className="search-bar-button filters-button"
+              onClick={handleSearchClick}
+            >
+              Search
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowFilters(!showFilters)}
+              className="search-bar-button"
+              style={{
+                backgroundColor: "#fff",
+                color: "#1a202c",
+                border: "1px solid #e2e8f0",
+                fontWeight: 500,
+              }}
+            >
+              {showFilters ? "Hide & Reset Filters" : "Show Filters"}
+            </button>
+          </div>
 
           {showFilters && (
             <div style={styles.grid} className="filters-grid">
@@ -2453,64 +2598,6 @@ const CompanyDashboard = ({
             </div>
           )}
 
-          <div style={{ marginTop: showFilters ? "12px" : "0" }}>
-            <h3 style={styles.subHeading} className="filters-sub-heading">
-              Search for Company
-            </h3>
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                flexWrap: "wrap",
-                alignItems: "flex-end",
-              }}
-            >
-              <div style={{ ...styles.searchDiv, flex: "1 1 420px", minWidth: "240px" }}>
-                <span style={{ fontSize: "14px", color: "#4a5568", marginBottom: "4px" }}>
-                  Company Name
-                </span>
-                <input
-                  type="text"
-                  placeholder="Enter company name here"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{ ...styles.input, maxWidth: "none", marginBottom: "0" }}
-                  className="filters-input"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSearchClick();
-                  }}
-                />
-              </div>
-              <button
-                style={{
-                  ...styles.button,
-                  width: "auto",
-                  maxWidth: "none",
-                  marginTop: "0",
-                  whiteSpace: "nowrap",
-                }}
-                className="filters-button"
-                onClick={handleSearchClick}
-                onMouseOver={(e) =>
-                  ((e.target as HTMLButtonElement).style.backgroundColor =
-                    "#005bb5")
-                }
-                onMouseOut={(e) =>
-                  ((e.target as HTMLButtonElement).style.backgroundColor =
-                    "#0075df")
-                }
-              >
-                Search
-              </button>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            style={styles.linkButton}
-          >
-            {showFilters ? "Hide & Reset Filters" : "Show Filters"}
-          </button>
         </div>
       </div>
     </div>
@@ -3158,6 +3245,16 @@ const CompanySection = ({
   };
 
   const style = `
+    .loading-skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+      border-radius: 4px;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
     .company-section {
       padding: 16px 12px;
       border-radius: 8px;
@@ -3511,13 +3608,103 @@ const CompanySection = ({
   `;
 
   if (loading) {
+    const skeletonRow = (i: number) =>
+      React.createElement(
+        "tr",
+        { key: i },
+        React.createElement(
+          "td",
+          null,
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "48px", height: "36px" },
+          })
+        ),
+        React.createElement(
+          "td",
+          null,
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "90%", height: "18px" },
+          })
+        ),
+        React.createElement(
+          "td",
+          null,
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "100%", height: "40px" },
+          })
+        ),
+        React.createElement(
+          "td",
+          null,
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "80%", height: "18px" },
+          })
+        ),
+        React.createElement(
+          "td",
+          null,
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "80%", height: "18px" },
+          })
+        ),
+        React.createElement(
+          "td",
+          null,
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "60%", height: "18px" },
+          })
+        ),
+        React.createElement(
+          "td",
+          null,
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "50px", height: "18px" },
+          })
+        ),
+        React.createElement(
+          "td",
+          null,
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "70%", height: "18px" },
+          })
+        )
+      );
+
     return React.createElement(
       "div",
       { className: "company-section" },
       React.createElement(
-        "div",
-        { className: "loading" },
-        "Loading companies..."
+        "table",
+        { className: "company-table" },
+        React.createElement(
+          "thead",
+          null,
+          React.createElement(
+            "tr",
+            null,
+            React.createElement("th", null, "Logo"),
+            React.createElement("th", null, "Name"),
+            React.createElement("th", null, "Description"),
+            React.createElement("th", null, "Primary Sectors"),
+            React.createElement("th", null, "Secondary Sectors"),
+            React.createElement("th", null, "Ownership"),
+            React.createElement("th", null, "LinkedIn"),
+            React.createElement("th", null, "Country")
+          )
+        ),
+        React.createElement(
+          "tbody",
+          null,
+          ...[...Array(10)].map((_, i) => skeletonRow(i))
+        )
       ),
       React.createElement("style", {
         dangerouslySetInnerHTML: { __html: style },
@@ -3541,8 +3728,8 @@ const CompanySection = ({
     { className: "company-section" },
     React.createElement(
       "div",
-      { className: "company-stats" },
-      React.createElement("h2", { className: "stats-title" }, "Companies"),
+      { className: "company-stats", style: { display: "none" } },
+      null,
       React.createElement(
         "div",
         { className: "stats-column" },
@@ -3825,7 +4012,12 @@ const CompaniesPage = () => {
   return (
     <div className="min-h-screen">
       <Header />
-      <CompanyDashboard onSearch={handleSearch} initialSearch={initialSearch} />
+      <CompanyDashboard
+        onSearch={handleSearch}
+        initialSearch={initialSearch}
+        totalCount={pagination.itemsReceived}
+        ownershipCounts={ownershipCounts}
+      />
       <CompanySection
         companies={companies}
         loading={loading}

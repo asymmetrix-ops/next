@@ -151,4 +151,59 @@ All colors MUST be HSL.
   .input-field {
     @apply px-3 py-2 w-full rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent;
   }
+
+  /* Global search bar – same height and size for all filter/search inputs and buttons */
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .search-bar-input,
+  .search-bar-input.filters-input,
+  input.filters-input.search-bar-input {
+    height: 40px;
+    padding: 0 14px;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+    border: 1px solid #e2e8f0;
+    color: #4a5568;
+    outline: none;
+    min-width: 0;
+  }
+
+  .search-bar-input:focus,
+  .search-bar-input.filters-input:focus {
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 1px hsl(var(--ring));
+  }
+
+  .search-bar-button,
+  .search-bar-button.filters-button,
+  button.filters-button.search-bar-button {
+    height: 40px;
+    padding: 0 20px;
+    min-width: 120px;
+    max-width: 140px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    box-sizing: border-box;
+    background-color: #0075df;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+  }
+
+  .search-bar-button:hover,
+  .search-bar-button.filters-button:hover {
+    background-color: #005bb5;
+  }
+
+  .search-bar-input.search-bar-input-wide {
+    max-width: 340px;
+    width: 100%;
+  }
 }
