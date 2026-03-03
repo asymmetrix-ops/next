@@ -3,12 +3,8 @@ export type TrackingEventType =
   | "page_view"
   | "logout"
   | "error"
-  | "download_pdf"
-  | "platform_wide_search"
-  | "company_search";
+  | "platform_wide_search";
 import { authService } from "@/lib/auth";
-import { isActivityTrackingBlockedEmail } from "@/lib/activityTracking";
-import { getDeviceType } from "@/lib/device";
 
 export interface TrackingEventInput {
   userId?: number;
@@ -16,15 +12,13 @@ export interface TrackingEventInput {
   pageHeading?: string;
   sessionId?: string;
   eventType: TrackingEventType;
-  query?: string | null;
-  filtersUsed?: Record<string, unknown>;
+  /** Optional search query for platform_wide_search events */
+  query?: string;
 }
 
 const SESSION_KEY = "asym_session_id";
 const RECENT_EVENTS_KEY = "asym_recent_events";
 const recentEvents = new Map<string, number>();
-
-// NOTE: Global activity tracking block rule lives in `src/lib/activityTracking.ts`
 
 export function getOrCreateSessionId(): string {
   if (typeof window === "undefined") return "";
@@ -85,17 +79,15 @@ export function getPageVisit(): string {
 export function getPageHeading(): string {
   if (typeof document === "undefined") return "";
   try {
-    const h1 = document.querySelector("h1");
-    const h1Text = (h1?.textContent || h1?.innerHTML || "").trim();
-    return h1Text || document.title || "";
-  } catch {
     return document.title || "";
+  } catch {
+    return "";
   }
 }
 
 async function waitForStableTitle(
-  maxWaitMs = 6000,
-  stableMs = 1200
+  maxWaitMs = 2000,
+  stableMs = 1000
 ): Promise<string> {
   if (typeof document === "undefined") return "";
   try {
@@ -107,77 +99,40 @@ async function waitForStableTitle(
       resolveFn = resolve;
     });
 
-    let lastValue = ((): string => {
-      try {
-        const h1 = document.querySelector("h1");
-        const h1Text = (h1?.textContent || h1?.innerHTML || "").trim();
-        return h1Text || document.title || "";
-      } catch {
-        return document.title || "";
-      }
-    })();
-
-    const computeCurrent = (): string => {
-      try {
-        const h1 = document.querySelector("h1");
-        const h1Text = (h1?.textContent || h1?.innerHTML || "").trim();
-        return h1Text || document.title || "";
-      } catch {
-        return document.title || "";
-      }
-    };
+    let lastTitle = document.title || "";
 
     const checkResolve = () => {
       if (resolved) return;
       const now = Date.now();
-      const current = computeCurrent();
-      if (current !== lastValue) {
-        lastValue = current;
-        stableSince = now;
-      }
-      if (
-        (current && now - stableSince >= stableMs) ||
-        now - start >= maxWaitMs
-      ) {
+      if (now - stableSince >= stableMs || now - start >= maxWaitMs) {
         resolved = true;
-        headObserver?.disconnect();
-        bodyObserver?.disconnect();
+        observer?.disconnect();
         clearInterval(intervalId);
-        resolveFn!(current || lastValue || document.title || "");
+        resolveFn!(document.title || "");
       }
     };
 
     const headEl = document.head || document.querySelector("head");
-    const bodyEl = document.body || document.documentElement;
-
-    const headObserver = headEl
+    const observer = headEl
       ? new MutationObserver(() => {
-          checkResolve();
-        })
-      : null;
-    const bodyObserver = bodyEl
-      ? new MutationObserver(() => {
-          checkResolve();
+          // Next.js may replace the <title> node entirely; always read document.title
+          const current = document.title || "";
+          if (current !== lastTitle) {
+            lastTitle = current;
+            stableSince = Date.now();
+          }
         })
       : null;
 
-    if (headObserver && headEl) {
-      headObserver.observe(headEl, {
+    if (observer && headEl) {
+      observer.observe(headEl, {
         childList: true,
         subtree: true,
         characterData: true,
       });
     }
-    if (bodyObserver && bodyEl) {
-      bodyObserver.observe(bodyEl, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-        attributes: false,
-      });
-    }
 
-    const intervalId = window.setInterval(checkResolve, 100);
+    const intervalId = window.setInterval(checkResolve, 50);
     checkResolve();
     return await done;
   } catch {
@@ -277,15 +232,6 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
     (isPageView ? await waitForStableTitle() : getPageHeading());
   // Determine the most up-to-date user id at send time
   let finalUserId: number = 0;
-  // Resolve current email early so blocklist applies even if userId is already provided
-  let currentEmail: string | undefined = (() => {
-    try {
-      const u0 = authService.getUser();
-      return (u0?.email as string | undefined) || undefined;
-    } catch {
-      return undefined;
-    }
-  })();
   if (
     typeof input.userId === "number" &&
     Number.isFinite(input.userId) &&
@@ -295,7 +241,6 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
   } else {
     try {
       const u = authService.getUser();
-      currentEmail = u?.email as string | undefined;
       const parsed = u?.id ? Number.parseInt(u.id, 10) : NaN;
       if (Number.isFinite(parsed)) {
         finalUserId = parsed as number;
@@ -314,9 +259,6 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
         if (refreshed && typeof refreshed.id === "string") {
           // Persist for subsequent events
           authService.setUser?.(refreshed);
-          currentEmail = (refreshed as { email?: string }).email as
-            | string
-            | undefined;
           const parsed = Number.parseInt(refreshed.id, 10);
           if (Number.isFinite(parsed)) {
             finalUserId = parsed as number;
@@ -327,50 +269,28 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
       // ignore
     }
   }
-
-  // Respect global block rule: skip tracking if the authenticated user's email is blocked
-  if (isActivityTrackingBlockedEmail(currentEmail)) {
-    return;
-  }
   if (isPageView) {
     const key = `${input.eventType}|${finalUserId}|${
       input.pageVisit ?? getPageVisit()
     }`;
     if (!shouldSendOnce(key, 2000)) return;
   }
-  const payload = {
+  const payload: Record<string, unknown> = {
     user_id: finalUserId,
     page_visit: input.pageVisit ?? getPageVisit(),
     page_heading: heading,
     session_id: input.sessionId ?? getOrCreateSessionId(),
     event_type: input.eventType,
-    device: getDeviceType(),
-  } as const;
-
-  const queryValue =
-    typeof input.query === "string"
-      ? input.query.trim().slice(0, 512)
-      : input.query ?? null;
-  const shouldIncludeQuery =
-    input.eventType === "platform_wide_search" ||
-    input.eventType === "company_search" ||
-    queryValue !== null;
-  const withQuery = shouldIncludeQuery ? { ...payload, query: queryValue } : payload;
-
-  const filtersValue =
-    input.filtersUsed && typeof input.filtersUsed === "object"
-      ? (input.filtersUsed as Record<string, unknown>)
-      : {};
-  const payloadFinal =
-    input.eventType === "company_search"
-      ? { ...withQuery, filters_used: filtersValue }
-      : withQuery;
+  };
+  if (input.query != null && input.query !== "") {
+    payload.query = input.query;
+  }
 
   try {
     await fetch("/api/user-activity", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payloadFinal),
+      body: JSON.stringify(payload),
       keepalive: input.eventType === "logout" || input.eventType === "error",
     });
   } catch {
