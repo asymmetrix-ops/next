@@ -58,6 +58,15 @@ const getEntityHref = (row: PortfolioEntityRow): string | null => {
   }
 };
 
+const ENTITY_TYPE_FILTER_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "All" },
+  { value: "company", label: "Company" },
+  { value: "sector", label: "Sector" },
+  { value: "individual", label: "Individual" },
+  { value: "investor", label: "Investor" },
+  { value: "advisor", label: "Advisor" },
+];
+
 /** Map global search result type to portfolio follow key; null if not followable. */
 function getFollowKeyForSearchType(type: string): "followed_companies" | "followed_advisors" | "followed_investors" | "followed_sectors" | "followed_individuals" | null {
   const t = String(type || "").toLowerCase().trim();
@@ -85,6 +94,13 @@ export default function MyPortfolioPage() {
   /* eslint-enable @typescript-eslint/no-unused-vars */
 
   const effectiveSearch = useMemo(() => search.trim(), [search]);
+  const [entityTypeFilter, setEntityTypeFilter] = useState<string>("");
+
+  const filteredRows = useMemo(() => {
+    const filter = (entityTypeFilter || "").trim().toLowerCase();
+    if (!filter) return rows;
+    return rows.filter((r) => String(r.entity || "").toLowerCase().trim() === filter);
+  }, [rows, entityTypeFilter]);
 
   const loadPortfolio = useCallback(
     async (silent = false) => {
@@ -252,20 +268,38 @@ export default function MyPortfolioPage() {
             <span className="text-sm text-gray-500">
               {loading
                 ? "Loading…"
-                : `${rows.length} result${rows.length === 1 ? "" : "s"}`}
+                : `${filteredRows.length} result${filteredRows.length === 1 ? "" : "s"}`}
             </span>
           </div>
 
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Search
-            </label>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder='Search portfolio (e.g. "IQVIA")'
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
-            />
+          <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Search
+              </label>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder='Search portfolio (e.g. "IQVIA")'
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Entity Type
+              </label>
+              <select
+                value={entityTypeFilter}
+                onChange={(e) => setEntityTypeFilter(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 bg-white"
+              >
+                {ENTITY_TYPE_FILTER_OPTIONS.map((opt) => (
+                  <option key={opt.value || "all"} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {error && (
@@ -294,18 +328,20 @@ export default function MyPortfolioPage() {
                       Loading…
                     </td>
                   </tr>
-                ) : rows.length === 0 ? (
+                ) : filteredRows.length === 0 ? (
                   <tr>
                     <td colSpan={2} className="px-4 py-10 text-gray-500">
-                      {fallbackLoading || fallbackResults.length > 0
-                        ? fallbackLoading
-                          ? "No matches in your portfolio. Searching the platform…"
-                          : "No matches in your portfolio. See results below to follow."
-                        : "No followed entities found."}
+                      {rows.length === 0
+                        ? fallbackLoading || fallbackResults.length > 0
+                          ? fallbackLoading
+                            ? "No matches in your portfolio. Searching the platform…"
+                            : "No matches in your portfolio. See results below to follow."
+                          : "No followed entities found."
+                        : "No entities match the selected filter."}
                     </td>
                   </tr>
                 ) : (
-                  rows.map((r, idx) => (
+                  filteredRows.map((r, idx) => (
                     <tr
                       key={`${r.entity}:${r.id}:${idx}`}
                       className="border-t border-gray-100 hover:bg-gray-50 transition-colors"
