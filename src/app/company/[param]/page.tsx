@@ -177,6 +177,7 @@ interface CompanyRootLinkedInData {
   LinkedIn_Employee?: number;
   LinkedIn_Emp__Date?: string | null;
   linkedin_logo?: string;
+  linkedin_growth_1y_pct?: number | null;
 }
 
 interface CompanyOwnershipType {
@@ -447,6 +448,7 @@ interface Company {
   url: string;
   _linkedin_data_of_new_company: CompanyLinkedInData;
   linkedin_data?: CompanyRootLinkedInData;
+  linkedin_growth_1y_pct?: number | null;
   _locations: CompanyLocation;
   _ownership_type: CompanyOwnershipType;
   sectors_id: CompanySector[];
@@ -675,6 +677,13 @@ const formatPercent = (value?: number | string | null): string => {
   const n = getNumeric(value);
   if (n === undefined) return "Not available";
   return `${Math.round(n)}%`;
+};
+
+// Preserves decimals for growth metrics (e.g. 1.7 -> "1.7%")
+const formatGrowthPercent = (value?: number | string | null): string => {
+  const n = getNumeric(value);
+  if (n === undefined) return "Not available";
+  return `${n % 1 === 0 ? Math.round(n) : Number(n).toFixed(1)}%`;
 };
 
 const formatMultiple = (value?: number | string | null): string => {
@@ -1329,6 +1338,12 @@ const CompanyDetail = () => {
             (data as unknown as { Lifecycle_stage?: LifecycleStage })
               .Lifecycle_stage ||
             undefined,
+          // LinkedIn growth may come from root or Company
+          linkedin_growth_1y_pct:
+            (data.Company as unknown as { linkedin_growth_1y_pct?: number | null })
+              ?.linkedin_growth_1y_pct ??
+            (data as unknown as { linkedin_growth_1y_pct?: number | null })
+              ?.linkedin_growth_1y_pct,
         };
 
         // Parse optional ebitda_data with display strings
@@ -3940,8 +3955,36 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.chartContainer} className="chartContainer">
                 <div style={styles.chartTitle}>LinkedIn Employee Count</div>
-                <div style={styles.currentCount}>
-                  {formatNumber(currentEmployeeCount)} employees
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "baseline",
+                    gap: "16px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <div style={styles.currentCount}>
+                    {formatNumber(currentEmployeeCount)} employees
+                  </div>
+                  {(company.linkedin_growth_1y_pct != null ||
+                    company.linkedin_data?.linkedin_growth_1y_pct != null) && (
+                    <div
+                      style={{
+                        fontSize: "14px",
+                        color: "#4a5568",
+                        fontWeight: 500,
+                      }}
+                    >
+                      LinkedIn Growth (1 Year):{" "}
+                      <span style={{ color: "#1a202c", fontWeight: 600 }}>
+                        {formatGrowthPercent(
+                          company.linkedin_growth_1y_pct ??
+                            company.linkedin_data?.linkedin_growth_1y_pct
+                        )}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 {employeeData.length > 0 ? (
                   <EmployeeChart data={employeeData} />
@@ -4675,8 +4718,36 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.chartContainer}>
                 <div style={styles.chartTitle}>LinkedIn Employee Count</div>
-                <div style={styles.currentCount}>
-                  {formatNumber(currentEmployeeCount)} employees
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "baseline",
+                    gap: "16px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <div style={styles.currentCount}>
+                    {formatNumber(currentEmployeeCount)} employees
+                  </div>
+                  {(company.linkedin_growth_1y_pct != null ||
+                    company.linkedin_data?.linkedin_growth_1y_pct != null) && (
+                    <div
+                      style={{
+                        fontSize: "14px",
+                        color: "#4a5568",
+                        fontWeight: 500,
+                      }}
+                    >
+                      LinkedIn Growth (1 Year):{" "}
+                      <span style={{ color: "#1a202c", fontWeight: 600 }}>
+                        {formatGrowthPercent(
+                          company.linkedin_growth_1y_pct ??
+                            company.linkedin_data?.linkedin_growth_1y_pct
+                        )}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 {employeeData.length > 0 ? (
                   <EmployeeChart data={employeeData} />
