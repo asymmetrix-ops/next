@@ -1,4 +1,9 @@
-export type TrackingEventType = "login" | "page_view" | "logout" | "error";
+export type TrackingEventType =
+  | "login"
+  | "page_view"
+  | "logout"
+  | "error"
+  | "platform_wide_search";
 import { authService } from "@/lib/auth";
 
 export interface TrackingEventInput {
@@ -7,6 +12,8 @@ export interface TrackingEventInput {
   pageHeading?: string;
   sessionId?: string;
   eventType: TrackingEventType;
+  /** Optional search query for platform_wide_search events */
+  query?: string;
 }
 
 const SESSION_KEY = "asym_session_id";
@@ -268,13 +275,16 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
     }`;
     if (!shouldSendOnce(key, 2000)) return;
   }
-  const payload = {
+  const payload: Record<string, unknown> = {
     user_id: finalUserId,
     page_visit: input.pageVisit ?? getPageVisit(),
     page_heading: heading,
     session_id: input.sessionId ?? getOrCreateSessionId(),
     event_type: input.eventType,
-  } as const;
+  };
+  if (input.query != null && input.query !== "") {
+    payload.query = input.query;
+  }
 
   try {
     await fetch("/api/user-activity", {

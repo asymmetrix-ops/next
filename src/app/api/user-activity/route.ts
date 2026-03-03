@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-type EventType = "login" | "page_view" | "logout" | "error";
+type EventType =
+  | "login"
+  | "page_view"
+  | "logout"
+  | "error"
+  | "platform_wide_search";
 
 interface UserActivityPayload {
   user_id: number;
@@ -8,6 +13,7 @@ interface UserActivityPayload {
   page_heading: string;
   session_id: string;
   event_type: EventType;
+  query?: string;
 }
 
 const XANO_ENDPOINT =
@@ -26,7 +32,14 @@ export async function POST(req: NextRequest) {
       event_type,
     } = body;
 
-    if (!event_type || !["login", "page_view", "logout", "error"].includes(event_type)) {
+    const allowed: EventType[] = [
+      "login",
+      "page_view",
+      "logout",
+      "error",
+      "platform_wide_search",
+    ];
+    if (!event_type || !allowed.includes(event_type as EventType)) {
       return NextResponse.json(
         { error: "Invalid or missing event_type" },
         { status: 400 }
@@ -40,6 +53,10 @@ export async function POST(req: NextRequest) {
       session_id: String(session_id || ""),
       event_type: event_type as EventType,
     };
+    const queryVal = body.query;
+    if (queryVal != null && typeof queryVal === "string" && queryVal.trim() !== "") {
+      payload.query = queryVal.trim();
+    }
 
     const upstream = await fetch(XANO_ENDPOINT, {
       method: "POST",

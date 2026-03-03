@@ -25,7 +25,10 @@ export async function followPortfolioEntity({ followKey, entityId }: FollowArgs)
     "Content-Type": "application/json",
     Accept: "application/json",
   };
-  if (token) headers["x-asym-token"] = token;
+  if (token) {
+    headers["x-asym-token"] = token;
+    headers["Authorization"] = `Bearer ${token}`;
+  }
 
   const res = await fetch("/api/portfolio", {
     method: "POST",
@@ -65,7 +68,10 @@ export async function unfollowPortfolioEntity({
     "Content-Type": "application/json",
     Accept: "application/json",
   };
-  if (token) headers["x-asym-token"] = token;
+  if (token) {
+    headers["x-asym-token"] = token;
+    headers["Authorization"] = `Bearer ${token}`;
+  }
 
   const res = await fetch("/api/portfolio", {
     method: "POST",

@@ -144,7 +144,18 @@ export type ProgressiveSearchOptions = {
   onComplete: () => void;
   onError?: (source: SearchSource, err: unknown) => void;
   signal?: AbortSignal;
+  /** When set, only these sources are queried (e.g. exclude corporate_event and insight). */
+  sources?: SearchSource[];
 };
+
+/** Sources used for portfolio fallback search (followable entities only; no events or content). */
+export const PORTFOLIO_FALLBACK_SOURCES: SearchSource[] = [
+  "sector",
+  "investor",
+  "individual",
+  "company",
+  "advisor",
+];
 
 /**
  * Fetch from all sources in parallel; call onBatch as each source responds (progressive loading).
@@ -154,7 +165,7 @@ export function fetchGlobalSearchProgressive(
   pageType: SearchPageType | null,
   options: ProgressiveSearchOptions
 ): void {
-  const { onBatch, onComplete, onError, signal } = options;
+  const { onBatch, onComplete, onError, signal, sources: sourcesOverride } = options;
   const q = query.trim();
   if (!q || q.length < 2) {
     onComplete();
@@ -171,9 +182,9 @@ export function fetchGlobalSearchProgressive(
     "insights and analysis": "insight",
   };
 
-  const sources: SearchSource[] = pageType
-    ? [typeToSource[pageType] ?? "company"]
-    : [...SEARCH_SOURCES];
+  const sources: SearchSource[] =
+    sourcesOverride ??
+    (pageType ? [typeToSource[pageType] ?? "company"] : [...SEARCH_SOURCES]);
 
   let pending = sources.length;
 

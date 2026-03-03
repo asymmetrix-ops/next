@@ -1,8 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
+/* eslint-disable @typescript-eslint/no-unused-vars -- used in fallback search JSX */
+import {
+  type GlobalSearchResult,
+  fetchGlobalSearchProgressive,
+  sortSearchResults,
+  resolveSearchHref,
+  getSearchBadgeLabel,
+  badgeClassForSearchType,
+  PORTFOLIO_FALLBACK_SOURCES,
+} from "@/lib/globalSearch";
+/* eslint-enable @typescript-eslint/no-unused-vars */
+import { followPortfolioEntity } from "@/lib/portfolioFollow";
+import { toast } from "react-hot-toast";
 
 type PortfolioEntityType =
   | "company"
@@ -45,6 +58,17 @@ const getEntityHref = (row: PortfolioEntityRow): string | null => {
   }
 };
 
+/** Map global search result type to portfolio follow key; null if not followable. */
+function getFollowKeyForSearchType(type: string): "followed_companies" | "followed_advisors" | "followed_investors" | "followed_sectors" | "followed_individuals" | null {
+  const t = String(type || "").toLowerCase().trim();
+  if (t === "company" || t === "companies") return "followed_companies";
+  if (t === "advisor" || t === "advisors") return "followed_advisors";
+  if (t === "investor" || t === "investors") return "followed_investors";
+  if (t === "sector" || t === "sectors" || t === "sub_sector" || t === "sub-sector") return "followed_sectors";
+  if (t === "individual" || t === "individuals") return "followed_individuals";
+  return null;
+}
+
 export default function MyPortfolioPage() {
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<PortfolioEntityRow[]>([]);
@@ -52,18 +76,27 @@ export default function MyPortfolioPage() {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  /* eslint-disable @typescript-eslint/no-unused-vars -- used in fallback section JSX */
+  const [fallbackResults, setFallbackResults] = useState<GlobalSearchResult[]>([]);
+  const [fallbackLoading, setFallbackLoading] = useState(false);
+  const [fallbackDismissed, setFallbackDismissed] = useState(false);
+  const fallbackAbortRef = useRef<AbortController | null>(null);
+  const [followingId, setFollowingId] = useState<string | null>(null);
+  /* eslint-enable @typescript-eslint/no-unused-vars */
+
   const effectiveSearch = useMemo(() => search.trim(), [search]);
 
-  useEffect(() => {
-    const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("asymmetrix_auth_token")
-        : null;
+  const loadPortfolio = useCallback(
+    async (silent = false) => {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("asymmetrix_auth_token")
+          : null;
 
-    const run = async () => {
-      setLoading(true);
-      setError(null);
-
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
       abortRef.current?.abort();
       const ac = new AbortController();
       abortRef.current = ac;
@@ -71,9 +104,7 @@ export default function MyPortfolioPage() {
       const qs = new URLSearchParams();
       if (effectiveSearch) qs.set("search", effectiveSearch);
 
-      const headers: Record<string, string> = {
-        Accept: "application/json",
-      };
+      const headers: Record<string, string> = { Accept: "application/json" };
       if (token) headers["x-asym-token"] = token;
 
       try {
@@ -101,22 +132,103 @@ export default function MyPortfolioPage() {
           throw new Error(message);
         }
 
-        setRows(Array.isArray(data) ? (data as PortfolioEntityRow[]) : []);
+        const list = Array.isArray(data) ? (data as PortfolioEntityRow[]) : [];
+        setRows(list);
+        return list;
       } catch (e) {
-        if ((e as { name?: string }).name === "AbortError") return;
-        setError((e as Error).message || "Failed to load portfolio");
+        if ((e as { name?: string }).name === "AbortError") return [];
+        if (!silent) {
+          setError((e as Error).message || "Failed to load portfolio");
+        }
         setRows([]);
+        return [];
       } finally {
-        setLoading(false);
+        if (!silent) {
+          setLoading(false);
+        }
       }
-    };
+    },
+    [effectiveSearch]
+  );
 
-    const t = window.setTimeout(run, 250);
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      loadPortfolio();
+    }, 250);
     return () => {
       window.clearTimeout(t);
       abortRef.current?.abort();
     };
-  }, [effectiveSearch]);
+  }, [loadPortfolio]);
+
+  // When portfolio returns 0 results and user has a search query, run global search fallback.
+  // Keep fallback visible after user follows (rows.length > 0) so they can follow more.
+  useEffect(() => {
+    if (loading || effectiveSearch.length < 2) {
+      setFallbackResults([]);
+      setFallbackLoading(false);
+      setFallbackDismissed(false);
+      fallbackAbortRef.current?.abort();
+      return;
+    }
+    if (rows.length > 0) {
+      return;
+    }
+
+    setFallbackDismissed(false);
+    fallbackAbortRef.current?.abort();
+    const ac = new AbortController();
+    fallbackAbortRef.current = ac;
+    setFallbackLoading(true);
+    setFallbackResults([]);
+
+    const collected: GlobalSearchResult[] = [];
+    fetchGlobalSearchProgressive(effectiveSearch, null, {
+      signal: ac.signal,
+      sources: PORTFOLIO_FALLBACK_SOURCES,
+      onBatch: (items) => {
+        if (ac.signal.aborted) return;
+        collected.push(...items);
+        setFallbackResults(sortSearchResults([...collected]));
+      },
+      onComplete: () => {
+        if (ac.signal.aborted) return;
+        setFallbackResults(sortSearchResults(collected));
+        setFallbackLoading(false);
+      },
+      onError: () => {
+        setFallbackLoading(false);
+      },
+    });
+
+    return () => {
+      ac.abort();
+      fallbackAbortRef.current = null;
+    };
+  }, [loading, effectiveSearch, rows.length]);
+
+  /* eslint-disable @typescript-eslint/no-unused-vars -- used by Follow button in fallback JSX */
+  const handleFollow = useCallback(
+    async (result: GlobalSearchResult) => {
+      const followKey = getFollowKeyForSearchType(result.type);
+      if (!followKey || !Number.isFinite(result.id) || result.id <= 0) return;
+      const key = `${result.type}-${result.id}`;
+      setFollowingId(key);
+      try {
+        await followPortfolioEntity({ followKey, entityId: result.id });
+        toast.success(`Following ${result.title}`);
+        setFallbackResults((prev) => prev.filter((r) => !(r.type === result.type && r.id === result.id)));
+        // Re-fetch followed entities so the table updates with the new item
+        await loadPortfolio(true);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to follow");
+      } finally {
+        setFollowingId(null);
+      }
+    },
+    [loadPortfolio]
+  );
+  /* eslint-enable @typescript-eslint/no-unused-vars */
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -185,7 +297,11 @@ export default function MyPortfolioPage() {
                 ) : rows.length === 0 ? (
                   <tr>
                     <td colSpan={2} className="px-4 py-10 text-gray-500">
-                      No followed entities found.
+                      {fallbackLoading || fallbackResults.length > 0
+                        ? fallbackLoading
+                          ? "No matches in your portfolio. Searching the platform…"
+                          : "No matches in your portfolio. See results below to follow."
+                        : "No followed entities found."}
                     </td>
                   </tr>
                 ) : (
@@ -217,6 +333,79 @@ export default function MyPortfolioPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Fallback: global search results; stays open after follow so user can follow more */}
+          {effectiveSearch.length >= 2 &&
+          (fallbackLoading || fallbackResults.length > 0) &&
+          !fallbackDismissed ? (
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <p className="text-sm font-medium text-gray-700">
+                  {rows.length === 0
+                    ? "No matches in your portfolio. Results from the platform:"
+                    : "Results from the platform (you can follow more):"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setFallbackDismissed(true)}
+                  className="shrink-0 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                  aria-label="Close search results"
+                >
+                  Close
+                </button>
+              </div>
+              {fallbackLoading && fallbackResults.length === 0 ? (
+                <p className="text-sm text-gray-500">Searching…</p>
+              ) : (
+                <ul className="space-y-2">
+                  {fallbackResults.map((r, idx) => {
+                    const href = resolveSearchHref(r);
+                    const followKey = getFollowKeyForSearchType(r.type);
+                    const canFollow = followKey !== null;
+                    const isFollowing = followingId === `${r.type}-${r.id}`;
+                    return (
+                      <li
+                        key={`${r.type}-${r.id}-${idx}`}
+                        className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-gray-50 border border-gray-100"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          {href ? (
+                            <Link
+                              href={href}
+                              className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline truncate"
+                            >
+                              {r.title}
+                            </Link>
+                          ) : (
+                            <span className="text-sm text-gray-900 truncate">
+                              {r.title}
+                            </span>
+                          )}
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded border shrink-0 ${badgeClassForSearchType(
+                              r.type
+                            )}`}
+                          >
+                            {getSearchBadgeLabel(r.type)}
+                          </span>
+                        </div>
+                        {canFollow ? (
+                          <button
+                            type="button"
+                            disabled={isFollowing}
+                            onClick={() => handleFollow(r)}
+                            className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {isFollowing ? "Adding…" : "Follow"}
+                          </button>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
