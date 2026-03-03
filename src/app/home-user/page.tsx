@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
+import { trackEvent } from "@/lib/tracking";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 // import { useRightClick } from "@/hooks/useRightClick";
@@ -131,12 +132,26 @@ export default function HomeUserPage() {
   const router = useRouter();
   const {
     isAuthenticated,
+    user,
     logout,
     loading: authLoading,
     isTrialActive,
     trialDaysLeft,
   } = useAuth();
   // Right-click handled via native anchors now
+
+  const [showSearchNewFeatureTip, setShowSearchNewFeatureTip] = useState(true);
+
+  useEffect(() => {
+    try {
+      const dismissed = localStorage.getItem(
+        "asym_global_search_new_feature_tip_dismissed"
+      );
+      if (dismissed === "1") setShowSearchNewFeatureTip(false);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // Helper function to format dates consistently
   const formatDate = (dateString?: string) => {
@@ -150,6 +165,18 @@ export default function HomeUserPage() {
     } catch {
       return "Invalid date";
     }
+  };
+
+  const resolveAsymmetrixStatHref = (label: string): string => {
+    const key = String(label || "").toLowerCase().trim();
+    if (key === "companies") return "/companies";
+    if (key === "corporate events") return "/corporate-events";
+    if (key === "individuals") return "/individuals";
+    if (key === "primary sectors" || key === "secondary sectors") return "/sectors";
+    if (key === "pe investors") return "/investors?investorTypeId=23699";
+    if (key === "vc investors") return "/investors?investorTypeId=23877";
+    if (key === "advisors") return "/advisors";
+    return "";
   };
 
   // Resolve corporate event id from inconsistent API shapes
@@ -441,6 +468,8 @@ export default function HomeUserPage() {
   const [searchLoadingSources, setSearchLoadingSources] = useState(false);
   const searchAbortRef = useRef<AbortController | null>(null);
   const popupAbortRef = useRef<AbortController | null>(null);
+  const searchRunIdRef = useRef(0);
+  const loggedSearchRunIdRef = useRef(0);
 
   const mergeResults = useCallback(
     (prev: GlobalSearchResult[], newItems: GlobalSearchResult[]) => {
@@ -485,6 +514,9 @@ export default function HomeUserPage() {
     setSearchOpen(true);
     setSearchResults([]);
 
+    searchRunIdRef.current += 1;
+    const runId = searchRunIdRef.current;
+
     const allResultsRef = { current: [] as GlobalSearchResult[] };
 
     const t = window.setTimeout(() => {
@@ -494,10 +526,28 @@ export default function HomeUserPage() {
           if (ac.signal.aborted) return;
           const merged = mergeResults(allResultsRef.current, items);
           allResultsRef.current = merged;
-          setSearchResults(sortSearchResults(merged));
+          setSearchResults(merged);
+
+          // Log platform-wide search only once per search run, and only when we actually have results.
+          if (merged.length > 0 && loggedSearchRunIdRef.current !== runId) {
+            loggedSearchRunIdRef.current = runId;
+            const parsedUserId = Number.parseInt(String(user?.id || ""), 10);
+            const userId =
+              Number.isFinite(parsedUserId) && parsedUserId > 0
+                ? parsedUserId
+                : undefined;
+            trackEvent({
+              eventType: "platform_wide_search",
+              userId,
+              pageVisit: "home_user",
+              pageHeading: "Asymmetrix Dashboard",
+              query: q,
+            });
+          }
         },
         onComplete: () => {
           if (ac.signal.aborted) return;
+          setSearchResults(sortSearchResults(allResultsRef.current));
           setSearchLoading(false);
           setSearchLoadingSources(false);
           const total = allResultsRef.current.length;
@@ -528,7 +578,7 @@ export default function HomeUserPage() {
       ac.abort();
       searchAbortRef.current = null;
     };
-  }, [searchQuery, mergeResults, isTrialActive]);
+  }, [searchQuery, mergeResults, isTrialActive, user?.id]);
 
   const [popupDisplayedCount, setPopupDisplayedCount] = useState(25);
   const popupQueryRef = useRef("");
@@ -598,10 +648,11 @@ export default function HomeUserPage() {
           if (ac.signal.aborted) return;
           const merged = mergeResults(allResultsRef.current, items);
           allResultsRef.current = merged;
-          setPopupResults(sortSearchResults(merged));
+          setPopupResults(merged);
         },
         onComplete: () => {
           if (ac.signal.aborted) return;
+          setPopupResults(sortSearchResults(allResultsRef.current));
           const total = allResultsRef.current.length;
           const perPage = 25;
           const totalPages = Math.max(1, Math.ceil(total / perPage));
@@ -913,14 +964,11 @@ export default function HomeUserPage() {
       // Removed New Companies fetch handling
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
-      // If it's an authentication error, redirect to login
       if (
         error instanceof Error &&
         error.message === "Authentication required"
       ) {
-        console.log("Dashboard - Authentication error, redirecting to login");
-        logout();
-        router.push("/login");
+        // Modal is shown by the global auth interceptor; no redirect needed
         return;
       }
     } finally {
@@ -940,8 +988,7 @@ export default function HomeUserPage() {
     }
 
     if (!isAuthenticated) {
-      console.log("Dashboard page - Not authenticated, redirecting to login");
-      router.push("/login");
+      // AuthRouteGuard will show the login modal — no redirect needed
       return;
     }
 
@@ -1030,12 +1077,48 @@ export default function HomeUserPage() {
           </h1>
           <div
             ref={searchWrapRef}
-            className={`relative w-full order-2 lg:col-span-1 xl:col-span-8 rounded-lg border-2 bg-white shadow-sm ${
+            className={`global-search-tooltip relative w-full order-2 lg:col-span-1 xl:col-span-8 rounded-lg border-2 bg-white shadow-sm ${
               isTrialActive
                 ? "border-gray-200"
                 : "border-blue-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"
             }`}
           >
+            {showSearchNewFeatureTip && (
+              <div className="global-search-feature-tip">
+                <span>New Feature</span>
+                <button
+                  type="button"
+                  className="global-search-feature-tip-close"
+                  aria-label="Dismiss"
+                  onClick={() => {
+                    setShowSearchNewFeatureTip(false);
+                    try {
+                      localStorage.setItem(
+                        "asym_global_search_new_feature_tip_dismissed",
+                        "1"
+                      );
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
             <input
               type="search"
               value={searchQuery}
@@ -1350,8 +1433,8 @@ export default function HomeUserPage() {
         )}
 
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 xl:grid-cols-[repeat(20,minmax(0,1fr))]">
-          {/* Asymmetrix Data */}
-          <div className="bg-white rounded-lg shadow order-1 lg:col-span-2 xl:col-span-4">
+          {/* Asymmetrix Data - last on mobile, first on lg+ */}
+          <div className="bg-white rounded-lg shadow order-3 lg:order-1 lg:col-span-2 xl:col-span-4">
             <div className="p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-2">
                 <img
@@ -1367,26 +1450,63 @@ export default function HomeUserPage() {
             <div className="p-3 sm:p-4">
               {asymmetrixData.length > 0 ? (
                 <div className="space-y-2 sm:space-y-3">
-                  {asymmetrixData.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex justify-between items-center p-2 bg-gray-50 rounded-lg sm:p-2"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <span className="text-base sm:text-lg">
-                          {item.icon}
+                  {asymmetrixData.map((item, index) => {
+                    const href = resolveAsymmetrixStatHref(item.label);
+                    const RowTag = href ? "a" : "div";
+                    return (
+                      <RowTag
+                        // eslint-disable-next-line react/no-array-index-key
+                        key={`${item.label}-${index}`}
+                        href={href || undefined}
+                        className={`group flex justify-between items-center p-2 bg-gray-50 rounded-lg sm:p-2 transition-colors ${
+                          href
+                            ? "cursor-pointer hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                            : ""
+                        }`}
+                        onClick={(e: React.MouseEvent<HTMLElement>) => {
+                          if (!href) return;
+                          // Allow default behavior for right-click, ctrl+click, cmd+click, etc.
+                          if (
+                            e.defaultPrevented ||
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            (e as any).button !== 0 ||
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            (e as any).metaKey ||
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            (e as any).ctrlKey ||
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            (e as any).shiftKey ||
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            (e as any).altKey
+                          ) {
+                            return;
+                          }
+                          e.preventDefault();
+                          router.push(href);
+                        }}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <span className="text-base sm:text-lg">
+                            {item.icon}
+                          </span>
+                          <span
+                            className={`text-xs ${
+                              href
+                                ? "text-gray-700 group-hover:text-blue-700"
+                                : "text-gray-600"
+                            } transition-colors`}
+                          >
+                            {item.label}
+                          </span>
+                        </div>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {parseInt(item.value)
+                            ? parseInt(item.value).toLocaleString()
+                            : item.value}
                         </span>
-                        <span className="text-xs text-gray-600">
-                          {item.label}
-                        </span>
-                      </div>
-                      <span className="text-sm font-semibold text-gray-900">
-                        {parseInt(item.value)
-                          ? parseInt(item.value).toLocaleString()
-                          : item.value}
-                      </span>
-                    </div>
-                  ))}
+                      </RowTag>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="py-6 text-center sm:py-8">
@@ -1398,8 +1518,8 @@ export default function HomeUserPage() {
             </div>
           </div>
 
-          {/* Insights & Analysis */}
-          <div className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-2 lg:col-span-1 xl:col-span-8">
+          {/* Insights & Analysis - first on mobile */}
+          <div className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-1 lg:order-2 lg:col-span-1 xl:col-span-8">
             <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700">
@@ -1435,7 +1555,10 @@ export default function HomeUserPage() {
             <div className="flex-1 p-3 overflow-y-auto sm:p-4">
               {insightsArticles.length > 0 ? (
                 <div className="space-y-4">
-                  {insightsArticles.slice(0, 10).map((article) => {
+                  {[...insightsArticles]
+                    .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
+                    .slice(0, 10)
+                    .map((article) => {
                     const ct = (
                       article.Content_Type ||
                       article.content_type ||
@@ -1516,8 +1639,8 @@ export default function HomeUserPage() {
             </div>
           </div>
 
-          {/* Corporate Events */}
-          <div className="flex flex-col bg-white rounded-lg shadow order-3 lg:col-span-1 xl:col-span-8">
+          {/* Corporate Events - second on mobile */}
+          <div className="flex flex-col bg-white rounded-lg shadow order-2 lg:order-3 lg:col-span-1 xl:col-span-8">
             <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-2">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-700">
@@ -2672,6 +2795,68 @@ export default function HomeUserPage() {
         </div>
       </main>
       <Footer />
+
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+          /* Always-visible "New Feature" bubble above search input */
+          .global-search-tooltip{
+            position: relative;
+          }
+          .global-search-feature-tip{
+            position: absolute;
+            left: 0;
+            bottom: calc(100% + 10px);
+            background: rgba(17, 24, 39, 0.95);
+            color: #fff;
+            font-size: 12px;
+            line-height: 1.2;
+            padding: 8px 10px;
+            border-radius: 6px;
+            white-space: nowrap;
+            z-index: 60;
+            pointer-events: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+          }
+          .global-search-feature-tip-close{
+            appearance: none;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            padding: 0;
+            margin: 0;
+            cursor: pointer;
+            opacity: 0.9;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+          }
+          .global-search-feature-tip-close:hover{
+            opacity: 1;
+            background: rgba(255,255,255,0.10);
+          }
+          .global-search-feature-tip::before{
+            content: '';
+            position: absolute;
+            left: 14px;
+            top: 100%;
+            border: 6px solid transparent;
+            border-top-color: rgba(17, 24, 39, 0.95);
+            z-index: 61;
+            pointer-events: none;
+          }
+          @media (max-width: 640px){
+            .global-search-feature-tip{ max-width: 92vw; }
+          }
+        `,
+        }}
+      />
     </div>
   );
 }
