@@ -6,6 +6,17 @@ import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
+import { Extension, type CommandProps } from "@tiptap/core";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    indent: {
+      indent: () => ReturnType;
+      outdent: () => ReturnType;
+    };
+  }
+}
 
 type Props = {
   valueHtml: string;
@@ -14,6 +25,109 @@ type Props = {
   placeholder?: string;
   minHeightPx?: number;
 };
+
+const INDENT_PX = 24;
+const MAX_INDENT_LEVEL = 8;
+
+function parseIndentFromElement(el: HTMLElement): number {
+  const attr = el.getAttribute("data-indent");
+  if (attr) {
+    const n = parseInt(attr, 10);
+    if (Number.isFinite(n) && n >= 0) return Math.min(MAX_INDENT_LEVEL, n);
+  }
+  const style = (el.getAttribute("style") || "").toLowerCase();
+  const m =
+    style.match(/padding-left\s*:\s*([0-9.]+)px/) ||
+    style.match(/margin-left\s*:\s*([0-9.]+)px/);
+  if (m?.[1]) {
+    const px = Math.max(0, Math.round(parseFloat(m[1])));
+    const level = Math.round(px / INDENT_PX);
+    if (Number.isFinite(level) && level >= 0) {
+      return Math.min(MAX_INDENT_LEVEL, level);
+    }
+  }
+  return 0;
+}
+
+const IndentExtension = Extension.create({
+  name: "indent",
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["paragraph"],
+        attributes: {
+          indent: {
+            default: 0,
+            parseHTML: (element) => parseIndentFromElement(element as HTMLElement),
+            renderHTML: (attributes) => {
+              const level = Number(attributes.indent || 0);
+              if (!Number.isFinite(level) || level <= 0) return {};
+              const clamped = Math.min(MAX_INDENT_LEVEL, Math.max(0, level));
+              const px = clamped * INDENT_PX;
+              return {
+                "data-indent": String(clamped),
+                style: `padding-left: ${px}px;`,
+              };
+            },
+          },
+        },
+      },
+    ];
+  },
+
+  addCommands() {
+    const updateIndent =
+      (delta: number) =>
+      () =>
+      ({ state, dispatch }: CommandProps) => {
+        const { from, to } = state.selection;
+        let tr = state.tr;
+        let changed = false;
+
+        state.doc.nodesBetween(from, to, (node: ProseMirrorNode, pos: number) => {
+          if (node.type.name !== "paragraph") return;
+          const current =
+            typeof node.attrs.indent === "number"
+              ? node.attrs.indent
+              : Number(node.attrs.indent) || 0;
+          const next = Math.min(
+            MAX_INDENT_LEVEL,
+            Math.max(0, Math.round(current) + delta)
+          );
+          if (next === current) return;
+          tr = tr.setNodeMarkup(pos, undefined, { ...node.attrs, indent: next });
+          changed = true;
+        });
+
+        if (!changed) return false;
+        if (dispatch) dispatch(tr);
+        return true;
+      };
+
+    return {
+      indent: updateIndent(1),
+      outdent: updateIndent(-1),
+    };
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      Tab: () => {
+        if (this.editor.isActive("bulletList") || this.editor.isActive("orderedList")) {
+          return this.editor.commands.sinkListItem("listItem");
+        }
+        return this.editor.commands.indent();
+      },
+      "Shift-Tab": () => {
+        if (this.editor.isActive("bulletList") || this.editor.isActive("orderedList")) {
+          return this.editor.commands.liftListItem("listItem");
+        }
+        return this.editor.commands.outdent();
+      },
+    };
+  },
+});
 
 function ToolbarButton(props: {
   label: string;
@@ -52,6 +166,7 @@ export default function TiptapSimpleEditor({
   const extensions = useMemo(() => {
     return [
       StarterKit,
+      IndentExtension,
       Link.configure({
         openOnClick: false,
         autolink: true,
@@ -204,6 +319,16 @@ export default function TiptapSimpleEditor({
           active={editor?.isActive("heading", { level: 2 })}
           disabled={!canUse}
           onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+        />
+        <ToolbarButton
+          label="Indent"
+          disabled={!canUse}
+          onClick={() => editor?.chain().focus().indent().run()}
+        />
+        <ToolbarButton
+          label="Outdent"
+          disabled={!canUse}
+          onClick={() => editor?.chain().focus().outdent().run()}
         />
         <ToolbarButton
           label="• List"
