@@ -1284,6 +1284,30 @@ const ArticleDetailPage = () => {
               ) : null;
             })()}
 
+            {/* Theatre-mode video(s) – always under content type badge */}
+            {article.Related_Documents &&
+              (article.Related_Documents || [])
+                .filter(Boolean)
+                .filter(isVideoDoc).length > 0 && (
+              <div style={{ width: "100%", marginTop: 0, marginBottom: 24 }}>
+                {(article.Related_Documents || [])
+                  .filter(Boolean)
+                  .filter(isVideoDoc)
+                  .map((doc, idx) => {
+                    const url = resolveDocumentUrl(doc);
+                    const name = (doc as { name?: string })?.name || "Video";
+                    if (!url) return null;
+                    return (
+                      <VideoTheatre
+                        key={`video-${idx}-${url}`}
+                        src={url}
+                        title={name}
+                      />
+                    );
+                  })}
+              </div>
+            )}
+
             {/* Summary (Insights & Analysis) */}
             {hasSummary && (
               <div className="article-summary" style={{ marginBottom: 16 }}>
@@ -1413,30 +1437,6 @@ const ArticleDetailPage = () => {
                     variant="inline"
                   />
                 ))}
-              </div>
-            )}
-
-            {/* Theatre-mode video(s) from Related_Documents */}
-            {article.Related_Documents &&
-              (article.Related_Documents || [])
-                .filter(Boolean)
-                .filter(isVideoDoc).length > 0 && (
-              <div style={{ width: "100%", marginTop: 16 }}>
-                {(article.Related_Documents || [])
-                  .filter(Boolean)
-                  .filter(isVideoDoc)
-                  .map((doc, idx) => {
-                    const url = resolveDocumentUrl(doc);
-                    const name = (doc as { name?: string })?.name || "Video";
-                    if (!url) return null;
-                    return (
-                      <VideoTheatre
-                        key={`video-${idx}-${url}`}
-                        src={url}
-                        title={name}
-                      />
-                    );
-                  })}
               </div>
             )}
 
