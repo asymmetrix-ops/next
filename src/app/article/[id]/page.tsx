@@ -8,6 +8,7 @@ import Footer from "@/components/Footer";
 import { generateArticlePdfBlobUrl } from "@/utils/exportArticlePdf";
 import InlineAudioPlayer from "@/components/article/InlineAudioPlayer";
 import EmbeddedPdfViewer from "@/components/article/EmbeddedPdfViewer";
+import VideoTheatre from "@/components/article/VideoTheatre";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
 
 // Types for the article detail page
@@ -1002,6 +1003,20 @@ const ArticleDetailPage = () => {
     return /(\.pdf)($|\?)/i.test(nameOrUrl);
   };
 
+  const isVideoDoc = (doc: {
+    mime?: string;
+    type?: string;
+    url?: string;
+    path?: string;
+    name?: string;
+  }) => {
+    if (!doc) return false;
+    if (doc.mime && doc.mime.startsWith("video/")) return true;
+    if (doc.type && /^video$/i.test(doc.type)) return true;
+    const nameOrUrl = `${doc.name || ""} ${doc.url || ""} ${doc.path || ""}`;
+    return /(\.(mp4|webm|ogg|mov|m4v))($|\?)/i.test(nameOrUrl);
+  };
+
   // Auto-detect ALL PDF attachments (Xano vault URLs, etc.)
   useEffect(() => {
     if (!article) {
@@ -1398,6 +1413,30 @@ const ArticleDetailPage = () => {
                     variant="inline"
                   />
                 ))}
+              </div>
+            )}
+
+            {/* Theatre-mode video(s) from Related_Documents */}
+            {article.Related_Documents &&
+              (article.Related_Documents || [])
+                .filter(Boolean)
+                .filter(isVideoDoc).length > 0 && (
+              <div style={{ width: "100%", marginTop: 16 }}>
+                {(article.Related_Documents || [])
+                  .filter(Boolean)
+                  .filter(isVideoDoc)
+                  .map((doc, idx) => {
+                    const url = resolveDocumentUrl(doc);
+                    const name = (doc as { name?: string })?.name || "Video";
+                    if (!url) return null;
+                    return (
+                      <VideoTheatre
+                        key={`video-${idx}-${url}`}
+                        src={url}
+                        title={name}
+                      />
+                    );
+                  })}
               </div>
             )}
 
@@ -2018,13 +2057,13 @@ const ArticleDetailPage = () => {
             {article.Related_Documents &&
               (article.Related_Documents || [])
                 .filter(Boolean)
-                .filter((d) => !isImageDoc(d) && !isAudioDoc(d)).length > 0 && (
+                .filter((d) => !isImageDoc(d) && !isAudioDoc(d) && !isVideoDoc(d)).length > 0 && (
                 <div style={styles.section}>
                   <h2 style={styles.sectionTitle}>Related Documents</h2>
                   {(() => {
                     const nonImage = (article.Related_Documents || [])
                       .filter(Boolean)
-                      .filter((d) => !isImageDoc(d) && !isAudioDoc(d));
+                      .filter((d) => !isImageDoc(d) && !isAudioDoc(d) && !isVideoDoc(d));
 
                     return (
                       <>
@@ -2589,6 +2628,66 @@ const ArticleDetailPage = () => {
             border-top-color: rgba(17, 24, 39, 0.95);
             z-index: 21;
             pointer-events: none;
+          }
+          /* Theatre-mode video (full width, Fullscreen + Close, no download/PiP) */
+          .video-theatre {
+            width: 100%;
+            max-width: none;
+            margin: 24px 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          .video-theatre-wrapper {
+            position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 16px;
+            overflow: hidden;
+          }
+          .video-theatre-wrapper video {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 16 / 9;
+            display: block;
+            background: #000;
+          }
+          .video-theatre-actions {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 10;
+            display: inline-flex;
+            gap: 10px;
+            pointer-events: auto;
+          }
+          .video-theatre-btn {
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            padding: 8px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            backdrop-filter: blur(6px);
+          }
+          .video-theatre-btn:hover {
+            background: rgba(0, 0, 0, 0.9);
+          }
+          .video-theatre-wrapper:fullscreen .video-theatre-actions,
+          .video-theatre-wrapper:-webkit-full-screen .video-theatre-actions {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+          }
+          .video-theatre-wrapper:fullscreen,
+          .video-theatre-wrapper:-webkit-full-screen {
+            background: #000;
+          }
+          @media (max-width: 640px) {
+            .video-theatre-actions { top: 10px; right: 10px; }
+            .video-theatre-btn { padding: 7px 10px; font-size: 13px; }
+            .video-theatre-wrapper { border-radius: 12px; }
           }
         `,
         }}
