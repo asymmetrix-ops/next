@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
+import { TableKit } from "@tiptap/extension-table";
 import { Extension, type CommandProps } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
@@ -167,6 +168,21 @@ export default function TiptapSimpleEditor({
     return [
       StarterKit,
       IndentExtension,
+      TableKit.configure({
+        table: {
+          HTMLAttributes: { class: "border-collapse w-full my-2" },
+          resizable: false,
+        },
+        tableCell: {
+          HTMLAttributes: { class: "border border-gray-300 px-2 py-1.5 align-top" },
+        },
+        tableHeader: {
+          HTMLAttributes: { class: "border border-gray-300 px-2 py-1.5 bg-gray-100 font-semibold text-left" },
+        },
+        tableRow: {
+          HTMLAttributes: {},
+        },
+      }),
       Link.configure({
         openOnClick: false,
         autolink: true,
@@ -203,6 +219,10 @@ export default function TiptapSimpleEditor({
           "[&_ul]:pl-5 [&_ul]:ml-0 [&_ul]:my-2 [&_ul]:list-outside",
           "[&_ol]:pl-5 [&_ol]:ml-0 [&_ol]:my-2 [&_ol]:list-outside",
           "[&_li]:my-1",
+          // Table styling
+          "[&_table]:border-collapse [&_table]:w-full [&_table]:my-2",
+          "[&_th]:border [&_th]:border-gray-300 [&_th]:px-2 [&_th]:py-1.5 [&_th]:bg-gray-100 [&_th]:font-semibold [&_th]:text-left",
+          "[&_td]:border [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-top",
         ].join(" "),
         style: `min-height: ${minHeightPx}px;`,
       },
@@ -262,6 +282,21 @@ export default function TiptapSimpleEditor({
   }, [editor, valueHtml]);
 
   const canUse = Boolean(editor);
+  const [tableMenuOpen, setTableMenuOpen] = useState(false);
+  const tableMenuRef = useRef<HTMLDivElement>(null);
+  const inTable = Boolean(editor?.isActive("table"));
+
+  // Close table menu when clicking outside
+  useEffect(() => {
+    if (!tableMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (tableMenuRef.current && !tableMenuRef.current.contains(e.target as Node)) {
+        setTableMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [tableMenuOpen]);
 
   const onInsertLink = () => {
     if (!editor) return;
@@ -353,6 +388,98 @@ export default function TiptapSimpleEditor({
           disabled={!canUse}
           onClick={() => void onInsertImage()}
         />
+        <div className="relative" ref={tableMenuRef}>
+          <ToolbarButton
+            label="Table ▾"
+            active={tableMenuOpen || inTable}
+            disabled={!canUse}
+            onClick={() => setTableMenuOpen((open) => !open)}
+          />
+          {tableMenuOpen && (
+            <div className="absolute left-0 top-full z-10 mt-1 min-w-[180px] rounded border border-gray-200 bg-white py-1 shadow-lg">
+              <button
+                type="button"
+                className="block w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
+                onClick={() => {
+                  editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+                  setTableMenuOpen(false);
+                }}
+              >
+                Insert table (3×3)
+              </button>
+              {inTable && (
+                <>
+                  <div className="my-1 border-t border-gray-100" />
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
+                    onClick={() => { editor?.chain().focus().addRowBefore().run(); setTableMenuOpen(false); }}
+                  >
+                    Add row above
+                  </button>
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
+                    onClick={() => { editor?.chain().focus().addRowAfter().run(); setTableMenuOpen(false); }}
+                  >
+                    Add row below
+                  </button>
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
+                    onClick={() => { editor?.chain().focus().addColumnBefore().run(); setTableMenuOpen(false); }}
+                  >
+                    Add column left
+                  </button>
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
+                    onClick={() => { editor?.chain().focus().addColumnAfter().run(); setTableMenuOpen(false); }}
+                  >
+                    Add column right
+                  </button>
+                  <div className="my-1 border-t border-gray-100" />
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
+                    onClick={() => { editor?.chain().focus().deleteRow().run(); setTableMenuOpen(false); }}
+                  >
+                    Delete row
+                  </button>
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
+                    onClick={() => { editor?.chain().focus().deleteColumn().run(); setTableMenuOpen(false); }}
+                  >
+                    Delete column
+                  </button>
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 text-red-600"
+                    onClick={() => { editor?.chain().focus().deleteTable().run(); setTableMenuOpen(false); }}
+                  >
+                    Delete table
+                  </button>
+                  <div className="my-1 border-t border-gray-100" />
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
+                    onClick={() => { editor?.chain().focus().toggleHeaderRow().run(); setTableMenuOpen(false); }}
+                  >
+                    Toggle header row
+                  </button>
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
+                    onClick={() => { editor?.chain().focus().mergeOrSplit().run(); setTableMenuOpen(false); }}
+                  >
+                    Merge / Split cells
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
       <EditorContent editor={editor} />
     </div>
