@@ -695,6 +695,312 @@ export function CompanySearchTab() {
 }
 
 // -------------------------
+// Competitors (target company)
+// -------------------------
+
+const COMPETITORS_API_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/competitors";
+
+type CompetitorsTarget = {
+  company_id?: number;
+  company_name?: string;
+  primary_business_focus_id?: number[];
+  primary_sectors?: number[] | unknown[];
+  secondary_sectors?: number[];
+};
+
+type CompetitorsCompetitor = {
+  competitor_id: number;
+  competitor_name: string;
+  competitor_primary_business_focus_ids?: number[];
+  types_matched?: string[];
+  appearance_count: number;
+  type_counts?: Record<string, number>;
+  content_ids_unique?: number[];
+  content_hits_count?: number;
+  content_id_frequencies?: Record<number, number>;
+  matched_sector_ids?: number[];
+};
+
+type CompetitorsResponse = {
+  target: CompetitorsTarget | null;
+  sort?: string[];
+  competitors: CompetitorsCompetitor[];
+};
+
+const TYPE_PRIORITY: Record<string, number> = { A: 1, B: 2, C: 3, D: 4 };
+
+function bestTypePriority(typesMatched: string[] | undefined): number {
+  if (!typesMatched || typesMatched.length === 0) return 0;
+  const priorities = typesMatched
+    .map((t) => TYPE_PRIORITY[t] ?? 99)
+    .filter((p) => p < 99);
+  return priorities.length ? Math.min(...priorities) : 0;
+}
+
+export function CompetitorsTab() {
+  const [targetCompanyId, setTargetCompanyId] = useState("");
+  const [limit, setLimit] = useState(50);
+  const [data, setData] = useState<CompetitorsResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchCompetitors = async (currentLimit: number) => {
+    const id = targetCompanyId.trim();
+    if (!id) {
+      setError("Enter a target company ID");
+      return;
+    }
+    const numId = parseInt(id, 10);
+    if (Number.isNaN(numId)) {
+      setError("Target company ID must be a number");
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        target_company_id: String(numId),
+        limit: String(currentLimit),
+        min_score: "1",
+      });
+      const resp = await fetch(`${COMPETITORS_API_URL}?${params.toString()}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(`${resp.status} ${resp.statusText} ${text}`);
+      }
+      const json = (await resp.json()) as CompetitorsResponse;
+      setData(json);
+    } catch (e) {
+      setData(null);
+      setError(e instanceof Error ? e.message : "Failed to load competitors");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFetch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLimit(50);
+    fetchCompetitors(50);
+  };
+
+  const handleLoadMore = () => {
+    const newLimit = limit * 2;
+    setLimit(newLimit);
+    fetchCompetitors(newLimit);
+  };
+
+  const target = data?.target;
+  const competitors = data?.competitors ?? [];
+  const sortLabel =
+    data?.sort && data.sort.length > 0
+      ? data.sort.join(", ")
+      : "appearance_count desc, best_type_priority asc";
+
+  return (
+    <div>
+      <form onSubmit={handleFetch} className="mb-6 flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-gray-700">
+            Target company ID
+          </span>
+          <input
+            type="text"
+            value={targetCompanyId}
+            onChange={(e) => setTargetCompanyId(e.target.value)}
+            placeholder="e.g. 2142"
+            className="w-48 rounded border border-gray-300 px-3 py-2 text-sm"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={loading}
+          className="rounded bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+        >
+          {loading ? "Loading…" : "Fetch"}
+        </button>
+      </form>
+
+      {error && (
+        <div className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          {error}
+        </div>
+      )}
+
+      {data && !error && (
+        <>
+          {/* Target info section */}
+          <div className="mb-6 overflow-auto rounded border bg-white">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-gray-700">
+                <tr>
+                  <th className="px-3 py-2 text-left">Field</th>
+                  <th className="px-3 py-2 text-left">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t">
+                  <td className="px-3 py-2 font-medium">Company</td>
+                  <td className="px-3 py-2">
+                    {target?.company_name ?? "—"} (ID: {target?.company_id ?? "—"})
+                  </td>
+                </tr>
+                <tr className="border-t">
+                  <td className="px-3 py-2 font-medium">Primary business focus</td>
+                  <td className="px-3 py-2">
+                    {target?.primary_business_focus_id?.length
+                      ? target.primary_business_focus_id.join(", ")
+                      : "—"}
+                  </td>
+                </tr>
+                <tr className="border-t">
+                  <td className="px-3 py-2 font-medium">Primary sectors</td>
+                  <td className="px-3 py-2">
+                    {target?.primary_sectors?.length
+                      ? (target.primary_sectors as number[]).join(", ")
+                      : "—"}
+                  </td>
+                </tr>
+                <tr className="border-t">
+                  <td className="px-3 py-2 font-medium">Secondary sectors</td>
+                  <td className="px-3 py-2">
+                    {target?.secondary_sectors?.length
+                      ? target.secondary_sectors.join(", ")
+                      : "—"}
+                  </td>
+                </tr>
+                <tr className="border-t">
+                  <td className="px-3 py-2 font-medium">Sort</td>
+                  <td className="px-3 py-2">{sortLabel}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Competitors table */}
+          <div className="mb-4 overflow-auto rounded border bg-white">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-gray-700">
+                <tr>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">#</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">
+                    Competitor
+                  </th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">
+                    Appearance
+                  </th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">
+                    Best type
+                  </th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Types</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">A</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">C</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">B</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">D</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">
+                    Content hits
+                  </th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">
+                    Content IDs (unique)
+                  </th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">
+                    Matched sector IDs
+                  </th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">
+                    Focus IDs
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {competitors.map((row, idx) => (
+                  <tr key={row.competitor_id} className="border-t">
+                    <td className="px-3 py-2">{idx + 1}</td>
+                    <td className="px-3 py-2">
+                      <Link
+                        href={`/company/${row.competitor_id}`}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {row.competitor_name} ({row.competitor_id})
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2">{row.appearance_count}</td>
+                    <td className="px-3 py-2">
+                      {bestTypePriority(row.types_matched) || "—"}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.types_matched?.length
+                        ? row.types_matched.join(", ")
+                        : "—"}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.type_counts?.A ?? 0}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.type_counts?.C ?? 0}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.type_counts?.B ?? 0}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.type_counts?.D ?? 0}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.content_hits_count ?? "—"}
+                    </td>
+                    <td className="min-w-[120px] max-w-[400px] px-3 py-2 align-top">
+                      {!row.content_ids_unique?.length ? (
+                        "—"
+                      ) : (
+                        <div className="flex flex-wrap gap-x-1 gap-y-0.5">
+                          {row.content_ids_unique.map((id, i) => (
+                            <span key={id}>
+                              {i > 0 && ", "}
+                              <Link
+                                href={`/article/${id}`}
+                                className="text-blue-600 hover:underline"
+                              >
+                                {id}
+                              </Link>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.matched_sector_ids?.length
+                        ? row.matched_sector_ids.join(", ")
+                        : "—"}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.competitor_primary_business_focus_ids?.length
+                        ? row.competitor_primary_business_focus_ids.join(", ")
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleLoadMore}
+            disabled={loading}
+            className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+          >
+            Load more
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// -------------------------
 // Content Insights
 // -------------------------
 
