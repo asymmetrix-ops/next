@@ -12,6 +12,8 @@ export interface EmailAlert {
   next_run_at_utc?: string | number | null;
   last_sent_at_utc?: string | number | null;
   status?: string;
+  /** Primary sector IDs to filter by; empty or absent = no sector filter */
+  sectors_id?: number[];
 }
 
 export interface EnumOption {
