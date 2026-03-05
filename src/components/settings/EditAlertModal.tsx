@@ -1,8 +1,15 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import type { EmailAlert, EmailAlertsMeta } from "@/types/emailAlerts";
 import { computeNextRunAtUtcIso } from "@/utils/emailAlertSchedule";
+import { locationsService } from "@/lib/locationsService";
+import SearchableSelect from "@/components/ui/SearchableSelect";
+
+interface PrimarySector {
+  id: number;
+  sector_name: string;
+}
 
 interface EditAlertModalProps {
   alert: EmailAlert;
@@ -99,9 +106,34 @@ export function EditAlertModal({
       content_type: alert.content_type || "",
       is_active: alert.is_active,
       send_time_local: normalizeTime(alert.send_time_local) || defaultTime,
+      sectors_id: alert.sectors_id ?? [],
     };
   });
 
+  const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
+  const [loadingPrimarySectors, setLoadingPrimarySectors] = useState(false);
+  const [filterMode, setFilterMode] = useState<"no_filters" | "primary_sectors">(
+    () => ((alert.sectors_id?.length ?? 0) > 0 ? "primary_sectors" : "no_filters")
+  );
+
+  const fetchPrimarySectors = useCallback(async () => {
+    try {
+      setLoadingPrimarySectors(true);
+      const data = await locationsService.getPrimarySectors();
+      setPrimarySectors(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error fetching primary sectors:", err);
+      setPrimarySectors([]);
+    } finally {
+      setLoadingPrimarySectors(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchPrimarySectors();
+    }
+  }, [isOpen, fetchPrimarySectors]);
 
   useEffect(() => {
     if (isOpen) {
@@ -114,9 +146,18 @@ export function EditAlertModal({
         content_type: alert.content_type || "",
         is_active: alert.is_active,
         send_time_local: normalizeTime(alert.send_time_local) || defaultTime,
+        sectors_id: alert.sectors_id ?? [],
       });
     }
   }, [alert, meta, isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setFilterMode(
+        (alert.sectors_id?.length ?? 0) > 0 ? "primary_sectors" : "no_filters"
+      );
+    }
+  }, [isOpen, alert.sectors_id]);
 
   const londonTimeHint = useMemo(() => {
     if (!formData.email_frequency || formData.email_frequency === "as_added") return null;
@@ -152,6 +193,8 @@ export function EditAlertModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const sectors_id =
+      filterMode === "no_filters" ? [] : (formData.sectors_id ?? []);
     const updatedAlert: EmailAlert = {
       ...alert,
       ...formData,
@@ -159,9 +202,16 @@ export function EditAlertModal({
       timezone: formData.timezone || "",
       content_type: formData.content_type || "",
       send_time_local: formData.send_time_local || null,
+      sectors_id,
     } as EmailAlert;
     onSave(updatedAlert);
   };
+
+  const selectedSectorIds = formData.sectors_id ?? [];
+  const primarySectorOptions = primarySectors.map((s) => ({
+    value: s.id,
+    label: s.sector_name,
+  }));
 
   const formatTimeForInput = (timeValue: string | null) => {
     if (!timeValue) return "";
@@ -282,6 +332,103 @@ export function EditAlertModal({
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Filter by: No Filters (default) | Primary Sectors */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filter by
+              </label>
+              <div className="flex flex-col gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="filter_mode"
+                    checked={filterMode === "no_filters"}
+                    onChange={() => {
+                      setFilterMode("no_filters");
+                      setFormData((prev) => ({ ...prev, sectors_id: [] }));
+                    }}
+                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">No Filters (default)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="filter_mode"
+                    checked={filterMode === "primary_sectors"}
+                    onChange={() => setFilterMode("primary_sectors")}
+                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">Primary Sectors</span>
+                </label>
+                {filterMode === "primary_sectors" && (
+                  <div className="pl-6 space-y-2">
+                    <SearchableSelect
+                      options={primarySectorOptions.filter(
+                        (opt) => !selectedSectorIds.includes(opt.value as number)
+                      )}
+                      value=""
+                      onChange={(value) => {
+                        const id =
+                          typeof value === "number" ? value : Number(value);
+                        if (id && !selectedSectorIds.includes(id)) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            sectors_id: [...(prev.sectors_id ?? []), id],
+                          }));
+                        }
+                      }}
+                      placeholder={
+                        loadingPrimarySectors
+                          ? "Loading sectors…"
+                          : "Select Primary Sector"
+                      }
+                      disabled={loadingPrimarySectors}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "6px",
+                        fontSize: "14px",
+                      }}
+                    />
+                    {selectedSectorIds.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {selectedSectorIds.map((sectorId) => {
+                          const sector = primarySectors.find(
+                            (s) => s.id === sectorId
+                          );
+                          return (
+                            <span
+                              key={sectorId}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded text-sm bg-indigo-50 text-indigo-800"
+                            >
+                              {sector?.sector_name ?? `Sector ${sectorId}`}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    sectors_id: (prev.sectors_id ?? []).filter(
+                                      (id) => id !== sectorId
+                                    ),
+                                  }));
+                                }}
+                                className="ml-1 text-indigo-600 hover:text-indigo-800 font-bold leading-none"
+                                aria-label="Remove sector"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Email Frequency */}

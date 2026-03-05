@@ -143,6 +143,14 @@ export function AlertCard({
     parts.push("—");
     parts.push(alert.is_active ? "Active" : "Inactive");
 
+    const sectorIds = alert.sectors_id ?? [];
+    parts.push("—");
+    parts.push(
+      sectorIds.length === 0
+        ? "Filter: No filters"
+        : `Filter: Primary Sectors (${sectorIds.length})`
+    );
+
     return parts.join(" ");
   };
 
