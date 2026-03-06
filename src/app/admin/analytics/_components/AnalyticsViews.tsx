@@ -701,12 +701,14 @@ export function CompanySearchTab() {
 const COMPETITORS_API_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/competitors";
 
+type SectorWithName = { id: number; name: string };
+
 type CompetitorsTarget = {
   company_id?: number;
   company_name?: string;
   primary_business_focus_id?: number[];
-  primary_sectors?: number[] | unknown[];
-  secondary_sectors?: number[];
+  primary_sectors?: SectorWithName[] | number[] | unknown[];
+  secondary_sectors?: SectorWithName[] | number[];
 };
 
 type CompetitorsCompetitor = {
@@ -720,7 +722,24 @@ type CompetitorsCompetitor = {
   content_hits_count?: number;
   content_id_frequencies?: Record<number, number>;
   matched_sector_ids?: number[];
+  matched_target_sectors?: SectorWithName[];
 };
+
+/** Format sectors as "id (name)" when objects have id+name, else just the value. */
+function formatSectors(
+  items: SectorWithName[] | number[] | unknown[] | undefined
+): string {
+  if (!items?.length) return "—";
+  return items
+    .map((item) => {
+      if (item != null && typeof item === "object" && "id" in (item as object) && "name" in (item as object)) {
+        const s = item as SectorWithName;
+        return s.name ? `${s.id} (${s.name})` : String(s.id);
+      }
+      return String(item);
+    })
+    .join(", ");
+}
 
 type CompetitorsResponse = {
   target: CompetitorsTarget | null;
@@ -803,6 +822,33 @@ export function CompetitorsTab() {
 
   return (
     <div>
+      <div className="mb-6 rounded border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+        <h3 className="mb-3 font-medium text-gray-900">Type Definitions</h3>
+        <dl className="space-y-3">
+          <div>
+            <dt className="font-medium">Type A — Company Focus Match</dt>
+            <dd className="mt-0.5 text-gray-600">
+              Companies mentioned in content where the target company is the Company of Focus.
+              These represent the strongest competitor signals because the content is specifically written about the target company.
+            </dd>
+          </div>
+          <div className="border-t border-gray-200 pt-3">
+            <dt className="font-medium">Type B — Secondary Sector Match</dt>
+            <dd className="mt-0.5 text-gray-600">
+              Companies that share one or more secondary sectors with the target company.
+              This identifies companies operating in similar sub-segments of the industry.
+            </dd>
+          </div>
+          <div className="border-t border-gray-200 pt-3">
+            <dt className="font-medium">Type C — Co-Mention in Content</dt>
+            <dd className="mt-0.5 text-gray-600">
+              Companies that appear in the same Companies Mentioned field as the target company within a content record.
+              This indicates companies that are discussed alongside the target in industry coverage.
+            </dd>
+          </div>
+        </dl>
+      </div>
+
       <form onSubmit={handleFetch} className="mb-6 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-sm font-medium text-gray-700">
@@ -846,7 +892,18 @@ export function CompetitorsTab() {
                 <tr className="border-t">
                   <td className="px-3 py-2 font-medium">Company</td>
                   <td className="px-3 py-2">
-                    {target?.company_name ?? "—"} (ID: {target?.company_id ?? "—"})
+                    {target?.company_id != null ? (
+                      <Link
+                        href={`/company/${target.company_id}`}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {target?.company_name ?? "—"} ({target.company_id})
+                      </Link>
+                    ) : (
+                      <>
+                        {target?.company_name ?? "—"} (ID: {target?.company_id ?? "—"})
+                      </>
+                    )}
                   </td>
                 </tr>
                 <tr className="border-t">
@@ -860,17 +917,13 @@ export function CompetitorsTab() {
                 <tr className="border-t">
                   <td className="px-3 py-2 font-medium">Primary sectors</td>
                   <td className="px-3 py-2">
-                    {target?.primary_sectors?.length
-                      ? (target.primary_sectors as number[]).join(", ")
-                      : "—"}
+                    {formatSectors(target?.primary_sectors)}
                   </td>
                 </tr>
                 <tr className="border-t">
                   <td className="px-3 py-2 font-medium">Secondary sectors</td>
                   <td className="px-3 py-2">
-                    {target?.secondary_sectors?.length
-                      ? target.secondary_sectors.join(", ")
-                      : "—"}
+                    {formatSectors(target?.secondary_sectors)}
                   </td>
                 </tr>
                 <tr className="border-t">
@@ -908,7 +961,7 @@ export function CompetitorsTab() {
                     Content IDs (unique)
                   </th>
                   <th className="px-3 py-2 text-left whitespace-nowrap">
-                    Matched sector IDs
+                    Matched sectors
                   </th>
                   <th className="px-3 py-2 text-left whitespace-nowrap">
                     Focus IDs
@@ -971,9 +1024,9 @@ export function CompetitorsTab() {
                       )}
                     </td>
                     <td className="px-3 py-2">
-                      {row.matched_sector_ids?.length
-                        ? row.matched_sector_ids.join(", ")
-                        : "—"}
+                      {formatSectors(
+                        row.matched_target_sectors ?? row.matched_sector_ids
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       {row.competitor_primary_business_focus_ids?.length
