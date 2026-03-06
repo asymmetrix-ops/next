@@ -143,12 +143,16 @@ export function AlertCard({
     parts.push("—");
     parts.push(alert.is_active ? "Active" : "Inactive");
 
-    const sectorIds = alert.sectors_id ?? [];
+    const f = alert.filters;
+    const filterParts: string[] = [];
+    if (f?.companies?.length) filterParts.push(`${f.companies.length} companies`);
+    if (f?.sectors?.length) filterParts.push(`${f.sectors.length} sectors`);
+    if (f?.individuals?.length) filterParts.push(`${f.individuals.length} individuals`);
+    if (f?.investors?.length) filterParts.push(`${f.investors.length} investors`);
+    if (f?.advisors?.length) filterParts.push(`${f.advisors.length} advisors`);
     parts.push("—");
     parts.push(
-      sectorIds.length === 0
-        ? "Filter: No filters"
-        : `Filter: Primary Sectors (${sectorIds.length})`
+      filterParts.length === 0 ? "Filter: All" : `Filter: ${filterParts.join(", ")}`
     );
 
     return parts.join(" ");

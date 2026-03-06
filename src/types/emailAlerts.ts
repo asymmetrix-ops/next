@@ -1,3 +1,12 @@
+/** Entity filter arrays by type; each key is an array of entity IDs. */
+export interface EmailAlertFilters {
+  companies?: number[];
+  sectors?: number[];
+  individuals?: number[];
+  investors?: number[];
+  advisors?: number[];
+}
+
 export interface EmailAlert {
   id: number;
   created_at: number;
@@ -12,8 +21,8 @@ export interface EmailAlert {
   next_run_at_utc?: string | number | null;
   last_sent_at_utc?: string | number | null;
   status?: string;
-  /** Primary sector IDs to filter by; empty or absent = no sector filter */
-  sectors_id?: number[];
+  /** Filter alert to these followed entities; empty or absent = all. */
+  filters?: EmailAlertFilters;
 }
 
 export interface EnumOption {
