@@ -1,14 +1,45 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback } from "react";
-import type { EmailAlert, EmailAlertsMeta } from "@/types/emailAlerts";
+import type { EmailAlert, EmailAlertsMeta, EmailAlertFilters } from "@/types/emailAlerts";
 import { computeNextRunAtUtcIso } from "@/utils/emailAlertSchedule";
-import { locationsService } from "@/lib/locationsService";
-import SearchableSelect from "@/components/ui/SearchableSelect";
 
-interface PrimarySector {
-  id: number;
-  sector_name: string;
+type PortfolioEntityType = "company" | "advisor" | "investor" | "individual" | "sector" | string;
+type PortfolioRow = { entity: PortfolioEntityType; id: number; name: string };
+
+const ENTITY_TO_FILTER_KEY: Record<string, keyof EmailAlertFilters> = {
+  company: "companies",
+  advisor: "advisors",
+  investor: "investors",
+  individual: "individuals",
+  sector: "sectors",
+};
+
+const FILTER_KEY_LABEL: Record<keyof EmailAlertFilters, string> = {
+  companies: "Companies",
+  sectors: "Sectors",
+  individuals: "Individuals",
+  investors: "Investors",
+  advisors: "Advisors",
+};
+
+/** Normalize filters from API (ensure each key is number[]) and return a clean copy. */
+function normalizeFilters(raw: EmailAlertFilters | null | undefined): EmailAlertFilters {
+  const keys: (keyof EmailAlertFilters)[] = [
+    "companies",
+    "sectors",
+    "individuals",
+    "investors",
+    "advisors",
+  ];
+  const out: EmailAlertFilters = {};
+  for (const key of keys) {
+    const val = raw?.[key];
+    out[key] = Array.isArray(val)
+      ? val.filter((n): n is number => typeof n === "number" && Number.isFinite(n))
+      : [];
+  }
+  return out;
 }
 
 interface EditAlertModalProps {
@@ -96,6 +127,11 @@ export function EditAlertModal({
     }
   };
 
+  const initialFilters = normalizeFilters(alert.filters);
+  const hasInitialFilters = Object.values(initialFilters).some(
+    (arr) => arr.length > 0
+  );
+
   const [formData, setFormData] = useState<Partial<EmailAlert>>(() => {
     const defaultTime = normalizeTime(meta.defaults.daily_send_time_local) || "09:00";
     return {
@@ -106,38 +142,50 @@ export function EditAlertModal({
       content_type: alert.content_type || "",
       is_active: alert.is_active,
       send_time_local: normalizeTime(alert.send_time_local) || defaultTime,
-      sectors_id: alert.sectors_id ?? [],
+      filters: { ...initialFilters },
     };
   });
 
-  const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
-  const [loadingPrimarySectors, setLoadingPrimarySectors] = useState(false);
-  const [filterMode, setFilterMode] = useState<"no_filters" | "primary_sectors">(
-    () => ((alert.sectors_id?.length ?? 0) > 0 ? "primary_sectors" : "no_filters")
-  );
+  const [portfolioRows, setPortfolioRows] = useState<PortfolioRow[]>([]);
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
+  const [filterAll, setFilterAll] = useState(!hasInitialFilters);
 
-  const fetchPrimarySectors = useCallback(async () => {
+  const fetchPortfolio = useCallback(async () => {
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("asymmetrix_auth_token")
+        : null;
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (token) headers["x-asym-token"] = token;
+    setPortfolioLoading(true);
     try {
-      setLoadingPrimarySectors(true);
-      const data = await locationsService.getPrimarySectors();
-      setPrimarySectors(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Error fetching primary sectors:", err);
-      setPrimarySectors([]);
+      const res = await fetch("/api/portfolio/data", {
+        method: "GET",
+        headers,
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => null);
+      const list = Array.isArray(data) ? (data as PortfolioRow[]) : [];
+      setPortfolioRows(list);
+    } catch {
+      setPortfolioRows([]);
     } finally {
-      setLoadingPrimarySectors(false);
+      setPortfolioLoading(false);
     }
   }, []);
 
   useEffect(() => {
     if (isOpen) {
-      fetchPrimarySectors();
+      fetchPortfolio();
     }
-  }, [isOpen, fetchPrimarySectors]);
+  }, [isOpen, fetchPortfolio]);
 
   useEffect(() => {
     if (isOpen) {
       const defaultTime = normalizeTime(meta.defaults.daily_send_time_local) || "09:00";
+      const filters = normalizeFilters(alert.filters);
+      const hasFilters = Object.values(filters).some((arr) => arr.length > 0);
+      setFilterAll(!hasFilters);
       setFormData({
         item_type: alert.item_type,
         email_frequency: alert.email_frequency,
@@ -146,18 +194,16 @@ export function EditAlertModal({
         content_type: alert.content_type || "",
         is_active: alert.is_active,
         send_time_local: normalizeTime(alert.send_time_local) || defaultTime,
-        sectors_id: alert.sectors_id ?? [],
+        filters: {
+          companies: [...(filters.companies ?? [])],
+          sectors: [...(filters.sectors ?? [])],
+          individuals: [...(filters.individuals ?? [])],
+          investors: [...(filters.investors ?? [])],
+          advisors: [...(filters.advisors ?? [])],
+        },
       });
     }
-  }, [alert, meta, isOpen]);
-
-  useEffect(() => {
-    if (isOpen) {
-      setFilterMode(
-        (alert.sectors_id?.length ?? 0) > 0 ? "primary_sectors" : "no_filters"
-      );
-    }
-  }, [isOpen, alert.sectors_id]);
+  }, [isOpen, alert, meta]);
 
   const londonTimeHint = useMemo(() => {
     if (!formData.email_frequency || formData.email_frequency === "as_added") return null;
@@ -189,12 +235,31 @@ export function EditAlertModal({
     formData.timezone,
   ]);
 
+  const portfolioByKey = useMemo(() => {
+    const map: Partial<Record<keyof EmailAlertFilters, PortfolioRow[]>> = {};
+    for (const row of portfolioRows) {
+      const key = ENTITY_TO_FILTER_KEY[String(row.entity).toLowerCase()];
+      if (key) {
+        if (!map[key]) map[key] = [];
+        map[key].push(row);
+      }
+    }
+    return map;
+  }, [portfolioRows]);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const sectors_id =
-      filterMode === "no_filters" ? [] : (formData.sectors_id ?? []);
+    const filters: EmailAlertFilters = filterAll
+      ? {}
+      : {
+          companies: formData.filters?.companies ?? [],
+          sectors: formData.filters?.sectors ?? [],
+          individuals: formData.filters?.individuals ?? [],
+          investors: formData.filters?.investors ?? [],
+          advisors: formData.filters?.advisors ?? [],
+        };
     const updatedAlert: EmailAlert = {
       ...alert,
       ...formData,
@@ -202,16 +267,32 @@ export function EditAlertModal({
       timezone: formData.timezone || "",
       content_type: formData.content_type || "",
       send_time_local: formData.send_time_local || null,
-      sectors_id,
+      filters,
     } as EmailAlert;
     onSave(updatedAlert);
   };
 
-  const selectedSectorIds = formData.sectors_id ?? [];
-  const primarySectorOptions = primarySectors.map((s) => ({
-    value: s.id,
-    label: s.sector_name,
-  }));
+  const toggleEntityInFilters = (entityType: string, id: number) => {
+    const key = ENTITY_TO_FILTER_KEY[entityType.toLowerCase()];
+    if (!key) return;
+    setFormData((prev) => {
+      const current = (prev.filters?.[key] ?? []) as number[];
+      const next = current.includes(id)
+        ? current.filter((x) => x !== id)
+        : [...current, id];
+      return {
+        ...prev,
+        filters: { ...prev.filters, [key]: next },
+      };
+    });
+  };
+
+  const isEntitySelected = (entityType: string, id: number): boolean => {
+    const key = ENTITY_TO_FILTER_KEY[entityType.toLowerCase()];
+    if (!key) return false;
+    const arr = (formData.filters?.[key] ?? []) as number[];
+    return arr.includes(id);
+  };
 
   const formatTimeForInput = (timeValue: string | null) => {
     if (!timeValue) return "";
@@ -334,94 +415,84 @@ export function EditAlertModal({
               </select>
             </div>
 
-            {/* Filter by: No Filters (default) | Primary Sectors */}
+            {/* Filter by followed entities (portfolio) */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Filter by
+                Filter by followed entities
               </label>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
-                    name="filter_mode"
-                    checked={filterMode === "no_filters"}
-                    onChange={() => {
-                      setFilterMode("no_filters");
-                      setFormData((prev) => ({ ...prev, sectors_id: [] }));
-                    }}
+                    name="filter_entities"
+                    checked={filterAll}
+                    onChange={() => setFilterAll(true)}
                     className="w-4 h-4 text-blue-600 focus:ring-blue-500"
                   />
-                  <span className="text-gray-700">No Filters (default)</span>
+                  <span className="text-gray-700">All (no filter)</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
-                    name="filter_mode"
-                    checked={filterMode === "primary_sectors"}
-                    onChange={() => setFilterMode("primary_sectors")}
+                    name="filter_entities"
+                    checked={!filterAll}
+                    onChange={() => setFilterAll(false)}
                     className="w-4 h-4 text-blue-600 focus:ring-blue-500"
                   />
-                  <span className="text-gray-700">Primary Sectors</span>
+                  <span className="text-gray-700">Select specific entities</span>
                 </label>
-                {filterMode === "primary_sectors" && (
-                  <div className="pl-6 space-y-2">
-                    <SearchableSelect
-                      options={primarySectorOptions.filter(
-                        (opt) => !selectedSectorIds.includes(opt.value as number)
-                      )}
-                      value=""
-                      onChange={(value) => {
-                        const id =
-                          typeof value === "number" ? value : Number(value);
-                        if (id && !selectedSectorIds.includes(id)) {
-                          setFormData((prev) => ({
-                            ...prev,
-                            sectors_id: [...(prev.sectors_id ?? []), id],
-                          }));
-                        }
-                      }}
-                      placeholder={
-                        loadingPrimarySectors
-                          ? "Loading sectors…"
-                          : "Select Primary Sector"
-                      }
-                      disabled={loadingPrimarySectors}
-                      style={{
-                        width: "100%",
-                        padding: "8px 12px",
-                        border: "1px solid #e2e8f0",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                      }}
-                    />
-                    {selectedSectorIds.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {selectedSectorIds.map((sectorId) => {
-                          const sector = primarySectors.find(
-                            (s) => s.id === sectorId
-                          );
+                {!filterAll && (
+                  <div className="pl-6 mt-2 border border-gray-200 rounded-lg p-3 bg-gray-50 max-h-48 overflow-y-auto">
+                    {portfolioLoading ? (
+                      <p className="text-sm text-gray-500">Loading portfolio…</p>
+                    ) : portfolioRows.length === 0 ? (
+                      <p className="text-sm text-gray-500">
+                        No followed entities. Add some from My Portfolio.
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {(
+                          [
+                            "companies",
+                            "sectors",
+                            "individuals",
+                            "investors",
+                            "advisors",
+                          ] as const
+                        ).map((key) => {
+                          const rows = portfolioByKey[key] ?? [];
+                          if (rows.length === 0) return null;
                           return (
-                            <span
-                              key={sectorId}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded text-sm bg-indigo-50 text-indigo-800"
-                            >
-                              {sector?.sector_name ?? `Sector ${sectorId}`}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    sectors_id: (prev.sectors_id ?? []).filter(
-                                      (id) => id !== sectorId
-                                    ),
-                                  }));
-                                }}
-                                className="ml-1 text-indigo-600 hover:text-indigo-800 font-bold leading-none"
-                                aria-label="Remove sector"
-                              >
-                                ×
-                              </button>
-                            </span>
+                            <div key={key}>
+                              <p className="text-xs font-medium text-gray-600 mb-1">
+                                {FILTER_KEY_LABEL[key]}
+                              </p>
+                              <ul className="space-y-1">
+                                {rows.map((row) => (
+                                  <li key={`${row.entity}-${row.id}`}>
+                                    <label className="flex items-center gap-2 cursor-pointer text-sm">
+                                      <input
+                                        type="checkbox"
+                                        checked={isEntitySelected(
+                                          row.entity as string,
+                                          row.id
+                                        )}
+                                        onChange={() =>
+                                          toggleEntityInFilters(
+                                            row.entity as string,
+                                            row.id
+                                          )
+                                        }
+                                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                      />
+                                      <span className="text-gray-800 truncate">
+                                        {row.name}
+                                      </span>
+                                    </label>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
                           );
                         })}
                       </div>

@@ -1,6 +1,24 @@
 import { authService } from "./auth";
-import type { EmailAlert, EmailAlertsMeta } from "@/types/emailAlerts";
+import type { EmailAlert, EmailAlertsMeta, EmailAlertFilters } from "@/types/emailAlerts";
 import { computeNextRunAtUtcIso } from "@/utils/emailAlertSchedule";
+
+function normalizeFilters(raw: EmailAlertFilters | null | undefined): EmailAlertFilters {
+  const keys: (keyof EmailAlertFilters)[] = [
+    "companies",
+    "sectors",
+    "individuals",
+    "investors",
+    "advisors",
+  ];
+  const out: EmailAlertFilters = {};
+  for (const key of keys) {
+    const val = raw?.[key];
+    out[key] = Array.isArray(val)
+      ? val.filter((n): n is number => typeof n === "number" && Number.isFinite(n))
+      : [];
+  }
+  return out;
+}
 
 interface EmailAlertsResponse {
   alerts: EmailAlert[];
@@ -58,7 +76,11 @@ class EmailAlertsService {
     // If the response is just an array, we need to construct the full response
     // Based on the user's description, the endpoint returns an array directly
     // We'll need to get the meta/enums from somewhere else or hardcode them for now
-    const alerts = Array.isArray(response) ? response : [];
+    const rawAlerts = Array.isArray(response) ? response : [];
+    const alerts: EmailAlert[] = rawAlerts.map((a) => ({
+      ...a,
+      filters: normalizeFilters(a.filters),
+    }));
 
     // For now, we'll use the hardcoded enums from the user's description
     // In the future, this might come from a separate endpoint
@@ -111,12 +133,20 @@ class EmailAlertsService {
       nextRunAtUtcIso == null ? null : new Date(nextRunAtUtcIso).getTime();
 
 
+    const filters = alert.filters ?? {};
+    const filtersPayload = {
+      companies: filters.companies ?? [],
+      sectors: filters.sectors ?? [],
+      individuals: filters.individuals ?? [],
+      investors: filters.investors ?? [],
+      advisors: filters.advisors ?? [],
+    };
+
     // Build base request body
     const body: Record<string, unknown> = {
       user_id: alert.user_id,
       item_type: alert.item_type,
       email_frequency: alert.email_frequency,
-      sectors_id: alert.sectors_id ?? [],
       day_of_week: alert.day_of_week || "",
       timezone,
       content_type: alert.content_type || "",
@@ -125,6 +155,8 @@ class EmailAlertsService {
       next_run_at_utc: nextRunAtUtcMs,
       last_sent_at_utc: null,
       status: "scheduled",
+      filters: filtersPayload,
+      sectors_id: [],
     };
 
     // Keep "as_added" clean: it doesn't use time/day scheduling.
@@ -163,12 +195,20 @@ class EmailAlertsService {
     const nextRunAtUtcMs =
       nextRunAtUtcIso == null ? null : new Date(nextRunAtUtcIso).getTime();
 
+    const filters = alert.filters ?? {};
+    const filtersPayload = {
+      companies: filters.companies ?? [],
+      sectors: filters.sectors ?? [],
+      individuals: filters.individuals ?? [],
+      investors: filters.investors ?? [],
+      advisors: filters.advisors ?? [],
+    };
+
     const body: Record<string, unknown> = {
       user_email_alerts_id: alert.id,
       user_id: alert.user_id,
       item_type: alert.item_type,
       email_frequency: alert.email_frequency,
-      sectors_id: alert.sectors_id ?? [],
       day_of_week: alert.day_of_week || "",
       timezone,
       content_type: alert.content_type || "",
@@ -177,6 +217,8 @@ class EmailAlertsService {
       next_run_at_utc:
         alert.email_frequency === "as_added" ? null : nextRunAtUtcMs,
       status: "scheduled",
+      filters: filtersPayload,
+      sectors_id: [],
     };
 
     const response = await this.request<EmailAlert>(

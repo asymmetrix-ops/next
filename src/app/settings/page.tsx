@@ -400,7 +400,7 @@ export default function SettingsPage() {
                   next_run_at_utc: null,
                   last_sent_at_utc: null,
                   status: "scheduled",
-                  sectors_id: [],
+                  filters: {},
                 } as EmailAlert;
               })()
             }
