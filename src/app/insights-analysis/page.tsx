@@ -100,10 +100,12 @@ const styles = {
     marginTop: "12px",
   },
   grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-    gap: "12px 20px",
+    display: "flex",
+    flexDirection: "row" as const,
+    flexWrap: "nowrap" as const,
+    gap: "16px",
     marginBottom: "12px",
+    alignItems: "flex-end" as const,
   },
   gridItem: {
     display: "flex",
@@ -792,9 +794,7 @@ const InsightsAnalysisPage = () => {
         font-size: 14px !important;
       }
       .filters-grid {
-        display: grid !important;
-        grid-template-columns: 1fr !important;
-        gap: 16px !important;
+        flex-direction: column !important;
       }
       .filters-heading {
         margin-bottom: 16px;
@@ -895,7 +895,7 @@ const InsightsAnalysisPage = () => {
 
               {/* Expandable filters */}
               {showFilters && (
-                <div style={{ ...styles.grid, marginTop: "12px" }}>
+                <div className="filters-grid" style={{ ...styles.grid, marginTop: "12px" }}>
                   <div style={styles.gridItem}>
                     <span style={styles.label}>Content Type</span>
                     <select
