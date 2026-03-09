@@ -1,24 +1,5 @@
 // Types for Insights Analysis API integration
 
-export interface ArticleSeriesPart {
-  id: number;
-  part_number: number;
-  headline: string;
-  publication_date: string;
-}
-
-export interface ArticleSeries {
-  series_id: number;
-  current_part: number;
-  total_parts: number;
-  parts: ArticleSeriesPart[];
-}
-
-export interface ContentCorrection {
-  note: string;
-  updated_at: string;
-}
-
 export interface ContentArticle {
   id: number;
   created_at: number;
@@ -41,28 +22,9 @@ export interface ContentArticle {
       City: string;
       State__Province__County: string;
       Country: string;
-      iso2?: string;
-    };
-    hq_iso2?: string | null;
-    hq_country?: string | null;
-  }>;
-  companies_of_focus?: Array<{
-    id: number;
-    name: string;
-    locations_id?: number;
-    hq_iso2?: string | null;
-    hq_country?: string | null;
-    _locations?: {
-      City?: string;
-      State__Province__County?: string;
-      Country?: string;
-      iso2?: string;
     };
   }>;
-  Transaction_status?: string;
   Visibility: string;
-  /** Summary bullets — may be HTML string, plain string, or array of strings */
-  summary?: unknown;
   Related_Documents: Array<{
     access: string;
     path: string;
@@ -75,17 +37,6 @@ export interface ContentArticle {
     meta: any;
     url?: string;
   }>;
-  is_series?: boolean;
-  series?: ArticleSeries;
-  /** News byline — plain string, list of names, or nested arrays from API */
-  byline?: string | string[] | Array<string | string[]> | null;
-  /** News sub-type label (e.g. Company update, Funding) */
-  News_Sub_Type?: string;
-  news_sub_type?: string;
-  right_to_reply?: boolean;
-  corrections?: ContentCorrection[] | null;
-  is_corrected?: boolean;
-  last_corrected_at?: string | null;
 }
 
 export interface InsightsAnalysisResponse {
@@ -102,7 +53,6 @@ export interface InsightsAnalysisFilters {
   search_query: string;
   Content_Type?: string;
   content_type?: string;
-  Transaction_status?: number;
   primary_sectors_ids: number[];
   Secondary_sectors_ids: number[];
   Countries: string[];
@@ -110,8 +60,8 @@ export interface InsightsAnalysisFilters {
   Cities: string[];
   Offset: number;
   Per_page: number;
-  /** When set, filters articles to this company (Get_All_Content_Articles company_id). */
-  company_id?: number;
+  user_id?: number | null;
+  show_followed?: boolean;
 }
 
 // Types for API integration
