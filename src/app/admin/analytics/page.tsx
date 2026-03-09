@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
   CompanySearchTab,
-  CompetitorsTab,
   ContentInsightsTab,
   PageInsightsTab,
   PlatformWideSearchTab,
@@ -18,8 +17,7 @@ type AnalyticsTab =
   | "content-insights"
   | "page-insights"
   | "platform-wide-search"
-  | "company-search"
-  | "competitors";
+  | "company-search";
 
 const ALLOWED_ANALYTICS_EMAILS = new Set<string>([
   "j.bochner@asymmetrixintelligence.com",
@@ -135,16 +133,6 @@ export default function AdminAnalyticsPage() {
         >
           Company Search
         </button>
-        <button
-          onClick={() => setActiveTab("competitors")}
-          className={`px-3 py-2 -mb-px border-b-2 ${
-            activeTab === "competitors"
-              ? "border-black font-medium"
-              : "border-transparent text-gray-500"
-          }`}
-        >
-          Competitors
-        </button>
       </div>
 
       {activeTab === "user-activity" && <UserActivityTab />}
@@ -152,7 +140,6 @@ export default function AdminAnalyticsPage() {
       {activeTab === "page-insights" && <PageInsightsTab />}
       {activeTab === "platform-wide-search" && <PlatformWideSearchTab />}
       {activeTab === "company-search" && <CompanySearchTab />}
-      {activeTab === "competitors" && <CompetitorsTab />}
     </div>
   );
 }

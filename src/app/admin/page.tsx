@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { CompetitorsTab } from "./analytics/_components/AnalyticsViews";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import TiptapSimpleEditor from "@/components/ui/TiptapSimpleEditor";
 import { locationsService } from "@/lib/locationsService";
@@ -64,6 +65,7 @@ export default function AdminPage() {
     | "emails"
     | "content"
     | "sectors"
+    | "competitors"
   >("valuation");
 
   // Only authenticated users with admin role may access; others are redirected.
@@ -202,6 +204,16 @@ Target company: {query} ({domain})`;
         >
           Sectors
         </button>
+        <button
+          onClick={() => setActiveTab("competitors")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "competitors"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Competitors
+        </button>
       </div>
 
       {activeTab === "valuation" && (
@@ -267,6 +279,7 @@ Target company: {query} ({domain})`;
       {activeTab === "emails" && <EmailsTab />}
       {activeTab === "content" && <ContentTab />}
       {activeTab === "sectors" && <SectorsTab />}
+      {activeTab === "competitors" && <CompetitorsTab />}
     </div>
   );
 }
