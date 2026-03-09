@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { locationsService } from "@/lib/locationsService";
 import {
   ContentArticle,
   InsightsAnalysisResponse,
@@ -17,25 +18,34 @@ const styles = {
     backgroundColor: "#f9fafb",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    width: "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box" as const,
   },
   maxWidth: {
-    padding: "32px",
+    padding: "16px",
     display: "flex" as const,
     flexDirection: "column" as const,
-    gap: "24px",
+    gap: "16px",
+    width: "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box" as const,
   },
   card: {
     backgroundColor: "white",
     borderRadius: "12px",
     boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-    padding: "32px 24px",
+    padding: "20px 24px",
     marginBottom: "0",
+    boxSizing: "border-box" as const,
+    width: "100%",
+    maxWidth: "100%",
   },
   heading: {
     fontSize: "24px",
     fontWeight: "700",
     color: "#1a202c",
-    marginBottom: "8px",
+    marginBottom: "16px",
     marginTop: "0px",
   },
   subHeading: {
@@ -46,30 +56,39 @@ const styles = {
   },
   searchDiv: {
     display: "flex" as const,
-    flexDirection: "column" as const,
+    flexDirection: "row" as const,
+    gap: "12px",
+    flexWrap: "wrap" as const,
+    alignItems: "flex-start" as const,
+    width: "100%",
+    maxWidth: "100%",
   },
   input: {
     width: "100%",
-    maxWidth: "300px",
-    padding: "15px 14px",
+    maxWidth: "280px",
+    padding: "10px 12px",
     border: "1px solid #e2e8f0",
     borderRadius: "6px",
     fontSize: "14px",
     color: "#4a5568",
     outline: "none",
-    marginBottom: "12px",
+    marginBottom: "0",
+    boxSizing: "border-box" as const,
   },
   button: {
     width: "100%",
-    maxWidth: "300px",
+    maxWidth: "120px",
     backgroundColor: "#0075df",
     color: "white",
     fontWeight: "600",
-    padding: "15px 14px",
+    padding: "10px 14px",
     borderRadius: "6px",
     border: "none",
     cursor: "pointer",
     fontSize: "14px",
+    minHeight: "44px",
+    touchAction: "manipulation",
+    WebkitTapHighlightColor: "transparent",
   },
   linkButton: {
     backgroundColor: "transparent",
@@ -81,25 +100,37 @@ const styles = {
     marginTop: "12px",
   },
   grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-    gap: "24px",
-    marginBottom: "24px",
+    display: "flex",
+    flexDirection: "row" as const,
+    flexWrap: "nowrap" as const,
+    gap: "16px",
+    marginBottom: "12px",
+    alignItems: "flex-end" as const,
   },
   gridItem: {
     display: "flex",
     flexDirection: "column" as const,
-    gap: "8px",
+    gap: "6px",
   },
   label: {
     fontSize: "14px",
     fontWeight: "500",
     color: "#374151",
     marginBottom: "4px",
+    marginTop: "4px",
   },
   select: {
     width: "100%",
-    maxWidth: "300px",
+    maxWidth: "280px",
+    padding: "10px 12px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "6px",
+    fontSize: "14px",
+    color: "#4a5568",
+    outline: "none",
+    backgroundColor: "white",
+    cursor: "pointer",
+    boxSizing: "border-box" as const,
   },
 };
 
@@ -384,7 +415,7 @@ const InsightsAnalysisCards = ({
 
 // Main Insights Analysis Page Component
 const InsightsAnalysisPage = () => {
-  const { isTrialActive } = useAuth();
+  const { isTrialActive, user } = useAuth();
   // State for filters
   const [filters, setFilters] = useState<InsightsAnalysisFilters>({
     search_query: "",
@@ -394,11 +425,17 @@ const InsightsAnalysisPage = () => {
     Provinces: [],
     Cities: [],
     Offset: 1,
-    Per_page: 10,
+    Per_page: 20,
+    user_id: null,
+    show_followed: false,
   });
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
   const [contentTypes, setContentTypes] = useState<string[]>([]);
+  const [primarySectors, setPrimarySectors] = useState<
+    Array<{ id: number; sector_name: string }>
+  >([]);
 
   // State for insights analysis data
   const [articles, setArticles] = useState<ContentArticle[]>([]);
@@ -408,7 +445,7 @@ const InsightsAnalysisPage = () => {
     nextPage: null as number | null,
     prevPage: null as number | null,
     offset: 0,
-    perPage: 10,
+    perPage: 20,
     pageTotal: 0,
   });
   const [loading, setLoading] = useState(false);
@@ -477,9 +514,20 @@ const InsightsAnalysisPage = () => {
       }
 
       // Build GET query params per API spec
+      const parsedUserId =
+        user?.id != null ? Number.parseInt(String(user.id), 10) : NaN;
+      const shouldShowFollowed = Boolean(filters.show_followed);
+      const followedUserId =
+        shouldShowFollowed && Number.isFinite(parsedUserId) ? parsedUserId : null;
+
+      if (shouldShowFollowed && followedUserId === null) {
+        throw new Error("Unable to load followed content for the current user.");
+      }
+
       const params = new URLSearchParams();
       params.append("Offset", String(filters.Offset));
       params.append("Per_page", String(filters.Per_page));
+      params.append("show_followed", String(shouldShowFollowed));
       if (filters.search_query)
         params.append("search_query", filters.search_query);
       if (filters.Countries?.length)
@@ -500,6 +548,9 @@ const InsightsAnalysisPage = () => {
         );
       const ct = (filters.Content_Type || filters.content_type || "").trim();
       if (ct) params.append("content_type", ct);
+      if (followedUserId !== null) {
+        params.append("user_id", String(followedUserId));
+      }
 
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles?${params.toString()}`;
 
@@ -545,22 +596,27 @@ const InsightsAnalysisPage = () => {
     fetchInsightsAnalysis(filters);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch content type options
+  // Fetch content type options and primary sectors
   useEffect(() => {
     const run = async () => {
       try {
         const token = localStorage.getItem("asymmetrix_auth_token");
         if (!token) return;
-        const resp = await fetch(
-          "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/content_types_for_articles",
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+
+        const [resp, sectors] = await Promise.all([
+          fetch(
+            "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/content_types_for_articles",
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          ),
+          locationsService.getPrimarySectors(),
+        ]);
+
         if (!resp.ok) return;
         const data = (await resp.json()) as Array<{
           Content_Content_Type1: string;
@@ -573,6 +629,7 @@ const InsightsAnalysisPage = () => {
           )
         );
         setContentTypes(values);
+        setPrimarySectors(sectors);
       } catch {
         // ignore
       }
@@ -598,10 +655,52 @@ const InsightsAnalysisPage = () => {
     fetchInsightsAnalysis(updatedFilters);
   };
 
+  const handleFollowedToggle = (checked: boolean) => {
+    const parsedUserId =
+      user?.id != null ? Number.parseInt(String(user.id), 10) : NaN;
+    const updatedFilters = {
+      ...filters,
+      Offset: 1,
+      show_followed: checked,
+      user_id: checked && Number.isFinite(parsedUserId) ? parsedUserId : null,
+    };
+    setFilters(updatedFilters);
+    fetchInsightsAnalysis(updatedFilters);
+  };
+
+  const resetFilters = () => {
+    const updatedFilters: InsightsAnalysisFilters = {
+      ...filters,
+      search_query: "",
+      Content_Type: undefined,
+      content_type: undefined,
+      primary_sectors_ids: [],
+      Secondary_sectors_ids: [],
+      Offset: 1,
+      show_followed: false,
+      user_id: null,
+    };
+    setSearchTerm("");
+    setFilters(updatedFilters);
+    fetchInsightsAnalysis(updatedFilters);
+  };
+
   const style = `
+    * {
+      box-sizing: border-box;
+    }
     .insights-analysis-section {
-      padding: 32px 24px;
+      padding: 32px 16px;
       border-radius: 8px;
+      max-width: 100%;
+      width: 100%;
+      overflow-x: hidden;
+      box-sizing: border-box;
+    }
+    @media (max-width: 640px) {
+      .insights-analysis-section {
+        padding: 16px 12px !important;
+      }
     }
     .insights-analysis-stats {
       background: #fff;
@@ -797,6 +896,43 @@ const InsightsAnalysisPage = () => {
       color: #000;
       font-size: 14px;
     }
+    .followed-filter-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 10px;
+      margin: 0;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #f8fafc;
+      max-width: 320px;
+      min-height: 36px;
+    }
+    .followed-filter-checkbox {
+      width: 16px;
+      height: 16px;
+      margin-top: 1px;
+      accent-color: #0075df;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .followed-filter-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .followed-filter-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a202c;
+      line-height: 1.2;
+    }
+    .followed-filter-description {
+      font-size: 11px;
+      line-height: 1.35;
+      color: #4a5568;
+      margin: 0;
+    }
     @media (max-width: 768px) {
       .insights-analysis-cards {
         grid-template-columns: 1fr !important;
@@ -842,9 +978,7 @@ const InsightsAnalysisPage = () => {
         font-size: 14px !important;
       }
       .filters-grid {
-        display: grid !important;
-        grid-template-columns: 1fr !important;
-        gap: 16px !important;
+        flex-direction: column !important;
       }
       .filters-card {
         padding: 20px 16px !important;
@@ -859,6 +993,7 @@ const InsightsAnalysisPage = () => {
       }
       .filters-input {
         max-width: 100% !important;
+        width: 100% !important;
       }
       .filters-button {
         max-width: 100% !important;
@@ -867,18 +1002,30 @@ const InsightsAnalysisPage = () => {
   `;
 
   return (
-    <div className="min-h-screen">
+    <div
+      className="min-h-screen"
+      style={{ width: "100%", maxWidth: "100vw", overflowX: "hidden" }}
+    >
       <Header />
 
       {/* Filters Section (hidden for Trial) */}
       {!isTrialActive && (
         <div style={styles.container}>
           <div style={styles.maxWidth}>
-            <div style={styles.card} className="filters-card">
-              <h2 style={styles.heading} className="filters-heading">
+            <div
+              style={{
+                ...styles.card,
+                ...(showFilters ? {} : { padding: "12px 16px" }),
+              }}
+              className="filters-card"
+            >
+              <h2
+                style={{ ...styles.heading, marginBottom: "16px" }}
+                className="filters-heading"
+              >
                 Insights & Analysis
               </h2>
-              <div style={styles.searchDiv}>
+              <div style={styles.searchDiv} className="search-bar">
                 <input
                   type="text"
                   placeholder="Enter search term here"
@@ -888,47 +1035,120 @@ const InsightsAnalysisPage = () => {
                   className="filters-input"
                   onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                 />
-                <select
-                  value={filters.Content_Type || ""}
-                  onChange={(e) => {
-                    const updated = {
-                      ...filters,
-                      Content_Type: e.target.value || undefined,
-                      content_type: e.target.value || undefined,
-                      Offset: 1,
-                    };
-                    setFilters(updated);
-                    fetchInsightsAnalysis(updated);
-                  }}
-                  style={{
-                    ...styles.input,
-                    maxWidth: 280,
-                    paddingRight: 8,
-                  }}
-                >
-                  <option value="">All Content Types</option>
-                  {contentTypes.map((ct) => (
-                    <option key={ct} value={ct}>
-                      {ct}
-                    </option>
-                  ))}
-                </select>
                 <button
+                  type="button"
                   onClick={handleSearch}
                   style={styles.button}
                   className="filters-button"
-                  onMouseOver={(e) =>
-                    ((e.target as HTMLButtonElement).style.backgroundColor =
-                      "#005bb5")
-                  }
-                  onMouseOut={(e) =>
-                    ((e.target as HTMLButtonElement).style.backgroundColor =
-                      "#0075df")
-                  }
                 >
                   {loading ? "Searching..." : "Search"}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(!showFilters)}
+                  style={{
+                    ...styles.button,
+                    backgroundColor: "#fff",
+                    color: "#1a202c",
+                    border: "1px solid #e2e8f0",
+                    fontWeight: 500,
+                  }}
+                >
+                  {showFilters ? "Hide Filters" : "Show Filters"}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  style={{
+                    ...styles.button,
+                    backgroundColor: "#fff",
+                    color: "#1a202c",
+                    border: "1px solid #e2e8f0",
+                    fontWeight: 500,
+                  }}
+                >
+                  Reset Filters
+                </button>
               </div>
+
+              {showFilters && (
+                <div
+                  className="filters-grid"
+                  style={{ ...styles.grid, marginTop: "12px" }}
+                >
+                  <div style={styles.gridItem}>
+                    <span style={styles.label}>Content Type</span>
+                    <select
+                      value={filters.Content_Type || ""}
+                      onChange={(e) => {
+                        const updated = {
+                          ...filters,
+                          Content_Type: e.target.value || undefined,
+                          content_type: e.target.value || undefined,
+                          Offset: 1,
+                        };
+                        setFilters(updated);
+                        fetchInsightsAnalysis(updated);
+                      }}
+                      style={styles.select}
+                      className="filters-input"
+                    >
+                      <option value="">All Content Types</option>
+                      {contentTypes.map((ct) => (
+                        <option key={ct} value={ct}>
+                          {ct}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={styles.gridItem}>
+                    <span style={styles.label}>Primary Sector</span>
+                    <select
+                      value={filters.primary_sectors_ids?.[0]?.toString() || ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const updated = {
+                          ...filters,
+                          primary_sectors_ids:
+                            value === "" ? [] : [Number.parseInt(value, 10)],
+                          Offset: 1,
+                        };
+                        setFilters(updated);
+                        fetchInsightsAnalysis(updated);
+                      }}
+                      style={styles.select}
+                      className="filters-input"
+                    >
+                      <option value="">All Primary Sectors</option>
+                      {primarySectors.map((sector) => (
+                        <option key={sector.id} value={sector.id}>
+                          {sector.sector_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={styles.gridItem}>
+                    <span style={styles.label}>View Followed</span>
+                    <label className="followed-filter-card">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(filters.show_followed)}
+                        onChange={(e) => handleFollowedToggle(e.target.checked)}
+                        className="followed-filter-checkbox"
+                      />
+                      <span className="followed-filter-content">
+                        <span className="followed-filter-title">
+                          Followed Only
+                        </span>
+                        <span className="followed-filter-description">
+                          Show content tagged to followed companies, advisors,
+                          individuals, investors, or sectors.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              )}
 
               {/* Error Display */}
               {error && <div className="error">{error}</div>}

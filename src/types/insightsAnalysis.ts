@@ -60,6 +60,8 @@ export interface InsightsAnalysisFilters {
   Cities: string[];
   Offset: number;
   Per_page: number;
+  user_id?: number | null;
+  show_followed?: boolean;
 }
 
 // Types for API integration
