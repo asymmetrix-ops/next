@@ -225,17 +225,40 @@ async function fetchSectorData(sectorId: string, token: string): Promise<{
     const overviewData = overviewOut.data as Record<string, unknown> | null;
     const recentData = recentOut.data;
 
-    const extractCompanies = (data: unknown): unknown[] => {
-      if (isRecord(data) && Array.isArray(data['companies'])) return data['companies'] as unknown[];
-      if (Array.isArray(data)) return data;
-      return [];
+    const extractMarketMapBucket = (
+      data: unknown
+    ): { companies: unknown[]; totalCount?: number } => {
+      if (isRecord(data)) {
+        return {
+          companies: Array.isArray(data['companies'])
+            ? (data['companies'] as unknown[])
+            : [],
+          totalCount:
+            typeof data['total_count'] === 'number'
+              ? data['total_count']
+              : undefined,
+        };
+      }
+      if (Array.isArray(data)) return { companies: data, totalCount: data.length };
+      return { companies: [] };
     };
 
+    const publicBucket = extractMarketMapBucket(mmPublicOut.data);
+    const peBucket = extractMarketMapBucket(mmPeOut.data);
+    const vcBucket = extractMarketMapBucket(mmVcOut.data);
+    const privateBucket = extractMarketMapBucket(mmPrivateOut.data);
+
     const marketMap = {
-      public: extractCompanies(mmPublicOut.data),
-      pe: extractCompanies(mmPeOut.data),
-      vc: extractCompanies(mmVcOut.data),
-      private: extractCompanies(mmPrivateOut.data),
+      public: publicBucket.companies,
+      pe: peBucket.companies,
+      vc: vcBucket.companies,
+      private: privateBucket.companies,
+      counts: {
+        public: publicBucket.totalCount ?? publicBucket.companies.length,
+        pe: peBucket.totalCount ?? peBucket.companies.length,
+        vc: vcBucket.totalCount ?? vcBucket.companies.length,
+        private: privateBucket.totalCount ?? privateBucket.companies.length,
+      },
     };
 
     return {
@@ -370,8 +393,13 @@ export async function GET(request: NextRequest) {
       const data = await fetchSectorData(sectorId, authToken);
 
       if (data) {
-        const mm = data.splitDatasets.marketMap as Record<string, unknown[]>;
-        console.log(`[CRON] 📊 Sector ${sectorId} marketMap: public=${mm.public?.length ?? 0}, pe=${mm.pe?.length ?? 0}, vc=${mm.vc?.length ?? 0}, private=${mm.private?.length ?? 0}`);
+        const mm = data.splitDatasets.marketMap as Record<string, unknown>;
+        const counts = (mm.counts ?? {}) as Record<string, number | undefined>;
+        const publicCompanies = Array.isArray(mm.public) ? mm.public : [];
+        const peCompanies = Array.isArray(mm.pe) ? mm.pe : [];
+        const vcCompanies = Array.isArray(mm.vc) ? mm.vc : [];
+        const privateCompanies = Array.isArray(mm.private) ? mm.private : [];
+        console.log(`[CRON] 📊 Sector ${sectorId} marketMap: public=${publicCompanies.length}/${counts.public ?? 0}, pe=${peCompanies.length}/${counts.pe ?? 0}, vc=${vcCompanies.length}/${counts.vc ?? 0}, private=${privateCompanies.length}/${counts.private ?? 0}`);
         console.log(`[CRON] 📊 Sector ${sectorId} strategic=${Array.isArray(data.splitDatasets.strategic) ? data.splitDatasets.strategic.length : (data.splitDatasets.strategic ? 'obj' : 'null')}, pe_investors=${Array.isArray(data.splitDatasets.pe) ? data.splitDatasets.pe.length : (data.splitDatasets.pe ? 'obj' : 'null')}, recentTx=${Array.isArray(data.splitDatasets.recentTransactions) ? data.splitDatasets.recentTransactions.length : (data.splitDatasets.recentTransactions ? 'obj' : 'null')}`);
 
         const payload = {

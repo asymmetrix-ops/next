@@ -183,21 +183,47 @@ export async function GET(
       console.log(`[API] 🔍 overview_data keys:`, Object.keys(overviewData));
     }
 
-    const extractCompanies = (data: unknown): unknown[] => {
-      if (data && typeof data === 'object' && !Array.isArray(data) && Array.isArray((data as Record<string, unknown>)['companies'])) {
-        return (data as Record<string, unknown>)['companies'] as unknown[];
+    const extractMarketMapBucket = (
+      data: unknown
+    ): { companies: unknown[]; totalCount?: number } => {
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const record = data as Record<string, unknown>;
+        return {
+          companies: Array.isArray(record['companies'])
+            ? (record['companies'] as unknown[])
+            : [],
+          totalCount:
+            typeof record['total_count'] === 'number'
+              ? record['total_count']
+              : undefined,
+        };
       }
-      if (Array.isArray(data)) return data;
-      return [];
+      if (Array.isArray(data)) {
+        return { companies: data, totalCount: data.length };
+      }
+      return { companies: [] };
     };
 
+    const publicBucket = extractMarketMapBucket(mmPublicOut.data);
+    const peBucket = extractMarketMapBucket(mmPeOut.data);
+    const vcBucket = extractMarketMapBucket(mmVcOut.data);
+    const privateBucket = extractMarketMapBucket(mmPrivateOut.data);
+
     const marketMap = {
-      public: extractCompanies(mmPublicOut.data),
-      pe: extractCompanies(mmPeOut.data),
-      vc: extractCompanies(mmVcOut.data),
-      private: extractCompanies(mmPrivateOut.data),
+      public: publicBucket.companies,
+      pe: peBucket.companies,
+      vc: vcBucket.companies,
+      private: privateBucket.companies,
+      counts: {
+        public: publicBucket.totalCount ?? publicBucket.companies.length,
+        pe: peBucket.totalCount ?? peBucket.companies.length,
+        vc: vcBucket.totalCount ?? vcBucket.companies.length,
+        private: privateBucket.totalCount ?? privateBucket.companies.length,
+      },
     };
-    console.log(`[API] 📊 marketMap: public=${marketMap.public.length}, pe=${marketMap.pe.length}, vc=${marketMap.vc.length}, private=${marketMap.private.length}`);
+    console.log(
+      `[API] 📊 marketMap: public=${marketMap.public.length}/${marketMap.counts.public}, pe=${marketMap.pe.length}/${marketMap.counts.pe}, vc=${marketMap.vc.length}/${marketMap.counts.vc}, private=${marketMap.private.length}/${marketMap.counts.private}`
+    );
 
     const strategic = overviewData?.strategic_acquirers ?? null;
     const pe = overviewData?.pe_investors ?? null;
@@ -232,7 +258,9 @@ export async function GET(
     const totalTime = performance.now() - startTime;
     console.log(`[API] ✅ Overview data fetched in ${totalTime.toFixed(0)}ms`);
     console.log(`[API]    - Sector: ${sectorData ? 'OK' : 'failed'}`);
-    console.log(`[API]    - Market Map: public=${marketMap.public.length} pe=${marketMap.pe.length} vc=${marketMap.vc.length} private=${marketMap.private.length}`);
+    console.log(
+      `[API]    - Market Map: public=${marketMap.public.length}/${marketMap.counts.public} pe=${marketMap.pe.length}/${marketMap.counts.pe} vc=${marketMap.vc.length}/${marketMap.counts.vc} private=${marketMap.private.length}/${marketMap.counts.private}`
+    );
     console.log(`[API]    - Strategic: ${strategic ? 'OK' : 'failed'}`);
     console.log(`[API]    - PE: ${pe ? 'OK' : 'failed'}`);
     console.log(`[API]    - Recent: ${recentTransactions ? 'OK' : 'failed'}`);

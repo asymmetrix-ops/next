@@ -2764,14 +2764,44 @@ const SectorDetailPage = ({
     return mapped.length > 0 ? mapped : companies;
   }, [preferredSource, companies]);
 
-  // Total counts per type from market_map API (public_count, pe_count, vc_count, private_count)
+  // Total counts per type from market_map API (prefer cached totals over visible item counts)
   const marketMapCounts: MarketMapCounts | undefined = useMemo(() => {
     if (!preferredSource) return undefined;
     const raw = (preferredSource as { market_map?: unknown })?.market_map;
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
     const o = raw as Record<string, unknown>;
 
-    // New format: {public: [...], pe: [...], vc: [...], private: [...]} — derive counts from array lengths
+    const countsRecord =
+      o["counts"] && typeof o["counts"] === "object" && !Array.isArray(o["counts"])
+        ? (o["counts"] as Record<string, unknown>)
+        : undefined;
+
+    const countsFromCache = {
+      public:
+        getFirstMatchingNumber(countsRecord || {}, ["public"]) ??
+        getFirstMatchingNumber(o, ["public_total_count", "Public_total_count"]),
+      private_equity_owned:
+        getFirstMatchingNumber(countsRecord || {}, ["pe"]) ??
+        getFirstMatchingNumber(o, ["pe_total_count", "Pe_total_count"]),
+      venture_capital_backed:
+        getFirstMatchingNumber(countsRecord || {}, ["vc"]) ??
+        getFirstMatchingNumber(o, ["vc_total_count", "Vc_total_count"]),
+      private:
+        getFirstMatchingNumber(countsRecord || {}, ["private"]) ??
+        getFirstMatchingNumber(o, ["private_total_count", "Private_total_count"]),
+    };
+
+    if (
+      countsFromCache.public !== undefined ||
+      countsFromCache.private_equity_owned !== undefined ||
+      countsFromCache.venture_capital_backed !== undefined ||
+      countsFromCache.private !== undefined
+    ) {
+      return countsFromCache;
+    }
+
+    // New format fallback: {public: [...], pe: [...], vc: [...], private: [...]}.
+    // These are only the preview items, so use them only when cached totals are unavailable.
     const publicArr = Array.isArray(o["public"]) ? o["public"] : undefined;
     const peArr = Array.isArray(o["pe"]) ? o["pe"] : undefined;
     const vcArr = Array.isArray(o["vc"]) ? o["vc"] : undefined;
