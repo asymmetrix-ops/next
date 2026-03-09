@@ -450,6 +450,10 @@ export default function HomeUserPage() {
   const [corporateEventsView, setCorporateEventsView] = useState<
     "followed" | "all"
   >("all");
+  const [insightsArticlesLoading, setInsightsArticlesLoading] = useState(true);
+  const [insightsArticlesView, setInsightsArticlesView] = useState<
+    "followed" | "all"
+  >("all");
   const [insightsArticles, setInsightsArticles] = useState<InsightArticle[]>(
     []
   );
@@ -756,7 +760,6 @@ export default function HomeUserPage() {
         sectorsCountResponse,
         advisorsCountResponse,
         investorsResponse,
-        insightsResponse,
       ] = await Promise.allSettled([
         dashboardApiService.getHeroScreenStatisticCompanies(),
         dashboardApiService.getHeroScreenStatisticEventsCount(),
@@ -764,7 +767,6 @@ export default function HomeUserPage() {
         dashboardApiService.getHeroScreenStatisticSectors(),
         dashboardApiService.getHeroScreenStatisticAdvisorsCount(),
         dashboardApiService.getHeroScreenStatisticInvestors(),
-        dashboardApiService.getAllContentArticlesHome(),
       ]);
 
       // Handle asymmetrix data - build from individual statistics
@@ -920,26 +922,6 @@ export default function HomeUserPage() {
 
       setAsymmetrixData(statsData);
 
-      // Handle insights articles
-      if (insightsResponse.status === "fulfilled") {
-        // Try different possible structures
-        let insightsData: InsightArticle[] = [];
-        const responseValue = insightsResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-
-        if (responseValue.data) {
-          insightsData = responseValue.data as InsightArticle[];
-        } else if (Array.isArray(responseValue)) {
-          insightsData = responseValue as InsightArticle[];
-        }
-
-        setInsightsArticles(insightsData || []);
-      } else {
-        setInsightsArticles([]);
-      }
-
       // Removed New Companies fetch handling
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -1004,6 +986,56 @@ export default function HomeUserPage() {
     }
   }, [corporateEventsView, user?.id]);
 
+  const fetchInsightsArticles = useCallback(async () => {
+    try {
+      setInsightsArticlesLoading(true);
+
+      const parsedUserId =
+        user?.id != null ? Number.parseInt(String(user.id), 10) : NaN;
+      const shouldShowFollowed = insightsArticlesView === "followed";
+      const followedUserId =
+        shouldShowFollowed &&
+        Number.isFinite(parsedUserId) &&
+        parsedUserId > 0
+          ? parsedUserId
+          : null;
+
+      if (shouldShowFollowed && followedUserId === null) {
+        throw new Error("Unable to load followed content for the current user.");
+      }
+
+      const insightsResponse = await dashboardApiService.getAllContentArticlesHome(
+        {
+          search: "",
+          showFollowed: shouldShowFollowed,
+          userId: followedUserId,
+        }
+      );
+
+      let insightsData: InsightArticle[] = [];
+      const responseValue = insightsResponse as unknown as Record<string, unknown>;
+
+      if (responseValue.data) {
+        insightsData = responseValue.data as InsightArticle[];
+      } else if (Array.isArray(responseValue)) {
+        insightsData = responseValue as InsightArticle[];
+      }
+
+      setInsightsArticles(insightsData || []);
+    } catch (error) {
+      console.error("Error fetching insights articles:", error);
+      if (
+        error instanceof Error &&
+        error.message === "Authentication required"
+      ) {
+        return;
+      }
+      setInsightsArticles([]);
+    } finally {
+      setInsightsArticlesLoading(false);
+    }
+  }, [insightsArticlesView, user?.id]);
+
   // Check authentication on component mount
   useEffect(() => {
     console.log("Dashboard page - authLoading:", authLoading);
@@ -1031,6 +1063,11 @@ export default function HomeUserPage() {
     if (authLoading || !isAuthenticated) return;
     fetchCorporateEvents();
   }, [authLoading, isAuthenticated, fetchCorporateEvents]);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+    fetchInsightsArticles();
+  }, [authLoading, isAuthenticated, fetchInsightsArticles]);
 
   if (authLoading) {
     return (
@@ -1577,16 +1614,50 @@ export default function HomeUserPage() {
                   Insights &amp; Analysis
                 </h2>
               </div>
-              <a
-                href="/insights-analysis"
-                className="text-xs font-medium text-blue-600 underline hover:text-blue-800"
-                style={{ fontWeight: "500" }}
-              >
-                View all
-              </a>
+              <div className="flex items-center gap-3">
+                <div className="inline-flex p-1 bg-gray-100 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setInsightsArticlesView("followed")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      insightsArticlesView === "followed"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    aria-pressed={insightsArticlesView === "followed"}
+                  >
+                    Followed
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInsightsArticlesView("all")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      insightsArticlesView === "all"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    aria-pressed={insightsArticlesView === "all"}
+                  >
+                    View All
+                  </button>
+                </div>
+                <a
+                  href="/insights-analysis"
+                  className="text-xs font-medium text-blue-600 underline hover:text-blue-800"
+                  style={{ fontWeight: "500" }}
+                >
+                  View all
+                </a>
+              </div>
             </div>
             <div className="flex-1 p-3 overflow-y-auto sm:p-4">
-              {insightsArticles.length > 0 ? (
+              {insightsArticlesLoading ? (
+                <div className="py-6 text-center sm:py-8">
+                  <p className="text-sm text-gray-500">
+                    Loading insights articles...
+                  </p>
+                </div>
+              ) : insightsArticles.length > 0 ? (
                 <div className="space-y-4">
                   {[...insightsArticles]
                     .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
@@ -1666,7 +1737,11 @@ export default function HomeUserPage() {
                 </div>
               ) : (
                 <div className="py-6 text-center sm:py-8">
-                  <p className="text-sm text-gray-500">No insights available</p>
+                  <p className="text-sm text-gray-500">
+                    {insightsArticlesView === "followed"
+                      ? "No followed insights available"
+                      : "No insights available"}
+                  </p>
                 </div>
               )}
             </div>
