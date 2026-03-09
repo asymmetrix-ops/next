@@ -112,8 +112,26 @@ class DashboardApiService {
     );
   }
 
-  async getCorporateEvents(): Promise<ApiResponse<Record<string, unknown>[]>> {
-    return this.request<Record<string, unknown>[]>("/corporate_events");
+  async getCorporateEvents(filters?: {
+    showFollowed?: boolean;
+    userId?: number | null;
+  }): Promise<ApiResponse<Record<string, unknown>[]>> {
+    const params = new URLSearchParams();
+    const shouldShowFollowed = Boolean(filters?.showFollowed);
+
+    params.append("show_followed", String(shouldShowFollowed));
+
+    if (
+      shouldShowFollowed &&
+      typeof filters?.userId === "number" &&
+      Number.isFinite(filters.userId)
+    ) {
+      params.append("user_id", String(filters.userId));
+    }
+
+    return this.request<Record<string, unknown>[]>(
+      `/corporate_events?${params.toString()}`
+    );
   }
 
   // New home page corporate events endpoint (returns a raw array, not { data: ... })

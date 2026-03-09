@@ -133,7 +133,6 @@ export default function HomeUserPage() {
   const {
     isAuthenticated,
     user,
-    logout,
     loading: authLoading,
     isTrialActive,
     trialDaysLeft,
@@ -447,6 +446,10 @@ export default function HomeUserPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [asymmetrixData, setAsymmetrixData] = useState<AsymmetrixData[]>([]);
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
+  const [corporateEventsLoading, setCorporateEventsLoading] = useState(true);
+  const [corporateEventsView, setCorporateEventsView] = useState<
+    "followed" | "all"
+  >("all");
   const [insightsArticles, setInsightsArticles] = useState<InsightArticle[]>(
     []
   );
@@ -753,7 +756,6 @@ export default function HomeUserPage() {
         sectorsCountResponse,
         advisorsCountResponse,
         investorsResponse,
-        eventsResponse,
         insightsResponse,
       ] = await Promise.allSettled([
         dashboardApiService.getHeroScreenStatisticCompanies(),
@@ -762,7 +764,6 @@ export default function HomeUserPage() {
         dashboardApiService.getHeroScreenStatisticSectors(),
         dashboardApiService.getHeroScreenStatisticAdvisorsCount(),
         dashboardApiService.getHeroScreenStatisticInvestors(),
-        dashboardApiService.getCorporateEvents(),
         dashboardApiService.getAllContentArticlesHome(),
       ]);
 
@@ -919,28 +920,6 @@ export default function HomeUserPage() {
 
       setAsymmetrixData(statsData);
 
-      // Handle corporate events
-      if (eventsResponse.status === "fulfilled") {
-        // Try different possible structures
-        let eventsData: CorporateEvent[] = [];
-        const responseValue = eventsResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-
-        if (responseValue.CorporateEvents) {
-          eventsData = responseValue.CorporateEvents as CorporateEvent[];
-        } else if (responseValue.data) {
-          eventsData = responseValue.data as CorporateEvent[];
-        } else if (Array.isArray(responseValue)) {
-          eventsData = responseValue as CorporateEvent[];
-        }
-
-        setCorporateEvents(eventsData || []);
-      } else {
-        setCorporateEvents([]);
-      }
-
       // Handle insights articles
       if (insightsResponse.status === "fulfilled") {
         // Try different possible structures
@@ -974,7 +953,56 @@ export default function HomeUserPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [logout, router]);
+  }, []);
+
+  const fetchCorporateEvents = useCallback(async () => {
+    try {
+      setCorporateEventsLoading(true);
+
+      const parsedUserId =
+        user?.id != null ? Number.parseInt(String(user.id), 10) : NaN;
+      const shouldShowFollowed = corporateEventsView === "followed";
+      const followedUserId =
+        shouldShowFollowed &&
+        Number.isFinite(parsedUserId) &&
+        parsedUserId > 0
+          ? parsedUserId
+          : null;
+
+      if (shouldShowFollowed && followedUserId === null) {
+        throw new Error("Unable to load followed content for the current user.");
+      }
+
+      const eventsResponse = await dashboardApiService.getCorporateEvents({
+        showFollowed: shouldShowFollowed,
+        userId: followedUserId,
+      });
+
+      let eventsData: CorporateEvent[] = [];
+      const responseValue = eventsResponse as unknown as Record<string, unknown>;
+
+      if (responseValue.CorporateEvents) {
+        eventsData = responseValue.CorporateEvents as CorporateEvent[];
+      } else if (responseValue.data) {
+        eventsData = responseValue.data as CorporateEvent[];
+      } else if (Array.isArray(responseValue)) {
+        eventsData = responseValue as CorporateEvent[];
+      }
+
+      setCorporateEvents(eventsData || []);
+    } catch (error) {
+      console.error("Error fetching corporate events:", error);
+      if (
+        error instanceof Error &&
+        error.message === "Authentication required"
+      ) {
+        return;
+      }
+      setCorporateEvents([]);
+    } finally {
+      setCorporateEventsLoading(false);
+    }
+  }, [corporateEventsView, user?.id]);
 
   // Check authentication on component mount
   useEffect(() => {
@@ -997,7 +1025,12 @@ export default function HomeUserPage() {
     if (isAuthenticated) {
       fetchDashboardData();
     }
-  }, [router, fetchDashboardData, isAuthenticated, authLoading]);
+  }, [fetchDashboardData, isAuthenticated, authLoading]);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+    fetchCorporateEvents();
+  }, [authLoading, isAuthenticated, fetchCorporateEvents]);
 
   if (authLoading) {
     return (
@@ -1665,16 +1698,50 @@ export default function HomeUserPage() {
                   Corporate Events
                 </h2>
               </div>
-              <a
-                href="/corporate-events"
-                className="text-xs font-medium text-blue-600 underline hover:text-blue-800"
-                style={{ fontWeight: "500" }}
-              >
-                View all
-              </a>
+              <div className="flex items-center gap-3">
+                <div className="inline-flex p-1 bg-gray-100 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setCorporateEventsView("followed")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      corporateEventsView === "followed"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    aria-pressed={corporateEventsView === "followed"}
+                  >
+                    Followed
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCorporateEventsView("all")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      corporateEventsView === "all"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    aria-pressed={corporateEventsView === "all"}
+                  >
+                    View All
+                  </button>
+                </div>
+                <a
+                  href="/corporate-events"
+                  className="text-xs font-medium text-blue-600 underline hover:text-blue-800"
+                  style={{ fontWeight: "500" }}
+                >
+                  View all
+                </a>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto">
-              {corporateEvents.length > 0 ? (
+              {corporateEventsLoading ? (
+                <div className="p-4 text-center">
+                  <p className="text-sm text-gray-500">
+                    Loading corporate events...
+                  </p>
+                </div>
+              ) : corporateEvents.length > 0 ? (
                 <div className="min-w-full">
                   {/* Mobile view - cards */}
                   <div className="block lg:hidden">
@@ -2786,7 +2853,9 @@ export default function HomeUserPage() {
               ) : (
                 <div className="p-4 text-center">
                   <p className="text-sm text-gray-500">
-                    No corporate events available
+                    {corporateEventsView === "followed"
+                      ? "No followed corporate events available"
+                      : "No corporate events available"}
                   </p>
                 </div>
               )}

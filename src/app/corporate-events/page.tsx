@@ -1082,7 +1082,7 @@ const CorporateEventsTable = ({
 
 // Main Corporate Events Page Component
 const CorporateEventsPage = () => {
-  const { isTrialActive } = useAuth();
+  const { isTrialActive, user } = useAuth();
   // State for filter visibility
   const [showFilters, setShowFilters] = useState(false);
 
@@ -1101,6 +1101,8 @@ const CorporateEventsPage = () => {
     search_query: "",
     Page: 1,
     Per_page: 50,
+    user_id: null,
+    show_followed: false,
   });
 
   // State for each filter (arrays for multi-select)
@@ -1386,6 +1388,22 @@ const CorporateEventsPage = () => {
       // Add page and per_page
       params.append("Page", filters.Page.toString());
       params.append("Per_page", filters.Per_page.toString());
+      const parsedUserId =
+        user?.id != null ? Number.parseInt(String(user.id), 10) : NaN;
+      const shouldShowFollowed = Boolean(filters.show_followed);
+      const followedUserId =
+        shouldShowFollowed && Number.isFinite(parsedUserId) && parsedUserId > 0
+          ? parsedUserId
+          : null;
+
+      if (shouldShowFollowed && followedUserId === null) {
+        throw new Error("Unable to load followed content for the current user.");
+      }
+
+      params.append("show_followed", String(shouldShowFollowed));
+      if (followedUserId !== null) {
+        params.append("user_id", String(followedUserId));
+      }
 
       // Add search query
       if (filters.search_query)
@@ -1563,6 +1581,21 @@ const CorporateEventsPage = () => {
       Date_start: dateStart || null,
       Date_end: dateEnd || null,
       Page: 1, // Reset to first page when searching
+      user_id: filters.user_id ?? null,
+      show_followed: Boolean(filters.show_followed),
+    };
+    setFilters(updatedFilters);
+    fetchCorporateEvents(updatedFilters);
+  };
+
+  const handleFollowedToggle = (showFollowed: boolean) => {
+    const parsedUserId =
+      user?.id != null ? Number.parseInt(String(user.id), 10) : NaN;
+    const updatedFilters = {
+      ...filters,
+      Page: 1,
+      show_followed: showFollowed,
+      user_id: showFollowed && Number.isFinite(parsedUserId) ? parsedUserId : null,
     };
     setFilters(updatedFilters);
     fetchCorporateEvents(updatedFilters);
@@ -1583,6 +1616,7 @@ const CorporateEventsPage = () => {
       selectedBuyerInvestorTypes.length > 0 ||
       selectedFundingStages.length > 0 ||
       searchTerm.trim() !== "" ||
+      Boolean(filters.show_followed) ||
       dateStart !== "" ||
       dateEnd !== ""
     );
@@ -1618,7 +1652,12 @@ const CorporateEventsPage = () => {
   const style = `
     .corporate-event-section { padding: 16px 24px; border-radius: 8px; }
     .corporate-event-stats { background: #fff; padding: 12px 16px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; margin-bottom: 16px; }
-    .stats-title { font-size: 22px; font-weight: 700; color: #1a202c; margin: 0 0 16px 0; }
+    .stats-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+    .stats-title { font-size: 22px; font-weight: 700; color: #1a202c; margin: 0; }
+    .corporate-events-toggle { display: inline-flex; padding: 4px; background: #f3f4f6; border-radius: 10px; }
+    .corporate-events-toggle-button { padding: 6px 12px; border: none; background: transparent; color: #4b5563; font-size: 12px; font-weight: 600; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; }
+    .corporate-events-toggle-button.active { background: #fff; color: #111827; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+    .corporate-events-toggle-button:hover { color: #111827; }
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1772,9 +1811,12 @@ const CorporateEventsPage = () => {
       }
       .corporate-event-section { padding: 12px 8px !important; }
       .corporate-event-stats { padding: 12px 12px !important; }
+      .stats-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+      }
       .stats-title {
         font-size: 18px !important;
-        margin-bottom: 12px !important;
       }
       .stats-grid {
         grid-template-columns: 1fr !important;
@@ -2727,10 +2769,37 @@ const CorporateEventsPage = () => {
 
       {/* Corporate Events Table Section */}
       <div className="corporate-event-section">
+        <div className="corporate-event-stats">
+          <div className="stats-header">
+            <h2 className="stats-title">Corporate Events</h2>
+            <div className="corporate-events-toggle">
+              <button
+                type="button"
+                className={`corporate-events-toggle-button ${
+                  filters.show_followed ? "active" : ""
+                }`}
+                onClick={() => handleFollowedToggle(true)}
+                aria-pressed={Boolean(filters.show_followed)}
+              >
+                Followed
+              </button>
+              <button
+                type="button"
+                className={`corporate-events-toggle-button ${
+                  filters.show_followed ? "" : "active"
+                }`}
+                onClick={() => handleFollowedToggle(false)}
+                aria-pressed={!filters.show_followed}
+              >
+                View All
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Statistics Block */}
         {summaryData.acquisitions > 0 && (
           <div className="corporate-event-stats">
-            <h2 className="stats-title">Corporate Events</h2>
             <div className="stats-grid">
               <div className="stats-item">
                 <span className="stats-label">Acquisitions:</span>
@@ -2777,6 +2846,16 @@ const CorporateEventsPage = () => {
         {/* Results Table */}
         {corporateEvents.length > 0 && (
           <CorporateEventsTable events={corporateEvents} loading={loading} />
+        )}
+
+        {!loading && corporateEvents.length === 0 && !error && (
+          <div className="corporate-event-stats">
+            <div className="loading">
+              {filters.show_followed
+                ? "No followed corporate events found."
+                : "No corporate events found."}
+            </div>
+          </div>
         )}
 
         {/* Pagination */}

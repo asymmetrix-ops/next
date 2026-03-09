@@ -64,6 +64,14 @@ class CorporateEventsService {
     if (filters.Deal_Status && filters.Deal_Status.length > 0) {
       queryParams.append("Deal_Status", filters.Deal_Status.join(","));
     }
+    queryParams.append("show_followed", String(Boolean(filters.show_followed)));
+    if (
+      filters.show_followed &&
+      typeof filters.user_id === "number" &&
+      Number.isFinite(filters.user_id)
+    ) {
+      queryParams.append("user_id", String(filters.user_id));
+    }
 
     // Add date filters
     if (filters.Date_start) {

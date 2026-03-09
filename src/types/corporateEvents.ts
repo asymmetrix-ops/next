@@ -22,6 +22,8 @@ export interface CorporateEventsFilters {
   Deal_Status: string[];
   Funding_stage?: string[];
   Buyer_Investor_Types?: BuyerInvestorType[];
+  user_id?: number | null;
+  show_followed?: boolean;
 }
 
 export interface CorporateEventsStats {
