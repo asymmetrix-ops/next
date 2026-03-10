@@ -1739,11 +1739,6 @@ export default function HomeUserPage() {
                               {(() => {
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 const ev: any = event as any;
-                                const isPartnership =
-                                  (ev.deal_type || "")
-                                    .toLowerCase()
-                                    .trim() === "partnership";
-
                                 const targetsArr =
                                   parseEntityArray<EntityRef>(ev.targets);
 
@@ -1758,9 +1753,7 @@ export default function HomeUserPage() {
 
                                 const displayTargets =
                                   targetsArr.length > 0
-                                    ? isPartnership
-                                      ? dedupeById(targetsArr)
-                                      : dedupeById(targetsArr).slice(0, 1)
+                                    ? dedupeById(targetsArr)
                                     : [];
 
                                 const targetName =
@@ -2328,10 +2321,12 @@ export default function HomeUserPage() {
 
                                   const displayTargets =
                                     targetsArr.length > 0
-                                      ? isPartnership
-                                        ? dedupeById(targetsArr)
-                                        : dedupeById(targetsArr).slice(0, 1)
+                                      ? dedupeById(targetsArr)
                                       : [];
+                                  const targetLabel =
+                                    isPartnership || displayTargets.length > 1
+                                      ? "Target(s):"
+                                      : "Target:";
 
                                   const targetName =
                                     targetObj?.name || targetLegacyName;
@@ -2343,11 +2338,7 @@ export default function HomeUserPage() {
                                     <div className="space-y-1">
                                       {displayTargets.length > 0 ? (
                                         <div className="text-xs text-gray-500">
-                                          <strong>
-                                            {isPartnership
-                                              ? "Target(s):"
-                                              : "Target:"}
-                                          </strong>{" "}
+                                          <strong>{targetLabel}</strong>{" "}
                                           {displayTargets.map((tgt, i, arr) => {
                                             const href = normalizeEntityHref(tgt);
                                             const name = tgt?.name || "Unknown";
@@ -2371,11 +2362,7 @@ export default function HomeUserPage() {
                                         </div>
                                       ) : targetName ? (
                                         <div className="text-xs text-gray-500">
-                                          <strong>
-                                            {isPartnership
-                                              ? "Target(s):"
-                                              : "Target:"}
-                                          </strong>{" "}
+                                          <strong>{targetLabel}</strong>{" "}
                                           {targetHref ? (
                                             <a
                                               href={targetHref}
