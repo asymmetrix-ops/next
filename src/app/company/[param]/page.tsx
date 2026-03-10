@@ -1809,11 +1809,13 @@ const CompanyDetail = () => {
   );
 
   // Determine if there is management data to display
-  const hasManagement = Boolean(
-    (company.Managmant_Roles_current &&
-      company.Managmant_Roles_current.length > 0) ||
-      (company.Managmant_Roles_past && company.Managmant_Roles_past.length > 0)
+  const hasCurrentManagement = Boolean(
+    company.Managmant_Roles_current && company.Managmant_Roles_current.length > 0
   );
+  const hasPastManagement = Boolean(
+    company.Managmant_Roles_past && company.Managmant_Roles_past.length > 0
+  );
+  const hasManagement = hasCurrentManagement || hasPastManagement;
 
   // Market Overview removed: no TradingView symbols computation
 
@@ -2613,41 +2615,43 @@ const CompanyDetail = () => {
                     Management
                   </h3>
 
-                  {/* Current Management */}
-                  <div style={{ marginBottom: "20px" }}>
-                    <IndividualCards
-                      title="Current:"
-                      individuals={(company.Managmant_Roles_current || []).map(
-                        (person) => ({
-                          id: person.id,
-                          name: person.Individual_text,
-                          jobTitles: (person.job_titles_id || [])
-                            .map((job) => job?.job_title)
-                            .filter(Boolean),
-                          individualId: person.individuals_id,
-                        })
-                      )}
-                      emptyMessage="Not available"
-                    />
-                  </div>
+                  {hasCurrentManagement && (
+                    <div style={{ marginBottom: hasPastManagement ? "20px" : 0 }}>
+                      <IndividualCards
+                        title="Current:"
+                        individuals={(company.Managmant_Roles_current || []).map(
+                          (person) => ({
+                            id: person.id,
+                            name: person.Individual_text,
+                            jobTitles: (person.job_titles_id || [])
+                              .map((job) => job?.job_title)
+                              .filter(Boolean),
+                            individualId: person.individuals_id,
+                          })
+                        )}
+                        emptyMessage="Not available"
+                      />
+                    </div>
+                  )}
 
-                  {/* Past Management */}
-                  <div>
-                    <IndividualCards
-                      title="Past:"
-                      individuals={(company.Managmant_Roles_past || []).map(
-                        (person) => ({
-                          id: person.id,
-                          name: person.Individual_text,
-                          jobTitles: (person.job_titles_id || [])
-                            .map((job) => job?.job_title)
-                            .filter(Boolean),
-                          individualId: person.individuals_id,
-                        })
-                      )}
-                      emptyMessage="Not available"
-                    />
-                  </div>
+                  {hasPastManagement && (
+                    <div>
+                      <IndividualCards
+                        title="Past:"
+                        individuals={(company.Managmant_Roles_past || []).map(
+                          (person) => ({
+                            id: person.id,
+                            name: person.Individual_text,
+                            jobTitles: (person.job_titles_id || [])
+                              .map((job) => job?.job_title)
+                              .filter(Boolean),
+                            individualId: person.individuals_id,
+                          })
+                        )}
+                        emptyMessage="Not available"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
                 </div>
