@@ -2935,7 +2935,12 @@ const CompanyDetail = () => {
                   {(articlesLoading || companyArticles.length > 0) && (
                     <div
                       className="bg-white rounded-xl border shadow-lg border-slate-200/60 flex flex-col overflow-hidden"
-                      style={{ height: "535px" }}
+                      style={{
+                        height:
+                          articlesLoading || companyArticles.length >= 4
+                            ? "535px"
+                            : "auto",
+                      }}
                     >
                       <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
                         <div className="flex justify-between items-center">
@@ -2957,7 +2962,16 @@ const CompanyDetail = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="px-5 py-4 flex-1 overflow-hidden">
+                      <div
+                        className="px-5 py-4 overflow-hidden"
+                        style={{
+                          flex:
+                            articlesLoading || companyArticles.length >= 4
+                              ? "1 1 0"
+                              : "0 0 auto",
+                          minHeight: 0,
+                        }}
+                      >
                         {articlesLoading ? (
                           <div className="space-y-3 animate-pulse">
                             {[1, 2, 3].map((i) => (

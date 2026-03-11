@@ -339,7 +339,14 @@ class LocationsService {
   // Job title options used by Individuals page filters.
   async getJobTitles(): Promise<JobTitle[]> {
     return this.fetchFirstOk<JobTitle[]>(
-      ["Get_Job_Titles", "get_job_titles", "job_titles_options", "job_titles_filter"],
+      [
+        "get_all_job_titles?query=",
+        "get_all_job_titles",
+        "Get_Job_Titles",
+        "get_job_titles",
+        "job_titles_options",
+        "job_titles_filter",
+      ],
       "Failed to fetch job titles"
     );
   }
