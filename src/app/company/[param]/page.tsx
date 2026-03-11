@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -190,6 +190,21 @@ interface LifecycleStage {
 interface EmployeeCount {
   date: string;
   employees_count: number;
+}
+
+interface CompanyProductTypeItem {
+  Product_Type?: string;
+  pc_of_revenues?: number | string | null;
+}
+
+interface CompanyDataCollectionMethodItem {
+  Data_Collection_Method?: string;
+  Predominance?: string | null;
+}
+
+interface CompanyRevenueModelItem {
+  Revenue_Model_?: string;
+  Predominance?: string | null;
 }
 
 interface CompanyInvestor {
@@ -401,6 +416,9 @@ interface Company {
   // Optional market fields if/when API provides them
   ticker?: string;
   exchange?: string;
+  Product_Type?: CompanyProductTypeItem[] | string;
+  Data_Collection_Method?: CompanyDataCollectionMethodItem[] | string;
+  Revenue_Model_?: CompanyRevenueModelItem[] | string;
   have_parent_company?: HaveParentCompany;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
@@ -414,6 +432,9 @@ interface Company {
 interface CompanyResponse {
   Company: Company;
   have_parent_company?: HaveParentCompany;
+  Product_Type?: CompanyProductTypeItem[] | string;
+  Data_Collection_Method?: CompanyDataCollectionMethodItem[] | string;
+  Revenue_Model_?: CompanyRevenueModelItem[] | string;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
   }>;
@@ -510,6 +531,24 @@ const formatWholeNumber = (value?: number | string | null): string => {
   const n = getNumeric(value);
   if (n === undefined) return "Not available";
   return Math.round(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
+};
+
+const parseStructuredArray = <T,>(value: unknown): T[] => {
+  if (Array.isArray(value)) return value as T[];
+  if (typeof value !== "string") return [];
+
+  try {
+    const parsed = JSON.parse(value.replace(/\\u0022/g, '"')) as unknown;
+    if (Array.isArray(parsed)) return parsed as T[];
+    if (typeof parsed === "string") {
+      const reparsed = JSON.parse(parsed.replace(/\\u0022/g, '"')) as unknown;
+      return Array.isArray(reparsed) ? (reparsed as T[]) : [];
+    }
+  } catch {
+    return [];
+  }
+
+  return [];
 };
 
 // Map Xano source codes to human-readable labels (best-known mapping)
@@ -872,6 +911,9 @@ const CompanyDetail = () => {
   >([]);
   const [apiInvestorsLoading, setApiInvestorsLoading] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isDescriptionExpandable, setIsDescriptionExpandable] = useState(false);
+  const descriptionRef = useRef<HTMLDivElement | null>(null);
 
   // Safely extract a sector id from various backend shapes
   const getSectorId = (sector: unknown): number | undefined => {
@@ -1193,6 +1235,20 @@ const CompanyDetail = () => {
                 have_parent_company?: HaveParentCompany;
               }
             ).have_parent_company,
+          Product_Type:
+            (data as { Product_Type?: CompanyProductTypeItem[] | string })
+              .Product_Type || data.Company?.Product_Type,
+          Data_Collection_Method:
+            (
+              data as {
+                Data_Collection_Method?:
+                  | CompanyDataCollectionMethodItem[]
+                  | string;
+              }
+            ).Data_Collection_Method || data.Company?.Data_Collection_Method,
+          Revenue_Model_:
+            (data as { Revenue_Model_?: CompanyRevenueModelItem[] | string })
+              .Revenue_Model_ || data.Company?.Revenue_Model_,
           Lifecycle_stage:
             data.Company?.Lifecycle_stage ||
             (data as unknown as { Lifecycle_stage?: LifecycleStage })
@@ -1369,6 +1425,37 @@ const CompanyDetail = () => {
       return () => window.removeEventListener("resize", check);
     }
   }, []);
+
+  useEffect(() => {
+    setIsDescriptionExpanded(false);
+  }, [company?.description]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const checkDescriptionOverflow = () => {
+      const element = descriptionRef.current;
+      if (!element) {
+        setIsDescriptionExpandable(false);
+        return;
+      }
+
+      const computedStyle = window.getComputedStyle(element);
+      const lineHeight = parseFloat(computedStyle.lineHeight || "0");
+      if (!lineHeight) {
+        setIsDescriptionExpandable(false);
+        return;
+      }
+
+      const collapsedHeight = lineHeight * 3;
+      setIsDescriptionExpandable(element.scrollHeight > collapsedHeight + 1);
+    };
+
+    checkDescriptionOverflow();
+    window.addEventListener("resize", checkDescriptionOverflow);
+
+    return () => window.removeEventListener("resize", checkDescriptionOverflow);
+  }, [company?.description, isMobile]);
 
   // Update page title when company data is loaded
   useEffect(() => {
@@ -1827,6 +1914,55 @@ const CompanyDetail = () => {
         ).join(", ")
       : null;
 
+  const productTypeRows = parseStructuredArray<CompanyProductTypeItem>(
+    company.Product_Type
+  )
+    .map((item) => ({
+      label: String(item?.Product_Type || "").trim(),
+      value:
+        getNumeric(item?.pc_of_revenues) !== undefined
+          ? `${Math.round(getNumeric(item?.pc_of_revenues) || 0)}%`
+          : "Not available",
+    }))
+    .filter((item) => item.label);
+
+  const dataCollectionMethodRows =
+    parseStructuredArray<CompanyDataCollectionMethodItem>(
+      company.Data_Collection_Method
+    )
+      .map((item) => ({
+        label: String(item?.Data_Collection_Method || "").trim(),
+        value: String(item?.Predominance || "").trim() || "Not available",
+      }))
+      .filter((item) => item.label);
+
+  const revenueModelRows = parseStructuredArray<CompanyRevenueModelItem>(
+    company.Revenue_Model_
+  )
+    .map((item) => ({
+      label: String(item?.Revenue_Model_ || "").trim(),
+      value: String(item?.Predominance || "").trim() || "Not available",
+    }))
+    .filter((item) => item.label);
+
+  const companyAttributeSections = [
+    {
+      title: "Product Type",
+      valueHeader: "% of revenue",
+      rows: productTypeRows,
+    },
+    {
+      title: "Data Collection Method",
+      valueHeader: "Predominance",
+      rows: dataCollectionMethodRows,
+    },
+    {
+      title: "Revenue Model",
+      valueHeader: "Predominance",
+      rows: revenueModelRows,
+    },
+  ].filter((section) => section.rows.length > 0);
+
   const styles = {
     container: {
       backgroundColor: "#f9fafb",
@@ -2180,8 +2316,22 @@ const CompanyDetail = () => {
       pointer-events: none;
     }
     /* Tighter rows inside Financial Metrics */
-    .desktop-financial-metrics .info-row { padding: 6px 0 !important; }
-    .mobile-financial-metrics .info-row { padding: 6px 0 !important; }
+    .desktop-financial-metrics .info-row {
+      padding: 6px 0 !important;
+      grid-template-columns: minmax(150px, 170px) minmax(0, 1fr) auto !important;
+      column-gap: 12px !important;
+    }
+    .desktop-financial-metrics .info-row > :nth-child(2) {
+      min-width: 0;
+    }
+    .mobile-financial-metrics .info-row {
+      padding: 6px 0 !important;
+      grid-template-columns: minmax(150px, 170px) minmax(0, 1fr) auto !important;
+      column-gap: 12px !important;
+    }
+    .mobile-financial-metrics .info-row > :nth-child(2) {
+      min-width: 0;
+    }
     /* Corporate Events styles (mirrors corporate-events list page) */
     .corporate-event-table { width: 100%; background: #fff; padding: 20px 24px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
     .corporate-event-table th, .corporate-event-table td { padding: 12px; text-align: left; vertical-align: top; border-bottom: 1px solid #e2e8f0; word-wrap: break-word; overflow-wrap: break-word; font-size: 14px; }
@@ -2675,27 +2825,111 @@ const CompanyDetail = () => {
                       border: "1px solid #e2e8f0",
                     }}
                   >
-                    <h3
-                      style={{
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#4a5568",
-                        marginBottom: "12px",
-                        marginTop: "0",
-                      }}
-                    >
-                      Description:
-                    </h3>
                     <div
+                      ref={descriptionRef}
                       style={{
                         fontSize: "14px",
                         color: "#1a202c",
                         lineHeight: "1.6",
+                        overflow: "hidden",
+                        transition: "max-height 0.2s ease",
+                        display: isDescriptionExpanded ? "block" : "-webkit-box",
+                        WebkitBoxOrient: "vertical",
+                        WebkitLineClamp: isDescriptionExpanded ? "unset" : 3,
                       }}
                     >
                       {company.description || "No description available"}
                     </div>
+                    {isDescriptionExpandable && (
+                      <button
+                        onClick={() =>
+                          setIsDescriptionExpanded((expanded) => !expanded)
+                        }
+                        style={{
+                          marginTop: "8px",
+                          padding: 0,
+                          border: "none",
+                          background: "none",
+                          color: "#0075df",
+                          fontSize: "14px",
+                          fontWeight: 500,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {isDescriptionExpanded ? "Show less" : "Expand"}
+                      </button>
+                    )}
                   </div>
+
+                  {companyAttributeSections.length > 0 && (
+                    <div
+                      style={{
+                        padding: "16px",
+                        backgroundColor: "#f9fafb",
+                        borderRadius: "8px",
+                        border: "1px solid #e2e8f0",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "14px",
+                        }}
+                      >
+                        {companyAttributeSections.map((section) => (
+                          <div key={section.title}>
+                            <div
+                              style={{
+                                fontSize: "13px",
+                                fontWeight: 600,
+                                color: "#334155",
+                                marginBottom: "8px",
+                              }}
+                            >
+                              {section.title}
+                            </div>
+                            <div style={{ overflowX: "auto" }}>
+                              <table
+                                style={{
+                                  width: "100%",
+                                  borderCollapse: "collapse",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                <tbody>
+                                  {section.rows.map((row) => (
+                                    <tr key={`${section.title}-${row.label}`}>
+                                      <td
+                                        style={{
+                                          padding: "7px 0",
+                                          borderBottom: "1px solid #f1f5f9",
+                                          color: "#1e293b",
+                                        }}
+                                      >
+                                        {row.label}
+                                      </td>
+                                      <td
+                                        style={{
+                                          padding: "7px 0",
+                                          borderBottom: "1px solid #f1f5f9",
+                                          textAlign: "right",
+                                          color: "#475569",
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        {row.value}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Insights & Analysis (scrollable card) */}
                   {(articlesLoading || companyArticles.length > 0) && (
