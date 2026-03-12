@@ -5,7 +5,7 @@ import Link from "next/link";
 const Footer = () => {
   const navItems = [
     { label: "Terms of Use", href: "#" },
-    { label: "Privacy Policy", href: "#" },
+    { label: "Privacy Policy", href: "/privacy" },
   ];
 
   const styles = {
