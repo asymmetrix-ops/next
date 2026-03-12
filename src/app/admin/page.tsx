@@ -995,6 +995,30 @@ function ContentTab() {
   );
   const [mentionedLoading, setMentionedLoading] = useState(false);
 
+  // Peers and Competitors (multi)
+  const [peersQuery, setPeersQuery] = useState("");
+  const [peersResults, setPeersResults] = useState<SimpleCompany[]>([]);
+  const [peersAndCompetitors, setPeersAndCompetitors] = useState<
+    SimpleCompany[]
+  >([]);
+  const [peersLoading, setPeersLoading] = useState(false);
+
+  // Potential Acquirers (multi)
+  const [acquirersQuery, setAcquirersQuery] = useState("");
+  const [acquirersResults, setAcquirersResults] = useState<SimpleCompany[]>([]);
+  const [potentialAcquirers, setPotentialAcquirers] = useState<SimpleCompany[]>(
+    []
+  );
+  const [acquirersLoading, setAcquirersLoading] = useState(false);
+
+  // Acquisition Targets (multi)
+  const [targetsQuery, setTargetsQuery] = useState("");
+  const [targetsResults, setTargetsResults] = useState<SimpleCompany[]>([]);
+  const [acquisitionTargets, setAcquisitionTargets] = useState<SimpleCompany[]>(
+    []
+  );
+  const [targetsLoading, setTargetsLoading] = useState(false);
+
   // Sectors (multi)
   const [allSectors, setAllSectors] = useState<
     Array<{ id: number; sector_name: string }>
@@ -1188,6 +1212,9 @@ function ContentTab() {
     // Can be array of IDs or array of objects
     Company_of_Focus?: Array<number | { id: number; company_name?: string; name?: string }> | null;
     companies_mentioned?: Array<number | { id: number; company_name?: string; name?: string }> | null;
+    Peers_and_Competitors?: Array<number | { id: number; company_name?: string; name?: string }> | null;
+    Potential_Acquirers?: Array<number | { id: number; company_name?: string; name?: string }> | null;
+    Acquisition_Targets?: Array<number | { id: number; company_name?: string; name?: string }> | null;
     // Sectors come as objects with sector_name (no id)
     sectors?: Array<{ id?: number; sector_name?: string }> | null;
     // Can be array of IDs or array of objects
@@ -1374,6 +1401,24 @@ function ContentTab() {
       .filter((c) => c.id && c.name);
   }
 
+  function mapArticleCompanies(
+    items:
+      | Array<number | { id: number; company_name?: string; name?: string }>
+      | null
+      | undefined
+  ): SimpleCompany[] {
+    if (!Array.isArray(items)) return [];
+    return items.map((c) => {
+      if (typeof c === "number") {
+        return { id: c, name: `Company #${c}` };
+      }
+      return {
+        id: c.id,
+        name: c.company_name || c.name || `Company #${c.id}`,
+      };
+    });
+  }
+
   const searchCompanyOfFocus = async () => {
     if (!cofQuery.trim()) return;
     try {
@@ -1397,6 +1442,45 @@ function ContentTab() {
       setMentionedResults([]);
     } finally {
       setMentionedLoading(false);
+    }
+  };
+
+  const searchPeersAndCompetitors = async () => {
+    if (!peersQuery.trim()) return;
+    try {
+      setPeersLoading(true);
+      const results = await fetchCompaniesByName(peersQuery, 25);
+      setPeersResults(results);
+    } catch {
+      setPeersResults([]);
+    } finally {
+      setPeersLoading(false);
+    }
+  };
+
+  const searchPotentialAcquirers = async () => {
+    if (!acquirersQuery.trim()) return;
+    try {
+      setAcquirersLoading(true);
+      const results = await fetchCompaniesByName(acquirersQuery, 25);
+      setAcquirersResults(results);
+    } catch {
+      setAcquirersResults([]);
+    } finally {
+      setAcquirersLoading(false);
+    }
+  };
+
+  const searchAcquisitionTargets = async () => {
+    if (!targetsQuery.trim()) return;
+    try {
+      setTargetsLoading(true);
+      const results = await fetchCompaniesByName(targetsQuery, 25);
+      setTargetsResults(results);
+    } catch {
+      setTargetsResults([]);
+    } finally {
+      setTargetsLoading(false);
     }
   };
 
@@ -1548,18 +1632,7 @@ function ContentTab() {
     // Pre-load Company of Focus
     // API can return either array of IDs [4453] or array of objects [{id: 4453, company_name: "..."}]
     if (Array.isArray(article.Company_of_Focus)) {
-      const companies: SimpleCompany[] = article.Company_of_Focus.map((c) => {
-        if (typeof c === "number") {
-          // Just an ID
-          return { id: c, name: `Company #${c}` };
-        } else {
-          // Object with id and possibly name
-          return {
-            id: c.id,
-            name: c.company_name || c.name || `Company #${c.id}`,
-          };
-        }
-      });
+      const companies = mapArticleCompanies(article.Company_of_Focus);
       setCompanyOfFocus(companies);
       setCofResults(companies); // Also add to search results so they show up
     } else {
@@ -1569,22 +1642,35 @@ function ContentTab() {
     // Pre-load companies mentioned
     // API can return either array of IDs or array of objects
     if (Array.isArray(article.companies_mentioned)) {
-      const companies: SimpleCompany[] = article.companies_mentioned.map((c) => {
-        if (typeof c === "number") {
-          // Just an ID
-          return { id: c, name: `Company #${c}` };
-        } else {
-          // Object with id and possibly name
-          return {
-            id: c.id,
-            name: c.company_name || c.name || `Company #${c.id}`,
-          };
-        }
-      });
+      const companies = mapArticleCompanies(article.companies_mentioned);
       setCompaniesMentioned(companies);
       setMentionedResults(companies); // Also add to search results
     } else {
       setCompaniesMentioned([]);
+    }
+
+    if (Array.isArray(article.Peers_and_Competitors)) {
+      const companies = mapArticleCompanies(article.Peers_and_Competitors);
+      setPeersAndCompetitors(companies);
+      setPeersResults(companies);
+    } else {
+      setPeersAndCompetitors([]);
+    }
+
+    if (Array.isArray(article.Potential_Acquirers)) {
+      const companies = mapArticleCompanies(article.Potential_Acquirers);
+      setPotentialAcquirers(companies);
+      setAcquirersResults(companies);
+    } else {
+      setPotentialAcquirers([]);
+    }
+
+    if (Array.isArray(article.Acquisition_Targets)) {
+      const companies = mapArticleCompanies(article.Acquisition_Targets);
+      setAcquisitionTargets(companies);
+      setTargetsResults(companies);
+    } else {
+      setAcquisitionTargets([]);
     }
 
     // Pre-load sectors
@@ -1718,6 +1804,18 @@ function ContentTab() {
       id: c.id,
       name: c.name,
     }));
+    const peersPreview = peersAndCompetitors.map((c) => ({
+      id: c.id,
+      name: c.name,
+    }));
+    const acquirersPreview = potentialAcquirers.map((c) => ({
+      id: c.id,
+      name: c.name,
+    }));
+    const targetsPreview = acquisitionTargets.map((c) => ({
+      id: c.id,
+      name: c.name,
+    }));
     const relatedEventsPreview = selectedCorporateEvents.map((e) => ({
       id: e.id,
       description: e.label,
@@ -1736,6 +1834,9 @@ function ContentTab() {
       summary: summaryItems,
       sectors: sectorsPreview,
       companies_mentioned: companiesPreview,
+      Peers_and_Competitors: peersPreview,
+      Potential_Acquirers: acquirersPreview,
+      Acquisition_Targets: targetsPreview,
       Visibility: visibility,
       Related_Corporate_Event: relatedEventsPreview,
       ...(relatedDocs.length > 0 ? { Related_Documents: relatedDocs } : {}),
@@ -1773,6 +1874,9 @@ function ContentTab() {
 
     const companyOfFocusIds = companyOfFocus.map((c) => c.id);
     const companiesMentionedIds = companiesMentioned.map((c) => c.id);
+    const peersAndCompetitorsIds = peersAndCompetitors.map((c) => c.id);
+    const potentialAcquirersIds = potentialAcquirers.map((c) => c.id);
+    const acquisitionTargetsIds = acquisitionTargets.map((c) => c.id);
     const relatedCorporateEventIds = selectedCorporateEvents.map((e) => e.id);
 
     const buildJsonPayload = (): Record<string, unknown> => {
@@ -1795,6 +1899,9 @@ function ContentTab() {
       payload.Company_of_Focus = companyOfFocusIds;
       payload.sectors = selectedSectorIds;
       payload.companies_mentioned = companiesMentionedIds;
+      payload.Peers_and_Competitors = peersAndCompetitorsIds;
+      payload.Potential_Acquirers = potentialAcquirersIds;
+      payload.Acquisition_Targets = acquisitionTargetsIds;
       payload.Related_Corporate_Event = relatedCorporateEventIds;
 
       // Related_Documents: omit entirely if empty
@@ -1916,6 +2023,9 @@ function ContentTab() {
               setSummaryItems([]);
               setCompanyOfFocus([]);
               setCompaniesMentioned([]);
+              setPeersAndCompetitors([]);
+              setPotentialAcquirers([]);
+              setAcquisitionTargets([]);
               setSelectedSectorIds([]);
               setSelectedCorporateEvents([]);
               setUploadedMp3Files([]);
@@ -2137,6 +2247,218 @@ function ContentTab() {
           )}
         </div>
         </div>
+
+      <div className="grid grid-cols-1 gap-4 mt-4 md:grid-cols-2 xl:grid-cols-3">
+        <div>
+          <label className="block mb-1 text-sm font-medium">
+            Peers and Competitors (select one or more)
+          </label>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              className="flex-1 p-2 border rounded"
+              placeholder="Search companies by name"
+              value={peersQuery}
+              onChange={(e) => setPeersQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && searchPeersAndCompetitors()}
+            />
+            <button
+              className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
+              onClick={searchPeersAndCompetitors}
+              disabled={peersLoading}
+            >
+              {peersLoading ? "Searching…" : "Search"}
+            </button>
+          </div>
+          <SearchableSelect
+            options={peersResults.map((c) => ({ value: c.id, label: c.name }))}
+            value={""}
+            onChange={(value) => {
+              if (typeof value === "number") {
+                const found = peersResults.find((c) => c.id === value);
+                if (
+                  found &&
+                  !peersAndCompetitors.find((c) => c.id === found.id)
+                ) {
+                  setPeersAndCompetitors([...peersAndCompetitors, found]);
+                }
+              }
+            }}
+            placeholder={
+              peersLoading
+                ? "Loading companies..."
+                : peersResults.length === 0
+                ? "Search above to load companies"
+                : "Select company to add"
+            }
+            disabled={peersLoading || peersResults.length === 0}
+            style={{ width: "100%" }}
+          />
+          {peersAndCompetitors.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {peersAndCompetitors.map((c) => (
+                <span
+                  key={c.id}
+                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-sky-700 bg-sky-50 rounded"
+                >
+                  {c.name}
+                  <button
+                    onClick={() =>
+                      setPeersAndCompetitors(
+                        peersAndCompetitors.filter((x) => x.id !== c.id)
+                      )
+                    }
+                    className="font-bold"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="block mb-1 text-sm font-medium">
+            Potential Acquirers (select one or more)
+          </label>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              className="flex-1 p-2 border rounded"
+              placeholder="Search companies by name"
+              value={acquirersQuery}
+              onChange={(e) => setAcquirersQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && searchPotentialAcquirers()}
+            />
+            <button
+              className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
+              onClick={searchPotentialAcquirers}
+              disabled={acquirersLoading}
+            >
+              {acquirersLoading ? "Searching…" : "Search"}
+            </button>
+          </div>
+          <SearchableSelect
+            options={acquirersResults.map((c) => ({
+              value: c.id,
+              label: c.name,
+            }))}
+            value={""}
+            onChange={(value) => {
+              if (typeof value === "number") {
+                const found = acquirersResults.find((c) => c.id === value);
+                if (
+                  found &&
+                  !potentialAcquirers.find((c) => c.id === found.id)
+                ) {
+                  setPotentialAcquirers([...potentialAcquirers, found]);
+                }
+              }
+            }}
+            placeholder={
+              acquirersLoading
+                ? "Loading companies..."
+                : acquirersResults.length === 0
+                ? "Search above to load companies"
+                : "Select company to add"
+            }
+            disabled={acquirersLoading || acquirersResults.length === 0}
+            style={{ width: "100%" }}
+          />
+          {potentialAcquirers.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {potentialAcquirers.map((c) => (
+                <span
+                  key={c.id}
+                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-emerald-700 bg-emerald-50 rounded"
+                >
+                  {c.name}
+                  <button
+                    onClick={() =>
+                      setPotentialAcquirers(
+                        potentialAcquirers.filter((x) => x.id !== c.id)
+                      )
+                    }
+                    className="font-bold"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="block mb-1 text-sm font-medium">
+            Acquisition Targets (select one or more)
+          </label>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              className="flex-1 p-2 border rounded"
+              placeholder="Search companies by name"
+              value={targetsQuery}
+              onChange={(e) => setTargetsQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && searchAcquisitionTargets()}
+            />
+            <button
+              className="px-3 py-2 text-white bg-gray-800 rounded disabled:opacity-50"
+              onClick={searchAcquisitionTargets}
+              disabled={targetsLoading}
+            >
+              {targetsLoading ? "Searching…" : "Search"}
+            </button>
+          </div>
+          <SearchableSelect
+            options={targetsResults.map((c) => ({ value: c.id, label: c.name }))}
+            value={""}
+            onChange={(value) => {
+              if (typeof value === "number") {
+                const found = targetsResults.find((c) => c.id === value);
+                if (
+                  found &&
+                  !acquisitionTargets.find((c) => c.id === found.id)
+                ) {
+                  setAcquisitionTargets([...acquisitionTargets, found]);
+                }
+              }
+            }}
+            placeholder={
+              targetsLoading
+                ? "Loading companies..."
+                : targetsResults.length === 0
+                ? "Search above to load companies"
+                : "Select company to add"
+            }
+            disabled={targetsLoading || targetsResults.length === 0}
+            style={{ width: "100%" }}
+          />
+          {acquisitionTargets.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {acquisitionTargets.map((c) => (
+                <span
+                  key={c.id}
+                  className="inline-flex gap-1 items-center px-2 py-1 text-xs text-amber-700 bg-amber-50 rounded"
+                >
+                  {c.name}
+                  <button
+                    onClick={() =>
+                      setAcquisitionTargets(
+                        acquisitionTargets.filter((x) => x.id !== c.id)
+                      )
+                    }
+                    className="font-bold"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="mt-4">
           <label className="block mb-1 text-sm font-medium">
@@ -2470,6 +2792,9 @@ function ContentTab() {
               setSummaryItems([]);
               setCompanyOfFocus([]);
               setCompaniesMentioned([]);
+              setPeersAndCompetitors([]);
+              setPotentialAcquirers([]);
+              setAcquisitionTargets([]);
               setSelectedSectorIds([]);
               setSelectedCorporateEvents([]);
               setUploadedMp3Files([]);
