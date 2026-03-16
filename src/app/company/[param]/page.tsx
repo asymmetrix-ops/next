@@ -3491,11 +3491,10 @@ const CompanyDetail = () => {
             {/* Desktop Financial Metrics */}
             <div style={styles.card} className="card desktop-financial-metrics">
               {/* Competitors */}
-              {(competitorsLoading ||
-                (competitors &&
-                  (competitors.peers_and_competitors.length > 0 ||
-                    competitors.potential_acquirers.length > 0 ||
-                    competitors.acquisition_targets.length > 0))) && (
+              {false && (competitorsLoading ||
+                ((competitors?.peers_and_competitors?.length ?? 0) > 0 ||
+                  (competitors?.potential_acquirers?.length ?? 0) > 0 ||
+                  (competitors?.acquisition_targets?.length ?? 0) > 0)) && (
                 <div style={{ marginBottom: "20px" }}>
                   <h2 style={styles.sectionTitle}>Competitors</h2>
                   {competitorsLoading ? (
