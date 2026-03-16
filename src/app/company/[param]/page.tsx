@@ -3490,7 +3490,7 @@ const CompanyDetail = () => {
 
             {/* Desktop Financial Metrics */}
             <div style={styles.card} className="card desktop-financial-metrics">
-              {/* Competitors (table layout) */}
+              {/* Competitors */}
               {(competitorsLoading ||
                 (competitors &&
                   (competitors.peers_and_competitors.length > 0 ||
@@ -3505,20 +3505,7 @@ const CompanyDetail = () => {
                   ) : (
                     <>
                       {(() => {
-                        const MAX_VISIBLE = 5;
-                        const competitorTag = {
-                          backgroundColor: "#e8f0fe",
-                          color: "#1a56db",
-                          padding: "3px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          fontWeight: "500" as const,
-                          textDecoration: "none",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          whiteSpace: "nowrap" as const,
-                        };
-
+                        const MAX_VISIBLE = 3;
                         const sections: {
                           key: string;
                           label: string;
@@ -3551,113 +3538,194 @@ const CompanyDetail = () => {
                           items: s.items.slice(0, MAX_VISIBLE),
                         }));
 
-                        const renderCompetitorTable = (
-                          tableSections: typeof visibleSections
-                        ) => {
-                          const tMaxRows = Math.max(
-                            ...tableSections.map((s) => s.items.length)
-                          );
-                          return (
-                            <table
-                              style={{
-                                width: "100%",
-                                borderCollapse: "collapse",
-                                tableLayout: "fixed",
-                                fontSize: "13px",
-                              }}
-                            >
-                              <thead>
-                                <tr>
-                                  {tableSections.map((section) => (
-                                    <th
-                                      key={section.key}
+                        const previewLinkStyle = {
+                          color: "#1a56db",
+                          fontSize: "12px",
+                          fontWeight: 500,
+                          textDecoration: "none",
+                          lineHeight: 1.3,
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical" as const,
+                          overflow: "hidden",
+                          wordBreak: "keep-all" as const,
+                          overflowWrap: "break-word" as const,
+                        };
+
+                        const modalLinkStyle = {
+                          color: "#1a56db",
+                          fontSize: "13px",
+                          fontWeight: 500,
+                          textDecoration: "none",
+                          lineHeight: 1.35,
+                          whiteSpace: "normal" as const,
+                          wordBreak: "keep-all" as const,
+                          overflowWrap: "normal" as const,
+                        };
+
+                        const renderPreviewCards = (
+                          cardSections: typeof visibleSections
+                        ) => (
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: `repeat(${cardSections.length}, minmax(0, 1fr))`,
+                              gap: "10px",
+                            }}
+                          >
+                            {cardSections.map((section) => (
+                              <div
+                                key={section.key}
+                                style={{
+                                  backgroundColor: "white",
+                                  border: "1px solid #e2e8f0",
+                                  borderRadius: "10px",
+                                  overflow: "hidden",
+                                  minWidth: 0,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    padding: "8px 10px",
+                                    backgroundColor: "#f8fafc",
+                                    borderBottom: "1px solid #e2e8f0",
+                                    textAlign: "center",
+                                    color: "#475569",
+                                    fontSize: "13px",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {section.label}
+                                </div>
+                                <div>
+                                  {section.items.map((comp, idx) => (
+                                    <div
+                                      key={`${section.key}-${comp.id}`}
                                       style={{
-                                        textAlign: "center",
-                                        padding: "4px 6px 6px",
-                                        borderBottom: "1px solid #e2e8f0",
-                                        color: "#4b5563",
-                                        fontWeight: 600,
-                                        fontSize: "12px",
+                                        padding: "8px 10px",
+                                        borderBottom:
+                                          idx === section.items.length - 1
+                                            ? "none"
+                                            : "1px solid #f1f5f9",
+                                        minHeight: "38px",
                                       }}
                                     >
-                                      {section.label}
-                                    </th>
+                                      <Link
+                                        href={`/company/${comp.id}`}
+                                        prefetch={false}
+                                        style={previewLinkStyle}
+                                        title={comp.name}
+                                        onMouseEnter={(e) => {
+                                          (
+                                            e.currentTarget as HTMLAnchorElement
+                                          ).style.textDecoration = "underline";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          (
+                                            e.currentTarget as HTMLAnchorElement
+                                          ).style.textDecoration = "none";
+                                        }}
+                                      >
+                                        {comp.name}
+                                      </Link>
+                                    </div>
                                   ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {Array.from({ length: tMaxRows }).map(
-                                  (_, rowIdx) => (
-                                    <tr key={`competitor-row-${rowIdx}`}>
-                                      {tableSections.map((section) => {
-                                        const comp = section.items[rowIdx];
-                                        if (!comp) {
-                                          return (
-                                            <td
-                                              key={`${section.key}-${rowIdx}`}
-                                              style={{
-                                                padding: "5px 6px",
-                                                borderBottom:
-                                                  "1px solid #f1f5f9",
-                                              }}
-                                            />
-                                          );
-                                        }
-                                        return (
-                                          <td
-                                            key={`${section.key}-${rowIdx}`}
-                                            style={{
-                                              padding: "5px 6px",
-                                              borderBottom:
-                                                "1px solid #f1f5f9",
-                                              verticalAlign: "middle",
-                                            }}
-                                          >
-                                            <div
-                                              style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "5px",
-                                              }}
-                                            >
-                                              {comp.linkedin_logo ? (
-                                                // eslint-disable-next-line @next/next/no-img-element
-                                                <img
-                                                  src={`data:image/jpeg;base64,${comp.linkedin_logo}`}
-                                                  alt=""
-                                                  style={{
-                                                    width: "18px",
-                                                    height: "14px",
-                                                    borderRadius: "3px",
-                                                    objectFit: "contain",
-                                                    flexShrink: 0,
-                                                  }}
-                                                />
-                                              ) : null}
-                                              <Link
-                                                href={`/company/${comp.id}`}
-                                                prefetch={false}
-                                                style={competitorTag}
-                                                onMouseEnter={(e) => {
-                                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c7d7fc";
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f0fe";
-                                                }}
-                                              >
-                                                {comp.name}
-                                              </Link>
-                                            </div>
-                                          </td>
-                                        );
-                                      })}
-                                    </tr>
-                                  )
-                                )}
-                              </tbody>
-                            </table>
-                          );
-                        };
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+
+                        const renderModalCards = (
+                          cardSections: typeof sections
+                        ) => (
+                          <div
+                            style={{
+                              width: "100%",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "12px",
+                            }}
+                          >
+                            {cardSections.map((section) => (
+                              <div
+                                key={section.key}
+                                style={{
+                                  backgroundColor: "white",
+                                  border: "1px solid #e2e8f0",
+                                  borderRadius: "10px",
+                                  overflow: "hidden",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    padding: "10px 12px",
+                                    backgroundColor: "#f8fafc",
+                                    borderBottom: "1px solid #e2e8f0",
+                                    textAlign: "center",
+                                    color: "#475569",
+                                    fontSize: "14px",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {section.label}
+                                </div>
+                                <div>
+                                  {section.items.map((comp, idx) => (
+                                    <div
+                                      key={`${section.key}-${comp.id}`}
+                                      style={{
+                                        display: "grid",
+                                        gridTemplateColumns: comp.linkedin_logo
+                                          ? "20px minmax(0, 1fr)"
+                                          : "minmax(0, 1fr)",
+                                        gap: "8px",
+                                        alignItems: "start",
+                                        padding: "10px 12px",
+                                        borderBottom:
+                                          idx === section.items.length - 1
+                                            ? "none"
+                                            : "1px solid #f1f5f9",
+                                      }}
+                                    >
+                                      {comp.linkedin_logo ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                          src={`data:image/jpeg;base64,${comp.linkedin_logo}`}
+                                          alt=""
+                                          style={{
+                                            width: "20px",
+                                            height: "16px",
+                                            borderRadius: "3px",
+                                            objectFit: "contain",
+                                            marginTop: "2px",
+                                          }}
+                                        />
+                                      ) : null}
+                                      <Link
+                                        href={`/company/${comp.id}`}
+                                        prefetch={false}
+                                        style={modalLinkStyle}
+                                        onMouseEnter={(e) => {
+                                          (
+                                            e.currentTarget as HTMLAnchorElement
+                                          ).style.textDecoration = "underline";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          (
+                                            e.currentTarget as HTMLAnchorElement
+                                          ).style.textDecoration = "none";
+                                        }}
+                                      >
+                                        {comp.name}
+                                      </Link>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
 
                         return (
                           <>
@@ -3669,9 +3737,7 @@ const CompanyDetail = () => {
                                 padding: "8px 12px 10px",
                               }}
                             >
-                              <div style={{ overflowX: "auto" }}>
-                                {renderCompetitorTable(visibleSections)}
-                              </div>
+                              {renderPreviewCards(visibleSections)}
                               {hasMore && (
                                 <div style={{ textAlign: "center", marginTop: "10px" }}>
                                   <button
@@ -3693,7 +3759,6 @@ const CompanyDetail = () => {
                               )}
                             </div>
 
-                            {/* Competitors modal */}
                             {showCompetitorsModal && (
                               <div
                                 style={{
@@ -3754,11 +3819,7 @@ const CompanyDetail = () => {
                                       ×
                                     </button>
                                   </div>
-                                  <div style={{ overflowX: "auto" }}>
-                                    {renderCompetitorTable(
-                                      sections.map((s) => ({ ...s }))
-                                    )}
-                                  </div>
+                                  {renderModalCards(sections)}
                                 </div>
                               </div>
                             )}
