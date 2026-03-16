@@ -2023,11 +2023,9 @@ const CompanyDetail = () => {
     )
       .map((item) => ({
         label: String(item?.Data_Collection_Method || "").trim(),
-        value: String(item?.Predominance || "").trim() || "Not available",
+        value: String(item?.Predominance || "").trim(),
       }))
-      .filter(
-        (item) => item.label && item.value !== "Not available"
-      );
+      .filter((item) => item.label);
 
   const revenueModelRows = parseStructuredArray<CompanyRevenueModelItem>(
     company.Revenue_Model_
