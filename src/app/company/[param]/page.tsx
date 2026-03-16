@@ -211,6 +211,19 @@ interface CompanyInvestorFromAPI {
   announcement_date: string;
 }
 
+// Competitors API response
+interface CompanyCompetitorItem {
+  id: number;
+  name: string;
+  linkedin_logo?: string;
+}
+
+interface CompanyCompetitorsResponse {
+  peers_and_competitors: CompanyCompetitorItem[];
+  potential_acquirers: CompanyCompetitorItem[];
+  acquisition_targets: CompanyCompetitorItem[];
+}
+
 // Investors list embedded on the company payload (Company._companies_investors)
 interface CompanyInvestorFromCompanies {
   id: number;
@@ -977,6 +990,10 @@ const CompanyDetail = () => {
   const [parsedInvestorsData, setParsedInvestorsData] = useState<
     ParsedInvestorsData | null
   >(null);
+  const [competitors, setCompetitors] =
+    useState<CompanyCompetitorsResponse | null>(null);
+  const [competitorsLoading, setCompetitorsLoading] = useState(false);
+  const [showCompetitorsModal, setShowCompetitorsModal] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [relatedTransactions, setRelatedTransactions] = useState<
     RelatedTransaction[]
@@ -1267,6 +1284,78 @@ const CompanyDetail = () => {
     }
   }, []);
 
+  const fetchCompanyCompetitors = useCallback(async (id: string | number) => {
+    setCompetitorsLoading(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) {
+        setCompetitorsLoading(false);
+        return;
+      }
+      const headers: Record<string, string> = {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      };
+
+      const normalizeCompetitorArray = (
+        raw: unknown
+      ): CompanyCompetitorItem[] => {
+        if (Array.isArray(raw)) {
+          return raw as CompanyCompetitorItem[];
+        }
+        if (typeof raw !== "string") return [];
+        const tryParse = (text: string): unknown => {
+          const trimmed = text.trim();
+          if (!trimmed) return null;
+          try {
+            return JSON.parse(trimmed.replace(/\\u0022/g, '"'));
+          } catch {
+            return null;
+          }
+        };
+        const first = tryParse(raw);
+        if (Array.isArray(first)) return first as CompanyCompetitorItem[];
+        if (typeof first === "string") {
+          const second = tryParse(first);
+          if (Array.isArray(second)) return second as CompanyCompetitorItem[];
+        }
+        return [];
+      };
+
+      const params = new URLSearchParams();
+      params.append("new_company_id", String(id));
+      const res = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_competitors?${params.toString()}`,
+        { method: "GET", headers, credentials: "include" }
+      );
+      if (!res.ok) {
+        setCompetitors(null);
+        return;
+      }
+      const data = await res.json();
+      const payload = Array.isArray(data) ? data[0] : data;
+      if (payload && typeof payload === "object") {
+        setCompetitors({
+          peers_and_competitors: normalizeCompetitorArray(
+            (payload as { peers_and_competitors?: unknown })
+              .peers_and_competitors
+          ),
+          potential_acquirers: normalizeCompetitorArray(
+            (payload as { potential_acquirers?: unknown }).potential_acquirers
+          ),
+          acquisition_targets: normalizeCompetitorArray(
+            (payload as { acquisition_targets?: unknown }).acquisition_targets
+          ),
+        });
+      }
+    } catch (err) {
+      console.error("Error fetching company competitors:", err);
+      setCompetitors(null);
+    } finally {
+      setCompetitorsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchCompanyData = async () => {
       setLoading(true);
@@ -1475,6 +1564,7 @@ const CompanyDetail = () => {
       fetchFinancialMetrics(companyId);
       fetchCompanyInvestors(companyId);
       fetchRelatedTransactions(companyId);
+      fetchCompanyCompetitors(companyId);
     }
   }, [
     companyId,
@@ -1483,6 +1573,7 @@ const CompanyDetail = () => {
     fetchFinancialMetrics,
     fetchCompanyInvestors,
     fetchRelatedTransactions,
+    fetchCompanyCompetitors,
   ]);
 
 
@@ -3371,6 +3462,296 @@ const CompanyDetail = () => {
 
             {/* Desktop Financial Metrics */}
             <div style={styles.card} className="card desktop-financial-metrics">
+              {/* Competitors (table layout) */}
+              {(competitorsLoading ||
+                (competitors &&
+                  (competitors.peers_and_competitors.length > 0 ||
+                    competitors.potential_acquirers.length > 0 ||
+                    competitors.acquisition_targets.length > 0))) && (
+                <div style={{ marginBottom: "20px" }}>
+                  <h2 style={styles.sectionTitle}>Competitors</h2>
+                  {competitorsLoading ? (
+                    <div style={{ fontSize: "14px", color: "#6b7280" }}>
+                      Loading...
+                    </div>
+                  ) : (
+                    <>
+                      {(() => {
+                        const MAX_VISIBLE = 5;
+                        const competitorTag = {
+                          backgroundColor: "#e8f0fe",
+                          color: "#1a56db",
+                          padding: "4px 8px",
+                          borderRadius: "4px",
+                          fontSize: "12px",
+                          fontWeight: "500" as const,
+                          textDecoration: "none",
+                          display: "inline-block",
+                          maxWidth: "100%",
+                          minWidth: 0,
+                          whiteSpace: "normal" as const,
+                          wordBreak: "keep-all" as const,
+                          overflowWrap: "normal" as const,
+                          hyphens: "none" as const,
+                          lineHeight: 1.25,
+                          textAlign: "left" as const,
+                        };
+
+                        const sections: {
+                          key: string;
+                          label: string;
+                          items: CompanyCompetitorItem[];
+                        }[] = [
+                          {
+                            key: "peers",
+                            label: "Peers & Competitors",
+                            items: competitors?.peers_and_competitors || [],
+                          },
+                          {
+                            key: "acquirers",
+                            label: "Potential Acquirers",
+                            items: competitors?.potential_acquirers || [],
+                          },
+                          {
+                            key: "targets",
+                            label: "Acquisition Targets",
+                            items: competitors?.acquisition_targets || [],
+                          },
+                        ].filter((s) => s.items.length > 0);
+
+                        if (sections.length === 0) return null;
+
+                        const hasMore = sections.some(
+                          (s) => s.items.length > MAX_VISIBLE
+                        );
+                        const visibleSections = sections.map((s) => ({
+                          ...s,
+                          items: s.items.slice(0, MAX_VISIBLE),
+                        }));
+
+                        const renderCompetitorTable = (
+                          tableSections: typeof visibleSections
+                        ) => {
+                          const tMaxRows = Math.max(
+                            ...tableSections.map((s) => s.items.length)
+                          );
+                          return (
+                            <table
+                              style={{
+                                width: "100%",
+                                borderCollapse: "collapse",
+                                tableLayout: "fixed",
+                                fontSize: "13px",
+                              }}
+                            >
+                              <thead>
+                                <tr>
+                                  {tableSections.map((section) => (
+                                    <th
+                                      key={section.key}
+                                      style={{
+                                        textAlign: "center",
+                                        padding: "4px 6px 6px",
+                                        borderBottom: "1px solid #e2e8f0",
+                                        color: "#4b5563",
+                                        fontWeight: 600,
+                                        fontSize: "12px",
+                                      }}
+                                    >
+                                      {section.label}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {Array.from({ length: tMaxRows }).map(
+                                  (_, rowIdx) => (
+                                    <tr key={`competitor-row-${rowIdx}`}>
+                                      {tableSections.map((section) => {
+                                        const comp = section.items[rowIdx];
+                                        if (!comp) {
+                                          return (
+                                            <td
+                                              key={`${section.key}-${rowIdx}`}
+                                              style={{
+                                                padding: "5px 6px",
+                                                borderBottom:
+                                                  "1px solid #f1f5f9",
+                                              }}
+                                            />
+                                          );
+                                        }
+                                        return (
+                                          <td
+                                            key={`${section.key}-${rowIdx}`}
+                                            style={{
+                                              padding: "5px 6px",
+                                              borderBottom:
+                                                "1px solid #f1f5f9",
+                                              verticalAlign: "top",
+                                              minWidth: 0,
+                                            }}
+                                          >
+                                            <div
+                                              style={{
+                                                display: "flex",
+                                                alignItems: "flex-start",
+                                                gap: "5px",
+                                                minWidth: 0,
+                                              }}
+                                            >
+                                              {comp.linkedin_logo ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img
+                                                  src={`data:image/jpeg;base64,${comp.linkedin_logo}`}
+                                                  alt=""
+                                                  style={{
+                                                    width: "18px",
+                                                    height: "14px",
+                                                    borderRadius: "3px",
+                                                    objectFit: "contain",
+                                                    flexShrink: 0,
+                                                  }}
+                                                />
+                                              ) : null}
+                                              <Link
+                                                href={`/company/${comp.id}`}
+                                                prefetch={false}
+                                                style={{
+                                                  ...competitorTag,
+                                                  flex: "1 1 auto",
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c7d7fc";
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f0fe";
+                                                }}
+                                              >
+                                                {comp.name}
+                                              </Link>
+                                            </div>
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  )
+                                )}
+                              </tbody>
+                            </table>
+                          );
+                        };
+
+                        return (
+                          <>
+                            <div
+                              style={{
+                                backgroundColor: "#f9fafb",
+                                borderRadius: "8px",
+                                border: "1px solid #e2e8f0",
+                                padding: "8px 12px 10px",
+                              }}
+                            >
+                              <div>
+                                {renderCompetitorTable(visibleSections)}
+                              </div>
+                              {hasMore && (
+                                <div style={{ textAlign: "center", marginTop: "10px" }}>
+                                  <button
+                                    onClick={() => setShowCompetitorsModal(true)}
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      color: "#0075df",
+                                      fontSize: "13px",
+                                      fontWeight: 500,
+                                      textDecoration: "underline",
+                                      cursor: "pointer",
+                                      padding: 0,
+                                    }}
+                                  >
+                                    See more
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Competitors modal */}
+                            {showCompetitorsModal && (
+                              <div
+                                style={{
+                                  position: "fixed",
+                                  inset: 0,
+                                  backgroundColor: "rgba(0,0,0,0.5)",
+                                  zIndex: 1000,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  padding: "16px",
+                                }}
+                                onClick={() => setShowCompetitorsModal(false)}
+                              >
+                                <div
+                                  style={{
+                                    backgroundColor: "white",
+                                    borderRadius: "12px",
+                                    padding: "24px",
+                                    width: "100%",
+                                    maxWidth: "800px",
+                                    maxHeight: "80vh",
+                                    overflowY: "auto",
+                                    boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "center",
+                                      marginBottom: "16px",
+                                    }}
+                                  >
+                                    <h3
+                                      style={{
+                                        margin: 0,
+                                        fontSize: "18px",
+                                        fontWeight: 700,
+                                        color: "#1a202c",
+                                      }}
+                                    >
+                                      Competitors
+                                    </h3>
+                                    <button
+                                      onClick={() => setShowCompetitorsModal(false)}
+                                      style={{
+                                        background: "none",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        fontSize: "22px",
+                                        color: "#6b7280",
+                                        lineHeight: 1,
+                                        padding: "0 4px",
+                                      }}
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                  <div>
+                                    {renderCompetitorTable(
+                                      sections.map((s) => ({ ...s }))
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </>
+                  )}
+                </div>
+              )}
               <h2 style={styles.sectionTitle}>
                 Financial Metrics{metricsCurrencySuffix}
               </h2>
