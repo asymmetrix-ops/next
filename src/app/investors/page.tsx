@@ -93,11 +93,36 @@ interface InvestorCSVRow {
   Type: string;
   Description: string;
   "Current D&A Portfolio Companies": string;
+  "Past Portfolio Companies": string;
   "D&A Primary Sectors": string;
   "LinkedIn Members": string;
   Country: string;
   "Investor Link": string;
 }
+
+interface PortfolioCountResponse {
+  result?: {
+    itemsReceived?: number;
+    itemsreceived?: number;
+  };
+  results?: {
+    itemsReceived?: number;
+    itemsreceived?: number;
+  };
+  itemsReceived?: number;
+  itemsreceived?: number;
+}
+
+const PAST_PORTFOLIO_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_investors_past_portfolio";
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+
+const toCount = (value: unknown) => {
+  const count = Number(value);
+  return Number.isFinite(count) && count >= 0 ? count : 0;
+};
 
 const InvestorsPage = () => {
   const router = useRouter();
@@ -602,6 +627,49 @@ const InvestorsPage = () => {
     URL.revokeObjectURL(url);
   };
 
+  const fetchPastPortfolioCount = useCallback(
+    async (investorId: number, token: string | null) => {
+      const params = new URLSearchParams();
+      params.append("new_comp_id", String(investorId));
+      params.append("page", "1");
+      params.append("per_page", "1");
+
+      const response = await fetch(`${PAST_PORTFOLIO_URL}?${params.toString()}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        throw new Error(
+          `Past portfolio request failed (${response.status}): ${response.statusText} ${errorText}`.trim()
+        );
+      }
+
+      const raw = (await response.json()) as unknown;
+
+      if (Array.isArray(raw)) {
+        const first = asRecord(raw[0]);
+        return toCount(first.itemsreceived ?? first.itemsReceived ?? raw.length);
+      }
+
+      const data = raw as PortfolioCountResponse;
+      return toCount(
+        data.result?.itemsReceived ??
+          data.result?.itemsreceived ??
+          data.results?.itemsReceived ??
+          data.results?.itemsreceived ??
+          data.itemsReceived ??
+          data.itemsreceived
+      );
+    },
+    []
+  );
+
   const handleExportCSV = useCallback(async () => {
     setExporting(true);
     setError(null);
@@ -668,33 +736,52 @@ const InvestorsPage = () => {
 
       if (all.length === 0) throw new Error("Export returned empty data");
 
-      const rows: InvestorCSVRow[] = all.map((inv) => {
-        const link =
-          typeof window !== "undefined" && inv.original_new_company_id
-            ? `${window.location.origin}/investors/${inv.original_new_company_id}`
-            : inv.original_new_company_id
-              ? `/investors/${inv.original_new_company_id}`
-              : "";
+      const rows: InvestorCSVRow[] = await Promise.all(
+        all.map(async (inv) => {
+          const investorId = inv.original_new_company_id;
+          const link =
+            typeof window !== "undefined" && investorId
+              ? `${window.location.origin}/investors/${investorId}`
+              : investorId
+                ? `/investors/${investorId}`
+                : "";
 
-        return {
-          Name: inv.company_name || "N/A",
-          Type:
-            inv.investor_type && inv.investor_type.length > 0
-              ? inv.investor_type.join(", ")
-              : "N/A",
-          Description: inv.description || "N/A",
-          "Current D&A Portfolio Companies": String(
-            inv.number_of_active_investments ?? 0
-          ),
-          "D&A Primary Sectors":
-            inv.da_primary_sector_names && inv.da_primary_sector_names.length > 0
-              ? inv.da_primary_sector_names.join(", ")
-              : "N/A",
-          "LinkedIn Members": String(inv.linkedin_members ?? 0),
-          Country: inv.country || "N/A",
-          "Investor Link": link,
-        };
-      });
+          let pastPortfolioCount = "0";
+          if (investorId) {
+            try {
+              pastPortfolioCount = String(
+                await fetchPastPortfolioCount(investorId, token)
+              );
+            } catch (portfolioError) {
+              console.error(
+                `Error fetching past portfolio count for investor ${investorId}:`,
+                portfolioError
+              );
+              pastPortfolioCount = "Unavailable";
+            }
+          }
+
+          return {
+            Name: inv.company_name || "N/A",
+            Type:
+              inv.investor_type && inv.investor_type.length > 0
+                ? inv.investor_type.join(", ")
+                : "N/A",
+            Description: inv.description || "N/A",
+            "Current D&A Portfolio Companies": String(
+              inv.number_of_active_investments ?? 0
+            ),
+            "Past Portfolio Companies": pastPortfolioCount,
+            "D&A Primary Sectors":
+              inv.da_primary_sector_names && inv.da_primary_sector_names.length > 0
+                ? inv.da_primary_sector_names.join(", ")
+                : "N/A",
+            "LinkedIn Members": String(inv.linkedin_members ?? 0),
+            Country: inv.country || "N/A",
+            "Investor Link": link,
+          };
+        })
+      );
 
       const csv = convertToCSV(rows);
       downloadCSV(csv, "investors_filtered");
@@ -704,7 +791,7 @@ const InvestorsPage = () => {
     } finally {
       setExporting(false);
     }
-  }, [filters, pagination.itemsTotal]);
+  }, [fetchPastPortfolioCount, filters, pagination.itemsTotal]);
 
   // Initial data fetch
   useEffect(() => {
