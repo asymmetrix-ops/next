@@ -1664,10 +1664,9 @@ const ArticleDetailPage = () => {
                 </>
               );
             })()}
-            {/* Market Landscape (Company Analysis only) */}
+            {/* Competitors (Company Analysis only) */}
             {(isCompanyAnalysis && (competitorsLoading || hasCompetitorsData)) && (
               <div style={styles.section}>
-                <h2 style={styles.sectionTitle}>Market Landscape</h2>
                 {competitorsLoading ? (
                   <div style={{ color: "#6b7280", fontSize: 14 }}>Loading...</div>
                 ) : (
