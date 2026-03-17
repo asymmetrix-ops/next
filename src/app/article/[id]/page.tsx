@@ -111,8 +111,24 @@ interface CompanyOfFocusApiItem {
   description?: string;
   logo?: string;
   linkedin_url?: string;
+  // Some API variants return the actual company id separately
+  new_company_id?: number;
+  company_id?: number;
   company_overview?: CompanyOfFocusOverview;
   financial_overview?: CompanyOfFocusFinancialOverview;
+}
+
+// Competitors API response (same payload used on Company Profile page)
+interface CompanyCompetitorItem {
+  id: number;
+  name: string;
+  linkedin_logo?: string;
+}
+
+interface CompanyCompetitorsResponse {
+  peers_and_competitors: CompanyCompetitorItem[];
+  potential_acquirers: CompanyCompetitorItem[];
+  acquisition_targets: CompanyCompetitorItem[];
 }
 
 // Shared styles object
@@ -371,6 +387,15 @@ const ArticleDetailPage = () => {
   const [companyOfFocus, setCompanyOfFocus] =
     useState<CompanyOfFocusApiItem | null>(null);
   const [companyOfFocusLoading, setCompanyOfFocusLoading] = useState(false);
+  const [companyOfFocusCompanyId, setCompanyOfFocusCompanyId] = useState<
+    number | null
+  >(null);
+  const [competitors, setCompetitors] =
+    useState<CompanyCompetitorsResponse | null>(null);
+  const [competitorsLoading, setCompetitorsLoading] = useState(false);
+  const [isCompanyOfFocusFlag, setIsCompanyOfFocusFlag] = useState<
+    boolean | null
+  >(null);
   // Guard against rare runtime cases where search params may be unavailable during hydration
   const searchParams = useSearchParams() as unknown as {
     get?: (key: string) => string | null;
@@ -485,6 +510,9 @@ const ArticleDetailPage = () => {
     const fetchCompanyOfFocus = async () => {
       if (!article) {
         setCompanyOfFocus(null);
+        setCompanyOfFocusCompanyId(null);
+        setCompetitors(null);
+        setIsCompanyOfFocusFlag(null);
         return;
       }
 
@@ -506,6 +534,9 @@ const ArticleDetailPage = () => {
 
       if (!isCompanyAnalysisOrExecInterview || !hasCompanyOfFocus) {
         setCompanyOfFocus(null);
+        setCompanyOfFocusCompanyId(null);
+        setCompetitors(null);
+        setIsCompanyOfFocusFlag(null);
         return;
       }
 
@@ -551,6 +582,7 @@ const ArticleDetailPage = () => {
 
         if (!rawItem) {
           setCompanyOfFocus(null);
+          setCompanyOfFocusCompanyId(null);
           return;
         }
 
@@ -568,6 +600,18 @@ const ArticleDetailPage = () => {
                 | CompanyOfFocusFinancialOverview
                 | undefined);
 
+        const coFocusCompanyIdCandidate =
+          (rawItem as unknown as { new_company_id?: unknown })?.new_company_id ??
+          (rawItem as unknown as { company_id?: unknown })?.company_id ??
+          rawItem.id;
+        const coFocusCompanyId =
+          typeof coFocusCompanyIdCandidate === "number" &&
+          Number.isFinite(coFocusCompanyIdCandidate) &&
+          coFocusCompanyIdCandidate > 0
+            ? coFocusCompanyIdCandidate
+            : null;
+        setCompanyOfFocusCompanyId(coFocusCompanyId);
+
         setCompanyOfFocus({
           id: rawItem.id ?? 0,
           name: rawItem.name || "",
@@ -575,6 +619,16 @@ const ArticleDetailPage = () => {
           description: rawItem.description || "",
           logo: rawItem.logo || "",
           linkedin_url: rawItem.linkedin_url || "",
+          new_company_id:
+            typeof (rawItem as unknown as { new_company_id?: unknown })
+              ?.new_company_id === "number"
+              ? (rawItem as unknown as { new_company_id: number }).new_company_id
+              : undefined,
+          company_id:
+            typeof (rawItem as unknown as { company_id?: unknown })?.company_id ===
+            "number"
+              ? (rawItem as unknown as { company_id: number }).company_id
+              : undefined,
           company_overview: overview,
           financial_overview: financial,
         });
@@ -587,6 +641,113 @@ const ArticleDetailPage = () => {
 
     fetchCompanyOfFocus();
   }, [article, articleId]);
+
+  // Fetch competitors for Company Analysis using Company of Focus id
+  useEffect(() => {
+    const fetchCompetitors = async () => {
+      if (!article || !companyOfFocusCompanyId) {
+        setCompetitors(null);
+        setIsCompanyOfFocusFlag(null);
+        return;
+      }
+
+      const ct = (
+        article.Content_Type ||
+        article.content_type ||
+        article.Content?.Content_type ||
+        article.Content?.Content_Type ||
+        ""
+      ).trim();
+
+      const isCompanyAnalysis = /^company\s*analysis$/i.test(ct);
+      if (!isCompanyAnalysis) {
+        setCompetitors(null);
+        setIsCompanyOfFocusFlag(null);
+        return;
+      }
+
+      try {
+        setCompetitorsLoading(true);
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) {
+          setCompetitors(null);
+          setIsCompanyOfFocusFlag(null);
+          return;
+        }
+
+        const headers: Record<string, string> = {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        };
+
+        const normalizeCompetitorArray = (raw: unknown): CompanyCompetitorItem[] => {
+          if (Array.isArray(raw)) return raw as CompanyCompetitorItem[];
+          if (typeof raw !== "string") return [];
+          const trimmed = raw.trim();
+          if (!trimmed) return [];
+          const tryJson = (t: string): unknown => {
+            try {
+              return JSON.parse(t.replace(/\\u0022/g, '"'));
+            } catch {
+              return null;
+            }
+          };
+          const first = tryJson(trimmed);
+          if (Array.isArray(first)) return first as CompanyCompetitorItem[];
+          if (typeof first === "string") {
+            const second = tryJson(first);
+            if (Array.isArray(second)) return second as CompanyCompetitorItem[];
+          }
+          return [];
+        };
+
+        const params = new URLSearchParams();
+        params.append("new_company_id", String(companyOfFocusCompanyId));
+        const res = await fetch(
+          `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_competitors?${params.toString()}`,
+          { method: "GET", headers, credentials: "include" }
+        );
+
+        if (!res.ok) {
+          setCompetitors(null);
+          setIsCompanyOfFocusFlag(null);
+          return;
+        }
+
+        const data = await res.json();
+        const payload = Array.isArray(data) ? data[0] : data;
+        if (!payload || typeof payload !== "object") {
+          setCompetitors(null);
+          setIsCompanyOfFocusFlag(null);
+          return;
+        }
+
+        const focusFlag = (payload as { is_company_of_focus?: unknown })
+          ?.is_company_of_focus;
+        setIsCompanyOfFocusFlag(focusFlag === true);
+
+        setCompetitors({
+          peers_and_competitors: normalizeCompetitorArray(
+            (payload as { peers_and_competitors?: unknown }).peers_and_competitors
+          ),
+          potential_acquirers: normalizeCompetitorArray(
+            (payload as { potential_acquirers?: unknown }).potential_acquirers
+          ),
+          acquisition_targets: normalizeCompetitorArray(
+            (payload as { acquisition_targets?: unknown }).acquisition_targets
+          ),
+        });
+      } catch (err) {
+        console.error("Error fetching competitors:", err);
+        setCompetitors(null);
+        setIsCompanyOfFocusFlag(null);
+      } finally {
+        setCompetitorsLoading(false);
+      }
+    };
+
+    fetchCompetitors();
+  }, [article, companyOfFocusCompanyId]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "Not available";
@@ -850,6 +1011,24 @@ const ArticleDetailPage = () => {
       </div>
     );
   }
+
+  const ctForSidebar = (
+    article.Content_Type ||
+    article.content_type ||
+    article.Content?.Content_type ||
+    article.Content?.Content_Type ||
+    ""
+  ).trim();
+  const isCompanyAnalysis = /^company\s*analysis$/i.test(ctForSidebar);
+  const hasCompetitorsData = Boolean(
+    competitors &&
+      ((competitors.peers_and_competitors || []).length > 0 ||
+        (competitors.potential_acquirers || []).length > 0 ||
+        (competitors.acquisition_targets || []).length > 0)
+  );
+  const showMarketLandscape = isCompanyAnalysis && hasCompetitorsData;
+  const peersTitle =
+    isCompanyOfFocusFlag === true ? "Peers & Competitors" : "Market Landscape";
 
   return (
     <div style={styles.container}>
@@ -1485,8 +1664,143 @@ const ArticleDetailPage = () => {
                 </>
               );
             })()}
+            {/* Market Landscape (Company Analysis only) */}
+            {(isCompanyAnalysis && (competitorsLoading || hasCompetitorsData)) && (
+              <div style={styles.section}>
+                <h2 style={styles.sectionTitle}>Market Landscape</h2>
+                {competitorsLoading ? (
+                  <div style={{ color: "#6b7280", fontSize: 14 }}>Loading...</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {competitors?.peers_and_competitors?.length ? (
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "#374151",
+                            marginBottom: 8,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.04em",
+                          }}
+                        >
+                          {peersTitle}
+                        </div>
+                        <div style={styles.tagContainer}>
+                          {competitors.peers_and_competitors.map((c) => (
+                            <Link
+                              key={`peer-${c.id}`}
+                              href={`/company/${c.id}`}
+                              prefetch={false}
+                              style={{
+                                ...styles.companyTag,
+                                textDecoration: "none",
+                                display: "inline-block",
+                              }}
+                              onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
+                                  "#c8e6c9";
+                              }}
+                              onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
+                                  "#e8f5e8";
+                              }}
+                            >
+                              {c.name}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {competitors?.potential_acquirers?.length ? (
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "#374151",
+                            marginBottom: 8,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.04em",
+                          }}
+                        >
+                          Potential Acquirers
+                        </div>
+                        <div style={styles.tagContainer}>
+                          {competitors.potential_acquirers.map((c) => (
+                            <Link
+                              key={`acq-${c.id}`}
+                              href={`/company/${c.id}`}
+                              prefetch={false}
+                              style={{
+                                ...styles.companyTag,
+                                textDecoration: "none",
+                                display: "inline-block",
+                              }}
+                              onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
+                                  "#c8e6c9";
+                              }}
+                              onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
+                                  "#e8f5e8";
+                              }}
+                            >
+                              {c.name}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {competitors?.acquisition_targets?.length ? (
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "#374151",
+                            marginBottom: 8,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.04em",
+                          }}
+                        >
+                          Acquisition Targets
+                        </div>
+                        <div style={styles.tagContainer}>
+                          {competitors.acquisition_targets.map((c) => (
+                            <Link
+                              key={`tgt-${c.id}`}
+                              href={`/company/${c.id}`}
+                              prefetch={false}
+                              style={{
+                                ...styles.companyTag,
+                                textDecoration: "none",
+                                display: "inline-block",
+                              }}
+                              onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
+                                  "#c8e6c9";
+                              }}
+                              onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
+                                  "#e8f5e8";
+                              }}
+                            >
+                              {c.name}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            )}
             {/* Companies Section */}
-            {article.companies_mentioned &&
+            {!showMarketLandscape &&
+              article.companies_mentioned &&
               article.companies_mentioned.length > 0 && (
                 <div style={styles.section}>
                   <h2 style={styles.sectionTitle}>Companies</h2>
