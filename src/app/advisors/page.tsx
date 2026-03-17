@@ -25,6 +25,7 @@ interface Advisor {
 
 interface AdvisorsFilters {
   countries: string[];
+  advisor_and_counterparty_role_id: number[];
   provinces: string[];
   cities: string[];
   Continental_Region?: string[];
@@ -61,6 +62,11 @@ interface SecondarySector {
   sector_name: string;
 }
 
+interface AdvisorType {
+  id: number;
+  name: string;
+}
+
 const AdvisorsPage = () => {
   // Right-click handled via native anchors now
 
@@ -95,6 +101,7 @@ const AdvisorsPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<AdvisorsFilters>({
     countries: [],
+    advisor_and_counterparty_role_id: [],
     provinces: [],
     cities: [],
     primarySectors: [],
@@ -116,6 +123,7 @@ const AdvisorsPage = () => {
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
   );
+  const [advisorTypes, setAdvisorTypes] = useState<AdvisorType[]>([]);
 
   // Loading states
   const [loadingCountries, setLoadingCountries] = useState(false);
@@ -123,6 +131,7 @@ const AdvisorsPage = () => {
   const [loadingCities, setLoadingCities] = useState(false);
   const [loadingPrimarySectors, setLoadingPrimarySectors] = useState(false);
   const [loadingSecondarySectors, setLoadingSecondarySectors] = useState(false);
+  const [loadingAdvisorTypes, setLoadingAdvisorTypes] = useState(false);
 
   // Convert API data to dropdown options format
   const countryOptions = countries.map((country) => ({
@@ -150,6 +159,11 @@ const AdvisorsPage = () => {
     label: sector.sector_name,
   }));
 
+  const advisorTypeOptions = advisorTypes.map((t) => ({
+    value: t.id,
+    label: t.name,
+  }));
+
   // State for each filter (arrays for multi-select)
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [selectedContinentalRegions, setSelectedContinentalRegions] = useState<
@@ -162,6 +176,9 @@ const AdvisorsPage = () => {
     number[]
   >([]);
   const [selectedSecondarySectors, setSelectedSecondarySectors] = useState<
+    number[]
+  >([]);
+  const [selectedAdvisorTypeIds, setSelectedAdvisorTypeIds] = useState<
     number[]
   >([]);
   const [corporateEventsAdvisedMin, setCorporateEventsAdvisedMin] =
@@ -209,6 +226,31 @@ const AdvisorsPage = () => {
       setSubRegions(list);
     } catch (error) {
       console.error("Error fetching sub-regions:", error);
+    }
+  }, []);
+
+  const fetchAdvisorTypes = useCallback(async () => {
+    try {
+      setLoadingAdvisorTypes(true);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const url = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/advisor_types";
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.statusText}`);
+      }
+      const data = (await response.json()) as AdvisorType[];
+      setAdvisorTypes(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error fetching advisor types:", error);
+      setAdvisorTypes([]);
+    } finally {
+      setLoadingAdvisorTypes(false);
     }
   }, []);
 
@@ -292,79 +334,55 @@ const AdvisorsPage = () => {
 
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
-
-      // Convert filters to URL parameters for GET request
-      const params = new URLSearchParams();
-
-      // Add pagination (lowercase page/per_page)
       const page = Math.max(1, filters.page || 1);
       const perPage = filters.per_page > 0 ? filters.per_page : 25;
-      params.append("page", page.toString());
-      params.append("per_page", perPage.toString());
 
-      // Add search query
-      if (filters.searchQuery)
-        params.append("search_query", filters.searchQuery);
+      // Build GET query params to match backend schema.
+      const params = new URLSearchParams();
+      params.append("page", String(page));
+      params.append("per_page", String(perPage));
 
-      // Add filters using array format
-      if (filters.countries.length > 0) {
-        filters.countries.forEach((country) => {
-          params.append("Countries[]", country);
-        });
-      }
+      if (filters.searchQuery) params.append("search_query", filters.searchQuery);
 
-      if (filters.provinces.length > 0) {
-        filters.provinces.forEach((province) => {
-          params.append("Provinces[]", province);
-        });
-      }
+      (filters.countries ?? []).forEach((c) => params.append("Countries[]", c));
+      (filters.provinces ?? []).forEach((p) => params.append("Provinces[]", p));
+      (filters.cities ?? []).forEach((c) => params.append("Cities[]", c));
 
-      if (filters.cities.length > 0) {
-        filters.cities.forEach((city) => {
-          params.append("Cities[]", city);
-        });
-      }
+      (filters.advisor_and_counterparty_role_id ?? []).forEach((id) =>
+        params.append("advisor_and_counterparty_role_id[]", String(id))
+      );
 
-      // Region text filters (mirror Companies/Investors)
-      if ((filters.Continental_Region || []).length > 0) {
-        params.append(
-          "Continental_Region",
-          (filters.Continental_Region || []).join(",")
-        );
-      }
-      if ((filters.geographical_sub_region || []).length > 0) {
-        params.append(
-          "geographical_sub_region",
-          (filters.geographical_sub_region || []).join(",")
-        );
-      }
+      (filters.primarySectors ?? []).forEach((id) =>
+        params.append("primary_sectors_ids[]", String(id))
+      );
+      (filters.secondarySectors ?? []).forEach((id) =>
+        params.append("Secondary_sectors_ids[]", String(id))
+      );
 
-      if (filters.primarySectors.length > 0) {
-        filters.primarySectors.forEach((sectorId) => {
-          params.append("primary_sectors_ids[]", sectorId.toString());
-        });
-      }
-
-      if (filters.secondarySectors.length > 0) {
-        filters.secondarySectors.forEach((sectorId) => {
-          params.append("Secondary_sectors_ids[]", sectorId.toString());
-        });
-      }
+      // For these, backend expects null when unset; for GET we simply omit them.
+      (filters.Continental_Region || []).forEach((r) =>
+        params.append("Continental_Region[]", r)
+      );
+      (filters.geographical_sub_region || []).forEach((r) =>
+        params.append("geographical_sub_region[]", r)
+      );
 
       if (typeof filters.corporate_events_advised_min === "number") {
         params.append(
           "corporate_events_advised_min",
-          filters.corporate_events_advised_min.toString()
+          String(filters.corporate_events_advised_min)
         );
       }
       if (typeof filters.corporate_events_advised_max === "number") {
         params.append(
           "corporate_events_advised_max",
-          filters.corporate_events_advised_max.toString()
+          String(filters.corporate_events_advised_max)
         );
       }
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_list?${params.toString()}`;
+      const apiBaseUrl =
+        "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_list";
+      const url = `${apiBaseUrl}?${params.toString()}`;
 
       console.log("[Advisors] Fetch list URL:", url);
       const requestId = ++lastRequestIdRef.current;
@@ -504,6 +522,11 @@ const AdvisorsPage = () => {
         );
       if (filtersForCounts.searchQuery)
         params.append("search_query", filtersForCounts.searchQuery);
+      if (filtersForCounts.advisor_and_counterparty_role_id.length > 0)
+        params.append(
+          "advisor_and_counterparty_role_id",
+          filtersForCounts.advisor_and_counterparty_role_id.join(",")
+        );
       if (filtersForCounts.primarySectors.length > 0)
         params.append(
           "primary_sectors_ids",
@@ -585,11 +608,13 @@ const AdvisorsPage = () => {
     fetchPrimarySectors();
     fetchContinentalRegions();
     fetchSubRegions();
+    fetchAdvisorTypes();
   }, [
     fetchCountries,
     fetchPrimarySectors,
     fetchContinentalRegions,
     fetchSubRegions,
+    fetchAdvisorTypes,
   ]);
 
   useEffect(() => {
@@ -635,6 +660,7 @@ const AdvisorsPage = () => {
       countries: selectedCountries,
       provinces: selectedProvinces,
       cities: selectedCities,
+      advisor_and_counterparty_role_id: selectedAdvisorTypeIds,
       primarySectors: selectedPrimarySectors,
       secondarySectors: selectedSecondarySectors,
       corporate_events_advised_min: minVal,
@@ -672,10 +698,12 @@ const AdvisorsPage = () => {
     setSelectedCities([]);
     setSelectedPrimarySectors([]);
     setSelectedSecondarySectors([]);
+    setSelectedAdvisorTypeIds([]);
     setCorporateEventsAdvisedMin("");
     setCorporateEventsAdvisedMax("");
     const resetFilters: AdvisorsFilters = {
       countries: [],
+      advisor_and_counterparty_role_id: [],
       provinces: [],
       cities: [],
       Continental_Region: [],
@@ -1236,41 +1264,48 @@ const AdvisorsPage = () => {
     setExportingCsv(true);
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
+
       const params = new URLSearchParams();
       params.append("page", "1");
       params.append("per_page", String(itemsTotal));
 
-      if (filters.searchQuery)
-        params.append("search_query", filters.searchQuery);
-      if (filters.countries.length > 0) {
-        filters.countries.forEach((c) => params.append("Countries[]", c));
-      }
-      if (filters.provinces.length > 0) {
-        filters.provinces.forEach((p) => params.append("Provinces[]", p));
-      }
-      if (filters.cities.length > 0) {
-        filters.cities.forEach((c) => params.append("Cities[]", c));
-      }
-      if ((filters.Continental_Region || []).length > 0) {
-        params.append("Continental_Region", (filters.Continental_Region || []).join(","));
-      }
-      if ((filters.geographical_sub_region || []).length > 0) {
-        params.append("geographical_sub_region", (filters.geographical_sub_region || []).join(","));
-      }
-      if (filters.primarySectors.length > 0) {
-        filters.primarySectors.forEach((id) => params.append("primary_sectors_ids[]", String(id)));
-      }
-      if (filters.secondarySectors.length > 0) {
-        filters.secondarySectors.forEach((id) => params.append("Secondary_sectors_ids[]", String(id)));
-      }
+      if (filters.searchQuery) params.append("search_query", filters.searchQuery);
+
+      (filters.countries ?? []).forEach((c) => params.append("Countries[]", c));
+      (filters.provinces ?? []).forEach((p) => params.append("Provinces[]", p));
+      (filters.cities ?? []).forEach((c) => params.append("Cities[]", c));
+
+      (filters.advisor_and_counterparty_role_id ?? []).forEach((id) =>
+        params.append("advisor_and_counterparty_role_id[]", String(id))
+      );
+      (filters.primarySectors ?? []).forEach((id) =>
+        params.append("primary_sectors_ids[]", String(id))
+      );
+      (filters.secondarySectors ?? []).forEach((id) =>
+        params.append("Secondary_sectors_ids[]", String(id))
+      );
+      (filters.Continental_Region || []).forEach((r) =>
+        params.append("Continental_Region[]", r)
+      );
+      (filters.geographical_sub_region || []).forEach((r) =>
+        params.append("geographical_sub_region[]", r)
+      );
       if (typeof filters.corporate_events_advised_min === "number") {
-        params.append("corporate_events_advised_min", String(filters.corporate_events_advised_min));
+        params.append(
+          "corporate_events_advised_min",
+          String(filters.corporate_events_advised_min)
+        );
       }
       if (typeof filters.corporate_events_advised_max === "number") {
-        params.append("corporate_events_advised_max", String(filters.corporate_events_advised_max));
+        params.append(
+          "corporate_events_advised_max",
+          String(filters.corporate_events_advised_max)
+        );
       }
 
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_list?${params.toString()}`;
+      const apiBaseUrl =
+        "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_all_advisors_list";
+      const url = `${apiBaseUrl}?${params.toString()}`;
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -2359,6 +2394,75 @@ const AdvisorsPage = () => {
                   <h3 style={styles.subHeading} className="filters-sub-heading">
                     Sector
                   </h3>
+                  <span style={styles.label}>Advisor Type</span>
+                  <SearchableSelect
+                    options={advisorTypeOptions}
+                    value=""
+                    onChange={(value) => {
+                      if (
+                        typeof value === "number" &&
+                        value &&
+                        !selectedAdvisorTypeIds.includes(value)
+                      ) {
+                        setSelectedAdvisorTypeIds([
+                          ...selectedAdvisorTypeIds,
+                          value,
+                        ]);
+                      }
+                    }}
+                    placeholder={
+                      loadingAdvisorTypes
+                        ? "Loading advisor types..."
+                        : "Select Advisor Type"
+                    }
+                    disabled={loadingAdvisorTypes}
+                    style={styles.select}
+                  />
+                  {selectedAdvisorTypeIds.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedAdvisorTypeIds.map((id) => (
+                        <span
+                          key={id}
+                          style={{
+                            backgroundColor: "#e3f2fd",
+                            color: "#1976d2",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {advisorTypes.find((t) => t.id === id)?.name ?? id}
+                          <button
+                            onClick={() =>
+                              setSelectedAdvisorTypeIds(
+                                selectedAdvisorTypeIds.filter((x) => x !== id)
+                              )
+                            }
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#1976d2",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              fontSize: "14px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <span style={styles.label}>By Primary Sectors</span>
                   <SearchableSelect
                     options={primarySectorOptions}
