@@ -994,6 +994,7 @@ const CompanyDetail = () => {
     useState<CompanyCompetitorsResponse | null>(null);
   const [competitorsLoading, setCompetitorsLoading] = useState(false);
   const [showCompetitorsModal, setShowCompetitorsModal] = useState(false);
+  const [isCompanyOfFocus, setIsCompanyOfFocus] = useState<boolean | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [relatedTransactions, setRelatedTransactions] = useState<
     RelatedTransaction[]
@@ -1290,6 +1291,8 @@ const CompanyDetail = () => {
       const token = localStorage.getItem("asymmetrix_auth_token");
       if (!token) {
         setCompetitorsLoading(false);
+        setCompetitors(null);
+        setIsCompanyOfFocus(null);
         return;
       }
       const headers: Record<string, string> = {
@@ -1330,11 +1333,15 @@ const CompanyDetail = () => {
       );
       if (!res.ok) {
         setCompetitors(null);
+        setIsCompanyOfFocus(null);
         return;
       }
       const data = await res.json();
       const payload = Array.isArray(data) ? data[0] : data;
       if (payload && typeof payload === "object") {
+        const focusFlag = (payload as { is_company_of_focus?: unknown })
+          ?.is_company_of_focus;
+        setIsCompanyOfFocus(focusFlag === true);
         setCompetitors({
           peers_and_competitors: normalizeCompetitorArray(
             (payload as { peers_and_competitors?: unknown })
@@ -1351,6 +1358,7 @@ const CompanyDetail = () => {
     } catch (err) {
       console.error("Error fetching company competitors:", err);
       setCompetitors(null);
+      setIsCompanyOfFocus(null);
     } finally {
       setCompetitorsLoading(false);
     }
@@ -3469,7 +3477,7 @@ const CompanyDetail = () => {
                     competitors.potential_acquirers.length > 0 ||
                     competitors.acquisition_targets.length > 0))) && (
                 <div style={{ marginBottom: "20px" }}>
-                  <h2 style={styles.sectionTitle}>Competitors</h2>
+                  <h2 style={styles.sectionTitle}>Market Landscape</h2>
                   {competitorsLoading ? (
                     <div style={{ fontSize: "14px", color: "#6b7280" }}>
                       Loading...
@@ -3478,6 +3486,9 @@ const CompanyDetail = () => {
                     <>
                       {(() => {
                         const MAX_VISIBLE = 5;
+                        const peersTitle = isCompanyOfFocus
+                          ? "Peers & Competitors"
+                          : "Market Landscape";
                         const competitorTag = {
                           backgroundColor: "#e8f0fe",
                           color: "#1a56db",
@@ -3504,7 +3515,7 @@ const CompanyDetail = () => {
                         }[] = [
                           {
                             key: "peers",
-                            label: "Peers & Competitors",
+                            label: peersTitle,
                             items: competitors?.peers_and_competitors || [],
                           },
                           {
@@ -3720,7 +3731,7 @@ const CompanyDetail = () => {
                                         color: "#1a202c",
                                       }}
                                     >
-                                      Competitors
+                                      Market Landscape
                                     </h3>
                                     <button
                                       onClick={() => setShowCompetitorsModal(false)}
