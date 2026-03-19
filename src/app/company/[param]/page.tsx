@@ -1538,7 +1538,8 @@ const CompanyDetail = () => {
         return;
       }
 
-      const collapsedHeight = lineHeight * 3;
+      // Allow more of the description to be visible before collapsing
+      const collapsedHeight = lineHeight * 5;
       setIsDescriptionExpandable(element.scrollHeight > collapsedHeight + 1);
     };
 
@@ -2926,7 +2927,8 @@ const CompanyDetail = () => {
                         transition: "max-height 0.2s ease",
                         display: isDescriptionExpanded ? "block" : "-webkit-box",
                         WebkitBoxOrient: "vertical",
-                        WebkitLineClamp: isDescriptionExpanded ? "unset" : 3,
+                        // Show more lines in the collapsed state to improve readability
+                        WebkitLineClamp: isDescriptionExpanded ? "unset" : 5,
                       }}
                     >
                       {company.description || "No description available"}
