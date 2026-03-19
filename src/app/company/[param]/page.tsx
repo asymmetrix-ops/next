@@ -2041,7 +2041,8 @@ const CompanyDetail = () => {
   )
     .map((item) => ({
       label: String(item?.Revenue_Model_ || "").trim(),
-      value: String(item?.Predominance || "").trim() || "Not available",
+      // Leave cell empty when predominance is missing (no "Not available")
+      value: String(item?.Predominance || "").trim(),
     }))
     .filter((item) => item.label);
 
