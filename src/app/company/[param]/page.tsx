@@ -1337,7 +1337,12 @@ const CompanyDetail = () => {
             ).Data_Collection_Method || data.Company?.Data_Collection_Method,
           Revenue_Model_:
             (data as { Revenue_Model_?: CompanyRevenueModelItem[] | string })
-              .Revenue_Model_ || data.Company?.Revenue_Model_,
+              .Revenue_Model_ ||
+            (data as { Revenue_Model?: CompanyRevenueModelItem[] | string })
+              .Revenue_Model ||
+            data.Company?.Revenue_Model_ ||
+            (data.Company as { Revenue_Model?: CompanyRevenueModelItem[] | string })
+              ?.Revenue_Model,
           Lifecycle_stage:
             data.Company?.Lifecycle_stage ||
             (data as unknown as { Lifecycle_stage?: LifecycleStage })
@@ -2011,10 +2016,11 @@ const CompanyDetail = () => {
   )
     .map((item) => ({
       label: String(item?.Product_Type || "").trim(),
+      // If percentage is missing, leave the cell empty instead of showing "Not available"
       value:
         getNumeric(item?.pc_of_revenues) !== undefined
           ? `${Math.round(getNumeric(item?.pc_of_revenues) || 0)}%`
-          : "Not available",
+          : "",
     }))
     .filter((item) => item.label);
 
@@ -2029,7 +2035,9 @@ const CompanyDetail = () => {
       .filter((item) => item.label);
 
   const revenueModelRows = parseStructuredArray<CompanyRevenueModelItem>(
-    company.Revenue_Model_
+    company.Revenue_Model_ ??
+      (company as { Revenue_Model?: CompanyRevenueModelItem[] | string })
+        .Revenue_Model
   )
     .map((item) => ({
       label: String(item?.Revenue_Model_ || "").trim(),
@@ -2974,7 +2982,7 @@ const CompanyDetail = () => {
                           <div key={section.title}>
                             <div
                               style={{
-                                fontSize: "13px",
+                                fontSize: "14px",
                                 fontWeight: 600,
                                 color: "#334155",
                                 marginBottom: "8px",
@@ -2987,7 +2995,7 @@ const CompanyDetail = () => {
                                 style={{
                                   width: "100%",
                                   borderCollapse: "collapse",
-                                  fontSize: "12px",
+                                  fontSize: "14px",
                                 }}
                               >
                                 <tbody>
