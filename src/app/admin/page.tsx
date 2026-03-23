@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 
 import { CompetitorsTab } from "./analytics/_components/AnalyticsViews";
 import SearchableSelect from "@/components/ui/SearchableSelect";
@@ -161,7 +162,23 @@ Target company: {query} ({domain})`;
 
   return (
     <div className="px-4 py-10 w-full max-w-none min-h-screen">
-      <h1 className="mb-6 text-2xl font-semibold">Admin</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-semibold">Admin</h1>
+        <div className="flex gap-2">
+          <Link
+            href="/admin/data-entry"
+            className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md"
+          >
+            Companies Data Entry
+          </Link>
+          <Link
+            href="/admin/data-entry/ce"
+            className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md"
+          >
+            CE Data Entry
+          </Link>
+        </div>
+      </div>
 
       <div className="flex gap-4 mb-6 border-b">
         <button

@@ -2710,6 +2710,7 @@ const CompanySection = ({
   ownershipCounts,
   fetchCompanies,
   currentFilters,
+  onEditCompany,
 }: {
   companies: Company[];
   loading: boolean;
@@ -2732,6 +2733,7 @@ const CompanySection = ({
   };
   fetchCompanies: (page?: number, filters?: Filters) => Promise<void>;
   currentFilters: Filters | undefined;
+  onEditCompany?: (id: number) => void;
 }) => {
   const router = useRouter();
   const { isTrialActive } = useAuth();
@@ -3248,10 +3250,26 @@ const CompanySection = ({
             <td>{company.ownership || "N/A"}</td>
             <td>{formatNumber(company.linkedin_members)}</td>
             <td>{company.country || "N/A"}</td>
+            {onEditCompany && (
+              <td>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onEditCompany(company.id);
+                  }}
+                  className="edit-company-btn"
+                  title="Edit company"
+                >
+                  Edit
+                </button>
+              </td>
+            )}
           </tr>
         );
       }),
-    [companies, handleCompanyClick]
+    [companies, handleCompanyClick, onEditCompany]
   );
 
   const generatePaginationButtons = () => {
@@ -3436,6 +3454,25 @@ const CompanySection = ({
     .company-table td:nth-child(8) { 
       width: 7%; 
     } /* Country */
+    .company-table th:nth-child(9), 
+    .company-table td:nth-child(9) { 
+      width: 5%; 
+    } /* Edit - when present */
+    .edit-company-btn {
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #0075df;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .edit-company-btn:hover {
+      background: #dbeafe;
+      color: #0369a1;
+    }
     .company-table th,
     .company-table td {
       padding: 8px 12px;
@@ -3772,7 +3809,12 @@ const CompanySection = ({
             className: "loading-skeleton",
             style: { width: "70%", height: "18px" },
           })
-        )
+        ),
+        ...(onEditCompany
+          ? [
+              React.createElement("td", { key: "edit" }, null),
+            ]
+          : [])
       );
 
     return React.createElement(
@@ -3794,7 +3836,10 @@ const CompanySection = ({
             React.createElement("th", null, "Secondary Sectors"),
             React.createElement("th", null, "Ownership"),
             React.createElement("th", null, "LinkedIn"),
-            React.createElement("th", null, "Country")
+            React.createElement("th", null, "Country"),
+            ...(onEditCompany
+              ? [React.createElement("th", { key: "edit" }, "")]
+              : [])
           )
         ),
         React.createElement(
@@ -4052,7 +4097,10 @@ const CompanySection = ({
           React.createElement("th", null, "Sectors"),
           React.createElement("th", null, "Ownership"),
           React.createElement("th", null, "LinkedIn Members"),
-          React.createElement("th", null, "Country")
+          React.createElement("th", null, "Country"),
+          ...(onEditCompany
+            ? [React.createElement("th", { key: "edit" }, "Edit")]
+            : [])
         )
       ),
       React.createElement("tbody", null, tableRows)
@@ -4074,8 +4122,10 @@ const CompanySection = ({
   );
 };
 
+import { CompaniesEditContext } from "./CompaniesEditContext";
+
 // Main Page Component
-const CompaniesPage = () => {
+function CompaniesPageInner() {
   const {
     companies,
     loading,
@@ -4123,12 +4173,15 @@ const CompaniesPage = () => {
         ownershipCounts={ownershipCounts}
         fetchCompanies={fetchCompanies}
         currentFilters={currentFilters}
+        onEditCompany={React.useContext(CompaniesEditContext)}
       />
       <Footer />
     </div>
   );
-};
+}
 
-export default CompaniesPage;
+export default function CompaniesPage() {
+  return <CompaniesPageInner />;
+}
 
 //

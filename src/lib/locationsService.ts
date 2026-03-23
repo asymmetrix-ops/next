@@ -1,6 +1,8 @@
 import { authService } from "./auth";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/";
+const REFERENCE_BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I";
+const NEW_COMPANY_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:Zy_LlXuz";
 
 interface Country {
   locations_Country: string;
@@ -32,6 +34,16 @@ interface HybridBusinessFocus {
 interface OwnershipType {
   id: number;
   ownership: string;
+}
+
+interface CurrencyOption {
+  id: number;
+  Currency: string;
+}
+
+interface YearOption {
+  id: number;
+  Year: string | number;
 }
 
 interface JobTitle {
@@ -182,9 +194,29 @@ class LocationsService {
     return await response.json();
   }
 
+  /**
+   * Fetch primary sectors, also trying new_company API base for matching IDs.
+   */
   async getPrimarySectors(): Promise<PrimarySector[]> {
+    const urls = [
+      `${BASE_URL}/Get_Primary_Sectors`,
+      `${NEW_COMPANY_BASE}/Get_Primary_Sectors`,
+    ];
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: { ...this.getAuthHeaders() },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) return data;
+        }
+      } catch {
+        continue;
+      }
+    }
     const url = `${BASE_URL}/Get_Primary_Sectors`;
-
     const response = await fetch(url, {
       method: "GET",
       headers: {
@@ -377,7 +409,28 @@ class LocationsService {
     return await response.json();
   }
 
+  /**
+   * Fetch business focus, also trying new_company API base for matching IDs.
+   */
   async getHybridBusinessFocuses(): Promise<HybridBusinessFocus[]> {
+    const urls = [
+      `${BASE_URL}/get_hybrid_data_and_analytics_bussines_focuses`,
+      `${NEW_COMPANY_BASE}/get_hybrid_data_and_analytics_bussines_focuses`,
+    ];
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: { ...this.getAuthHeaders() },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) return data;
+        }
+      } catch {
+        continue;
+      }
+    }
     const url = `${BASE_URL}/get_hybrid_data_and_analytics_bussines_focuses`;
 
     const response = await fetch(url, {
@@ -489,6 +542,111 @@ class LocationsService {
       : [];
     // Deduplicate
     return Array.from(new Set(list));
+  }
+
+  async getCurrencies(): Promise<CurrencyOption[]> {
+    const url = `${REFERENCE_BASE_URL}/get_currency`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch currencies: ${response.status} ${response.statusText}`
+      );
+    }
+
+    return await response.json();
+  }
+
+  async getYears(): Promise<YearOption[]> {
+    const url = `${REFERENCE_BASE_URL}/get_years`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch years: ${response.status} ${response.statusText}`
+      );
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Fetch locations for dropdown (id + label).
+   * Tries get_locations from reference API; falls back to building from countries.
+   */
+  async getLocations(): Promise<{ id: number; label: string }[]> {
+    const paths = [
+      `${REFERENCE_BASE_URL}/get_locations`,
+      `${REFERENCE_BASE_URL}/locations`,
+      `${BASE_URL}/get_locations`,
+    ];
+    for (const path of paths) {
+      try {
+        const url = path.startsWith("http") ? path : `${REFERENCE_BASE_URL}/${path}`;
+        const res = await fetch(url, {
+          method: "GET",
+          headers: { ...this.getAuthHeaders() },
+        });
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          return data.map((item: Record<string, unknown>) => ({
+            id: Number(item.id ?? item.locations_id ?? 0),
+            label:
+              String(
+                item.label ??
+                  item.locations_label ??
+                  item.location_label ??
+                  [item.locations_Country, item.State__Province__County, item.City]
+                    .filter(Boolean)
+                    .join(", ") ??
+                  ""
+              ).trim() || `Location ${item.id ?? item.locations_id}`,
+          })).filter((x: { id: number }) => x.id > 0);
+        }
+        if (data && typeof data === "object" && Array.isArray(data.data)) {
+          return (data.data as Record<string, unknown>[]).map((item) => ({
+            id: Number(item.id ?? item.locations_id ?? 0),
+            label:
+              String(
+                item.label ??
+                  item.locations_label ??
+                  [item.locations_Country, item.State__Province__County, item.City]
+                    .filter(Boolean)
+                    .join(", ") ??
+                  ""
+              ).trim() || `Location ${item.id ?? item.locations_id}`,
+          })).filter((x: { id: number }) => x.id > 0);
+        }
+      } catch {
+        continue;
+      }
+    }
+    const countries = await this.getCountries();
+    return countries.map((c, i) => ({
+      id: i + 1,
+      label: c.locations_Country || String(i + 1),
+    }));
   }
 
   /**
