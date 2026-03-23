@@ -1992,6 +1992,16 @@ const CompanyDetail = () => {
       company.have_subsidiaries_companies.Subsidiaries_companies.length > 0
   );
 
+  // Parent Company is shown when we have parent data and first parent is NOT Financial Services (74)
+  const haveParentCompany = Boolean(
+    company.have_parent_company?.have_parent_companies &&
+      Array.isArray(company.have_parent_company?.Parant_companies) &&
+      company.have_parent_company.Parant_companies.length > 0 &&
+      !extractPrimaryBusinessFocusIds(
+        company.have_parent_company.Parant_companies[0]?.primary_business_focus_id
+      ).includes(FINANCIAL_SERVICES_FOCUS_ID)
+  );
+
   // Determine if there is management data to display
   const hasCurrentManagement = Boolean(
     company.Managmant_Roles_current && company.Managmant_Roles_current.length > 0
@@ -2767,16 +2777,7 @@ const CompanyDetail = () => {
                   {company.Lifecycle_stage?.Lifecycle_Stage || "Not available"}
                 </span>
               </div>
-              {company.have_parent_company?.have_parent_companies &&
-              Array.isArray(
-                company.have_parent_company?.Parant_companies
-              ) &&
-              company.have_parent_company!.Parant_companies!.length > 0 &&
-              // If first parent company's primary_business_focus_id is NOT Financial Services (74), show as Parent Company
-              !extractPrimaryBusinessFocusIds(
-                company.have_parent_company!.Parant_companies![0]
-                  ?.primary_business_focus_id
-              ).includes(FINANCIAL_SERVICES_FOCUS_ID) && (
+              {haveParentCompany && (
                 <div style={styles.infoRow} className="info-row">
                   <span style={styles.label} className="info-label">
                     Parent Company:
@@ -2811,49 +2812,52 @@ const CompanyDetail = () => {
                   </div>
                 </div>
               )}
-              <div style={styles.infoRow} className="info-row">
-                <span style={styles.label} className="info-label">
-                  Investors:
-                </span>
-                <div style={styles.value} className="info-value">
-                  {(() => {
-                    if (apiInvestorsLoading) {
-                      return "Loading...";
-                    }
-                    if (apiInvestors.length > 0) {
-                      const validApiInvestors = apiInvestors.filter(
-                        (investor) =>
-                          investor &&
-                          typeof investor.investor_id === "number" &&
-                          investor.investor_name
-                      );
-                      if (validApiInvestors.length > 0) {
-                        return (
-                          <div style={styles.tagContainer}>
-                            {validApiInvestors.map((investor) => (
-                              <Link
-                                key={`api-investor-${investor.investor_id}`}
-                                href={`/investors/${investor.investor_id}`}
-                                style={styles.companyTag}
-                                onMouseEnter={(e) => {
-                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
-                                }}
-                                onMouseLeave={(e) => {
-                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
-                                }}
-                                prefetch={false}
-                              >
-                                {investor.investor_name}
-                              </Link>
-                            ))}
-                          </div>
-                        );
+              {/* Investors — hide if parent company exists */}
+              {!haveParentCompany && (
+                <div style={styles.infoRow} className="info-row">
+                  <span style={styles.label} className="info-label">
+                    Investors:
+                  </span>
+                  <div style={styles.value} className="info-value">
+                    {(() => {
+                      if (apiInvestorsLoading) {
+                        return "Loading...";
                       }
-                    }
-                    return "Not available";
-                  })()}
+                      if (apiInvestors.length > 0) {
+                        const validApiInvestors = apiInvestors.filter(
+                          (investor) =>
+                            investor &&
+                            typeof investor.investor_id === "number" &&
+                            investor.investor_name
+                        );
+                        if (validApiInvestors.length > 0) {
+                          return (
+                            <div style={styles.tagContainer}>
+                              {validApiInvestors.map((investor) => (
+                                <Link
+                                  key={`api-investor-${investor.investor_id}`}
+                                  href={`/investors/${investor.investor_id}`}
+                                  style={styles.companyTag}
+                                  onMouseEnter={(e) => {
+                                    (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
+                                  }}
+                                  prefetch={false}
+                                >
+                                  {investor.investor_name}
+                                </Link>
+                              ))}
+                            </div>
+                          );
+                        }
+                      }
+                      return "Not available";
+                    })()}
+                  </div>
                 </div>
-              </div>
+              )}
               {hasManagement && (
                 <div style={{ marginTop: "16px" }}>
                   <h3
