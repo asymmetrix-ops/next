@@ -2728,6 +2728,39 @@ const CompanyDetail = () => {
     }
   `;
 
+  // Derive Transaction_status for this company from the most recent I&A article
+  // where this company appears in Company_of_Focus with a non-empty Transaction_status
+  const companyTransactionStatus = (() => {
+    if (!company?.id || !companyArticles.length) return null;
+    const sorted = [...companyArticles].sort(
+      (a, b) =>
+        new Date(b.Publication_Date).getTime() -
+        new Date(a.Publication_Date).getTime()
+    );
+    for (const article of sorted) {
+      const cofArr = article.Company_of_Focus;
+      if (!Array.isArray(cofArr)) continue;
+      const match = cofArr.find((v: unknown) => {
+        if (!v || typeof v !== "object") return false;
+        const entry = v as { id?: unknown; Transaction_status?: string };
+        return (
+          Number(entry.id) === company.id &&
+          typeof entry.Transaction_status === "string" &&
+          entry.Transaction_status.trim().length > 0
+        );
+      }) as { id: number; Transaction_status: string } | undefined;
+      if (match) {
+        const d = new Date(article.Publication_Date);
+        const dateLabel = d.toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric",
+        });
+        return { status: match.Transaction_status, dateLabel };
+      }
+    }
+    return null;
+  })();
+
   return (
     <div className="company-detail-page" style={styles.container}>
       <Header />
@@ -2742,6 +2775,26 @@ const CompanyDetail = () => {
               />
               <div>
                 <h1 style={styles.companyName}>{company.name}</h1>
+                {companyTransactionStatus && (
+                  <div style={{ marginTop: "6px" }}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        backgroundColor: "#dcfce7",
+                        color: "#166534",
+                        border: "1.5px solid #4ade80",
+                        borderRadius: "999px",
+                        padding: "4px 12px",
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {companyTransactionStatus.status} as of{" "}
+                      {companyTransactionStatus.dateLabel}
+                    </span>
+                  </div>
+                )}
                 {formerNameDisplay && (
                   <div style={styles.formerName}>
                     (Formerly {formerNameDisplay})
