@@ -1110,6 +1110,13 @@ function ContentTab() {
 
   // Content types are fixed per product spec
 
+  const TRANSACTION_STATUS_OPTIONS = [
+    "Rumoured in Market",
+    "Transaction anticipated within 18 months",
+    "Reported in Market",
+  ] as const;
+  const [transactionStatus, setTransactionStatus] = useState("");
+
   // Fetch sectors
   useEffect(() => {
     let cancelled = false;
@@ -1263,6 +1270,7 @@ function ContentTab() {
             Strapline: strapline.trim(),
             Content_Type: contentType,
             Body: bodyHtml,
+            Transaction_status: transactionStatus || null,
             sectors: sectorsCombined,
             companies_mentioned: companiesIds,
             Related_Documents: [],
@@ -1275,6 +1283,7 @@ function ContentTab() {
         alert(`Failed to create content: ${resp.status} ${txt}`);
         return;
       }
+      setTransactionStatus("");
       alert("Content created successfully");
     } catch {
       alert("Network error while creating content");
@@ -1327,6 +1336,22 @@ function ContentTab() {
           {contentTypes.map((ct) => (
             <option key={ct} value={ct}>
               {ct}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-3">
+        <label className="block mb-1 text-sm font-medium">Transaction Status</label>
+        <select
+          className="p-2 w-full border"
+          value={transactionStatus}
+          onChange={(e) => setTransactionStatus(e.target.value)}
+        >
+          <option value="">— None —</option>
+          {TRANSACTION_STATUS_OPTIONS.map((v) => (
+            <option key={v} value={v}>
+              {v}
             </option>
           ))}
         </select>

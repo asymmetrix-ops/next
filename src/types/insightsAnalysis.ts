@@ -24,6 +24,7 @@ export interface ContentArticle {
       Country: string;
     };
   }>;
+  Transaction_status?: string;
   Visibility: string;
   Related_Documents: Array<{
     access: string;
@@ -60,6 +61,7 @@ export interface InsightsAnalysisFilters {
   Cities: string[];
   Offset: number;
   Per_page: number;
+  Transaction_status?: string;
   user_id?: number | null;
   show_followed?: boolean;
 }

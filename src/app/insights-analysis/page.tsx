@@ -548,6 +548,8 @@ const InsightsAnalysisPage = () => {
         );
       const ct = (filters.Content_Type || filters.content_type || "").trim();
       if (ct) params.append("content_type", ct);
+      const ts = (filters.Transaction_status || "").trim();
+      if (ts) params.append("Transaction_status", ts);
       if (followedUserId !== null) {
         params.append("user_id", String(followedUserId));
       }
@@ -674,6 +676,7 @@ const InsightsAnalysisPage = () => {
       search_query: "",
       Content_Type: undefined,
       content_type: undefined,
+      Transaction_status: undefined,
       primary_sectors_ids: [],
       Secondary_sectors_ids: [],
       Offset: 1,
