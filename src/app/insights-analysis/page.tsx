@@ -324,6 +324,11 @@ const InsightsAnalysisCards = ({
 // Main Insights Analysis Page Component
 const InsightsAnalysisPage = () => {
   const { isTrialActive } = useAuth();
+  const TRANSACTION_STATUS_OPTIONS = [
+    "Rumoured in Market",
+    "Transaction anticipated within 18 months",
+    "Reported in Market",
+  ] as const;
   // State for filters
   const [filters, setFilters] = useState<InsightsAnalysisFilters>({
     search_query: "",
@@ -443,6 +448,9 @@ const InsightsAnalysisPage = () => {
         );
       const ct = (filters.Content_Type || filters.content_type || "").trim();
       if (ct) params.append("content_type", ct);
+      const transactionStatus = (filters.Transaction_status || "").trim();
+      if (transactionStatus)
+        params.append("Transaction_status", transactionStatus);
 
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
 
@@ -874,6 +882,7 @@ const InsightsAnalysisPage = () => {
                       search_query: "",
                       Content_Type: undefined,
                       content_type: undefined,
+                      Transaction_status: undefined,
                       primary_sectors_ids: [],
                       Secondary_sectors_ids: [],
                       Offset: 1,
@@ -945,6 +954,31 @@ const InsightsAnalysisPage = () => {
                       {primarySectors.map((sector) => (
                         <option key={sector.id} value={sector.id}>
                           {sector.sector_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={styles.gridItem}>
+                    <span style={styles.label}>Transaction Status</span>
+                    <select
+                      value={filters.Transaction_status || ""}
+                      onChange={(e) => {
+                        const value = e.target.value.trim();
+                        const updated = {
+                          ...filters,
+                          Transaction_status: value || undefined,
+                          Offset: 1,
+                        };
+                        setFilters(updated);
+                        fetchInsightsAnalysis(updated);
+                      }}
+                      style={styles.select}
+                      className="filters-input"
+                    >
+                      <option value="">All Transaction Statuses</option>
+                      {TRANSACTION_STATUS_OPTIONS.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
                         </option>
                       ))}
                     </select>

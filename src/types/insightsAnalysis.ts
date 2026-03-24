@@ -24,6 +24,7 @@ export interface ContentArticle {
       Country: string;
     };
   }>;
+  Transaction_status?: string;
   Visibility: string;
   Related_Documents: Array<{
     access: string;
@@ -53,6 +54,7 @@ export interface InsightsAnalysisFilters {
   search_query: string;
   Content_Type?: string;
   content_type?: string;
+  Transaction_status?: string;
   primary_sectors_ids: number[];
   Secondary_sectors_ids: number[];
   Countries: string[];
