@@ -111,6 +111,10 @@ interface InsightArticle {
     };
     _is_that_investor: boolean;
   }>;
+  Company_of_Focus?: Array<{
+    id?: number;
+    Transaction_status?: string;
+  }>;
 }
 
 import {
@@ -1705,6 +1709,34 @@ export default function HomeUserPage() {
                         >
                           {article.Headline}
                         </a>
+
+                        {(() => {
+                          const ts = article.Company_of_Focus?.find(
+                            (c) => c?.Transaction_status
+                          )?.Transaction_status;
+                          return ts ? (
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                fontSize: 11,
+                                lineHeight: 1,
+                                padding: "5px 10px",
+                                borderRadius: 9999,
+                                fontWeight: 700,
+                                letterSpacing: "0.03em",
+                                textTransform: "uppercase",
+                                backgroundColor: "#dcfce7",
+                                color: "#166534",
+                                border: "1.5px solid #4ade80",
+                                whiteSpace: "nowrap",
+                                marginTop: 8,
+                              }}
+                            >
+                              {ts}
+                            </span>
+                          ) : null;
+                        })()}
 
                         {article.Strapline ? (
                           <p className="mt-2 text-xs leading-5 text-gray-600 line-clamp-3">
