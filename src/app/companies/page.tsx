@@ -548,7 +548,7 @@ const useCompaniesAPI = () => {
           }
 
           if (filtersToUse.transactionStatus && filtersToUse.transactionStatus.trim()) {
-            params.append("Transaction_status", filtersToUse.transactionStatus.trim());
+            params.append("transaction_status", filtersToUse.transactionStatus.trim());
           }
         }
         // When no filters are present, only send Offset and Per_page
@@ -2763,7 +2763,7 @@ const CompanySection = ({
         );
 
         if (f.transactionStatus && f.transactionStatus.trim()) {
-          params.append("Transaction_status", f.transactionStatus.trim());
+          params.append("transaction_status", f.transactionStatus.trim());
         }
 
         // Helper function to only append if value exists
