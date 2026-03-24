@@ -4471,13 +4471,38 @@ const CompanyDetail = () => {
                         : 0;
                       return dateB - dateA; // Most recent first (descending)
                     })
-                    .map((article) => (
-                      <InsightsAnalysisCard
-                        key={article.id}
-                        article={article}
-                        showMeta={false}
-                      />
-                    ))}
+                    .map((article) => {
+                      // Derive Transaction_status: find the first non-empty status
+                      // from companies_mentioned where the company is a Company_of_Focus
+                      const cofIds = new Set<number>(
+                        (article.Company_of_Focus || [])
+                          .map((v: unknown) =>
+                            typeof v === "number"
+                              ? v
+                              : typeof v === "object" && v !== null
+                              ? Number((v as { id?: unknown }).id)
+                              : Number(v)
+                          )
+                          .filter((n: number) => Number.isFinite(n) && n > 0)
+                      );
+                      const derivedStatus =
+                        article.Transaction_status ||
+                        (cofIds.size > 0
+                          ? (article.companies_mentioned || []).find(
+                              (c) => cofIds.has(c.id) && c.Transaction_status
+                            )?.Transaction_status
+                          : undefined);
+                      const enrichedArticle = derivedStatus
+                        ? { ...article, Transaction_status: derivedStatus }
+                        : article;
+                      return (
+                        <InsightsAnalysisCard
+                          key={article.id}
+                          article={enrichedArticle}
+                          showMeta={false}
+                        />
+                      );
+                    })}
                 </div>
               ) : (
                 <div

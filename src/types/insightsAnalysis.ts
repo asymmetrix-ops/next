@@ -18,12 +18,16 @@ export interface ContentArticle {
     id: number;
     name: string;
     locations_id: number;
+    Transaction_status?: string;
     _locations: {
       City: string;
       State__Province__County: string;
       Country: string;
     };
   }>;
+  // Company_of_Focus may arrive as an array of ids or objects; use `any` for flexibility
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Company_of_Focus?: any[];
   Transaction_status?: string;
   Visibility: string;
   Related_Documents: Array<{
