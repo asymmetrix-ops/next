@@ -1300,39 +1300,15 @@ const CompanyDetail = () => {
       if (!res.ok) return;
       const data = await res.json();
       const badge = data?.transaction_status_badge;
-      if (!badge) return;
+      if (!badge || typeof badge !== "object") return;
 
-      // Handle both object and string shapes
-      let status = "";
-      let rawDate = "";
-      if (typeof badge === "string") {
-        status = badge;
-      } else if (typeof badge === "object") {
-        status =
-          badge.Transaction_status ||
-          badge.transaction_status ||
-          badge.status ||
-          "";
-        rawDate =
-          badge.Publication_Date ||
-          badge.publication_date ||
-          badge.date ||
-          "";
-      }
+      // API returns { label, date, display }
+      const status: string = badge.label || badge.display || "";
+      const date: string = badge.date || "";
+      const display: string = badge.display || (date ? `${status} as of ${date}` : status);
+
       if (!status) return;
-
-      // Format date as "Month YYYY" (no day)
-      let formattedDate = "";
-      if (rawDate) {
-        const d = new Date(rawDate);
-        if (!isNaN(d.getTime())) {
-          formattedDate = d.toLocaleDateString("en-US", {
-            month: "long",
-            year: "numeric",
-          });
-        }
-      }
-      setTransactionStatusBadge({ status, date: formattedDate });
+      setTransactionStatusBadge({ status: display, date: "" });
     } catch {
       // non-fatal
     }
@@ -2814,9 +2790,6 @@ const CompanyDetail = () => {
                       }}
                     >
                       {transactionStatusBadge.status}
-                      {transactionStatusBadge.date
-                        ? ` as of ${transactionStatusBadge.date}`
-                        : ""}
                     </span>
                   </div>
                 )}
