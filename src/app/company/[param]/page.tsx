@@ -1001,6 +1001,10 @@ const CompanyDetail = () => {
   >([]);
   const [relatedTransactionsLoading, setRelatedTransactionsLoading] =
     useState(false);
+  const [transactionStatusBadge, setTransactionStatusBadge] = useState<{
+    status: string;
+    date: string;
+  } | null>(null);
 
   // Safely extract a sector id from various backend shapes
   const getSectorId = (sector: unknown): number | undefined => {
@@ -1282,6 +1286,55 @@ const CompanyDetail = () => {
       setRelatedTransactions([]);
     } finally {
       setRelatedTransactionsLoading(false);
+    }
+  }, []);
+
+  const fetchTransactionStatusBadge = useCallback(async (id: string | number) => {
+    try {
+      const params = new URLSearchParams();
+      params.append("new_company_id", String(id));
+      const res = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_transaction_status?${params.toString()}`,
+        { method: "GET" }
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      const badge = data?.transaction_status_badge;
+      if (!badge) return;
+
+      // Handle both object and string shapes
+      let status = "";
+      let rawDate = "";
+      if (typeof badge === "string") {
+        status = badge;
+      } else if (typeof badge === "object") {
+        status =
+          badge.Transaction_status ||
+          badge.transaction_status ||
+          badge.status ||
+          "";
+        rawDate =
+          badge.Publication_Date ||
+          badge.publication_date ||
+          badge.date ||
+          "";
+      }
+      if (!status) return;
+
+      // Format date as "Month YYYY" (no day)
+      let formattedDate = "";
+      if (rawDate) {
+        const d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          formattedDate = d.toLocaleDateString("en-US", {
+            month: "long",
+            year: "numeric",
+          });
+        }
+      }
+      setTransactionStatusBadge({ status, date: formattedDate });
+    } catch {
+      // non-fatal
     }
   }, []);
 
@@ -1573,6 +1626,7 @@ const CompanyDetail = () => {
       fetchCompanyInvestors(companyId);
       fetchRelatedTransactions(companyId);
       fetchCompanyCompetitors(companyId);
+      fetchTransactionStatusBadge(companyId);
     }
   }, [
     companyId,
@@ -1582,6 +1636,7 @@ const CompanyDetail = () => {
     fetchCompanyInvestors,
     fetchRelatedTransactions,
     fetchCompanyCompetitors,
+    fetchTransactionStatusBadge,
   ]);
 
 
@@ -2728,39 +2783,6 @@ const CompanyDetail = () => {
     }
   `;
 
-  // Derive Transaction_status for this company from the most recent I&A article
-  // where this company appears in Company_of_Focus with a non-empty Transaction_status
-  const companyTransactionStatus = (() => {
-    if (!company?.id || !companyArticles.length) return null;
-    const sorted = [...companyArticles].sort(
-      (a, b) =>
-        new Date(b.Publication_Date).getTime() -
-        new Date(a.Publication_Date).getTime()
-    );
-    for (const article of sorted) {
-      const cofArr = article.Company_of_Focus;
-      if (!Array.isArray(cofArr)) continue;
-      const match = cofArr.find((v: unknown) => {
-        if (!v || typeof v !== "object") return false;
-        const entry = v as { id?: unknown; Transaction_status?: string };
-        return (
-          Number(entry.id) === company.id &&
-          typeof entry.Transaction_status === "string" &&
-          entry.Transaction_status.trim().length > 0
-        );
-      }) as { id: number; Transaction_status: string } | undefined;
-      if (match) {
-        const d = new Date(article.Publication_Date);
-        const dateLabel = d.toLocaleDateString("en-US", {
-          month: "long",
-          year: "numeric",
-        });
-        return { status: match.Transaction_status, dateLabel };
-      }
-    }
-    return null;
-  })();
-
   return (
     <div className="company-detail-page" style={styles.container}>
       <Header />
@@ -2775,7 +2797,7 @@ const CompanyDetail = () => {
               />
               <div>
                 <h1 style={styles.companyName}>{company.name}</h1>
-                {companyTransactionStatus && (
+                {transactionStatusBadge && (
                   <div style={{ marginTop: "6px" }}>
                     <span
                       style={{
@@ -2784,14 +2806,17 @@ const CompanyDetail = () => {
                         color: "#166534",
                         border: "1.5px solid #4ade80",
                         borderRadius: "999px",
-                        padding: "4px 12px",
-                        fontSize: "13px",
+                        fontSize: "12px",
                         fontWeight: 600,
-                        lineHeight: 1.4,
+                        padding: "3px 10px",
+                        letterSpacing: "0.01em",
+                        whiteSpace: "nowrap",
                       }}
                     >
-                      {companyTransactionStatus.status} as of{" "}
-                      {companyTransactionStatus.dateLabel}
+                      {transactionStatusBadge.status}
+                      {transactionStatusBadge.date
+                        ? ` as of ${transactionStatusBadge.date}`
+                        : ""}
                     </span>
                   </div>
                 )}
