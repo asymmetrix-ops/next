@@ -242,22 +242,6 @@ const styles = {
     border: "1px solid #bfdbfe",
     fontWeight: 600,
   },
-  transactionStatusBadge: {
-    display: "inline-flex",
-    alignItems: "center",
-    fontSize: "11px",
-    lineHeight: 1,
-    padding: "6px 12px",
-    borderRadius: "9999px",
-    fontWeight: 700,
-    letterSpacing: "0.03em",
-    textTransform: "uppercase" as const,
-    backgroundColor: "#dcfce7",
-    color: "#166534",
-    border: "1.5px solid #4ade80",
-    whiteSpace: "nowrap" as const,
-  },
-
   loading: {
     textAlign: "center" as const,
     padding: "40px",
@@ -1284,13 +1268,6 @@ const ArticleDetailPage = () => {
           <div style={styles.card} className="article-main">
             {/* Article Header */}
             <h1 style={styles.heading}>{article.Headline}</h1>
-            {article.Transaction_status && (
-              <div style={{ marginBottom: 16 }}>
-                <span style={styles.transactionStatusBadge}>
-                  {article.Transaction_status}
-                </span>
-              </div>
-            )}
             <p style={styles.strapline}>{article.Strapline}</p>
             {(() => {
               const ct = (

@@ -184,22 +184,6 @@ const inferContentTypeFromHeadline = (headline: unknown): string | undefined => 
   return known.get(c) || undefined;
 };
 
-const transactionStatusBadgeStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  fontSize: 11,
-  lineHeight: 1,
-  padding: "5px 10px",
-  borderRadius: 9999,
-  fontWeight: 700,
-  letterSpacing: "0.03em",
-  textTransform: "uppercase" as const,
-  backgroundColor: "#dcfce7",
-  color: "#166534",
-  border: "1.5px solid #4ade80",
-  flexShrink: 0,
-  whiteSpace: "nowrap" as const,
-};
 
 const badgeClassFor = (contentType?: string): React.CSSProperties => {
   const base: React.CSSProperties = {
@@ -378,15 +362,6 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
               {plainHeadline || "Not available"}
             </h3>
 
-            {/* Transaction status badge – sits below the title */}
-            {article.Transaction_status && (
-              <div style={{ marginBottom: 8 }}>
-                <span style={transactionStatusBadgeStyle}>
-                  {article.Transaction_status}
-                </span>
-              </div>
-            )}
-
             {/* Date */}
             <p
               className="card-date"
@@ -441,18 +416,16 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
               >
                 {plainHeadline || "Not available"}
               </h3>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
-                {effectiveContentType && (
-                  <span style={{ ...badgeClassFor(effectiveContentType), flexShrink: 0 }}>
-                    {effectiveContentType}
-                  </span>
-                )}
-                {article.Transaction_status && (
-                  <span style={transactionStatusBadgeStyle}>
-                    {article.Transaction_status}
-                  </span>
-                )}
-              </div>
+              {effectiveContentType && (
+                <span
+                  style={{
+                    ...badgeClassFor(effectiveContentType),
+                    flexShrink: 0,
+                  }}
+                >
+                  {effectiveContentType}
+                </span>
+              )}
             </div>
 
             {/* Date */}
