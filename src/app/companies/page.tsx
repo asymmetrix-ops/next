@@ -115,6 +115,7 @@ interface Filters {
   minGrowthPercent: number | null;
   maxGrowthPercent: number | null;
   timeFrame: string;
+  transactionStatus?: string;
 }
 
 interface CompaniesResponse {
@@ -544,6 +545,10 @@ const useCompaniesAPI = () => {
           // Keyword search (searches across descriptions)
           if (filtersToUse.keywordSearch && filtersToUse.keywordSearch.trim()) {
             params.append("keywords_search", filtersToUse.keywordSearch.trim());
+          }
+
+          if (filtersToUse.transactionStatus && filtersToUse.transactionStatus.trim()) {
+            params.append("Transaction_status", filtersToUse.transactionStatus.trim());
           }
         }
         // When no filters are present, only send Offset and Per_page
@@ -1062,6 +1067,14 @@ const CompanyDashboard = ({
   const [maxGrowthPercent, setMaxGrowthPercent] = useState<number | null>(null);
   const [timeFrame, setTimeFrame] = useState<string>("");
 
+  // Transaction Status filter
+  const [selectedTransactionStatus, setSelectedTransactionStatus] = useState<string>("");
+  const TRANSACTION_STATUS_OPTIONS = [
+    "Rumoured in Market",
+    "Transaction anticipated within 18 months",
+    "Reported in Market",
+  ] as const;
+
   // Loading states
   const [loadingCountries, setLoadingCountries] = useState(false);
   const [loadingProvinces, setLoadingProvinces] = useState(false);
@@ -1319,6 +1332,7 @@ const CompanyDashboard = ({
       minGrowthPercent,
       maxGrowthPercent,
       timeFrame,
+      transactionStatus: selectedTransactionStatus,
     };
     console.log("Searching with filters:", filters);
 
@@ -1373,6 +1387,7 @@ const CompanyDashboard = ({
     minGrowthPercent,
     maxGrowthPercent,
     timeFrame,
+    selectedTransactionStatus,
   ]);
 
   // Auto-run search if initialSearch prop is provided
@@ -2062,6 +2077,30 @@ const CompanyDashboard = ({
                     })}
                   </div>
                 )}
+                <span style={styles.label}>Transaction Status</span>
+                <select
+                  value={selectedTransactionStatus}
+                  onChange={(e) => setSelectedTransactionStatus(e.target.value)}
+                  style={{
+                    ...styles.select,
+                    width: "100%",
+                    padding: "8px 10px",
+                    fontSize: "14px",
+                    borderRadius: "6px",
+                    border: "1px solid #d1d5db",
+                    backgroundColor: "white",
+                    color: selectedTransactionStatus ? "#1a202c" : "#9ca3af",
+                    marginBottom: "12px",
+                  }}
+                >
+                  <option value="">All Transaction Statuses</option>
+                  {TRANSACTION_STATUS_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+
                 <span style={styles.label}>LinkedIn Members Range</span>
                 <div style={{ display: "flex", gap: "14px" }}>
                   <input
@@ -2673,7 +2712,8 @@ const CompanySection = ({
       // LinkedIn Growth Metrics
       currentFilters.minGrowthPercent !== null ||
       currentFilters.maxGrowthPercent !== null ||
-      (currentFilters.timeFrame && currentFilters.timeFrame.trim() !== "")
+      (currentFilters.timeFrame && currentFilters.timeFrame.trim() !== "") ||
+      !!(currentFilters.transactionStatus && currentFilters.transactionStatus.trim())
     );
   };
 
@@ -2721,6 +2761,10 @@ const CompanySection = ({
         (f.hybridBusinessFocuses || []).forEach((id) =>
           params.append("Hybrid_Data_ids[]", String(id))
         );
+
+        if (f.transactionStatus && f.transactionStatus.trim()) {
+          params.append("Transaction_status", f.transactionStatus.trim());
+        }
 
         // Helper function to only append if value exists
         const appendIfValue = (key: string, value: number | null | undefined) => {
