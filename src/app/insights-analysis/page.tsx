@@ -376,6 +376,15 @@ const InsightsAnalysisCards = ({
             {article.Headline || "Not Available"}
           </h3>
 
+          {/* Transaction Status Badge */}
+          {article.Transaction_status && (
+            <div className="article-transaction-status-row">
+              <span className="badge-transaction-status">
+                {article.Transaction_status}
+              </span>
+            </div>
+          )}
+
           {/* Date */}
           <p className="article-date">{formatDate(article.Publication_Date)}</p>
           {/* Content Type Badge below date */}
@@ -821,6 +830,25 @@ const InsightsAnalysisPage = () => {
       color: #166534;
       border-color: #bbf7d0;
     }
+    .article-transaction-status-row {
+      margin: 0 0 10px 0;
+      display: block;
+    }
+    .badge-transaction-status {
+      display: inline-flex;
+      align-items: center;
+      font-size: 11px;
+      line-height: 1;
+      padding: 5px 10px;
+      border-radius: 9999px;
+      border: 1.5px solid #4ade80;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      background-color: #dcfce7;
+      color: #166534;
+      white-space: nowrap;
+    }
     .article-summary {
       font-size: 14px;
       color: #374151;
@@ -1128,6 +1156,28 @@ const InsightsAnalysisPage = () => {
                           {sector.sector_name}
                         </option>
                       ))}
+                    </select>
+                  </div>
+                  <div style={styles.gridItem}>
+                    <span style={styles.label}>Transaction Status</span>
+                    <select
+                      value={filters.Transaction_status || ""}
+                      onChange={(e) => {
+                        const updated = {
+                          ...filters,
+                          Transaction_status: e.target.value || undefined,
+                          Offset: 1,
+                        };
+                        setFilters(updated);
+                        fetchInsightsAnalysis(updated);
+                      }}
+                      style={styles.select}
+                      className="filters-input"
+                    >
+                      <option value="">All Transaction Statuses</option>
+                      <option value="Rumoured in Market">Rumoured in Market</option>
+                      <option value="Transaction anticipated within 18 months">Transaction anticipated within 18 months</option>
+                      <option value="Reported in Market">Reported in Market</option>
                     </select>
                   </div>
                   <div style={styles.gridItem}>
