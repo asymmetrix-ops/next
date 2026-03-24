@@ -252,9 +252,9 @@ const styles = {
     fontWeight: 700,
     letterSpacing: "0.03em",
     textTransform: "uppercase" as const,
-    backgroundColor: "#fff7ed",
-    color: "#c2410c",
-    border: "1.5px solid #fb923c",
+    backgroundColor: "#dcfce7",
+    color: "#166534",
+    border: "1.5px solid #4ade80",
     whiteSpace: "nowrap" as const,
   },
 
