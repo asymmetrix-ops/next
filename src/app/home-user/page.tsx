@@ -1614,9 +1614,13 @@ export default function HomeUserPage() {
                     />
                   </svg>
                 </div>
-                <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
+                <a
+                  href="/insights-analysis"
+                  className="text-base font-semibold text-blue-600 underline hover:text-blue-800 sm:text-lg"
+                  style={{ fontWeight: "600" }}
+                >
                   Insights &amp; Analysis
-                </h2>
+                </a>
               </div>
               <div className="flex items-center gap-3">
                 <div className="inline-flex p-1 bg-gray-100 rounded-lg">
@@ -1642,16 +1646,9 @@ export default function HomeUserPage() {
                     }`}
                     aria-pressed={insightsArticlesView === "all"}
                   >
-                    View All
+                    All
                   </button>
                 </div>
-                <a
-                  href="/insights-analysis"
-                  className="text-xs font-medium text-blue-600 underline hover:text-blue-800"
-                  style={{ fontWeight: "500" }}
-                >
-                  View all
-                </a>
               </div>
             </div>
             <div className="flex-1 p-3 overflow-y-auto sm:p-4">
@@ -1801,9 +1798,13 @@ export default function HomeUserPage() {
                     />
                   </svg>
                 </div>
-                <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
+                <a
+                  href="/corporate-events"
+                  className="text-base font-semibold text-blue-600 underline hover:text-blue-800 sm:text-lg"
+                  style={{ fontWeight: "600" }}
+                >
                   Corporate Events
-                </h2>
+                </a>
               </div>
               <div className="flex items-center gap-3">
                 <div className="inline-flex p-1 bg-gray-100 rounded-lg">
@@ -1829,16 +1830,9 @@ export default function HomeUserPage() {
                     }`}
                     aria-pressed={corporateEventsView === "all"}
                   >
-                    View All
+                    All
                   </button>
                 </div>
-                <a
-                  href="/corporate-events"
-                  className="text-xs font-medium text-blue-600 underline hover:text-blue-800"
-                  style={{ fontWeight: "500" }}
-                >
-                  View all
-                </a>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
