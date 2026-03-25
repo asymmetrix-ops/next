@@ -2685,22 +2685,22 @@ const CompanyDetail = () => {
               >
                 {/* Left column: Basic fields */}
                 <div className="overview-fields">
-              <div
-                style={{
-                  ...styles.infoRow,
-                  backgroundColor: "#eff6ff",
-                  border: "1px solid #bfdbfe",
-                  borderRadius: "10px",
-                  padding: "12px 14px",
-                  marginBottom: "10px",
-                }}
-                className="info-row"
-              >
-                <span style={styles.label} className="info-label">
-                  Transaction Status:
-                </span>
-                <div style={styles.value} className="info-value">
-                  {transactionStatusLabel ? (
+              {transactionStatusLabel && (
+                <div
+                  style={{
+                    ...styles.infoRow,
+                    backgroundColor: "#eff6ff",
+                    border: "1px solid #bfdbfe",
+                    borderRadius: "10px",
+                    padding: "12px 14px",
+                    marginBottom: "10px",
+                  }}
+                  className="info-row"
+                >
+                  <span style={styles.label} className="info-label">
+                    Transaction Status:
+                  </span>
+                  <div style={styles.value} className="info-value">
                     <span
                       style={{
                         display: "inline-block",
@@ -2717,11 +2717,9 @@ const CompanyDetail = () => {
                     >
                       {transactionStatusLabel}
                     </span>
-                  ) : (
-                    "Not available"
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
                   Primary Sector(s):
