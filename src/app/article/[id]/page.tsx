@@ -1698,12 +1698,8 @@ const ArticleDetailPage = () => {
                       <div>
                         <div
                           style={{
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color: "#374151",
+                            ...styles.sectionTitle,
                             marginBottom: 8,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.04em",
                           }}
                         >
                           {peersTitle}
@@ -1739,12 +1735,8 @@ const ArticleDetailPage = () => {
                       <div>
                         <div
                           style={{
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color: "#374151",
+                            ...styles.sectionTitle,
                             marginBottom: 8,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.04em",
                           }}
                         >
                           Potential Acquirers
@@ -1780,12 +1772,8 @@ const ArticleDetailPage = () => {
                       <div>
                         <div
                           style={{
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color: "#374151",
+                            ...styles.sectionTitle,
                             marginBottom: 8,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.04em",
                           }}
                         >
                           Acquisition Targets
