@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
   "/login",
   "/trial-expired",
   "/forgot-password",
+  "/reset-password",
 ];
 
 export default function AuthRouteGuard() {
