@@ -1687,53 +1687,54 @@ export default function HomeUserPage() {
                           </span>
                         </div>
 
-                        <a
-                          href={href}
-                          className="block mt-3 text-sm font-semibold text-gray-900 hover:text-blue-700"
-                          onClick={(e) => {
-                            if (
-                              e.defaultPrevented ||
-                              e.button !== 0 ||
-                              e.metaKey ||
-                              e.ctrlKey ||
-                              e.shiftKey ||
-                              e.altKey
-                            )
-                              return;
-                            e.preventDefault();
-                            router.push(href);
-                          }}
-                        >
-                          {article.Headline}
-                        </a>
+                        <div className="flex flex-wrap items-start gap-x-3 gap-y-2 mt-3">
+                          <a
+                            href={href}
+                            className="min-w-0 flex-1 text-sm font-semibold text-gray-900 hover:text-blue-700"
+                            onClick={(e) => {
+                              if (
+                                e.defaultPrevented ||
+                                e.button !== 0 ||
+                                e.metaKey ||
+                                e.ctrlKey ||
+                                e.shiftKey ||
+                                e.altKey
+                              )
+                                return;
+                              e.preventDefault();
+                              router.push(href);
+                            }}
+                          >
+                            {article.Headline}
+                          </a>
 
-                        {(() => {
-                          const ts = article.Company_of_Focus?.find(
-                            (c) => c?.Transaction_status
-                          )?.Transaction_status;
-                          return ts ? (
-                            <span
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                fontSize: 11,
-                                lineHeight: 1,
-                                padding: "5px 10px",
-                                borderRadius: 9999,
-                                fontWeight: 700,
-                                letterSpacing: "0.03em",
-                                textTransform: "uppercase",
-                                backgroundColor: "#dcfce7",
-                                color: "#166534",
-                                border: "1.5px solid #4ade80",
-                                whiteSpace: "nowrap",
-                                marginTop: 8,
-                              }}
-                            >
-                              {ts}
-                            </span>
-                          ) : null;
-                        })()}
+                          {(() => {
+                            const ts = article.Company_of_Focus?.find(
+                              (c) => c?.Transaction_status
+                            )?.Transaction_status;
+                            return ts ? (
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  fontSize: 11,
+                                  lineHeight: 1,
+                                  padding: "5px 10px",
+                                  borderRadius: 9999,
+                                  fontWeight: 700,
+                                  letterSpacing: "0.03em",
+                                  textTransform: "uppercase",
+                                  backgroundColor: "#dcfce7",
+                                  color: "#166534",
+                                  border: "1.5px solid #4ade80",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {ts}
+                              </span>
+                            ) : null;
+                          })()}
+                        </div>
 
                         {article.Strapline ? (
                           <p className="mt-2 text-xs leading-5 text-gray-600 line-clamp-3">
