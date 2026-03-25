@@ -3,19 +3,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
-/* eslint-disable @typescript-eslint/no-unused-vars -- used in fallback search JSX */
 import {
   type GlobalSearchResult,
   fetchGlobalSearchProgressive,
   sortSearchResults,
   resolveSearchHref,
   getSearchBadgeLabel,
-  badgeClassForSearchType,
   PORTFOLIO_FALLBACK_SOURCES,
 } from "@/lib/globalSearch";
-/* eslint-enable @typescript-eslint/no-unused-vars */
-import { followPortfolioEntity } from "@/lib/portfolioFollow";
+import {
+  followPortfolioEntity,
+  unfollowPortfolioEntity,
+  type PortfolioFollowKey,
+} from "@/lib/portfolioFollow";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { toast } from "react-hot-toast";
+import {
+  BuildingOffice2Icon,
+  UserIcon,
+  UsersIcon,
+  ArrowTrendingUpIcon,
+  MapPinIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/outline";
 
 type PortfolioEntityType =
   | "company"
@@ -31,6 +42,52 @@ type PortfolioEntityRow = {
   name: string;
 };
 
+const ENTITY_TYPE_FILTER_OPTIONS = [
+  { value: "", label: "All" },
+  { value: "company", label: "Company" },
+  { value: "sector", label: "Sector" },
+  { value: "individual", label: "Individual" },
+  { value: "investor", label: "Investor" },
+  { value: "advisor", label: "Advisor" },
+];
+
+const getEntityIcon = (type: string) => {
+  const t = (type || "").toLowerCase().trim();
+  const cls = "size-3.5 shrink-0";
+  switch (t) {
+    case "company":
+      return <BuildingOffice2Icon className={cls} />;
+    case "individual":
+      return <UserIcon className={cls} />;
+    case "investor":
+      return <ArrowTrendingUpIcon className={cls} />;
+    case "advisor":
+      return <UsersIcon className={cls} />;
+    case "sector":
+      return <MapPinIcon className={cls} />;
+    default:
+      return null;
+  }
+};
+
+const getEntityBadgeColor = (type: string) => {
+  const t = (type || "").toLowerCase().trim();
+  switch (t) {
+    case "company":
+      return "bg-green-50 text-green-700 border-green-200";
+    case "individual":
+      return "bg-purple-50 text-purple-700 border-purple-200";
+    case "investor":
+      return "bg-orange-50 text-orange-700 border-orange-200";
+    case "advisor":
+      return "bg-blue-50 text-blue-700 border-blue-200";
+    case "sector":
+      return "bg-amber-50 text-amber-700 border-amber-200";
+    default:
+      return "bg-gray-50 text-gray-700 border-gray-200";
+  }
+};
+
 const formatEntityType = (entity: string) => {
   const s = (entity || "").trim().toLowerCase();
   if (!s) return "";
@@ -41,7 +98,6 @@ const getEntityHref = (row: PortfolioEntityRow): string | null => {
   const t = String(row.entity || "").trim().toLowerCase();
   const id = row.id;
   if (!Number.isFinite(id) || id <= 0) return null;
-
   switch (t) {
     case "company":
       return `/company/${id}`;
@@ -58,49 +114,67 @@ const getEntityHref = (row: PortfolioEntityRow): string | null => {
   }
 };
 
-const ENTITY_TYPE_FILTER_OPTIONS: { value: string; label: string }[] = [
-  { value: "", label: "All" },
-  { value: "company", label: "Company" },
-  { value: "sector", label: "Sector" },
-  { value: "individual", label: "Individual" },
-  { value: "investor", label: "Investor" },
-  { value: "advisor", label: "Advisor" },
-];
+function getFollowKeyForEntityType(type: string): PortfolioFollowKey | null {
+  const t = (type || "").toLowerCase().trim();
+  if (t === "company") return "followed_companies";
+  if (t === "advisor") return "followed_advisors";
+  if (t === "investor") return "followed_investors";
+  if (t === "sector") return "followed_sectors";
+  if (t === "individual") return "followed_individuals";
+  return null;
+}
 
-/** Map global search result type to portfolio follow key; null if not followable. */
-function getFollowKeyForSearchType(type: string): "followed_companies" | "followed_advisors" | "followed_investors" | "followed_sectors" | "followed_individuals" | null {
-  const t = String(type || "").toLowerCase().trim();
+function getFollowKeyForSearchType(type: string): PortfolioFollowKey | null {
+  const t = (type || "").toLowerCase().trim();
   if (t === "company" || t === "companies") return "followed_companies";
   if (t === "advisor" || t === "advisors") return "followed_advisors";
   if (t === "investor" || t === "investors") return "followed_investors";
-  if (t === "sector" || t === "sectors" || t === "sub_sector" || t === "sub-sector") return "followed_sectors";
+  if (t === "sector" || t === "sectors" || t === "sub_sector" || t === "sub-sector")
+    return "followed_sectors";
   if (t === "individual" || t === "individuals") return "followed_individuals";
   return null;
 }
 
 export default function MyPortfolioPage() {
-  const [search, setSearch] = useState("");
+  // Portfolio (followed) state
+  const [portfolioSearch, setPortfolioSearch] = useState("");
+  const [portfolioEntityType, setPortfolioEntityType] = useState("");
   const [rows, setRows] = useState<PortfolioEntityRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unfollowingId, setUnfollowingId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  /* eslint-disable @typescript-eslint/no-unused-vars -- used in fallback section JSX */
-  const [fallbackResults, setFallbackResults] = useState<GlobalSearchResult[]>([]);
-  const [fallbackLoading, setFallbackLoading] = useState(false);
-  const [fallbackDismissed, setFallbackDismissed] = useState(false);
-  const fallbackAbortRef = useRef<AbortController | null>(null);
+  // Follow more (global search) state
+  const [followSearch, setFollowSearch] = useState("");
+  const [followEntityType, setFollowEntityType] = useState("");
+  const [searchResults, setSearchResults] = useState<GlobalSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [followingId, setFollowingId] = useState<string | null>(null);
-  /* eslint-enable @typescript-eslint/no-unused-vars */
+  const searchAbortRef = useRef<AbortController | null>(null);
 
-  const effectiveSearch = useMemo(() => search.trim(), [search]);
-  const [entityTypeFilter, setEntityTypeFilter] = useState<string>("");
+  const effectivePortfolioSearch = useMemo(() => portfolioSearch.trim(), [portfolioSearch]);
+  const effectiveFollowSearch = useMemo(() => followSearch.trim(), [followSearch]);
 
   const filteredRows = useMemo(() => {
-    const filter = (entityTypeFilter || "").trim().toLowerCase();
+    const filter = (portfolioEntityType || "").trim().toLowerCase();
     if (!filter) return rows;
     return rows.filter((r) => String(r.entity || "").toLowerCase().trim() === filter);
-  }, [rows, entityTypeFilter]);
+  }, [rows, portfolioEntityType]);
+
+  const filteredSearchResults = useMemo(() => {
+    const filter = (followEntityType || "").trim().toLowerCase();
+    if (!filter) return searchResults;
+    return searchResults.filter((r) => {
+      const t = (r.type || "").toLowerCase().trim();
+      if (filter === "company") return t === "company" || t === "companies";
+      if (filter === "advisor") return t === "advisor" || t === "advisors";
+      if (filter === "investor") return t === "investor" || t === "investors";
+      if (filter === "sector") return t === "sector" || t === "sectors" || t === "sub_sector";
+      if (filter === "individual") return t === "individual" || t === "individuals";
+      return false;
+    });
+  }, [searchResults, followEntityType]);
 
   const loadPortfolio = useCallback(
     async (silent = false) => {
@@ -118,7 +192,7 @@ export default function MyPortfolioPage() {
       abortRef.current = ac;
 
       const qs = new URLSearchParams();
-      if (effectiveSearch) qs.set("search", effectiveSearch);
+      if (effectivePortfolioSearch) qs.set("search", effectivePortfolioSearch);
 
       const headers: Record<string, string> = { Accept: "application/json" };
       if (token) headers["x-asym-token"] = token;
@@ -164,7 +238,7 @@ export default function MyPortfolioPage() {
         }
       }
     },
-    [effectiveSearch]
+    [effectivePortfolioSearch]
   );
 
   useEffect(() => {
@@ -177,53 +251,64 @@ export default function MyPortfolioPage() {
     };
   }, [loadPortfolio]);
 
-  // When portfolio returns 0 results and user has a search query, run global search fallback.
-  // Keep fallback visible after user follows (rows.length > 0) so they can follow more.
+  // Global search for "Follow More" section
   useEffect(() => {
-    if (loading || effectiveSearch.length < 2) {
-      setFallbackResults([]);
-      setFallbackLoading(false);
-      setFallbackDismissed(false);
-      fallbackAbortRef.current?.abort();
-      return;
-    }
-    if (rows.length > 0) {
+    if (effectiveFollowSearch.length < 2) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      searchAbortRef.current?.abort();
       return;
     }
 
-    setFallbackDismissed(false);
-    fallbackAbortRef.current?.abort();
+    searchAbortRef.current?.abort();
     const ac = new AbortController();
-    fallbackAbortRef.current = ac;
-    setFallbackLoading(true);
-    setFallbackResults([]);
+    searchAbortRef.current = ac;
+    setSearchLoading(true);
+    setSearchResults([]);
 
     const collected: GlobalSearchResult[] = [];
-    fetchGlobalSearchProgressive(effectiveSearch, null, {
+    fetchGlobalSearchProgressive(effectiveFollowSearch, null, {
       signal: ac.signal,
       sources: PORTFOLIO_FALLBACK_SOURCES,
       onBatch: (items) => {
         if (ac.signal.aborted) return;
         collected.push(...items);
-        setFallbackResults(sortSearchResults([...collected]));
+        setSearchResults(sortSearchResults([...collected]));
       },
       onComplete: () => {
         if (ac.signal.aborted) return;
-        setFallbackResults(sortSearchResults(collected));
-        setFallbackLoading(false);
+        setSearchResults(sortSearchResults(collected));
+        setSearchLoading(false);
       },
       onError: () => {
-        setFallbackLoading(false);
+        setSearchLoading(false);
       },
     });
 
     return () => {
       ac.abort();
-      fallbackAbortRef.current = null;
     };
-  }, [loading, effectiveSearch, rows.length]);
+  }, [effectiveFollowSearch]);
 
-  /* eslint-disable @typescript-eslint/no-unused-vars -- used by Follow button in fallback JSX */
+  const handleUnfollow = useCallback(
+    async (row: PortfolioEntityRow) => {
+      const followKey = getFollowKeyForEntityType(String(row.entity));
+      if (!followKey) return;
+      const key = `${row.entity}-${row.id}`;
+      setUnfollowingId(key);
+      try {
+        await unfollowPortfolioEntity({ followKey, entityId: row.id });
+        toast.success(`Unfollowed ${row.name}`);
+        await loadPortfolio(true);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to unfollow");
+      } finally {
+        setUnfollowingId(null);
+      }
+    },
+    [loadPortfolio]
+  );
+
   const handleFollow = useCallback(
     async (result: GlobalSearchResult) => {
       const followKey = getFollowKeyForSearchType(result.type);
@@ -233,8 +318,9 @@ export default function MyPortfolioPage() {
       try {
         await followPortfolioEntity({ followKey, entityId: result.id });
         toast.success(`Following ${result.title}`);
-        setFallbackResults((prev) => prev.filter((r) => !(r.type === result.type && r.id === result.id)));
-        // Re-fetch followed entities so the table updates with the new item
+        setSearchResults((prev) =>
+          prev.filter((r) => !(r.type === result.type && r.id === result.id))
+        );
         await loadPortfolio(true);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to follow");
@@ -244,53 +330,48 @@ export default function MyPortfolioPage() {
     },
     [loadPortfolio]
   );
-  /* eslint-enable @typescript-eslint/no-unused-vars */
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
 
-      <div className="w-full px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            My Portfolio
-          </h1>
+      <div className="w-full px-6 py-8">
+        <div className="mb-6">
+          <h1 className="text-3xl font-semibold text-gray-900 mb-2">My Portfolio</h1>
           <p className="text-gray-600">
             Companies, Advisors, Investors, Sectors, and Individuals you follow.
           </p>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center justify-between gap-4 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Followed entities
-            </h2>
+        {/* Search Portfolio Section */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Search Portfolio</h2>
             <span className="text-sm text-gray-500">
               {loading
                 ? "Loading…"
-                : `${filteredRows.length} result${filteredRows.length === 1 ? "" : "s"}`}
+                : `${filteredRows.length} ${filteredRows.length === 1 ? "result" : "results"}`}
             </span>
           </div>
 
-          <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Search
-              </label>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder='Search portfolio (e.g. "IQVIA")'
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                <input
+                  value={portfolioSearch}
+                  onChange={(e) => setPortfolioSearch(e.target.value)}
+                  placeholder="Search your followed entities..."
+                  className="w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                />
+              </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Entity Type
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Entity Type</label>
               <select
-                value={entityTypeFilter}
-                onChange={(e) => setEntityTypeFilter(e.target.value)}
+                value={portfolioEntityType}
+                onChange={(e) => setPortfolioEntityType(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 bg-white"
               >
                 {ENTITY_TYPE_FILTER_OPTIONS.map((opt) => (
@@ -303,148 +384,194 @@ export default function MyPortfolioPage() {
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-4">
               <p className="font-semibold">Error</p>
               <p>{error}</p>
             </div>
           )}
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr className="text-left">
-                  <th className="px-4 py-3 font-semibold text-gray-700">
-                    Entity Name
-                  </th>
-                  <th className="px-4 py-3 font-semibold text-gray-700">
-                    Entity Type
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
+          {loading ? (
+            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+              Loading…
+            </div>
+          ) : filteredRows.length > 0 ? (
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <td colSpan={2} className="px-4 py-8 text-gray-500">
-                      Loading…
-                    </td>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Name</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Type</th>
+                    <th className="text-right px-4 py-3 font-medium text-gray-700">Actions</th>
                   </tr>
-                ) : filteredRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={2} className="px-4 py-10 text-gray-500">
-                      {rows.length === 0
-                        ? fallbackLoading || fallbackResults.length > 0
-                          ? fallbackLoading
-                            ? "No matches in your portfolio. Searching the platform…"
-                            : "No matches in your portfolio. See results below to follow."
-                          : "No followed entities found."
-                        : "No entities match the selected filter."}
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRows.map((r, idx) => (
-                    <tr
-                      key={`${r.entity}:${r.id}:${idx}`}
-                      className="border-t border-gray-100 hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-4 py-3 text-gray-900">
-                        {(() => {
-                          const href = getEntityHref(r);
-                          if (!href) return r.name;
-                          return (
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredRows.map((r, idx) => {
+                    const href = getEntityHref(r);
+                    const unfollowKey = `${r.entity}-${r.id}`;
+                    const isUnfollowing = unfollowingId === unfollowKey;
+                    return (
+                      <tr key={`${r.entity}:${r.id}:${idx}`} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3">
+                          {href ? (
                             <Link
                               href={href}
                               className="font-medium text-blue-600 hover:text-blue-700 hover:underline underline-offset-2"
                             >
                               {r.name}
                             </Link>
-                          );
-                        })()}
-                      </td>
-                      <td className="px-4 py-3 text-gray-700">
-                        {formatEntityType(String(r.entity))}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                          ) : (
+                            <span className="font-medium text-gray-900">{r.name}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            variant="outline"
+                            className={`inline-flex items-center gap-1.5 ${getEntityBadgeColor(String(r.entity))}`}
+                          >
+                            {getEntityIcon(String(r.entity))}
+                            {formatEntityType(String(r.entity))}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isUnfollowing}
+                            onClick={() => handleUnfollow(r)}
+                          >
+                            {isUnfollowing ? "Removing…" : "Unfollow"}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+              {rows.length === 0
+                ? "No followed entities found."
+                : "No entities match the selected filter."}
+              {portfolioSearch && " Try adjusting your search criteria."}
+            </div>
+          )}
+        </div>
+
+        {/* Follow More Entities Section */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Follow More Entities</h2>
+            {effectiveFollowSearch.length >= 2 && !searchLoading && (
+              <span className="text-sm text-gray-500">
+                {filteredSearchResults.length}{" "}
+                {filteredSearchResults.length === 1 ? "result" : "results"}
+              </span>
+            )}
           </div>
 
-          {/* Fallback: global search results; stays open after follow so user can follow more */}
-          {effectiveSearch.length >= 2 &&
-          (fallbackLoading || fallbackResults.length > 0) &&
-          !fallbackDismissed ? (
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <p className="text-sm font-medium text-gray-700">
-                  {rows.length === 0
-                    ? "No matches in your portfolio. Results from the platform:"
-                    : "Results from the platform (you can follow more):"}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setFallbackDismissed(true)}
-                  className="shrink-0 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-                  aria-label="Close search results"
-                >
-                  Close
-                </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                <input
+                  value={followSearch}
+                  onChange={(e) => setFollowSearch(e.target.value)}
+                  placeholder="Search for entities to follow..."
+                  className="w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                />
               </div>
-              {fallbackLoading && fallbackResults.length === 0 ? (
-                <p className="text-sm text-gray-500">Searching…</p>
-              ) : (
-                <ul className="space-y-2">
-                  {fallbackResults.map((r, idx) => {
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Entity Type</label>
+              <select
+                value={followEntityType}
+                onChange={(e) => setFollowEntityType(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 bg-white"
+              >
+                {ENTITY_TYPE_FILTER_OPTIONS.map((opt) => (
+                  <option key={opt.value || "all"} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {effectiveFollowSearch.length < 2 ? (
+            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+              Type at least 2 characters to search for entities.
+            </div>
+          ) : searchLoading && filteredSearchResults.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+              Searching…
+            </div>
+          ) : filteredSearchResults.length > 0 ? (
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Name</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Type</th>
+                    <th className="text-right px-4 py-3 font-medium text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredSearchResults.map((r, idx) => {
                     const href = resolveSearchHref(r);
                     const followKey = getFollowKeyForSearchType(r.type);
                     const canFollow = followKey !== null;
                     const isFollowing = followingId === `${r.type}-${r.id}`;
                     return (
-                      <li
-                        key={`${r.type}-${r.id}-${idx}`}
-                        className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-gray-50 border border-gray-100"
-                      >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <tr key={`${r.type}-${r.id}-${idx}`} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3">
                           {href ? (
                             <Link
                               href={href}
-                              className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline truncate"
+                              className="font-medium text-blue-600 hover:text-blue-700 hover:underline underline-offset-2"
                             >
                               {r.title}
                             </Link>
                           ) : (
-                            <span className="text-sm text-gray-900 truncate">
-                              {r.title}
-                            </span>
+                            <span className="font-medium text-gray-900">{r.title}</span>
                           )}
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded border shrink-0 ${badgeClassForSearchType(
-                              r.type
-                            )}`}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            variant="outline"
+                            className={`inline-flex items-center gap-1.5 ${getEntityBadgeColor(r.type)}`}
                           >
+                            {getEntityIcon(r.type)}
                             {getSearchBadgeLabel(r.type)}
-                          </span>
-                        </div>
-                        {canFollow ? (
-                          <button
-                            type="button"
-                            disabled={isFollowing}
-                            onClick={() => handleFollow(r)}
-                            className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                            {isFollowing ? "Adding…" : "Follow"}
-                          </button>
-                        ) : null}
-                      </li>
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {canFollow ? (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              disabled={isFollowing}
+                              onClick={() => handleFollow(r)}
+                            >
+                              {isFollowing ? "Adding…" : "Follow"}
+                            </Button>
+                          ) : null}
+                        </td>
+                      </tr>
                     );
                   })}
-                </ul>
-              )}
+                </tbody>
+              </table>
             </div>
-          ) : null}
+          ) : (
+            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+              No entities found.
+              {followSearch && " Try adjusting your search criteria."}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
-
