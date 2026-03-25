@@ -2689,10 +2689,11 @@ const CompanyDetail = () => {
                 <div
                   style={{
                     ...styles.infoRow,
-                    backgroundColor: "#eff6ff",
+                    backgroundColor: "#ffffff",
                     border: "1px solid #bfdbfe",
-                    borderRadius: "10px",
-                    padding: "12px 14px",
+                    borderRadius: "12px",
+                    boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.10)",
+                    padding: "12px 16px",
                     marginBottom: "10px",
                   }}
                   className="info-row"
