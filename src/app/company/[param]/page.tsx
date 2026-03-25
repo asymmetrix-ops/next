@@ -1302,13 +1302,10 @@ const CompanyDetail = () => {
       const badge = data?.transaction_status_badge;
       if (!badge || typeof badge !== "object") return;
 
-      // API returns { label, date, display }
-      const status: string = badge.label || badge.display || "";
-      const date: string = badge.date || "";
-      const display: string = badge.display || (date ? `${status} as of ${date}` : status);
-
-      if (!status) return;
-      setTransactionStatusBadge({ status: display, date: "" });
+      // API returns { label, date, display } - we only show the label on this page
+      const label: string = String(badge.label || "").trim();
+      if (!label) return;
+      setTransactionStatusBadge({ status: label, date: "" });
     } catch {
       // non-fatal
     }
