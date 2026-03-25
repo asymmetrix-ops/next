@@ -928,6 +928,9 @@ const CompanyDetail = () => {
     useState<CompanyCompetitorsResponse | null>(null);
   const [competitorsLoading, setCompetitorsLoading] = useState(false);
   const [showCompetitorsModal, setShowCompetitorsModal] = useState(false);
+  const [isCompanyOfFocus, setIsCompanyOfFocus] = useState<boolean | null>(null);
+  const [transactionStatusLabel, setTransactionStatusLabel] = useState<string>("");
+
   const [exportingPdf, setExportingPdf] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isDescriptionExpandable, setIsDescriptionExpandable] = useState(false);
@@ -1320,6 +1323,26 @@ const CompanyDetail = () => {
     }
   }, []);
 
+  const fetchCompanyTransactionStatus = useCallback(async (id: string | number) => {
+    try {
+      const params = new URLSearchParams();
+      params.append("new_company_id", String(id));
+      const res = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_transaction_status?${params.toString()}`,
+        { method: "GET" }
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      const badge = data?.transaction_status_badge;
+      if (!badge || typeof badge !== "object") return;
+      const label = String(badge.label || "").trim();
+      if (!label) return;
+      setTransactionStatusLabel(label);
+    } catch {
+      // non-fatal
+    }
+  }, []);
+
   useEffect(() => {
     const fetchCompanyData = async () => {
       setLoading(true);
@@ -1520,6 +1543,7 @@ const CompanyDetail = () => {
       fetchFinancialMetrics(companyId);
       fetchCompanyInvestors(companyId);
       fetchCompanyCompetitors(companyId);
+      fetchCompanyTransactionStatus(companyId);
     }
   }, [
     companyId,
@@ -1528,6 +1552,7 @@ const CompanyDetail = () => {
     fetchFinancialMetrics,
     fetchCompanyInvestors,
     fetchCompanyCompetitors,
+    fetchCompanyTransactionStatus,
   ]);
 
 
@@ -2660,6 +2685,47 @@ const CompanyDetail = () => {
               >
                 {/* Left column: Basic fields */}
                 <div className="overview-fields">
+              <div style={styles.infoRow} className="info-row">
+                <span style={styles.label} className="info-label">
+                  <span
+                    style={{
+                      display: "inline-block",
+                      backgroundColor: "#e6f0ff",
+                      color: "#1d4ed8",
+                      border: "1px solid #bfdbfe",
+                      borderRadius: "6px",
+                      padding: "4px 8px",
+                      fontSize: "13px",
+                      fontWeight: 700,
+                      lineHeight: 1.1,
+                    }}
+                  >
+                    Transaction Status:
+                  </span>
+                </span>
+                <div style={styles.value} className="info-value">
+                  {transactionStatusLabel ? (
+                    <span
+                      style={{
+                        display: "inline-block",
+                        backgroundColor: "#dcfce7",
+                        color: "#166534",
+                        border: "1.5px solid #4ade80",
+                        borderRadius: "999px",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        padding: "3px 10px",
+                        letterSpacing: "0.01em",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {transactionStatusLabel}
+                    </span>
+                  ) : (
+                    "Not available"
+                  )}
+                </div>
+              </div>
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
                   Primary Sector(s):
