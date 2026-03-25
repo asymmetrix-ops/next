@@ -2685,23 +2685,19 @@ const CompanyDetail = () => {
               >
                 {/* Left column: Basic fields */}
                 <div className="overview-fields">
-              <div style={styles.infoRow} className="info-row">
+              <div
+                style={{
+                  ...styles.infoRow,
+                  backgroundColor: "#eff6ff",
+                  border: "1px solid #bfdbfe",
+                  borderRadius: "10px",
+                  padding: "12px 14px",
+                  marginBottom: "10px",
+                }}
+                className="info-row"
+              >
                 <span style={styles.label} className="info-label">
-                  <span
-                    style={{
-                      display: "inline-block",
-                      backgroundColor: "#e6f0ff",
-                      color: "#1d4ed8",
-                      border: "1px solid #bfdbfe",
-                      borderRadius: "6px",
-                      padding: "4px 8px",
-                      fontSize: "13px",
-                      fontWeight: 700,
-                      lineHeight: 1.1,
-                    }}
-                  >
-                    Transaction Status:
-                  </span>
+                  Transaction Status:
                 </span>
                 <div style={styles.value} className="info-value">
                   {transactionStatusLabel ? (
