@@ -1188,6 +1188,66 @@ const CompanyDetail = () => {
     }
   }, []);
 
+  // Fetch related transactions (auth required) for the company's primary sectors
+  const fetchRelatedTransactions = useCallback(async (id: string | number) => {
+    setRelatedTransactionsLoading(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) {
+        setRelatedTransactions([]);
+        return;
+      }
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      };
+
+      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/related_transactions`;
+      const params = new URLSearchParams();
+      params.append("new_company_id", String(id));
+      const res = await fetch(`${endpoint}?${params.toString()}`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        setRelatedTransactions([]);
+        return;
+      }
+
+      const data = await res.json();
+      setRelatedTransactions(Array.isArray(data) ? (data as RelatedTransaction[]) : []);
+    } catch (err) {
+      console.error("Error fetching related transactions:", err);
+      setRelatedTransactions([]);
+    } finally {
+      setRelatedTransactionsLoading(false);
+    }
+  }, []);
+
+  const fetchTransactionStatusBadge = useCallback(async (id: string | number) => {
+    try {
+      const params = new URLSearchParams();
+      params.append("new_company_id", String(id));
+      const res = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_transaction_status?${params.toString()}`,
+        { method: "GET" }
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      const badge = data?.transaction_status_badge;
+      if (!badge || typeof badge !== "object") return;
+
+      // API returns { label, date, display } - we only show the label on this page
+      const label: string = String(badge.label || "").trim();
+      if (!label) return;
+      setTransactionStatusBadge({ status: label, date: "" });
+    } catch {
+      // non-fatal
+    }
+  }, []);
+
   const fetchCompanyCompetitors = useCallback(async (id: string | number) => {
     setCompetitorsLoading(true);
     try {
