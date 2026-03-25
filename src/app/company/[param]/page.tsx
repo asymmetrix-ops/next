@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { FollowButton } from "@/components/FollowButton";
 import { useRightClick } from "@/hooks/useRightClick";
 import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
 import IndividualCards from "@/components/shared/IndividualCards";
@@ -20,7 +19,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ContentArticle } from "@/types/insightsAnalysis";
-import { InsightsAnalysisCard } from "@/components/InsightsAnalysisCard";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
 
@@ -177,7 +175,6 @@ interface CompanyRootLinkedInData {
   LinkedIn_Employee?: number;
   LinkedIn_Emp__Date?: string | null;
   linkedin_logo?: string;
-  linkedin_growth_1y_pct?: number | null;
 }
 
 interface CompanyOwnershipType {
@@ -191,6 +188,21 @@ interface LifecycleStage {
 interface EmployeeCount {
   date: string;
   employees_count: number;
+}
+
+interface CompanyProductTypeItem {
+  Product_Type?: string;
+  pc_of_revenues?: number | string | null;
+}
+
+interface CompanyDataCollectionMethodItem {
+  Data_Collection_Method?: string;
+  Predominance?: string | null;
+}
+
+interface CompanyRevenueModelItem {
+  Revenue_Model_?: string;
+  Predominance?: string | null;
 }
 
 interface CompanyInvestor {
@@ -229,18 +241,6 @@ interface CompanyInvestorFromCompanies {
   id: number;
   original_new_company_id: number;
   company_name: string;
-}
-
-// Investors data from investors_data field
-interface InvestorsDataItem {
-  name: string;
-  investor_id: number;
-  new_company_id?: number;
-}
-
-interface ParsedInvestorsData {
-  past: InvestorsDataItem[];
-  current: InvestorsDataItem[];
 }
 
 interface CompanyManagement {
@@ -322,8 +322,8 @@ interface NewTargetEntity {
 }
 
 interface NewOtherCounterparty {
-  id?: number;
-  name?: string;
+  id: number;
+  name: string;
   page_type?: string;
   counterparty_id?: number;
   is_data_analytics?: boolean;
@@ -349,105 +349,15 @@ interface NewCorporateEvent {
   sellers?: NewCounterpartyMinimal[]; // new: sellers/divestors
   investors?: NewCounterpartyMinimal[]; // new: investors only
   deal_type?: string;
-  investment_data?: {
-    investment_amount_m?: number | string;
-    investment_amount?: number | string;
-    currency?: string | { Currency?: string } | null;
-    _currency?: { Currency?: string };
-    currency_id?: number | string;
-    Funding_stage?: string;
-    funding_stage?: string;
-    investment_amount_url?: string | null;
-  };
-  ev_data?: {
-    enterprise_value_m?: number | string;
-    ev_band?: string;
-    currency?: { Currency?: string };
-    _currency?: { Currency?: string };
-  };
   ev_display?: string | null;
   description?: string;
   announcement_date?: string;
-  investment_display?: string | null;
+  investment_display?: string;
   this_company_status?: string;
   other_counterparties?: NewOtherCounterparty[];
 }
 
 type CompanyCorporateEvent = LegacyCorporateEvent | NewCorporateEvent;
-
-// Related transactions endpoint payload (sector-related corporate events)
-interface RelatedTransactionSectorDisplay {
-  id: number;
-  sector_name: string;
-}
-
-interface RelatedTransactionTarget {
-  id?: number;
-  company_id?: number;
-  name?: string;
-  page_type?: string;
-  logo?: string;
-}
-
-interface RelatedTransactionCounterparty {
-  id?: number;
-  company_id?: number;
-  counterparty_id?: number;
-  name?: string;
-  role?: string;
-  counterparty_announcement_url?: string | null;
-  page_type?: string;
-  logo?: string;
-}
-
-interface RelatedTransaction {
-  id: number;
-  announcement_date?: string;
-  closed_date?: string;
-  deal_type?: string;
-  deal_status?: string;
-  description?: string;
-  investment_data?:
-    | {
-        currency_id?: number | string | null;
-        Funding_stage?: string | null;
-        funding_stage?: string | null;
-        investment_amount_m?: number | string | null;
-        investment_amount_source?: string | null;
-      }
-    | string
-    | null;
-  ev_data?:
-    | {
-        ev_band?: string | null;
-        ev_source?: string | null;
-        currency_id?: number | string | null;
-        EV_source_type?: string | null;
-        enterprise_value_m?: number | string | null;
-      }
-    | string
-    | null;
-  deal_terms_data?:
-    | {
-        deal_terms?: string | null;
-        deal_terms_source?: string | null;
-      }
-    | string
-    | null;
-  target?: RelatedTransactionTarget | string | null;
-  counterparties?: RelatedTransactionCounterparty[] | string | null;
-  advisors?: unknown[] | string | null;
-  amount_raw?: unknown;
-  amount_m?: number | string | null;
-  amount_currency?: string | null;
-  ev_raw?: unknown;
-  ev_m?: number | string | null;
-  ev_currency?: string | null;
-  primary_sectors_display?: RelatedTransactionSectorDisplay[] | string | null;
-  secondary_sectors_display?: RelatedTransactionSectorDisplay[] | string | null;
-  // Some backends may include the source company id
-  new_company_id?: number | null;
-}
 
 
 interface Company {
@@ -461,7 +371,6 @@ interface Company {
   url: string;
   _linkedin_data_of_new_company: CompanyLinkedInData;
   linkedin_data?: CompanyRootLinkedInData;
-  linkedin_growth_1y_pct?: number | null;
   _locations: CompanyLocation;
   _ownership_type: CompanyOwnershipType;
   sectors_id: CompanySector[];
@@ -518,6 +427,9 @@ interface Company {
   // Optional market fields if/when API provides them
   ticker?: string;
   exchange?: string;
+  Product_Type?: CompanyProductTypeItem[] | string;
+  Data_Collection_Method?: CompanyDataCollectionMethodItem[] | string;
+  Revenue_Model_?: CompanyRevenueModelItem[] | string;
   have_parent_company?: HaveParentCompany;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
@@ -531,6 +443,9 @@ interface Company {
 interface CompanyResponse {
   Company: Company;
   have_parent_company?: HaveParentCompany;
+  Product_Type?: CompanyProductTypeItem[] | string;
+  Data_Collection_Method?: CompanyDataCollectionMethodItem[] | string;
+  Revenue_Model_?: CompanyRevenueModelItem[] | string;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
   }>;
@@ -629,6 +544,24 @@ const formatWholeNumber = (value?: number | string | null): string => {
   return Math.round(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
 };
 
+const parseStructuredArray = <T,>(value: unknown): T[] => {
+  if (Array.isArray(value)) return value as T[];
+  if (typeof value !== "string") return [];
+
+  try {
+    const parsed = JSON.parse(value.replace(/\\u0022/g, '"')) as unknown;
+    if (Array.isArray(parsed)) return parsed as T[];
+    if (typeof parsed === "string") {
+      const reparsed = JSON.parse(parsed.replace(/\\u0022/g, '"')) as unknown;
+      return Array.isArray(reparsed) ? (reparsed as T[]) : [];
+    }
+  } catch {
+    return [];
+  }
+
+  return [];
+};
+
 // Map Xano source codes to human-readable labels (best-known mapping)
 const sourceLabel = (code?: number | string | null): string | undefined => {
   if (code == null) return undefined;
@@ -692,13 +625,6 @@ const formatPercent = (value?: number | string | null): string => {
   return `${Math.round(n)}%`;
 };
 
-// Preserves decimals for growth metrics (e.g. 1.7 -> "1.7%")
-const formatGrowthPercent = (value?: number | string | null): string => {
-  const n = getNumeric(value);
-  if (n === undefined) return "Not available";
-  return `${n % 1 === 0 ? Math.round(n) : Number(n).toFixed(1)}%`;
-};
-
 const formatMultiple = (value?: number | string | null): string => {
   const n = getNumeric(value);
   if (n === undefined) return "Not available";
@@ -715,6 +641,15 @@ const effectiveSourceLabel = (
     return sourceLabel(label);
   }
   return sourceLabel(code);
+};
+
+// Convert source label/code into a display string
+const getSourceText = (
+  label?: string | null,
+  code?: number | string | null
+): string => {
+  const resolved = effectiveSourceLabel(label, code);
+  return resolved ?? "Not available";
 };
 
 // Removed short currency helper; we now display plain numbers
@@ -986,25 +921,15 @@ const CompanyDetail = () => {
     CompanyInvestorFromAPI[]
   >([]);
   const [apiInvestorsLoading, setApiInvestorsLoading] = useState(false);
-  // Investors from investors_data field in company response
-  const [parsedInvestorsData, setParsedInvestorsData] = useState<
-    ParsedInvestorsData | null
-  >(null);
   const [competitors, setCompetitors] =
     useState<CompanyCompetitorsResponse | null>(null);
   const [competitorsLoading, setCompetitorsLoading] = useState(false);
   const [showCompetitorsModal, setShowCompetitorsModal] = useState(false);
   const [isCompanyOfFocus, setIsCompanyOfFocus] = useState<boolean | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
-  const [relatedTransactions, setRelatedTransactions] = useState<
-    RelatedTransaction[]
-  >([]);
-  const [relatedTransactionsLoading, setRelatedTransactionsLoading] =
-    useState(false);
-  const [transactionStatusBadge, setTransactionStatusBadge] = useState<{
-    status: string;
-    date: string;
-  } | null>(null);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isDescriptionExpandable, setIsDescriptionExpandable] = useState(false);
+  const descriptionRef = useRef<HTMLDivElement | null>(null);
 
   // Safely extract a sector id from various backend shapes
   const getSectorId = (sector: unknown): number | undefined => {
@@ -1074,7 +999,7 @@ const CompanyDetail = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
-      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${id}`;
+      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${id}`;
 
       // Attempt 1: Standard GET
       const getResponse = await fetch(endpoint, {
@@ -1082,6 +1007,9 @@ const CompanyDetail = () => {
         headers,
         credentials: "include",
       });
+      if (getResponse.status === 401) {
+        throw new Error("Authentication required");
+      }
       if (getResponse.ok) {
         return (await Promise.race([
           getResponse.json(),
@@ -1104,6 +1032,9 @@ const CompanyDetail = () => {
           credentials: "include",
           body: JSON.stringify(body),
         });
+        if (postResponse.status === 401) {
+          throw new Error("Authentication required");
+        }
         if (postResponse.ok) {
           return (await Promise.race([
             postResponse.json(),
@@ -1133,7 +1064,7 @@ const CompanyDetail = () => {
       try {
         const params = new URLSearchParams();
         params.append("new_company_id", String(companyIdForContent));
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/companies_articles?${params.toString()}`;
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/companies_articles?${params.toString()}`;
         const response = await fetch(url, { method: "GET" });
         if (!response.ok) {
           setCompanyArticles([]);
@@ -1166,7 +1097,7 @@ const CompanyDetail = () => {
         Accept: "application/json",
       };
 
-      const base = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_financial_metrics`;
+      const base = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics`;
       // Attempt GET with query param
       const params = new URLSearchParams();
       params.append("new_company_id", String(id));
@@ -1221,7 +1152,7 @@ const CompanyDetail = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
-      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_investors`;
+      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_investors`;
 
       // GET with query param (required by backend)
       const params = new URLSearchParams();
@@ -1251,74 +1182,12 @@ const CompanyDetail = () => {
     }
   }, []);
 
-  // Fetch related transactions (auth required) for the company's primary sectors
-  const fetchRelatedTransactions = useCallback(async (id: string | number) => {
-    setRelatedTransactionsLoading(true);
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) {
-        setRelatedTransactions([]);
-        return;
-      }
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-      };
-
-      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/related_transactions`;
-      const params = new URLSearchParams();
-      params.append("new_company_id", String(id));
-      const res = await fetch(`${endpoint}?${params.toString()}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        setRelatedTransactions([]);
-        return;
-      }
-
-      const data = await res.json();
-      setRelatedTransactions(Array.isArray(data) ? (data as RelatedTransaction[]) : []);
-    } catch (err) {
-      console.error("Error fetching related transactions:", err);
-      setRelatedTransactions([]);
-    } finally {
-      setRelatedTransactionsLoading(false);
-    }
-  }, []);
-
-  const fetchTransactionStatusBadge = useCallback(async (id: string | number) => {
-    try {
-      const params = new URLSearchParams();
-      params.append("new_company_id", String(id));
-      const res = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_transaction_status?${params.toString()}`,
-        { method: "GET" }
-      );
-      if (!res.ok) return;
-      const data = await res.json();
-      const badge = data?.transaction_status_badge;
-      if (!badge || typeof badge !== "object") return;
-
-      // API returns { label, date, display } - we only show the label on this page
-      const label: string = String(badge.label || "").trim();
-      if (!label) return;
-      setTransactionStatusBadge({ status: label, date: "" });
-    } catch {
-      // non-fatal
-    }
-  }, []);
-
   const fetchCompanyCompetitors = useCallback(async (id: string | number) => {
     setCompetitorsLoading(true);
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
       if (!token) {
         setCompetitorsLoading(false);
-        setCompetitors(null);
-        setIsCompanyOfFocus(null);
         return;
       }
       const headers: Record<string, string> = {
@@ -1359,7 +1228,6 @@ const CompanyDetail = () => {
       );
       if (!res.ok) {
         setCompetitors(null);
-        setIsCompanyOfFocus(null);
         return;
       }
       const data = await res.json();
@@ -1394,7 +1262,6 @@ const CompanyDetail = () => {
     const fetchCompanyData = async () => {
       setLoading(true);
       setError(null);
-      setParsedInvestorsData(null); // Reset investors data
 
       try {
         let data: CompanyResponse;
@@ -1456,17 +1323,30 @@ const CompanyDetail = () => {
                 have_parent_company?: HaveParentCompany;
               }
             ).have_parent_company,
+          Product_Type:
+            (data as { Product_Type?: CompanyProductTypeItem[] | string })
+              .Product_Type || data.Company?.Product_Type,
+          Data_Collection_Method:
+            (
+              data as {
+                Data_Collection_Method?:
+                  | CompanyDataCollectionMethodItem[]
+                  | string;
+              }
+            ).Data_Collection_Method || data.Company?.Data_Collection_Method,
+          Revenue_Model_:
+            (data as { Revenue_Model_?: CompanyRevenueModelItem[] | string })
+              .Revenue_Model_ ||
+            (data as { Revenue_Model?: CompanyRevenueModelItem[] | string })
+              .Revenue_Model ||
+            data.Company?.Revenue_Model_ ||
+            (data.Company as { Revenue_Model?: CompanyRevenueModelItem[] | string })
+              ?.Revenue_Model,
           Lifecycle_stage:
             data.Company?.Lifecycle_stage ||
             (data as unknown as { Lifecycle_stage?: LifecycleStage })
               .Lifecycle_stage ||
             undefined,
-          // LinkedIn growth may come from root or Company
-          linkedin_growth_1y_pct:
-            (data.Company as unknown as { linkedin_growth_1y_pct?: number | null })
-              ?.linkedin_growth_1y_pct ??
-            (data as unknown as { linkedin_growth_1y_pct?: number | null })
-              ?.linkedin_growth_1y_pct,
         };
 
         // Parse optional ebitda_data with display strings
@@ -1501,40 +1381,6 @@ const CompanyDetail = () => {
             }
           }
         } catch {}
-
-        // Parse investors_data from Get_new_company payload
-        try {
-          const rawInvestorsData = (
-            data as unknown as {
-              investors_data?: Array<{ items?: unknown }>;
-            }
-          )?.investors_data;
-          if (Array.isArray(rawInvestorsData) && rawInvestorsData.length > 0) {
-            for (const entry of rawInvestorsData) {
-              const raw = (entry as { items?: unknown })?.items;
-              let payload: unknown = raw;
-              if (typeof raw === "string") {
-                try {
-                  payload = JSON.parse(raw as string);
-                } catch {
-                  // ignore malformed JSON
-                }
-              }
-              if (payload && typeof payload === "object") {
-                const parsed = payload as ParsedInvestorsData;
-                if (
-                  Array.isArray(parsed.current) ||
-                  Array.isArray(parsed.past)
-                ) {
-                  setParsedInvestorsData(parsed);
-                  break; // use first valid block only
-                }
-              }
-            }
-          }
-        } catch {
-          // non-fatal
-        }
 
         // Parse corporate events from Get_new_company payload (preferred, no auth)
         try {
@@ -1586,6 +1432,19 @@ const CompanyDetail = () => {
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to fetch company data";
+        const isUnauthorized =
+          message === "Authentication required" ||
+          message.includes("ERROR_CODE_UNAUTHORIZED") ||
+          message.includes("This token is expired") ||
+          message.includes("API request failed: 401");
+
+        if (isUnauthorized) {
+          // AuthProvider will show the login modal via fetch interceptor.
+          setError(null);
+          console.error("Unauthorized while loading company:", err);
+          return;
+        }
+
         setError(message);
         console.error("Error fetching company data:", err);
       } finally {
@@ -1597,9 +1456,7 @@ const CompanyDetail = () => {
       fetchCompanyData();
       fetchFinancialMetrics(companyId);
       fetchCompanyInvestors(companyId);
-      fetchRelatedTransactions(companyId);
       fetchCompanyCompetitors(companyId);
-      fetchTransactionStatusBadge(companyId);
     }
   }, [
     companyId,
@@ -1607,9 +1464,7 @@ const CompanyDetail = () => {
     requestCompany,
     fetchFinancialMetrics,
     fetchCompanyInvestors,
-    fetchRelatedTransactions,
     fetchCompanyCompetitors,
-    fetchTransactionStatusBadge,
   ]);
 
 
@@ -1665,6 +1520,38 @@ const CompanyDetail = () => {
     }
   }, []);
 
+  useEffect(() => {
+    setIsDescriptionExpanded(false);
+  }, [company?.description]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const checkDescriptionOverflow = () => {
+      const element = descriptionRef.current;
+      if (!element) {
+        setIsDescriptionExpandable(false);
+        return;
+      }
+
+      const computedStyle = window.getComputedStyle(element);
+      const lineHeight = parseFloat(computedStyle.lineHeight || "0");
+      if (!lineHeight) {
+        setIsDescriptionExpandable(false);
+        return;
+      }
+
+      // Allow more of the description to be visible before collapsing
+      const collapsedHeight = lineHeight * 5;
+      setIsDescriptionExpandable(element.scrollHeight > collapsedHeight + 1);
+    };
+
+    checkDescriptionOverflow();
+    window.addEventListener("resize", checkDescriptionOverflow);
+
+    return () => window.removeEventListener("resize", checkDescriptionOverflow);
+  }, [company?.description, isMobile]);
+
   // Update page title when company data is loaded
   useEffect(() => {
     if (company?.name && typeof document !== "undefined") {
@@ -1681,12 +1568,14 @@ const CompanyDetail = () => {
 
     try {
       setExportingPdf(true);
+      const token = localStorage.getItem("asymmetrix_auth_token");
       const response = await fetch(
         "https://asymmetrix-pdf-service.fly.dev/api/export-company-pdf",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({ company_id: company.id }),
         }
@@ -1944,257 +1833,6 @@ const CompanyDetail = () => {
   // Use API-provided primary sectors only
   const augmentedPrimarySectors = primarySectors;
 
-  // Build "Related Transactions" (5 most recent) from primary sectors only, excluding events
-  // where this company is itself a counterparty/target.
-  const relatedTransactionEvents: CompanyCorporateEvent[] = (() => {
-    const parseJsonMaybe = <T,>(value: unknown): T | null => {
-      if (!value) return null;
-      if (typeof value === "object") return value as T;
-      if (typeof value !== "string") return null;
-      const trimmed = value.trim();
-      if (!trimmed) return null;
-      // Common Xano escaping: \u0022 for quotes; also tolerate CRLF sequences
-      const normalized = trimmed.replace(/\\u0022/g, '"');
-      try {
-        return JSON.parse(normalized) as T;
-      } catch {
-        // Sometimes we get surrounding quotes or double-encoded strings
-        const unquoted = normalized.replace(/^"+|"+$/g, "");
-        try {
-          const first = JSON.parse(unquoted) as unknown;
-          if (typeof first === "string") {
-            const normalized2 = first.replace(/\\u0022/g, '"');
-            return JSON.parse(normalized2) as T;
-          }
-          return first as T;
-        } catch {
-          return null;
-        }
-      }
-    };
-
-    const parseArrayMaybe = <T,>(value: unknown): T[] => {
-      if (Array.isArray(value)) return value as T[];
-      const parsed = parseJsonMaybe<unknown>(value);
-      return Array.isArray(parsed) ? (parsed as T[]) : [];
-    };
-
-    const parseObjectMaybe = <T,>(value: unknown): T | null => {
-      if (value && typeof value === "object" && !Array.isArray(value))
-        return value as T;
-      const parsed = parseJsonMaybe<unknown>(value);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-        ? (parsed as T)
-        : null;
-    };
-
-    const primarySectorIds = new Set<number>(
-      (augmentedPrimarySectors || [])
-        .map((s) => s?.sector_id)
-        .filter((v): v is number => typeof v === "number" && Number.isFinite(v))
-    );
-    if (!primarySectorIds.size) return [];
-
-    const thisCompanyId = company?.id;
-    const safeTime = (d?: string) => {
-      if (!d) return 0;
-      const t = Date.parse(d);
-      return Number.isFinite(t) ? t : 0;
-    };
-
-    const isThisCompanyInCounterparties = (tx: RelatedTransaction): boolean => {
-      if (typeof thisCompanyId !== "number") return false;
-      // Some payloads may include it as a direct field
-      if (typeof tx.new_company_id === "number" && tx.new_company_id === thisCompanyId)
-        return true;
-      // Target match (payload may use company_id)
-      const targetObj = parseObjectMaybe<RelatedTransactionTarget>(tx.target);
-      if (
-        (targetObj && typeof targetObj.company_id === "number" && targetObj.company_id === thisCompanyId) ||
-        (targetObj && typeof targetObj.id === "number" && targetObj.id === thisCompanyId)
-      ) {
-        return true;
-      }
-
-      // Counterparty match (payload may include company_id)
-      const cps = parseArrayMaybe<RelatedTransactionCounterparty>(tx.counterparties);
-      return cps.some((cp) => {
-        if (!cp) return false;
-        if (typeof cp.company_id === "number" && cp.company_id === thisCompanyId) return true;
-        if (typeof cp.id === "number" && cp.id === thisCompanyId) return true;
-        if (typeof cp.counterparty_id === "number" && cp.counterparty_id === thisCompanyId)
-          return true;
-        const parsed = parseInt(String((cp as unknown as { id?: unknown }).id ?? ""), 10);
-        return Number.isFinite(parsed) && parsed === thisCompanyId;
-      });
-    };
-
-    const filtered = (relatedTransactions || [])
-      .filter((tx) => tx && typeof tx.id === "number")
-      .filter((tx) => {
-        // Must match at least one of this company's primary sectors
-        const txPrimarySectors = parseArrayMaybe<RelatedTransactionSectorDisplay>(
-          tx.primary_sectors_display
-        );
-        const txPrimaryIds = txPrimarySectors
-          .map((s) => s?.id)
-          .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-        const matchesPrimarySector = txPrimaryIds.some((id) => primarySectorIds.has(id));
-        if (!matchesPrimarySector) return false;
-
-        // Exclude transactions where current company is a counterparty/target
-        if (isThisCompanyInCounterparties(tx)) return false;
-        return true;
-      })
-      .sort((a, b) => safeTime(b.announcement_date) - safeTime(a.announcement_date))
-      .slice(0, 5);
-
-    // Map into the corporate event shape used by the platform tables
-    return filtered.map((tx) => {
-      const targetObj = parseObjectMaybe<RelatedTransactionTarget>(tx.target);
-      const targetCompanyId =
-        targetObj && typeof targetObj.company_id === "number"
-          ? targetObj.company_id
-          : targetObj && typeof targetObj.id === "number"
-          ? targetObj.id
-          : undefined;
-      const targetName =
-        targetObj && typeof targetObj.name === "string" ? targetObj.name.trim() : "";
-      const targetPageType =
-        targetObj && typeof targetObj.page_type === "string"
-          ? targetObj.page_type
-          : undefined;
-
-      const dealTermsObj = parseObjectMaybe<{ deal_terms_source?: string | null }>(
-        tx.deal_terms_data
-      );
-      const investmentObj = parseObjectMaybe<{
-        investment_amount_m?: number | string | null;
-        Funding_stage?: string | null;
-        funding_stage?: string | null;
-        currency_id?: number | string | null;
-        investment_amount_source?: string | null;
-      }>(tx.investment_data);
-      const evObj = parseObjectMaybe<{
-        enterprise_value_m?: number | string | null;
-        ev_band?: string | null;
-      }>(tx.ev_data);
-
-      const targets: NewTargetEntity[] =
-        targetCompanyId && targetName
-          ? [
-              {
-                id: targetCompanyId,
-                name: targetName,
-                page_type: targetPageType,
-                counterparty_announcement_url:
-                  (typeof dealTermsObj?.deal_terms_source === "string"
-                    ? dealTermsObj.deal_terms_source
-                    : undefined) ||
-                  (typeof investmentObj?.investment_amount_source === "string"
-                    ? investmentObj.investment_amount_source
-                    : undefined) ||
-                  undefined,
-              },
-            ]
-          : [];
-
-      const normalizeRoleToStatus = (role?: string): string | undefined => {
-        const r = String(role ?? "").trim().toLowerCase();
-        if (!r) return undefined;
-        if (r.includes("buyer") || r.includes("acquirer")) return "Acquirer";
-        if (r.includes("seller") || r.includes("divestor")) return "Divestor";
-        if (r.includes("investor")) return "Investor";
-        return undefined;
-      };
-
-      const counterpartiesArr = parseArrayMaybe<RelatedTransactionCounterparty>(
-        tx.counterparties
-      );
-      const otherCounterparties: NewOtherCounterparty[] = counterpartiesArr
-        .map((cp) => {
-          const id =
-            typeof cp?.company_id === "number"
-              ? cp.company_id
-              : typeof cp?.counterparty_id === "number"
-              ? cp.counterparty_id
-              : typeof cp?.id === "number"
-              ? cp.id
-              : undefined;
-          const name = typeof cp?.name === "string" ? cp.name : undefined;
-          const page_type =
-            typeof cp?.page_type === "string" ? cp.page_type : undefined;
-          const status = normalizeRoleToStatus(cp?.role);
-
-          return {
-            id,
-            name,
-            page_type,
-            counterparty_id: typeof cp?.company_id === "number" ? cp.company_id : undefined,
-            counterparty_status: status,
-            counterparty_announcement_url:
-              typeof cp?.counterparty_announcement_url === "string"
-                ? cp.counterparty_announcement_url
-                : null,
-          };
-        })
-        .filter((cp) => Boolean(cp.id) || Boolean(cp.name));
-
-      const amountCurrency =
-        typeof tx.amount_currency === "string" ? tx.amount_currency : undefined;
-      const evCurrency = typeof tx.ev_currency === "string" ? tx.ev_currency : undefined;
-
-      const investmentAmountCandidate =
-        tx.amount_m ?? investmentObj?.investment_amount_m;
-      const investmentAmount =
-        investmentAmountCandidate == null ? undefined : investmentAmountCandidate;
-
-      const evAmountCandidate = tx.ev_m ?? evObj?.enterprise_value_m;
-      const evAmount = evAmountCandidate == null ? undefined : evAmountCandidate;
-
-      const evData: NonNullable<NewCorporateEvent["ev_data"]> = {
-        enterprise_value_m: evAmount,
-        ...(typeof evObj?.ev_band === "string" && evObj.ev_band.trim().length > 0
-          ? { ev_band: evObj.ev_band }
-          : {}),
-        ...(evCurrency
-          ? {
-              _currency: { Currency: evCurrency },
-              currency: { Currency: evCurrency },
-            }
-          : {}),
-      };
-
-      const event: NewCorporateEvent = {
-        id: tx.id,
-        description: tx.description,
-        announcement_date: tx.announcement_date,
-        deal_type: tx.deal_type,
-        targets,
-        other_counterparties: otherCounterparties,
-        investment_data: {
-          investment_amount_m: investmentAmount,
-          currency: amountCurrency ?? null,
-          Funding_stage:
-            (investmentObj?.Funding_stage ??
-              investmentObj?.funding_stage ??
-              undefined) ||
-            undefined,
-          currency_id:
-            investmentObj?.currency_id == null
-              ? undefined
-              : investmentObj?.currency_id,
-          investment_amount_url: null,
-        },
-        ev_data: evData,
-        ev_display: null,
-        advisors: [],
-        advisors_names: [],
-      };
-      return event;
-    });
-  })();
-
   // Process location
   const location = company._locations;
   const fullAddress = [
@@ -2352,12 +1990,24 @@ const CompanyDetail = () => {
       company.have_subsidiaries_companies.Subsidiaries_companies.length > 0
   );
 
-  // Determine if there is management data to display
-  const hasManagement = Boolean(
-    (company.Managmant_Roles_current &&
-      company.Managmant_Roles_current.length > 0) ||
-      (company.Managmant_Roles_past && company.Managmant_Roles_past.length > 0)
+  // Parent Company is shown when we have parent data and first parent is NOT Financial Services (74)
+  const haveParentCompany = Boolean(
+    company.have_parent_company?.have_parent_companies &&
+      Array.isArray(company.have_parent_company?.Parant_companies) &&
+      company.have_parent_company.Parant_companies.length > 0 &&
+      !extractPrimaryBusinessFocusIds(
+        company.have_parent_company.Parant_companies[0]?.primary_business_focus_id
+      ).includes(FINANCIAL_SERVICES_FOCUS_ID)
   );
+
+  // Determine if there is management data to display
+  const hasCurrentManagement = Boolean(
+    company.Managmant_Roles_current && company.Managmant_Roles_current.length > 0
+  );
+  const hasPastManagement = Boolean(
+    company.Managmant_Roles_past && company.Managmant_Roles_past.length > 0
+  );
+  const hasManagement = hasCurrentManagement || hasPastManagement;
 
   // Market Overview removed: no TradingView symbols computation
 
@@ -2368,6 +2018,59 @@ const CompanyDetail = () => {
           (v) => typeof v === "string" && v.trim().length > 0
         ).join(", ")
       : null;
+
+  const productTypeRows = parseStructuredArray<CompanyProductTypeItem>(
+    company.Product_Type
+  )
+    .map((item) => ({
+      label: String(item?.Product_Type || "").trim(),
+      // If percentage is missing, leave the cell empty instead of showing "Not available"
+      value:
+        getNumeric(item?.pc_of_revenues) !== undefined
+          ? `${Math.round(getNumeric(item?.pc_of_revenues) || 0)}%`
+          : "",
+    }))
+    .filter((item) => item.label);
+
+  const dataCollectionMethodRows =
+    parseStructuredArray<CompanyDataCollectionMethodItem>(
+      company.Data_Collection_Method
+    )
+      .map((item) => ({
+        label: String(item?.Data_Collection_Method || "").trim(),
+        value: String(item?.Predominance || "").trim(),
+      }))
+      .filter((item) => item.label);
+
+  const revenueModelRows = parseStructuredArray<CompanyRevenueModelItem>(
+    company.Revenue_Model_ ??
+      (company as { Revenue_Model?: CompanyRevenueModelItem[] | string })
+        .Revenue_Model
+  )
+    .map((item) => ({
+      label: String(item?.Revenue_Model_ || "").trim(),
+      // Leave cell empty when predominance is missing (no "Not available")
+      value: String(item?.Predominance || "").trim(),
+    }))
+    .filter((item) => item.label);
+
+  const companyAttributeSections = [
+    {
+      title: "Product Type",
+      valueHeader: "% of revenue",
+      rows: productTypeRows,
+    },
+    {
+      title: "Data Collection Method",
+      valueHeader: "Predominance",
+      rows: dataCollectionMethodRows,
+    },
+    {
+      title: "Revenue Model",
+      valueHeader: "Predominance",
+      rows: revenueModelRows,
+    },
+  ].filter((section) => section.rows.length > 0);
 
   const styles = {
     container: {
@@ -2381,7 +2084,7 @@ const CompanyDetail = () => {
     maxWidth: {
       width: "100%",
       maxWidth: "100%",
-      padding: "32px",
+      padding: "24px",
       flex: "1",
       display: "flex",
       flexDirection: "column" as const,
@@ -2443,7 +2146,7 @@ const CompanyDetail = () => {
     card: {
       backgroundColor: "white",
       borderRadius: "12px",
-      padding: "32px 24px",
+      padding: "24px 20px",
       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
       // Important for CSS grid: allow cards to shrink so inner overflow containers can scroll
       minWidth: 0,
@@ -2457,7 +2160,7 @@ const CompanyDetail = () => {
     },
     infoRow: {
       display: "grid",
-      gridTemplateColumns: "minmax(180px, 220px) 1fr",
+      gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
       columnGap: "4px",
       alignItems: "center",
       padding: "10px 0",
@@ -2485,6 +2188,13 @@ const CompanyDetail = () => {
       marginLeft: "0",
       wordBreak: "break-word" as const,
       overflowWrap: "break-word" as const,
+    },
+    sourceValue: {
+      fontSize: "12px",
+      color: "#9ca3af",
+      textAlign: "right" as const,
+      whiteSpace: "nowrap" as const,
+      paddingLeft: "8px",
     },
     link: {
       color: "#0075df",
@@ -2587,7 +2297,7 @@ const CompanyDetail = () => {
         gap: "6px",
       },
       maxWidth: {
-        padding: "16px",
+        padding: "16px 4px",
       },
       card: {
         padding: "14px 12px",
@@ -2677,6 +2387,9 @@ const CompanyDetail = () => {
     .responsiveGrid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 24px; max-width: 100%; }
     .responsiveGrid > * { min-width: 0; }
     .card { background: white; border-radius: 12px; min-width: 0; }
+    /* Give Overview right column more room on desktop */
+    .overview-card .info-row { grid-template-columns: minmax(140px, 170px) 1fr auto !important; }
+    .overview-card .info-label { width: 170px !important; }
     /* Hover tooltips for metric values using title attribute */
     .desktop-financial-metrics span[title],
     .mobile-financial-metrics span[title] {
@@ -2712,8 +2425,22 @@ const CompanyDetail = () => {
       pointer-events: none;
     }
     /* Tighter rows inside Financial Metrics */
-    .desktop-financial-metrics .info-row { padding: 6px 0 !important; }
-    .mobile-financial-metrics .info-row { padding: 6px 0 !important; }
+    .desktop-financial-metrics .info-row {
+      padding: 6px 0 !important;
+      grid-template-columns: minmax(150px, 170px) minmax(0, 1fr) auto !important;
+      column-gap: 12px !important;
+    }
+    .desktop-financial-metrics .info-row > :nth-child(2) {
+      min-width: 0;
+    }
+    .mobile-financial-metrics .info-row {
+      padding: 6px 0 !important;
+      grid-template-columns: minmax(150px, 170px) minmax(0, 1fr) auto !important;
+      column-gap: 12px !important;
+    }
+    .mobile-financial-metrics .info-row > :nth-child(2) {
+      min-width: 0;
+    }
     /* Corporate Events styles (mirrors corporate-events list page) */
     .corporate-event-table { width: 100%; background: #fff; padding: 20px 24px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
     .corporate-event-table th, .corporate-event-table td { padding: 12px; text-align: left; vertical-align: top; border-bottom: 1px solid #e2e8f0; word-wrap: break-word; overflow-wrap: break-word; font-size: 14px; }
@@ -2740,6 +2467,7 @@ const CompanyDetail = () => {
       gap: 16px;
     }
     @media (max-width: 768px) {
+      .company-detail-content { padding: 16px 0 !important; }
       .insights-grid {
         grid-template-columns: 1fr !important;
         gap: 12px !important;
@@ -2749,10 +2477,13 @@ const CompanyDetail = () => {
       .mobile-financial-metrics { display: block !important; }
       .desktop-linkedin-section { display: none !important; }
       .management-grid { grid-template-columns: 1fr !important; }
-      .overview-card { padding: 12px 12px !important; }
       .overview-card .info-row { padding: 8px 0 !important; display: block !important; }
       .overview-card .info-label { font-size: 12px !important; color: #718096 !important; margin-bottom: 2px !important; }
       .overview-card .info-value { font-size: 13px !important; line-height: 1.35 !important; display: block !important; margin-left: 0 !important; word-break: break-word !important; overflow-wrap: break-word !important; }
+      .overview-card { padding: 14px 8px !important; }
+      .overview-grid { grid-template-columns: 1fr !important; }
+      .overview-description { order: 2; margin-top: 16px !important; }
+      .overview-fields { order: 1; }
     }
   `;
 
@@ -2760,89 +2491,104 @@ const CompanyDetail = () => {
     <div className="company-detail-page" style={styles.container}>
       <Header />
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <div style={styles.maxWidth}>
-          {/* Header */}
-          <div style={styles.header}>
-            <div style={styles.headerLeft}>
-              <CompanyLogo
-                logo={company._linkedin_data_of_new_company?.linkedin_logo}
-                name={company.name}
-              />
-              <div>
-                <h1 style={styles.companyName}>{company.name}</h1>
-                {transactionStatusBadge && (
-                  <div style={{ marginTop: "6px" }}>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        backgroundColor: "#dcfce7",
-                        color: "#166534",
-                        border: "1.5px solid #4ade80",
-                        borderRadius: "999px",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        padding: "3px 10px",
-                        letterSpacing: "0.01em",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {transactionStatusBadge.status}
-                    </span>
-                  </div>
-                )}
-                {formerNameDisplay && (
-                  <div style={styles.formerName}>
-                    (Formerly {formerNameDisplay})
-                  </div>
-                )}
-              </div>
-            </div>
-            <div style={styles.headerRight}>
-              {company?.id != null && Number.isFinite(company.id) && (
-                <FollowButton
-                  followKey="followed_companies"
-                  entityId={company.id}
-                  label="Company"
-                  style={styles.reportButton}
-                />
-              )}
-              <button
-                onClick={handleExportPdf}
-                disabled={exportingPdf || !company?.id}
-                style={{
-                  ...styles.reportButton,
-                  backgroundColor: exportingPdf ? "#9ca3af" : "#0075df",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  cursor:
-                    exportingPdf || !company?.id ? "not-allowed" : "pointer",
-                }}
-              >
-                {exportingPdf ? "Exporting..." : "Export PDF"}
-              </button>
-              <a
-                style={{
-                  ...styles.reportButton,
-                  display: "inline-flex",
-                  alignItems: "center",
-                }}
-                href="mailto:asymmetrix@asymmetrixintelligence.com?subject=Report%20Incorrect%20Company%20Data&body=Please%20describe%20the%20issue%20you%20found."
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Contribute Data
-              </a>
-            </div>
-          </div>
-
+        <div className="company-detail-content" style={styles.maxWidth}>
           {/* Desktop grid */}
           <div style={styles.responsiveGrid} className="responsiveGrid">
             {/* Overview card */}
             <div style={styles.card} className="card overview-card">
-              <h2 style={styles.sectionTitle}>Overview</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }} className="overview-grid">
+              {/* Company header moved into Overview */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "16px",
+                  paddingBottom: "16px",
+                  marginBottom: "16px",
+                  borderBottom: "1px solid #e2e8f0",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "16px",
+                    minWidth: 0,
+                  }}
+                >
+                  <CompanyLogo
+                    logo={company._linkedin_data_of_new_company?.linkedin_logo}
+                    name={company.name}
+                  />
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: "22px",
+                        fontWeight: 700,
+                        color: "#1a202c",
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {company.name}
+                    </div>
+                    {formerNameDisplay && (
+                      <div style={{ ...styles.formerName, marginTop: "4px" }}>
+                        (Formerly {formerNameDisplay})
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    onClick={handleExportPdf}
+                    disabled={exportingPdf || !company?.id}
+                    style={{
+                      ...styles.reportButton,
+                      backgroundColor: exportingPdf ? "#9ca3af" : "#0075df",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      cursor:
+                        exportingPdf || !company?.id
+                          ? "not-allowed"
+                          : "pointer",
+                    }}
+                  >
+                    {exportingPdf ? "Exporting..." : "Export PDF"}
+                  </button>
+                  <a
+                    style={{
+                      ...styles.reportButton,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      backgroundColor: "#38a169",
+                    }}
+                    href="mailto:asymmetrix@asymmetrixintelligence.com?subject=Report%20Incorrect%20Company%20Data&body=Please%20describe%20the%20issue%20you%20found."
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Contribute Data
+                  </a>
+                </div>
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 0.85fr) minmax(0, 1.15fr)",
+                  gap: "24px",
+                }}
+                className="overview-grid"
+              >
                 {/* Left column: Basic fields */}
-                <div>
+                <div className="overview-fields">
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
                   Primary Sector(s):
@@ -3024,16 +2770,7 @@ const CompanyDetail = () => {
                   {company.Lifecycle_stage?.Lifecycle_Stage || "Not available"}
                 </span>
               </div>
-              {company.have_parent_company?.have_parent_companies &&
-              Array.isArray(
-                company.have_parent_company?.Parant_companies
-              ) &&
-              company.have_parent_company!.Parant_companies!.length > 0 &&
-              // If first parent company's primary_business_focus_id is NOT Financial Services (74), show as Parent Company
-              !extractPrimaryBusinessFocusIds(
-                company.have_parent_company!.Parant_companies![0]
-                  ?.primary_business_focus_id
-              ).includes(FINANCIAL_SERVICES_FOCUS_ID) && (
+              {haveParentCompany && (
                 <div style={styles.infoRow} className="info-row">
                   <span style={styles.label} className="info-label">
                     Parent Company:
@@ -3068,149 +2805,52 @@ const CompanyDetail = () => {
                   </div>
                 </div>
               )}
-              <div style={styles.infoRow} className="info-row">
-                <span style={styles.label} className="info-label">
-                  Investors:
-                </span>
-                <div style={styles.value} className="info-value">
-                  {(() => {
-                    // Prefer investors from Company._companies_investors (canonical for company page)
-                    if (
-                      Array.isArray(company._companies_investors) &&
-                      company._companies_investors.length > 0
-                    ) {
-                      const list = company._companies_investors
-                        .filter(
-                          (inv) =>
-                            inv &&
-                            typeof inv.original_new_company_id === "number" &&
-                            inv.company_name
-                        )
-                        .map((inv) => ({
-                          id: inv.original_new_company_id,
-                          name: inv.company_name,
-                        }));
-
-                      if (list.length > 0) {
-                        return (
-                          <div style={styles.tagContainer}>
-                            {list.map((inv) => (
-                              <Link
-                                key={`company-investor-${inv.id}`}
-                                href={`/investors/${inv.id}`}
-                                style={styles.companyTag}
-                                onMouseEnter={(e) => {
-                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
-                                }}
-                                onMouseLeave={(e) => {
-                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
-                                }}
-                                prefetch={false}
-                              >
-                                {inv.name}
-                              </Link>
-                            ))}
-                          </div>
-                        );
+              {/* Investors — hide if parent company exists */}
+              {!haveParentCompany && (
+                <div style={styles.infoRow} className="info-row">
+                  <span style={styles.label} className="info-label">
+                    Investors:
+                  </span>
+                  <div style={styles.value} className="info-value">
+                    {(() => {
+                      if (apiInvestorsLoading) {
+                        return "Loading...";
                       }
-                    }
-
-                    // Prefer investors from investors_data if available
-                    if (parsedInvestorsData?.current && parsedInvestorsData.current.length > 0) {
-                      const validInvestors = parsedInvestorsData.current.filter(
-                        (investor) =>
-                          investor &&
-                          typeof investor.investor_id === "number" &&
-                          investor.name
-                      );
-                      if (validInvestors.length > 0) {
-                        return (
-                          <div style={styles.tagContainer}>
-                            {validInvestors.map((investor) => (
-                              <Link
-                                key={`investor-${investor.investor_id}`}
-                                href={`/investors/${investor.investor_id}`}
-                                style={styles.companyTag}
-                                onMouseEnter={(e) => {
-                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
-                                }}
-                                onMouseLeave={(e) => {
-                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
-                                }}
-                                prefetch={false}
-                              >
-                                {investor.name}
-                              </Link>
-                            ))}
-                          </div>
+                      if (apiInvestors.length > 0) {
+                        const validApiInvestors = apiInvestors.filter(
+                          (investor) =>
+                            investor &&
+                            typeof investor.investor_id === "number" &&
+                            investor.investor_name
                         );
+                        if (validApiInvestors.length > 0) {
+                          return (
+                            <div style={styles.tagContainer}>
+                              {validApiInvestors.map((investor) => (
+                                <Link
+                                  key={`api-investor-${investor.investor_id}`}
+                                  href={`/investors/${investor.investor_id}`}
+                                  style={styles.companyTag}
+                                  onMouseEnter={(e) => {
+                                    (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
+                                  }}
+                                  prefetch={false}
+                                >
+                                  {investor.investor_name}
+                                </Link>
+                              ))}
+                            </div>
+                          );
+                        }
                       }
-                    }
-                    // Fallback to API investors
-                    if (apiInvestorsLoading) {
-                      return "Loading...";
-                    }
-                    if (apiInvestors.length > 0) {
-                      const validApiInvestors = apiInvestors.filter(
-                        (investor) =>
-                          investor &&
-                          typeof investor.investor_id === "number" &&
-                          investor.investor_name
-                      );
-                      if (validApiInvestors.length > 0) {
-                        return (
-                          <div style={styles.tagContainer}>
-                            {validApiInvestors.map((investor) => (
-                              <Link
-                                key={`api-investor-${investor.investor_id}`}
-                                href={`/investors/${investor.investor_id}`}
-                                style={styles.companyTag}
-                                onMouseEnter={(e) => {
-                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
-                                }}
-                                onMouseLeave={(e) => {
-                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
-                                }}
-                                prefetch={false}
-                              >
-                                {investor.investor_name}
-                              </Link>
-                            ))}
-                          </div>
-                        );
-                      }
-                    }
-                    return "Not available";
-                  })()}
-                </div>
-              </div>
-                </div>
-                {/* Right column: Description */}
-                <div style={{ 
-                  padding: '16px', 
-                  backgroundColor: '#f9fafb', 
-                  borderRadius: '8px',
-                  border: '1px solid #e2e8f0'
-                }}>
-                  <h3 style={{ 
-                    fontSize: '14px', 
-                    fontWeight: '600', 
-                    color: '#4a5568',
-                    marginBottom: '12px',
-                    marginTop: '0'
-                  }}>
-                    Description:
-                  </h3>
-                  <div style={{ 
-                    fontSize: '14px', 
-                    color: '#1a202c', 
-                    lineHeight: '1.6' 
-                  }}>
-                    {company.description || "No description available"}
+                      return "Not available";
+                    })()}
                   </div>
                 </div>
-              </div>
-              {/* Management moved into Overview */}
+              )}
               {hasManagement && (
                 <div style={{ marginTop: "16px" }}>
                   <h3
@@ -3222,45 +2862,385 @@ const CompanyDetail = () => {
                   >
                     Management
                   </h3>
-                  
-                  {/* Current Management */}
-                  <div style={{ marginBottom: "20px" }}>
-                    <IndividualCards
-                      title="Current:"
-                      individuals={(company.Managmant_Roles_current || []).map(
-                        (person) => ({
-                          id: person.id,
-                          name: person.Individual_text,
-                          jobTitles: (person.job_titles_id || [])
-                            .map((job) => job?.job_title)
-                            .filter(Boolean),
-                          individualId: person.individuals_id,
-                        })
-                      )}
-                      emptyMessage="Not available"
-                    />
-                  </div>
 
-                  {/* Past Management */}
-                  <div>
-                    <IndividualCards
-                      title="Past:"
-                      individuals={(company.Managmant_Roles_past || []).map(
-                        (person) => ({
-                          id: person.id,
-                          name: person.Individual_text,
-                          jobTitles: (person.job_titles_id || [])
-                            .map((job) => job?.job_title)
-                            .filter(Boolean),
-                          individualId: person.individuals_id,
-                        })
-                      )}
-                      emptyMessage="Not available"
-                    />
-                  </div>
+                  {hasCurrentManagement && (
+                    <div style={{ marginBottom: hasPastManagement ? "20px" : 0 }}>
+                      <IndividualCards
+                        title="Current:"
+                        individuals={(company.Managmant_Roles_current || []).map(
+                          (person) => ({
+                            id: person.id,
+                            name: person.Individual_text,
+                            jobTitles: (person.job_titles_id || [])
+                              .map((job) => job?.job_title)
+                              .filter(Boolean),
+                            individualId: person.individuals_id,
+                          })
+                        )}
+                        emptyMessage="Not available"
+                      />
+                    </div>
+                  )}
+
+                  {hasPastManagement && (
+                    <div>
+                      <IndividualCards
+                        title="Past:"
+                        individuals={(company.Managmant_Roles_past || []).map(
+                          (person) => ({
+                            id: person.id,
+                            name: person.Individual_text,
+                            jobTitles: (person.job_titles_id || [])
+                              .map((job) => job?.job_title)
+                              .filter(Boolean),
+                            individualId: person.individuals_id,
+                          })
+                        )}
+                        emptyMessage="Not available"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
+                </div>
+                {/* Right column: Description + Insights */}
+                <div
+                  className="overview-description"
+                  style={{
+                    alignSelf: "start",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "16px",
+                    minWidth: 0,
+                  }}
+                >
+                  {/* Description */}
+                  <div
+                    style={{
+                      padding: "16px",
+                      backgroundColor: "#f9fafb",
+                      borderRadius: "8px",
+                      border: "1px solid #e2e8f0",
+                    }}
+                  >
+                    <div
+                      ref={descriptionRef}
+                      style={{
+                        fontSize: "14px",
+                        color: "#1a202c",
+                        lineHeight: "1.6",
+                        overflow: "hidden",
+                        transition: "max-height 0.2s ease",
+                        display: isDescriptionExpanded ? "block" : "-webkit-box",
+                        WebkitBoxOrient: "vertical",
+                        // Show more lines in the collapsed state to improve readability
+                        WebkitLineClamp: isDescriptionExpanded ? "unset" : 5,
+                      }}
+                    >
+                      {company.description || "No description available"}
+                    </div>
+                    {isDescriptionExpandable && (
+                      <button
+                        onClick={() =>
+                          setIsDescriptionExpanded((expanded) => !expanded)
+                        }
+                        style={{
+                          marginTop: "8px",
+                          padding: 0,
+                          border: "none",
+                          background: "none",
+                          color: "#0075df",
+                          fontSize: "14px",
+                          fontWeight: 500,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {isDescriptionExpanded ? "Show less" : "Expand"}
+                      </button>
+                    )}
+                  </div>
 
+                  {companyAttributeSections.length > 0 && (
+                    <div
+                      style={{
+                        padding: "16px",
+                        backgroundColor: "#f9fafb",
+                        borderRadius: "8px",
+                        border: "1px solid #e2e8f0",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "14px",
+                        }}
+                      >
+                        {companyAttributeSections.map((section) => (
+                          <div key={section.title}>
+                            <div
+                              style={{
+                                fontSize: "14px",
+                                fontWeight: 600,
+                                color: "#334155",
+                                marginBottom: "8px",
+                              }}
+                            >
+                              {section.title}
+                            </div>
+                            <div style={{ overflowX: "auto" }}>
+                              <table
+                                style={{
+                                  width: "100%",
+                                  borderCollapse: "collapse",
+                                  fontSize: "14px",
+                                }}
+                              >
+                                <tbody>
+                                  {section.rows.map((row) => (
+                                    <tr key={`${section.title}-${row.label}`}>
+                                      <td
+                                        style={{
+                                          padding: "7px 0",
+                                          borderBottom: "1px solid #f1f5f9",
+                                          color: "#1e293b",
+                                        }}
+                                      >
+                                        {row.label}
+                                      </td>
+                                      <td
+                                        style={{
+                                          padding: "7px 0",
+                                          borderBottom: "1px solid #f1f5f9",
+                                          textAlign: "right",
+                                          color: "#475569",
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        {row.value}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Insights & Analysis (scrollable card) */}
+                  {(articlesLoading || companyArticles.length > 0) && (
+                    <div
+                      className="bg-white rounded-xl border shadow-lg border-slate-200/60 flex flex-col overflow-hidden"
+                      style={{
+                        height:
+                          articlesLoading || companyArticles.length >= 4
+                            ? "535px"
+                            : "auto",
+                      }}
+                    >
+                      <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
+                        <div className="flex justify-between items-center">
+                          <div className="flex gap-3 items-center min-w-0">
+                            <span className="inline-flex justify-center items-center w-8 h-8 bg-blue-50 rounded-lg flex-shrink-0">
+                              <svg
+                                className="w-4 h-4 text-blue-600"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
+                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                              </svg>
+                            </span>
+                            <span className="font-semibold text-slate-900 truncate">
+                              Recent Insights &amp; Analysis
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div
+                        className="px-5 py-4 overflow-hidden"
+                        style={{
+                          flex:
+                            articlesLoading || companyArticles.length >= 4
+                              ? "1 1 0"
+                              : "0 0 auto",
+                          minHeight: 0,
+                        }}
+                      >
+                        {articlesLoading ? (
+                          <div className="space-y-3 animate-pulse">
+                            {[1, 2, 3].map((i) => (
+                              <div
+                                key={i}
+                                className="space-y-1.5 pb-3 border-b border-slate-100 last:border-0"
+                              >
+                                <div className="h-3.5 bg-slate-200 rounded w-1/4"></div>
+                                <div className="h-4 bg-slate-200 rounded w-5/6"></div>
+                                <div className="h-3 bg-slate-200 rounded w-full"></div>
+                                <div className="h-3 bg-slate-200 rounded w-4/5"></div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : companyArticles.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center h-full text-center">
+                            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                              <svg
+                                className="w-6 h-6 text-slate-400"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                                />
+                              </svg>
+                            </div>
+                            <p className="text-slate-500 text-sm">
+                              No insights available for this company yet
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-slate-100 overflow-y-auto overflow-x-hidden h-full">
+                            {companyArticles.map((article) => {
+                                const contentType = (article.Content_Type || "")
+                                  .toLowerCase()
+                                  .trim();
+                                const pinnedRaw = (
+                                  article as unknown as { pinned?: unknown }
+                                )?.pinned;
+                                const isPinned =
+                                  pinnedRaw === true ||
+                                  pinnedRaw === 1 ||
+                                  String(pinnedRaw ?? "")
+                                    .trim()
+                                    .toLowerCase() === "yes" ||
+                                  String(pinnedRaw ?? "")
+                                    .trim()
+                                    .toLowerCase() === "true";
+                                const badgeStyle =
+                                  contentType === "company analysis"
+                                    ? {
+                                        background: "#ecfdf5",
+                                        color: "#065f46",
+                                        border: "1px solid #a7f3d0",
+                                      }
+                                    : contentType === "deal analysis"
+                                    ? {
+                                        background: "#eff6ff",
+                                        color: "#1e40af",
+                                        border: "1px solid #bfdbfe",
+                                      }
+                                    : contentType === "sector analysis"
+                                    ? {
+                                        background: "#f5f3ff",
+                                        color: "#5b21b6",
+                                        border: "1px solid #ddd6fe",
+                                      }
+                                    : contentType === "hot take"
+                                    ? {
+                                        background: "#fff7ed",
+                                        color: "#9a3412",
+                                        border: "1px solid #fed7aa",
+                                      }
+                                    : contentType === "executive interview"
+                                    ? {
+                                        background: "#f0fdf4",
+                                        color: "#166534",
+                                        border: "1px solid #bbf7d0",
+                                      }
+                                    : {
+                                        background: "#f8fafc",
+                                        color: "#475569",
+                                        border: "1px solid #e2e8f0",
+                                      };
+
+                                const dateLabel = (() => {
+                                  if (!article.Publication_Date) return "";
+                                  try {
+                                    return new Date(
+                                      article.Publication_Date
+                                    ).toLocaleDateString("en-US", {
+                                      year: "numeric",
+                                      month: "long",
+                                      day: "numeric",
+                                    });
+                                  } catch {
+                                    return "";
+                                  }
+                                })();
+
+                                return (
+                                  <a
+                                    key={article.id}
+                                    href={`/article/${article.id}`}
+                                    className="block py-3 first:pt-0 group hover:bg-slate-50/50 -mx-5 px-5 transition-colors duration-150"
+                                  >
+                                    <div className="flex items-center gap-2 mb-1">
+                                      {article.Content_Type && (
+                                        <span
+                                          className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full leading-none flex-shrink-0"
+                                          style={badgeStyle}
+                                        >
+                                          {article.Content_Type}
+                                        </span>
+                                      )}
+                                      {isPinned && (
+                                        <span
+                                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full leading-none flex-shrink-0"
+                                          style={{
+                                            background: "#fff7ed",
+                                            color: "#9a3412",
+                                            border: "1px solid #fed7aa",
+                                          }}
+                                          title="Pinned"
+                                        >
+                                          <svg
+                                            width="12"
+                                            height="12"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            aria-hidden="true"
+                                          >
+                                            <path
+                                              d="M14 3L21 10L19 12L16 9L10 15V18L8 20V15L3 10L5 8H8L14 3Z"
+                                              fill="currentColor"
+                                            />
+                                          </svg>
+                                          Pinned
+                                        </span>
+                                      )}
+                                      {dateLabel && (
+                                        <span className="text-xs text-slate-400 flex-shrink-0">
+                                          {dateLabel}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <h3 className="text-sm font-semibold text-slate-900 leading-snug mb-1 group-hover:text-blue-700 transition-colors line-clamp-1">
+                                      {article.Headline || "Untitled"}
+                                    </h3>
+                                    {article.Strapline && (
+                                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
+                                        {article.Strapline}
+                                      </p>
+                                    )}
+                                  </a>
+                                );
+                              })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
               {/* Corporate Events moved into Overview */}
               <CorporateEventsSection
                 events={corporateEvents}
@@ -3818,7 +3798,7 @@ const CompanyDetail = () => {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "minmax(180px, 220px) 1fr",
+                    gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
                     marginTop: "-12px",
                     marginBottom: "4px",
                     fontSize: "13px",
@@ -3830,148 +3810,96 @@ const CompanyDetail = () => {
                   <span style={{ textAlign: "left" }}>
                     {financialMetricsPeriodDisplay}
                   </span>
+                  <span style={{ ...styles.sourceValue, fontSize: "11px" }}>
+                    Source
+                  </span>
                 </div>
               )}
               {!hasIncomeStatementData && (
                 <div style={styles.infoRow}>
                   <span style={styles.label}>Revenue (m):</span>
-                  <span
-                    style={styles.value}
-                    title={
-                      effectiveSourceLabel(
-                        financialMetrics?.Revenue_source_label,
-                        financialMetrics?.Rev_source
-                      )
-                        ? `Source: ${effectiveSourceLabel(
-                            financialMetrics?.Revenue_source_label,
-                            financialMetrics?.Rev_source
-                          )}`
-                        : undefined
-                    }
-                  >
-                    {revenuePlain}
+                  <span style={styles.value}>{revenuePlain}</span>
+                  <span style={styles.sourceValue}>
+                    {getSourceText(
+                      financialMetrics?.Revenue_source_label,
+                      financialMetrics?.Rev_source
+                    )}
                   </span>
                 </div>
               )}
               {!hasIncomeStatementData && (
                 <div style={styles.infoRow}>
                   <span style={styles.label}>EBITDA (m):</span>
-                  <span
-                    style={styles.value}
-                    title={
-                      effectiveSourceLabel(
-                        financialMetrics?.EBITDA_source_label,
-                        financialMetrics?.EBITDA_source
-                      )
-                        ? `Source: ${effectiveSourceLabel(
-                            financialMetrics?.EBITDA_source_label,
-                            financialMetrics?.EBITDA_source
-                          )}`
-                        : undefined
-                    }
-                  >
-                    {ebitdaPlain}
+                  <span style={styles.value}>{ebitdaPlain}</span>
+                  <span style={styles.sourceValue}>
+                    {getSourceText(
+                      financialMetrics?.EBITDA_source_label,
+                      financialMetrics?.EBITDA_source
+                    )}
                   </span>
                 </div>
               )}
               <div style={styles.infoRow}>
                 <span style={styles.label}>Enterprise Value (m):</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.EV_source_label,
-                      financialMetrics?.EV_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.EV_source_label,
-                          financialMetrics?.EV_source
-                        )}`
-                      : undefined
-                  }
-                >
-                  {evPlain}
+                <span style={styles.value}>{evPlain}</span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EV_source_label,
+                    financialMetrics?.EV_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue multiple:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Revenue_multiple_source_label,
-                      financialMetrics?.Rev_x_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Revenue_multiple_source_label,
-                          financialMetrics?.Rev_x_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatMultiple(financialMetrics?.Revenue_multiple)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Revenue_multiple_source_label,
+                    financialMetrics?.Rev_x_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue Growth:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Rev_growth_source_label,
-                      financialMetrics?.Rev_Growth_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Rev_growth_source_label,
-                          financialMetrics?.Rev_Growth_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Rev_Growth_PC)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_growth_source_label,
+                    financialMetrics?.Rev_Growth_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>EBITDA margin:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.EBITDA_margin_source_label,
-                      financialMetrics?.EBITDA_margin_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.EBITDA_margin_source_label,
-                          financialMetrics?.EBITDA_margin_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.EBITDA_margin)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EBITDA_margin_source_label,
+                    financialMetrics?.EBITDA_margin_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Rule of 40:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Rule_of_40_source_label,
-                      financialMetrics?.Rule_of_40_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Rule_of_40_source_label,
-                          financialMetrics?.Rule_of_40_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {(() => {
                     const n = getNumeric(financialMetrics?.Rule_of_40);
                     return n !== undefined
                       ? Math.round(n).toLocaleString()
                       : "Not available";
                   })()}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rule_of_40_source_label,
+                    financialMetrics?.Rule_of_40_source
+                  )}
                 </span>
               </div>
               {hasIncomeStatementData && (
@@ -4099,192 +4027,122 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Recurring Revenue:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.ARR_source_label,
-                      financialMetrics?.ARR_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.ARR_source_label,
-                          financialMetrics?.ARR_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.ARR_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>ARR (m):</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.ARR_source_label,
-                      financialMetrics?.ARR_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.ARR_source_label,
-                          financialMetrics?.ARR_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPlainNumber(financialMetrics?.ARR_m)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Churn:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Churn_source_label,
-                      financialMetrics?.Churn_Source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Churn_source_label,
-                          financialMetrics?.Churn_Source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Churn_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Churn_source_label,
+                    financialMetrics?.Churn_Source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>GRR:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.GRR_source_label,
-                      financialMetrics?.GRR_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.GRR_source_label,
-                          financialMetrics?.GRR_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.GRR_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.GRR_source_label,
+                    financialMetrics?.GRR_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Upsell:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Upsell_source_label,
-                      financialMetrics?.Upsell_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Upsell_source_label,
-                          financialMetrics?.Upsell_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Upsell_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Upsell_source_label,
+                    financialMetrics?.Upsell_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Cross-sell:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Cross_sell_source_label,
-                      financialMetrics?.Cross_sell_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Cross_sell_source_label,
-                          financialMetrics?.Cross_sell_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Cross_sell_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Cross_sell_source_label,
+                    financialMetrics?.Cross_sell_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Price increase:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Price_increase_source_label,
-                      financialMetrics?.Price_increase_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Price_increase_source_label,
-                          financialMetrics?.Price_increase_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Price_increase_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Price_increase_source_label,
+                    financialMetrics?.Price_increase_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue expansion:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Rev_expansion_source_label,
-                      financialMetrics?.Rev_expansion_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Rev_expansion_source_label,
-                          financialMetrics?.Rev_expansion_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Rev_expansion_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_expansion_source_label,
+                    financialMetrics?.Rev_expansion_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>NRR:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.NRR_source_label,
-                      financialMetrics?.NRR_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.NRR_source_label,
-                          financialMetrics?.NRR_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.NRR)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.NRR_source_label,
+                    financialMetrics?.NRR_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>New clients revenue growth:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.New_client_growth_source_label,
-                      financialMetrics?.New_Client_Growth_Source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.New_client_growth_source_label,
-                          financialMetrics?.New_Client_Growth_Source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.New_client_growth_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.New_client_growth_source_label,
+                    financialMetrics?.New_Client_Growth_Source
+                  )}
                 </span>
               </div>
 
@@ -4296,135 +4154,72 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>EBIT (m):</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.EBIT_source_label,
-                      financialMetrics?.EBIT_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.EBIT_source_label,
-                          financialMetrics?.EBIT_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPlainNumber(financialMetrics?.EBIT_m)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EBIT_source_label,
+                    financialMetrics?.EBIT_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Number of clients:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.No_of_Clients_source_label,
-                      financialMetrics?.No_Clients_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.No_of_Clients_source_label,
-                          financialMetrics?.No_Clients_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {typeof financialMetrics?.No_of_Clients === "number"
                     ? financialMetrics.No_of_Clients.toLocaleString()
                     : "Not available"}
                 </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.No_of_Clients_source_label,
+                    financialMetrics?.No_Clients_source
+                  )}
+                </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per client:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Rev_per_client_source_label,
-                      financialMetrics?.Rev_per_client_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Rev_per_client_source_label,
-                          financialMetrics?.Rev_per_client_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatWholeNumber(financialMetrics?.Rev_per_client)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_per_client_source_label,
+                    financialMetrics?.Rev_per_client_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Number of employees:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.No_Employees_source_label,
-                      financialMetrics?.No_Employees_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.No_Employees_source_label,
-                          financialMetrics?.No_Employees_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {typeof financialMetrics?.No_Employees === "number"
                     ? financialMetrics.No_Employees.toLocaleString()
                     : formatNumber(currentEmployeeCount)}
                 </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.No_Employees_source_label,
+                    financialMetrics?.No_Employees_source
+                  )}
+                </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per employee:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Revenue_per_employee_source_label,
-                      financialMetrics?.Rev_per_employee_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Revenue_per_employee_source_label,
-                          financialMetrics?.Rev_per_employee_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatWholeNumber(financialMetrics?.Revenue_per_employee)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Revenue_per_employee_source_label,
+                    financialMetrics?.Rev_per_employee_source
+                  )}
                 </span>
               </div>
               <div style={styles.chartContainer} className="chartContainer">
                 <div style={styles.chartTitle}>LinkedIn Employee Count</div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "baseline",
-                    gap: "16px",
-                    marginBottom: "16px",
-                  }}
-                >
-                  <div style={styles.currentCount}>
-                    {formatNumber(currentEmployeeCount)} employees
-                  </div>
-                  {(company.linkedin_growth_1y_pct != null ||
-                    company.linkedin_data?.linkedin_growth_1y_pct != null) && (
-                    <div
-                      style={{
-                        fontSize: "14px",
-                        color: "#4a5568",
-                        fontWeight: 500,
-                      }}
-                    >
-                      LinkedIn Growth (1 Year):{" "}
-                      <span style={{ color: "#1a202c", fontWeight: 600 }}>
-                        {formatGrowthPercent(
-                          company.linkedin_growth_1y_pct ??
-                            company.linkedin_data?.linkedin_growth_1y_pct
-                        )}
-                      </span>
-                    </div>
-                  )}
+                <div style={styles.currentCount}>
+                  {formatNumber(currentEmployeeCount)} employees
                 </div>
                 {employeeData.length > 0 ? (
                   <EmployeeChart data={employeeData} />
@@ -4490,99 +4285,6 @@ const CompanyDetail = () => {
             {/* Market Overview removed */}
           </div>
 
-          {/* Insights & Analysis - Full Width Section */}
-          {(articlesLoading || companyArticles.length > 0) && (
-            <div style={{ ...styles.card, marginTop: "24px" }}>
-              <h2 style={styles.sectionTitle}>
-                Insights & Analysis
-              </h2>
-              {articlesLoading ? (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "20px",
-                    color: "#666",
-                    fontSize: "14px",
-                  }}
-                >
-                  Loading content...
-                </div>
-              ) : companyArticles.length > 0 ? (
-                <div className="insights-grid">
-                  {[...companyArticles]
-                    .sort((a, b) => {
-                      const dateA = a.Publication_Date
-                        ? new Date(a.Publication_Date).getTime()
-                        : 0;
-                      const dateB = b.Publication_Date
-                        ? new Date(b.Publication_Date).getTime()
-                        : 0;
-                      return dateB - dateA; // Most recent first (descending)
-                    })
-                    .map((article) => {
-                      // Derive Transaction_status: find the first non-empty status
-                      // from companies_mentioned where the company is a Company_of_Focus
-                      const cofIds = new Set<number>(
-                        (article.Company_of_Focus || [])
-                          .map((v: unknown) =>
-                            typeof v === "number"
-                              ? v
-                              : typeof v === "object" && v !== null
-                              ? Number((v as { id?: unknown }).id)
-                              : Number(v)
-                          )
-                          .filter((n: number) => Number.isFinite(n) && n > 0)
-                      );
-                      const derivedStatus =
-                        article.Transaction_status ||
-                        (cofIds.size > 0
-                          ? (article.companies_mentioned || []).find(
-                              (c) => cofIds.has(c.id) && c.Transaction_status
-                            )?.Transaction_status
-                          : undefined);
-                      const enrichedArticle = derivedStatus
-                        ? { ...article, Transaction_status: derivedStatus }
-                        : article;
-                      return (
-                        <InsightsAnalysisCard
-                          key={article.id}
-                          article={enrichedArticle}
-                          showMeta={false}
-                        />
-                      );
-                    })}
-                </div>
-              ) : (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "20px",
-                    color: "#666",
-                    fontSize: "14px",
-                  }}
-                >
-                  No related content found
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Related Transactions - Full Width Section */}
-          {(relatedTransactionsLoading || relatedTransactionEvents.length > 0) && (
-            <div style={{ ...styles.card, marginTop: "24px" }}>
-              <CorporateEventsSection
-                title="Related Transactions"
-                events={relatedTransactionEvents}
-                loading={relatedTransactionsLoading}
-                showSectors={false}
-                maxInitialEvents={5}
-                truncateDescriptionLength={180}
-                hideWhenEmpty={true}
-                titleStyle={styles.sectionTitle}
-              />
-            </div>
-          )}
-
           {/* Mobile Financial Metrics */}
           <div
             style={{ display: "none", marginTop: "8px" }}
@@ -4602,7 +4304,7 @@ const CompanyDetail = () => {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "minmax(180px, 220px) 1fr",
+                    gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
                     marginTop: "-10px",
                     marginBottom: "4px",
                     fontSize: "13px",
@@ -4614,148 +4316,96 @@ const CompanyDetail = () => {
                   <span style={{ textAlign: "left" }}>
                     {financialMetricsPeriodDisplay}
                   </span>
+                  <span style={{ ...styles.sourceValue, fontSize: "11px" }}>
+                    Source
+                  </span>
                 </div>
               )}
               {!hasIncomeStatementData && (
                 <div style={styles.infoRow}>
                   <span style={styles.label}>Revenue (m):</span>
-                  <span
-                    style={styles.value}
-                    title={
-                      effectiveSourceLabel(
-                        financialMetrics?.Revenue_source_label,
-                        financialMetrics?.Rev_source
-                      )
-                        ? `Source: ${effectiveSourceLabel(
-                            financialMetrics?.Revenue_source_label,
-                            financialMetrics?.Rev_source
-                          )}`
-                        : undefined
-                    }
-                  >
-                    {revenuePlain}
+                  <span style={styles.value}>{revenuePlain}</span>
+                  <span style={styles.sourceValue}>
+                    {getSourceText(
+                      financialMetrics?.Revenue_source_label,
+                      financialMetrics?.Rev_source
+                    )}
                   </span>
                 </div>
               )}
               {!hasIncomeStatementData && (
                 <div style={styles.infoRow}>
                   <span style={styles.label}>EBITDA (m):</span>
-                  <span
-                    style={styles.value}
-                    title={
-                      effectiveSourceLabel(
-                        financialMetrics?.EBITDA_source_label,
-                        financialMetrics?.EBITDA_source
-                      )
-                        ? `Source: ${effectiveSourceLabel(
-                            financialMetrics?.EBITDA_source_label,
-                            financialMetrics?.EBITDA_source
-                          )}`
-                        : undefined
-                    }
-                  >
-                    {ebitdaPlain}
+                  <span style={styles.value}>{ebitdaPlain}</span>
+                  <span style={styles.sourceValue}>
+                    {getSourceText(
+                      financialMetrics?.EBITDA_source_label,
+                      financialMetrics?.EBITDA_source
+                    )}
                   </span>
                 </div>
               )}
               <div style={styles.infoRow}>
                 <span style={styles.label}>Enterprise Value (m):</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.EV_source_label,
-                      financialMetrics?.EV_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.EV_source_label,
-                          financialMetrics?.EV_source
-                        )}`
-                      : undefined
-                  }
-                >
-                  {evPlain}
+                <span style={styles.value}>{evPlain}</span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EV_source_label,
+                    financialMetrics?.EV_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue multiple:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Revenue_multiple_source_label,
-                      financialMetrics?.Rev_x_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Revenue_multiple_source_label,
-                          financialMetrics?.Rev_x_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatMultiple(financialMetrics?.Revenue_multiple)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Revenue_multiple_source_label,
+                    financialMetrics?.Rev_x_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue Growth:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Rev_growth_source_label,
-                      financialMetrics?.Rev_Growth_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Rev_growth_source_label,
-                          financialMetrics?.Rev_Growth_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Rev_Growth_PC)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_growth_source_label,
+                    financialMetrics?.Rev_Growth_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>EBITDA margin:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.EBITDA_margin_source_label,
-                      financialMetrics?.EBITDA_margin_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.EBITDA_margin_source_label,
-                          financialMetrics?.EBITDA_margin_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.EBITDA_margin)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EBITDA_margin_source_label,
+                    financialMetrics?.EBITDA_margin_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Rule of 40:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Rule_of_40_source_label,
-                      financialMetrics?.Rule_of_40_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Rule_of_40_source_label,
-                          financialMetrics?.Rule_of_40_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {(() => {
                     const n = getNumeric(financialMetrics?.Rule_of_40);
                     return n !== undefined
                       ? Math.round(n).toLocaleString()
                       : "Not available";
                   })()}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rule_of_40_source_label,
+                    financialMetrics?.Rule_of_40_source
+                  )}
                 </span>
               </div>
               {hasIncomeStatementData && (
@@ -4887,192 +4537,122 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Recurring Revenue:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.ARR_source_label,
-                      financialMetrics?.ARR_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.ARR_source_label,
-                          financialMetrics?.ARR_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.ARR_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>ARR (m):</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.ARR_source_label,
-                      financialMetrics?.ARR_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.ARR_source_label,
-                          financialMetrics?.ARR_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPlainNumber(financialMetrics?.ARR_m)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Churn:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Churn_source_label,
-                      financialMetrics?.Churn_Source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Churn_source_label,
-                          financialMetrics?.Churn_Source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Churn_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Churn_source_label,
+                    financialMetrics?.Churn_Source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>GRR:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.GRR_source_label,
-                      financialMetrics?.GRR_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.GRR_source_label,
-                          financialMetrics?.GRR_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.GRR_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.GRR_source_label,
+                    financialMetrics?.GRR_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Upsell:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Upsell_source_label,
-                      financialMetrics?.Upsell_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Upsell_source_label,
-                          financialMetrics?.Upsell_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Upsell_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Upsell_source_label,
+                    financialMetrics?.Upsell_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Cross-sell:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Cross_sell_source_label,
-                      financialMetrics?.Cross_sell_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Cross_sell_source_label,
-                          financialMetrics?.Cross_sell_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Cross_sell_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Cross_sell_source_label,
+                    financialMetrics?.Cross_sell_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Price increase:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Price_increase_source_label,
-                      financialMetrics?.Price_increase_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Price_increase_source_label,
-                          financialMetrics?.Price_increase_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Price_increase_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Price_increase_source_label,
+                    financialMetrics?.Price_increase_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue expansion:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Rev_expansion_source_label,
-                      financialMetrics?.Rev_expansion_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Rev_expansion_source_label,
-                          financialMetrics?.Rev_expansion_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Rev_expansion_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_expansion_source_label,
+                    financialMetrics?.Rev_expansion_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>NRR:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.NRR_source_label,
-                      financialMetrics?.NRR_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.NRR_source_label,
-                          financialMetrics?.NRR_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.NRR)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.NRR_source_label,
+                    financialMetrics?.NRR_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>New clients revenue growth:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.New_client_growth_source_label,
-                      financialMetrics?.New_Client_Growth_Source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.New_client_growth_source_label,
-                          financialMetrics?.New_Client_Growth_Source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.New_client_growth_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.New_client_growth_source_label,
+                    financialMetrics?.New_Client_Growth_Source
+                  )}
                 </span>
               </div>
 
@@ -5084,135 +4664,72 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>EBIT (m):</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.EBIT_source_label,
-                      financialMetrics?.EBIT_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.EBIT_source_label,
-                          financialMetrics?.EBIT_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatPlainNumber(financialMetrics?.EBIT_m)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EBIT_source_label,
+                    financialMetrics?.EBIT_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Number of clients:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.No_of_Clients_source_label,
-                      financialMetrics?.No_Clients_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.No_of_Clients_source_label,
-                          financialMetrics?.No_Clients_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {typeof financialMetrics?.No_of_Clients === "number"
                     ? financialMetrics.No_of_Clients.toLocaleString()
                     : "Not available"}
                 </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.No_of_Clients_source_label,
+                    financialMetrics?.No_Clients_source
+                  )}
+                </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per client:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Rev_per_client_source_label,
-                      financialMetrics?.Rev_per_client_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Rev_per_client_source_label,
-                          financialMetrics?.Rev_per_client_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatWholeNumber(financialMetrics?.Rev_per_client)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_per_client_source_label,
+                    financialMetrics?.Rev_per_client_source
+                  )}
                 </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Number of employees:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.No_Employees_source_label,
-                      financialMetrics?.No_Employees_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.No_Employees_source_label,
-                          financialMetrics?.No_Employees_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {typeof financialMetrics?.No_Employees === "number"
                     ? financialMetrics.No_Employees.toLocaleString()
                     : formatNumber(currentEmployeeCount)}
                 </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.No_Employees_source_label,
+                    financialMetrics?.No_Employees_source
+                  )}
+                </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per employee:</span>
-                <span
-                  style={styles.value}
-                  title={
-                    effectiveSourceLabel(
-                      financialMetrics?.Revenue_per_employee_source_label,
-                      financialMetrics?.Rev_per_employee_source
-                    )
-                      ? `Source: ${effectiveSourceLabel(
-                          financialMetrics?.Revenue_per_employee_source_label,
-                          financialMetrics?.Rev_per_employee_source
-                        )}`
-                      : undefined
-                  }
-                >
+                <span style={styles.value}>
                   {formatWholeNumber(financialMetrics?.Revenue_per_employee)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Revenue_per_employee_source_label,
+                    financialMetrics?.Rev_per_employee_source
+                  )}
                 </span>
               </div>
               <div style={styles.chartContainer}>
                 <div style={styles.chartTitle}>LinkedIn Employee Count</div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "baseline",
-                    gap: "16px",
-                    marginBottom: "16px",
-                  }}
-                >
-                  <div style={styles.currentCount}>
-                    {formatNumber(currentEmployeeCount)} employees
-                  </div>
-                  {(company.linkedin_growth_1y_pct != null ||
-                    company.linkedin_data?.linkedin_growth_1y_pct != null) && (
-                    <div
-                      style={{
-                        fontSize: "14px",
-                        color: "#4a5568",
-                        fontWeight: 500,
-                      }}
-                    >
-                      LinkedIn Growth (1 Year):{" "}
-                      <span style={{ color: "#1a202c", fontWeight: 600 }}>
-                        {formatGrowthPercent(
-                          company.linkedin_growth_1y_pct ??
-                            company.linkedin_data?.linkedin_growth_1y_pct
-                        )}
-                      </span>
-                    </div>
-                  )}
+                <div style={styles.currentCount}>
+                  {formatNumber(currentEmployeeCount)} employees
                 </div>
                 {employeeData.length > 0 ? (
                   <EmployeeChart data={employeeData} />
@@ -5246,3 +4763,6 @@ const CompanyDetail = () => {
 };
 
 export default CompanyDetail;
+
+
+//
