@@ -231,7 +231,7 @@ interface CompanyCompetitorItem {
 }
 
 interface CompanyCompetitorsResponse {
-  peers_and_competitors: CompanyCompetitorItem[];
+  peers: CompanyCompetitorItem[];
   potential_acquirers: CompanyCompetitorItem[];
   acquisition_targets: CompanyCompetitorItem[];
 }
@@ -925,7 +925,6 @@ const CompanyDetail = () => {
     useState<CompanyCompetitorsResponse | null>(null);
   const [competitorsLoading, setCompetitorsLoading] = useState(false);
   const [showCompetitorsModal, setShowCompetitorsModal] = useState(false);
-  const [isCompanyOfFocus, setIsCompanyOfFocus] = useState<boolean | null>(null);
   const [transactionStatusLabel, setTransactionStatusLabel] = useState<string>("");
   const [exportingPdf, setExportingPdf] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
@@ -1196,31 +1195,6 @@ const CompanyDetail = () => {
         Authorization: `Bearer ${token}`,
       };
 
-      const normalizeCompetitorArray = (
-        raw: unknown
-      ): CompanyCompetitorItem[] => {
-        if (Array.isArray(raw)) {
-          return raw as CompanyCompetitorItem[];
-        }
-        if (typeof raw !== "string") return [];
-        const tryParse = (text: string): unknown => {
-          const trimmed = text.trim();
-          if (!trimmed) return null;
-          try {
-            return JSON.parse(trimmed.replace(/\\u0022/g, '"'));
-          } catch {
-            return null;
-          }
-        };
-        const first = tryParse(raw);
-        if (Array.isArray(first)) return first as CompanyCompetitorItem[];
-        if (typeof first === "string") {
-          const second = tryParse(first);
-          if (Array.isArray(second)) return second as CompanyCompetitorItem[];
-        }
-        return [];
-      };
-
       const params = new URLSearchParams();
       params.append("new_company_id", String(id));
       const res = await fetch(
@@ -1231,29 +1205,22 @@ const CompanyDetail = () => {
         setCompetitors(null);
         return;
       }
-      const data = await res.json();
-      const payload = Array.isArray(data) ? data[0] : data;
-      if (payload && typeof payload === "object") {
-        const focusFlag = (payload as { is_company_of_focus?: unknown })
-          ?.is_company_of_focus;
-        setIsCompanyOfFocus(focusFlag === true);
-        setCompetitors({
-          peers_and_competitors: normalizeCompetitorArray(
-            (payload as { peers_and_competitors?: unknown })
-              .peers_and_competitors
-          ),
-          potential_acquirers: normalizeCompetitorArray(
-            (payload as { potential_acquirers?: unknown }).potential_acquirers
-          ),
-          acquisition_targets: normalizeCompetitorArray(
-            (payload as { acquisition_targets?: unknown }).acquisition_targets
-          ),
-        });
-      }
+      const data = (await res.json()) as {
+        competitors?: Partial<CompanyCompetitorsResponse>;
+      };
+      const payload = data?.competitors;
+      setCompetitors({
+        peers: Array.isArray(payload?.peers) ? payload.peers : [],
+        potential_acquirers: Array.isArray(payload?.potential_acquirers)
+          ? payload.potential_acquirers
+          : [],
+        acquisition_targets: Array.isArray(payload?.acquisition_targets)
+          ? payload.acquisition_targets
+          : [],
+      });
     } catch (err) {
       console.error("Error fetching company competitors:", err);
       setCompetitors(null);
-      setIsCompanyOfFocus(null);
     } finally {
       setCompetitorsLoading(false);
     }
@@ -3560,7 +3527,7 @@ const CompanyDetail = () => {
               {/* Competitors (table layout) */}
               {(competitorsLoading ||
                 (competitors &&
-                  (competitors.peers_and_competitors.length > 0 ||
+                  (competitors.peers.length > 0 ||
                     competitors.potential_acquirers.length > 0 ||
                     competitors.acquisition_targets.length > 0))) && (
                 <div style={{ marginBottom: "20px" }}>
@@ -3573,9 +3540,6 @@ const CompanyDetail = () => {
                     <>
                       {(() => {
                         const MAX_VISIBLE = 5;
-                        const peersTitle = isCompanyOfFocus
-                          ? "Peers & Competitors"
-                          : "Market Landscape";
                         const competitorTag = {
                           backgroundColor: "#e8f0fe",
                           color: "#1a56db",
@@ -3602,8 +3566,8 @@ const CompanyDetail = () => {
                         }[] = [
                           {
                             key: "peers",
-                            label: peersTitle,
-                            items: competitors?.peers_and_competitors || [],
+                            label: "Peers & Competitors",
+                            items: competitors?.peers || [],
                           },
                           {
                             key: "acquirers",
