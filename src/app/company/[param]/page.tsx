@@ -2478,6 +2478,20 @@ const CompanyDetail = () => {
     .responsiveGrid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 24px; max-width: 100%; }
     .responsiveGrid > * { min-width: 0; }
     .card { background: white; border-radius: 12px; min-width: 0; }
+    .transaction-status-pill {
+      display: -webkit-inline-box;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      -webkit-line-clamp: 2;
+      white-space: normal;
+      line-height: 1.15;
+      max-width: 100%;
+      text-align: center;
+    }
+    @media (max-width: 1440px) {
+      .transaction-status-pill { -webkit-line-clamp: 3; }
+    }
     /* Give Overview right column more room on desktop */
     .overview-card .info-row { grid-template-columns: minmax(140px, 170px) 1fr auto !important; }
     .overview-card .info-label { width: 170px !important; }
@@ -2683,67 +2697,55 @@ const CompanyDetail = () => {
                 }}
                 className="overview-grid"
               >
+                {transactionStatusLabel && (
+                  <div
+                    style={{
+                      ...styles.infoRow,
+                      gridColumn: "1 / -1",
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #bfdbfe",
+                      borderRadius: "12px",
+                      boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.10)",
+                      padding: "12px 16px",
+                      marginBottom: "10px",
+                      gridTemplateColumns: "minmax(140px, 190px) 1fr",
+                      columnGap: "12px",
+                    }}
+                    className="info-row"
+                  >
+                    <span style={styles.label} className="info-label">
+                      Transaction Status:
+                    </span>
+                    <div style={styles.value} className="info-value">
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "flex-start",
+                          minWidth: 0,
+                        }}
+                      >
+                      <span
+                        className="transaction-status-pill"
+                        style={{
+                          backgroundColor: "#dcfce7",
+                          color: "#166534",
+                          border: "1.5px solid #4ade80",
+                          borderRadius: "999px",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          padding: "6px 14px",
+                          letterSpacing: "0.01em",
+                        }}
+                      >
+                        {transactionStatusLabel}
+                      </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {/* Left column: Basic fields */}
                 <div className="overview-fields">
-              {transactionStatusLabel && (
-                <div
-                  style={{
-                    ...styles.infoRow,
-                    backgroundColor: "#ffffff",
-                    border: "1px solid #bfdbfe",
-                    borderRadius: "12px",
-                    boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.10)",
-                    padding: "12px 16px",
-                    marginBottom: "10px",
-                  }}
-                  className="info-row"
-                >
-                  <span style={styles.label} className="info-label">
-                    Transaction Status:
-                  </span>
-                  <div style={styles.value} className="info-value">
-                    <span
-                      style={{
-                        display: "inline-block",
-                        backgroundColor: "#dcfce7",
-                        color: "#166534",
-                        border: "1.5px solid #4ade80",
-                        borderRadius: "999px",
-                        fontSize: "12px",
-                        fontWeight: 700,
-                        padding: "3px 10px",
-                        letterSpacing: "0.01em",
-                        whiteSpace:
-                          transactionStatusLabel ===
-                          "Transaction anticipated within 18 months"
-                            ? "normal"
-                            : "nowrap",
-                        textAlign:
-                          transactionStatusLabel ===
-                          "Transaction anticipated within 18 months"
-                            ? "center"
-                            : undefined,
-                        lineHeight:
-                          transactionStatusLabel ===
-                          "Transaction anticipated within 18 months"
-                            ? 1.15
-                            : undefined,
-                      }}
-                    >
-                      {transactionStatusLabel ===
-                      "Transaction anticipated within 18 months" ? (
-                        <>
-                          Transaction anticipated
-                          <br />
-                          within 18 months
-                        </>
-                      ) : (
-                        transactionStatusLabel
-                      )}
-                    </span>
-                  </div>
-                </div>
-              )}
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
                   Primary Sector(s):
