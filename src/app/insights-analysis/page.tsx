@@ -443,6 +443,8 @@ const InsightsAnalysisPage = () => {
         );
       const ct = (filters.Content_Type || filters.content_type || "").trim();
       if (ct) params.append("content_type", ct);
+      const ts = (filters.Transaction_status || "").trim();
+      if (ts) params.append("Transaction_status", ts);
 
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
 
@@ -874,6 +876,7 @@ const InsightsAnalysisPage = () => {
                       search_query: "",
                       Content_Type: undefined,
                       content_type: undefined,
+                      Transaction_status: undefined,
                       primary_sectors_ids: [],
                       Secondary_sectors_ids: [],
                       Offset: 1,
@@ -947,6 +950,32 @@ const InsightsAnalysisPage = () => {
                           {sector.sector_name}
                         </option>
                       ))}
+                    </select>
+                  </div>
+                  <div style={styles.gridItem}>
+                    <span style={styles.label}>Transaction Status</span>
+                    <select
+                      value={filters.Transaction_status || ""}
+                      onChange={(e) => {
+                        const updated = {
+                          ...filters,
+                          Transaction_status: e.target.value || undefined,
+                          Offset: 1,
+                        };
+                        setFilters(updated);
+                        fetchInsightsAnalysis(updated);
+                      }}
+                      style={styles.select}
+                      className="filters-input"
+                    >
+                      <option value="">All Transaction Statuses</option>
+                      <option value="Rumoured in Market">
+                        Rumoured in Market
+                      </option>
+                      <option value="Transaction anticipated within 18 months">
+                        Transaction anticipated within 18 months
+                      </option>
+                      <option value="Reported in Market">Reported in Market</option>
                     </select>
                   </div>
                 </div>

@@ -56,7 +56,8 @@ function isEmptyFilters(filters: CompaniesFilters): boolean {
     hasNum(filters.nrrMin) ||
     hasNum(filters.nrrMax) ||
     hasNum(filters.newClientsRevenueGrowthMin) ||
-    hasNum(filters.newClientsRevenueGrowthMax)
+    hasNum(filters.newClientsRevenueGrowthMax) ||
+    hasStr(filters.transactionStatus)
   );
 }
 
@@ -103,6 +104,7 @@ export interface CompaniesFilters {
   nrrMax?: number | null;
   newClientsRevenueGrowthMin?: number | null;
   newClientsRevenueGrowthMax?: number | null;
+  transactionStatus?: string;
 }
 
 export interface CompanyItem {
@@ -323,6 +325,10 @@ export async function fetchCompaniesServer(
     // Keyword search (searches across descriptions)
     if (filters.keywordSearch && filters.keywordSearch.trim()) {
       params.append("keywords_search", filters.keywordSearch.trim());
+    }
+
+    if (filters.transactionStatus && filters.transactionStatus.trim()) {
+      params.append("transaction_status", filters.transactionStatus.trim());
     }
 
     const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;

@@ -141,6 +141,7 @@ interface Filters {
   nrrMax: number | null;
   newClientsRevenueGrowthMin: number | null;
   newClientsRevenueGrowthMax: number | null;
+  transactionStatus?: string;
 }
 
 // Shape returned by export API when sending JSON instead of CSV
@@ -431,6 +432,7 @@ const useCompaniesAPI = () => {
             nrrMax: filtersToUse.nrrMax,
             newClientsRevenueGrowthMin: filtersToUse.newClientsRevenueGrowthMin,
             newClientsRevenueGrowthMax: filtersToUse.newClientsRevenueGrowthMax,
+            transactionStatus: filtersToUse.transactionStatus,
           };
           return serverFiltersBase;
         })();
@@ -874,6 +876,13 @@ const CompanyDashboard = ({
   const [newClientsRevenueGrowthMin, setNewClientsRevenueGrowthMin] = useState<number | null>(null);
   const [newClientsRevenueGrowthMax, setNewClientsRevenueGrowthMax] = useState<number | null>(null);
 
+  const [selectedTransactionStatus, setSelectedTransactionStatus] = useState<string>("");
+  const TRANSACTION_STATUS_OPTIONS = [
+    "Rumoured in Market",
+    "Transaction anticipated within 18 months",
+    "Reported in Market",
+  ] as const;
+
   // Loading states
   const [loadingCountries, setLoadingCountries] = useState(false);
   const [loadingProvinces, setLoadingProvinces] = useState(false);
@@ -1130,6 +1139,7 @@ const CompanyDashboard = ({
       nrrMax,
       newClientsRevenueGrowthMin,
       newClientsRevenueGrowthMax,
+      transactionStatus: selectedTransactionStatus,
     };
     console.log("Searching with filters:", filters);
 
@@ -1181,6 +1191,7 @@ const CompanyDashboard = ({
     nrrMax,
     newClientsRevenueGrowthMin,
     newClientsRevenueGrowthMax,
+    selectedTransactionStatus,
   ]);
 
   const handleSearchClick = useCallback(() => {
@@ -2320,6 +2331,29 @@ const CompanyDashboard = ({
                     })}
                   </div>
                 )}
+                <span style={styles.label}>Transaction Status</span>
+                <select
+                  value={selectedTransactionStatus}
+                  onChange={(e) => setSelectedTransactionStatus(e.target.value)}
+                  style={{
+                    ...styles.select,
+                    width: "100%",
+                    padding: "8px 10px",
+                    fontSize: "14px",
+                    borderRadius: "6px",
+                    border: "1px solid #d1d5db",
+                    backgroundColor: "white",
+                    color: selectedTransactionStatus ? "#1a202c" : "#9ca3af",
+                    marginBottom: "12px",
+                  }}
+                >
+                  <option value="">All Transaction Statuses</option>
+                  {TRANSACTION_STATUS_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
                 <span style={styles.label}>LinkedIn Members Range</span>
                 <div style={{ display: "flex", gap: "14px" }}>
                   <input
@@ -2785,7 +2819,8 @@ const CompanySection = ({
       currentFilters.nrrMin !== null ||
       currentFilters.nrrMax !== null ||
       currentFilters.newClientsRevenueGrowthMin !== null ||
-      currentFilters.newClientsRevenueGrowthMax !== null
+      currentFilters.newClientsRevenueGrowthMax !== null ||
+      !!(currentFilters.transactionStatus && currentFilters.transactionStatus.trim())
     );
   };
 
@@ -2833,6 +2868,9 @@ const CompanySection = ({
         (f.hybridBusinessFocuses || []).forEach((id) =>
           params.append("Hybrid_Data_ids[]", String(id))
         );
+        if (f.transactionStatus && f.transactionStatus.trim()) {
+          params.append("transaction_status", f.transactionStatus.trim());
+        }
 
         // Helper function to only append if value exists
         const appendIfValue = (key: string, value: number | null | undefined) => {
