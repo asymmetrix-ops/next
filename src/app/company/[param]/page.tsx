@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -931,6 +931,14 @@ const CompanyDetail = () => {
   const [isDescriptionExpandable, setIsDescriptionExpandable] = useState(false);
   const [isOverviewNarrow, setIsOverviewNarrow] = useState(false);
   const descriptionRef = useRef<HTMLDivElement | null>(null);
+
+  const transactionStatusDisplayLabel = useMemo(() => {
+    const raw = String(transactionStatusLabel || "").trim();
+    if (!raw) return "";
+    // Company page only: omit the leading "Transaction" and ensure "Anticipated" is capitalized.
+    const withoutTransaction = raw.replace(/^transaction\s+/i, "");
+    return withoutTransaction.replace(/^anticipated\b/i, "Anticipated");
+  }, [transactionStatusLabel]);
 
   useEffect(() => {
     // Use the same breakpoint as the requested UI behavior (< 1280px)
@@ -2638,7 +2646,7 @@ const CompanyDetail = () => {
                           padding: "5px 10px",
                         }}
                       >
-                        {transactionStatusLabel}
+                        {transactionStatusDisplayLabel}
                       </span>
                     </div>
                   </div>
@@ -2682,7 +2690,7 @@ const CompanyDetail = () => {
                         padding: "5px 10px",
                       }}
                     >
-                      {transactionStatusLabel}
+                      {transactionStatusDisplayLabel}
                     </span>
                   </div>
                 </div>
