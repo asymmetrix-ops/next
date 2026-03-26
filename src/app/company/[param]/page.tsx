@@ -2479,18 +2479,12 @@ const CompanyDetail = () => {
     .responsiveGrid > * { min-width: 0; }
     .card { background: white; border-radius: 12px; min-width: 0; }
     .transaction-status-pill {
-      display: -webkit-inline-box;
-      -webkit-box-orient: vertical;
+      display: inline-flex;
+      align-items: center;
       overflow: hidden;
       text-overflow: ellipsis;
-      -webkit-line-clamp: 2;
-      white-space: normal;
-      line-height: 1.15;
+      white-space: nowrap;
       max-width: 100%;
-      text-align: center;
-    }
-    @media (max-width: 1440px) {
-      .transaction-status-pill { -webkit-line-clamp: 3; }
     }
     /* Give Overview right column more room on desktop */
     .overview-card .info-row { grid-template-columns: minmax(140px, 170px) 1fr auto !important; }
@@ -2692,60 +2686,56 @@ const CompanyDetail = () => {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "minmax(0, 0.85fr) minmax(0, 1.15fr)",
+                  // Give left column more room so Transaction Status can stay on one line
+                  gridTemplateColumns: "minmax(0, 1.15fr) minmax(0, 0.85fr)",
                   gap: "24px",
                 }}
                 className="overview-grid"
               >
-                {transactionStatusLabel && (
-                  <div
-                    style={{
-                      ...styles.infoRow,
-                      gridColumn: "1 / -1",
-                      backgroundColor: "#ffffff",
-                      border: "1px solid #bfdbfe",
-                      borderRadius: "12px",
-                      boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.10)",
-                      padding: "12px 16px",
-                      marginBottom: "10px",
-                      gridTemplateColumns: "minmax(140px, 190px) 1fr",
-                      columnGap: "12px",
-                    }}
-                    className="info-row"
-                  >
-                    <span style={styles.label} className="info-label">
-                      Transaction Status:
-                    </span>
-                    <div style={styles.value} className="info-value">
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "flex-start",
-                          minWidth: 0,
-                        }}
-                      >
-                      <span
-                        className="transaction-status-pill"
-                        style={{
-                          backgroundColor: "#dcfce7",
-                          color: "#166534",
-                          border: "1.5px solid #4ade80",
-                          borderRadius: "999px",
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          padding: "6px 14px",
-                          letterSpacing: "0.01em",
-                        }}
-                      >
-                        {transactionStatusLabel}
-                      </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
                 {/* Left column: Basic fields */}
                 <div className="overview-fields">
+              {transactionStatusLabel && (
+                <div
+                  style={{
+                    ...styles.infoRow,
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #bfdbfe",
+                    borderRadius: "12px",
+                    boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.10)",
+                    padding: "8px 8px",
+                    marginBottom: "10px",
+                    gridTemplateColumns: "auto 1fr",
+                    columnGap: "4px",
+                  }}
+                  className="info-row"
+                >
+                  <span
+                    style={{ ...styles.label, width: "auto" }}
+                    className="info-label"
+                  >
+                    Transaction Status:
+                  </span>
+                  <div
+                    style={{ ...styles.value, display: "flex", alignItems: "center" }}
+                    className="info-value"
+                  >
+                    <span
+                      className="transaction-status-pill"
+                      style={{
+                        backgroundColor: "#dcfce7",
+                        color: "#166534",
+                        border: "1.5px solid #4ade80",
+                        borderRadius: "999px",
+                        fontSize: "12px",
+                        fontWeight: 500,
+                        padding: "5px 10px",
+                      }}
+                    >
+                      {transactionStatusLabel}
+                    </span>
+                  </div>
+                </div>
+              )}
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
                   Primary Sector(s):
