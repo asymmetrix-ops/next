@@ -929,7 +929,17 @@ const CompanyDetail = () => {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isDescriptionExpandable, setIsDescriptionExpandable] = useState(false);
+  const [isOverviewNarrow, setIsOverviewNarrow] = useState(false);
   const descriptionRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    // Use the same breakpoint as the requested UI behavior (< 1280px)
+    const mql = window.matchMedia("(max-width: 1279px)");
+    const apply = () => setIsOverviewNarrow(mql.matches);
+    apply();
+    mql.addEventListener("change", apply);
+    return () => mql.removeEventListener("change", apply);
+  }, []);
 
   // Safely extract a sector id from various backend shapes
   const getSectorId = (sector: unknown): number | undefined => {
@@ -2586,9 +2596,56 @@ const CompanyDetail = () => {
                 }}
                 className="overview-grid"
               >
+                {isOverviewNarrow && transactionStatusLabel && (
+                  <div
+                    style={{
+                      ...styles.infoRow,
+                      gridColumn: "1 / -1",
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #bfdbfe",
+                      borderRadius: "12px",
+                      boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.10)",
+                      padding: "8px 8px",
+                      marginBottom: "10px",
+                      gridTemplateColumns: "auto 1fr",
+                      columnGap: "4px",
+                    }}
+                    className="info-row"
+                  >
+                    <span
+                      style={{ ...styles.label, width: "auto" }}
+                      className="info-label"
+                    >
+                      Transaction Status:
+                    </span>
+                    <div
+                      style={{
+                        ...styles.value,
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                      className="info-value"
+                    >
+                      <span
+                        className="transaction-status-pill"
+                        style={{
+                          backgroundColor: "#dcfce7",
+                          color: "#166534",
+                          border: "1.5px solid #4ade80",
+                          borderRadius: "999px",
+                          fontSize: "12px",
+                          fontWeight: 500,
+                          padding: "5px 10px",
+                        }}
+                      >
+                        {transactionStatusLabel}
+                      </span>
+                    </div>
+                  </div>
+                )}
                 {/* Left column: Basic fields */}
                 <div className="overview-fields">
-              {transactionStatusLabel && (
+              {!isOverviewNarrow && transactionStatusLabel && (
                 <div
                   style={{
                     ...styles.infoRow,
