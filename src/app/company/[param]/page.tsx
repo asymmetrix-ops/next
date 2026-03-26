@@ -2607,10 +2607,33 @@ const CompanyDetail = () => {
                         fontWeight: 700,
                         padding: "3px 10px",
                         letterSpacing: "0.01em",
-                        whiteSpace: "nowrap",
+                        whiteSpace:
+                          transactionStatusLabel ===
+                          "Transaction anticipated within 18 months"
+                            ? "normal"
+                            : "nowrap",
+                        textAlign:
+                          transactionStatusLabel ===
+                          "Transaction anticipated within 18 months"
+                            ? "center"
+                            : undefined,
+                        lineHeight:
+                          transactionStatusLabel ===
+                          "Transaction anticipated within 18 months"
+                            ? 1.15
+                            : undefined,
                       }}
                     >
-                      {transactionStatusLabel}
+                      {transactionStatusLabel ===
+                      "Transaction anticipated within 18 months" ? (
+                        <>
+                          Transaction anticipated
+                          <br />
+                          within 18 months
+                        </>
+                      ) : (
+                        transactionStatusLabel
+                      )}
                     </span>
                   </div>
                 </div>
