@@ -22,6 +22,7 @@ import PreviousCorporateEventsSection, {
 } from "@/components/transaction/PreviousCorporateEventsSection";
 import { Button } from "@/components/ui/button";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
+import { trackEvent } from "@/lib/tracking";
 
 // Type-safe check for Data & Analytics company flag
 const isDataAnalyticsCompany = (candidate: unknown): boolean => {
@@ -940,6 +941,9 @@ const CorporateEventDetail = ({
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 3000);
+      void trackEvent({
+        eventType: "download_pdf",
+      });
     } catch (error) {
       console.error("[PDF Export] Error:", error);
       alert("Failed to export PDF. Please try again later.");

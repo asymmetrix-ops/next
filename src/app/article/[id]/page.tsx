@@ -632,25 +632,17 @@ const ArticleDetailPage = () => {
     }
   };
 
-  const trackPdfDownload = useCallback(
-    (label?: string) => {
-      void trackEvent({
-        eventType: "download_pdf",
-        query: label || article?.Headline || "article_pdf",
-      });
-    },
-    [article?.Headline]
-  );
+  const trackPdfDownload = useCallback(() => {
+    void trackEvent({
+      eventType: "download_pdf",
+    });
+  }, []);
 
-  const handleRelatedDocumentDownload = useCallback(
-    (docName?: string) => {
-      void trackEvent({
-        eventType: "download_pdf",
-        query: docName || article?.Headline || "related_document",
-      });
-    },
-    [article?.Headline]
-  );
+  const handleRelatedDocumentDownload = useCallback(() => {
+    void trackEvent({
+      eventType: "download_pdf",
+    });
+  }, []);
 
   // Close PDF viewer and cleanup
   const handleClosePdfViewer = () => {
@@ -1455,7 +1447,7 @@ const ArticleDetailPage = () => {
                     isLoading={false}
                     onClose={() => {}}
                     articleTitle={pdf.name}
-                    onDownload={() => trackPdfDownload(pdf.name)}
+                    onDownload={trackPdfDownload}
                     variant="inline"
                   />
                 ))}
@@ -2101,9 +2093,7 @@ const ArticleDetailPage = () => {
                                   href={url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  onClick={() =>
-                                    handleRelatedDocumentDownload(name || "Document")
-                                  }
+                                  onClick={handleRelatedDocumentDownload}
                                   style={{
                                     ...styles.tag,
                                     textDecoration: "none",
@@ -2409,7 +2399,7 @@ const ArticleDetailPage = () => {
             isLoading={pdfLoading}
             onClose={handleClosePdfViewer}
             articleTitle={pdfTitle}
-            onDownload={() => trackPdfDownload(pdfTitle)}
+            onDownload={trackPdfDownload}
             variant="modal"
           />
         );

@@ -1363,7 +1363,6 @@ const InvestorDetailPage = () => {
       window.URL.revokeObjectURL(url);
       void trackEvent({
         eventType: "download_pdf",
-        query: investorData?.Investor?.name || `investor_${investorId}`,
       });
     } catch (error) {
       console.error("Error exporting PDF:", error);

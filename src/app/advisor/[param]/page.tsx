@@ -658,7 +658,6 @@ export default function AdvisorProfilePage() {
       URL.revokeObjectURL(urlObj);
       void trackEvent({
         eventType: "download_pdf",
-        query: advisorName || `advisor_${advisorId}`,
       });
     } catch (e) {
       console.error("Export PDF failed:", e);

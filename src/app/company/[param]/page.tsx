@@ -1612,7 +1612,6 @@ const CompanyDetail = () => {
       window.URL.revokeObjectURL(url);
       void trackEvent({
         eventType: "download_pdf",
-        query: company.name || `company_${company.id}`,
       });
     } catch (error) {
       console.error("Error exporting PDF:", error);
