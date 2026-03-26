@@ -25,6 +25,7 @@ import { useRightClick } from "../../../hooks/useRightClick";
 import IndividualCards, { type IndividualCardItem } from "@/components/shared/IndividualCards";
 import { locationsService } from "@/lib/locationsService";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import { trackEvent } from "@/lib/tracking";
 
 // Types for LinkedIn History Chart
 interface LinkedInHistory {
@@ -655,6 +656,10 @@ export default function AdvisorProfilePage() {
       a.download = `${namePart}-${date}.pdf`;
       a.click();
       URL.revokeObjectURL(urlObj);
+      void trackEvent({
+        eventType: "download_pdf",
+        query: advisorName || `advisor_${advisorId}`,
+      });
     } catch (e) {
       console.error("Export PDF failed:", e);
     } finally {

@@ -6,6 +6,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { generateArticlePdfBlobUrl } from "@/utils/exportArticlePdf";
+import { trackEvent } from "@/lib/tracking";
 import InlineAudioPlayer from "@/components/article/InlineAudioPlayer";
 import EmbeddedPdfViewer from "@/components/article/EmbeddedPdfViewer";
 import VideoTheatre from "@/components/article/VideoTheatre";
@@ -630,6 +631,26 @@ const ArticleDetailPage = () => {
       setPdfLoading(false);
     }
   };
+
+  const trackPdfDownload = useCallback(
+    (label?: string) => {
+      void trackEvent({
+        eventType: "download_pdf",
+        query: label || article?.Headline || "article_pdf",
+      });
+    },
+    [article?.Headline]
+  );
+
+  const handleRelatedDocumentDownload = useCallback(
+    (docName?: string) => {
+      void trackEvent({
+        eventType: "download_pdf",
+        query: docName || article?.Headline || "related_document",
+      });
+    },
+    [article?.Headline]
+  );
 
   // Close PDF viewer and cleanup
   const handleClosePdfViewer = () => {
@@ -1434,6 +1455,7 @@ const ArticleDetailPage = () => {
                     isLoading={false}
                     onClose={() => {}}
                     articleTitle={pdf.name}
+                    onDownload={() => trackPdfDownload(pdf.name)}
                     variant="inline"
                   />
                 ))}
@@ -2079,6 +2101,9 @@ const ArticleDetailPage = () => {
                                   href={url}
                                   target="_blank"
                                   rel="noopener noreferrer"
+                                  onClick={() =>
+                                    handleRelatedDocumentDownload(name || "Document")
+                                  }
                                   style={{
                                     ...styles.tag,
                                     textDecoration: "none",
@@ -2384,6 +2409,7 @@ const ArticleDetailPage = () => {
             isLoading={pdfLoading}
             onClose={handleClosePdfViewer}
             articleTitle={pdfTitle}
+            onDownload={() => trackPdfDownload(pdfTitle)}
             variant="modal"
           />
         );

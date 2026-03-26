@@ -8,6 +8,7 @@ interface EmbeddedPdfViewerProps {
   onClose: () => void;
   articleTitle?: string;
   variant?: "inline" | "modal";
+  onDownload?: () => void;
 }
 
 const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
@@ -16,6 +17,7 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
   onClose,
   articleTitle = "Document",
   variant = "inline",
+  onDownload,
 }) => {
   const isModal = variant === "modal";
 
@@ -40,6 +42,7 @@ const EmbeddedPdfViewer: React.FC<EmbeddedPdfViewerProps> = ({
 
   const handleDownload = () => {
     if (!pdfUrl) return;
+    onDownload?.();
     const a = document.createElement("a");
     a.href = pdfUrl;
     const safeName = String(articleTitle)

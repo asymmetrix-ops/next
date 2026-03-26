@@ -3,6 +3,7 @@ export type TrackingEventType =
   | "page_view"
   | "logout"
   | "error"
+  | "download_pdf"
   | "platform_wide_search"
   | "company_search";
 import { authService } from "@/lib/auth";

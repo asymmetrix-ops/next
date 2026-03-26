@@ -7,6 +7,7 @@ type EventType =
   | "page_view"
   | "logout"
   | "error"
+  | "download_pdf"
   | "platform_wide_search"
   | "company_search";
 
@@ -160,6 +161,7 @@ export async function POST(req: NextRequest) {
         "page_view",
         "logout",
         "error",
+        "download_pdf",
         "platform_wide_search",
         "company_search",
       ].includes(event_type)

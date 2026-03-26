@@ -11,6 +11,7 @@ import { useRightClick } from "@/hooks/useRightClick";
 import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
 import IndividualCards from "@/components/shared/IndividualCards";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
+import { trackEvent } from "@/lib/tracking";
 import {
   LineChart,
   Line,
@@ -1609,6 +1610,10 @@ const CompanyDetail = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+      void trackEvent({
+        eventType: "download_pdf",
+        query: company.name || `company_${company.id}`,
+      });
     } catch (error) {
       console.error("Error exporting PDF:", error);
       alert("Failed to export PDF. Please try again.");
