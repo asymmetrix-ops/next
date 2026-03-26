@@ -256,6 +256,25 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
   const router = useRouter();
   const resolvedHref = href || `/article/${article.id}`;
 
+  const transactionStatusBadgeStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    fontSize: 11,
+    lineHeight: 1,
+    padding: "5px 10px",
+    borderRadius: 9999,
+    border: "1.5px solid #4ade80",
+    fontWeight: 700,
+    letterSpacing: "0.03em",
+    textTransform: "uppercase",
+    backgroundColor: "#dcfce7",
+    color: "#166534",
+    whiteSpace: "nowrap",
+    maxWidth: "100%",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  };
+
   // Robust content type detection across backend shapes
   const effectiveContentType = React.useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -375,6 +394,14 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
               {formatDate(article.Publication_Date)}
             </p>
 
+            {article.Transaction_status && (
+              <div style={{ marginBottom: 10 }}>
+                <span style={transactionStatusBadgeStyle}>
+                  {article.Transaction_status}
+                </span>
+              </div>
+            )}
+
             {/* Badge (below date) */}
             {effectiveContentType && (
               <div className="content-type-row" style={{ marginBottom: 10 }}>
@@ -440,6 +467,14 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
             >
               {formatDate(article.Publication_Date)}
             </p>
+
+            {article.Transaction_status && (
+              <div style={{ marginBottom: 10 }}>
+                <span style={transactionStatusBadgeStyle}>
+                  {article.Transaction_status}
+                </span>
+              </div>
+            )}
           </>
         )}
       </div>

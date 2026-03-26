@@ -1297,6 +1297,33 @@ const ArticleDetailPage = () => {
               ) : null;
             })()}
 
+            {article.Transaction_status && (
+              <div style={{ marginTop: "-12px", marginBottom: "24px" }}>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    fontSize: "11px",
+                    lineHeight: 1,
+                    padding: "5px 10px",
+                    borderRadius: "9999px",
+                    border: "1.5px solid #4ade80",
+                    fontWeight: 700,
+                    letterSpacing: "0.03em",
+                    textTransform: "uppercase",
+                    backgroundColor: "#dcfce7",
+                    color: "#166534",
+                    whiteSpace: "nowrap",
+                    maxWidth: "100%",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {article.Transaction_status}
+                </span>
+              </div>
+            )}
+
             {/* Theatre-mode video(s) – always under content type badge */}
             {article.Related_Documents &&
               (article.Related_Documents || [])
