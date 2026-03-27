@@ -17,6 +17,166 @@ function compareValues(a: unknown, b: unknown, dir: SortDirection): number {
 }
 
 // -------------------------
+// PDF Export Activity
+// -------------------------
+
+const PDF_EXPORT_ACTIVITY_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/pdf_export_activity";
+
+type PdfExportRow = {
+  export_type: string;
+  entity_title: string;
+  download_count: number;
+};
+
+type PdfExportSortCol = keyof PdfExportRow;
+
+export function PdfExportTab() {
+  const [data, setData] = useState<PdfExportRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [sortCol, setSortCol] = useState<PdfExportSortCol>("download_count");
+  const [sortDir, setSortDir] = useState<SortDirection>("desc");
+
+  useEffect(() => {
+    let aborted = false;
+    async function fetchData() {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const resp = await fetch(PDF_EXPORT_ACTIVITY_URL, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => "");
+          throw new Error(`${resp.status} ${resp.statusText} ${text}`);
+        }
+        const json = (await resp.json()) as PdfExportRow[];
+        if (!aborted) setData(Array.isArray(json) ? json : []);
+      } catch (e) {
+        if (!aborted) setError(e instanceof Error ? e.message : "Failed to load");
+      } finally {
+        if (!aborted) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => {
+      aborted = true;
+    };
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return data
+      .filter((r) => {
+        if (!q) return true;
+        return (
+          String(r.export_type || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(r.entity_title || "")
+            .toLowerCase()
+            .includes(q)
+        );
+      })
+      .slice()
+      .sort((a, b) => compareValues(a[sortCol], b[sortCol], sortDir));
+  }, [data, search, sortCol, sortDir]);
+
+  function onSort(col: PdfExportSortCol) {
+    if (sortCol === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir(col === "export_type" || col === "entity_title" ? "asc" : "desc");
+    }
+  }
+
+  const columns: Array<[PdfExportSortCol, string]> = [
+    ["export_type", "Export Type"],
+    ["entity_title", "Entity Title"],
+    ["download_count", "Download Count"],
+  ];
+
+  return (
+    <div>
+      <div className="mb-4">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search export type or title..."
+          className="px-3 py-2 w-full max-w-md rounded border"
+        />
+      </div>
+
+      <div className="overflow-auto bg-white rounded border">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-50 text-gray-700">
+            <tr>
+              {columns.map(([key, label]) => (
+                <th key={key} className="px-3 py-2 text-left whitespace-nowrap">
+                  <button
+                    onClick={() => onSort(key)}
+                    className="inline-flex items-center gap-1 hover:underline"
+                    title="Sort"
+                  >
+                    <span>{label}</span>
+                    {sortCol === key && (
+                      <span className="text-xs text-gray-500">
+                        {sortDir === "asc" ? "▲" : "▼"}
+                      </span>
+                    )}
+                  </button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading && (
+              <tr>
+                <td className="px-3 py-3 text-center" colSpan={3}>
+                  Loading…
+                </td>
+              </tr>
+            )}
+            {error && !loading && (
+              <tr>
+                <td className="px-3 py-3 text-red-700 bg-red-50" colSpan={3}>
+                  {error}
+                </td>
+              </tr>
+            )}
+            {!loading && !error && filtered.length === 0 && (
+              <tr>
+                <td className="px-3 py-3 text-center text-gray-500" colSpan={3}>
+                  No results
+                </td>
+              </tr>
+            )}
+            {!loading &&
+              !error &&
+              filtered.map((r, idx) => (
+                <tr key={`${r.export_type}-${r.entity_title}-${idx}`} className="border-t">
+                  <td className="px-3 py-2">{r.export_type || "—"}</td>
+                  <td className="px-3 py-2">{r.entity_title || "—"}</td>
+                  <td className="px-3 py-2">{formatMetric(r.download_count)}</td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// -------------------------
 // User Activity
 // -------------------------
 

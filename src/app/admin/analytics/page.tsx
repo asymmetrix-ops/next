@@ -8,6 +8,7 @@ import {
   CompanySearchTab,
   ContentInsightsTab,
   PageInsightsTab,
+  PdfExportTab,
   PlatformWideSearchTab,
   UserActivityTab,
 } from "./_components/AnalyticsViews";
@@ -17,7 +18,8 @@ type AnalyticsTab =
   | "content-insights"
   | "page-insights"
   | "platform-wide-search"
-  | "company-search";
+  | "company-search"
+  | "pdf-export";
 
 const ALLOWED_ANALYTICS_EMAILS = new Set<string>([
   "j.bochner@asymmetrixintelligence.com",
@@ -134,6 +136,16 @@ export default function AdminAnalyticsPage() {
         >
           Company Search
         </button>
+        <button
+          onClick={() => setActiveTab("pdf-export")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "pdf-export"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          PDF Export
+        </button>
       </div>
 
       {activeTab === "user-activity" && <UserActivityTab />}
@@ -141,6 +153,7 @@ export default function AdminAnalyticsPage() {
       {activeTab === "page-insights" && <PageInsightsTab />}
       {activeTab === "platform-wide-search" && <PlatformWideSearchTab />}
       {activeTab === "company-search" && <CompanySearchTab />}
+      {activeTab === "pdf-export" && <PdfExportTab />}
     </div>
   );
 }
