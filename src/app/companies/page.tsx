@@ -2332,28 +2332,18 @@ const CompanyDashboard = ({
                   </div>
                 )}
                 <span style={styles.label}>Transaction Status</span>
-                <select
+                <SearchableSelect
+                  options={TRANSACTION_STATUS_OPTIONS.map((opt) => ({
+                    value: opt,
+                    label: opt,
+                  }))}
                   value={selectedTransactionStatus}
-                  onChange={(e) => setSelectedTransactionStatus(e.target.value)}
-                  style={{
-                    ...styles.select,
-                    width: "100%",
-                    padding: "8px 10px",
-                    fontSize: "14px",
-                    borderRadius: "6px",
-                    border: "1px solid #d1d5db",
-                    backgroundColor: "white",
-                    color: selectedTransactionStatus ? "#1a202c" : "#9ca3af",
-                    marginBottom: "12px",
-                  }}
-                >
-                  <option value="">All Transaction Statuses</option>
-                  {TRANSACTION_STATUS_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) =>
+                    setSelectedTransactionStatus(typeof value === "string" ? value : "")
+                  }
+                  placeholder="All Transaction Statuses"
+                  style={{ ...styles.select, marginBottom: "12px" }}
+                />
                 <span style={styles.label}>LinkedIn Members Range</span>
                 <div style={{ display: "flex", gap: "14px" }}>
                   <input
