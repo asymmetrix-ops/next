@@ -689,6 +689,18 @@ const InsightsAnalysisPage = () => {
       align-items: center;
     }
 
+    /* Transaction Status bubble (force override inline styles) */
+    .insights-analysis-section .transaction-status-badge {
+      background-color: #e3f2fd !important;
+      color: #0b4aa2 !important;
+      border: 1.5px solid #60a5fa !important;
+      font-weight: 800 !important;
+      font-size: 12px !important;
+      padding: 7px 12px !important;
+      letter-spacing: 0.02em !important;
+      box-shadow: 0 2px 10px rgba(37, 99, 235, 0.18) !important;
+    }
+
     /* Meta label styling (keeps existing palette) */
     .insights-analysis-section .meta-label {
       font-size: 12px;

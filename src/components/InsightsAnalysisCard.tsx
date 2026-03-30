@@ -396,7 +396,10 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
 
             {article.Transaction_status && (
               <div style={{ marginBottom: 10 }}>
-                <span style={transactionStatusBadgeStyle}>
+                <span
+                  className="transaction-status-badge"
+                  style={transactionStatusBadgeStyle}
+                >
                   {article.Transaction_status}
                 </span>
               </div>
@@ -470,7 +473,10 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
 
             {article.Transaction_status && (
               <div style={{ marginBottom: 10 }}>
-                <span style={transactionStatusBadgeStyle}>
+                <span
+                  className="transaction-status-badge"
+                  style={transactionStatusBadgeStyle}
+                >
                   {article.Transaction_status}
                 </span>
               </div>
