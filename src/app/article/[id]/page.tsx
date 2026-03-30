@@ -231,6 +231,10 @@ const styles = {
   contentTypeRow: {
     marginTop: "-8px",
     marginBottom: "24px",
+    display: "flex" as const,
+    alignItems: "center" as const,
+    gap: "8px",
+    flexWrap: "wrap" as const,
   },
   contentTypeBadge: {
     display: "inline-block",
@@ -242,6 +246,24 @@ const styles = {
     borderRadius: "9999px",
     border: "1px solid #bfdbfe",
     fontWeight: 600,
+  },
+  transactionStatusBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    fontSize: "11px",
+    lineHeight: 1,
+    padding: "5px 10px",
+    borderRadius: "9999px",
+    border: "1.5px solid #4ade80",
+    fontWeight: 700,
+    letterSpacing: "0.03em",
+    textTransform: "uppercase" as const,
+    backgroundColor: "#dcfce7",
+    color: "#166534",
+    whiteSpace: "nowrap" as const,
+    maxWidth: "100%",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
   },
   loading: {
     textAlign: "center" as const,
@@ -1293,36 +1315,14 @@ const ArticleDetailPage = () => {
               return ct ? (
                 <div style={styles.contentTypeRow}>
                   <span style={styles.contentTypeBadge}>{ct}</span>
+                  {article.Transaction_status && (
+                    <span style={styles.transactionStatusBadge}>
+                      {article.Transaction_status}
+                    </span>
+                  )}
                 </div>
               ) : null;
             })()}
-
-            {article.Transaction_status && (
-              <div style={{ marginTop: "-12px", marginBottom: "24px" }}>
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    fontSize: "11px",
-                    lineHeight: 1,
-                    padding: "5px 10px",
-                    borderRadius: "9999px",
-                    border: "1.5px solid #4ade80",
-                    fontWeight: 700,
-                    letterSpacing: "0.03em",
-                    textTransform: "uppercase",
-                    backgroundColor: "#dcfce7",
-                    color: "#166534",
-                    whiteSpace: "nowrap",
-                    maxWidth: "100%",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {article.Transaction_status}
-                </span>
-              </div>
-            )}
 
             {/* Theatre-mode video(s) – always under content type badge */}
             {article.Related_Documents &&
