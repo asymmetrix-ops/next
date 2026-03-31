@@ -699,6 +699,13 @@ const InsightsAnalysisPage = () => {
       padding: 7px 12px !important;
       letter-spacing: 0.02em !important;
       box-shadow: 0 2px 10px rgba(37, 99, 235, 0.18) !important;
+      display: inline-flex !important;
+      max-width: 100% !important;
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      word-break: break-word !important;
+      line-height: 1.25 !important;
     }
 
     /* Meta label styling (keeps existing palette) */
@@ -821,6 +828,10 @@ const InsightsAnalysisPage = () => {
         max-width: 100% !important;
       }
       .filters-button {
+        max-width: 100% !important;
+      }
+      .insights-analysis-section .transaction-status-badge {
+        width: fit-content !important;
         max-width: 100% !important;
       }
     }
