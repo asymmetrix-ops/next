@@ -3,6 +3,7 @@ export interface ExportableArticle {
   Headline?: string;
   Strapline?: string;
   Publication_Date?: string;
+  Transaction_status?: string;
   Content_Type?: string;
   content_type?: string;
   Content?: { 
@@ -200,6 +201,7 @@ export async function generateArticlePdfBlobUrl(
       Headline: article.Headline || "",
       Strapline: article.Strapline || undefined,
       Publication_Date: article.Publication_Date || "",
+      Transaction_status: article.Transaction_status || undefined,
       Content_Type: ct,
       Company_of_Focus: hasCompanyOfFocus,
       summary: parsedSummary,
