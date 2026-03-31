@@ -93,6 +93,7 @@ interface InsightArticle {
   Strapline?: string;
   Publication_Date?: string;
   created_at?: number;
+  Transaction_status?: string | null;
   // Content type fields may arrive in different shapes/keys
   Content_Type?: string;
   content_type?: string;
@@ -1567,6 +1568,9 @@ export default function HomeUserPage() {
                       ""
                     ).trim();
                     const href = `/article/${article.id}?from=home`;
+                    const transactionStatus = (
+                      article.Transaction_status || ""
+                    ).trim();
 
                     return (
                       <div
@@ -1581,6 +1585,26 @@ export default function HomeUserPage() {
                             {formatDate(article.Publication_Date)}
                           </span>
                         </div>
+                        {transactionStatus && (
+                          <div className="mt-2">
+                            <span
+                              className="inline-flex max-w-full items-center rounded-full break-words"
+                              style={{
+                                backgroundColor: "#e3f2fd",
+                                color: "#0b4aa2",
+                                border: "1.5px solid #60a5fa",
+                                fontWeight: 800,
+                                fontSize: 12,
+                                padding: "7px 12px",
+                                letterSpacing: "0.02em",
+                                boxShadow: "0 2px 10px rgba(37, 99, 235, 0.18)",
+                                lineHeight: 1.25,
+                              }}
+                            >
+                              {transactionStatus}
+                            </span>
+                          </div>
+                        )}
 
                         <a
                           href={href}
