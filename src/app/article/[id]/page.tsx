@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
@@ -131,6 +131,118 @@ interface CompanyCompetitorsResponse {
   potential_acquirers: CompanyCompetitorItem[];
   acquisition_targets: CompanyCompetitorItem[];
 }
+
+interface TableCompanyRow {
+  id: number;
+  name: string;
+  url: string;
+  loc: string;
+  year_founded: string;
+  primary_sectors: string;
+  secondary_sectors: string;
+  ownership: string;
+  investors: string;
+  li_emp: string;
+  revenue_m: string;
+  arr_m: string;
+  ebitda_m: string;
+  ebit_m: string;
+  ev: string;
+  arr_pc: string;
+  churn_pc: string;
+  grr_pc: string;
+  nrr: string;
+  upsell_pc: string;
+  cross_sell_pc: string;
+  price_increase_pc: string;
+  rev_expansion_pc: string;
+  new_client_growth_pc: string;
+  rev_growth_pc: string;
+  ebitda_margin: string;
+  rule_of_40: string;
+  revenue_multiple: string;
+  no_of_clients: string;
+  rev_per_client: string;
+  no_employees: string;
+  rev_per_employee: string;
+}
+
+interface ColumnDefinition {
+  key: string;
+  label: string;
+}
+
+const COL_GROUPS: Array<{ group: string; cols: ColumnDefinition[] }> = [
+  {
+    group: "Company Info",
+    cols: [
+      { key: "url", label: "Website" },
+      { key: "loc", label: "HQ Location" },
+      { key: "year_founded", label: "Year Founded" },
+      { key: "ownership", label: "Ownership" },
+    ],
+  },
+  {
+    group: "Sectors",
+    cols: [
+      { key: "primary_sectors", label: "Primary Sectors" },
+      { key: "secondary_sectors", label: "Secondary Sectors" },
+    ],
+  },
+  {
+    group: "Relationships",
+    cols: [
+      { key: "investors", label: "Investors / Parent Company" },
+      { key: "li_emp", label: "LinkedIn Employees" },
+    ],
+  },
+  {
+    group: "Financials (m)",
+    cols: [
+      { key: "revenue_m", label: "Revenue (m)" },
+      { key: "arr_m", label: "ARR (m)" },
+      { key: "ebitda_m", label: "EBITDA (m)" },
+      { key: "ebit_m", label: "EBIT (m)" },
+      { key: "ev", label: "Enterprise Value (m)" },
+    ],
+  },
+  {
+    group: "Subscription & Growth",
+    cols: [
+      { key: "arr_pc", label: "ARR (%)" },
+      { key: "churn_pc", label: "Churn (%)" },
+      { key: "grr_pc", label: "GRR (%)" },
+      { key: "nrr", label: "NRR (%)" },
+      { key: "upsell_pc", label: "Upsell (%)" },
+      { key: "cross_sell_pc", label: "Cross-sell (%)" },
+      { key: "price_increase_pc", label: "Price Increase (%)" },
+      { key: "rev_expansion_pc", label: "Rev Expansion (%)" },
+      { key: "new_client_growth_pc", label: "New Client Growth (%)" },
+      { key: "rev_growth_pc", label: "Revenue Growth (%)" },
+      { key: "ebitda_margin", label: "EBITDA Margin (%)" },
+      { key: "rule_of_40", label: "Rule of 40 (%)" },
+      { key: "revenue_multiple", label: "Revenue Multiple (x)" },
+    ],
+  },
+  {
+    group: "Per Unit",
+    cols: [
+      { key: "no_of_clients", label: "No. of Clients" },
+      { key: "rev_per_client", label: "Revenue per Client" },
+      { key: "no_employees", label: "No. of Employees" },
+      { key: "rev_per_employee", label: "Revenue per Employee" },
+    ],
+  },
+];
+
+const ALL_TABLE_COLUMNS: ColumnDefinition[] = COL_GROUPS.flatMap((g) => g.cols);
+const WRAP_COLS = new Set([
+  "primary_sectors",
+  "secondary_sectors",
+  "loc",
+  "investors",
+  "url",
+]);
 
 // Shared styles object
 const styles = {
@@ -420,6 +532,15 @@ const ArticleDetailPage = () => {
 
   const articleId = String((params as Record<string, unknown>)?.id || "");
   const ENABLE_PDF_EXPORT = true;
+  const [showGenerateTableModal, setShowGenerateTableModal] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [tableRows, setTableRows] = useState<TableCompanyRow[]>([]);
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<number>>(
+    new Set()
+  );
+  const [selectedColumnKeys, setSelectedColumnKeys] = useState<Set<string>>(
+    new Set(ALL_TABLE_COLUMNS.map((c) => c.key))
+  );
 
   const fetchArticle = async () => {
     try {
@@ -984,6 +1105,190 @@ const ArticleDetailPage = () => {
     return `Source: ${trimmed}`;
   };
 
+  const toDisplayString = (value: unknown): string => {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value.toLocaleString("en-US") : "";
+    }
+    if (typeof value === "string") return value.trim();
+    if (Array.isArray(value)) {
+      return value.map((v) => toDisplayString(v)).filter(Boolean).join(", ");
+    }
+    if (typeof value === "object") {
+      const obj = value as Record<string, unknown>;
+      if (typeof obj.name === "string") return obj.name.trim();
+    }
+    return String(value).trim();
+  };
+
+  const normalizeWebsite = (raw: string): string => {
+    const trimmed = (raw || "").trim();
+    if (!trimmed) return "";
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  };
+
+  const getTableCellValue = (row: TableCompanyRow, key: string): string => {
+    const direct = row as unknown as Record<string, unknown>;
+    return toDisplayString(direct[key]);
+  };
+
+  const parseMaybeSetLikeList = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+      return value.map((v) => toDisplayString(v)).filter(Boolean);
+    }
+    const text = toDisplayString(value);
+    if (!text) return [];
+    const parsed = tryParse<unknown>(text);
+    if (Array.isArray(parsed)) {
+      return parsed.map((v) => toDisplayString(v)).filter(Boolean);
+    }
+    const setLike = text
+      .replace(/^\{/, "")
+      .replace(/\}$/, "")
+      .split(",")
+      .map((x) => x.replace(/^["']|["']$/g, "").trim())
+      .filter(Boolean);
+    return setLike.length > 0 ? setLike : [text];
+  };
+
+  const mapCompanyTableApiRow = useCallback((row: Record<string, unknown>): TableCompanyRow => {
+    const id = Number(row.id) || 0;
+    const primarySectors = parseMaybeSetLikeList(row.primary_sector_names).join(", ");
+    const secondarySectors = parseMaybeSetLikeList(row.secondary_sector_names).join(", ");
+    const investorNames = parseMaybeSetLikeList(row.investor_names).join(", ");
+    const hqLocation = [
+      toDisplayString(row.hq_city),
+      toDisplayString(row.hq_state),
+      toDisplayString(row.hq_country),
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    return {
+      id,
+      name: toDisplayString(row.name) || `Company ${id}`,
+      url: normalizeWebsite(toDisplayString(row.url)),
+      loc: hqLocation || "Not available",
+      year_founded:
+        toDisplayString(row.year_founded_label || row.year_founded) || "Not available",
+      primary_sectors: primarySectors || "Not available",
+      secondary_sectors: secondarySectors || "Not available",
+      ownership:
+        toDisplayString(row.ownership_type || row.ownership_status) || "Not available",
+      investors: investorNames || "Not available",
+      li_emp: toDisplayString(row.linkedin_employee) || "Not available",
+      revenue_m: toDisplayString(row.Revenue_m) || "Not available",
+      arr_m: toDisplayString(row.ARR_m) || "Not available",
+      ebitda_m: toDisplayString(row.EBITDA_m) || "Not available",
+      ebit_m: toDisplayString(row.EBIT_m) || "Not available",
+      ev: toDisplayString(row.EV) || "Not available",
+      arr_pc: toDisplayString(row.ARR_pc) || "Not available",
+      churn_pc: toDisplayString(row.Churn_pc) || "Not available",
+      grr_pc: toDisplayString(row.GRR_pc) || "Not available",
+      nrr: toDisplayString(row.NRR) || "Not available",
+      upsell_pc: toDisplayString(row.Upsell_pc) || "Not available",
+      cross_sell_pc: toDisplayString(row.Cross_sell_pc) || "Not available",
+      price_increase_pc: toDisplayString(row.Price_increase_pc) || "Not available",
+      rev_expansion_pc: toDisplayString(row.Rev_expansion_pc) || "Not available",
+      new_client_growth_pc: toDisplayString(row.New_client_growth_pc) || "Not available",
+      rev_growth_pc: toDisplayString(row.Rev_Growth_PC) || "Not available",
+      ebitda_margin: toDisplayString(row.EBITDA_margin) || "Not available",
+      rule_of_40: toDisplayString(row.Rule_of_40) || "Not available",
+      revenue_multiple: toDisplayString(row.Revenue_multiple) || "Not available",
+      no_of_clients: toDisplayString(row.No_of_Clients) || "Not available",
+      rev_per_client: toDisplayString(row.Rev_per_client) || "Not available",
+      no_employees: toDisplayString(row.No_Employees) || "Not available",
+      rev_per_employee: toDisplayString(row.Revenue_per_employee) || "Not available",
+    };
+  }, []);
+
+  const handleOpenGenerateTable = useCallback(async () => {
+    if (!article) return;
+    setShowGenerateTableModal(true);
+    setTableLoading(true);
+
+    try {
+      const ids = new Set<number>();
+      (article.companies_mentioned || []).forEach((c) => {
+        if (typeof c.id === "number" && c.id > 0) ids.add(c.id);
+      });
+      if (companyOfFocusCompanyId && companyOfFocusCompanyId > 0) {
+        ids.add(companyOfFocusCompanyId);
+      }
+
+      const idList = Array.from(ids);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token || idList.length === 0) {
+        setTableRows([]);
+        setSelectedCompanyIds(new Set());
+        return;
+      }
+
+      const params = new URLSearchParams();
+      params.append("company_ids", JSON.stringify(idList));
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_table_data?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to load table data: ${response.status}`);
+      }
+
+      const payload = (await response.json()) as unknown;
+      const items = Array.isArray(payload) ? payload : [];
+      const rows = items
+        .filter((item) => item && typeof item === "object")
+        .map((item) => mapCompanyTableApiRow(item as Record<string, unknown>))
+        .filter((r) => r.id > 0);
+
+      setTableRows(rows);
+      setSelectedCompanyIds(new Set(rows.map((r) => r.id)));
+    } finally {
+      setTableLoading(false);
+    }
+  }, [article, companyOfFocusCompanyId, mapCompanyTableApiRow]);
+
+  const handleExportTableCsv = () => {
+    const activeRows = tableRows.filter((r) => selectedCompanyIds.has(r.id));
+    const activeColumns = ALL_TABLE_COLUMNS.filter((c) =>
+      selectedColumnKeys.has(c.key)
+    );
+    if (!activeRows.length || !activeColumns.length) return;
+
+    const escapeCsv = (value: string) => `"${String(value || "").replace(/"/g, '""')}"`;
+    const header = [
+      escapeCsv("Company Name"),
+      escapeCsv("Company Profile URL"),
+      ...activeColumns.map((c) => escapeCsv(c.label)),
+    ].join(",");
+    const lines = activeRows.map((row) =>
+      [
+        escapeCsv(row.name),
+        escapeCsv(`https://www.asymmetrixintelligence.com/company/${row.id}`),
+        ...activeColumns.map((col) => escapeCsv(getTableCellValue(row, col.key))),
+      ].join(",")
+    );
+    const csv = [header, ...lines].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `article-company-table-${articleId || "export"}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) {
     return (
       <div style={styles.container}>
@@ -1050,9 +1355,28 @@ const ArticleDetailPage = () => {
     <div style={styles.container}>
       <Header />
       <div style={styles.maxWidth}>
-        <button onClick={handleBackClick} style={styles.backButton}>
-          ← Back to Insights & Analysis
-        </button>
+        <div
+          style={{
+            display: "flex",
+            gap: "12px",
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          <button onClick={handleBackClick} style={styles.backButton}>
+            ← Back to Insights & Analysis
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenGenerateTable}
+            style={{
+              ...styles.backButton,
+              backgroundColor: "#0f766e",
+            }}
+          >
+            Generate Table
+          </button>
+        </div>
 
         <div className="article-layout">
           {/* Left: Main body (2/3) */}
@@ -1929,6 +2253,400 @@ const ArticleDetailPage = () => {
         </div>
       </div>
       <Footer />
+      {showGenerateTableModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(15, 23, 42, 0.45)",
+            zIndex: 80,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#fff",
+              width: "min(1200px, 100%)",
+              maxHeight: "90vh",
+              borderRadius: 12,
+              border: "1px solid #e5e7eb",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                padding: "14px 16px",
+                borderBottom: "1px solid #e5e7eb",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: 18, color: "#0f172a" }}>
+                Custom Company Table
+              </h3>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ color: "#9ca3af", fontSize: 12 }}>
+                  {tableRows.filter((r) => selectedCompanyIds.has(r.id)).length} companies ·{" "}
+                  {ALL_TABLE_COLUMNS.filter((c) => selectedColumnKeys.has(c.key)).length + 1} columns
+                </span>
+                <button
+                  type="button"
+                  onClick={handleExportTableCsv}
+                  disabled={
+                    tableRows.filter((r) => selectedCompanyIds.has(r.id)).length ===
+                      0 || selectedColumnKeys.size === 0
+                  }
+                  style={{
+                    border: "1px solid #0f766e",
+                    color: "#0f766e",
+                    background: "#fff",
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  Export CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowGenerateTableModal(false)}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    color: "#111827",
+                    background: "#fff",
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(260px, 320px) minmax(0, 1fr)",
+                minHeight: 0,
+                flex: 1,
+              }}
+            >
+              <div
+                style={{
+                  borderRight: "1px solid #e5e7eb",
+                  padding: 14,
+                  overflow: "auto",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 8,
+                  }}
+                >
+                  <h4 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", color: "#9ca3af" }}>
+                    Rows
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allOn = tableRows.every((r) => selectedCompanyIds.has(r.id));
+                      setSelectedCompanyIds(allOn ? new Set() : new Set(tableRows.map((r) => r.id)));
+                    }}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      color: "#0f766e",
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {tableRows.every((r) => selectedCompanyIds.has(r.id))
+                      ? "Deselect all"
+                      : "Select all"}
+                  </button>
+                </div>
+                {tableRows.length === 0 ? (
+                  <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>
+                    {tableLoading
+                      ? "Loading companies..."
+                      : "No companies available for this article."}
+                  </p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {tableRows.map((row) => (
+                      <label
+                        key={`row-${row.id}`}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          fontSize: 14,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedCompanyIds.has(row.id)}
+                          onChange={(e) => {
+                            setSelectedCompanyIds((prev) => {
+                              const next = new Set(prev);
+                              if (e.target.checked) next.add(row.id);
+                              else next.delete(row.id);
+                              return next;
+                            });
+                          }}
+                        />
+                        <span>{row.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    margin: "16px 0 8px",
+                  }}
+                >
+                  <h4 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", color: "#9ca3af" }}>
+                    Columns
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allOn = selectedColumnKeys.size === ALL_TABLE_COLUMNS.length;
+                      setSelectedColumnKeys(
+                        allOn ? new Set() : new Set(ALL_TABLE_COLUMNS.map((c) => c.key))
+                      );
+                    }}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      color: "#0f766e",
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {selectedColumnKeys.size === ALL_TABLE_COLUMNS.length
+                      ? "Deselect all"
+                      : "Select all"}
+                  </button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {COL_GROUPS.map((group) => (
+                    <div key={group.group}>
+                      <p
+                        style={{
+                          margin: "4px 0",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: "#d1d5db",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {group.group}
+                      </p>
+                      {group.cols.map((column) => (
+                        <label
+                          key={column.key}
+                          style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedColumnKeys.has(column.key)}
+                            onChange={(e) => {
+                              setSelectedColumnKeys((prev) => {
+                                const next = new Set(prev);
+                                if (e.target.checked) next.add(column.key);
+                                else next.delete(column.key);
+                                return next;
+                              });
+                            }}
+                          />
+                          <span>{column.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: 14,
+                  overflow: "auto",
+                  WebkitOverflowScrolling: "touch",
+                  minWidth: 0,
+                }}
+              >
+                {tableLoading ? (
+                  <div style={{ color: "#6b7280", fontSize: 14 }}>
+                    Preparing table data...
+                  </div>
+                ) : (
+                  <table
+                    style={{
+                      width: "max-content",
+                      borderCollapse: "collapse",
+                      minWidth: Math.max(
+                        960,
+                        (1 +
+                          ALL_TABLE_COLUMNS.filter((c) =>
+                            selectedColumnKeys.has(c.key)
+                          ).length) *
+                          118
+                      ),
+                    }}
+                  >
+                    <thead>
+                      <tr>
+                        <th
+                          style={{
+                            textAlign: "left",
+                            borderBottom: "1px solid #e5e7eb",
+                            padding: "8px 10px",
+                            backgroundColor: "#f8fafc",
+                            fontSize: 13,
+                            fontWeight: 700,
+                            whiteSpace: "nowrap",
+                            minWidth: 168,
+                          }}
+                        >
+                          Company Name
+                        </th>
+                        {ALL_TABLE_COLUMNS.filter((c) =>
+                          selectedColumnKeys.has(c.key)
+                        ).map((column) => (
+                          <th
+                            key={`header-${column.key}`}
+                            style={{
+                              textAlign: "left",
+                              borderBottom: "1px solid #e5e7eb",
+                              padding: "8px 10px",
+                              backgroundColor: "#f8fafc",
+                              fontSize: 13,
+                              fontWeight: 700,
+                              whiteSpace: "nowrap",
+                              minWidth: WRAP_COLS.has(column.key) ? 200 : 112,
+                            }}
+                          >
+                            {column.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tableRows
+                        .filter((r) => selectedCompanyIds.has(r.id))
+                        .map((row) => (
+                          <tr key={`table-row-${row.id}`}>
+                            <td
+                              style={{
+                                borderBottom: "1px solid #f1f5f9",
+                                padding: "8px 10px",
+                                fontSize: 13,
+                                color: "#111827",
+                                verticalAlign: "top",
+                                fontWeight: 600,
+                                whiteSpace: "nowrap",
+                                minWidth: 168,
+                              }}
+                            >
+                              <Link
+                                href={`/company/${row.id}`}
+                                prefetch={false}
+                                style={{
+                                  color: "#1d4ed8",
+                                  textDecoration: "none",
+                                }}
+                              >
+                                {row.name}
+                              </Link>
+                            </td>
+                            {ALL_TABLE_COLUMNS.filter((c) =>
+                              selectedColumnKeys.has(c.key)
+                            ).map((column) => {
+                              const value = getTableCellValue(row, column.key);
+                              const isWebsiteColumn = column.key === "url";
+                              const isLocationColumn = column.key === "loc";
+                              return (
+                                <td
+                                  key={`${row.id}-${column.key}`}
+                                  style={{
+                                    borderBottom: "1px solid #f1f5f9",
+                                    padding: "8px 10px",
+                                    fontSize: 13,
+                                    color: "#111827",
+                                    verticalAlign: "top",
+                                    minWidth: WRAP_COLS.has(column.key) ? 200 : 112,
+                                    maxWidth: WRAP_COLS.has(column.key) ? 280 : undefined,
+                                    whiteSpace: WRAP_COLS.has(column.key)
+                                      ? "normal"
+                                      : "nowrap",
+                                    wordBreak: WRAP_COLS.has(column.key)
+                                      ? "break-word"
+                                      : "normal",
+                                    overflowWrap: WRAP_COLS.has(column.key)
+                                      ? "break-word"
+                                      : "normal",
+                                  }}
+                                >
+                                  {isWebsiteColumn && value ? (
+                                    <a
+                                      href={value}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        color: "#2563eb",
+                                        textDecoration: "none",
+                                        wordBreak: "break-all",
+                                      }}
+                                    >
+                                      {value}
+                                    </a>
+                                  ) : (
+                                    <span
+                                      style={
+                                        isLocationColumn
+                                          ? {
+                                              display: "block",
+                                              wordBreak: "break-word",
+                                              overflowWrap: "break-word",
+                                            }
+                                          : undefined
+                                      }
+                                    >
+                                      {value || "-"}
+                                    </span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <style
         dangerouslySetInnerHTML={{
           __html: `
