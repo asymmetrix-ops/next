@@ -172,65 +172,56 @@ interface ColumnDefinition {
   label: string;
 }
 
+// Column groups mirror Company Profile section titles & labels (`src/app/company/[param]/page.tsx`).
 const COL_GROUPS: Array<{ group: string; cols: ColumnDefinition[] }> = [
   {
-    group: "Company Info",
+    group: "Overview",
     cols: [
-      { key: "url", label: "Website" },
-      { key: "loc", label: "HQ Location" },
+      { key: "primary_sectors", label: "Primary Sector(s)" },
+      { key: "secondary_sectors", label: "Secondary Sector(s)" },
       { key: "year_founded", label: "Year Founded" },
+      { key: "url", label: "Website" },
       { key: "ownership", label: "Ownership" },
+      { key: "loc", label: "HQ" },
+      { key: "li_emp", label: "LinkedIn Employee Count" },
+      { key: "investors", label: "Investors" },
     ],
   },
   {
-    group: "Sectors",
-    cols: [
-      { key: "primary_sectors", label: "Primary Sectors" },
-      { key: "secondary_sectors", label: "Secondary Sectors" },
-    ],
-  },
-  {
-    group: "Relationships",
-    cols: [
-      { key: "investors", label: "Investors / Parent Company" },
-      { key: "li_emp", label: "LinkedIn Employees" },
-    ],
-  },
-  {
-    group: "Financials (m)",
+    group: "Financial Metrics",
     cols: [
       { key: "revenue_m", label: "Revenue (m)" },
-      { key: "arr_m", label: "ARR (m)" },
       { key: "ebitda_m", label: "EBITDA (m)" },
-      { key: "ebit_m", label: "EBIT (m)" },
       { key: "ev", label: "Enterprise Value (m)" },
+      { key: "revenue_multiple", label: "Revenue multiple" },
+      { key: "rev_growth_pc", label: "Revenue Growth" },
+      { key: "ebitda_margin", label: "EBITDA margin" },
+      { key: "rule_of_40", label: "Rule of 40" },
     ],
   },
   {
-    group: "Subscription & Growth",
+    group: "Subscription Metrics",
     cols: [
-      { key: "arr_pc", label: "ARR (%)" },
-      { key: "churn_pc", label: "Churn (%)" },
-      { key: "grr_pc", label: "GRR (%)" },
-      { key: "nrr", label: "NRR (%)" },
-      { key: "upsell_pc", label: "Upsell (%)" },
-      { key: "cross_sell_pc", label: "Cross-sell (%)" },
-      { key: "price_increase_pc", label: "Price Increase (%)" },
-      { key: "rev_expansion_pc", label: "Rev Expansion (%)" },
-      { key: "new_client_growth_pc", label: "New Client Growth (%)" },
-      { key: "rev_growth_pc", label: "Revenue Growth (%)" },
-      { key: "ebitda_margin", label: "EBITDA Margin (%)" },
-      { key: "rule_of_40", label: "Rule of 40 (%)" },
-      { key: "revenue_multiple", label: "Revenue Multiple (x)" },
+      { key: "arr_pc", label: "Recurring Revenue" },
+      { key: "arr_m", label: "ARR (m)" },
+      { key: "churn_pc", label: "Churn" },
+      { key: "grr_pc", label: "GRR" },
+      { key: "upsell_pc", label: "Upsell" },
+      { key: "cross_sell_pc", label: "Cross-sell" },
+      { key: "price_increase_pc", label: "Price increase" },
+      { key: "rev_expansion_pc", label: "Revenue expansion" },
+      { key: "nrr", label: "NRR" },
+      { key: "new_client_growth_pc", label: "New clients revenue growth" },
     ],
   },
   {
-    group: "Per Unit",
+    group: "Other Metrics",
     cols: [
-      { key: "no_of_clients", label: "No. of Clients" },
-      { key: "rev_per_client", label: "Revenue per Client" },
-      { key: "no_employees", label: "No. of Employees" },
-      { key: "rev_per_employee", label: "Revenue per Employee" },
+      { key: "ebit_m", label: "EBIT (m)" },
+      { key: "no_of_clients", label: "Number of clients" },
+      { key: "rev_per_client", label: "Revenue per client" },
+      { key: "no_employees", label: "Number of employees" },
+      { key: "rev_per_employee", label: "Revenue per employee" },
     ],
   },
 ];
@@ -1129,16 +1120,35 @@ const ArticleDetailPage = () => {
   };
 
   const getTableCellValue = (row: TableCompanyRow, key: string): string => {
-    const direct = row as unknown as Record<string, unknown>;
-    return toDisplayString(direct[key]);
+    const raw = (row as unknown as Record<string, unknown>)[key];
+    const v =
+      typeof raw === "string" ? raw.trim() : toDisplayString(raw).trim();
+    if (!v || v === "—") return "Not available";
+    return v;
   };
 
   const parseMaybeSetLikeList = (value: unknown): string[] => {
+    if (value === null || value === undefined) return [];
+    if (typeof value === "object" && !Array.isArray(value)) {
+      const vals = Object.values(value as Record<string, unknown>)
+        .flatMap((v) => {
+          if (v === null || v === undefined) return [];
+          if (typeof v === "object" && !Array.isArray(v)) {
+            return Object.values(v as Record<string, unknown>).map((x) =>
+              toDisplayString(x)
+            );
+          }
+          return [toDisplayString(v)];
+        })
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return Array.from(new Set(vals));
+    }
     if (Array.isArray(value)) {
       return value.map((v) => toDisplayString(v)).filter(Boolean);
     }
     const text = toDisplayString(value);
-    if (!text) return [];
+    if (!text || text === "{}" || text === "[]") return [];
     const parsed = tryParse<unknown>(text);
     if (Array.isArray(parsed)) {
       return parsed.map((v) => toDisplayString(v)).filter(Boolean);
@@ -1149,59 +1159,75 @@ const ArticleDetailPage = () => {
       .split(",")
       .map((x) => x.replace(/^["']|["']$/g, "").trim())
       .filter(Boolean);
-    return setLike.length > 0 ? setLike : [text];
+    if (setLike.length === 0) return [];
+    return setLike;
   };
 
-  const mapCompanyTableApiRow = useCallback((row: Record<string, unknown>): TableCompanyRow => {
-    const id = Number(row.id) || 0;
-    const primarySectors = parseMaybeSetLikeList(row.primary_sector_names).join(", ");
-    const secondarySectors = parseMaybeSetLikeList(row.secondary_sector_names).join(", ");
-    const investorNames = parseMaybeSetLikeList(row.investor_names).join(", ");
-    const hqLocation = [
-      toDisplayString(row.hq_city),
-      toDisplayString(row.hq_state),
-      toDisplayString(row.hq_country),
-    ]
-      .filter(Boolean)
-      .join(", ");
+  const mapCompanyTableApiRow = (row: Record<string, unknown>): TableCompanyRow => {
+      const id = Number(row.id) || 0;
+      const primarySectors = parseMaybeSetLikeList(row.primary_sector_names).join(", ");
+      const secondarySectors = parseMaybeSetLikeList(row.secondary_sector_names).join(", ");
+      const investorNames = parseMaybeSetLikeList(row.investor_names).join(", ");
+      const hqLocation = [
+        toDisplayString(row.hq_city),
+        toDisplayString(row.hq_state),
+        toDisplayString(row.hq_country),
+      ]
+        .filter(Boolean)
+        .join(", ");
 
-    return {
-      id,
-      name: toDisplayString(row.name) || `Company ${id}`,
-      url: normalizeWebsite(toDisplayString(row.url)),
-      loc: hqLocation || "Not available",
-      year_founded:
-        toDisplayString(row.year_founded_label || row.year_founded) || "Not available",
-      primary_sectors: primarySectors || "Not available",
-      secondary_sectors: secondarySectors || "Not available",
-      ownership:
-        toDisplayString(row.ownership_type || row.ownership_status) || "Not available",
-      investors: investorNames || "Not available",
-      li_emp: toDisplayString(row.linkedin_employee) || "Not available",
-      revenue_m: toDisplayString(row.Revenue_m) || "Not available",
-      arr_m: toDisplayString(row.ARR_m) || "Not available",
-      ebitda_m: toDisplayString(row.EBITDA_m) || "Not available",
-      ebit_m: toDisplayString(row.EBIT_m) || "Not available",
-      ev: toDisplayString(row.EV) || "Not available",
-      arr_pc: toDisplayString(row.ARR_pc) || "Not available",
-      churn_pc: toDisplayString(row.Churn_pc) || "Not available",
-      grr_pc: toDisplayString(row.GRR_pc) || "Not available",
-      nrr: toDisplayString(row.NRR) || "Not available",
-      upsell_pc: toDisplayString(row.Upsell_pc) || "Not available",
-      cross_sell_pc: toDisplayString(row.Cross_sell_pc) || "Not available",
-      price_increase_pc: toDisplayString(row.Price_increase_pc) || "Not available",
-      rev_expansion_pc: toDisplayString(row.Rev_expansion_pc) || "Not available",
-      new_client_growth_pc: toDisplayString(row.New_client_growth_pc) || "Not available",
-      rev_growth_pc: toDisplayString(row.Rev_Growth_PC) || "Not available",
-      ebitda_margin: toDisplayString(row.EBITDA_margin) || "Not available",
-      rule_of_40: toDisplayString(row.Rule_of_40) || "Not available",
-      revenue_multiple: toDisplayString(row.Revenue_multiple) || "Not available",
-      no_of_clients: toDisplayString(row.No_of_Clients) || "Not available",
-      rev_per_client: toDisplayString(row.Rev_per_client) || "Not available",
-      no_employees: toDisplayString(row.No_Employees) || "Not available",
-      rev_per_employee: toDisplayString(row.Revenue_per_employee) || "Not available",
-    };
-  }, []);
+      const na = (s: string) => (s.trim() ? s : "Not available");
+      const urlRaw = normalizeWebsite(toDisplayString(row.url));
+
+      return {
+        id,
+        name: toDisplayString(row.name) || `Company ${id}`,
+        url: na(urlRaw),
+        loc: na(hqLocation),
+        year_founded: formatCompanyOfFocusYearFounded(
+          row.year_founded_label ?? row.year_founded
+        ),
+        primary_sectors: na(primarySectors),
+        secondary_sectors: na(secondarySectors),
+        ownership: na(toDisplayString(row.ownership_type || row.ownership_status)),
+        investors: na(investorNames),
+        li_emp: formatPlainNumber(
+          row.linkedin_employee as number | string | null | undefined
+        ),
+        revenue_m: formatPlainNumber(row.Revenue_m as number | string | null | undefined),
+        arr_m: formatPlainNumber(row.ARR_m as number | string | null | undefined),
+        ebitda_m: formatPlainNumber(row.EBITDA_m as number | string | null | undefined),
+        ebit_m: formatPlainNumber(row.EBIT_m as number | string | null | undefined),
+        ev: formatPlainNumber(row.EV as number | string | null | undefined),
+        arr_pc: formatPercent(row.ARR_pc),
+        churn_pc: formatPercent(row.Churn_pc),
+        grr_pc: formatPercent(row.GRR_pc),
+        nrr: formatPercent(row.NRR),
+        upsell_pc: formatPercent(row.Upsell_pc),
+        cross_sell_pc: formatPercent(row.Cross_sell_pc),
+        price_increase_pc: formatPercent(row.Price_increase_pc),
+        rev_expansion_pc: formatPercent(row.Rev_expansion_pc),
+        new_client_growth_pc: formatPercent(row.New_client_growth_pc),
+        rev_growth_pc: formatPercent(row.Rev_Growth_PC),
+        ebitda_margin: formatPercent(row.EBITDA_margin),
+        rule_of_40: formatPlainNumber(
+          row.Rule_of_40 as number | string | null | undefined
+        ),
+        revenue_multiple: formatMultiple(row.Revenue_multiple),
+        no_of_clients: formatPlainNumber(
+          row.No_of_Clients as number | string | null | undefined
+        ),
+        rev_per_client: formatPlainNumber(
+          row.Rev_per_client as number | string | null | undefined
+        ),
+        no_employees: formatPlainNumber(
+          row.No_Employees as number | string | null | undefined
+        ),
+        rev_per_employee: formatPlainNumber(
+          row.Revenue_per_employee as number | string | null | undefined
+        ),
+      };
+  };
 
   const handleOpenGenerateTable = useCallback(async () => {
     if (!article) return;
@@ -1254,7 +1280,7 @@ const ArticleDetailPage = () => {
     } finally {
       setTableLoading(false);
     }
-  }, [article, companyOfFocusCompanyId, mapCompanyTableApiRow]);
+  }, [article, companyOfFocusCompanyId]);
 
   const handleExportTableCsv = () => {
     const activeRows = tableRows.filter((r) => selectedCompanyIds.has(r.id));
@@ -1351,32 +1377,19 @@ const ArticleDetailPage = () => {
   const peersTitle =
     isCompanyOfFocusFlag === true ? "Peers & Competitors" : "Market Landscape";
 
+  const canOpenCompanyTable =
+    Boolean(
+      (article.companies_mentioned && article.companies_mentioned.length > 0) ||
+        (companyOfFocusCompanyId != null && companyOfFocusCompanyId > 0)
+    );
+
   return (
     <div style={styles.container}>
       <Header />
       <div style={styles.maxWidth}>
-        <div
-          style={{
-            display: "flex",
-            gap: "12px",
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
-        >
-          <button onClick={handleBackClick} style={styles.backButton}>
-            ← Back to Insights & Analysis
-          </button>
-          <button
-            type="button"
-            onClick={handleOpenGenerateTable}
-            style={{
-              ...styles.backButton,
-              backgroundColor: "#0f766e",
-            }}
-          >
-            Generate Table
-          </button>
-        </div>
+        <button onClick={handleBackClick} style={styles.backButton}>
+          ← Back to Insights & Analysis
+        </button>
 
         <div className="article-layout">
           {/* Left: Main body (2/3) */}
@@ -2132,40 +2145,81 @@ const ArticleDetailPage = () => {
                 )}
               </div>
             )}
-            {/* Companies Section */}
-            {!showMarketLandscape &&
-              article.companies_mentioned &&
-              article.companies_mentioned.length > 0 && (
-                <div style={styles.section}>
-                  <h2 style={styles.sectionTitle}>Companies</h2>
-                  <div style={styles.tagContainer}>
-                    {article.companies_mentioned.map((company) => (
-                      <Link
-                        key={company.id}
-                        href={`/company/${company.id}`}
-                        style={{
-                          ...styles.companyTag,
-                          textDecoration: "none",
-                          display: "inline-block",
-                        }}
-                        onMouseEnter={(e) => {
-                          (
-                            e.currentTarget as HTMLAnchorElement
-                          ).style.backgroundColor = "#c8e6c9";
-                        }}
-                        onMouseLeave={(e) => {
-                          (
-                            e.currentTarget as HTMLAnchorElement
-                          ).style.backgroundColor = "#e8f5e8";
-                        }}
-                        prefetch={false}
-                      >
-                        {company.name}
-                      </Link>
-                    ))}
-                  </div>
+            {/* Companies + Generate Table (sidebar) */}
+            {canOpenCompanyTable && (
+              <div style={styles.section}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <h2
+                    style={{
+                      ...styles.sectionTitle,
+                      marginBottom: 0,
+                    }}
+                  >
+                    {article.companies_mentioned &&
+                    article.companies_mentioned.length > 0
+                      ? "Companies"
+                      : "Company"}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={handleOpenGenerateTable}
+                    style={{
+                      backgroundColor: "#0f766e",
+                      color: "white",
+                      fontWeight: 600,
+                      padding: "8px 14px",
+                      borderRadius: 6,
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      whiteSpace: "nowrap",
+                      minHeight: 40,
+                      touchAction: "manipulation",
+                    }}
+                  >
+                    Generate Table
+                  </button>
                 </div>
-              )}
+                {!showMarketLandscape &&
+                  article.companies_mentioned &&
+                  article.companies_mentioned.length > 0 && (
+                    <div style={{ ...styles.tagContainer, marginTop: 12 }}>
+                      {article.companies_mentioned.map((company) => (
+                        <Link
+                          key={company.id}
+                          href={`/company/${company.id}`}
+                          style={{
+                            ...styles.companyTag,
+                            textDecoration: "none",
+                            display: "inline-block",
+                          }}
+                          onMouseEnter={(e) => {
+                            (
+                              e.currentTarget as HTMLAnchorElement
+                            ).style.backgroundColor = "#c8e6c9";
+                          }}
+                          onMouseLeave={(e) => {
+                            (
+                              e.currentTarget as HTMLAnchorElement
+                            ).style.backgroundColor = "#e8f5e8";
+                          }}
+                          prefetch={false}
+                        >
+                          {company.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+              </div>
+            )}
 
             {/* Sectors Section */}
             {article.sectors && article.sectors.length > 0 && (
@@ -2269,8 +2323,9 @@ const ArticleDetailPage = () => {
           <div
             style={{
               backgroundColor: "#fff",
-              width: "min(1200px, 100%)",
-              maxHeight: "90vh",
+              width: "min(96vw, calc(100vw - 32px))",
+              maxWidth: 1920,
+              maxHeight: "92vh",
               borderRadius: 12,
               border: "1px solid #e5e7eb",
               display: "flex",
@@ -2606,7 +2661,10 @@ const ArticleDetailPage = () => {
                                       : "normal",
                                   }}
                                 >
-                                  {isWebsiteColumn && value ? (
+                                  {isWebsiteColumn &&
+                                  value &&
+                                  value !== "Not available" &&
+                                  /^https?:\/\//i.test(value) ? (
                                     <a
                                       href={value}
                                       target="_blank"
@@ -2631,7 +2689,7 @@ const ArticleDetailPage = () => {
                                           : undefined
                                       }
                                     >
-                                      {value || "-"}
+                                      {value}
                                     </span>
                                   )}
                                 </td>
