@@ -2146,12 +2146,13 @@ const ArticleDetailPage = () => {
                 article.Content?.Content_Type ||
                 ""
               ).trim();
-              const isHotTakeOrDealAnalysis = /^(hot\s*take|deal\s*analysis)$/i.test(
+              // Hot Take, Deal Analysis, and Deal Perspective: show CE details (incl. target company)
+              const showRelatedCorporateEvent = /^(hot\s*take|deal\s*analysis|deal\s*perspective)$/i.test(
                 ct
               );
               const events = article.Related_Corporate_Event || [];
               if (
-                !isHotTakeOrDealAnalysis ||
+                !showRelatedCorporateEvent ||
                 !Array.isArray(events) ||
                 events.length === 0
               ) {
@@ -2188,6 +2189,17 @@ const ArticleDetailPage = () => {
                       normalizeNonEmptyText(
                         (ev as unknown as Record<string, unknown>)?.Target
                       );
+                    const rawTargetCompanyId = ev?.target?.id;
+                    const targetCompanyId =
+                      typeof rawTargetCompanyId === "number" &&
+                      rawTargetCompanyId > 0
+                        ? rawTargetCompanyId
+                        : typeof rawTargetCompanyId === "string"
+                          ? (() => {
+                              const p = parseInt(rawTargetCompanyId, 10);
+                              return Number.isFinite(p) && p > 0 ? p : undefined;
+                            })()
+                          : undefined;
                     const dealType = ev?.deal_type;
 
                     // New deal fields (only render if populated)
@@ -2338,7 +2350,33 @@ const ArticleDetailPage = () => {
                           {targetName && (
                             <div style={styles.infoRow}>
                               <span style={styles.label}>Target</span>
-                              <span style={styles.value}>{targetName}</span>
+                              <span style={styles.value}>
+                                {targetCompanyId ? (
+                                  <Link
+                                    href={`/company/${targetCompanyId}`}
+                                    prefetch={false}
+                                    style={{
+                                      color: "#2563eb",
+                                      fontWeight: 500,
+                                      textDecoration: "none",
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      (
+                                        e.currentTarget as HTMLAnchorElement
+                                      ).style.textDecoration = "underline";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      (
+                                        e.currentTarget as HTMLAnchorElement
+                                      ).style.textDecoration = "none";
+                                    }}
+                                  >
+                                    {targetName}
+                                  </Link>
+                                ) : (
+                                  targetName
+                                )}
+                              </span>
                             </div>
                           )}
                           {buyersInvestors && (
