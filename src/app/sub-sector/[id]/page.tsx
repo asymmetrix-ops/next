@@ -52,6 +52,10 @@ interface CompanyItem {
   investors?: Array<{
     id: number;
     name: string;
+    /** When "company", link to dynamic company page; otherwise investor page */
+    page_type?: string;
+    /** Optional prebuilt path from API (takes precedence when set) */
+    href?: string;
   }>;
   companies_investors?: Array<{
     company_name: string;
@@ -186,11 +190,28 @@ const renderSectorLinks = (
   return nodes.length > 0 ? nodes : "N/A";
 };
 
+const investorDetailHref = (inv: {
+  id?: number;
+  href?: string;
+  page_type?: string;
+}): string | undefined => {
+  if (typeof inv.href === "string" && inv.href.trim()) {
+    return inv.href.trim();
+  }
+  const id = inv.id;
+  if (typeof id !== "number") return undefined;
+  const pt = String(inv.page_type ?? "").toLowerCase();
+  if (pt === "company") return `/company/${id}`;
+  return `/investors/${id}`;
+};
+
 const renderInvestorLinks = (
   investors:
     | Array<{
         id?: number;
         name?: string;
+        page_type?: string;
+        href?: string;
       }>
     | undefined
 ): React.ReactNode => {
@@ -199,12 +220,12 @@ const renderInvestorLinks = (
   investors.forEach((inv, index) => {
     const name = String(inv?.name ?? "").trim();
     if (!name) return;
-    const id = inv?.id;
+    const href = investorDetailHref(inv);
     nodes.push(
-      typeof id === "number" ? (
+      href ? (
         <a
-          key={`inv-${id}-${name}-${index}`}
-          href={`/investors/${id}`}
+          key={`inv-${href}-${name}-${index}`}
+          href={href}
           className="text-blue-600 underline hover:text-blue-800"
         >
           {name}
@@ -3067,12 +3088,7 @@ const SubSectorPage = () => {
                                   Array.isArray(c.investors) &&
                                   c.investors.length > 0
                                 ) {
-                                  return renderInvestorLinks(
-                                    c.investors as Array<{
-                                      id?: number;
-                                      name?: string;
-                                    }>
-                                  );
+                                  return renderInvestorLinks(c.investors);
                                 }
 
                                 // Fallback to legacy companies_investors, if present
