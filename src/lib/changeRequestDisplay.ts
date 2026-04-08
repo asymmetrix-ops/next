@@ -92,6 +92,45 @@ export type DiffItem = {
   muted?: boolean;
 };
 
+const DIFF_SEGMENT_SOFT_MAX = 340;
+
+/** Break huge single-line dumps (camelCase language lists, etc.) into readable lines. */
+function splitDenseSegment(s: string): string[] {
+  const t = s.trim();
+  if (!t) return [];
+  if (t.length <= DIFF_SEGMENT_SOFT_MAX) return [t];
+
+  const bySentence = t.split(/(?<=[.!?])\s+(?=[\w*"'(])/);
+  if (bySentence.length > 1) {
+    return bySentence.flatMap((x) => splitDenseSegment(x.trim()));
+  }
+
+  const decamel = t.replace(/([a-z\d])([A-Z])/g, "$1 $2");
+  if (decamel !== t) {
+    const words = decamel.split(/\s+/).filter(Boolean);
+    if (words.length > 8) {
+      const lines: string[] = [];
+      let buf: string[] = [];
+      for (const w of words) {
+        buf.push(w);
+        const line = buf.join(" ");
+        if (line.length >= 88 || buf.length >= 16) {
+          lines.push(line);
+          buf = [];
+        }
+      }
+      if (buf.length) lines.push(buf.join(" "));
+      return lines;
+    }
+  }
+
+  const hard: string[] = [];
+  for (let i = 0; i < t.length; i += DIFF_SEGMENT_SOFT_MAX) {
+    hard.push(t.slice(i, i + DIFF_SEGMENT_SOFT_MAX));
+  }
+  return hard;
+}
+
 function segmentDiffText(raw: string): string[] {
   const t = raw.trim();
   if (!t) return [];
@@ -106,7 +145,21 @@ function segmentDiffText(raw: string): string[] {
       .filter(Boolean);
     if (byDouble.length > 4) parts = byDouble;
   }
+  parts = parts.flatMap((p) => splitDenseSegment(p));
   return parts.length ? parts : [t];
+}
+
+function isCookieOrUiNoise(label: string): boolean {
+  const L = label.trim();
+  if (L.length < 24) return false;
+  return (
+    /this website stores cookies/i.test(L) ||
+    /if you decline, your information/i.test(L) ||
+    /^\* Select Language/i.test(L) ||
+    (L.length > 400 &&
+      /language(abkhaz|acehnese|afrikaans)/i.test(L) &&
+      /[a-z][A-Z]/.test(L))
+  );
 }
 
 export function textToDiffItems(
@@ -121,7 +174,7 @@ export function textToDiffItems(
   let highlightIdx = -1;
   if (isAdded) {
     const scored = segments.map((label, i) => {
-      const muted = isMutedLine(label);
+      const muted = isMutedLine(label) || isCookieOrUiNoise(label);
       if (muted) return { i, score: -1 };
       const kw =
         /\b(acquir|merger|mergers|announc|acquisition|partnership|integrat|launch|launching)\b/i.test(
@@ -139,7 +192,8 @@ export function textToDiffItems(
     const muted =
       /\* < previous|^\* < previous/i.test(label) ||
       lower.includes("acceptdecline") ||
-      (label.length < 8 && /^[\*•]+$/.test(label.trim()));
+      (label.length < 8 && /^[\*•]+$/.test(label.trim())) ||
+      isCookieOrUiNoise(label);
     const dim =
       !muted &&
       (/(^(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{4})$/i.test(

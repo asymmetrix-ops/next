@@ -50,37 +50,42 @@ function DiffBlock({
 
   return (
     <div
-      className={`space-y-1 rounded-lg border p-2.5 text-[11px] leading-relaxed ${
+      className={`min-w-0 max-w-full rounded-lg border ${
         isAdded
           ? "border-green-200 bg-green-50/60"
           : "border-red-200 bg-red-50/60"
       }`}
     >
-      <p
-        className={`mb-1.5 text-[10px] font-semibold uppercase tracking-widest ${
-          isAdded ? "text-green-600" : "text-red-500"
-        }`}
-      >
-        {isAdded ? "+ Added" : "− Removed"}
-      </p>
-      {items.map((item, i) => (
-        <div
-          key={i}
-          className={[
-            item.muted ? "italic text-gray-400" : "",
-            item.dim ? "text-gray-500" : "",
-            item.highlight && isAdded ? "font-medium text-green-800" : "",
-            item.strike
-              ? "text-red-400 line-through decoration-red-300"
-              : "",
-            !item.muted && !item.dim && !item.highlight && !item.strike
-              ? "text-gray-700"
-              : "",
-          ].join(" ")}
+      <div className="max-h-72 min-h-0 overflow-y-auto overflow-x-hidden p-2.5">
+        <p
+          className={`mb-2 text-[10px] font-semibold uppercase tracking-widest ${
+            isAdded ? "text-green-600" : "text-red-500"
+          }`}
         >
-          {item.label}
+          {isAdded ? "+ Added" : "− Removed"}
+        </p>
+        <div className="space-y-1.5 text-[11px] leading-relaxed">
+          {items.map((item, i) => (
+            <div
+              key={i}
+              className={[
+                "hyphens-auto break-words [overflow-wrap:anywhere]",
+                item.muted ? "italic text-gray-400" : "",
+                item.dim ? "text-gray-500" : "",
+                item.highlight && isAdded ? "font-medium text-green-800" : "",
+                item.strike
+                  ? "text-red-500/90 line-through decoration-red-300"
+                  : "",
+                !item.muted && !item.dim && !item.highlight && !item.strike
+                  ? "text-gray-700"
+                  : "",
+              ].join(" ")}
+            >
+              {item.label}
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
     </div>
   );
 }
@@ -177,7 +182,7 @@ export function ChangeStateTab() {
   }
 
   const linkClass =
-    "break-all text-[11px] leading-snug text-blue-600 hover:underline";
+    "min-w-0 break-all text-[11px] leading-snug text-blue-600 hover:underline";
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -316,8 +321,8 @@ export function ChangeStateTab() {
           style={{ minWidth: 0 }}
         >
           <table
-            className="w-full border-collapse text-left"
-            style={{ minWidth: 1200 }}
+            className="w-full table-fixed border-collapse text-left"
+            style={{ minWidth: 1280 }}
           >
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
@@ -336,7 +341,13 @@ export function ChangeStateTab() {
                 ].map((col) => (
                   <th
                     key={col}
-                    className="whitespace-nowrap px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400"
+                    className={`px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 ${
+                      col === "Added" || col === "Removed"
+                        ? "w-[260px] min-w-[200px] max-w-[280px]"
+                        : col === "AI Reasoning"
+                          ? "w-[280px] min-w-0 max-w-[300px]"
+                          : "whitespace-nowrap"
+                    }`}
                   >
                     {col}
                   </th>
@@ -380,14 +391,14 @@ export function ChangeStateTab() {
                         </div>
                       ) : null}
                     </td>
-                    <td className="px-4 py-4" style={{ maxWidth: 280 }}>
+                    <td className="min-w-0 max-w-[300px] px-4 py-4 align-top">
                       {reasoning ? (
-                        <div className="space-y-1.5">
+                        <div className="min-w-0 space-y-1.5 break-words">
                           <p className="text-xs font-semibold leading-snug text-gray-900">
                             {reasoning.title}
                           </p>
                           {reasoning.body ? (
-                            <p className="text-[11px] leading-relaxed text-gray-500">
+                            <p className="text-[11px] leading-relaxed text-gray-500 [overflow-wrap:anywhere]">
                               {reasoning.body}
                             </p>
                           ) : null}
@@ -408,18 +419,18 @@ export function ChangeStateTab() {
                         <span className="text-xs text-gray-300">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-4" style={{ minWidth: 220, maxWidth: 260 }}>
+                    <td className="min-w-0 w-[260px] max-w-[280px] px-4 py-4 align-top">
                       <DiffBlock items={addedItems} variant="added" />
                     </td>
-                    <td className="px-4 py-4" style={{ minWidth: 220, maxWidth: 260 }}>
+                    <td className="min-w-0 w-[260px] max-w-[280px] px-4 py-4 align-top">
                       <DiffBlock items={removedItems} variant="removed" />
                     </td>
-                    <td className="px-4 py-4">
-                      <span className="text-xs text-gray-600">
+                    <td className="min-w-0 px-4 py-4 align-top">
+                      <span className="break-words text-xs text-gray-600">
                         {m.watch_title ?? "—"}
                       </span>
                     </td>
-                    <td className="px-4 py-4" style={{ maxWidth: 180 }}>
+                    <td className="min-w-0 max-w-[200px] px-4 py-4 align-top">
                       {item.watch_url ? (
                         <a
                           href={item.watch_url}
