@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 import { CompetitorsTab } from "./analytics/_components/AnalyticsViews";
+import { ChangeStateTab } from "./_components/ChangeStatePanel";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import TiptapSimpleEditor from "@/components/ui/TiptapSimpleEditor";
 import { locationsService } from "@/lib/locationsService";
@@ -67,6 +68,7 @@ export default function AdminPage() {
     | "content"
     | "sectors"
     | "competitors"
+    | "changeState"
   >("valuation");
 
   // Only authenticated users with admin role may access; others are redirected.
@@ -231,6 +233,16 @@ Target company: {query} ({domain})`;
         >
           Competitors
         </button>
+        <button
+          onClick={() => setActiveTab("changeState")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "changeState"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Change State
+        </button>
       </div>
 
       {activeTab === "valuation" && (
@@ -297,6 +309,7 @@ Target company: {query} ({domain})`;
       {activeTab === "content" && <ContentTab />}
       {activeTab === "sectors" && <SectorsTab />}
       {activeTab === "competitors" && <CompetitorsTab />}
+      {activeTab === "changeState" && <ChangeStateTab />}
     </div>
   );
 }
@@ -489,6 +502,7 @@ function sanitizeHtml(input: string): string {
   let out = input;
   // Remove script tags entirely
   out = out.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "");
+  out = out.replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "");
   // Drop on* event handler attributes
   out = out.replace(/\son\w+=(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
   // Neutralize javascript: URLs
@@ -925,6 +939,7 @@ function EmailsTab() {
     </div>
   );
 }
+
 function ContentTab() {
   const [html, setHtml] = useState("");
   const [bodyHtml, setBodyHtml] = useState<string>("<p></p>");
