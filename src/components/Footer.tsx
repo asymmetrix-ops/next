@@ -102,7 +102,7 @@ const Footer = () => {
             style={styles.logoImage}
           />
           <span style={styles.logoText}>
-            © 2025 Asymmetrix Ltd. All rights reserved
+            © 2026 Asymmetrix Ltd. All rights reserved
           </span>
         </div>
 
