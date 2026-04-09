@@ -56,49 +56,32 @@ class AdvisorService {
    * Endpoint: advisors_ce (returns full enriched data including sectors, individuals, EV)
    * Method: GET
    * Auth: Required
-   * Query Parameters: { "advisor_company_id": number }
+   * Query Parameters: { "new_comp_id": number } (same id as dynamic /advisor/[param])
    */
   async getCorporateEvents(
     advisorId: number
   ): Promise<CorporateEventsResponse> {
-    const endpoint = `${BASE_URL}/advisors_ce`;
-    const headers = { ...this.getAuthHeaders() };
+    const url = `${BASE_URL}/advisors_ce?new_comp_id=${encodeURIComponent(String(advisorId))}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { ...this.getAuthHeaders() },
+    });
 
-    // Try multiple query-param keys in priority order; use the first that returns data.
-    const candidates: Array<{ key: string; value: number }> = [
-      { key: "advisor_company_id", value: advisorId },
-      { key: "new_comp_id", value: advisorId },
-      { key: "advisor_id", value: advisorId },
-    ];
-
-    let lastOk: unknown = null;
-
-    for (const c of candidates) {
-      const url = `${endpoint}?${encodeURIComponent(c.key)}=${encodeURIComponent(String(c.value))}`;
-      const res = await fetch(url, { method: "GET", headers });
-
-      if (!res.ok) {
-        if (res.status === 401) {
-          authService.logout();
-          dispatchUnauthorized();
-          throw new Error("Authentication required");
-        }
-        continue;
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        dispatchUnauthorized();
+        throw new Error("Authentication required");
       }
-
-      const payload = (await res.json()) as unknown;
-      lastOk = payload;
-
-      if (Array.isArray(payload) && payload.length > 0) {
-        return { events: payload };
-      }
+      throw new Error(
+        `Failed to fetch corporate events: ${response.status} ${response.statusText}`
+      );
     }
 
-    if (lastOk === null) {
-      throw new Error("Failed to fetch corporate events");
-    }
-
-    return { events: Array.isArray(lastOk) ? lastOk : [] };
+    const payload = (await response.json()) as unknown;
+    return {
+      events: Array.isArray(payload) ? payload : [],
+    };
   }
 
   /**
