@@ -1954,11 +1954,10 @@ function ContentTab() {
       // Summary as string (matches your working curl)
       payload.summary = JSON.stringify(summaryItems);
 
-      // Created by — Xano stacks commonly bind snake_case inputs; send both shapes.
+      // Created by
       const creatorId = parsePositiveCreatorId(createdByUserId);
       if (creatorId != null) {
         payload.Created_by = creatorId;
-        payload.created_by = creatorId;
       }
 
       return payload;
