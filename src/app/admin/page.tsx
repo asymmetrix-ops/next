@@ -1253,7 +1253,6 @@ function ContentTab() {
     Related_Corporate_Event?: Array<number | { id: number; [key: string]: unknown }> | null;
     Related_Documents?: unknown[] | null;
     Body_Design?: string | null;
-    Transaction_status?: string | null;
     Publication_Date?: unknown;
     created_at?: number;
     Created_by?: number | null;
@@ -1264,18 +1263,20 @@ function ContentTab() {
   const [editingContentId, setEditingContentId] = useState<number | null>(null);
   const [visibility, setVisibility] = useState<Visibility>("Admin");
 
-  const TRANSACTION_STATUS_OPTIONS = [
-    "Rumoured in Market",
-    "Transaction anticipated within 18 months",
-    "Reported in Market",
-  ] as const;
-  const [transactionStatus, setTransactionStatus] = useState("");
-
   // Created by (single user from asymmetrix_users)
   type SimpleUser = { id: number; name: string };
   const [allUsers, setAllUsers] = useState<SimpleUser[]>([]);
   const [createdByUserId, setCreatedByUserId] = useState<number | "">("");
   const [usersLoading, setUsersLoading] = useState(false);
+
+  function parsePositiveCreatorId(v: number | ""): number | null {
+    if (v === "") return null;
+    if (typeof v === "number" && Number.isFinite(v)) {
+      const t = Math.trunc(v);
+      return t > 0 ? t : null;
+    }
+    return null;
+  }
 
   function extractInnerContent(fullHtml: string): string {
     // If it's a full HTML document, extract the inner content
@@ -1654,9 +1655,6 @@ function ContentTab() {
       setVisibility(coerceVisibility(article.Visibility));
     }
 
-    // Pre-load transaction status
-    setTransactionStatus(article.Transaction_status ?? "");
-
     // Pre-load Created by (if API returns it)
     const createdBy = (article as { Created_by?: number | null }).Created_by;
     if (typeof createdBy === "number" && createdBy > 0) {
@@ -1937,7 +1935,6 @@ function ContentTab() {
       payload.Content_Type = Content_Type;
       payload.Body = Body;
       payload.Visibility = visibility;
-      payload.Transaction_status = transactionStatus;
 
       // IDs: send as JSON arrays (not "{1,2}" strings)
       payload.Company_of_Focus = companyOfFocusIds;
@@ -1957,9 +1954,11 @@ function ContentTab() {
       // Summary as string (matches your working curl)
       payload.summary = JSON.stringify(summaryItems);
 
-      // Created by (user id)
-      if (typeof createdByUserId === "number" && createdByUserId > 0) {
-        payload.Created_by = createdByUserId;
+      // Created by — Xano stacks commonly bind snake_case inputs; send both shapes.
+      const creatorId = parsePositiveCreatorId(createdByUserId);
+      if (creatorId != null) {
+        payload.Created_by = creatorId;
+        payload.created_by = creatorId;
       }
 
       return payload;
@@ -2063,7 +2062,6 @@ function ContentTab() {
               setStrapline("");
               setContentType("");
               setVisibility("Admin");
-              setTransactionStatus("");
               setCreatedByUserId("");
               setSummaryItems([]);
               setCompanyOfFocus([]);
@@ -2132,29 +2130,18 @@ function ContentTab() {
       </div>
 
       <div className="mb-3">
-        <label className="block mb-1 text-sm font-medium">Transaction Status</label>
-        <select
-          className="p-2 w-full border"
-          value={transactionStatus}
-          onChange={(e) => setTransactionStatus(e.target.value)}
-        >
-          <option value="">— None —</option>
-          {TRANSACTION_STATUS_OPTIONS.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="mb-3">
         <label className="block mb-1 text-sm font-medium">Created by</label>
         <select
           className="p-2 w-full border"
           value={createdByUserId === "" ? "" : createdByUserId}
           onChange={(e) => {
             const val = e.target.value;
-            setCreatedByUserId(val === "" ? "" : Number(val));
+            if (val === "") {
+              setCreatedByUserId("");
+              return;
+            }
+            const n = parseInt(val, 10);
+            setCreatedByUserId(Number.isFinite(n) && n > 0 ? n : "");
           }}
           disabled={usersLoading}
         >
@@ -2849,7 +2836,6 @@ function ContentTab() {
               setStrapline("");
               setContentType("");
               setVisibility("Admin");
-              setTransactionStatus("");
               setCreatedByUserId("");
               setSummaryItems([]);
               setCompanyOfFocus([]);
