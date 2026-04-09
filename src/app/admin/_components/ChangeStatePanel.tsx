@@ -7,6 +7,7 @@ import {
   type ChangeRequestResponse,
   formatAiReasoningCard,
   getChangeRequestAiReasoning,
+  getChangeRequestBucket,
   getChangeRequestDiffText,
   parseChangeMessageMeta,
   splitCreatedForDisplay,
@@ -69,13 +70,15 @@ function AddedDiffBlock({ items }: { items: DiffItem[] }) {
   );
 }
 
-const CHANGE_REQUEST_TYPES = ["companies", "web_resource", "others"] as const;
-type ChangeRequestType = (typeof CHANGE_REQUEST_TYPES)[number];
+/** Sub-tabs: first three use `change_request` + `type`; `all` uses `get_change_state_all`. */
+const CHANGE_STATE_TABS = ["companies", "web_resource", "others", "all"] as const;
+type ChangeStateTabId = (typeof CHANGE_STATE_TABS)[number];
 
-const CHANGE_REQUEST_TYPE_LABELS: Record<ChangeRequestType, string> = {
+const CHANGE_STATE_TAB_LABELS: Record<ChangeStateTabId, string> = {
   companies: "Companies",
   web_resource: "Web resource",
   others: "Others",
+  all: "All",
 };
 
 const CHANGE_REQUEST_PER_PAGE = 50;
@@ -91,7 +94,7 @@ export function ChangeStateTab() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [requestType, setRequestType] = useState<ChangeRequestType>("companies");
+  const [activeTab, setActiveTab] = useState<ChangeStateTabId>("companies");
   /** Local checkbox state; merges with `item.reviewed` from API until persisted. */
   const [reviewOverrides, setReviewOverrides] = useState<Record<number, boolean>>(
     {}
@@ -102,9 +105,9 @@ export function ChangeStateTab() {
   useEffect(() => {
     setReviewOverrides({});
     setCollectedPageIds([]);
-  }, [page, requestType]);
+  }, [page, activeTab]);
 
-  const loadItems = useCallback(async (pageNum: number, type: ChangeRequestType) => {
+  const loadItems = useCallback(async (pageNum: number, tab: ChangeStateTabId) => {
     setLoading(true);
     setError(null);
     try {
@@ -112,10 +115,15 @@ export function ChangeStateTab() {
       if (!token) {
         throw new Error("Authentication required");
       }
-      const url = new URL("/api/change-request", window.location.origin);
-      url.searchParams.set("type", type);
+      const url =
+        tab === "all"
+          ? new URL("/api/change-state-all", window.location.origin)
+          : new URL("/api/change-request", window.location.origin);
       url.searchParams.set("page", String(pageNum));
       url.searchParams.set("per_page", String(CHANGE_REQUEST_PER_PAGE));
+      if (tab !== "all") {
+        url.searchParams.set("type", tab);
+      }
       const res = await fetch(url.toString(), {
         method: "GET",
         headers: {
@@ -194,23 +202,62 @@ export function ChangeStateTab() {
           );
         }
         setReviewOverrides({});
-        await loadItems(page, requestType);
+        await loadItems(page, activeTab);
       } catch (e) {
         setError(
           e instanceof Error ? e.message : "Failed to mark as viewed"
         );
       }
     },
-    [loadItems, page, requestType]
+    [loadItems, page, activeTab]
+  );
+
+  const unmarkAsViewedAndRefresh = useCallback(
+    async (ids: number[]) => {
+      if (ids.length === 0) return;
+      setError(null);
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) throw new Error("Authentication required");
+        const res = await fetch("/api/unmark-as-viewed", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+          body: JSON.stringify({ change_state_id: ids }),
+        });
+        const raw = await res.json().catch(() => null);
+        if (!res.ok) {
+          const errBody =
+            raw && typeof raw === "object"
+              ? (raw as { error?: string })
+              : null;
+          throw new Error(
+            (errBody?.error && typeof errBody.error === "string"
+              ? errBody.error
+              : null) || `Request failed (${res.status})`
+          );
+        }
+        setReviewOverrides({});
+        await loadItems(page, activeTab);
+      } catch (e) {
+        setError(
+          e instanceof Error ? e.message : "Failed to unmark as viewed"
+        );
+      }
+    },
+    [loadItems, page, activeTab]
   );
 
   useEffect(() => {
-    void loadItems(page, requestType);
-  }, [page, requestType, loadItems]);
+    void loadItems(page, activeTab);
+  }, [page, activeTab, loadItems]);
 
-  function selectRequestType(next: ChangeRequestType) {
-    if (next === requestType) return;
-    setRequestType(next);
+  function selectTab(next: ChangeStateTabId) {
+    if (next === activeTab) return;
+    setActiveTab(next);
     setPage(1);
   }
 
@@ -242,11 +289,15 @@ export function ChangeStateTab() {
           <h2 className="text-sm font-semibold text-gray-900">
             Change detection
           </h2>
-          <p className="mt-0.5 text-xs text-gray-400">
+          <p className="mt-0.5 max-w-xl text-xs leading-relaxed text-gray-400">
             Live diffs from Xano{" "}
             <code className="rounded border border-gray-200 bg-gray-100 px-1 py-0.5 font-mono text-[11px] text-gray-500">
-              change_request
+              {activeTab === "all"
+                ? "get_change_state_all"
+                : "change_request"}
             </code>
+            . Mark / unmark reviewed uses the same IDs everywhere, so state
+            matches across tabs after refresh.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -261,22 +312,22 @@ export function ChangeStateTab() {
         <div
           className="flex gap-0.5 rounded-lg border border-gray-200 bg-white p-1"
           role="tablist"
-          aria-label="Change request type"
+          aria-label="Change state tabs"
         >
-          {CHANGE_REQUEST_TYPES.map((t) => (
+          {CHANGE_STATE_TABS.map((t) => (
             <button
               key={t}
               type="button"
               role="tab"
-              aria-selected={requestType === t}
+              aria-selected={activeTab === t}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
-                requestType === t
+                activeTab === t
                   ? "bg-gray-900 text-white shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
               }`}
-              onClick={() => selectRequestType(t)}
+              onClick={() => selectTab(t)}
             >
-              {CHANGE_REQUEST_TYPE_LABELS[t]}
+              {CHANGE_STATE_TAB_LABELS[t]}
             </button>
           ))}
         </div>
@@ -297,7 +348,7 @@ export function ChangeStateTab() {
           <button
             type="button"
             disabled={loading}
-            onClick={() => void loadItems(page, requestType)}
+            onClick={() => void loadItems(page, activeTab)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-50"
           >
             <svg
@@ -394,6 +445,7 @@ export function ChangeStateTab() {
                 );
                 const addedRaw = getChangeRequestDiffText(item, "added_text");
                 const addedItems = textToDiffItems(addedRaw, "added");
+                const bucketLabel = getChangeRequestBucket(item);
 
                 return (
                   <tr
@@ -420,10 +472,7 @@ export function ChangeStateTab() {
                             if (checked) {
                               void markAsViewedAndRefresh([item.id]);
                             } else {
-                              setReviewOverrides((prev) => ({
-                                ...prev,
-                                [item.id]: false,
-                              }));
+                              void unmarkAsViewedAndRefresh([item.id]);
                             }
                           }}
                           aria-label={`Reviewed: record ${item.id}`}
@@ -495,9 +544,9 @@ export function ChangeStateTab() {
                     </td>
                     <td className="h-full align-top px-3 py-4 sm:px-4">
                       <div className="flex h-full min-h-full flex-col justify-start">
-                        {item.bucket ? (
+                        {bucketLabel ? (
                           <span className="w-fit rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
-                            {item.bucket}
+                            {bucketLabel}
                           </span>
                         ) : (
                           <span className="text-xs text-gray-400">—</span>

@@ -74,6 +74,21 @@ export function getChangeRequestDiffText(
   return typeof top === "string" ? top : undefined;
 }
 
+/** Bucket on row or nested under `data` (e.g. `get_change_state_all`). */
+export function getChangeRequestBucket(
+  item: ChangeRequestItem
+): string | undefined {
+  if (typeof item.bucket === "string" && item.bucket.trim() !== "") {
+    return item.bucket;
+  }
+  const d = item.data;
+  if (d && typeof d === "object" && "bucket" in d) {
+    const b = (d as Record<string, unknown>).bucket;
+    if (typeof b === "string" && b.trim() !== "") return b;
+  }
+  return undefined;
+}
+
 export function getChangeRequestAiReasoning(item: ChangeRequestItem): unknown {
   if (item.ai_reasoning != null && item.ai_reasoning !== "") {
     return item.ai_reasoning;
