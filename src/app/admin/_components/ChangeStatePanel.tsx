@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { CheckIcon } from "@heroicons/react/24/solid";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   type ChangeRequestItem,
@@ -95,16 +102,12 @@ export function ChangeStateTab() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState<ChangeStateTabId>("companies");
-  /** Local checkbox state; merges with `item.reviewed` from API until persisted. */
-  const [reviewOverrides, setReviewOverrides] = useState<Record<number, boolean>>(
-    {}
-  );
-  /** IDs gathered from the current page when "Check all" is used before POST. */
-  const [collectedPageIds, setCollectedPageIds] = useState<number[]>([]);
+  /** Gmail-style row selection (current page only; cleared on tab/page change). */
+  const [selectedRowIds, setSelectedRowIds] = useState<number[]>([]);
+  const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setReviewOverrides({});
-    setCollectedPageIds([]);
+    setSelectedRowIds([]);
   }, [page, activeTab]);
 
   const loadItems = useCallback(async (pageNum: number, tab: ChangeStateTabId) => {
@@ -201,7 +204,7 @@ export function ChangeStateTab() {
               : null) || `Request failed (${res.status})`
           );
         }
-        setReviewOverrides({});
+        setSelectedRowIds([]);
         await loadItems(page, activeTab);
       } catch (e) {
         setError(
@@ -240,7 +243,7 @@ export function ChangeStateTab() {
               : null) || `Request failed (${res.status})`
           );
         }
-        setReviewOverrides({});
+        setSelectedRowIds([]);
         await loadItems(page, activeTab);
       } catch (e) {
         setError(
@@ -261,23 +264,57 @@ export function ChangeStateTab() {
     setPage(1);
   }
 
+  function isRowSelected(id: number): boolean {
+    return selectedRowIds.includes(id);
+  }
+
+  function toggleRowSelected(id: number) {
+    setSelectedRowIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  const selectedOnPageCount = useMemo(
+    () => items.filter((i) => selectedRowIds.includes(i.id)).length,
+    [items, selectedRowIds]
+  );
+
+  const allOnPageSelected =
+    items.length > 0 && selectedOnPageCount === items.length;
+  const someOnPageSelected =
+    selectedOnPageCount > 0 && !allOnPageSelected;
+
+  useEffect(() => {
+    const el = selectAllCheckboxRef.current;
+    if (el) el.indeterminate = someOnPageSelected;
+  }, [someOnPageSelected, allOnPageSelected]);
+
+  function toggleSelectAllOnPage() {
+    if (items.length === 0) return;
+    if (allOnPageSelected) {
+      setSelectedRowIds([]);
+    } else {
+      setSelectedRowIds(items.map((i) => i.id));
+    }
+  }
+
+  function clearRowSelection() {
+    setSelectedRowIds([]);
+  }
+
   function getReviewed(item: ChangeRequestItem): boolean {
-    const o = reviewOverrides[item.id];
-    if (typeof o === "boolean") return o;
     return item.reviewed ?? false;
   }
 
-  async function handleCheckAllOnPage() {
-    if (items.length === 0) return;
-    const ids = items.map((i) => i.id);
-    setCollectedPageIds(ids);
-    await markAsViewedAndRefresh(ids);
+  async function handleBulkMarkAsRead() {
+    if (selectedRowIds.length === 0) return;
+    await markAsViewedAndRefresh(selectedRowIds);
   }
 
-  const collectedIdsLabel = useMemo(() => {
-    if (collectedPageIds.length === 0) return null;
-    return `${collectedPageIds.length} ID${collectedPageIds.length === 1 ? "" : "s"} on page ${page}`;
-  }, [collectedPageIds, page]);
+  async function handleBulkMarkAsUnread() {
+    if (selectedRowIds.length === 0) return;
+    await unmarkAsViewedAndRefresh(selectedRowIds);
+  }
 
   const linkClass =
     "min-w-0 break-all text-[11px] leading-snug text-blue-600 hover:underline";
@@ -296,8 +333,8 @@ export function ChangeStateTab() {
                 ? "get_change_state_all"
                 : "change_request"}
             </code>
-            . Mark / unmark reviewed uses the same IDs everywhere, so state
-            matches across tabs after refresh.
+            . Select rows, then use Mark as read / Mark as unread (like Gmail).
+            Reviewed state is shared across tabs after refresh.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -334,19 +371,6 @@ export function ChangeStateTab() {
         <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
           <button
             type="button"
-            disabled={loading || items.length === 0}
-            onClick={() => void handleCheckAllOnPage()}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Check all
-          </button>
-          {collectedIdsLabel ? (
-            <span className="max-w-[14rem] truncate text-[11px] text-slate-500" title={collectedPageIds.join(", ")}>
-              {collectedIdsLabel}
-            </span>
-          ) : null}
-          <button
-            type="button"
             disabled={loading}
             onClick={() => void loadItems(page, activeTab)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-50"
@@ -368,6 +392,37 @@ export function ChangeStateTab() {
           </button>
         </div>
       </div>
+
+      {items.length > 0 && selectedRowIds.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-blue-100 bg-blue-50/70 px-5 py-2.5">
+          <span className="text-xs font-medium text-slate-800">
+            {selectedRowIds.length} selected
+          </span>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => void handleBulkMarkAsRead()}
+            className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-slate-800 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            Mark as read
+          </button>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => void handleBulkMarkAsUnread()}
+            className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            Mark as unread
+          </button>
+          <button
+            type="button"
+            onClick={clearRowSelection}
+            className="text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline"
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
 
       {error && (
         <div
@@ -404,19 +459,31 @@ export function ChangeStateTab() {
         >
           <table className="w-full table-fixed border-collapse text-left">
             <colgroup>
-              <col style={{ width: "3.5%" }} />
-              <col style={{ width: "5.5%" }} />
-              <col style={{ width: "7%" }} />
-              <col style={{ width: "15%" }} />
-              <col style={{ width: "52%" }} />
-              <col style={{ width: "10%" }} />
+              <col style={{ width: "2.8%" }} />
+              <col style={{ width: "3.2%" }} />
+              <col style={{ width: "4.5%" }} />
+              <col style={{ width: "6.5%" }} />
+              <col style={{ width: "14%" }} />
+              <col style={{ width: "43%" }} />
+              <col style={{ width: "9%" }} />
               <col style={{ width: "7%" }} />
             </colgroup>
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
+                <th className="w-10 px-2 py-2.5 text-center sm:px-3">
+                  <input
+                    ref={selectAllCheckboxRef}
+                    type="checkbox"
+                    className="h-4 w-4 cursor-pointer rounded border-gray-300 text-slate-800 focus:ring-slate-500"
+                    checked={allOnPageSelected}
+                    onChange={toggleSelectAllOnPage}
+                    disabled={items.length === 0 || loading}
+                    aria-label="Select all rows on this page"
+                  />
+                </th>
                 {[
                   "ID",
-                  "Reviewed",
+                  "Read",
                   "Created",
                   "AI Reasoning",
                   "Added",
@@ -426,9 +493,7 @@ export function ChangeStateTab() {
                   <th
                     key={col}
                     className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:px-4 ${
-                      col === "Reviewed"
-                        ? "text-center"
-                        : "text-left"
+                      col === "Read" ? "text-center" : "text-left"
                     } ${col === "Added" ? "min-w-0" : ""}`}
                   >
                     {col}
@@ -454,6 +519,15 @@ export function ChangeStateTab() {
                       i % 2 === 1 ? "bg-gray-50/30" : "bg-white"
                     }`}
                   >
+                    <td className="h-full align-top px-2 py-4 text-center sm:px-3">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 cursor-pointer rounded border-gray-300 text-slate-800 focus:ring-slate-500"
+                        checked={isRowSelected(item.id)}
+                        onChange={() => toggleRowSelected(item.id)}
+                        aria-label={`Select row ${item.id}`}
+                      />
+                    </td>
                     <td className="h-full align-top px-3 py-4 sm:px-4">
                       <div className="flex h-full min-h-full flex-col">
                         <span className="font-mono text-xs font-bold text-gray-400">
@@ -462,21 +536,21 @@ export function ChangeStateTab() {
                       </div>
                     </td>
                     <td className="h-full align-top px-3 py-4 text-center sm:px-4">
-                      <div className="flex h-full min-h-full items-start justify-center pt-0.5">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 cursor-pointer rounded border-gray-300 text-slate-800 focus:ring-slate-500"
-                          checked={getReviewed(item)}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            if (checked) {
-                              void markAsViewedAndRefresh([item.id]);
-                            } else {
-                              void unmarkAsViewedAndRefresh([item.id]);
-                            }
-                          }}
-                          aria-label={`Reviewed: record ${item.id}`}
-                        />
+                      <div
+                        className="flex h-full min-h-full items-start justify-center pt-0.5"
+                        title={getReviewed(item) ? "Read" : "Unread"}
+                      >
+                        {getReviewed(item) ? (
+                          <CheckIcon
+                            className="h-4 w-4 text-emerald-600"
+                            aria-hidden
+                          />
+                        ) : (
+                          <span
+                            className="mx-auto block h-4 w-4 rounded border border-dashed border-gray-300 bg-white"
+                            aria-hidden
+                          />
+                        )}
                       </div>
                     </td>
                     <td className="h-full align-top px-3 py-4 sm:px-4">
