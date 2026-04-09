@@ -15,6 +15,8 @@ export type ChangeRequestItem = {
   added_text?: string;
   removed_text?: string;
   ai_reasoning?: unknown;
+  /** Whether this change request has been reviewed (admin). */
+  reviewed?: boolean;
 };
 
 export type ChangeRequestResponse = {

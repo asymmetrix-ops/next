@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   type ChangeRequestItem,
@@ -34,14 +34,8 @@ function getTagColor(tag: string) {
   );
 }
 
-function DiffBlock({
-  items,
-  variant,
-}: {
-  items: DiffItem[];
-  variant: "added" | "removed";
-}) {
-  const isAdded = variant === "added";
+/** Green diff column only — height grows with content (defines row height). */
+function AddedDiffBlock({ items }: { items: DiffItem[] }) {
   if (!items || items.length === 0) {
     return (
       <span className="text-xs italic text-gray-300">No changes</span>
@@ -49,20 +43,10 @@ function DiffBlock({
   }
 
   return (
-    <div
-      className={`min-w-0 max-w-full rounded-lg border ${
-        isAdded
-          ? "border-green-200 bg-green-50/60"
-          : "border-red-200 bg-red-50/60"
-      }`}
-    >
-      <div className="max-h-72 min-h-0 overflow-y-auto overflow-x-hidden p-2.5">
-        <p
-          className={`mb-2 text-[10px] font-semibold uppercase tracking-widest ${
-            isAdded ? "text-green-600" : "text-red-500"
-          }`}
-        >
-          {isAdded ? "+ Added" : "− Removed"}
+    <div className="min-h-full min-w-0 max-w-full rounded-lg border border-green-200 bg-green-50/60">
+      <div className="min-h-0 overflow-x-hidden p-2.5">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-green-600">
+          + Added
         </p>
         <div className="space-y-1.5 text-[11px] leading-relaxed">
           {items.map((item, i) => (
@@ -72,13 +56,8 @@ function DiffBlock({
                 "hyphens-auto break-words [overflow-wrap:anywhere]",
                 item.muted ? "italic text-gray-400" : "",
                 item.dim ? "text-gray-500" : "",
-                item.highlight && isAdded ? "font-medium text-green-800" : "",
-                item.strike
-                  ? "text-red-500/90 line-through decoration-red-300"
-                  : "",
-                !item.muted && !item.dim && !item.highlight && !item.strike
-                  ? "text-gray-700"
-                  : "",
+                item.highlight ? "font-medium text-green-800" : "",
+                !item.muted && !item.dim && !item.highlight ? "text-gray-700" : "",
               ].join(" ")}
             >
               {item.label}
@@ -99,6 +78,8 @@ const CHANGE_REQUEST_TYPE_LABELS: Record<ChangeRequestType, string> = {
   others: "Others",
 };
 
+const CHANGE_REQUEST_PER_PAGE = 50;
+
 export function ChangeStateTab() {
   const [items, setItems] = useState<ChangeRequestItem[]>([]);
   const [meta, setMeta] = useState<{
@@ -111,6 +92,17 @@ export function ChangeStateTab() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [requestType, setRequestType] = useState<ChangeRequestType>("companies");
+  /** Local checkbox state; merges with `item.reviewed` from API until persisted. */
+  const [reviewOverrides, setReviewOverrides] = useState<Record<number, boolean>>(
+    {}
+  );
+  /** IDs gathered from the current page when "Check all" is used before POST. */
+  const [collectedPageIds, setCollectedPageIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    setReviewOverrides({});
+    setCollectedPageIds([]);
+  }, [page, requestType]);
 
   const loadItems = useCallback(async (pageNum: number, type: ChangeRequestType) => {
     setLoading(true);
@@ -123,7 +115,7 @@ export function ChangeStateTab() {
       const url = new URL("/api/change-request", window.location.origin);
       url.searchParams.set("type", type);
       url.searchParams.set("page", String(pageNum));
-      url.searchParams.set("per_page", "25");
+      url.searchParams.set("per_page", String(CHANGE_REQUEST_PER_PAGE));
       const res = await fetch(url.toString(), {
         method: "GET",
         headers: {
@@ -152,7 +144,9 @@ export function ChangeStateTab() {
             typeof data.total === "number" ? data.total : data.items.length,
           page: typeof data.page === "number" ? data.page : pageNum,
           per_page:
-            typeof data.per_page === "number" ? data.per_page : 25,
+            typeof data.per_page === "number"
+              ? data.per_page
+              : CHANGE_REQUEST_PER_PAGE,
           total_pages:
             typeof data.total_pages === "number" ? data.total_pages : 1,
         });
@@ -171,6 +165,45 @@ export function ChangeStateTab() {
     }
   }, []);
 
+  const markAsViewedAndRefresh = useCallback(
+    async (ids: number[]) => {
+      if (ids.length === 0) return;
+      setError(null);
+      try {
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        if (!token) throw new Error("Authentication required");
+        const res = await fetch("/api/mark-as-viewed", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+          body: JSON.stringify({ change_state_id: ids }),
+        });
+        const raw = await res.json().catch(() => null);
+        if (!res.ok) {
+          const errBody =
+            raw && typeof raw === "object"
+              ? (raw as { error?: string })
+              : null;
+          throw new Error(
+            (errBody?.error && typeof errBody.error === "string"
+              ? errBody.error
+              : null) || `Request failed (${res.status})`
+          );
+        }
+        setReviewOverrides({});
+        await loadItems(page, requestType);
+      } catch (e) {
+        setError(
+          e instanceof Error ? e.message : "Failed to mark as viewed"
+        );
+      }
+    },
+    [loadItems, page, requestType]
+  );
+
   useEffect(() => {
     void loadItems(page, requestType);
   }, [page, requestType, loadItems]);
@@ -180,6 +213,24 @@ export function ChangeStateTab() {
     setRequestType(next);
     setPage(1);
   }
+
+  function getReviewed(item: ChangeRequestItem): boolean {
+    const o = reviewOverrides[item.id];
+    if (typeof o === "boolean") return o;
+    return item.reviewed ?? false;
+  }
+
+  async function handleCheckAllOnPage() {
+    if (items.length === 0) return;
+    const ids = items.map((i) => i.id);
+    setCollectedPageIds(ids);
+    await markAsViewedAndRefresh(ids);
+  }
+
+  const collectedIdsLabel = useMemo(() => {
+    if (collectedPageIds.length === 0) return null;
+    return `${collectedPageIds.length} ID${collectedPageIds.length === 1 ? "" : "s"} on page ${page}`;
+  }, [collectedPageIds, page]);
 
   const linkClass =
     "min-w-0 break-all text-[11px] leading-snug text-blue-600 hover:underline";
@@ -201,11 +252,7 @@ export function ChangeStateTab() {
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-[11px] font-medium text-green-700">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />{" "}
-            Added
-          </span>
-          <span className="flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-600">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" />{" "}
-            Removed
+            Added diff
           </span>
         </div>
       </div>
@@ -233,35 +280,20 @@ export function ChangeStateTab() {
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {meta && meta.total_pages > 1 && (
-            <div className="flex items-center overflow-hidden rounded-lg border border-gray-200 bg-white text-xs shadow-sm">
-              <button
-                type="button"
-                className="px-2.5 py-1.5 font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={loading || page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Prev
-              </button>
-              <span className="border-l border-gray-200 px-2.5 py-1.5 text-gray-500">
-                {meta.page}/{meta.total_pages}
-              </span>
-              <button
-                type="button"
-                className="border-l border-gray-200 px-2.5 py-1.5 font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={loading || page >= meta.total_pages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </button>
-            </div>
-          )}
-          {meta && (
-            <span className="text-[11px] text-gray-400">
-              {meta.total.toLocaleString()} total
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
+          <button
+            type="button"
+            disabled={loading || items.length === 0}
+            onClick={() => void handleCheckAllOnPage()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Check all
+          </button>
+          {collectedIdsLabel ? (
+            <span className="max-w-[14rem] truncate text-[11px] text-slate-500" title={collectedPageIds.join(", ")}>
+              {collectedIdsLabel}
             </span>
-          )}
+          ) : null}
           <button
             type="button"
             disabled={loading}
@@ -317,37 +349,36 @@ export function ChangeStateTab() {
 
       {items.length > 0 && (
         <div
-          className={`overflow-x-auto ${loading ? "opacity-60" : ""}`}
-          style={{ minWidth: 0 }}
+          className={`w-full overflow-x-auto ${loading ? "opacity-60" : ""}`}
         >
-          <table
-            className="w-full table-fixed border-collapse text-left"
-            style={{ minWidth: 1280 }}
-          >
+          <table className="w-full table-fixed border-collapse text-left">
+            <colgroup>
+              <col style={{ width: "3.5%" }} />
+              <col style={{ width: "5.5%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "15%" }} />
+              <col style={{ width: "52%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "7%" }} />
+            </colgroup>
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 {[
                   "ID",
+                  "Reviewed",
                   "Created",
                   "AI Reasoning",
                   "Added",
-                  "Removed",
-                  "Title",
                   "Watch URL",
-                  "Tag",
                   "Bucket",
-                  "Skip",
-                  "Diff",
                 ].map((col) => (
                   <th
                     key={col}
-                    className={`px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 ${
-                      col === "Added" || col === "Removed"
-                        ? "w-[260px] min-w-[200px] max-w-[280px]"
-                        : col === "AI Reasoning"
-                          ? "w-[280px] min-w-0 max-w-[300px]"
-                          : "whitespace-nowrap"
-                    }`}
+                    className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:px-4 ${
+                      col === "Reviewed"
+                        ? "text-center"
+                        : "text-left"
+                    } ${col === "Added" ? "min-w-0" : ""}`}
                   >
                     {col}
                   </th>
@@ -362,126 +393,165 @@ export function ChangeStateTab() {
                   getChangeRequestAiReasoning(item)
                 );
                 const addedRaw = getChangeRequestDiffText(item, "added_text");
-                const removedRaw = getChangeRequestDiffText(
-                  item,
-                  "removed_text"
-                );
                 const addedItems = textToDiffItems(addedRaw, "added");
-                const removedItems = textToDiffItems(removedRaw, "removed");
 
                 return (
                   <tr
                     key={item.id}
-                    className={`border-b border-gray-100 align-top transition-colors hover:bg-blue-50/20 ${
+                    className={`h-px border-b border-gray-100 transition-colors hover:bg-blue-50/20 ${
                       i % 2 === 1 ? "bg-gray-50/30" : "bg-white"
                     }`}
                   >
-                    <td className="px-4 py-4">
-                      <span className="font-mono text-xs font-bold text-gray-400">
-                        {item.id}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-4">
-                      <div className="text-xs font-medium text-gray-700">
-                        {created.line1}
-                      </div>
-                      {created.line2 ? (
-                        <div className="mt-0.5 text-[11px] text-gray-400">
-                          {created.line2}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="min-w-0 max-w-[300px] px-4 py-4 align-top">
-                      {reasoning ? (
-                        <div className="min-w-0 space-y-1.5 break-words">
-                          <p className="text-xs font-semibold leading-snug text-gray-900">
-                            {reasoning.title}
-                          </p>
-                          {reasoning.body ? (
-                            <p className="text-[11px] leading-relaxed text-gray-500 [overflow-wrap:anywhere]">
-                              {reasoning.body}
-                            </p>
-                          ) : null}
-                          {reasoning.tags.length > 0 ? (
-                            <div className="flex flex-wrap gap-1 pt-0.5">
-                              {reasoning.tags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${getTagColor(tag)}`}
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-300">—</span>
-                      )}
-                    </td>
-                    <td className="min-w-0 w-[260px] max-w-[280px] px-4 py-4 align-top">
-                      <DiffBlock items={addedItems} variant="added" />
-                    </td>
-                    <td className="min-w-0 w-[260px] max-w-[280px] px-4 py-4 align-top">
-                      <DiffBlock items={removedItems} variant="removed" />
-                    </td>
-                    <td className="min-w-0 px-4 py-4 align-top">
-                      <span className="break-words text-xs text-gray-600">
-                        {m.watch_title ?? "—"}
-                      </span>
-                    </td>
-                    <td className="min-w-0 max-w-[200px] px-4 py-4 align-top">
-                      {item.watch_url ? (
-                        <a
-                          href={item.watch_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={linkClass}
-                        >
-                          {item.watch_url}
-                        </a>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="text-xs text-gray-500">
-                        {m.watch_tag ?? "—"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4">
-                      {item.bucket ? (
-                        <span className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
-                          {item.bucket}
+                    <td className="h-full align-top px-3 py-4 sm:px-4">
+                      <div className="flex h-full min-h-full flex-col">
+                        <span className="font-mono text-xs font-bold text-gray-400">
+                          {item.id}
                         </span>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
+                      </div>
                     </td>
-                    <td className="px-4 py-4">
-                      <span className="text-xs text-gray-500">
-                        {item.skip_reason ?? "—"}
-                      </span>
+                    <td className="h-full align-top px-3 py-4 text-center sm:px-4">
+                      <div className="flex h-full min-h-full items-start justify-center pt-0.5">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 cursor-pointer rounded border-gray-300 text-slate-800 focus:ring-slate-500"
+                          checked={getReviewed(item)}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            if (checked) {
+                              void markAsViewedAndRefresh([item.id]);
+                            } else {
+                              setReviewOverrides((prev) => ({
+                                ...prev,
+                                [item.id]: false,
+                              }));
+                            }
+                          }}
+                          aria-label={`Reviewed: record ${item.id}`}
+                        />
+                      </div>
                     </td>
-                    <td className="px-4 py-4">
-                      {m.diff_url ? (
-                        <a
-                          href={m.diff_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={linkClass}
-                        >
-                          Open
-                        </a>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
+                    <td className="h-full align-top px-3 py-4 sm:px-4">
+                      <div className="flex h-full min-h-full flex-col">
+                        <div className="text-xs font-medium text-gray-700">
+                          {created.line1}
+                        </div>
+                        {created.line2 ? (
+                          <div className="mt-0.5 text-[11px] text-gray-400">
+                            {created.line2}
+                          </div>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="h-full min-w-0 align-top px-3 py-4 sm:px-4">
+                      <div className="flex h-full min-h-full flex-col">
+                        {reasoning ? (
+                          <div className="min-w-0 space-y-1.5 break-words">
+                            <p className="text-xs font-semibold leading-snug text-gray-900">
+                              {reasoning.title}
+                            </p>
+                            {reasoning.body ? (
+                              <p className="text-[11px] leading-relaxed text-gray-500 [overflow-wrap:anywhere]">
+                                {reasoning.body}
+                              </p>
+                            ) : null}
+                            {reasoning.tags.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 pt-0.5">
+                                {reasoning.tags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${getTagColor(tag)}`}
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="h-full min-w-0 align-top px-3 py-4 sm:px-4">
+                      <div className="flex h-full min-h-full">
+                        <AddedDiffBlock items={addedItems} />
+                      </div>
+                    </td>
+                    <td className="h-full min-w-0 align-top px-3 py-4 sm:px-4">
+                      <div className="flex h-full min-h-full flex-col justify-start">
+                        {item.watch_url ? (
+                          <a
+                            href={item.watch_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={linkClass}
+                          >
+                            {item.watch_url}
+                          </a>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="h-full align-top px-3 py-4 sm:px-4">
+                      <div className="flex h-full min-h-full flex-col justify-start">
+                        {item.bucket ? (
+                          <span className="w-fit rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
+                            {item.bucket}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {meta && (
+        <div
+          className="flex flex-col items-stretch gap-3 border-t border-gray-100 bg-gray-50/50 px-5 py-3 sm:flex-row sm:items-center sm:justify-between"
+          role="navigation"
+          aria-label="Pagination"
+        >
+          <p className="text-center text-[11px] text-gray-500 sm:text-left">
+            <span className="font-medium text-gray-700">
+              {meta.total.toLocaleString()} total
+            </span>
+            {meta.total_pages > 1 ? (
+              <span className="text-gray-400">
+                {" "}
+                · Page {meta.page} of {meta.total_pages}
+              </span>
+            ) : null}
+          </p>
+          {meta.total_pages > 1 ? (
+            <div className="flex items-center justify-center gap-0 overflow-hidden rounded-lg border border-gray-200 bg-white text-xs shadow-sm sm:justify-end">
+              <button
+                type="button"
+                className="px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={loading || page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Prev
+              </button>
+              <span className="border-l border-gray-200 px-3 py-1.5 tabular-nums text-gray-500">
+                {meta.page} / {meta.total_pages}
+              </span>
+              <button
+                type="button"
+                className="border-l border-gray-200 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={loading || page >= meta.total_pages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

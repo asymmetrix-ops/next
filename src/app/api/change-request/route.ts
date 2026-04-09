@@ -11,7 +11,7 @@ const XANO_CHANGE_REQUEST_URL =
 const DEFAULT_CHANGE_REQUEST = {
   type: "companies",
   page: "1",
-  per_page: "25",
+  per_page: "50",
 } as const;
 
 function mergeChangeRequestParams(request: NextRequest): URLSearchParams {
