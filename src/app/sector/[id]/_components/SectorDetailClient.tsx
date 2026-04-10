@@ -63,6 +63,48 @@ interface SectorStatistics {
   market_map?: unknown;
 }
 
+const normalizeContentTypeLabel = (raw: unknown): string | undefined => {
+  if (typeof raw !== "string") return undefined;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const inferContentTypeFromHeadline = (headline: unknown): string | undefined => {
+  const normalizedHeadline = normalizeContentTypeLabel(headline);
+  if (!normalizedHeadline) return undefined;
+
+  const parts = normalizedHeadline.split(/\s*[–—-]\s*/);
+  const candidate = (parts[0] || "").trim().toLowerCase();
+
+  const known = new Map<string, string>([
+    ["company analysis", "Company Analysis"],
+    ["deal analysis", "Deal Analysis"],
+    ["deal perspective", "Deal Perspective"],
+    ["market commentary", "Market Commentary"],
+    ["sector analysis", "Sector Analysis"],
+    ["hot take", "Hot Take"],
+    ["executive interview", "Executive Interview"],
+  ]);
+
+  return known.get(candidate);
+};
+
+const getEffectiveContentType = (article: ContentArticle): string | undefined => {
+  const anyArticle = article as ContentArticle & {
+    content_type?: unknown;
+    ContentType?: unknown;
+    contentType?: unknown;
+  };
+
+  return (
+    normalizeContentTypeLabel(anyArticle.Content_Type) ||
+    normalizeContentTypeLabel(anyArticle.content_type) ||
+    normalizeContentTypeLabel(anyArticle.ContentType) ||
+    normalizeContentTypeLabel(anyArticle.contentType) ||
+    inferContentTypeFromHeadline(anyArticle.Headline)
+  );
+};
+
 interface SectorCompany {
   id: number;
   name: string;
@@ -4999,10 +5041,6 @@ const SectorDetailPage = ({
       fetchInsightsAnalysis(updatedFilters);
     };
 
-    const handleArticleClick = (articleId: number) => {
-      router.push(`/article/${articleId}`);
-    };
-
     const formatDate = (dateString: string) => {
       if (!dateString) return "Not available";
       try {
@@ -5041,6 +5079,8 @@ const SectorDetailPage = ({
       const t = (contentType || "").toLowerCase();
       if (t === "company analysis") return "badge badge-company-analysis";
       if (t === "deal analysis") return "badge badge-deal-analysis";
+      if (t === "deal perspective") return "badge badge-deal-perspective";
+      if (t === "market commentary") return "badge badge-market-commentary";
       if (t === "sector analysis") return "badge badge-sector-analysis";
       if (t === "hot take") return "badge badge-hot-take";
       if (t === "executive interview") return "badge badge-executive-interview";
@@ -5217,55 +5257,66 @@ const SectorDetailPage = ({
 
         {!loading && articles.length > 0 && (
           <div className="insights-analysis-cards">
-            {articles.map((article: ContentArticle, index: number) => (
-              <a
-                key={article.id || index}
-                href={`/article/${article.id}`}
-                className="article-card"
-                onClick={(e) => {
-                  if (
-                    e.defaultPrevented ||
-                    e.button !== 0 ||
-                    e.metaKey ||
-                    e.ctrlKey ||
-                    e.shiftKey ||
-                    e.altKey
-                  )
-                    return;
-                  e.preventDefault();
-                  handleArticleClick(article.id);
-                }}
-              >
-                <h3 className="article-title">
-                  {article.Headline || "Not Available"}
-                </h3>
-                <p className="article-date">
-                  {formatDate(article.Publication_Date)}
-                </p>
-                {article.Content_Type && (
-                  <div className="article-badge-row">
-                    <span className={badgeClassFor(article.Content_Type)}>
-                      {article.Content_Type}
+            {articles.map((article: ContentArticle, index: number) => {
+              const effectiveContentType = getEffectiveContentType(article);
+
+              return (
+                <a
+                  key={article.id || index}
+                  href={`/article/${article.id}`}
+                  className="article-card"
+                  onClick={(e) => {
+                    if (
+                      e.defaultPrevented ||
+                      e.button !== 0 ||
+                      e.metaKey ||
+                      e.ctrlKey ||
+                      e.shiftKey ||
+                      e.altKey
+                    )
+                      return;
+                    e.preventDefault();
+                    router.push(`/article/${article.id}`);
+                  }}
+                >
+                  <h3 className="article-title">
+                    {article.Headline || "Not Available"}
+                  </h3>
+                  <p className="article-date">
+                    {formatDate(article.Publication_Date)}
+                  </p>
+                  {article.Transaction_status && (
+                    <div className="article-transaction-status-row">
+                      <span className="article-transaction-status-badge">
+                        {article.Transaction_status}
+                      </span>
+                    </div>
+                  )}
+                  {effectiveContentType && (
+                    <div className="article-badge-row">
+                      <span className={badgeClassFor(effectiveContentType)}>
+                        {effectiveContentType}
+                      </span>
+                    </div>
+                  )}
+                  <p className="article-summary">
+                    {article.Strapline || "No summary available"}
+                  </p>
+                  <div className="article-meta">
+                    <span className="article-meta-label">Companies:</span>
+                    <span className="article-meta-value">
+                      {formatCompanies(article.companies_mentioned)}
                     </span>
                   </div>
-                )}
-                <p className="article-summary">
-                  {article.Strapline || "No summary available"}
-                </p>
-                <div className="article-meta">
-                  <span className="article-meta-label">Companies:</span>
-                  <span className="article-meta-value">
-                    {formatCompanies(article.companies_mentioned)}
-                  </span>
-                </div>
-                <div className="article-meta">
-                  <span className="article-meta-label">Sectors:</span>
-                  <span className="article-meta-value">
-                    {formatSectors(article.sectors)}
-                  </span>
-                </div>
-              </a>
-            ))}
+                  <div className="article-meta">
+                    <span className="article-meta-label">Sectors:</span>
+                    <span className="article-meta-value">
+                      {formatSectors(article.sectors)}
+                    </span>
+                  </div>
+                </a>
+              );
+            })}
           </div>
         )}
 
@@ -5314,6 +5365,28 @@ const SectorDetailPage = ({
             margin: 0 0 16px 0;
             font-weight: 500;
           }
+          .article-transaction-status-row {
+            margin: -6px 0 10px 0;
+            display: block;
+          }
+          .article-transaction-status-badge {
+            display: inline-flex;
+            align-items: center;
+            font-size: 11px;
+            line-height: 1;
+            padding: 5px 10px;
+            border-radius: 9999px;
+            border: 1.5px solid #4ade80;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            background: #dcfce7;
+            color: #166534;
+            white-space: nowrap;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
           .article-badge-row {
             margin: -8px 0 16px 0;
             display: block;
@@ -5336,6 +5409,16 @@ const SectorDetailPage = ({
             background: #eff6ff;
             color: #1e40af;
             border-color: #bfdbfe;
+          }
+          .badge-deal-perspective {
+            background: #ecfeff;
+            color: #155e75;
+            border-color: #a5f3fc;
+          }
+          .badge-market-commentary {
+            background: #fefce8;
+            color: #854d0e;
+            border-color: #fde68a;
           }
           .badge-sector-analysis {
             background: #f5f3ff;

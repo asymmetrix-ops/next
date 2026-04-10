@@ -177,6 +177,8 @@ const inferContentTypeFromHeadline = (headline: unknown): string | undefined => 
   const known = new Map<string, string>([
     ["company analysis", "Company Analysis"],
     ["deal analysis", "Deal Analysis"],
+    ["deal perspective", "Deal Perspective"],
+    ["market commentary", "Market Commentary"],
     ["sector analysis", "Sector Analysis"],
     ["hot take", "Hot Take"],
     ["executive interview", "Executive Interview"],
@@ -211,6 +213,22 @@ const badgeClassFor = (contentType?: string): React.CSSProperties => {
       backgroundColor: "#eff6ff",
       color: "#1e40af",
       borderColor: "#bfdbfe",
+    };
+  }
+  if (t === "deal perspective") {
+    return {
+      ...base,
+      backgroundColor: "#ecfeff",
+      color: "#155e75",
+      borderColor: "#a5f3fc",
+    };
+  }
+  if (t === "market commentary") {
+    return {
+      ...base,
+      backgroundColor: "#fefce8",
+      color: "#854d0e",
+      borderColor: "#fde68a",
     };
   }
   if (t === "sector analysis") {
