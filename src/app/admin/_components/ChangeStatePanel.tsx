@@ -319,6 +319,58 @@ export function ChangeStateTab() {
   const linkClass =
     "min-w-0 break-all text-[11px] leading-snug text-blue-600 hover:underline";
 
+  function renderPagination(variant: "top" | "bottom") {
+    if (!meta) return null;
+    const edge =
+      variant === "top"
+        ? "border-b border-gray-100"
+        : "border-t border-gray-100";
+    return (
+      <div
+        className={`flex flex-col items-stretch gap-3 ${edge} bg-gray-50/50 px-5 py-3 sm:flex-row sm:items-center sm:justify-between`}
+        role="navigation"
+        aria-label={
+          variant === "top" ? "Pagination (top)" : "Pagination (bottom)"
+        }
+      >
+        <p className="text-center text-[11px] text-gray-500 sm:text-left">
+          <span className="font-medium text-gray-700">
+            {meta.total.toLocaleString()} total
+          </span>
+          {meta.total_pages > 1 ? (
+            <span className="text-gray-400">
+              {" "}
+              · Page {meta.page} of {meta.total_pages}
+            </span>
+          ) : null}
+        </p>
+        {meta.total_pages > 1 ? (
+          <div className="flex items-center justify-center gap-0 overflow-hidden rounded-lg border border-gray-200 bg-white text-xs shadow-sm sm:justify-end">
+            <button
+              type="button"
+              className="px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={loading || page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Prev
+            </button>
+            <span className="border-l border-gray-200 px-3 py-1.5 tabular-nums text-gray-500">
+              {meta.page} / {meta.total_pages}
+            </span>
+            <button
+              type="button"
+              className="border-l border-gray-200 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={loading || page >= meta.total_pages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
@@ -452,6 +504,8 @@ export function ChangeStateTab() {
           </p>
         </div>
       )}
+
+      {meta && items.length > 0 ? renderPagination("top") : null}
 
       {items.length > 0 && (
         <div
@@ -635,48 +689,7 @@ export function ChangeStateTab() {
         </div>
       )}
 
-      {meta && (
-        <div
-          className="flex flex-col items-stretch gap-3 border-t border-gray-100 bg-gray-50/50 px-5 py-3 sm:flex-row sm:items-center sm:justify-between"
-          role="navigation"
-          aria-label="Pagination"
-        >
-          <p className="text-center text-[11px] text-gray-500 sm:text-left">
-            <span className="font-medium text-gray-700">
-              {meta.total.toLocaleString()} total
-            </span>
-            {meta.total_pages > 1 ? (
-              <span className="text-gray-400">
-                {" "}
-                · Page {meta.page} of {meta.total_pages}
-              </span>
-            ) : null}
-          </p>
-          {meta.total_pages > 1 ? (
-            <div className="flex items-center justify-center gap-0 overflow-hidden rounded-lg border border-gray-200 bg-white text-xs shadow-sm sm:justify-end">
-              <button
-                type="button"
-                className="px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={loading || page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Prev
-              </button>
-              <span className="border-l border-gray-200 px-3 py-1.5 tabular-nums text-gray-500">
-                {meta.page} / {meta.total_pages}
-              </span>
-              <button
-                type="button"
-                className="border-l border-gray-200 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={loading || page >= meta.total_pages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </button>
-            </div>
-          ) : null}
-        </div>
-      )}
+      {renderPagination("bottom")}
     </div>
   );
 }
