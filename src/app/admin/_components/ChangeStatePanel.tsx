@@ -324,12 +324,51 @@ export function ChangeStateTab() {
   const linkClass =
     "min-w-0 break-all text-[11px] leading-snug text-blue-600 hover:underline";
 
+  function getVisiblePageNumbers(currentPage: number, totalPages: number) {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, idx) => idx + 1);
+    }
+
+    const pages: Array<number | "ellipsis-left" | "ellipsis-right"> = [1];
+
+    if (currentPage > 3) {
+      pages.push(2);
+    }
+
+    if (currentPage > 4) {
+      pages.push("ellipsis-left");
+    }
+
+    for (
+      let pageNumber = Math.max(3, currentPage - 1);
+      pageNumber <= Math.min(totalPages - 2, currentPage + 1);
+      pageNumber += 1
+    ) {
+      if (!pages.includes(pageNumber)) {
+        pages.push(pageNumber);
+      }
+    }
+
+    if (currentPage < totalPages - 3) {
+      pages.push("ellipsis-right");
+    }
+
+    if (currentPage < totalPages - 2) {
+      pages.push(totalPages - 1);
+    }
+
+    pages.push(totalPages);
+
+    return pages;
+  }
+
   function renderPagination(variant: "top" | "bottom") {
     if (!meta) return null;
     const edge =
       variant === "top"
         ? "border-b border-gray-100"
         : "border-t border-gray-100";
+    const visiblePages = getVisiblePageNumbers(meta.page, meta.total_pages);
     return (
       <div
         className={`flex flex-col items-stretch gap-3 ${edge} bg-gray-50/50 px-5 py-3 sm:flex-row sm:items-center sm:justify-between`}
@@ -350,23 +389,51 @@ export function ChangeStateTab() {
           ) : null}
         </p>
         {meta.total_pages > 1 ? (
-          <div className="flex items-center justify-center gap-0 overflow-hidden rounded-lg border border-gray-200 bg-white text-xs shadow-sm sm:justify-end">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
             <button
               type="button"
-              className="px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
               disabled={loading || page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
+              aria-label="Previous page"
             >
               Prev
             </button>
-            <span className="border-l border-gray-200 px-3 py-1.5 tabular-nums text-gray-500">
-              {meta.page} / {meta.total_pages}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              {visiblePages.map((pageNumber, index) =>
+                typeof pageNumber === "number" ? (
+                  <button
+                    key={`${variant}-page-${pageNumber}`}
+                    type="button"
+                    className={`min-w-9 rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition ${
+                      pageNumber === meta.page
+                        ? "border-gray-900 bg-gray-900 text-white"
+                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                    disabled={loading}
+                    onClick={() => setPage(pageNumber)}
+                    aria-current={pageNumber === meta.page ? "page" : undefined}
+                    aria-label={`Go to page ${pageNumber}`}
+                  >
+                    {pageNumber}
+                  </button>
+                ) : (
+                  <span
+                    key={`${variant}-${pageNumber}-${index}`}
+                    className="px-1 text-xs font-medium text-gray-400"
+                    aria-hidden
+                  >
+                    ...
+                  </span>
+                )
+              )}
+            </div>
             <button
               type="button"
-              className="border-l border-gray-200 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
               disabled={loading || page >= meta.total_pages}
               onClick={() => setPage((p) => p + 1)}
+              aria-label="Next page"
             >
               Next
             </button>
