@@ -71,6 +71,7 @@ const CorporateEventDetail = ({
     investment_currency?: string | null;
     enterprise_value_m?: string | number | null;
     enterprise_value_currency?: string | null;
+    enterprise_value_source_type?: string | null;
   };
   const event =
     Array.isArray(data?.Event) && data.Event.length > 0
@@ -214,6 +215,20 @@ const CorporateEventDetail = ({
       flatEvent.investment_amount_m ?? flatEvent.investment_amount ?? undefined;
     if (typeof top === "number") return String(top);
     if (typeof top === "string" && top.trim().length > 0) return top.trim();
+    return undefined;
+  };
+
+  const getEnterpriseValueSourceLabel = (): string | undefined => {
+    const flatEvent = (event ?? {}) as FlatEventFields;
+    const rawSourceType =
+      flatEvent.enterprise_value_source_type ?? event?.ev_data?.EV_source_type;
+
+    if (typeof rawSourceType !== "string") return undefined;
+
+    const normalized = rawSourceType.trim().toLowerCase();
+    if (normalized === "estimate") return "Estimate";
+    if (normalized === "public") return "Public";
+    if (normalized === "proprietary") return "Proprietary";
     return undefined;
   };
 
@@ -413,6 +428,7 @@ const CorporateEventDetail = ({
         undefined
       );
     })(),
+    enterpriseValueSourceLabel: getEnterpriseValueSourceLabel(),
   };
 
   // Insights logic:

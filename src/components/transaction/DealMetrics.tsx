@@ -1,10 +1,29 @@
 import React from 'react';
 import { Card } from "@/components/ui/card";
 
-const MetricCard = ({ label, value, subValue, inlineSubValue }: { label: string; value: string | React.ReactNode; subValue?: string; inlineSubValue?: boolean }) => (
-  <Card className="p-3 bg-white border-0 shadow-sm hover:shadow-md transition-shadow duration-300">
+const MetricCard = ({
+  label,
+  value,
+  subValue,
+  inlineSubValue,
+  badge,
+}: {
+  label: string;
+  value: string | React.ReactNode;
+  subValue?: string;
+  inlineSubValue?: boolean;
+  badge?: string;
+}) => (
+  <Card className="relative p-3 bg-white border-0 shadow-sm hover:shadow-md transition-shadow duration-300">
+    {badge && (
+      <span className="absolute top-3 right-3 rounded-md border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500 leading-none">
+        {badge}
+      </span>
+    )}
     <div>
-      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 pr-24">
+        {label}
+      </p>
       {inlineSubValue && subValue ? (
         <p className="text-lg font-normal text-slate-900">
           {value || 'Not available'} <span className="text-sm text-slate-500 ml-1">{subValue}</span>
@@ -31,6 +50,7 @@ export default function DealMetrics({ metrics }: {
     currency?: string;
     enterpriseValue?: string;
     enterpriseValueCurrency?: string;
+    enterpriseValueSourceLabel?: string;
   }
 }) {
   const renderSectors = (sectors?: Array<{ name: string; id?: number }>) => {
@@ -131,6 +151,7 @@ export default function DealMetrics({ metrics }: {
             value={metrics.enterpriseValue}
             subValue={metrics.enterpriseValueCurrency}
             inlineSubValue={true}
+            badge={metrics.enterpriseValueSourceLabel}
           />
         </div>
       </div>
