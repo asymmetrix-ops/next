@@ -77,8 +77,13 @@ function AddedDiffBlock({ items }: { items: DiffItem[] }) {
   );
 }
 
-/** Sub-tabs: first three use `change_request` + `type`; `all` uses `get_change_state_all`. */
-const CHANGE_STATE_TABS = ["companies", "web_resource", "others", "all"] as const;
+/** Sub-tabs: `all` uses `get_change_state_all`; others use `change_request` + `type`. */
+const CHANGE_STATE_TABS = [
+  "all",
+  "companies",
+  "web_resource",
+  "others",
+] as const;
 type ChangeStateTabId = (typeof CHANGE_STATE_TABS)[number];
 
 const CHANGE_STATE_TAB_LABELS: Record<ChangeStateTabId, string> = {
@@ -101,7 +106,7 @@ export function ChangeStateTab() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<ChangeStateTabId>("companies");
+  const [activeTab, setActiveTab] = useState<ChangeStateTabId>("all");
   /** Gmail-style row selection (current page only; cleared on tab/page change). */
   const [selectedRowIds, setSelectedRowIds] = useState<number[]>([]);
   const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
