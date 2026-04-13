@@ -63,21 +63,97 @@ const decodeHtmlEntities = (input: string): string => {
     .replace(/&#39;|&apos;/g, "'");
 };
 
-const stripHtmlToText = (html: string | undefined | null): string => {
+const normalizePreviewText = (text: string): string =>
+  decodeHtmlEntities(text).replace(/\s+/g, " ").trim();
+
+const extractStructuredPreviewBlocks = (root: ParentNode): string[] => {
+  const blocks: string[] = [];
+
+  const pushBlock = (value: string) => {
+    const normalized = normalizePreviewText(value);
+    if (normalized) blocks.push(normalized);
+  };
+
+  const splitLeadingLabel = (el: Element): string[] => {
+    const fullText = normalizePreviewText(el.textContent || "");
+    if (!fullText) return [];
+
+    const firstElementChild = el.firstElementChild;
+    const firstTag = firstElementChild?.tagName.toLowerCase();
+    const firstLabel =
+      firstTag && ["strong", "b"].includes(firstTag)
+        ? normalizePreviewText(firstElementChild?.textContent || "")
+        : "";
+
+    if (!firstLabel) return [fullText];
+
+    const remainingText = normalizePreviewText(
+      fullText.slice(firstLabel.length).trim()
+    );
+
+    if (
+      remainingText &&
+      firstLabel.length <= 48 &&
+      /^[A-Z][A-Za-z0-9&/,\-()' ]+$/.test(firstLabel)
+    ) {
+      return [firstLabel, remainingText];
+    }
+
+    return [fullText];
+  };
+
+  const blockElements = Array.from(
+    root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,blockquote")
+  );
+
+  for (const el of blockElements) {
+    const tag = el.tagName.toLowerCase();
+    if (tag.startsWith("h")) {
+      pushBlock(el.textContent || "");
+      continue;
+    }
+
+    for (const part of splitLeadingLabel(el)) {
+      pushBlock(part);
+    }
+  }
+
+  return blocks;
+};
+
+const extractBodyPreviewText = (html: string | undefined | null): string => {
   if (!html) return "";
 
   if (typeof window !== "undefined") {
     const div = document.createElement("div");
     div.innerHTML = html;
-    // Remove heading elements so section titles don't appear in the card preview
-    div.querySelectorAll("h1,h2,h3,h4,h5,h6").forEach((el) => el.remove());
-    const text = (div.textContent || div.innerText || "").trim();
-    return text.replace(/\s+/g, " ").trim();
+
+    // Remove non-preview content and section headings so the card excerpt reads
+    // like the detail page paragraph preview rather than a flattened document dump.
+    div
+      .querySelectorAll(
+        "script,style,iframe,embed,object,video,audio,figure,img,svg,table"
+      )
+      .forEach((el) => el.remove());
+
+    const previewBlocks = extractStructuredPreviewBlocks(div);
+
+    if (previewBlocks.length > 0) {
+      return previewBlocks.slice(0, 3).join("\n\n");
+    }
+
+    return normalizePreviewText(div.textContent || div.innerText || "");
   }
 
-  // Server-side fallback: strip heading tags + their content first, then remaining tags
+  // Server-side fallback: preserve paragraph/list boundaries so words do not
+  // collapse together when headings or block elements are removed.
   return html
-    .replace(/<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(h[1-6]|p|li|div|blockquote|section|article|tr)>/gi, "\n\n")
+    .replace(
+      /<(strong|b)[^>]*>\s*([^<]{1,48})\s*<\/\1>\s*/gi,
+      (_match, _tag, label: string) => `${label}\n\n`
+    )
     .replace(/&amp;/g, "&")
     .replace(/&nbsp;/g, " ")
     .replace(/&lt;/g, "<")
@@ -85,7 +161,8 @@ const stripHtmlToText = (html: string | undefined | null): string => {
     .replace(/&quot;/g, '"')
     .replace(/&#39;|&apos;/g, "'")
     .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 };
 
@@ -316,8 +393,8 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
     [article.Strapline]
   );
 
-  const plainBody = React.useMemo(
-    () => stripHtmlToText(article.Body),
+  const plainBodyPreview = React.useMemo(
+    () => extractBodyPreviewText(article.Body),
     [article.Body]
   );
 
@@ -509,11 +586,11 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
           <p
             className="strapline"
             style={{
-              fontSize: 14,
+              fontSize: 15,
               color: "#374151",
-              lineHeight: 1.5,
-              margin: "0 0 10px 0",
-              fontWeight: 500,
+              lineHeight: 1.6,
+              margin: "0 0 12px 0",
+              fontStyle: "italic",
               wordWrap: "break-word",
               overflowWrap: "break-word",
               maxWidth: "100%",
@@ -524,7 +601,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
         )}
 
         {/* First three lines of main content body */}
-        {plainBody && (
+        {plainBodyPreview && (
           <p
             className="description"
             style={{
@@ -537,12 +614,13 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
               WebkitBoxOrient: "vertical" as const,
               overflow: "hidden",
               textOverflow: "ellipsis",
+              whiteSpace: "pre-line",
               wordWrap: "break-word",
               overflowWrap: "break-word",
               maxWidth: "100%",
             }}
           >
-            {plainBody}
+            {plainBodyPreview}
           </p>
         )}
 
