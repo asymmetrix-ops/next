@@ -1103,7 +1103,6 @@ const CompanyDashboard = ({
       primarySectors: selectedPrimarySectors,
       secondarySectors: selectedSecondarySectors,
       hybridBusinessFocuses: selectedHybridBusinessFocuses,
-      // Only send when Hybrid_Data_ids has selections
       exclude_business_focus:
         selectedHybridBusinessFocuses.length > 0 ? excludeBusinessFocus : undefined,
       ownershipTypes: selectedOwnershipTypes,
@@ -1405,6 +1404,7 @@ const CompanyDashboard = ({
     setSelectedPrimarySectors([]);
     setSelectedSecondarySectors([]);
     setSelectedHybridBusinessFocuses([]);
+    setExcludeBusinessFocus(true);
     setSelectedOwnershipTypes([]);
     setLinkedinMembersMin(null);
     setLinkedinMembersMax(null);
