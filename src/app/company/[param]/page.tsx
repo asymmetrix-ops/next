@@ -367,6 +367,7 @@ interface Company {
   id: number;
   name: string;
   description: string;
+  Transaction_status?: string | null;
   year_founded: number;
   _years?: {
     Year?: number | string;
@@ -1390,6 +1391,13 @@ const CompanyDetail = () => {
               .Lifecycle_stage ||
             undefined,
         };
+
+        const companyTransactionStatus = String(
+          data.Company?.Transaction_status || ""
+        ).trim();
+        if (companyTransactionStatus) {
+          setTransactionStatusLabel(companyTransactionStatus);
+        }
 
         // Parse optional ebitda_data with display strings
         try {
