@@ -141,7 +141,7 @@ interface Filters {
   nrrMax: number | null;
   newClientsRevenueGrowthMin: number | null;
   newClientsRevenueGrowthMax: number | null;
-  transactionStatus?: string;
+  transactionStatus?: string[];
 }
 
 // Shape returned by export API when sending JSON instead of CSV
@@ -876,7 +876,9 @@ const CompanyDashboard = ({
   const [newClientsRevenueGrowthMin, setNewClientsRevenueGrowthMin] = useState<number | null>(null);
   const [newClientsRevenueGrowthMax, setNewClientsRevenueGrowthMax] = useState<number | null>(null);
 
-  const [selectedTransactionStatus, setSelectedTransactionStatus] = useState<string>("");
+  const [selectedTransactionStatus, setSelectedTransactionStatus] = useState<string[]>(
+    []
+  );
   const TRANSACTION_STATUS_OPTIONS = [
     "Rumoured in Market",
     "Transaction anticipated within 18 months",
@@ -1093,6 +1095,12 @@ const CompanyDashboard = ({
     );
   };
 
+  const removeTransactionStatus = (status: string) => {
+    setSelectedTransactionStatus(
+      selectedTransactionStatus.filter((value) => value !== status)
+    );
+  };
+
   const handleSearch = useCallback(() => {
     const filters: Filters = {
       countries: selectedCountries,
@@ -1288,6 +1296,9 @@ const CompanyDashboard = ({
       if (hybridFocusUsed) {
         filtersUsed.hybrid_business_focus = hybridFocusUsed;
       }
+      if (selectedTransactionStatus.length > 0) {
+        filtersUsed.transaction_statuses = selectedTransactionStatus.slice();
+      }
 
       const linkedinRange = range(linkedinMembersMin, linkedinMembersMax);
       if (linkedinRange) {
@@ -1357,6 +1368,7 @@ const CompanyDashboard = ({
     selectedPrimarySectors,
     selectedSecondarySectors,
     selectedOwnershipTypes,
+    selectedTransactionStatus,
     selectedHybridBusinessFocuses,
     excludeBusinessFocus,
     primarySectors,
@@ -1434,6 +1446,7 @@ const CompanyDashboard = ({
     setNrrMax(null);
     setNewClientsRevenueGrowthMin(null);
     setNewClientsRevenueGrowthMax(null);
+    setSelectedTransactionStatus([]);
     const emptyFilters: Filters = {
       countries: [],
       provinces: [],
@@ -1474,6 +1487,7 @@ const CompanyDashboard = ({
       nrrMax: null,
       newClientsRevenueGrowthMin: null,
       newClientsRevenueGrowthMax: null,
+      transactionStatus: [],
     };
     if (onSearch) onSearch(emptyFilters);
   }, [onSearch]);
@@ -2337,13 +2351,64 @@ const CompanyDashboard = ({
                     value: opt,
                     label: opt,
                   }))}
-                  value={selectedTransactionStatus}
-                  onChange={(value) =>
-                    setSelectedTransactionStatus(typeof value === "string" ? value : "")
-                  }
+                  value=""
+                  onChange={(value) => {
+                    if (
+                      typeof value === "string" &&
+                      value &&
+                      !selectedTransactionStatus.includes(value)
+                    ) {
+                      setSelectedTransactionStatus([
+                        ...selectedTransactionStatus,
+                        value,
+                      ]);
+                    }
+                  }}
                   placeholder="All Transaction Statuses"
-                  style={{ ...styles.select, marginBottom: "12px" }}
+                  style={styles.select}
                 />
+                {selectedTransactionStatus.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      marginBottom: "12px",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    }}
+                  >
+                    {selectedTransactionStatus.map((status) => (
+                      <span
+                        key={status}
+                        style={{
+                          backgroundColor: "#e0f2fe",
+                          color: "#0369a1",
+                          padding: "4px 8px",
+                          borderRadius: "4px",
+                          fontSize: "12px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        {status}
+                        <button
+                          onClick={() => removeTransactionStatus(status)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#0369a1",
+                            cursor: "pointer",
+                            fontWeight: "bold",
+                            fontSize: "14px",
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <span style={styles.label}>LinkedIn Members Range</span>
                 <div style={{ display: "flex", gap: "14px" }}>
                   <input
@@ -2810,7 +2875,7 @@ const CompanySection = ({
       currentFilters.nrrMax !== null ||
       currentFilters.newClientsRevenueGrowthMin !== null ||
       currentFilters.newClientsRevenueGrowthMax !== null ||
-      !!(currentFilters.transactionStatus && currentFilters.transactionStatus.trim())
+      (currentFilters.transactionStatus || []).length > 0
     );
   };
 
@@ -2858,8 +2923,11 @@ const CompanySection = ({
         (f.hybridBusinessFocuses || []).forEach((id) =>
           params.append("Hybrid_Data_ids[]", String(id))
         );
-        if (f.transactionStatus && f.transactionStatus.trim()) {
-          params.append("transaction_status", f.transactionStatus.trim());
+        const transactionStatuses = f.transactionStatus || [];
+        if (transactionStatuses.length > 0) {
+          transactionStatuses.forEach((status) => {
+            params.append("transaction_status[]", status);
+          });
         }
 
         // Helper function to only append if value exists
