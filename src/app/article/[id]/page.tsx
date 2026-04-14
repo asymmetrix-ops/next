@@ -123,9 +123,113 @@ interface CompanyOfFocusApiItem {
   description?: string;
   logo?: string;
   linkedin_url?: string;
+  new_company_id?: number;
+  company_id?: number;
   company_overview?: CompanyOfFocusOverview;
   financial_overview?: CompanyOfFocusFinancialOverview;
 }
+
+interface TableCompanyRow {
+  id: number;
+  name: string;
+  url: string;
+  loc: string;
+  year_founded: string;
+  primary_sectors: string;
+  secondary_sectors: string;
+  ownership: string;
+  investors: string;
+  li_emp: string;
+  revenue_m: string;
+  arr_m: string;
+  ebitda_m: string;
+  ebit_m: string;
+  ev: string;
+  arr_pc: string;
+  churn_pc: string;
+  grr_pc: string;
+  nrr: string;
+  upsell_pc: string;
+  cross_sell_pc: string;
+  price_increase_pc: string;
+  rev_expansion_pc: string;
+  new_client_growth_pc: string;
+  rev_growth_pc: string;
+  ebitda_margin: string;
+  rule_of_40: string;
+  revenue_multiple: string;
+  no_of_clients: string;
+  rev_per_client: string;
+  no_employees: string;
+  rev_per_employee: string;
+}
+
+interface ColumnDefinition {
+  key: string;
+  label: string;
+}
+
+const COL_GROUPS: Array<{ group: string; cols: ColumnDefinition[] }> = [
+  {
+    group: "Overview",
+    cols: [
+      { key: "primary_sectors", label: "Primary Sector(s)" },
+      { key: "secondary_sectors", label: "Secondary Sector(s)" },
+      { key: "year_founded", label: "Year Founded" },
+      { key: "url", label: "Website" },
+      { key: "ownership", label: "Ownership" },
+      { key: "loc", label: "HQ" },
+      { key: "li_emp", label: "LinkedIn Employee Count" },
+      { key: "investors", label: "Investors" },
+    ],
+  },
+  {
+    group: "Financial Metrics",
+    cols: [
+      { key: "revenue_m", label: "Revenue (m)" },
+      { key: "ebitda_m", label: "EBITDA (m)" },
+      { key: "ev", label: "Enterprise Value (m)" },
+      { key: "revenue_multiple", label: "Revenue multiple" },
+      { key: "rev_growth_pc", label: "Revenue Growth" },
+      { key: "ebitda_margin", label: "EBITDA margin" },
+      { key: "rule_of_40", label: "Rule of 40" },
+    ],
+  },
+  {
+    group: "Subscription Metrics",
+    cols: [
+      { key: "arr_pc", label: "Recurring Revenue" },
+      { key: "arr_m", label: "ARR (m)" },
+      { key: "churn_pc", label: "Churn" },
+      { key: "grr_pc", label: "GRR" },
+      { key: "upsell_pc", label: "Upsell" },
+      { key: "cross_sell_pc", label: "Cross-sell" },
+      { key: "price_increase_pc", label: "Price increase" },
+      { key: "rev_expansion_pc", label: "Revenue expansion" },
+      { key: "nrr", label: "NRR" },
+      { key: "new_client_growth_pc", label: "New clients revenue growth" },
+    ],
+  },
+  {
+    group: "Other Metrics",
+    cols: [
+      { key: "ebit_m", label: "EBIT (m)" },
+      { key: "no_of_clients", label: "Number of clients" },
+      { key: "rev_per_client", label: "Revenue per client" },
+      { key: "no_employees", label: "Number of employees" },
+      { key: "rev_per_employee", label: "Revenue per employee" },
+    ],
+  },
+];
+
+const ALL_TABLE_COLUMNS: ColumnDefinition[] = COL_GROUPS.flatMap((g) => g.cols);
+const WRAP_COLS = new Set([
+  "primary_sectors",
+  "secondary_sectors",
+  "loc",
+  "investors",
+  "url",
+]);
 
 // Shared styles object
 const styles = {
@@ -353,6 +457,18 @@ const ArticleDetailPage = () => {
   const [companyOfFocus, setCompanyOfFocus] =
     useState<CompanyOfFocusApiItem | null>(null);
   const [companyOfFocusLoading, setCompanyOfFocusLoading] = useState(false);
+  const [companyOfFocusCompanyId, setCompanyOfFocusCompanyId] = useState<
+    number | null
+  >(null);
+  const [showGenerateTableModal, setShowGenerateTableModal] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [tableRows, setTableRows] = useState<TableCompanyRow[]>([]);
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<number>>(
+    new Set()
+  );
+  const [selectedColumnKeys, setSelectedColumnKeys] = useState<Set<string>>(
+    new Set(ALL_TABLE_COLUMNS.map((c) => c.key))
+  );
   // PDF viewer state
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   // Can be a `blob:` URL (generated) or a remote URL (detected attachment)
@@ -472,6 +588,7 @@ const ArticleDetailPage = () => {
     const fetchCompanyOfFocus = async () => {
       if (!article) {
         setCompanyOfFocus(null);
+        setCompanyOfFocusCompanyId(null);
         return;
       }
 
@@ -500,6 +617,7 @@ const ArticleDetailPage = () => {
 
       if (!isEligibleContentType || !hasSingleCompanyOfFocus) {
         setCompanyOfFocus(null);
+        setCompanyOfFocusCompanyId(null);
         return;
       }
 
@@ -545,6 +663,7 @@ const ArticleDetailPage = () => {
 
         if (!rawItem) {
           setCompanyOfFocus(null);
+          setCompanyOfFocusCompanyId(null);
           return;
         }
 
@@ -562,6 +681,18 @@ const ArticleDetailPage = () => {
                 | CompanyOfFocusFinancialOverview
                 | undefined);
 
+        const coFocusCompanyIdCandidate =
+          (rawItem as { new_company_id?: unknown }).new_company_id ??
+          (rawItem as { company_id?: unknown }).company_id ??
+          rawItem.id;
+        const coFocusCompanyId =
+          typeof coFocusCompanyIdCandidate === "number" &&
+          Number.isFinite(coFocusCompanyIdCandidate) &&
+          coFocusCompanyIdCandidate > 0
+            ? coFocusCompanyIdCandidate
+            : null;
+        setCompanyOfFocusCompanyId(coFocusCompanyId);
+
         setCompanyOfFocus({
           id: rawItem.id ?? 0,
           name: rawItem.name || "",
@@ -569,6 +700,15 @@ const ArticleDetailPage = () => {
           description: rawItem.description || "",
           logo: rawItem.logo || "",
           linkedin_url: rawItem.linkedin_url || "",
+          new_company_id:
+            typeof (rawItem as { new_company_id?: unknown }).new_company_id ===
+            "number"
+              ? (rawItem as { new_company_id: number }).new_company_id
+              : undefined,
+          company_id:
+            typeof (rawItem as { company_id?: unknown }).company_id === "number"
+              ? (rawItem as { company_id: number }).company_id
+              : undefined,
           company_overview: overview,
           financial_overview: financial,
         });
@@ -1151,6 +1291,251 @@ const ArticleDetailPage = () => {
     return `Source: ${trimmed}`;
   };
 
+  const toDisplayString = (value: unknown): string => {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value.toLocaleString("en-US") : "";
+    }
+    if (typeof value === "string") return value.trim();
+    if (Array.isArray(value)) {
+      return value.map((v) => toDisplayString(v)).filter(Boolean).join(", ");
+    }
+    if (typeof value === "object") {
+      const obj = value as Record<string, unknown>;
+      if (typeof obj.name === "string") return obj.name.trim();
+    }
+    return String(value).trim();
+  };
+
+  const normalizeWebsite = (raw: string): string => {
+    const trimmed = (raw || "").trim();
+    if (!trimmed) return "";
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  };
+
+  const getTableCellValue = (row: TableCompanyRow, key: string): string => {
+    const raw = (row as unknown as Record<string, unknown>)[key];
+    const v =
+      typeof raw === "string" ? raw.trim() : toDisplayString(raw).trim();
+    if (!v || v === "—") return "Not available";
+    return v;
+  };
+
+  const parseMaybeSetLikeList = (value: unknown): string[] => {
+    if (value === null || value === undefined) return [];
+    if (typeof value === "object" && !Array.isArray(value)) {
+      const vals = Object.values(value as Record<string, unknown>)
+        .flatMap((v) => {
+          if (v === null || v === undefined) return [];
+          if (typeof v === "object" && !Array.isArray(v)) {
+            return Object.values(v as Record<string, unknown>).map((x) =>
+              toDisplayString(x)
+            );
+          }
+          return [toDisplayString(v)];
+        })
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return Array.from(new Set(vals));
+    }
+    if (Array.isArray(value)) {
+      return value.map((v) => toDisplayString(v)).filter(Boolean);
+    }
+    const text = toDisplayString(value);
+    if (!text || text === "{}" || text === "[]") return [];
+    const parsed = tryParse<unknown>(text);
+    if (Array.isArray(parsed)) {
+      return parsed.map((v) => toDisplayString(v)).filter(Boolean);
+    }
+    const setLike = text
+      .replace(/^\{/, "")
+      .replace(/\}$/, "")
+      .split(",")
+      .map((x) => x.replace(/^["']|["']$/g, "").trim())
+      .filter(Boolean);
+    if (setLike.length === 0) return [];
+    return setLike;
+  };
+
+  const mapCompanyTableApiRow = (row: Record<string, unknown>): TableCompanyRow => {
+    const id = Number(row.id) || 0;
+    const primarySectors = parseMaybeSetLikeList(
+      row.primary_sector_names
+    ).join(", ");
+    const secondarySectors = parseMaybeSetLikeList(
+      row.secondary_sector_names
+    ).join(", ");
+    const investorNames = parseMaybeSetLikeList(row.investor_names).join(", ");
+    const hqLocation = [
+      toDisplayString(row.hq_city),
+      toDisplayString(row.hq_state),
+      toDisplayString(row.hq_country),
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    const na = (s: string) => (s.trim() ? s : "Not available");
+    const urlRaw = normalizeWebsite(toDisplayString(row.url));
+
+    return {
+      id,
+      name: toDisplayString(row.name) || `Company ${id}`,
+      url: na(urlRaw),
+      loc: na(hqLocation),
+      year_founded: formatCompanyOfFocusYearFounded(
+        row.year_founded_label ?? row.year_founded
+      ),
+      primary_sectors: na(primarySectors),
+      secondary_sectors: na(secondarySectors),
+      ownership: na(toDisplayString(row.ownership_type || row.ownership_status)),
+      investors: na(investorNames),
+      li_emp: formatPlainNumber(
+        row.linkedin_employee as number | string | null | undefined
+      ),
+      revenue_m: formatPlainNumber(
+        row.Revenue_m as number | string | null | undefined
+      ),
+      arr_m: formatPlainNumber(row.ARR_m as number | string | null | undefined),
+      ebitda_m: formatPlainNumber(
+        row.EBITDA_m as number | string | null | undefined
+      ),
+      ebit_m: formatPlainNumber(
+        row.EBIT_m as number | string | null | undefined
+      ),
+      ev: formatPlainNumber(row.EV as number | string | null | undefined),
+      arr_pc: formatPercent(row.ARR_pc),
+      churn_pc: formatPercent(row.Churn_pc),
+      grr_pc: formatPercent(row.GRR_pc),
+      nrr: formatPercent(row.NRR),
+      upsell_pc: formatPercent(row.Upsell_pc),
+      cross_sell_pc: formatPercent(row.Cross_sell_pc),
+      price_increase_pc: formatPercent(row.Price_increase_pc),
+      rev_expansion_pc: formatPercent(row.Rev_expansion_pc),
+      new_client_growth_pc: formatPercent(row.New_client_growth_pc),
+      rev_growth_pc: formatPercent(row.Rev_Growth_PC),
+      ebitda_margin: formatPercent(row.EBITDA_margin),
+      rule_of_40: formatPlainNumber(
+        row.Rule_of_40 as number | string | null | undefined
+      ),
+      revenue_multiple: formatMultiple(row.Revenue_multiple),
+      no_of_clients: formatPlainNumber(
+        row.No_of_Clients as number | string | null | undefined
+      ),
+      rev_per_client: formatPlainNumber(
+        row.Rev_per_client as number | string | null | undefined
+      ),
+      no_employees: formatPlainNumber(
+        row.No_Employees as number | string | null | undefined
+      ),
+      rev_per_employee: formatPlainNumber(
+        row.Revenue_per_employee as number | string | null | undefined
+      ),
+    };
+  };
+
+  const handleOpenGenerateTable = useCallback(async () => {
+    if (!article) return;
+    setShowGenerateTableModal(true);
+    setTableLoading(true);
+
+    try {
+      const ids = new Set<number>();
+      (article.companies_mentioned || []).forEach((company) => {
+        if (typeof company.id === "number" && company.id > 0) ids.add(company.id);
+      });
+      if (companyOfFocusCompanyId && companyOfFocusCompanyId > 0) {
+        ids.add(companyOfFocusCompanyId);
+      }
+
+      const idList = Array.from(ids);
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token || idList.length === 0) {
+        setTableRows([]);
+        setSelectedCompanyIds(new Set());
+        return;
+      }
+
+      const params = new URLSearchParams();
+      params.append("company_ids", JSON.stringify(idList));
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_table_data?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to load table data: ${response.status}`);
+      }
+
+      const payload = (await response.json()) as unknown;
+      const items = Array.isArray(payload) ? payload : [];
+      const rows = items
+        .filter((item) => item && typeof item === "object")
+        .map((item) => mapCompanyTableApiRow(item as Record<string, unknown>))
+        .filter((row) => row.id > 0);
+
+      setTableRows(rows);
+      setSelectedCompanyIds(new Set(rows.map((row) => row.id)));
+    } finally {
+      setTableLoading(false);
+    }
+  }, [article, companyOfFocusCompanyId]);
+
+  const handleExportTableCsv = () => {
+    const activeRows = tableRows.filter((row) => selectedCompanyIds.has(row.id));
+    const activeColumns = ALL_TABLE_COLUMNS.filter((column) =>
+      selectedColumnKeys.has(column.key)
+    );
+    if (!activeRows.length || !activeColumns.length) return;
+
+    const sanitizeFilenamePart = (input: string): string => {
+      const cleaned = String(input || "")
+        .replace(/[\u0000-\u001f\u007f]/g, "")
+        .replace(/[\\/:*?"<>|]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .replace(/[. ]+$/g, "")
+        .trim();
+      return cleaned.slice(0, 160) || "Export";
+    };
+
+    const escapeCsv = (value: string) =>
+      `"${String(value || "").replace(/"/g, '""')}"`;
+    const header = [
+      escapeCsv("Company Name"),
+      escapeCsv("Company Profile URL"),
+      ...activeColumns.map((column) => escapeCsv(column.label)),
+    ].join(",");
+    const lines = activeRows.map((row) =>
+      [
+        escapeCsv(row.name),
+        escapeCsv(`https://www.asymmetrixintelligence.com/company/${row.id}`),
+        ...activeColumns.map((column) =>
+          escapeCsv(getTableCellValue(row, column.key))
+        ),
+      ].join(",")
+    );
+    const csv = [header, ...lines].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Asymmetrix - Company Data - ${sanitizeFilenamePart(
+      article?.Headline || ""
+    )}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Helpers for Related Corporate Event (defensive against API shape changes)
   const normalizeNonEmptyText = (value: unknown): string => {
     if (value === null || value === undefined) return "";
@@ -1289,6 +1674,10 @@ const ArticleDetailPage = () => {
   const summaryHtml = normalizeSummaryHtml(summaryRaw);
   const summaryPreview = getFirstSummaryBullet(summaryHtml);
   const hasSummary = Boolean(summaryHtml && summaryPreview);
+  const canOpenCompanyTable = Boolean(
+    (article.companies_mentioned && article.companies_mentioned.length > 0) ||
+      (companyOfFocusCompanyId != null && companyOfFocusCompanyId > 0)
+  );
 
   return (
     <div style={{ ...styles.container, maxWidth: "100vw", overflowX: "hidden" }}>
@@ -2016,38 +2405,75 @@ const ArticleDetailPage = () => {
               );
             })()}
             {/* Companies Section */}
-            {article.companies_mentioned &&
-              article.companies_mentioned.length > 0 && (
-                <div style={styles.section}>
-                  <h2 style={styles.sectionTitle}>Companies</h2>
-                  <div style={styles.tagContainer}>
-                    {article.companies_mentioned.map((company) => (
-                      <Link
-                        key={company.id}
-                        href={`/company/${company.id}`}
-                        style={{
-                          ...styles.companyTag,
-                          textDecoration: "none",
-                          display: "inline-block",
-                        }}
-                        onMouseEnter={(e) => {
-                          (
-                            e.currentTarget as HTMLAnchorElement
-                          ).style.backgroundColor = "#c8e6c9";
-                        }}
-                        onMouseLeave={(e) => {
-                          (
-                            e.currentTarget as HTMLAnchorElement
-                          ).style.backgroundColor = "#e8f5e8";
-                        }}
-                        prefetch={false}
-                      >
-                        {company.name}
-                      </Link>
-                    ))}
-                  </div>
+            {canOpenCompanyTable && (
+              <div style={styles.section}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    flexWrap: "wrap",
+                    marginBottom: 12,
+                  }}
+                >
+                  <h2 style={{ ...styles.sectionTitle, marginBottom: 0 }}>
+                    {article.companies_mentioned &&
+                    article.companies_mentioned.length > 0
+                      ? "Companies"
+                      : "Company"}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={handleOpenGenerateTable}
+                    style={{
+                      backgroundColor: "#0f766e",
+                      color: "white",
+                      fontWeight: 600,
+                      padding: "8px 14px",
+                      borderRadius: 6,
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      whiteSpace: "nowrap",
+                      minHeight: 40,
+                      touchAction: "manipulation",
+                    }}
+                  >
+                    Generate Table
+                  </button>
                 </div>
-              )}
+                {article.companies_mentioned &&
+                  article.companies_mentioned.length > 0 && (
+                    <div style={styles.tagContainer}>
+                      {article.companies_mentioned.map((company) => (
+                        <Link
+                          key={company.id}
+                          href={`/company/${company.id}`}
+                          style={{
+                            ...styles.companyTag,
+                            textDecoration: "none",
+                            display: "inline-block",
+                          }}
+                          onMouseEnter={(e) => {
+                            (
+                              e.currentTarget as HTMLAnchorElement
+                            ).style.backgroundColor = "#c8e6c9";
+                          }}
+                          onMouseLeave={(e) => {
+                            (
+                              e.currentTarget as HTMLAnchorElement
+                            ).style.backgroundColor = "#e8f5e8";
+                          }}
+                          prefetch={false}
+                        >
+                          {company.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+              </div>
+            )}
 
             {/* Sectors Section */}
             {article.sectors && article.sectors.length > 0 && (
@@ -2442,6 +2868,453 @@ const ArticleDetailPage = () => {
       </div>
 
       <Footer />
+
+      {showGenerateTableModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(15, 23, 42, 0.45)",
+            zIndex: 80,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#fff",
+              width: "min(96vw, calc(100vw - 32px))",
+              maxWidth: 1920,
+              maxHeight: "92vh",
+              borderRadius: 12,
+              border: "1px solid #e5e7eb",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                padding: "14px 16px",
+                borderBottom: "1px solid #e5e7eb",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: 18, color: "#0f172a" }}>
+                Custom Company Table
+              </h3>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                }}
+              >
+                <span style={{ color: "#9ca3af", fontSize: 12 }}>
+                  {
+                    tableRows.filter((row) => selectedCompanyIds.has(row.id))
+                      .length
+                  }{" "}
+                  companies ·{" "}
+                  {
+                    ALL_TABLE_COLUMNS.filter((column) =>
+                      selectedColumnKeys.has(column.key)
+                    ).length + 1
+                  }{" "}
+                  columns
+                </span>
+                <button
+                  type="button"
+                  onClick={handleExportTableCsv}
+                  disabled={
+                    tableRows.filter((row) => selectedCompanyIds.has(row.id))
+                      .length === 0 || selectedColumnKeys.size === 0
+                  }
+                  style={{
+                    border: "1px solid #0f766e",
+                    color: "#0f766e",
+                    background: "#fff",
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  Export CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowGenerateTableModal(false)}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    color: "#111827",
+                    background: "#fff",
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(260px, 320px) minmax(0, 1fr)",
+                minHeight: 0,
+                flex: 1,
+              }}
+            >
+              <div
+                style={{
+                  borderRight: "1px solid #e5e7eb",
+                  padding: 14,
+                  overflow: "auto",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 8,
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <h4
+                    style={{
+                      margin: 0,
+                      fontSize: 13,
+                      textTransform: "uppercase",
+                      color: "#9ca3af",
+                      flex: "1 1 auto",
+                      minWidth: 0,
+                    }}
+                  >
+                    Companies
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allOn = tableRows.every((row) =>
+                        selectedCompanyIds.has(row.id)
+                      );
+                      setSelectedCompanyIds(
+                        allOn ? new Set() : new Set(tableRows.map((row) => row.id))
+                      );
+                    }}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      color: "#0f766e",
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {tableRows.every((row) => selectedCompanyIds.has(row.id))
+                      ? "Deselect all"
+                      : "Select all"}
+                  </button>
+                </div>
+                {tableRows.length === 0 ? (
+                  <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>
+                    {tableLoading
+                      ? "Loading companies..."
+                      : "No companies available for this article."}
+                  </p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {tableRows.map((row) => (
+                      <label
+                        key={`row-${row.id}`}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          fontSize: 14,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedCompanyIds.has(row.id)}
+                          onChange={(e) => {
+                            setSelectedCompanyIds((prev) => {
+                              const next = new Set(prev);
+                              if (e.target.checked) next.add(row.id);
+                              else next.delete(row.id);
+                              return next;
+                            });
+                          }}
+                        />
+                        <span>{row.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    margin: "16px 0 8px",
+                  }}
+                >
+                  <h4
+                    style={{
+                      margin: 0,
+                      fontSize: 13,
+                      textTransform: "uppercase",
+                      color: "#9ca3af",
+                    }}
+                  >
+                    Columns
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allOn =
+                        selectedColumnKeys.size === ALL_TABLE_COLUMNS.length;
+                      setSelectedColumnKeys(
+                        allOn
+                          ? new Set()
+                          : new Set(ALL_TABLE_COLUMNS.map((column) => column.key))
+                      );
+                    }}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      color: "#0f766e",
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {selectedColumnKeys.size === ALL_TABLE_COLUMNS.length
+                      ? "Deselect all"
+                      : "Select all"}
+                  </button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {COL_GROUPS.map((group) => (
+                    <div key={group.group}>
+                      <p
+                        style={{
+                          margin: "4px 0",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: "#d1d5db",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {group.group}
+                      </p>
+                      {group.cols.map((column) => (
+                        <label
+                          key={column.key}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            fontSize: 13,
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedColumnKeys.has(column.key)}
+                            onChange={(e) => {
+                              setSelectedColumnKeys((prev) => {
+                                const next = new Set(prev);
+                                if (e.target.checked) next.add(column.key);
+                                else next.delete(column.key);
+                                return next;
+                              });
+                            }}
+                          />
+                          <span>{column.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: 14,
+                  overflow: "auto",
+                  WebkitOverflowScrolling: "touch",
+                  minWidth: 0,
+                }}
+              >
+                {tableLoading ? (
+                  <div style={{ color: "#6b7280", fontSize: 14 }}>
+                    Preparing table data...
+                  </div>
+                ) : (
+                  <table
+                    style={{
+                      width: "max-content",
+                      borderCollapse: "collapse",
+                      minWidth: Math.max(
+                        960,
+                        (1 +
+                          ALL_TABLE_COLUMNS.filter((column) =>
+                            selectedColumnKeys.has(column.key)
+                          ).length) *
+                          118
+                      ),
+                    }}
+                  >
+                    <thead>
+                      <tr>
+                        <th
+                          style={{
+                            textAlign: "left",
+                            borderBottom: "1px solid #e5e7eb",
+                            padding: "8px 10px",
+                            backgroundColor: "#f8fafc",
+                            fontSize: 13,
+                            fontWeight: 700,
+                            whiteSpace: "nowrap",
+                            minWidth: 168,
+                          }}
+                        >
+                          Company Name
+                        </th>
+                        {ALL_TABLE_COLUMNS.filter((column) =>
+                          selectedColumnKeys.has(column.key)
+                        ).map((column) => (
+                          <th
+                            key={`header-${column.key}`}
+                            style={{
+                              textAlign: "left",
+                              borderBottom: "1px solid #e5e7eb",
+                              padding: "8px 10px",
+                              backgroundColor: "#f8fafc",
+                              fontSize: 13,
+                              fontWeight: 700,
+                              whiteSpace: "nowrap",
+                              minWidth: WRAP_COLS.has(column.key) ? 200 : 112,
+                            }}
+                          >
+                            {column.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tableRows
+                        .filter((row) => selectedCompanyIds.has(row.id))
+                        .map((row) => (
+                          <tr key={`table-row-${row.id}`}>
+                            <td
+                              style={{
+                                borderBottom: "1px solid #f1f5f9",
+                                padding: "8px 10px",
+                                fontSize: 13,
+                                color: "#111827",
+                                verticalAlign: "top",
+                                fontWeight: 600,
+                                whiteSpace: "nowrap",
+                                minWidth: 168,
+                              }}
+                            >
+                              <Link
+                                href={`/company/${row.id}`}
+                                prefetch={false}
+                                style={{
+                                  color: "#1d4ed8",
+                                  textDecoration: "none",
+                                }}
+                              >
+                                {row.name}
+                              </Link>
+                            </td>
+                            {ALL_TABLE_COLUMNS.filter((column) =>
+                              selectedColumnKeys.has(column.key)
+                            ).map((column) => {
+                              const value = getTableCellValue(row, column.key);
+                              const isWebsiteColumn = column.key === "url";
+                              const isLocationColumn = column.key === "loc";
+                              return (
+                                <td
+                                  key={`${row.id}-${column.key}`}
+                                  style={{
+                                    borderBottom: "1px solid #f1f5f9",
+                                    padding: "8px 10px",
+                                    fontSize: 13,
+                                    color: "#111827",
+                                    verticalAlign: "top",
+                                    minWidth: WRAP_COLS.has(column.key) ? 200 : 112,
+                                    maxWidth: WRAP_COLS.has(column.key)
+                                      ? 280
+                                      : undefined,
+                                    whiteSpace: WRAP_COLS.has(column.key)
+                                      ? "normal"
+                                      : "nowrap",
+                                    wordBreak: WRAP_COLS.has(column.key)
+                                      ? "break-word"
+                                      : "normal",
+                                    overflowWrap: WRAP_COLS.has(column.key)
+                                      ? "break-word"
+                                      : "normal",
+                                  }}
+                                >
+                                  {isWebsiteColumn &&
+                                  value &&
+                                  value !== "Not available" &&
+                                  /^https?:\/\//i.test(value) ? (
+                                    <a
+                                      href={value}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        color: "#2563eb",
+                                        textDecoration: "none",
+                                        wordBreak: "break-all",
+                                      }}
+                                    >
+                                      {value}
+                                    </a>
+                                  ) : (
+                                    <span
+                                      style={
+                                        isLocationColumn
+                                          ? {
+                                              display: "block",
+                                              wordBreak: "break-word",
+                                              overflowWrap: "break-word",
+                                            }
+                                          : undefined
+                                      }
+                                    >
+                                      {value}
+                                    </span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Embedded PDF Viewer Modal (manual open/generate) */}
       {showPdfViewer && (() => {
