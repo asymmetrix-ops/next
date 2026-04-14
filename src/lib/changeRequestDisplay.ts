@@ -15,6 +15,8 @@ export type ChangeRequestItem = {
   added_text?: string;
   removed_text?: string;
   ai_reasoning?: unknown;
+  /** Optional companies array (some endpoints attach this at the top level). */
+  companies?: unknown;
   /** Whether this change request has been reviewed (admin). */
   reviewed?: boolean;
 };
@@ -98,6 +100,64 @@ export function getChangeRequestAiReasoning(item: ChangeRequestItem): unknown {
     return (d as Record<string, unknown>).ai_reasoning;
   }
   return undefined;
+}
+
+export type ChangeRequestCompanyRef = {
+  id: number;
+  name: string;
+};
+
+function coerceCompaniesArray(value: unknown): unknown[] | null {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    const t = value.trim();
+    if (!t) return null;
+    try {
+      const parsed = JSON.parse(t) as unknown;
+      return Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+export function getChangeRequestCompanies(
+  item: ChangeRequestItem
+): ChangeRequestCompanyRef[] {
+  const candidates: unknown[] = [];
+  const topCompanies = coerceCompaniesArray(item.companies);
+  if (topCompanies) candidates.push(topCompanies);
+  const d = item.data;
+  if (d && typeof d === "object" && "companies" in d) {
+    const v = (d as Record<string, unknown>).companies;
+    const nestedCompanies = coerceCompaniesArray(v);
+    if (nestedCompanies) candidates.push(nestedCompanies);
+  }
+
+  for (const arr of candidates) {
+    if (!Array.isArray(arr)) continue;
+    const mapped = arr
+      .map((c) => {
+        if (!c || typeof c !== "object") return null;
+        const o = c as Record<string, unknown>;
+        const idRaw = o.id;
+        const nameRaw = o.name;
+        const idNum =
+          typeof idRaw === "number"
+            ? idRaw
+            : typeof idRaw === "string"
+              ? parseInt(idRaw, 10)
+              : NaN;
+        const name = typeof nameRaw === "string" ? nameRaw.trim() : "";
+        if (!Number.isFinite(idNum) || idNum <= 0 || !name) return null;
+        return { id: idNum, name } satisfies ChangeRequestCompanyRef;
+      })
+      .filter((x): x is ChangeRequestCompanyRef => Boolean(x));
+    if (mapped.length) return mapped;
+  }
+
+  return [];
 }
 
 /** Split plain diff strings into line items for the DiffBlock UI. */

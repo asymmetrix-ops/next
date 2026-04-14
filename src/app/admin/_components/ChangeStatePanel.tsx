@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckIcon } from "@heroicons/react/24/solid";
+import Link from "next/link";
 import React, {
   useCallback,
   useEffect,
@@ -13,6 +14,7 @@ import {
   type ChangeRequestItem,
   type ChangeRequestResponse,
   formatAiReasoningCard,
+  getChangeRequestCompanies,
   getChangeRequestAiReasoning,
   getChangeRequestBucket,
   getChangeRequestDiffText,
@@ -56,7 +58,7 @@ function AddedDiffBlock({ items }: { items: DiffItem[] }) {
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-green-600">
           + Added
         </p>
-        <div className="space-y-1.5 text-[11px] leading-relaxed">
+        <div className="space-y-1.5 text-xs leading-relaxed">
           {items.map((item, i) => (
             <div
               key={i}
@@ -590,8 +592,9 @@ export function ChangeStateTab() {
               <col style={{ width: "4.5%" }} />
               <col style={{ width: "6.5%" }} />
               <col style={{ width: "14%" }} />
-              <col style={{ width: "43%" }} />
-              <col style={{ width: "9%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "37%" }} />
+              <col style={{ width: "12%" }} />
               <col style={{ width: "7%" }} />
             </colgroup>
             <thead>
@@ -612,6 +615,7 @@ export function ChangeStateTab() {
                   "Read",
                   "Created",
                   "AI Reasoning",
+                  "Companies",
                   "Added",
                   "Watch URL",
                   "Bucket",
@@ -636,6 +640,7 @@ export function ChangeStateTab() {
                 );
                 const addedRaw = getChangeRequestDiffText(item, "added_text");
                 const addedItems = textToDiffItems(addedRaw, "added");
+                const companies = getChangeRequestCompanies(item);
                 const bucketLabel = getChangeRequestBucket(item);
 
                 return (
@@ -714,6 +719,31 @@ export function ChangeStateTab() {
                                   </span>
                                 ))}
                               </div>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="h-full min-w-0 align-top px-3 py-4 sm:px-4">
+                      <div className="flex h-full min-h-full flex-col">
+                        {companies.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {companies.slice(0, 6).map((c) => (
+                              <Link
+                                key={c.id}
+                                href={`/company/${c.id}`}
+                                className="inline-flex max-w-full items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
+                                title={c.name}
+                              >
+                                <span className="truncate">{c.name}</span>
+                              </Link>
+                            ))}
+                            {companies.length > 6 ? (
+                              <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                                +{companies.length - 6}
+                              </span>
                             ) : null}
                           </div>
                         ) : (
