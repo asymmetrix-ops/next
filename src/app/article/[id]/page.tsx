@@ -2423,25 +2423,32 @@ const ArticleDetailPage = () => {
                       ? "Companies"
                       : "Company"}
                   </h2>
-                  <button
-                    type="button"
-                    onClick={handleOpenGenerateTable}
-                    style={{
-                      backgroundColor: "#0f766e",
-                      color: "white",
-                      fontWeight: 600,
-                      padding: "8px 14px",
-                      borderRadius: 6,
-                      border: "none",
-                      cursor: "pointer",
-                      fontSize: 13,
-                      whiteSpace: "nowrap",
-                      minHeight: 40,
-                      touchAction: "manipulation",
-                    }}
+                  <NewFeatureCallout
+                    featureKey="article-generate-table"
+                    launchedAt="2026-02-02T00:00:00.000Z"
+                    durationDays={120}
+                    openWhenInView
                   >
-                    Generate Table
-                  </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenGenerateTable}
+                      style={{
+                        backgroundColor: "#0f766e",
+                        color: "white",
+                        fontWeight: 600,
+                        padding: "8px 14px",
+                        borderRadius: 6,
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: 13,
+                        whiteSpace: "nowrap",
+                        minHeight: 40,
+                        touchAction: "manipulation",
+                      }}
+                    >
+                      Generate Table
+                    </button>
+                  </NewFeatureCallout>
                 </div>
                 {article.companies_mentioned &&
                   article.companies_mentioned.length > 0 && (

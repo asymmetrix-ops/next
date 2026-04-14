@@ -21,6 +21,8 @@ type NewFeatureCalloutProps = {
   persistDismissal?: boolean;
   /** Optional wrapper classes. */
   className?: string;
+  /** If true, only open the popover once the target enters the viewport. */
+  openWhenInView?: boolean;
   children: React.ReactNode;
 };
 
@@ -57,6 +59,7 @@ export function NewFeatureCallout({
   titleText = "New Feature",
   persistDismissal = false,
   className,
+  openWhenInView = false,
   children,
 }: NewFeatureCalloutProps) {
   const launchedAtMs = React.useMemo(() => toMs(launchedAt), [launchedAt]);
@@ -69,6 +72,7 @@ export function NewFeatureCallout({
   const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null);
   const [placement, setPlacement] = React.useState<"top" | "bottom">("top");
   const [isMobile, setIsMobile] = React.useState(false);
+  const [isInView, setIsInView] = React.useState(false);
 
   const withinWindow = React.useMemo(() => {
     if (launchedAtMs === null) return false;
@@ -83,13 +87,38 @@ export function NewFeatureCallout({
       const stored = safeGet(storageKey);
       const isDismissed = Boolean(stored);
       setDismissed(isDismissed);
-      setOpen(!isDismissed);
+      setOpen(!isDismissed && !openWhenInView);
     } else {
       setDismissed(false);
-      setOpen(true);
+      setOpen(!openWhenInView);
     }
     setReady(true);
-  }, [featureKey, persistDismissal]);
+  }, [featureKey, openWhenInView, persistDismissal]);
+
+  React.useEffect(() => {
+    if (!ready || !openWhenInView) return;
+    const el = rootRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const nextInView = Boolean(entry?.isIntersecting);
+        setIsInView(nextInView);
+      },
+      {
+        root: null,
+        threshold: 0.25,
+      }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [openWhenInView, ready]);
+
+  React.useEffect(() => {
+    if (!ready || !openWhenInView || dismissed) return;
+    setOpen(isInView);
+  }, [dismissed, isInView, openWhenInView, ready]);
 
   React.useEffect(() => {
     if (!open) return;
