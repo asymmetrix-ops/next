@@ -98,6 +98,7 @@ interface NewTargetEntity {
   name: string;
   page_type?: string;
   route?: string;
+  path?: string;
   counterparty_announcement_url?: string;
 }
 
@@ -105,12 +106,17 @@ interface NewCounterpartyMinimal {
   id: number;
   name: string;
   page_type?: string;
+  route?: string;
+  path?: string;
+  entity_type?: string;
 }
 
 interface NewOtherCounterparty {
   id?: number;
   name?: string;
   page_type?: string;
+  route?: string;
+  path?: string;
   counterparty_id?: number;
   counterparty_status?: string;
   _new_company?: {
@@ -139,6 +145,8 @@ interface NewCorporateEvent {
     id?: number;
     name?: string;
     page_type?: string;
+    route?: string;
+    path?: string;
   };
   targets?: NewTargetEntity[];
   target_label?: string;
@@ -251,6 +259,34 @@ const sanitizeAmountValue = (
   if (!trimmed) return null;
   const num = Number(trimmed.replace(/,/g, ""));
   return Number.isNaN(num) ? trimmed : num;
+};
+
+const normalizeEntityHref = (args: {
+  id?: number;
+  route?: string;
+  page_type?: string;
+  path?: string;
+  /** Used when backend gives no page_type/route but we know it's an investor. */
+  isInvestorHint?: boolean;
+}): string | null => {
+  const { id, route, page_type, path, isInvestorHint } = args;
+  if (typeof path === "string" && path.trim().startsWith("/")) return path.trim();
+  if (typeof id !== "number") return null;
+
+  const r = String(route ?? "")
+    .trim()
+    .toLowerCase();
+  if (r === "investor" || r === "investors") return `/investors/${id}`;
+  if (r === "company") return `/company/${id}`;
+
+  const pt = String(page_type ?? "")
+    .trim()
+    .toLowerCase();
+  if (pt === "investor" || pt === "investors") return `/investors/${id}`;
+  if (pt === "company") return `/company/${id}`;
+
+  if (isInvestorHint) return `/investors/${id}`;
+  return `/company/${id}`;
 };
 
 export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
@@ -553,14 +589,13 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               ? targets
                               : targets.slice(0, 1);
                             return displayTargets.map((tgt, i, arr) => {
-                              const pageType =
-                                tgt.page_type === "investor"
-                                  ? "investors"
-                                  : tgt.route === "investor" ||
-                                    tgt.route === "investors"
-                                  ? "investors"
-                                  : "company";
-                              const href = `/${pageType}/${tgt.id}`;
+                              const href =
+                                normalizeEntityHref({
+                                  id: tgt.id,
+                                  route: tgt.route,
+                                  page_type: tgt.page_type,
+                                  path: tgt.path,
+                                }) ?? "#";
                               return (
                                 <span key={`tgt-${tgt.id}-${i}`}>
                                   <a
@@ -593,13 +628,12 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                           }
                           // Fallback to target_company
                           if (newEvent.target_company?.name) {
-                            const pageType =
-                              newEvent.target_company.page_type === "investor"
-                                ? "investors"
-                                : "company";
-                            const href = newEvent.target_company.id
-                              ? `/${pageType}/${newEvent.target_company.id}`
-                              : undefined;
+                            const href = normalizeEntityHref({
+                              id: newEvent.target_company.id,
+                              route: newEvent.target_company.route,
+                              page_type: newEvent.target_company.page_type,
+                              path: newEvent.target_company.path,
+                            });
                             if (href) {
                               return (
                                 <a
@@ -662,9 +696,12 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                         if (buyers.length === 0 && Array.isArray(newEvent.buyers) && newEvent.buyers.length > 0) {
                           newEvent.buyers.forEach((c) => {
                             if (c && typeof c.id === "number" && c.name) {
-                              const href = c.page_type === "investor"
-                                ? `/investors/${c.id}`
-                                : `/company/${c.id}`;
+                              const href = normalizeEntityHref({
+                                id: c.id,
+                                route: c.route,
+                                page_type: c.page_type,
+                                path: c.path,
+                              });
                               buyers.push({ id: c.id, name: c.name, href });
                             }
                           });
@@ -776,7 +813,14 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               investors.push({
                                 id: c.id,
                                 name: c.name,
-                                href: `/investors/${c.id}`,
+                                href:
+                                  normalizeEntityHref({
+                                    id: c.id,
+                                    route: c.route,
+                                    page_type: c.page_type,
+                                    path: c.path,
+                                    isInvestorHint: true,
+                                  }) ?? null,
                               });
                             }
                           });
@@ -795,7 +839,14 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               investors.push({
                                 id: c.id,
                                 name: c.name,
-                                href: `/investors/${c.id}`,
+                                href:
+                                  normalizeEntityHref({
+                                    id: c.id,
+                                    route: c.route,
+                                    page_type: c.page_type,
+                                    path: c.path,
+                                    isInvestorHint: true,
+                                  }) ?? null,
                               });
                             }
                           });
@@ -851,9 +902,12 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                         if (Array.isArray(newEvent.sellers) && newEvent.sellers.length > 0) {
                           newEvent.sellers.forEach((seller) => {
                             if (seller && typeof seller.id === "number" && seller.name) {
-                              const href = seller.page_type === "investor"
-                                    ? `/investors/${seller.id}`
-                                    : `/company/${seller.id}`;
+                              const href = normalizeEntityHref({
+                                id: seller.id,
+                                route: seller.route,
+                                page_type: seller.page_type,
+                                path: seller.path,
+                              });
                               sellers.push({
                                 id: seller.id,
                                 name: seller.name,
