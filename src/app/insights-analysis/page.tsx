@@ -314,6 +314,7 @@ const InsightsAnalysisCards = ({
           article={article}
           showMeta={true}
           badgeBelowDate={true}
+          showBodyPreview={false}
           metaStyle="badges"
         />
       ))}

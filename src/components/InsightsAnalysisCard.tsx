@@ -23,6 +23,10 @@ interface InsightsAnalysisCardProps {
    */
   badgeBelowDate?: boolean;
   /**
+   * When true, renders the extracted article body preview below the strapline.
+   */
+  showBodyPreview?: boolean;
+  /**
    * Meta rendering style.
    * - text: legacy "Companies: a, b, c" (compact)
    * - badges: badge grid with truncation ("+N more")
@@ -346,6 +350,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
   href,
   showMeta = true,
   badgeBelowDate = false,
+  showBodyPreview = true,
   metaStyle = "text",
 }) => {
   const router = useRouter();
@@ -394,8 +399,8 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
   );
 
   const plainBodyPreview = React.useMemo(
-    () => extractBodyPreviewText(article.Body),
-    [article.Body]
+    () => (showBodyPreview ? extractBodyPreviewText(article.Body) : ""),
+    [article.Body, showBodyPreview]
   );
 
   const companyNames = React.useMemo(
