@@ -1289,6 +1289,18 @@ const ArticleDetailPage = () => {
     );
     if (!activeRows.length || !activeColumns.length) return;
 
+    const sanitizeFilenamePart = (input: string): string => {
+      // Avoid Windows reserved characters and control chars. Also avoid trailing dots/spaces.
+      const cleaned = String(input || "")
+        .replace(/[\u0000-\u001f\u007f]/g, "")
+        .replace(/[\\/:*?"<>|]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .replace(/[. ]+$/g, "")
+        .trim();
+      return cleaned.slice(0, 160) || "Export";
+    };
+
     const escapeCsv = (value: string) => `"${String(value || "").replace(/"/g, '""')}"`;
     const header = [
       escapeCsv("Company Name"),
@@ -1308,7 +1320,7 @@ const ArticleDetailPage = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `article-company-table-${articleId || "export"}.csv`;
+    a.download = `Asymmetrix - Company Data - ${sanitizeFilenamePart(article?.Headline || "")}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -2410,10 +2422,21 @@ const ArticleDetailPage = () => {
                     alignItems: "center",
                     justifyContent: "space-between",
                     marginBottom: 8,
+                    gap: 8,
+                    flexWrap: "wrap",
                   }}
                 >
-                  <h4 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", color: "#9ca3af" }}>
-                    Rows
+                  <h4
+                    style={{
+                      margin: 0,
+                      fontSize: 13,
+                      textTransform: "uppercase",
+                      color: "#9ca3af",
+                      flex: "1 1 auto",
+                      minWidth: 0,
+                    }}
+                  >
+                    Companies
                   </h4>
                   <button
                     type="button"
