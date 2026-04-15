@@ -93,7 +93,6 @@ interface InsightArticle {
   Strapline?: string;
   Publication_Date?: string;
   created_at?: number;
-  Transaction_status?: string | null;
   // Content type fields may arrive in different shapes/keys
   Content_Type?: string;
   content_type?: string;
@@ -111,6 +110,10 @@ interface InsightArticle {
       Country: string;
     };
     _is_that_investor: boolean;
+  }>;
+  Company_of_Focus?: Array<{
+    id?: number;
+    Transaction_status?: string;
   }>;
 }
 
@@ -134,7 +137,6 @@ export default function HomeUserPage() {
   const {
     isAuthenticated,
     user,
-    logout,
     loading: authLoading,
     isTrialActive,
     trialDaysLeft,
@@ -448,6 +450,14 @@ export default function HomeUserPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [asymmetrixData, setAsymmetrixData] = useState<AsymmetrixData[]>([]);
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
+  const [corporateEventsLoading, setCorporateEventsLoading] = useState(true);
+  const [corporateEventsView, setCorporateEventsView] = useState<
+    "followed" | "all"
+  >("all");
+  const [insightsArticlesLoading, setInsightsArticlesLoading] = useState(true);
+  const [insightsArticlesView, setInsightsArticlesView] = useState<
+    "followed" | "all"
+  >("all");
   const [insightsArticles, setInsightsArticles] = useState<InsightArticle[]>(
     []
   );
@@ -754,8 +764,6 @@ export default function HomeUserPage() {
         sectorsCountResponse,
         advisorsCountResponse,
         investorsResponse,
-        eventsResponse,
-        insightsResponse,
       ] = await Promise.allSettled([
         dashboardApiService.getHeroScreenStatisticCompanies(),
         dashboardApiService.getHeroScreenStatisticEventsCount(),
@@ -763,8 +771,6 @@ export default function HomeUserPage() {
         dashboardApiService.getHeroScreenStatisticSectors(),
         dashboardApiService.getHeroScreenStatisticAdvisorsCount(),
         dashboardApiService.getHeroScreenStatisticInvestors(),
-        dashboardApiService.getCorporateEvents(),
-        dashboardApiService.getAllContentArticlesHome(),
       ]);
 
       // Handle asymmetrix data - build from individual statistics
@@ -920,48 +926,6 @@ export default function HomeUserPage() {
 
       setAsymmetrixData(statsData);
 
-      // Handle corporate events
-      if (eventsResponse.status === "fulfilled") {
-        // Try different possible structures
-        let eventsData: CorporateEvent[] = [];
-        const responseValue = eventsResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-
-        if (responseValue.CorporateEvents) {
-          eventsData = responseValue.CorporateEvents as CorporateEvent[];
-        } else if (responseValue.data) {
-          eventsData = responseValue.data as CorporateEvent[];
-        } else if (Array.isArray(responseValue)) {
-          eventsData = responseValue as CorporateEvent[];
-        }
-
-        setCorporateEvents(eventsData || []);
-      } else {
-        setCorporateEvents([]);
-      }
-
-      // Handle insights articles
-      if (insightsResponse.status === "fulfilled") {
-        // Try different possible structures
-        let insightsData: InsightArticle[] = [];
-        const responseValue = insightsResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-
-        if (responseValue.data) {
-          insightsData = responseValue.data as InsightArticle[];
-        } else if (Array.isArray(responseValue)) {
-          insightsData = responseValue as InsightArticle[];
-        }
-
-        setInsightsArticles(insightsData || []);
-      } else {
-        setInsightsArticles([]);
-      }
-
       // Removed New Companies fetch handling
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -975,7 +939,106 @@ export default function HomeUserPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [logout, router]);
+  }, []);
+
+  const fetchCorporateEvents = useCallback(async () => {
+    try {
+      setCorporateEventsLoading(true);
+
+      const parsedUserId =
+        user?.id != null ? Number.parseInt(String(user.id), 10) : NaN;
+      const shouldShowFollowed = corporateEventsView === "followed";
+      const followedUserId =
+        shouldShowFollowed &&
+        Number.isFinite(parsedUserId) &&
+        parsedUserId > 0
+          ? parsedUserId
+          : null;
+
+      if (shouldShowFollowed && followedUserId === null) {
+        throw new Error("Unable to load followed content for the current user.");
+      }
+
+      const eventsResponse = await dashboardApiService.getCorporateEvents({
+        showFollowed: shouldShowFollowed,
+        userId: followedUserId,
+      });
+
+      let eventsData: CorporateEvent[] = [];
+      const responseValue = eventsResponse as unknown as Record<string, unknown>;
+
+      if (responseValue.CorporateEvents) {
+        eventsData = responseValue.CorporateEvents as CorporateEvent[];
+      } else if (responseValue.data) {
+        eventsData = responseValue.data as CorporateEvent[];
+      } else if (Array.isArray(responseValue)) {
+        eventsData = responseValue as CorporateEvent[];
+      }
+
+      setCorporateEvents(eventsData || []);
+    } catch (error) {
+      console.error("Error fetching corporate events:", error);
+      if (
+        error instanceof Error &&
+        error.message === "Authentication required"
+      ) {
+        return;
+      }
+      setCorporateEvents([]);
+    } finally {
+      setCorporateEventsLoading(false);
+    }
+  }, [corporateEventsView, user?.id]);
+
+  const fetchInsightsArticles = useCallback(async () => {
+    try {
+      setInsightsArticlesLoading(true);
+
+      const parsedUserId =
+        user?.id != null ? Number.parseInt(String(user.id), 10) : NaN;
+      const shouldShowFollowed = insightsArticlesView === "followed";
+      const followedUserId =
+        shouldShowFollowed &&
+        Number.isFinite(parsedUserId) &&
+        parsedUserId > 0
+          ? parsedUserId
+          : null;
+
+      if (shouldShowFollowed && followedUserId === null) {
+        throw new Error("Unable to load followed content for the current user.");
+      }
+
+      const insightsResponse = await dashboardApiService.getAllContentArticlesHome(
+        {
+          search: "",
+          showFollowed: shouldShowFollowed,
+          userId: followedUserId,
+        }
+      );
+
+      let insightsData: InsightArticle[] = [];
+      const responseValue = insightsResponse as unknown as Record<string, unknown>;
+
+      if (responseValue.data) {
+        insightsData = responseValue.data as InsightArticle[];
+      } else if (Array.isArray(responseValue)) {
+        insightsData = responseValue as InsightArticle[];
+      }
+
+      setInsightsArticles(insightsData || []);
+    } catch (error) {
+      console.error("Error fetching insights articles:", error);
+      if (
+        error instanceof Error &&
+        error.message === "Authentication required"
+      ) {
+        return;
+      }
+      setInsightsArticles([]);
+    } finally {
+      setInsightsArticlesLoading(false);
+    }
+  }, [insightsArticlesView, user?.id]);
 
   // Check authentication on component mount
   useEffect(() => {
@@ -998,7 +1061,17 @@ export default function HomeUserPage() {
     if (isAuthenticated) {
       fetchDashboardData();
     }
-  }, [router, fetchDashboardData, isAuthenticated, authLoading]);
+  }, [fetchDashboardData, isAuthenticated, authLoading]);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+    fetchCorporateEvents();
+  }, [authLoading, isAuthenticated, fetchCorporateEvents]);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+    fetchInsightsArticles();
+  }, [authLoading, isAuthenticated, fetchInsightsArticles]);
 
   if (authLoading) {
     return (
@@ -1541,20 +1614,51 @@ export default function HomeUserPage() {
                     />
                   </svg>
                 </div>
-                <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
+                <a
+                  href="/insights-analysis"
+                  className="text-base font-semibold text-blue-600 underline hover:text-blue-800 sm:text-lg"
+                  style={{ fontWeight: "600" }}
+                >
                   Insights &amp; Analysis
-                </h2>
+                </a>
               </div>
-              <a
-                href="/insights-analysis"
-                className="text-xs font-medium text-blue-600 underline hover:text-blue-800"
-                style={{ fontWeight: "500" }}
-              >
-                View all
-              </a>
+              <div className="flex items-center gap-3">
+                <div className="inline-flex p-1 bg-gray-100 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setInsightsArticlesView("followed")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      insightsArticlesView === "followed"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    aria-pressed={insightsArticlesView === "followed"}
+                  >
+                    Followed
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInsightsArticlesView("all")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      insightsArticlesView === "all"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    aria-pressed={insightsArticlesView === "all"}
+                  >
+                    All
+                  </button>
+                </div>
+              </div>
             </div>
             <div className="flex-1 p-3 overflow-y-auto sm:p-4">
-              {insightsArticles.length > 0 ? (
+              {insightsArticlesLoading ? (
+                <div className="py-6 text-center sm:py-8">
+                  <p className="text-sm text-gray-500">
+                    Loading insights articles...
+                  </p>
+                </div>
+              ) : insightsArticles.length > 0 ? (
                 <div className="space-y-4">
                   {[...insightsArticles]
                     .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
@@ -1568,9 +1672,6 @@ export default function HomeUserPage() {
                       ""
                     ).trim();
                     const href = `/article/${article.id}?from=home`;
-                    const transactionStatus = (
-                      article.Transaction_status || ""
-                    ).trim();
 
                     return (
                       <div
@@ -1585,46 +1686,55 @@ export default function HomeUserPage() {
                             {formatDate(article.Publication_Date)}
                           </span>
                         </div>
-                        {transactionStatus && (
-                          <div className="mt-2">
-                            <span
-                              className="inline-flex max-w-full items-center rounded-full break-words"
-                              style={{
-                                backgroundColor: "#e3f2fd",
-                                color: "#0b4aa2",
-                                border: "1.5px solid #60a5fa",
-                                fontWeight: 800,
-                                fontSize: 12,
-                                padding: "7px 12px",
-                                letterSpacing: "0.02em",
-                                boxShadow: "0 2px 10px rgba(37, 99, 235, 0.18)",
-                                lineHeight: 1.25,
-                              }}
-                            >
-                              {transactionStatus}
-                            </span>
-                          </div>
-                        )}
 
-                        <a
-                          href={href}
-                          className="block mt-3 text-sm font-semibold text-gray-900 hover:text-blue-700"
-                          onClick={(e) => {
-                            if (
-                              e.defaultPrevented ||
-                              e.button !== 0 ||
-                              e.metaKey ||
-                              e.ctrlKey ||
-                              e.shiftKey ||
-                              e.altKey
-                            )
-                              return;
-                            e.preventDefault();
-                            router.push(href);
-                          }}
-                        >
-                          {article.Headline}
-                        </a>
+                        <div className="flex flex-wrap items-start gap-x-3 gap-y-2 mt-3">
+                          <a
+                            href={href}
+                            className="min-w-0 flex-1 text-sm font-semibold text-gray-900 hover:text-blue-700"
+                            onClick={(e) => {
+                              if (
+                                e.defaultPrevented ||
+                                e.button !== 0 ||
+                                e.metaKey ||
+                                e.ctrlKey ||
+                                e.shiftKey ||
+                                e.altKey
+                              )
+                                return;
+                              e.preventDefault();
+                              router.push(href);
+                            }}
+                          >
+                            {article.Headline}
+                          </a>
+
+                          {(() => {
+                            const ts = article.Company_of_Focus?.find(
+                              (c) => c?.Transaction_status
+                            )?.Transaction_status;
+                            return ts ? (
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  fontSize: 11,
+                                  lineHeight: 1,
+                                  padding: "5px 10px",
+                                  borderRadius: 9999,
+                                  fontWeight: 700,
+                                  letterSpacing: "0.03em",
+                                  textTransform: "uppercase",
+                                  backgroundColor: "#dcfce7",
+                                  color: "#166534",
+                                  border: "1.5px solid #4ade80",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {ts}
+                              </span>
+                            ) : null;
+                          })()}
+                        </div>
 
                         {article.Strapline ? (
                           <p className="mt-2 text-xs leading-5 text-gray-600 line-clamp-3">
@@ -1657,7 +1767,11 @@ export default function HomeUserPage() {
                 </div>
               ) : (
                 <div className="py-6 text-center sm:py-8">
-                  <p className="text-sm text-gray-500">No insights available</p>
+                  <p className="text-sm text-gray-500">
+                    {insightsArticlesView === "followed"
+                      ? "No followed insights available"
+                      : "No insights available"}
+                  </p>
                 </div>
               )}
             </div>
@@ -1685,20 +1799,51 @@ export default function HomeUserPage() {
                     />
                   </svg>
                 </div>
-                <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
+                <a
+                  href="/corporate-events"
+                  className="text-base font-semibold text-blue-600 underline hover:text-blue-800 sm:text-lg"
+                  style={{ fontWeight: "600" }}
+                >
                   Corporate Events
-                </h2>
+                </a>
               </div>
-              <a
-                href="/corporate-events"
-                className="text-xs font-medium text-blue-600 underline hover:text-blue-800"
-                style={{ fontWeight: "500" }}
-              >
-                View all
-              </a>
+              <div className="flex items-center gap-3">
+                <div className="inline-flex p-1 bg-gray-100 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setCorporateEventsView("followed")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      corporateEventsView === "followed"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    aria-pressed={corporateEventsView === "followed"}
+                  >
+                    Followed
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCorporateEventsView("all")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      corporateEventsView === "all"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    aria-pressed={corporateEventsView === "all"}
+                  >
+                    All
+                  </button>
+                </div>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto">
-              {corporateEvents.length > 0 ? (
+              {corporateEventsLoading ? (
+                <div className="p-4 text-center">
+                  <p className="text-sm text-gray-500">
+                    Loading corporate events...
+                  </p>
+                </div>
+              ) : corporateEvents.length > 0 ? (
                 <div className="min-w-full">
                   {/* Mobile view - cards */}
                   <div className="block lg:hidden">
@@ -1763,6 +1908,11 @@ export default function HomeUserPage() {
                               {(() => {
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 const ev: any = event as any;
+                                const isPartnership =
+                                  (ev.deal_type || "")
+                                    .toLowerCase()
+                                    .trim() === "partnership";
+
                                 const targetsArr =
                                   parseEntityArray<EntityRef>(ev.targets);
 
@@ -1777,7 +1927,9 @@ export default function HomeUserPage() {
 
                                 const displayTargets =
                                   targetsArr.length > 0
-                                    ? dedupeById(targetsArr)
+                                    ? isPartnership
+                                      ? dedupeById(targetsArr)
+                                      : dedupeById(targetsArr).slice(0, 1)
                                     : [];
 
                                 const targetName =
@@ -2345,12 +2497,10 @@ export default function HomeUserPage() {
 
                                   const displayTargets =
                                     targetsArr.length > 0
-                                      ? dedupeById(targetsArr)
+                                      ? isPartnership
+                                        ? dedupeById(targetsArr)
+                                        : dedupeById(targetsArr).slice(0, 1)
                                       : [];
-                                  const targetLabel =
-                                    isPartnership || displayTargets.length > 1
-                                      ? "Target(s):"
-                                      : "Target:";
 
                                   const targetName =
                                     targetObj?.name || targetLegacyName;
@@ -2362,7 +2512,11 @@ export default function HomeUserPage() {
                                     <div className="space-y-1">
                                       {displayTargets.length > 0 ? (
                                         <div className="text-xs text-gray-500">
-                                          <strong>{targetLabel}</strong>{" "}
+                                          <strong>
+                                            {isPartnership
+                                              ? "Target(s):"
+                                              : "Target:"}
+                                          </strong>{" "}
                                           {displayTargets.map((tgt, i, arr) => {
                                             const href = normalizeEntityHref(tgt);
                                             const name = tgt?.name || "Unknown";
@@ -2386,7 +2540,11 @@ export default function HomeUserPage() {
                                         </div>
                                       ) : targetName ? (
                                         <div className="text-xs text-gray-500">
-                                          <strong>{targetLabel}</strong>{" "}
+                                          <strong>
+                                            {isPartnership
+                                              ? "Target(s):"
+                                              : "Target:"}
+                                          </strong>{" "}
                                           {targetHref ? (
                                             <a
                                               href={targetHref}
@@ -2797,7 +2955,9 @@ export default function HomeUserPage() {
               ) : (
                 <div className="p-4 text-center">
                   <p className="text-sm text-gray-500">
-                    No corporate events available
+                    {corporateEventsView === "followed"
+                      ? "No followed corporate events available"
+                      : "No corporate events available"}
                   </p>
                 </div>
               )}
