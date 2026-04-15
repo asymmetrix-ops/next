@@ -451,13 +451,7 @@ export default function HomeUserPage() {
   const [asymmetrixData, setAsymmetrixData] = useState<AsymmetrixData[]>([]);
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(true);
-  const [corporateEventsView, setCorporateEventsView] = useState<
-    "followed" | "all"
-  >("all");
   const [insightsArticlesLoading, setInsightsArticlesLoading] = useState(true);
-  const [insightsArticlesView, setInsightsArticlesView] = useState<
-    "followed" | "all"
-  >("all");
   const [insightsArticles, setInsightsArticles] = useState<InsightArticle[]>(
     []
   );
@@ -944,25 +938,7 @@ export default function HomeUserPage() {
   const fetchCorporateEvents = useCallback(async () => {
     try {
       setCorporateEventsLoading(true);
-
-      const parsedUserId =
-        user?.id != null ? Number.parseInt(String(user.id), 10) : NaN;
-      const shouldShowFollowed = corporateEventsView === "followed";
-      const followedUserId =
-        shouldShowFollowed &&
-        Number.isFinite(parsedUserId) &&
-        parsedUserId > 0
-          ? parsedUserId
-          : null;
-
-      if (shouldShowFollowed && followedUserId === null) {
-        throw new Error("Unable to load followed content for the current user.");
-      }
-
-      const eventsResponse = await dashboardApiService.getCorporateEvents({
-        showFollowed: shouldShowFollowed,
-        userId: followedUserId,
-      });
+      const eventsResponse = await dashboardApiService.getCorporateEvents();
 
       let eventsData: CorporateEvent[] = [];
       const responseValue = eventsResponse as unknown as Record<string, unknown>;
@@ -988,33 +964,13 @@ export default function HomeUserPage() {
     } finally {
       setCorporateEventsLoading(false);
     }
-  }, [corporateEventsView, user?.id]);
+  }, []);
 
   const fetchInsightsArticles = useCallback(async () => {
     try {
       setInsightsArticlesLoading(true);
-
-      const parsedUserId =
-        user?.id != null ? Number.parseInt(String(user.id), 10) : NaN;
-      const shouldShowFollowed = insightsArticlesView === "followed";
-      const followedUserId =
-        shouldShowFollowed &&
-        Number.isFinite(parsedUserId) &&
-        parsedUserId > 0
-          ? parsedUserId
-          : null;
-
-      if (shouldShowFollowed && followedUserId === null) {
-        throw new Error("Unable to load followed content for the current user.");
-      }
-
-      const insightsResponse = await dashboardApiService.getAllContentArticlesHome(
-        {
-          search: "",
-          showFollowed: shouldShowFollowed,
-          userId: followedUserId,
-        }
-      );
+      const insightsResponse =
+        await dashboardApiService.getAllContentArticlesHome();
 
       let insightsData: InsightArticle[] = [];
       const responseValue = insightsResponse as unknown as Record<string, unknown>;
@@ -1038,7 +994,7 @@ export default function HomeUserPage() {
     } finally {
       setInsightsArticlesLoading(false);
     }
-  }, [insightsArticlesView, user?.id]);
+  }, []);
 
   // Check authentication on component mount
   useEffect(() => {
@@ -1739,11 +1695,7 @@ export default function HomeUserPage() {
                 </div>
               ) : (
                 <div className="py-6 text-center sm:py-8">
-                  <p className="text-sm text-gray-500">
-                    {insightsArticlesView === "followed"
-                      ? "No followed insights available"
-                      : "No insights available"}
-                  </p>
+                  <p className="text-sm text-gray-500">No insights available</p>
                 </div>
               )}
             </div>
@@ -2899,9 +2851,7 @@ export default function HomeUserPage() {
               ) : (
                 <div className="p-4 text-center">
                   <p className="text-sm text-gray-500">
-                    {corporateEventsView === "followed"
-                      ? "No followed corporate events available"
-                      : "No corporate events available"}
+                    No corporate events available
                   </p>
                 </div>
               )}
