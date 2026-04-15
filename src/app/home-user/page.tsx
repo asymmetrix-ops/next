@@ -1594,7 +1594,7 @@ export default function HomeUserPage() {
 
           {/* Insights & Analysis - first on mobile */}
           <div className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-1 lg:order-2 lg:col-span-1 xl:col-span-8">
-            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
+            <div className="flex items-center p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700">
                   <svg
@@ -1621,34 +1621,6 @@ export default function HomeUserPage() {
                 >
                   Insights &amp; Analysis
                 </a>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="inline-flex p-1 bg-gray-100 rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => setInsightsArticlesView("followed")}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      insightsArticlesView === "followed"
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                    aria-pressed={insightsArticlesView === "followed"}
-                  >
-                    Followed
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInsightsArticlesView("all")}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      insightsArticlesView === "all"
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                    aria-pressed={insightsArticlesView === "all"}
-                  >
-                    All
-                  </button>
-                </div>
               </div>
             </div>
             <div className="flex-1 p-3 overflow-y-auto sm:p-4">
@@ -1779,7 +1751,7 @@ export default function HomeUserPage() {
 
           {/* Corporate Events - second on mobile */}
           <div className="flex flex-col bg-white rounded-lg shadow order-2 lg:order-3 lg:col-span-1 xl:col-span-8">
-            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
+            <div className="flex items-center p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-2">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-700">
                   <svg
@@ -1806,34 +1778,6 @@ export default function HomeUserPage() {
                 >
                   Corporate Events
                 </a>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="inline-flex p-1 bg-gray-100 rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => setCorporateEventsView("followed")}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      corporateEventsView === "followed"
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                    aria-pressed={corporateEventsView === "followed"}
-                  >
-                    Followed
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCorporateEventsView("all")}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      corporateEventsView === "all"
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                    aria-pressed={corporateEventsView === "all"}
-                  >
-                    All
-                  </button>
-                </div>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
