@@ -141,6 +141,10 @@ interface Filters {
   nrrMax: number | null;
   newClientsRevenueGrowthMin: number | null;
   newClientsRevenueGrowthMax: number | null;
+  // LinkedIn Growth Metrics
+  minGrowthPercent: number | null;
+  maxGrowthPercent: number | null;
+  timeFrame: string;
   transactionStatus?: string[];
 }
 
@@ -432,6 +436,9 @@ const useCompaniesAPI = () => {
             nrrMax: filtersToUse.nrrMax,
             newClientsRevenueGrowthMin: filtersToUse.newClientsRevenueGrowthMin,
             newClientsRevenueGrowthMax: filtersToUse.newClientsRevenueGrowthMax,
+            minGrowthPercent: filtersToUse.minGrowthPercent,
+            maxGrowthPercent: filtersToUse.maxGrowthPercent,
+            timeFrame: filtersToUse.timeFrame,
             transactionStatus: filtersToUse.transactionStatus,
           };
           return serverFiltersBase;
@@ -875,6 +882,9 @@ const CompanyDashboard = ({
   const [nrrMax, setNrrMax] = useState<number | null>(null);
   const [newClientsRevenueGrowthMin, setNewClientsRevenueGrowthMin] = useState<number | null>(null);
   const [newClientsRevenueGrowthMax, setNewClientsRevenueGrowthMax] = useState<number | null>(null);
+  const [minGrowthPercent, setMinGrowthPercent] = useState<number | null>(null);
+  const [maxGrowthPercent, setMaxGrowthPercent] = useState<number | null>(null);
+  const [timeFrame, setTimeFrame] = useState<string>("");
 
   const [selectedTransactionStatus, setSelectedTransactionStatus] = useState<string[]>(
     []
@@ -1146,6 +1156,9 @@ const CompanyDashboard = ({
       nrrMax,
       newClientsRevenueGrowthMin,
       newClientsRevenueGrowthMax,
+      minGrowthPercent,
+      maxGrowthPercent,
+      timeFrame,
       transactionStatus: selectedTransactionStatus,
     };
     console.log("Searching with filters:", filters);
@@ -1198,6 +1211,9 @@ const CompanyDashboard = ({
     nrrMax,
     newClientsRevenueGrowthMin,
     newClientsRevenueGrowthMax,
+    minGrowthPercent,
+    maxGrowthPercent,
+    timeFrame,
     selectedTransactionStatus,
   ]);
 
@@ -1446,6 +1462,9 @@ const CompanyDashboard = ({
     setNrrMax(null);
     setNewClientsRevenueGrowthMin(null);
     setNewClientsRevenueGrowthMax(null);
+    setMinGrowthPercent(null);
+    setMaxGrowthPercent(null);
+    setTimeFrame("");
     setSelectedTransactionStatus([]);
     const emptyFilters: Filters = {
       countries: [],
@@ -1487,6 +1506,9 @@ const CompanyDashboard = ({
       nrrMax: null,
       newClientsRevenueGrowthMin: null,
       newClientsRevenueGrowthMax: null,
+      minGrowthPercent: null,
+      maxGrowthPercent: null,
+      timeFrame: "",
       transactionStatus: [],
     };
     if (onSearch) onSearch(emptyFilters);
@@ -2434,6 +2456,46 @@ const CompanyDashboard = ({
                     }
                   />
                 </div>
+
+                <span style={styles.label}>LinkedIn Growth (%) Range</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Min %"
+                    value={minGrowthPercent ?? ""}
+                    onChange={(e) =>
+                      setMinGrowthPercent(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={styles.rangeInput}
+                    placeholder="Max %"
+                    value={maxGrowthPercent ?? ""}
+                    onChange={(e) =>
+                      setMaxGrowthPercent(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
+                <span style={styles.label}>Growth Time Frame</span>
+                <select
+                  style={styles.select}
+                  value={timeFrame}
+                  onChange={(e) => setTimeFrame(e.target.value)}
+                >
+                  <option value="">Select Time Frame</option>
+                  <option value="Last Quarter">Last Quarter</option>
+                  <option value="Last Year">Last Year</option>
+                  <option value="Last 4 Quarters">Last 4 Quarters</option>
+                  <option value="YTD">YTD</option>
+                  <option value="Last 2 Years">Last 2 Years</option>
+                </select>
               </div>
               <div style={styles.gridItem}>
                 <h3 style={styles.subHeading} className="filters-sub-heading">
@@ -2875,6 +2937,9 @@ const CompanySection = ({
       currentFilters.nrrMax !== null ||
       currentFilters.newClientsRevenueGrowthMin !== null ||
       currentFilters.newClientsRevenueGrowthMax !== null ||
+      currentFilters.minGrowthPercent !== null ||
+      currentFilters.maxGrowthPercent !== null ||
+      currentFilters.timeFrame.trim() !== "" ||
       (currentFilters.transactionStatus || []).length > 0
     );
   };
@@ -2940,6 +3005,11 @@ const CompanySection = ({
         // LinkedIn Members
         appendIfValue("Min_linkedin_members", f.linkedinMembersMin);
         appendIfValue("Max_linkedin_members", f.linkedinMembersMax);
+        appendIfValue("min_growth_percent", f.minGrowthPercent);
+        appendIfValue("max_growth_percent", f.maxGrowthPercent);
+        if (f.timeFrame && f.timeFrame.trim()) {
+          params.append("time_frame", f.timeFrame.trim());
+        }
 
         // Financial Metrics min/max for export
         appendIfValue("Revenue_min", f.revenueMin);

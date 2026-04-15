@@ -57,6 +57,9 @@ function isEmptyFilters(filters: CompaniesFilters): boolean {
     hasNum(filters.nrrMax) ||
     hasNum(filters.newClientsRevenueGrowthMin) ||
     hasNum(filters.newClientsRevenueGrowthMax) ||
+    hasNum(filters.minGrowthPercent) ||
+    hasNum(filters.maxGrowthPercent) ||
+    hasStr(filters.timeFrame) ||
     hasArray(filters.transactionStatus)
   );
 }
@@ -104,6 +107,9 @@ export interface CompaniesFilters {
   nrrMax?: number | null;
   newClientsRevenueGrowthMin?: number | null;
   newClientsRevenueGrowthMax?: number | null;
+  minGrowthPercent?: number | null;
+  maxGrowthPercent?: number | null;
+  timeFrame?: string;
   transactionStatus?: string[];
 }
 
@@ -233,6 +239,15 @@ export async function fetchCompaniesServer(
     }
     if (filters.linkedinMembersMax != null) {
       params.append("Max_linkedin_members", filters.linkedinMembersMax.toString());
+    }
+    if (filters.minGrowthPercent != null) {
+      params.append("min_growth_percent", filters.minGrowthPercent.toString());
+    }
+    if (filters.maxGrowthPercent != null) {
+      params.append("max_growth_percent", filters.maxGrowthPercent.toString());
+    }
+    if (filters.timeFrame && filters.timeFrame.trim()) {
+      params.append("time_frame", filters.timeFrame.trim());
     }
 
     // Financial Metrics

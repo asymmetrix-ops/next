@@ -368,6 +368,7 @@ interface Company {
   name: string;
   description: string;
   Transaction_status?: string | null;
+  linkedin_growth_1y_pct?: number | null;
   year_founded: number;
   _years?: {
     Year?: number | string;
@@ -627,6 +628,15 @@ const formatPercent = (value?: number | string | null): string => {
   const n = getNumeric(value);
   if (n === undefined) return "Not available";
   return `${Math.round(n)}%`;
+};
+
+const formatLinkedInGrowthPercent = (
+  value?: number | string | null
+): string => {
+  const n = getNumeric(value);
+  if (n === undefined) return "Not available";
+  const rounded = Math.round(n * 10) / 10;
+  return `${rounded.toLocaleString()}%`;
 };
 
 const formatMultiple = (value?: number | string | null): string => {
@@ -2273,11 +2283,31 @@ const CompanyDetail = () => {
       color: "#1a202c",
       marginBottom: "16px",
     },
+    chartTitleRow: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: "12px",
+      marginBottom: "16px",
+    },
     currentCount: {
       fontSize: "24px",
       fontWeight: "700",
       color: "#0075df",
       marginBottom: "16px",
+    },
+    linkedinIconButton: {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "30px",
+      height: "30px",
+      backgroundColor: "#0077b5",
+      borderRadius: "6px",
+      color: "white",
+      textDecoration: "none",
+      transition: "background-color 0.2s ease",
+      flexShrink: 0,
     },
     linkedinLink: {
       display: "flex",
@@ -4421,8 +4451,44 @@ const CompanyDetail = () => {
                   )}
                 </span>
               </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>LinkedIn growth 1 year %:</span>
+                <span style={styles.value}>
+                  {formatLinkedInGrowthPercent(company.linkedin_growth_1y_pct)}
+                </span>
+                <span style={styles.sourceValue}></span>
+              </div>
               <div style={styles.chartContainer} className="chartContainer">
-                <div style={styles.chartTitle}>LinkedIn Employee Count</div>
+                <div style={styles.chartTitleRow}>
+                  <div style={{ ...styles.chartTitle, marginBottom: 0 }}>
+                    LinkedIn Employee Count
+                  </div>
+                  {linkedinUrl && (
+                    <a
+                      href={linkedinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={styles.linkedinIconButton}
+                      onMouseOver={(e) =>
+                        (e.currentTarget.style.backgroundColor = "#005582")
+                      }
+                      onMouseOut={(e) =>
+                        (e.currentTarget.style.backgroundColor = "#0077b5")
+                      }
+                      aria-label="Open LinkedIn profile"
+                      title="Open LinkedIn profile"
+                    >
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                      </svg>
+                    </a>
+                  )}
+                </div>
                 <div style={styles.currentCount}>
                   {formatNumber(currentEmployeeCount)} employees
                 </div>
@@ -4441,50 +4507,6 @@ const CompanyDetail = () => {
                   </div>
                 )}
               </div>
-              {/* LinkedIn Logo - Redirects to company LinkedIn */}
-              {linkedinUrl && (
-                <div
-                  style={{
-                    textAlign: "left",
-                    marginTop: "16px",
-                    paddingTop: "16px",
-                    borderTop: "1px solid #e2e8f0",
-                  }}
-                >
-                  <a
-                    href={linkedinUrl || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "30px",
-                      height: "30px",
-                      backgroundColor: "#0077b5",
-                      borderRadius: "6px",
-                      color: "white",
-                      textDecoration: "none",
-                      transition: "background-color 0.2s ease",
-                    }}
-                    onMouseOver={(e) =>
-                      (e.currentTarget.style.backgroundColor = "#005582")
-                    }
-                    onMouseOut={(e) =>
-                      (e.currentTarget.style.backgroundColor = "#0077b5")
-                    }
-                  >
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                    </svg>
-                  </a>
-                </div>
-              )}
             </div>
 
             {/* Market Overview removed */}
@@ -4931,8 +4953,44 @@ const CompanyDetail = () => {
                   )}
                 </span>
               </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>LinkedIn growth 1 year %:</span>
+                <span style={styles.value}>
+                  {formatLinkedInGrowthPercent(company.linkedin_growth_1y_pct)}
+                </span>
+                <span style={styles.sourceValue}></span>
+              </div>
               <div style={styles.chartContainer}>
-                <div style={styles.chartTitle}>LinkedIn Employee Count</div>
+                <div style={styles.chartTitleRow}>
+                  <div style={{ ...styles.chartTitle, marginBottom: 0 }}>
+                    LinkedIn Employee Count
+                  </div>
+                  {linkedinUrl && (
+                    <a
+                      href={linkedinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={styles.linkedinIconButton}
+                      onMouseOver={(e) =>
+                        (e.currentTarget.style.backgroundColor = "#005582")
+                      }
+                      onMouseOut={(e) =>
+                        (e.currentTarget.style.backgroundColor = "#0077b5")
+                      }
+                      aria-label="Open LinkedIn profile"
+                      title="Open LinkedIn profile"
+                    >
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                      </svg>
+                    </a>
+                  )}
+                </div>
                 <div style={styles.currentCount}>
                   {formatNumber(currentEmployeeCount)} employees
                 </div>
