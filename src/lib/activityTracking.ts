@@ -18,8 +18,7 @@ export function isActivityTrackingBlockedEmail(email?: string | null): boolean {
     e === "j.bochner@asymmetrixintelligence.com" ||
     e === "d.dinsey@asymmetrixintelligence.com" ||
     e === "a.grishko@asymmetrixintelligence.com" ||
-    e === "h.crean@asymmetrixintelligence.com" ||
-    e === "tucha.dev@gmail.com"
+    e === "h.crean@asymmetrixintelligence.com" 
   );
 }
 
