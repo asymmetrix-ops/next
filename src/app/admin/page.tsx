@@ -578,9 +578,17 @@ function buildBrandedEmailHtml(params: {
 }
 
 function EmailsTab() {
+  type EmailEntityType = "" | "contributon_email" | "client";
+
+  function coerceEmailEntityType(value: unknown): EmailEntityType {
+    const raw = String(value ?? "").trim();
+    return raw === "contributon_email" || raw === "client" ? raw : "";
+  }
+
   const [bodyHtml, setBodyHtml] = useState<string>("<p></p>");
   const [html, setHtml] = useState("");
   const [subject, setSubject] = useState("");
+  const [entityType, setEntityType] = useState<EmailEntityType>("");
   const [singleRecipient, setSingleRecipient] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [sending, setSending] = useState(false);
@@ -627,6 +635,7 @@ function EmailsTab() {
     id: number;
     Headline?: string | null;
     Body?: string | null;
+    entity_type?: EmailEntityType | null;
     Publication_Date?: unknown;
     created_at?: number;
   }
@@ -772,6 +781,7 @@ function EmailsTab() {
             const t = templates.find((x) => x.id === idNum);
             if (t) {
               setSubject(String(t.Headline ?? ""));
+              setEntityType(coerceEmailEntityType(t.entity_type));
               if (t.Body) {
                 const inner = extractInnerContent(String(t.Body));
                 setBodyHtml(inner || "<p></p>");
@@ -799,6 +809,19 @@ function EmailsTab() {
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
         />
+      </div>
+
+      <div className="mb-3">
+        <label className="block mb-1 text-sm font-medium">Entity Type</label>
+        <select
+          className="p-2 w-full border"
+          value={entityType}
+          onChange={(e) => setEntityType(coerceEmailEntityType(e.target.value))}
+        >
+          <option value="">Choose entity type</option>
+          <option value="contributon_email">contributon_email</option>
+          <option value="client">client</option>
+        </select>
       </div>
 
       <div className="mt-4">
@@ -862,6 +885,7 @@ function EmailsTab() {
                       Publication_Date: null,
                       Headline: subjectTrimmed,
                       Body: brandedHtml,
+                      entity_type: entityType,
                     }),
                   }
                 );
@@ -906,6 +930,7 @@ function EmailsTab() {
                       Publication_Date: null,
                       Headline: subjectTrimmed,
                       Body: brandedHtml,
+                      entity_type: entityType,
                     }),
                   }
                 );
