@@ -93,6 +93,7 @@ interface InsightArticle {
   Strapline?: string;
   Publication_Date?: string;
   created_at?: number;
+  Transaction_status?: string | null;
   // Content type fields may arrive in different shapes/keys
   Content_Type?: string;
   content_type?: string;
@@ -180,6 +181,111 @@ export default function HomeUserPage() {
     if (key === "vc investors") return "/investors?investorTypeId=23877";
     if (key === "advisors") return "/advisors";
     return "";
+  };
+
+  const normalizeContentTypeLabel = (raw: unknown): string | undefined => {
+    if (typeof raw !== "string") return undefined;
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  };
+
+  const inferContentTypeFromHeadline = (headline: unknown): string | undefined => {
+    const h = normalizeContentTypeLabel(headline);
+    if (!h) return undefined;
+
+    const parts = h.split(/\s*[–—-]\s*/);
+    const candidate = (parts[0] || "").trim().toLowerCase();
+
+    const known = new Map<string, string>([
+      ["company analysis", "Company Analysis"],
+      ["deal analysis", "Deal Analysis"],
+      ["deal perspective", "Deal Perspective"],
+      ["market commentary", "Market Commentary"],
+      ["sector analysis", "Sector Analysis"],
+      ["hot take", "Hot Take"],
+      ["executive interview", "Executive Interview"],
+    ]);
+
+    return known.get(candidate) || undefined;
+  };
+
+  const contentTypeBadgeStyle = (
+    contentType?: string
+  ): React.CSSProperties => {
+    const base: React.CSSProperties = {
+      display: "inline-block",
+      fontSize: 12,
+      lineHeight: 1,
+      padding: "6px 10px",
+      borderRadius: 9999,
+      border: "1px solid transparent",
+      fontWeight: 600,
+    };
+
+    const t = String(contentType || "").toLowerCase();
+    if (t === "company analysis") {
+      return {
+        ...base,
+        backgroundColor: "#ecfdf5",
+        color: "#065f46",
+        borderColor: "#a7f3d0",
+      };
+    }
+    if (t === "deal analysis") {
+      return {
+        ...base,
+        backgroundColor: "#eff6ff",
+        color: "#1e40af",
+        borderColor: "#bfdbfe",
+      };
+    }
+    if (t === "deal perspective") {
+      return {
+        ...base,
+        backgroundColor: "#ecfeff",
+        color: "#155e75",
+        borderColor: "#a5f3fc",
+      };
+    }
+    if (t === "market commentary") {
+      return {
+        ...base,
+        backgroundColor: "#fefce8",
+        color: "#854d0e",
+        borderColor: "#fde68a",
+      };
+    }
+    if (t === "sector analysis") {
+      return {
+        ...base,
+        backgroundColor: "#f5f3ff",
+        color: "#5b21b6",
+        borderColor: "#ddd6fe",
+      };
+    }
+    if (t === "hot take") {
+      return {
+        ...base,
+        backgroundColor: "#fff7ed",
+        color: "#9a3412",
+        borderColor: "#fed7aa",
+      };
+    }
+    if (t === "executive interview") {
+      return {
+        ...base,
+        backgroundColor: "#f0fdf4",
+        color: "#166534",
+        borderColor: "#bbf7d0",
+      };
+    }
+
+    return {
+      ...base,
+      backgroundColor: "#f3f4f6",
+      color: "#374151",
+      borderColor: "#e5e7eb",
+    };
   };
 
   // Resolve corporate event id from inconsistent API shapes
@@ -1592,33 +1698,31 @@ export default function HomeUserPage() {
                     .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
                     .slice(0, 10)
                     .map((article) => {
-                    const ct = (
-                      article.Content_Type ||
-                      article.content_type ||
-                      article.Content?.Content_type ||
-                      article.Content?.Content_Type ||
-                      ""
-                    ).trim();
+                    const ct =
+                      normalizeContentTypeLabel(
+                        article.Content_Type ||
+                          article.content_type ||
+                          article.Content?.Content_type ||
+                          article.Content?.Content_Type
+                      ) || inferContentTypeFromHeadline(article.Headline) || "";
                     const href = `/article/${article.id}?from=home`;
+
+                    const ts =
+                      article.Transaction_status?.trim() ||
+                      article.Company_of_Focus?.find(
+                        (c) => c?.Transaction_status
+                      )?.Transaction_status?.trim() ||
+                      "";
 
                     return (
                       <div
                         key={article.id}
                         className="p-4 rounded-xl border border-blue-100 bg-white shadow-sm hover:shadow transition-shadow"
                       >
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg border border-blue-100">
-                            {ct || "Insight"}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {formatDate(article.Publication_Date)}
-                          </span>
-                        </div>
-
-                        <div className="flex flex-wrap items-start gap-x-3 gap-y-2 mt-3">
+                        <div>
                           <a
                             href={href}
-                            className="min-w-0 flex-1 text-sm font-semibold text-gray-900 hover:text-blue-700"
+                            className="text-sm font-semibold text-gray-900 hover:text-blue-700"
                             onClick={(e) => {
                               if (
                                 e.defaultPrevented ||
@@ -1635,33 +1739,42 @@ export default function HomeUserPage() {
                           >
                             {article.Headline}
                           </a>
+                        </div>
 
-                          {(() => {
-                            const ts = article.Company_of_Focus?.find(
-                              (c) => c?.Transaction_status
-                            )?.Transaction_status;
-                            return ts ? (
-                              <span
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  fontSize: 11,
-                                  lineHeight: 1,
-                                  padding: "5px 10px",
-                                  borderRadius: 9999,
-                                  fontWeight: 700,
-                                  letterSpacing: "0.03em",
-                                  textTransform: "uppercase",
-                                  backgroundColor: "#dcfce7",
-                                  color: "#166534",
-                                  border: "1.5px solid #4ade80",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {ts}
-                              </span>
-                            ) : null;
-                          })()}
+                        <div className="mt-2">
+                          <span className="text-xs text-gray-500">
+                            {formatDate(article.Publication_Date)}
+                          </span>
+                        </div>
+
+                        {ts ? (
+                          <div className="mt-3">
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                fontSize: 11,
+                                lineHeight: 1,
+                                padding: "5px 10px",
+                                borderRadius: 9999,
+                                fontWeight: 700,
+                                letterSpacing: "0.03em",
+                                textTransform: "uppercase",
+                                backgroundColor: "#dcfce7",
+                                color: "#166534",
+                                border: "1.5px solid #4ade80",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {ts}
+                            </span>
+                          </div>
+                        ) : null}
+
+                        <div className="mt-3">
+                          <span style={contentTypeBadgeStyle(ct || "Insight")}>
+                            {ct || "Insight"}
+                          </span>
                         </div>
 
                         {article.Strapline ? (
