@@ -307,7 +307,7 @@ export function EditAlertModal({
       const allSelected = allIds.every((id) => current.includes(id));
       const next = allSelected
         ? current.filter((id) => !allIds.includes(id))
-        : [...new Set([...current, ...allIds])];
+        : Array.from(new Set([...current, ...allIds]));
       return { ...prev, filters: { ...prev.filters, [key]: next } };
     });
   };
