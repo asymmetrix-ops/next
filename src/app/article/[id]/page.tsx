@@ -3183,7 +3183,7 @@ const ArticleDetailPage = () => {
                       ),
                     }}
                   >
-                    <thead>
+                    <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
                       <tr>
                         <th
                           style={{
@@ -3195,6 +3195,7 @@ const ArticleDetailPage = () => {
                             fontWeight: 700,
                             whiteSpace: "nowrap",
                             minWidth: 168,
+                            boxShadow: "0 1px 0 #e5e7eb",
                           }}
                         >
                           Company Name
@@ -3213,6 +3214,7 @@ const ArticleDetailPage = () => {
                               fontWeight: 700,
                               whiteSpace: "nowrap",
                               minWidth: WRAP_COLS.has(column.key) ? 200 : 112,
+                              boxShadow: "0 1px 0 #e5e7eb",
                             }}
                           >
                             {column.label}
