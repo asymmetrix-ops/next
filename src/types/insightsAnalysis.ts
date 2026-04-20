@@ -67,7 +67,7 @@ export interface InsightsAnalysisFilters {
   Per_page: number;
   Transaction_status?: string;
   user_id?: number | null;
-  show_followed?: boolean;
+  portfolio_only?: boolean;
 }
 
 // Types for API integration
