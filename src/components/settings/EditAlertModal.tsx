@@ -294,6 +294,24 @@ export function EditAlertModal({
     return arr.includes(id);
   };
 
+  const areAllInGroupSelected = (key: keyof EmailAlertFilters, rows: PortfolioRow[]): boolean => {
+    if (rows.length === 0) return false;
+    const selected = (formData.filters?.[key] ?? []) as number[];
+    return rows.every((r) => selected.includes(r.id));
+  };
+
+  const toggleAllInGroup = (key: keyof EmailAlertFilters, rows: PortfolioRow[]) => {
+    setFormData((prev) => {
+      const allIds = rows.map((r) => r.id);
+      const current = (prev.filters?.[key] ?? []) as number[];
+      const allSelected = allIds.every((id) => current.includes(id));
+      const next = allSelected
+        ? current.filter((id) => !allIds.includes(id))
+        : [...new Set([...current, ...allIds])];
+      return { ...prev, filters: { ...prev.filters, [key]: next } };
+    });
+  };
+
   const formatTimeForInput = (timeValue: string | null) => {
     if (!timeValue) return "";
     // If it's already in HH:mm format, return as-is
@@ -462,11 +480,27 @@ export function EditAlertModal({
                         ).map((key) => {
                           const rows = portfolioByKey[key] ?? [];
                           if (rows.length === 0) return null;
+                          const allSelected = areAllInGroupSelected(key, rows);
                           return (
                             <div key={key}>
-                              <p className="text-xs font-medium text-gray-600 mb-1">
-                                {FILTER_KEY_LABEL[key]}
-                              </p>
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-xs font-medium text-gray-600">
+                                  {FILTER_KEY_LABEL[key]}
+                                </p>
+                                {rows.length > 1 && (
+                                  <label className="flex items-center gap-1 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={allSelected}
+                                      onChange={() => toggleAllInGroup(key, rows)}
+                                      className="w-3.5 h-3.5 text-blue-600 rounded focus:ring-blue-500"
+                                    />
+                                    <span className="text-xs text-blue-600 font-medium">
+                                      {allSelected ? "Deselect all" : "Select all"}
+                                    </span>
+                                  </label>
+                                )}
+                              </div>
                               <ul className="space-y-1">
                                 {rows.map((row) => (
                                   <li key={`${row.entity}-${row.id}`}>
