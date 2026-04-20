@@ -994,25 +994,10 @@ export default function HomeUserPage() {
     try {
       setInsightsArticlesLoading(true);
 
-      const parsedUserId =
-        user?.id != null ? Number.parseInt(String(user.id), 10) : NaN;
-      const shouldShowFollowed = insightsArticlesView === "followed";
-      const followedUserId =
-        shouldShowFollowed &&
-        Number.isFinite(parsedUserId) &&
-        parsedUserId > 0
-          ? parsedUserId
-          : null;
-
-      if (shouldShowFollowed && followedUserId === null) {
-        throw new Error("Unable to load followed content for the current user.");
-      }
-
       const insightsResponse = await dashboardApiService.getAllContentArticlesHome(
         {
           search: "",
-          showFollowed: shouldShowFollowed,
-          userId: followedUserId,
+          portfolioOnly: insightsArticlesView === "followed",
         }
       );
 
@@ -1038,7 +1023,7 @@ export default function HomeUserPage() {
     } finally {
       setInsightsArticlesLoading(false);
     }
-  }, [insightsArticlesView, user?.id]);
+  }, [insightsArticlesView]);
 
   // Check authentication on component mount
   useEffect(() => {
