@@ -484,6 +484,7 @@ const InsightsAnalysisPage = () => {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
+              "X-Data-Source": "live",
             },
           });
           if (!res.ok) throw new Error(String(res.status));
@@ -523,20 +524,10 @@ const InsightsAnalysisPage = () => {
       }
 
       // Build GET query params per API spec
-      const parsedUserId =
-        user?.id != null ? Number.parseInt(String(user.id), 10) : NaN;
-      const shouldShowFollowed = Boolean(filters.show_followed);
-      const followedUserId =
-        shouldShowFollowed && Number.isFinite(parsedUserId) ? parsedUserId : null;
-
-      if (shouldShowFollowed && followedUserId === null) {
-        throw new Error("Unable to load followed content for the current user.");
-      }
-
       const params = new URLSearchParams();
       params.append("Offset", String(filters.Offset));
       params.append("Per_page", String(filters.Per_page));
-      params.append("show_followed", String(shouldShowFollowed));
+      params.append("portfolio_only", String(Boolean(filters.show_followed)));
       if (filters.search_query)
         params.append("search_query", filters.search_query);
       if (filters.Countries?.length)
@@ -559,9 +550,6 @@ const InsightsAnalysisPage = () => {
       if (ct) params.append("content_type", ct);
       const ts = (filters.Transaction_status || "").trim();
       if (ts) params.append("Transaction_status", ts);
-      if (followedUserId !== null) {
-        params.append("user_id", String(followedUserId));
-      }
 
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles?${params.toString()}`;
 
@@ -570,6 +558,7 @@ const InsightsAnalysisPage = () => {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
+          "X-Data-Source": "live",
         },
       });
 
@@ -667,16 +656,12 @@ const InsightsAnalysisPage = () => {
   };
 
   const handleFollowedToggle = (checked: boolean) => {
-    const parsedUserId =
-      user?.id != null ? Number.parseInt(String(user.id), 10) : NaN;
-    const updatedFilters = {
-      ...filters,
+    setFilters((prev) => ({
+      ...prev,
       Offset: 1,
       show_followed: checked,
-      user_id: checked && Number.isFinite(parsedUserId) ? parsedUserId : null,
-    };
-    setFilters(updatedFilters);
-    fetchInsightsAnalysis(updatedFilters);
+      user_id: null,
+    }));
   };
 
   const resetFilters = () => {
