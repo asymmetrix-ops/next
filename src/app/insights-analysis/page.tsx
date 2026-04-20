@@ -424,7 +424,7 @@ const InsightsAnalysisCards = ({
 
 // Main Insights Analysis Page Component
 const InsightsAnalysisPage = () => {
-  const { isTrialActive, user } = useAuth();
+  const { isTrialActive } = useAuth();
   // State for filters
   const [filters, setFilters] = useState<InsightsAnalysisFilters>({
     search_query: "",
@@ -436,7 +436,7 @@ const InsightsAnalysisPage = () => {
     Offset: 1,
     Per_page: 20,
     user_id: null,
-    show_followed: false,
+    portfolio_only: false,
   });
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -527,7 +527,7 @@ const InsightsAnalysisPage = () => {
       const params = new URLSearchParams();
       params.append("Offset", String(filters.Offset));
       params.append("Per_page", String(filters.Per_page));
-      params.append("portfolio_only", String(Boolean(filters.show_followed)));
+      params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
       if (filters.search_query)
         params.append("search_query", filters.search_query);
       if (filters.Countries?.length)
@@ -659,7 +659,7 @@ const InsightsAnalysisPage = () => {
     setFilters((prev) => ({
       ...prev,
       Offset: 1,
-      show_followed: checked,
+      portfolio_only: checked,
       user_id: null,
     }));
   };
@@ -674,7 +674,7 @@ const InsightsAnalysisPage = () => {
       primary_sectors_ids: [],
       Secondary_sectors_ids: [],
       Offset: 1,
-      show_followed: false,
+      portfolio_only: false,
       user_id: null,
     };
     setSearchTerm("");
@@ -1170,7 +1170,7 @@ const InsightsAnalysisPage = () => {
                     <label className="followed-filter-card">
                       <input
                         type="checkbox"
-                        checked={Boolean(filters.show_followed)}
+                        checked={Boolean(filters.portfolio_only)}
                         onChange={(e) => handleFollowedToggle(e.target.checked)}
                         className="followed-filter-checkbox"
                       />
