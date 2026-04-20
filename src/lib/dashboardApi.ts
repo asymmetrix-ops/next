@@ -83,6 +83,7 @@ class DashboardApiService {
   ): Promise<ApiResponse<T>> {
     const headers = {
       "Content-Type": "application/json",
+      "X-Data-Source": "live",
       ...authService.getAuthHeaders(),
       ...options.headers,
     };
@@ -106,22 +107,12 @@ class DashboardApiService {
   // Dashboard specific endpoints
   async getAllContentArticlesHome(filters?: {
     search?: string;
-    showFollowed?: boolean;
-    userId?: number | null;
+    portfolioOnly?: boolean;
   }): Promise<ApiResponse<Record<string, unknown>[]>> {
-    const params = new URLSearchParams();
-    const shouldShowFollowed = Boolean(filters?.showFollowed);
-
-    params.append("search", String(filters?.search || ""));
-    params.append("show_followed", String(shouldShowFollowed));
-
-    if (
-      shouldShowFollowed &&
-      typeof filters?.userId === "number" &&
-      Number.isFinite(filters.userId)
-    ) {
-      params.append("user_id", String(filters.userId));
-    }
+    const params = new URLSearchParams({
+      search: filters?.search ?? "",
+      portfolio_only: String(filters?.portfolioOnly ?? false),
+    });
 
     return this.request<Record<string, unknown>[]>(
       `/All_Content_Articles_home?${params.toString()}`
