@@ -23,7 +23,7 @@ export interface CorporateEventsFilters {
   Funding_stage?: string[];
   Buyer_Investor_Types?: BuyerInvestorType[];
   user_id?: number | null;
-  show_followed?: boolean;
+  portfolio_only?: boolean;
 }
 
 export interface CorporateEventsStats {
