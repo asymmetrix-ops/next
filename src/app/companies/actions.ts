@@ -14,7 +14,7 @@ function isEmptyFilters(filters: CompaniesFilters): boolean {
   const hasArray = (arr?: unknown[]) => Array.isArray(arr) && arr.length > 0;
   const hasStr = (s?: string) => typeof s === "string" && s.trim().length > 0;
   const hasNum = (n?: number | null) => n != null;
-  const hasBool = (b?: boolean) => typeof b === "boolean";
+  const hasBool = (b?: boolean | null) => typeof b === "boolean";
 
   return !(
     hasArray(filters.countries) ||
@@ -75,7 +75,7 @@ export interface CompaniesFilters {
   primarySectors?: number[];
   secondarySectors?: number[];
   hybridBusinessFocuses?: number[];
-  exclude_business_focus?: boolean;
+  exclude_business_focus?: boolean | null;
   ownershipTypes?: number[];
   linkedinMembersMin?: number | null;
   linkedinMembersMax?: number | null;

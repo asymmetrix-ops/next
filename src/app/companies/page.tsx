@@ -107,7 +107,7 @@ interface Filters {
   primarySectors: number[]; // Changed from string[] to number[]
   secondarySectors: number[]; // Changed from string[] to number[]
   hybridBusinessFocuses: number[];
-  exclude_business_focus?: boolean;
+  exclude_business_focus?: boolean | null;
   ownershipTypes: number[]; // Changed from string[] to number[]
   linkedinMembersMin: number | null;
   linkedinMembersMax: number | null;
@@ -157,7 +157,7 @@ const createDefaultFilters = (): Filters => ({
   primarySectors: [],
   secondarySectors: [],
   hybridBusinessFocuses: [],
-  exclude_business_focus: true,
+  exclude_business_focus: null,
   ownershipTypes: [],
   linkedinMembersMin: null,
   linkedinMembersMax: null,
@@ -893,9 +893,10 @@ const CompanyDashboard = ({
   >([]);
   const [selectedHybridBusinessFocuses, setSelectedHybridBusinessFocuses] =
     useState<number[]>([]);
-  // When true: exclude selected business focus ("Without" toggle)
-  // When false: include selected business focus ("With" toggle)
-  const [excludeBusinessFocus, setExcludeBusinessFocus] = useState(true);
+  // null means the business focus filter is not applied yet.
+  const [excludeBusinessFocus, setExcludeBusinessFocus] = useState<boolean | null>(
+    null
+  );
   const [selectedOwnershipTypes, setSelectedOwnershipTypes] = useState<
     number[]
   >([]);
@@ -1340,7 +1341,12 @@ const CompanyDashboard = ({
       const hybridFocusUsed =
         selectedHybridBusinessFocuses.length > 0
           ? {
-              mode: excludeBusinessFocus ? "without" : "with",
+              mode:
+                excludeBusinessFocus === true
+                  ? "without"
+                  : excludeBusinessFocus === false
+                    ? "with"
+                    : null,
               focuses: selectedHybridBusinessFocuses.map((id) => {
                 const f = hybridBusinessFocuses.find((x) => x.id === id);
                 return {
@@ -1500,7 +1506,7 @@ const CompanyDashboard = ({
     setSelectedPrimarySectors([]);
     setSelectedSecondarySectors([]);
     setSelectedHybridBusinessFocuses([]);
-    setExcludeBusinessFocus(true);
+    setExcludeBusinessFocus(null);
     setSelectedOwnershipTypes([]);
     setLinkedinMembersMin(null);
     setLinkedinMembersMax(null);
@@ -2215,10 +2221,12 @@ const CompanyDashboard = ({
                   <button
                     type="button"
                     onClick={() => handleBusinessFocusToggle(true)}
-                    aria-pressed={excludeBusinessFocus}
+                    aria-pressed={excludeBusinessFocus === true}
                     style={{
                       ...styles.toggleButton,
-                      ...(excludeBusinessFocus ? styles.toggleButtonActive : {}),
+                      ...(excludeBusinessFocus === true
+                        ? styles.toggleButtonActive
+                        : {}),
                     }}
                   >
                     Without
@@ -2226,10 +2234,12 @@ const CompanyDashboard = ({
                   <button
                     type="button"
                     onClick={() => handleBusinessFocusToggle(false)}
-                    aria-pressed={!excludeBusinessFocus}
+                    aria-pressed={excludeBusinessFocus === false}
                     style={{
                       ...styles.toggleButton,
-                      ...(!excludeBusinessFocus ? styles.toggleButtonActive : {}),
+                      ...(excludeBusinessFocus === false
+                        ? styles.toggleButtonActive
+                        : {}),
                     }}
                   >
                     With
