@@ -49,6 +49,7 @@ interface IndividualsFilters {
   Search_Query: string;
   page: number;
   per_page: number;
+  portfolio_only: boolean;
 }
 
 // Shared styles object
@@ -578,6 +579,7 @@ const IndividualsPage = () => {
     Search_Query: "",
     page: 1,
     per_page: 50,
+    portfolio_only: false,
   });
 
   // State for each filter (arrays for multi-select)
@@ -871,6 +873,8 @@ const IndividualsPage = () => {
         params.append("statuses", filters.Statuses.join(","));
       }
 
+      params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
+
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop/get_all_individuals?${params.toString()}`;
 
       const requestId = ++lastRequestIdRef.current;
@@ -962,10 +966,14 @@ const IndividualsPage = () => {
       Secondary_Sectors: selectedSecondarySectors,
       Job_Titles: selectedJobTitles,
       Statuses: selectedStatuses,
-      page: 1, // Reset to first page when searching
+      page: 1,
     };
     setFilters(updatedFilters);
     fetchIndividuals(updatedFilters);
+  };
+
+  const handleFollowedToggle = (checked: boolean) => {
+    setFilters((prev) => ({ ...prev, portfolio_only: checked, page: 1 }));
   };
 
   // Auto-apply region filters on change (mirror Companies/Advisors behavior)
@@ -987,6 +995,11 @@ const IndividualsPage = () => {
   };
 
   const style = `
+    .followed-filter-card { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; margin: 0; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; max-width: 320px; min-height: 36px; cursor: pointer; }
+    .followed-filter-checkbox { width: 16px; height: 16px; margin-top: 1px; accent-color: #0075df; cursor: pointer; flex-shrink: 0; }
+    .followed-filter-content { display: flex; flex-direction: column; gap: 2px; }
+    .followed-filter-title { font-size: 13px; font-weight: 600; color: #1a202c; line-height: 1.2; }
+    .followed-filter-description { font-size: 11px; line-height: 1.35; color: #4a5568; margin: 0; }
     .individual-section {
       padding: 32px 24px;
       border-radius: 8px;
@@ -1906,27 +1919,57 @@ const IndividualsPage = () => {
                   >
                     {loading ? "Searching..." : "Search"}
                   </button>
+                  <label className="followed-filter-card" style={{ marginTop: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={filters.portfolio_only}
+                      onChange={(e) => handleFollowedToggle(e.target.checked)}
+                      className="followed-filter-checkbox"
+                    />
+                    <span className="followed-filter-content">
+                      <span className="followed-filter-title">Followed Only</span>
+                      <span className="followed-filter-description">
+                        Show individuals tagged to followed companies, advisors,
+                        investors, or sectors.
+                      </span>
+                    </span>
+                  </label>
                 </div>
               </div>
             )}
 
             {/* Compact search always visible */}
             {!showFilters && (
-              <div style={{ marginTop: 8 }}>
+              <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
                 <input
                   type="text"
                   placeholder="Enter name here"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{ ...styles.input, maxWidth: 360, marginBottom: 8 }}
+                  style={{ ...styles.input, maxWidth: 360, marginBottom: 0 }}
                   onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                 />
                 <button
                   onClick={handleSearch}
-                  style={{ ...styles.button, maxWidth: 140 }}
+                  style={{ ...styles.button, maxWidth: 140, marginTop: 0 }}
                 >
                   {loading ? "Searching..." : "Search"}
                 </button>
+                <label className="followed-filter-card">
+                  <input
+                    type="checkbox"
+                    checked={filters.portfolio_only}
+                    onChange={(e) => handleFollowedToggle(e.target.checked)}
+                    className="followed-filter-checkbox"
+                  />
+                  <span className="followed-filter-content">
+                    <span className="followed-filter-title">Followed Only</span>
+                    <span className="followed-filter-description">
+                      Show individuals tagged to followed companies, advisors,
+                      investors, or sectors.
+                    </span>
+                  </span>
+                </label>
               </div>
             )}
 
