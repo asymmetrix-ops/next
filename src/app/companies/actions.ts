@@ -14,6 +14,7 @@ function isEmptyFilters(filters: CompaniesFilters): boolean {
   const hasArray = (arr?: unknown[]) => Array.isArray(arr) && arr.length > 0;
   const hasStr = (s?: string) => typeof s === "string" && s.trim().length > 0;
   const hasNum = (n?: number | null) => n != null;
+  const hasBool = (b?: boolean) => typeof b === "boolean";
 
   return !(
     hasArray(filters.countries) ||
@@ -23,6 +24,7 @@ function isEmptyFilters(filters: CompaniesFilters): boolean {
     hasArray(filters.subRegions) ||
     hasArray(filters.primarySectors) ||
     hasArray(filters.secondarySectors) ||
+    hasBool(filters.exclude_business_focus) ||
     hasArray(filters.hybridBusinessFocuses) ||
     hasArray(filters.ownershipTypes) ||
     hasNum(filters.linkedinMembersMin) ||
@@ -228,9 +230,9 @@ export async function fetchCompaniesServer(
       filters.hybridBusinessFocuses!.forEach((focusId) => {
         params.append("Hybrid_Data_ids[]", focusId.toString());
       });
-      if (typeof filters.exclude_business_focus === "boolean") {
-        params.append("exclude_business_focus", String(filters.exclude_business_focus));
-      }
+    }
+    if (typeof filters.exclude_business_focus === "boolean") {
+      params.append("exclude_business_focus", String(filters.exclude_business_focus));
     }
 
     // LinkedIn Members

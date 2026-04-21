@@ -148,6 +148,53 @@ interface Filters {
   transactionStatus?: string[];
 }
 
+const createDefaultFilters = (): Filters => ({
+  countries: [],
+  provinces: [],
+  cities: [],
+  continentalRegions: [],
+  subRegions: [],
+  primarySectors: [],
+  secondarySectors: [],
+  hybridBusinessFocuses: [],
+  exclude_business_focus: true,
+  ownershipTypes: [],
+  linkedinMembersMin: null,
+  linkedinMembersMax: null,
+  searchQuery: "",
+  keywordSearch: "",
+  revenueMin: null,
+  revenueMax: null,
+  ebitdaMin: null,
+  ebitdaMax: null,
+  enterpriseValueMin: null,
+  enterpriseValueMax: null,
+  revenueMultipleMin: null,
+  revenueMultipleMax: null,
+  revenueGrowthMin: null,
+  revenueGrowthMax: null,
+  ebitdaMarginMin: null,
+  ebitdaMarginMax: null,
+  ruleOf40Min: null,
+  ruleOf40Max: null,
+  arrMin: null,
+  arrMax: null,
+  arrPcMin: null,
+  arrPcMax: null,
+  churnMin: null,
+  churnMax: null,
+  grrMin: null,
+  grrMax: null,
+  nrrMin: null,
+  nrrMax: null,
+  newClientsRevenueGrowthMin: null,
+  newClientsRevenueGrowthMax: null,
+  minGrowthPercent: null,
+  maxGrowthPercent: null,
+  timeFrame: "",
+  transactionStatus: [],
+});
+
 // Shape returned by export API when sending JSON instead of CSV
 interface ExportCompanyJson {
   id?: number | string;
@@ -451,6 +498,12 @@ const useCompaniesAPI = () => {
           throw new Error("Failed to fetch companies - authentication required");
         }
 
+        console.log("[companies api response]", {
+          page,
+          filters: serverFilters,
+          result: data.result1,
+        });
+
         // Ignore stale responses
         if (requestId === lastRequestIdRef.current) {
           setCompanies(data.result1?.items || []);
@@ -487,7 +540,7 @@ const useCompaniesAPI = () => {
 
   // Initial fetch on mount
   useEffect(() => {
-    fetchCompanies(1);
+    fetchCompanies(1, createDefaultFilters());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
@@ -1111,23 +1164,80 @@ const CompanyDashboard = ({
     );
   };
 
-  const handleSearch = useCallback(() => {
-    const filters: Filters = {
-      countries: selectedCountries,
-      continentalRegions: selectedContinentalRegions,
-      subRegions: selectedSubRegions,
-      provinces: selectedProvinces,
-      cities: selectedCities,
-      primarySectors: selectedPrimarySectors,
-      secondarySectors: selectedSecondarySectors,
-      hybridBusinessFocuses: selectedHybridBusinessFocuses,
-      exclude_business_focus:
-        selectedHybridBusinessFocuses.length > 0 ? excludeBusinessFocus : undefined,
-      ownershipTypes: selectedOwnershipTypes,
+  const handleSearch = useCallback(
+    (overrides?: Partial<Pick<Filters, "exclude_business_focus">>) => {
+      const filters: Filters = {
+        countries: selectedCountries,
+        continentalRegions: selectedContinentalRegions,
+        subRegions: selectedSubRegions,
+        provinces: selectedProvinces,
+        cities: selectedCities,
+        primarySectors: selectedPrimarySectors,
+        secondarySectors: selectedSecondarySectors,
+        hybridBusinessFocuses: selectedHybridBusinessFocuses,
+        exclude_business_focus:
+          overrides?.exclude_business_focus ?? excludeBusinessFocus,
+        ownershipTypes: selectedOwnershipTypes,
+        linkedinMembersMin,
+        linkedinMembersMax,
+        searchQuery: searchTerm,
+        keywordSearch: ENABLE_COMPANIES_KEYWORD_SEARCH ? keywordSearch : "",
+        // Financial Metrics min/max
+        revenueMin,
+        revenueMax,
+        ebitdaMin,
+        ebitdaMax,
+        enterpriseValueMin,
+        enterpriseValueMax,
+        revenueMultipleMin,
+        revenueMultipleMax,
+        revenueGrowthMin,
+        revenueGrowthMax,
+        ebitdaMarginMin,
+        ebitdaMarginMax,
+        ruleOf40Min,
+        ruleOf40Max,
+        // Subscription Metrics min/max
+        arrMin,
+        arrMax,
+        arrPcMin,
+        arrPcMax,
+        churnMin,
+        churnMax,
+        grrMin,
+        grrMax,
+        nrrMin,
+        nrrMax,
+        newClientsRevenueGrowthMin,
+        newClientsRevenueGrowthMax,
+        minGrowthPercent,
+        maxGrowthPercent,
+        timeFrame,
+        transactionStatus: selectedTransactionStatus,
+      };
+      console.log("Searching with filters:", filters);
+
+      // Call the search function from parent component
+      if (onSearch) {
+        onSearch(filters);
+      }
+    },
+    [
+      onSearch,
+      selectedCountries,
+      selectedContinentalRegions,
+      selectedSubRegions,
+      selectedProvinces,
+      selectedCities,
+      selectedPrimarySectors,
+      selectedSecondarySectors,
+      selectedHybridBusinessFocuses,
+      excludeBusinessFocus,
+      selectedOwnershipTypes,
       linkedinMembersMin,
       linkedinMembersMax,
-      searchQuery: searchTerm,
-      keywordSearch: ENABLE_COMPANIES_KEYWORD_SEARCH ? keywordSearch : "",
+      searchTerm,
+      keywordSearch,
       // Financial Metrics min/max
       revenueMin,
       revenueMax,
@@ -1159,63 +1269,21 @@ const CompanyDashboard = ({
       minGrowthPercent,
       maxGrowthPercent,
       timeFrame,
-      transactionStatus: selectedTransactionStatus,
-    };
-    console.log("Searching with filters:", filters);
+      selectedTransactionStatus,
+    ]
+  );
 
-    // Call the search function from parent component
-    if (onSearch) {
-      onSearch(filters);
-    }
-  }, [
-    onSearch,
-    selectedCountries,
-    selectedContinentalRegions,
-    selectedSubRegions,
-    selectedProvinces,
-    selectedCities,
-    selectedPrimarySectors,
-    selectedSecondarySectors,
-    selectedHybridBusinessFocuses,
-    excludeBusinessFocus,
-    selectedOwnershipTypes,
-    linkedinMembersMin,
-    linkedinMembersMax,
-    searchTerm,
-    keywordSearch,
-    // Financial Metrics min/max
-    revenueMin,
-    revenueMax,
-    ebitdaMin,
-    ebitdaMax,
-    enterpriseValueMin,
-    enterpriseValueMax,
-    revenueMultipleMin,
-    revenueMultipleMax,
-    revenueGrowthMin,
-    revenueGrowthMax,
-    ebitdaMarginMin,
-    ebitdaMarginMax,
-    ruleOf40Min,
-    ruleOf40Max,
-    // Subscription Metrics min/max
-    arrMin,
-    arrMax,
-    arrPcMin,
-    arrPcMax,
-    churnMin,
-    churnMax,
-    grrMin,
-    grrMax,
-    nrrMin,
-    nrrMax,
-    newClientsRevenueGrowthMin,
-    newClientsRevenueGrowthMax,
-    minGrowthPercent,
-    maxGrowthPercent,
-    timeFrame,
-    selectedTransactionStatus,
-  ]);
+  const handleBusinessFocusToggle = useCallback(
+    (nextExcludeBusinessFocus: boolean) => {
+      if (nextExcludeBusinessFocus === excludeBusinessFocus) return;
+
+      setExcludeBusinessFocus(nextExcludeBusinessFocus);
+      handleSearch({
+        exclude_business_focus: nextExcludeBusinessFocus,
+      });
+    },
+    [excludeBusinessFocus, handleSearch]
+  );
 
   const handleSearchClick = useCallback(() => {
     // Fire-and-forget activity tracking (do not block the actual search)
@@ -1466,52 +1534,7 @@ const CompanyDashboard = ({
     setMaxGrowthPercent(null);
     setTimeFrame("");
     setSelectedTransactionStatus([]);
-    const emptyFilters: Filters = {
-      countries: [],
-      provinces: [],
-      cities: [],
-      continentalRegions: [],
-      subRegions: [],
-      primarySectors: [],
-      secondarySectors: [],
-      hybridBusinessFocuses: [],
-      ownershipTypes: [],
-      linkedinMembersMin: null,
-      linkedinMembersMax: null,
-      searchQuery: "",
-      keywordSearch: "",
-      revenueMin: null,
-      revenueMax: null,
-      ebitdaMin: null,
-      ebitdaMax: null,
-      enterpriseValueMin: null,
-      enterpriseValueMax: null,
-      revenueMultipleMin: null,
-      revenueMultipleMax: null,
-      revenueGrowthMin: null,
-      revenueGrowthMax: null,
-      ebitdaMarginMin: null,
-      ebitdaMarginMax: null,
-      ruleOf40Min: null,
-      ruleOf40Max: null,
-      arrMin: null,
-      arrMax: null,
-      arrPcMin: null,
-      arrPcMax: null,
-      churnMin: null,
-      churnMax: null,
-      grrMin: null,
-      grrMax: null,
-      nrrMin: null,
-      nrrMax: null,
-      newClientsRevenueGrowthMin: null,
-      newClientsRevenueGrowthMax: null,
-      minGrowthPercent: null,
-      maxGrowthPercent: null,
-      timeFrame: "",
-      transactionStatus: [],
-    };
-    if (onSearch) onSearch(emptyFilters);
+    if (onSearch) onSearch(createDefaultFilters());
   }, [onSearch]);
 
   // Auto-run search if initialSearch prop is provided
@@ -2191,7 +2214,7 @@ const CompanyDashboard = ({
                 <div style={styles.toggleRow}>
                   <button
                     type="button"
-                    onClick={() => setExcludeBusinessFocus(true)}
+                    onClick={() => handleBusinessFocusToggle(true)}
                     aria-pressed={excludeBusinessFocus}
                     style={{
                       ...styles.toggleButton,
@@ -2202,7 +2225,7 @@ const CompanyDashboard = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setExcludeBusinessFocus(false)}
+                    onClick={() => handleBusinessFocusToggle(false)}
                     aria-pressed={!excludeBusinessFocus}
                     style={{
                       ...styles.toggleButton,
@@ -2902,6 +2925,7 @@ const CompanySection = ({
       currentFilters.cities.length > 0 ||
       currentFilters.primarySectors.length > 0 ||
       currentFilters.secondarySectors.length > 0 ||
+      typeof currentFilters.exclude_business_focus === "boolean" ||
       currentFilters.hybridBusinessFocuses.length > 0 ||
       currentFilters.ownershipTypes.length > 0 ||
       currentFilters.linkedinMembersMin !== null ||
