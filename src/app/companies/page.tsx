@@ -498,12 +498,6 @@ const useCompaniesAPI = () => {
           throw new Error("Failed to fetch companies - authentication required");
         }
 
-        console.log("[companies api response]", {
-          page,
-          filters: serverFilters,
-          result: data.result1,
-        });
-
         // Ignore stale responses
         if (requestId === lastRequestIdRef.current) {
           setCompanies(data.result1?.items || []);
