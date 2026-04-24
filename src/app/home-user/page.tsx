@@ -122,7 +122,7 @@ import {
   type GlobalSearchResult,
   type GlobalSearchPagination,
   type SearchPageType,
-  fetchGlobalSearchProgressive,
+  fetchGlobalSearch,
   sortSearchResults,
   badgeClassForSearchType,
   resolveSearchHref,
@@ -582,20 +582,6 @@ export default function HomeUserPage() {
   const searchRunIdRef = useRef(0);
   const loggedSearchRunIdRef = useRef(0);
 
-  const mergeResults = useCallback(
-    (prev: GlobalSearchResult[], newItems: GlobalSearchResult[]) => {
-      const seen = new Set(prev.map((r) => `${r.type}-${r.id}`));
-      const added = newItems.filter((r) => {
-        const key = `${r.type}-${r.id}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      return [...prev, ...added];
-    },
-    []
-  );
-
   useEffect(() => {
     if (isTrialActive) {
       setSearchOpen(false);
@@ -628,19 +614,17 @@ export default function HomeUserPage() {
     searchRunIdRef.current += 1;
     const runId = searchRunIdRef.current;
 
-    const allResultsRef = { current: [] as GlobalSearchResult[] };
-
     const t = window.setTimeout(() => {
-      fetchGlobalSearchProgressive(q, null, {
-        signal: ac.signal,
-        onBatch: (items) => {
+      void (async () => {
+        try {
+          const { items } = await fetchGlobalSearch(q, null, ac.signal);
           if (ac.signal.aborted) return;
-          const merged = mergeResults(allResultsRef.current, items);
-          allResultsRef.current = merged;
-          setSearchResults(merged);
+
+          const sortedItems = sortSearchResults(items);
+          setSearchResults(sortedItems);
 
           // Log platform-wide search only once per search run, and only when we actually have results.
-          if (merged.length > 0 && loggedSearchRunIdRef.current !== runId) {
+          if (sortedItems.length > 0 && loggedSearchRunIdRef.current !== runId) {
             loggedSearchRunIdRef.current = runId;
             const parsedUserId = Number.parseInt(String(user?.id || ""), 10);
             const userId =
@@ -655,13 +639,8 @@ export default function HomeUserPage() {
               query: q,
             });
           }
-        },
-        onComplete: () => {
-          if (ac.signal.aborted) return;
-          setSearchResults(sortSearchResults(allResultsRef.current));
-          setSearchLoading(false);
-          setSearchLoadingSources(false);
-          const total = allResultsRef.current.length;
+
+          const total = sortedItems.length;
           const perPage = 25;
           const totalPages = Math.max(1, Math.ceil(total / perPage));
           setSearchPagination({
@@ -673,15 +652,19 @@ export default function HomeUserPage() {
             prev_page: null,
             pages_left: Math.max(0, totalPages - 1),
           });
-        },
-        onError: (_source, err) => {
+        } catch (err) {
           const name =
             err && typeof err === "object" ? String((err as { name?: unknown }).name) : "";
           if (name !== "AbortError") {
             setSearchError("Search failed. Please try again.");
           }
-        },
-      });
+        } finally {
+          if (!ac.signal.aborted) {
+            setSearchLoading(false);
+            setSearchLoadingSources(false);
+          }
+        }
+      })();
     }, 250);
 
     return () => {
@@ -689,7 +672,7 @@ export default function HomeUserPage() {
       ac.abort();
       searchAbortRef.current = null;
     };
-  }, [searchQuery, mergeResults, isTrialActive, user?.id]);
+  }, [searchQuery, isTrialActive, user?.id]);
 
   const [popupDisplayedCount, setPopupDisplayedCount] = useState(25);
   const popupQueryRef = useRef("");
@@ -752,19 +735,15 @@ export default function HomeUserPage() {
       const ac = new AbortController();
       popupAbortRef.current = ac;
 
-      const allResultsRef = { current: [] as GlobalSearchResult[] };
-      fetchGlobalSearchProgressive(q, pageType, {
-        signal: ac.signal,
-        onBatch: (items) => {
+      void (async () => {
+        try {
+          const { items } = await fetchGlobalSearch(q, pageType, ac.signal);
           if (ac.signal.aborted) return;
-          const merged = mergeResults(allResultsRef.current, items);
-          allResultsRef.current = merged;
-          setPopupResults(merged);
-        },
-        onComplete: () => {
-          if (ac.signal.aborted) return;
-          setPopupResults(sortSearchResults(allResultsRef.current));
-          const total = allResultsRef.current.length;
+
+          const sortedItems = sortSearchResults(items);
+          setPopupResults(sortedItems);
+
+          const total = sortedItems.length;
           const perPage = 25;
           const totalPages = Math.max(1, Math.ceil(total / perPage));
           setSearchPagination({
@@ -776,19 +755,20 @@ export default function HomeUserPage() {
             prev_page: null,
             pages_left: Math.max(0, totalPages - 1),
           });
-          setPopupFiltering(false);
-        },
-        onError: (_source, err) => {
+        } catch (err) {
           const name =
             err && typeof err === "object"
               ? String((err as { name?: unknown }).name)
               : "";
           if (name === "AbortError") return;
-          setPopupFiltering(false);
-        },
-      });
+        } finally {
+          if (!ac.signal.aborted) {
+            setPopupFiltering(false);
+          }
+        }
+      })();
     },
-    [searchQuery, mergeResults, searchResults]
+    [searchQuery, searchResults]
   );
 
   const matchesPopupFilter = useCallback(
