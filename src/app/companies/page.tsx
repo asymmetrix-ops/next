@@ -116,6 +116,7 @@ interface Filters {
   maxGrowthPercent: number | null;
   timeFrame: string;
   transactionStatus?: string;
+  portfolio_only?: boolean;
 }
 
 interface CompaniesResponse {
@@ -550,6 +551,8 @@ const useCompaniesAPI = () => {
           if (filtersToUse.transactionStatus && filtersToUse.transactionStatus.trim()) {
             params.append("transaction_status", filtersToUse.transactionStatus.trim());
           }
+
+          params.append("portfolio_only", String(Boolean(filtersToUse.portfolio_only)));
         }
         // When no filters are present, only send Offset and Per_page
 
@@ -990,6 +993,7 @@ const CompanyDashboard = ({
   const [searchTerm, setSearchTerm] = useState(initialSearch || "");
   const [keywordSearch, setKeywordSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [pendingPortfolioOnly, setPendingPortfolioOnly] = useState(false);
 
   // Filter data state
   const [countries, setCountries] = useState<Country[]>([]);
@@ -1285,6 +1289,10 @@ const CompanyDashboard = ({
     );
   };
 
+  const handleFollowedToggle = (checked: boolean) => {
+    setPendingPortfolioOnly(checked);
+  };
+
   const handleSearch = useCallback(() => {
     const filters: Filters = {
       countries: selectedCountries,
@@ -1333,6 +1341,7 @@ const CompanyDashboard = ({
       maxGrowthPercent,
       timeFrame,
       transactionStatus: selectedTransactionStatus,
+      portfolio_only: pendingPortfolioOnly,
     };
     console.log("Searching with filters:", filters);
 
@@ -1388,6 +1397,7 @@ const CompanyDashboard = ({
     maxGrowthPercent,
     timeFrame,
     selectedTransactionStatus,
+    pendingPortfolioOnly,
   ]);
 
   // Auto-run search if initialSearch prop is provided
@@ -2563,21 +2573,37 @@ const CompanyDashboard = ({
                 />
               </div>
             </div>
-            <button
-              style={{ ...styles.button, marginTop: "12px" }}
-              className="filters-button"
-              onClick={handleSearch}
-              onMouseOver={(e) =>
-                ((e.target as HTMLButtonElement).style.backgroundColor =
-                  "#005bb5")
-              }
-              onMouseOut={(e) =>
-                ((e.target as HTMLButtonElement).style.backgroundColor =
-                  "#0075df")
-              }
-            >
-              Search
-            </button>
+            <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "12px", marginTop: "12px" }}>
+              <button
+                style={{ ...styles.button, marginTop: 0 }}
+                className="filters-button"
+                onClick={handleSearch}
+                onMouseOver={(e) =>
+                  ((e.target as HTMLButtonElement).style.backgroundColor =
+                    "#005bb5")
+                }
+                onMouseOut={(e) =>
+                  ((e.target as HTMLButtonElement).style.backgroundColor =
+                    "#0075df")
+                }
+              >
+                Search
+              </button>
+              <label className="followed-filter-card">
+                <input
+                  type="checkbox"
+                  checked={pendingPortfolioOnly}
+                  onChange={(e) => handleFollowedToggle(e.target.checked)}
+                  className="followed-filter-checkbox"
+                />
+                <span className="followed-filter-content">
+                  <span className="followed-filter-title">Followed Only</span>
+                  <span className="followed-filter-description">
+                    Show companies tagged to your followed sectors or portfolio.
+                  </span>
+                </span>
+              </label>
+            </div>
           </div>
 
           <button
@@ -3594,6 +3620,11 @@ const CompanySection = ({
         display: table;
       }
     }
+    .followed-filter-card { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; margin: 0; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; max-width: 320px; min-height: 36px; cursor: pointer; }
+    .followed-filter-checkbox { width: 16px; height: 16px; margin-top: 1px; accent-color: #0075df; cursor: pointer; flex-shrink: 0; }
+    .followed-filter-content { display: flex; flex-direction: column; gap: 2px; }
+    .followed-filter-title { font-size: 13px; font-weight: 600; color: #1a202c; line-height: 1.2; }
+    .followed-filter-description { font-size: 11px; line-height: 1.35; color: #4a5568; margin: 0; }
   `;
 
   if (loading) {
