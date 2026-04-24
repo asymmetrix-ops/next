@@ -63,6 +63,7 @@ interface InvestorsFilters {
   Cities: string[];
   Continental_Region?: string[];
   geographical_sub_region?: string[];
+  portfolio_only: boolean;
 }
 
 // API data interfaces (same as companies page)
@@ -135,7 +136,9 @@ const InvestorsPage = () => {
     Countries: [],
     Provinces: [],
     Cities: [],
+    portfolio_only: false,
   });
+  const [pendingPortfolioOnly, setPendingPortfolioOnly] = useState(false);
 
   // State for API data (same as companies page)
   const [countries, setCountries] = useState<Country[]>([]);
@@ -463,6 +466,8 @@ const InvestorsPage = () => {
         });
       }
 
+      params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
+
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/investors_with_d_a_list?${params.toString()}`;
       console.log("[Investors] Fetch URL:", url);
 
@@ -582,6 +587,10 @@ const InvestorsPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPrimarySectors, primarySectors]);
 
+  const handleFollowedToggle = (checked: boolean) => {
+    setPendingPortfolioOnly(checked);
+  };
+
   // Handle search
   const handleSearch = () => {
     const updatedFilters = {
@@ -597,6 +606,7 @@ const InvestorsPage = () => {
       Investor_Types: selectedInvestorTypes,
       Portfolio_Companies_Min: portfolioMin,
       Portfolio_Companies_Max: portfolioMax,
+      portfolio_only: pendingPortfolioOnly,
       page: 1, // Reset to first page when searching
     };
     setFilters(updatedFilters);
@@ -646,6 +656,7 @@ const InvestorsPage = () => {
     setPortfolioMin(0);
     setPortfolioMax(0);
     setSearchTerm("");
+    setPendingPortfolioOnly(false);
 
     const resetFilters: InvestorsFilters = {
       Investor_Types: [],
@@ -662,6 +673,7 @@ const InvestorsPage = () => {
       Cities: [],
       Continental_Region: [],
       geographical_sub_region: [],
+      portfolio_only: false,
     };
     setFilters(resetFilters);
     fetchInvestors(resetFilters);
@@ -1336,9 +1348,14 @@ const InvestorsPage = () => {
       color: #005bb5;
     }
     .investor-description { max-width: 380px; line-height: 1.4; }
-    .search-row { display: flex; align-items: center; gap: 12px; }
+    .search-row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
     .search-row .filters-input { margin: 0; max-width: 340px; }
     .search-row .filters-button { margin: 0; max-width: 140px; }
+    .followed-filter-card { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; margin: 0; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; max-width: 320px; min-height: 36px; cursor: pointer; }
+    .followed-filter-checkbox { width: 16px; height: 16px; margin-top: 1px; accent-color: #0075df; cursor: pointer; flex-shrink: 0; }
+    .followed-filter-content { display: flex; flex-direction: column; gap: 2px; }
+    .followed-filter-title { font-size: 13px; font-weight: 600; color: #1a202c; line-height: 1.2; }
+    .followed-filter-description { font-size: 11px; line-height: 1.35; color: #4a5568; margin: 0; }
     .investor-description-truncated {
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -1961,6 +1978,20 @@ const InvestorsPage = () => {
                 >
                   {loading ? "Searching..." : "Search"}
                 </button>
+                <label className="followed-filter-card">
+                  <input
+                    type="checkbox"
+                    checked={pendingPortfolioOnly}
+                    onChange={(e) => handleFollowedToggle(e.target.checked)}
+                    className="followed-filter-checkbox"
+                  />
+                  <span className="followed-filter-content">
+                    <span className="followed-filter-title">Followed Only</span>
+                    <span className="followed-filter-description">
+                      Show investors tagged to followed companies or sectors.
+                    </span>
+                  </span>
+                </label>
               </div>
             </div>
 

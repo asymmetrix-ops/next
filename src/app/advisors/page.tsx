@@ -36,6 +36,7 @@ interface AdvisorsFilters {
   searchQuery: string;
   page: number;
   per_page: number;
+  portfolio_only: boolean;
 }
 
 // API data interfaces (same as companies page)
@@ -104,7 +105,9 @@ const AdvisorsPage = () => {
     searchQuery: "",
     page: 1,
     per_page: 25,
+    portfolio_only: false,
   });
+  const [pendingPortfolioOnly, setPendingPortfolioOnly] = useState(false);
 
   // State for API data (same as companies page)
   const [countries, setCountries] = useState<Country[]>([]);
@@ -364,6 +367,8 @@ const AdvisorsPage = () => {
         );
       }
 
+      params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
+
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_list?${params.toString()}`;
 
       console.log("[Advisors] Fetch list URL:", url);
@@ -528,6 +533,8 @@ const AdvisorsPage = () => {
         );
       }
 
+      params.append("portfolio_only", String(Boolean(filtersForCounts.portfolio_only)));
+
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_counts?${params.toString()}`;
       console.log("[Advisors] Fetch counts URL:", url);
       const response = await fetch(url, {
@@ -614,6 +621,10 @@ const AdvisorsPage = () => {
     fetchSecondarySectors();
   }, [selectedPrimarySectors, primarySectors, fetchSecondarySectors]);
 
+  const handleFollowedToggle = (checked: boolean) => {
+    setPendingPortfolioOnly(checked);
+  };
+
   // Handle search
   const handleSearch = () => {
     const parseOptionalInt = (value: string): number | null => {
@@ -639,6 +650,7 @@ const AdvisorsPage = () => {
       secondarySectors: selectedSecondarySectors,
       corporate_events_advised_min: minVal,
       corporate_events_advised_max: maxVal,
+      portfolio_only: pendingPortfolioOnly,
       page: 1, // Reset to first page when searching
     };
     setFilters(updatedFilters);
@@ -1241,6 +1253,8 @@ const AdvisorsPage = () => {
         params.append("corporate_events_advised_max", String(filters.corporate_events_advised_max));
       }
 
+      params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
+
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop/get_all_advisors_list?${params.toString()}`;
       const response = await fetch(url, {
         method: "GET",
@@ -1474,10 +1488,16 @@ const AdvisorsPage = () => {
     .search-row {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 12px;
     }
     .search-row .filters-input { margin: 0; max-width: 340px; }
     .search-row .filters-button { margin: 0; max-width: 140px; }
+    .followed-filter-card { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; margin: 0; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; max-width: 320px; min-height: 36px; cursor: pointer; }
+    .followed-filter-checkbox { width: 16px; height: 16px; margin-top: 1px; accent-color: #0075df; cursor: pointer; flex-shrink: 0; }
+    .followed-filter-content { display: flex; flex-direction: column; gap: 2px; }
+    .followed-filter-title { font-size: 13px; font-weight: 600; color: #1a202c; line-height: 1.2; }
+    .followed-filter-description { font-size: 11px; line-height: 1.35; color: #4a5568; margin: 0; }
     .loading {
       text-align: center;
       padding: 40px;
@@ -2363,6 +2383,20 @@ const AdvisorsPage = () => {
                 >
                   {loading ? "Searching..." : "Search"}
                 </button>
+                <label className="followed-filter-card">
+                  <input
+                    type="checkbox"
+                    checked={pendingPortfolioOnly}
+                    onChange={(e) => handleFollowedToggle(e.target.checked)}
+                    className="followed-filter-checkbox"
+                  />
+                  <span className="followed-filter-content">
+                    <span className="followed-filter-title">Followed Only</span>
+                    <span className="followed-filter-description">
+                      Show advisors tagged to followed companies or sectors.
+                    </span>
+                  </span>
+                </label>
               </div>
             </div>
 
