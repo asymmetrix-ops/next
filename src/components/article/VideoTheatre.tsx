@@ -2,11 +2,15 @@
 
 import React, { useCallback, useRef } from "react";
 
+const DEFAULT_VIDEO_POSTER = "/images/asymmetrix-video-thumbnail.png";
+
 export interface VideoTheatreProps {
   /** Video source URL (e.g. MP4) */
   src: string;
   /** Optional title for accessibility / caption */
   title?: string;
+  /** Optional poster image shown before playback begins */
+  poster?: string;
   /** Optional callback when user clicks Close (e.g. pause + reset + exit fullscreen). If not provided, Close only resets the video and exits fullscreen. */
   onClose?: () => void;
   /** Optional class name for the root container */
@@ -16,6 +20,7 @@ export interface VideoTheatreProps {
 const VideoTheatre: React.FC<VideoTheatreProps> = ({
   src,
   title = "Video",
+  poster = DEFAULT_VIDEO_POSTER,
   onClose,
   className = "",
 }) => {
@@ -102,6 +107,7 @@ const VideoTheatre: React.FC<VideoTheatreProps> = ({
           ref={videoRef}
           controls
           playsInline
+          poster={poster}
           preload="metadata"
           controlsList="nodownload nofullscreen"
           disablePictureInPicture

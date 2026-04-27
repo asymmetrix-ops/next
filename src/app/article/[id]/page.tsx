@@ -230,6 +230,7 @@ const WRAP_COLS = new Set([
   "investors",
   "url",
 ]);
+const DEFAULT_VIDEO_POSTER = "/images/asymmetrix-video-thumbnail.png";
 
 // Shared styles object
 const styles = {
@@ -1136,6 +1137,23 @@ const ArticleDetailPage = () => {
     return { html: result, injected: true };
   };
 
+  const injectVideoPosters = (bodyHtml: string, posterUrl: string): string => {
+    if (!bodyHtml || !posterUrl) return bodyHtml;
+    try {
+      const doc = new DOMParser().parseFromString(bodyHtml, "text/html");
+      for (const video of Array.from(doc.body.querySelectorAll("video"))) {
+        video.setAttribute("poster", posterUrl);
+      }
+      return doc.body.innerHTML;
+    } catch {
+      return bodyHtml.replace(
+        /<video\b[^>]*>/gi,
+        (match) =>
+          `${match.replace(/\s+poster=(?:"[^"]*"|'[^']*')/i, "").replace(/>$/, "")} poster="${escapeHtml(posterUrl)}">`
+      );
+    }
+  };
+
   const isImageDoc = (doc: {
     mime?: string;
     type?: string;
@@ -1840,9 +1858,13 @@ const ArticleDetailPage = () => {
               const remainingImages = allImageDocs.filter(
                 (_, idx) => !usedIndices.has(idx)
               );
-              const { html } = injectImagesIntoBody(
+              const { html: bodyWithImages } = injectImagesIntoBody(
                 withPlaceholders,
                 remainingImages
+              );
+              const html = injectVideoPosters(
+                bodyWithImages,
+                DEFAULT_VIDEO_POSTER
               );
               return (
                 <div
