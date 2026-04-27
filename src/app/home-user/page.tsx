@@ -146,7 +146,18 @@ export default function HomeUserPage() {
 
   const [showSearchNewFeatureTip, setShowSearchNewFeatureTip] = useState(true);
 
+  // Hide the tooltip 30 days after the feature shipped
+  const SEARCH_FEATURE_RELEASE_DATE = new Date("2026-03-01");
+  const SEARCH_FEATURE_TIP_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
   useEffect(() => {
+    const expired =
+      Date.now() - SEARCH_FEATURE_RELEASE_DATE.getTime() >
+      SEARCH_FEATURE_TIP_TTL_MS;
+    if (expired) {
+      setShowSearchNewFeatureTip(false);
+      return;
+    }
     try {
       const dismissed = localStorage.getItem(
         "asym_global_search_new_feature_tip_dismissed"
