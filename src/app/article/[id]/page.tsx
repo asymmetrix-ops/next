@@ -140,6 +140,7 @@ interface TableCompanyRow {
   ownership: string;
   investors: string;
   li_emp: string;
+  li_growth_pc: string;
   revenue_m: string;
   arr_m: string;
   ebitda_m: string;
@@ -180,6 +181,7 @@ const COL_GROUPS: Array<{ group: string; cols: ColumnDefinition[] }> = [
       { key: "ownership", label: "Ownership" },
       { key: "loc", label: "HQ" },
       { key: "li_emp", label: "LinkedIn Employee Count" },
+      { key: "li_growth_pc", label: "LinkedIn Growth (%)" },
       { key: "investors", label: "Investors" },
     ],
   },
@@ -1396,60 +1398,55 @@ const ArticleDetailPage = () => {
     const na = (s: string) => (s.trim() ? s : "Not available");
     const urlRaw = normalizeWebsite(toDisplayString(row.url));
 
-    return {
-      id,
-      name: toDisplayString(row.name) || `Company ${id}`,
-      url: na(urlRaw),
-      loc: na(hqLocation),
-      year_founded: formatCompanyOfFocusYearFounded(
-        row.year_founded_label ?? row.year_founded
-      ),
-      primary_sectors: na(primarySectors),
-      secondary_sectors: na(secondarySectors),
-      ownership: na(toDisplayString(row.ownership_type || row.ownership_status)),
-      investors: na(investorNames),
-      li_emp: formatPlainNumber(
-        row.linkedin_employee as number | string | null | undefined
-      ),
-      revenue_m: formatPlainNumber(
-        row.Revenue_m as number | string | null | undefined
-      ),
-      arr_m: formatPlainNumber(row.ARR_m as number | string | null | undefined),
-      ebitda_m: formatPlainNumber(
-        row.EBITDA_m as number | string | null | undefined
-      ),
-      ebit_m: formatPlainNumber(
-        row.EBIT_m as number | string | null | undefined
-      ),
-      ev: formatPlainNumber(row.EV as number | string | null | undefined),
-      arr_pc: formatPercent(row.ARR_pc),
-      churn_pc: formatPercent(row.Churn_pc),
-      grr_pc: formatPercent(row.GRR_pc),
-      nrr: formatPercent(row.NRR),
-      upsell_pc: formatPercent(row.Upsell_pc),
-      cross_sell_pc: formatPercent(row.Cross_sell_pc),
-      price_increase_pc: formatPercent(row.Price_increase_pc),
-      rev_expansion_pc: formatPercent(row.Rev_expansion_pc),
-      new_client_growth_pc: formatPercent(row.New_client_growth_pc),
-      rev_growth_pc: formatPercent(row.Rev_Growth_PC),
-      ebitda_margin: formatPercent(row.EBITDA_margin),
-      rule_of_40: formatPlainNumber(
-        row.Rule_of_40 as number | string | null | undefined
-      ),
-      revenue_multiple: formatMultiple(row.Revenue_multiple),
-      no_of_clients: formatPlainNumber(
-        row.No_of_Clients as number | string | null | undefined
-      ),
-      rev_per_client: formatPlainNumber(
-        row.Rev_per_client as number | string | null | undefined
-      ),
-      no_employees: formatPlainNumber(
-        row.No_Employees as number | string | null | undefined
-      ),
-      rev_per_employee: formatPlainNumber(
-        row.Revenue_per_employee as number | string | null | undefined
-      ),
-    };
+      return {
+        id,
+        name: toDisplayString(row.name) || `Company ${id}`,
+        url: na(urlRaw),
+        loc: na(hqLocation),
+        year_founded: formatCompanyOfFocusYearFounded(
+          row.year_founded_label ?? row.year_founded
+        ),
+        primary_sectors: na(primarySectors),
+        secondary_sectors: na(secondarySectors),
+        ownership: na(toDisplayString(row.ownership_type || row.ownership_status)),
+        investors: na(investorNames),
+        li_emp: formatPlainNumber(
+          row.linkedin_employee as number | string | null | undefined
+        ),
+        li_growth_pc: formatPercent(row.linkedin_growth_1y_pct),
+        revenue_m: formatPlainNumber(row.Revenue_m as number | string | null | undefined),
+        arr_m: formatPlainNumber(row.ARR_m as number | string | null | undefined),
+        ebitda_m: formatPlainNumber(row.EBITDA_m as number | string | null | undefined),
+        ebit_m: formatPlainNumber(row.EBIT_m as number | string | null | undefined),
+        ev: formatPlainNumber(row.EV as number | string | null | undefined),
+        arr_pc: formatPercent(row.ARR_pc),
+        churn_pc: formatPercent(row.Churn_pc),
+        grr_pc: formatPercent(row.GRR_pc),
+        nrr: formatPercent(row.NRR),
+        upsell_pc: formatPercent(row.Upsell_pc),
+        cross_sell_pc: formatPercent(row.Cross_sell_pc),
+        price_increase_pc: formatPercent(row.Price_increase_pc),
+        rev_expansion_pc: formatPercent(row.Rev_expansion_pc),
+        new_client_growth_pc: formatPercent(row.New_client_growth_pc),
+        rev_growth_pc: formatPercent(row.Rev_Growth_PC),
+        ebitda_margin: formatPercent(row.EBITDA_margin),
+        rule_of_40: formatPlainNumber(
+          row.Rule_of_40 as number | string | null | undefined
+        ),
+        revenue_multiple: formatMultiple(row.Revenue_multiple),
+        no_of_clients: formatPlainNumber(
+          row.No_of_Clients as number | string | null | undefined
+        ),
+        rev_per_client: formatPlainNumber(
+          row.Rev_per_client as number | string | null | undefined
+        ),
+        no_employees: formatPlainNumber(
+          row.No_Employees as number | string | null | undefined
+        ),
+        rev_per_employee: formatPlainNumber(
+          row.Revenue_per_employee as number | string | null | undefined
+        ),
+      };
   };
 
   const handleOpenGenerateTable = useCallback(async () => {
