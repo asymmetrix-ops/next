@@ -143,6 +143,7 @@ interface TableCompanyRow {
   ownership: string;
   investors: string;
   li_emp: string;
+  li_growth_pc: string;
   revenue_m: string;
   arr_m: string;
   ebitda_m: string;
@@ -184,6 +185,7 @@ const COL_GROUPS: Array<{ group: string; cols: ColumnDefinition[] }> = [
       { key: "ownership", label: "Ownership" },
       { key: "loc", label: "HQ" },
       { key: "li_emp", label: "LinkedIn Employee Count" },
+      { key: "li_growth_pc", label: "LinkedIn Growth (%)" },
       { key: "investors", label: "Investors" },
     ],
   },
@@ -1194,6 +1196,7 @@ const ArticleDetailPage = () => {
         li_emp: formatPlainNumber(
           row.linkedin_employee as number | string | null | undefined
         ),
+        li_growth_pc: formatPercent(row.linkedin_growth_1y_pct),
         revenue_m: formatPlainNumber(row.Revenue_m as number | string | null | undefined),
         arr_m: formatPlainNumber(row.ARR_m as number | string | null | undefined),
         ebitda_m: formatPlainNumber(row.EBITDA_m as number | string | null | undefined),
