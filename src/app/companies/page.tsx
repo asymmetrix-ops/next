@@ -900,6 +900,9 @@ const CompanyDashboard = ({
   const [linkedinMembersMax, setLinkedinMembersMax] = useState<number | null>(
     null
   );
+  // Local display states for linkedin members inputs — committed only on blur/Enter
+  const [linkedinMembersMinInput, setLinkedinMembersMinInput] = useState<string>("");
+  const [linkedinMembersMaxInput, setLinkedinMembersMaxInput] = useState<string>("");
 
   // Financial Metrics min/max
   const [revenueMin, setRevenueMin] = useState<number | null>(null);
@@ -1504,6 +1507,8 @@ const CompanyDashboard = ({
     setSelectedOwnershipTypes([]);
     setLinkedinMembersMin(null);
     setLinkedinMembersMax(null);
+    setLinkedinMembersMinInput("");
+    setLinkedinMembersMaxInput("");
     setRevenueMin(null);
     setRevenueMax(null);
     setEbitdaMin(null);
@@ -2463,24 +2468,40 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Min"
-                    value={linkedinMembersMin ?? ""}
-                    onChange={(e) =>
+                    value={linkedinMembersMinInput}
+                    onChange={(e) => setLinkedinMembersMinInput(e.target.value)}
+                    onBlur={(e) =>
                       setLinkedinMembersMin(
                         e.target.value ? Number(e.target.value) : null
                       )
                     }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const val = (e.target as HTMLInputElement).value;
+                        setLinkedinMembersMin(val ? Number(val) : null);
+                      }
+                    }}
                   />
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Max"
-                    value={linkedinMembersMax ?? ""}
-                    onChange={(e) =>
+                    value={linkedinMembersMaxInput}
+                    onChange={(e) => setLinkedinMembersMaxInput(e.target.value)}
+                    onBlur={(e) =>
                       setLinkedinMembersMax(
                         e.target.value ? Number(e.target.value) : null
                       )
                     }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const val = (e.target as HTMLInputElement).value;
+                        setLinkedinMembersMax(val ? Number(val) : null);
+                      }
+                    }}
                   />
                 </div>
 
@@ -2489,6 +2510,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Min %"
                     value={minGrowthPercent ?? ""}
                     onChange={(e) =>
@@ -2500,6 +2522,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Max %"
                     value={maxGrowthPercent ?? ""}
                     onChange={(e) =>
@@ -2533,6 +2556,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Min"
                     value={revenueMin ?? ""}
                     onChange={(e) =>
@@ -2544,6 +2568,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Max"
                     value={revenueMax ?? ""}
                     onChange={(e) =>
@@ -2559,6 +2584,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Min"
                     value={ebitdaMin ?? ""}
                     onChange={(e) =>
@@ -2570,6 +2596,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Max"
                     value={ebitdaMax ?? ""}
                     onChange={(e) =>
@@ -2585,6 +2612,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Min"
                     value={enterpriseValueMin ?? ""}
                     onChange={(e) =>
@@ -2596,6 +2624,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Max"
                     value={enterpriseValueMax ?? ""}
                     onChange={(e) =>
@@ -2611,6 +2640,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Min"
                     value={revenueMultipleMin ?? ""}
                     onChange={(e) =>
@@ -2622,6 +2652,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Max"
                     value={revenueMultipleMax ?? ""}
                     onChange={(e) =>
@@ -2637,6 +2668,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Min"
                     value={revenueGrowthMin ?? ""}
                     onChange={(e) =>
@@ -2648,6 +2680,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Max"
                     value={revenueGrowthMax ?? ""}
                     onChange={(e) =>
@@ -2663,6 +2696,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Min"
                     value={ebitdaMarginMin ?? ""}
                     onChange={(e) =>
@@ -2674,6 +2708,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Max"
                     value={ebitdaMarginMax ?? ""}
                     onChange={(e) =>
@@ -2689,6 +2724,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Min"
                     value={ruleOf40Min ?? ""}
                     onChange={(e) =>
@@ -2700,6 +2736,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Max"
                     value={ruleOf40Max ?? ""}
                     onChange={(e) =>
@@ -2719,6 +2756,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Min"
                     value={arrMin ?? ""}
                     onChange={(e) =>
@@ -2730,6 +2768,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Max"
                     value={arrMax ?? ""}
                     onChange={(e) =>
@@ -2745,6 +2784,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Min"
                     value={arrPcMin ?? ""}
                     onChange={(e) =>
@@ -2756,6 +2796,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Max"
                     value={arrPcMax ?? ""}
                     onChange={(e) =>
@@ -2771,6 +2812,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Min"
                     value={churnMin ?? ""}
                     onChange={(e) =>
@@ -2782,6 +2824,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Max"
                     value={churnMax ?? ""}
                     onChange={(e) =>
@@ -2797,6 +2840,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Min"
                     value={grrMin ?? ""}
                     onChange={(e) =>
@@ -2808,6 +2852,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Max"
                     value={grrMax ?? ""}
                     onChange={(e) =>
@@ -2823,6 +2868,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Min"
                     value={nrrMin ?? ""}
                     onChange={(e) =>
@@ -2834,6 +2880,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Max"
                     value={nrrMax ?? ""}
                     onChange={(e) =>
@@ -2849,6 +2896,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Min"
                     value={newClientsRevenueGrowthMin ?? ""}
                     onChange={(e) =>
@@ -2860,6 +2908,7 @@ const CompanyDashboard = ({
                   <input
                     type="number"
                     style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="Max"
                     value={newClientsRevenueGrowthMax ?? ""}
                     onChange={(e) =>
