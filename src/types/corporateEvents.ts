@@ -24,6 +24,14 @@ export interface CorporateEventsFilters {
   Buyer_Investor_Types?: BuyerInvestorType[];
   user_id?: number | null;
   portfolio_only?: boolean;
+  followed_entity_types?: string[];
+  // New portfolio filter fields
+  show_followed?: boolean;
+  filter_advisor_ids?: number[];
+  filter_company_ids?: number[];
+  filter_investor_ids?: number[];
+  filter_sector_ids?: number[];
+  filter_individual_ids?: number[];
 }
 
 export interface CorporateEventsStats {
