@@ -1082,7 +1082,7 @@ const CorporateEventsTable = ({
 
 // Main Corporate Events Page Component
 const CorporateEventsPage = () => {
-  const { isTrialActive } = useAuth();
+  const { isTrialActive, user } = useAuth();
   // State for filter visibility
   const [showFilters, setShowFilters] = useState(false);
 
@@ -1102,7 +1102,12 @@ const CorporateEventsPage = () => {
     Page: 1,
     Per_page: 50,
     user_id: null,
-    portfolio_only: false,
+    show_followed: false,
+    filter_advisor_ids: [],
+    filter_company_ids: [],
+    filter_investor_ids: [],
+    filter_sector_ids: [],
+    filter_individual_ids: [],
   });
 
   // State for each filter (arrays for multi-select)
@@ -1129,6 +1134,13 @@ const CorporateEventsPage = () => {
   const [selectedFundingStages, setSelectedFundingStages] = useState<string[]>(
     []
   );
+  const [selectedFollowedEntities, setSelectedFollowedEntities] = useState<
+    Array<{ id: number; name: string; entityType: string }>
+  >([]);
+  const [portfolioItems, setPortfolioItems] = useState<
+    Array<{ entity: string; id: number; name: string }>
+  >([]);
+  const [loadingPortfolio, setLoadingPortfolio] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [dateStart, setDateStart] = useState("");
   const [dateEnd, setDateEnd] = useState("");
@@ -1388,7 +1400,44 @@ const CorporateEventsPage = () => {
       // Add page and per_page
       params.append("Page", filters.Page.toString());
       params.append("Per_page", filters.Per_page.toString());
-      params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
+      // Portfolio / followed filters
+      const hasSpecificEntityFilters =
+        (filters.filter_advisor_ids?.length ?? 0) > 0 ||
+        (filters.filter_company_ids?.length ?? 0) > 0 ||
+        (filters.filter_investor_ids?.length ?? 0) > 0 ||
+        (filters.filter_sector_ids?.length ?? 0) > 0 ||
+        (filters.filter_individual_ids?.length ?? 0) > 0;
+
+      if (filters.show_followed || hasSpecificEntityFilters) {
+        // Resolve numeric user id from auth context
+        const numericUserId =
+          user?.id != null
+            ? Number.parseInt(String(user.id), 10)
+            : filters.user_id ?? null;
+
+        params.append("show_followed", "true");
+        if (numericUserId != null && Number.isFinite(numericUserId)) {
+          params.append("user_id", String(numericUserId));
+        }
+
+        if (hasSpecificEntityFilters) {
+          (filters.filter_advisor_ids ?? []).forEach((id) =>
+            params.append("filter_advisor_ids[]", String(id))
+          );
+          (filters.filter_company_ids ?? []).forEach((id) =>
+            params.append("filter_company_ids[]", String(id))
+          );
+          (filters.filter_investor_ids ?? []).forEach((id) =>
+            params.append("filter_investor_ids[]", String(id))
+          );
+          (filters.filter_sector_ids ?? []).forEach((id) =>
+            params.append("filter_sector_ids[]", String(id))
+          );
+          (filters.filter_individual_ids ?? []).forEach((id) =>
+            params.append("filter_individual_ids[]", String(id))
+          );
+        }
+      }
 
       // Add search query
       if (filters.search_query)
@@ -1521,6 +1570,31 @@ const CorporateEventsPage = () => {
     }
   };
 
+  // Fetch user portfolio (followed entities) for the "By Followed Companies" filter
+  const fetchPortfolio = async () => {
+    const token = localStorage.getItem("asymmetrix_auth_token");
+    if (!token) return;
+    setLoadingPortfolio(true);
+    try {
+      const res = await fetch("/api/portfolio/data", {
+        headers: { "x-asym-token": token },
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setPortfolioItems(
+            data as Array<{ entity: string; id: number; name: string }>
+          );
+        }
+      }
+    } catch {
+      // silent — portfolio is optional for this filter
+    } finally {
+      setLoadingPortfolio(false);
+    }
+  };
+
   // Initial data fetch
   useEffect(() => {
     fetchCountries();
@@ -1528,6 +1602,7 @@ const CorporateEventsPage = () => {
     fetchSubRegions();
     fetchPrimarySectors();
     fetchFundingStages();
+    fetchPortfolio();
     // Initial fetch of all corporate events
     fetchCorporateEvents(filters);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1567,7 +1642,22 @@ const CorporateEventsPage = () => {
       Date_end: dateEnd || null,
       Page: 1, // Reset to first page when searching
       user_id: null,
-      portfolio_only: Boolean(filters.portfolio_only),
+      show_followed: Boolean(filters.show_followed),
+      filter_advisor_ids: selectedFollowedEntities
+        .filter((e) => e.entityType === "advisor")
+        .map((e) => e.id),
+      filter_company_ids: selectedFollowedEntities
+        .filter((e) => e.entityType === "company")
+        .map((e) => e.id),
+      filter_investor_ids: selectedFollowedEntities
+        .filter((e) => e.entityType === "investor")
+        .map((e) => e.id),
+      filter_sector_ids: selectedFollowedEntities
+        .filter((e) => e.entityType === "sector")
+        .map((e) => e.id),
+      filter_individual_ids: selectedFollowedEntities
+        .filter((e) => e.entityType === "individual")
+        .map((e) => e.id),
     };
     setFilters(updatedFilters);
     fetchCorporateEvents(updatedFilters);
@@ -1577,7 +1667,7 @@ const CorporateEventsPage = () => {
     setFilters((prev) => ({
       ...prev,
       Page: 1,
-      portfolio_only: checked,
+      show_followed: checked,
       user_id: null,
     }));
   };
@@ -1597,7 +1687,8 @@ const CorporateEventsPage = () => {
       selectedBuyerInvestorTypes.length > 0 ||
       selectedFundingStages.length > 0 ||
       searchTerm.trim() !== "" ||
-      Boolean(filters.portfolio_only) ||
+      Boolean(filters.show_followed) ||
+      selectedFollowedEntities.length > 0 ||
       dateStart !== "" ||
       dateEnd !== ""
     );
@@ -1640,6 +1731,8 @@ const CorporateEventsPage = () => {
     .followed-filter-content { display: flex; flex-direction: column; gap: 2px; }
     .followed-filter-title { font-size: 13px; font-weight: 600; color: #1a202c; line-height: 1.2; }
     .followed-filter-description { font-size: 11px; line-height: 1.35; color: #4a5568; margin: 0; }
+    .followed-entity-tag { background-color: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 12px; display: flex; align-items: center; gap: 4px; }
+    .followed-entity-tag-remove { background: none; border: none; color: #0369a1; cursor: pointer; font-weight: bold; font-size: 14px; padding: 0; line-height: 1; }
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -2669,6 +2762,129 @@ const CorporateEventsPage = () => {
                   )}
                 </div>
 
+                {/* By Followed Companies */}
+                <div style={styles.gridItem}>
+                  <span style={styles.label}>By Followed Companies</span>
+                  <SearchableSelect
+                    options={(() => {
+                      const typeOrder: Record<string, number> = {
+                        advisor: 0,
+                        company: 1,
+                        individual: 2,
+                        investor: 3,
+                        sector: 4,
+                      };
+                      const typeLabel: Record<string, string> = {
+                        advisor: "Advisor",
+                        company: "Company",
+                        individual: "Individual",
+                        investor: "Investor",
+                        sector: "Sector",
+                      };
+                      const selectedKeys = new Set(
+                        selectedFollowedEntities.map(
+                          (e) => `${e.entityType}-${e.id}`
+                        )
+                      );
+                      return portfolioItems
+                        .filter(
+                          (item) =>
+                            !selectedKeys.has(`${item.entity}-${item.id}`)
+                        )
+                        .sort((a, b) => {
+                          const typeA = typeOrder[a.entity] ?? 99;
+                          const typeB = typeOrder[b.entity] ?? 99;
+                          if (typeA !== typeB) return typeA - typeB;
+                          return a.name.localeCompare(b.name);
+                        })
+                        .map((item) => ({
+                          value: `${item.entity}-${item.id}`,
+                          label: `${item.name} (${typeLabel[item.entity] ?? item.entity})`,
+                        }));
+                    })()}
+                    value=""
+                    onChange={(value) => {
+                      if (typeof value !== "string" || !value) return;
+                      const dashIdx = value.indexOf("-");
+                      if (dashIdx === -1) return;
+                      const entityType = value.slice(0, dashIdx);
+                      const id = Number(value.slice(dashIdx + 1));
+                      const item = portfolioItems.find(
+                        (p) => p.entity === entityType && p.id === id
+                      );
+                      if (
+                        item &&
+                        !selectedFollowedEntities.some(
+                          (e) => e.entityType === entityType && e.id === id
+                        )
+                      ) {
+                        setSelectedFollowedEntities([
+                          ...selectedFollowedEntities,
+                          { id, name: item.name, entityType },
+                        ]);
+                      }
+                    }}
+                    placeholder={
+                      loadingPortfolio
+                        ? "Loading followed entities..."
+                        : portfolioItems.length === 0
+                        ? "No followed entities found"
+                        : "Select a followed entity"
+                    }
+                    disabled={loadingPortfolio || portfolioItems.length === 0}
+                    style={styles.select}
+                  />
+
+                  {selectedFollowedEntities.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "4px",
+                      }}
+                    >
+                      {selectedFollowedEntities.map((entity) => (
+                        <span
+                          key={`${entity.entityType}-${entity.id}`}
+                          className="followed-entity-tag"
+                        >
+                          {entity.name}
+                          <button
+                            className="followed-entity-tag-remove"
+                            onClick={() => {
+                              setSelectedFollowedEntities(
+                                selectedFollowedEntities.filter(
+                                  (e) =>
+                                    !(
+                                      e.entityType === entity.entityType &&
+                                      e.id === entity.id
+                                    )
+                                )
+                              );
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {portfolioItems.length === 0 && !loadingPortfolio && (
+                    <p
+                      style={{
+                        fontSize: "11px",
+                        color: "#94a3b8",
+                        marginTop: "6px",
+                      }}
+                    >
+                      Follow companies, advisors, investors, sectors or
+                      individuals to use this filter.
+                    </p>
+                  )}
+                </div>
+
                 <div style={{ ...styles.gridItem, gridColumn: "span 2" }}>
                   <h3 style={styles.subHeading} className="filters-sub-heading">
                     Announcement Date
@@ -2731,7 +2947,7 @@ const CorporateEventsPage = () => {
                 <label className="followed-filter-card">
                   <input
                     type="checkbox"
-                    checked={Boolean(filters.portfolio_only)}
+                    checked={Boolean(filters.show_followed)}
                     onChange={(e) => handleFollowedToggle(e.target.checked)}
                     className="followed-filter-checkbox"
                   />
@@ -2826,7 +3042,7 @@ const CorporateEventsPage = () => {
         {!loading && corporateEvents.length === 0 && !error && (
           <div className="corporate-event-stats">
             <div className="loading">
-              {filters.portfolio_only
+              {filters.show_followed || (filters.filter_advisor_ids?.length ?? 0) + (filters.filter_company_ids?.length ?? 0) + (filters.filter_investor_ids?.length ?? 0) + (filters.filter_sector_ids?.length ?? 0) + (filters.filter_individual_ids?.length ?? 0) > 0
                 ? "No followed corporate events found."
                 : "No corporate events found."}
             </div>
