@@ -513,8 +513,8 @@ export default function MyPortfolioPage() {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Name</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Type</th>
-                    <th className="text-right px-4 py-3 font-medium text-gray-700">Actions</th>
+                    <th className="text-center px-4 py-3 font-medium text-gray-700">Entity Type</th>
+                    <th className="text-center px-4 py-3 font-medium text-gray-700">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -537,16 +537,16 @@ export default function MyPortfolioPage() {
                             <span className="font-medium text-gray-900">{r.title}</span>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 text-center">
                           <Badge
                             variant="outline"
                             className={`inline-flex items-center gap-1.5 ${getEntityBadgeColor(r.type)}`}
                           >
                             {getEntityIcon(r.type)}
-                            {getSearchBadgeLabel(r.type)}
+                            <span className="capitalize">{getSearchBadgeLabel(r.type)}</span>
                           </Badge>
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-center">
                           {canFollow ? (
                             <Button
                               variant="default"
