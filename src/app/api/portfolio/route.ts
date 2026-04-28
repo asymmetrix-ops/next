@@ -62,8 +62,7 @@ async function fetchWithAuthFallback(
 }
 
 const XANO_PORTFOLIO_BASE_URLS = [
-  "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI",
-  "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI:develop",
+  "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R:develop",
 ] as const;
 
 export async function GET() {
