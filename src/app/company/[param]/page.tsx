@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useRightClick } from "@/hooks/useRightClick";
+import { FollowButton } from "@/components/FollowButton";
 import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
 import IndividualCards from "@/components/shared/IndividualCards";
 import {
@@ -2564,6 +2565,13 @@ const CompanyDetail = () => {
                     flexWrap: "wrap",
                   }}
                 >
+                  {companyId && !Number.isNaN(Number(companyId)) && (
+                    <FollowButton
+                      followKey="followed_companies"
+                      entityId={Number(companyId)}
+                      label="Company"
+                    />
+                  )}
                   <button
                     onClick={handleExportPdf}
                     disabled={exportingPdf || !company?.id}

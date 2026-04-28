@@ -973,7 +973,9 @@ const IndividualsPage = () => {
   };
 
   const handleFollowedToggle = (checked: boolean) => {
-    setFilters((prev) => ({ ...prev, portfolio_only: checked, page: 1 }));
+    const updatedFilters = { ...filters, portfolio_only: checked, page: 1 };
+    setFilters(updatedFilters);
+    fetchIndividuals(updatedFilters);
   };
 
   // Auto-apply region filters on change (mirror Companies/Advisors behavior)

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { FollowButton } from "@/components/FollowButton";
 import { locationsService } from "@/lib/locationsService";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import {
@@ -2006,6 +2007,13 @@ const SubSectorPage = () => {
                 </h1>
               </div>
             </div>
+            {!Number.isNaN(subSectorId) && subSectorId > 0 && (
+              <FollowButton
+                followKey="followed_sectors"
+                entityId={subSectorId}
+                label="Sub-Sector"
+              />
+            )}
           </div>
         </div>
       </header>
