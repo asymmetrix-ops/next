@@ -22,6 +22,9 @@ import {
 import { ContentArticle } from "@/types/insightsAnalysis";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
+const FINANCIAL_METRICS_EXPORT_SOURCE = "contribution_email";
+
+type CompanyPdfExportType = "profile" | "financial_metrics";
 
 // Types for API integration
 interface CompanyLocation {
@@ -928,10 +931,14 @@ const CompanyDetail = () => {
   const [showCompetitorsModal, setShowCompetitorsModal] = useState(false);
   const [transactionStatusLabel, setTransactionStatusLabel] = useState<string>("");
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingPdfType, setExportingPdfType] =
+    useState<CompanyPdfExportType | null>(null);
+  const [showPdfExportOptions, setShowPdfExportOptions] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isDescriptionExpandable, setIsDescriptionExpandable] = useState(false);
   const [isOverviewNarrow, setIsOverviewNarrow] = useState(false);
   const descriptionRef = useRef<HTMLDivElement | null>(null);
+  const pdfExportMenuRef = useRef<HTMLDivElement | null>(null);
 
   const transactionStatusDisplayLabel = useMemo(() => {
     const raw = String(transactionStatusLabel || "").trim();
@@ -1568,8 +1575,24 @@ const CompanyDetail = () => {
     }
   }, [company?.name]);
 
+  useEffect(() => {
+    if (!showPdfExportOptions || typeof document === "undefined") return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        pdfExportMenuRef.current &&
+        !pdfExportMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowPdfExportOptions(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [showPdfExportOptions]);
+
   // Handle PDF export (ported from develop)
-  const handleExportPdf = useCallback(async () => {
+  const handleExportPdf = useCallback(async (exportType: CompanyPdfExportType) => {
     if (!company?.id) {
       console.error("Company ID not available");
       return;
@@ -1577,7 +1600,23 @@ const CompanyDetail = () => {
 
     try {
       setExportingPdf(true);
+      setExportingPdfType(exportType);
+      setShowPdfExportOptions(false);
       const token = localStorage.getItem("asymmetrix_auth_token");
+      const isFinancialMetricsExport = exportType === "financial_metrics";
+      const financialMetricsPeriod = formatFinancialMetricsPeriod(financialMetrics);
+      const financialMetricsYear = extractValidYear(
+        financialMetrics?.financial_year_text ?? financialMetrics?.Financial_Year
+      );
+      const requestBody = isFinancialMetricsExport
+        ? {
+            company_id: company.id,
+            company_name: company.name,
+            financial_metrics_period: financialMetricsPeriod,
+            financial_metrics_year: financialMetricsYear,
+            source: FINANCIAL_METRICS_EXPORT_SOURCE,
+          }
+        : { company_id: company.id };
       const response = await fetch(
         "https://asymmetrix-pdf-service.fly.dev/api/export-company-pdf",
         {
@@ -1586,7 +1625,7 @@ const CompanyDetail = () => {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({ company_id: company.id }),
+          body: JSON.stringify(requestBody),
         }
       );
 
@@ -1606,7 +1645,9 @@ const CompanyDetail = () => {
       const companyName = company.name
         ? sanitizeFilename(company.name)
         : `Company-${company.id}`;
-      const filename = `Asymmetrix ${companyName} Company Profile.pdf`;
+      const filename = isFinancialMetricsExport
+        ? `Asymmetrix ${companyName} Financial Metrics.pdf`
+        : `Asymmetrix ${companyName} Company Profile.pdf`;
 
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -1621,8 +1662,13 @@ const CompanyDetail = () => {
       alert("Failed to export PDF. Please try again.");
     } finally {
       setExportingPdf(false);
+      setExportingPdfType(null);
     }
-  }, [company?.id, company?.name]);
+  }, [
+    company?.id,
+    company?.name,
+    financialMetrics,
+  ]);
 
   if (loading) {
     return (
@@ -2151,6 +2197,18 @@ const CompanyDetail = () => {
       cursor: "pointer",
       textDecoration: "none",
     },
+    exportMenuItem: {
+      width: "100%",
+      padding: "10px 12px",
+      backgroundColor: "transparent",
+      border: "none",
+      color: "#1a202c",
+      cursor: "pointer",
+      display: "block",
+      fontSize: "14px",
+      fontWeight: 500,
+      textAlign: "left" as const,
+    },
 
     card: {
       backgroundColor: "white",
@@ -2572,22 +2630,75 @@ const CompanyDetail = () => {
                       label="Company"
                     />
                   )}
-                  <button
-                    onClick={handleExportPdf}
-                    disabled={exportingPdf || !company?.id}
-                    style={{
-                      ...styles.reportButton,
-                      backgroundColor: exportingPdf ? "#9ca3af" : "#0075df",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      cursor:
-                        exportingPdf || !company?.id
-                          ? "not-allowed"
-                          : "pointer",
-                    }}
+                  <div
+                    ref={pdfExportMenuRef}
+                    style={{ position: "relative", display: "inline-block" }}
                   >
-                    {exportingPdf ? "Exporting..." : "Export PDF"}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowPdfExportOptions((current) => !current)
+                      }
+                      disabled={exportingPdf || !company?.id}
+                      aria-haspopup="menu"
+                      aria-expanded={showPdfExportOptions}
+                      style={{
+                        ...styles.reportButton,
+                        backgroundColor: exportingPdf ? "#9ca3af" : "#0075df",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        cursor:
+                          exportingPdf || !company?.id
+                            ? "not-allowed"
+                            : "pointer",
+                      }}
+                    >
+                      {exportingPdf
+                        ? exportingPdfType === "financial_metrics"
+                          ? "Exporting Metrics..."
+                          : "Exporting..."
+                        : "Export PDF"}
+                      <span aria-hidden="true">v</span>
+                    </button>
+                    {showPdfExportOptions && !exportingPdf && company?.id && (
+                      <div
+                        role="menu"
+                        style={{
+                          position: "absolute",
+                          right: 0,
+                          top: "calc(100% + 6px)",
+                          zIndex: 30,
+                          minWidth: "220px",
+                          padding: "6px",
+                          backgroundColor: "#ffffff",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "8px",
+                          boxShadow: "0 10px 20px rgba(15, 23, 42, 0.12)",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => handleExportPdf("profile")}
+                          style={{
+                            ...styles.exportMenuItem,
+                            borderBottom: "1px solid #edf2f7",
+                          }}
+                        >
+                          Export Whole Profile
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => handleExportPdf("financial_metrics")}
+                          style={styles.exportMenuItem}
+                        >
+                          Export Financial Metrics
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <a
                     style={{
                       ...styles.reportButton,
