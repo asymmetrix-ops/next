@@ -662,6 +662,37 @@ export default function ArticlePreviewPage() {
           .article-body blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid #e5e7eb; color: #374151; }
           .article-body table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
           .article-body th, .article-body td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+          .article-body .asymmetrix-key-point {
+            position: relative;
+            display: inline;
+            background-color: #fff3bf;
+            border-radius: 3px;
+            padding: 0 2px;
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
+            cursor: help;
+          }
+          .article-body .asymmetrix-key-point:hover::after,
+          .article-body .asymmetrix-key-point:focus::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 6px);
+            transform: translateX(-50%);
+            z-index: 20;
+            width: max-content;
+            max-width: 180px;
+            padding: 4px 8px;
+            border-radius: 9999px;
+            background: #111827;
+            color: #fff;
+            font-size: 12px;
+            line-height: 1.2;
+            font-weight: 600;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(17, 24, 39, 0.18);
+            pointer-events: none;
+          }
           .article-body img { max-width: 100%; height: auto; display: block; margin: 1rem auto; border-radius: 8px; }
           .article-body figure { margin: 1rem 0; }
           .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem; }

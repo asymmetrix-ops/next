@@ -370,6 +370,13 @@ export async function POST(req: NextRequest) {
         .content strong {
             font-weight: 700;
         }
+        .content .asymmetrix-key-point {
+            background-color: #fff3bf;
+            border-radius: 3px;
+            padding: 0 2px;
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
+        }
         .content em {
             font-style: italic;
         }

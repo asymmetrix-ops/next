@@ -513,6 +513,19 @@ function sanitizeHtml(input: string): string {
   return out;
 }
 
+function escapeHtmlText(input: string): string {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderSummaryText(input: string): string {
+  return escapeHtmlText(input).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
+
 function buildBrandedEmailHtml(params: {
   bodyHtml: string;
   subject: string;
@@ -543,6 +556,7 @@ function buildBrandedEmailHtml(params: {
       .card th { font:600 14px Arial, sans-serif; text-align:left; padding:12px; background:#f8fafc; border-bottom:1px solid #e5e7eb; color:#111827; }
       .card td { font-size:14px; line-height:1.5; padding:12px; border-top:1px solid #e5e7eb; color:#333333; }
       .col-date { width:110px; }
+      .asymmetrix-key-point { background-color:#fff3bf; border-radius:3px; padding:0 2px; box-decoration-break:clone; -webkit-box-decoration-break:clone; }
 
       /* Badges */
       .badge { font-size:11px; font-weight:700; text-transform:uppercase; display:inline-block; padding:2px 8px; border-radius:9999px; border:1px solid transparent; }
@@ -1114,6 +1128,7 @@ function ContentTab() {
   // Summary (array of strings)
   const [summaryItems, setSummaryItems] = useState<string[]>([]);
   const [summaryInput, setSummaryInput] = useState("");
+  const summaryInputRef = useRef<HTMLInputElement | null>(null);
 
   // MP3 uploads (uploaded to Xano, stored as full file objects)
   const [uploadedMp3Files, setUploadedMp3Files] = useState<XanoStoredFile[]>([]);
@@ -1828,6 +1843,35 @@ function ContentTab() {
     const nextBodyHtml = cleaned ? extractInnerContent(cleaned) : "";
     setBodyHtml(nextBodyHtml || "<p></p>");
     setHtml("");
+  };
+
+  const addSummaryItem = () => {
+    const item = summaryInput.trim();
+    if (!item) return;
+    setSummaryItems([...summaryItems, item]);
+    setSummaryInput("");
+    summaryInputRef.current?.focus();
+  };
+
+  const applyBoldToSummaryInput = () => {
+    const input = summaryInputRef.current;
+    const start = input?.selectionStart ?? summaryInput.length;
+    const end = input?.selectionEnd ?? summaryInput.length;
+    const selected = summaryInput.slice(start, end);
+    const replacement = selected ? `**${selected}**` : "**bold text**";
+    const next =
+      summaryInput.slice(0, start) + replacement + summaryInput.slice(end);
+
+    setSummaryInput(next);
+
+    window.requestAnimationFrame(() => {
+      summaryInputRef.current?.focus();
+      const selectionStart = selected ? start + 2 : start + 2;
+      const selectionEnd = selected
+        ? start + 2 + selected.length
+        : start + replacement.length - 2;
+      summaryInputRef.current?.setSelectionRange(selectionStart, selectionEnd);
+    });
   };
 
   const handleExport = async () => {
@@ -2733,28 +2777,31 @@ function ContentTab() {
         <label className="block mb-1 text-sm font-medium">Summary</label>
         <div className="flex gap-2">
           <input
+            ref={summaryInputRef}
             type="text"
             className="flex-1 p-2 border rounded"
-            placeholder="Enter summary item"
+            placeholder="Enter summary item. Select text and click Bold to highlight it."
             value={summaryInput}
             onChange={(e) => setSummaryInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && summaryInput.trim()) {
                 e.preventDefault();
-                setSummaryItems([...summaryItems, summaryInput.trim()]);
-                setSummaryInput("");
+                addSummaryItem();
               }
             }}
           />
           <button
             type="button"
+            className="px-3 py-2 font-semibold bg-white rounded border hover:bg-gray-50"
+            onClick={applyBoldToSummaryInput}
+            title="Bold selected summary text"
+          >
+            Bold
+          </button>
+          <button
+            type="button"
             className="px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50"
-            onClick={() => {
-              if (summaryInput.trim()) {
-                setSummaryItems([...summaryItems, summaryInput.trim()]);
-                setSummaryInput("");
-              }
-            }}
+            onClick={addSummaryItem}
             disabled={!summaryInput.trim()}
           >
             Add
@@ -2767,7 +2814,10 @@ function ContentTab() {
                 key={`summary-${idx}`}
                 className="flex justify-between items-center p-2 rounded border bg-white"
               >
-                <div className="text-sm flex-1">{item}</div>
+                <div
+                  className="text-sm flex-1"
+                  dangerouslySetInnerHTML={{ __html: renderSummaryText(item) }}
+                />
                 <button
                   className="px-3 py-1 text-sm text-white bg-red-600 rounded ml-2"
                   onClick={() =>

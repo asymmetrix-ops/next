@@ -827,6 +827,9 @@ const ArticleDetailPage = () => {
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
 
+  const renderSummaryText = (str: string) =>
+    escapeHtml(str).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
   const getRawSummary = (a: ArticleDetail | null): string | unknown[] => {
     if (!a) return "";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -934,7 +937,7 @@ const ArticleDetailPage = () => {
       const items = raw
         .map((item) => String(item || "").trim())
         .filter(Boolean)
-        .map((line) => `<li>${escapeHtml(line)}</li>`)
+        .map((line) => `<li>${renderSummaryText(line)}</li>`)
         .join("");
       return items ? `<ul>${items}</ul>` : "";
     }
@@ -951,7 +954,7 @@ const ArticleDetailPage = () => {
         const items = parsed
           .map((item) => String(item || "").trim())
           .filter(Boolean)
-          .map((line) => `<li>${escapeHtml(line)}</li>`)
+          .map((line) => `<li>${renderSummaryText(line)}</li>`)
           .join("");
         return items ? `<ul>${items}</ul>` : "";
       }
@@ -984,10 +987,23 @@ const ArticleDetailPage = () => {
     const items = lines
       .map((line) => line.replace(/^[-*•]\s+/, "").trim())
       .filter(Boolean)
-      .map((line) => `<li>${escapeHtml(line)}</li>`)
+      .map((line) => `<li>${renderSummaryText(line)}</li>`)
       .join("");
 
     return `<ul>${items}</ul>`;
+  };
+
+  const getFirstSummaryBulletHtml = (summaryHtml: string): string => {
+    const input = String(summaryHtml || "").trim();
+    if (!input) return "";
+    try {
+      const doc = new DOMParser().parseFromString(input, "text/html");
+      const li = doc.querySelector("li");
+      if (li?.innerHTML?.trim()) return li.innerHTML.trim();
+      return doc.body?.innerHTML.trim() || "";
+    } catch {
+      return escapeHtml(stripHtmlToText(input));
+    }
   };
 
   const getFirstSummaryBullet = (summaryHtml: string): string => {
@@ -1688,6 +1704,7 @@ const ArticleDetailPage = () => {
   const summaryRaw = getRawSummary(article);
   const summaryHtml = normalizeSummaryHtml(summaryRaw);
   const summaryPreview = getFirstSummaryBullet(summaryHtml);
+  const summaryPreviewHtml = getFirstSummaryBulletHtml(summaryHtml);
   const hasSummary = Boolean(summaryHtml && summaryPreview);
   const canOpenCompanyTable = Boolean(
     (article.companies_mentioned && article.companies_mentioned.length > 0) ||
@@ -1780,7 +1797,11 @@ const ArticleDetailPage = () => {
                 {!summaryExpanded ? (
                   <div className="article-summary-preview">
                     <ul>
-                      <li>{summaryPreview}</li>
+                      <li
+                        dangerouslySetInnerHTML={{
+                          __html: summaryPreviewHtml || escapeHtml(summaryPreview),
+                        }}
+                      />
                     </ul>
                   </div>
                 ) : (
@@ -3415,6 +3436,37 @@ const ArticleDetailPage = () => {
           .article-body blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid #e5e7eb; color: #374151; }
           .article-body table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
           .article-body th, .article-body td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+          .article-body .asymmetrix-key-point {
+            position: relative;
+            display: inline;
+            background-color: #fff3bf;
+            border-radius: 3px;
+            padding: 0 2px;
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
+            cursor: help;
+          }
+          .article-body .asymmetrix-key-point:hover::after,
+          .article-body .asymmetrix-key-point:focus::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 6px);
+            transform: translateX(-50%);
+            z-index: 20;
+            width: max-content;
+            max-width: 180px;
+            padding: 4px 8px;
+            border-radius: 9999px;
+            background: #111827;
+            color: #fff;
+            font-size: 12px;
+            line-height: 1.2;
+            font-weight: 600;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(17, 24, 39, 0.18);
+            pointer-events: none;
+          }
           /* Images inside article body */
           .article-body img { max-width: 100%; height: auto; display: block; margin: 1rem auto; border-radius: 8px; }
           .article-body figure { margin: 1rem 0; }
@@ -3485,6 +3537,8 @@ const ArticleDetailPage = () => {
           .article-summary-preview li,
           .article-summary-body li{ margin-bottom: 0.5rem; }
           .article-summary-body p{ margin: 0 0 0.75rem 0; }
+          .article-summary-preview strong,
+          .article-summary-body strong{ font-weight: 700; color:#111827; }
           /* Audio attachments (WhatsApp-style card) */
           /* Inline audio player (news-style listen module) */
           .inline-audio-player{

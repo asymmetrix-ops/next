@@ -7,7 +7,7 @@ import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { TableKit } from "@tiptap/extension-table";
-import { Extension, type CommandProps } from "@tiptap/core";
+import { Extension, Mark, mergeAttributes, type CommandProps } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 declare module "@tiptap/core" {
@@ -15,6 +15,10 @@ declare module "@tiptap/core" {
     indent: {
       indent: () => ReturnType;
       outdent: () => ReturnType;
+    };
+    keyPoint: {
+      toggleKeyPoint: () => ReturnType;
+      unsetKeyPoint: () => ReturnType;
     };
   }
 }
@@ -29,6 +33,15 @@ type Props = {
 
 const INDENT_PX = 24;
 const MAX_INDENT_LEVEL = 8;
+const KEY_POINT_TOOLTIP = "Key Point";
+const KEY_POINT_HTML_ATTRIBUTES = {
+  class: "asymmetrix-key-point",
+  "data-key-point": "true",
+  "data-tooltip": KEY_POINT_TOOLTIP,
+  title: KEY_POINT_TOOLTIP,
+  style:
+    "background-color: #fff3bf; border-radius: 3px; padding: 0 2px; box-decoration-break: clone; -webkit-box-decoration-break: clone;",
+};
 
 function parseIndentFromElement(el: HTMLElement): number {
   const attr = el.getAttribute("data-indent");
@@ -130,6 +143,39 @@ const IndentExtension = Extension.create({
   },
 });
 
+const KeyPointExtension = Mark.create({
+  name: "keyPoint",
+
+  parseHTML() {
+    return [
+      { tag: 'span[data-key-point="true"]' },
+      { tag: "span.asymmetrix-key-point" },
+      { tag: 'mark[data-key-point="true"]' },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return [
+      "span",
+      mergeAttributes(HTMLAttributes, KEY_POINT_HTML_ATTRIBUTES),
+      0,
+    ];
+  },
+
+  addCommands() {
+    return {
+      toggleKeyPoint:
+        () =>
+        ({ commands }) =>
+          commands.toggleMark(this.name),
+      unsetKeyPoint:
+        () =>
+        ({ commands }) =>
+          commands.unsetMark(this.name),
+    };
+  },
+});
+
 function ToolbarButton(props: {
   label: string;
   active?: boolean;
@@ -168,6 +214,7 @@ export default function TiptapSimpleEditor({
     return [
       StarterKit,
       IndentExtension,
+      KeyPointExtension,
       TableKit.configure({
         table: {
           HTMLAttributes: { class: "border-collapse w-full my-2" },
@@ -348,6 +395,12 @@ export default function TiptapSimpleEditor({
           active={editor?.isActive("italic")}
           disabled={!canUse}
           onClick={() => editor?.chain().focus().toggleItalic().run()}
+        />
+        <ToolbarButton
+          label="Key Point"
+          active={editor?.isActive("keyPoint")}
+          disabled={!canUse}
+          onClick={() => editor?.chain().focus().toggleKeyPoint().run()}
         />
         <ToolbarButton
           label="H2"
