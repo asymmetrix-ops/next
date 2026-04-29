@@ -28,6 +28,7 @@ export interface CompanyCSVRow {
   Ownership: string;
   "LinkedIn Members": string;
   Country: string;
+  "Company Link"?: string;
   "Company URL": string;
   // Optional Financial Metrics
   Revenue?: string;
@@ -181,7 +182,6 @@ export class CompaniesCSVExporter {
     // Otherwise add %
     return `${str}%`;
   }
-
   static convertToCSVData(companies: Company[]): CompanyCSVRow[] {
     return companies.map((company) => {
       // Generate the company link
@@ -200,7 +200,8 @@ export class CompaniesCSVExporter {
           company.linkedin_members
         ),
         Country: company.country || "N/A",
-        "Company URL": companyLink,
+        "Company Link": companyLink,
+        "Company URL": "",
         "Recurring Revenue": this.formatPercent(this.getARRPercent(company)),
       };
     });
@@ -209,44 +210,20 @@ export class CompaniesCSVExporter {
   static convertToCSV(data: CompanyCSVRow[]): string {
     if (data.length === 0) return "";
 
-    // Define all possible headers in order to ensure all columns are included
-    const allHeaders: (keyof CompanyCSVRow)[] = [
-      "Name",
-      "Description",
-      "Primary Sector(s)",
-      "Sectors",
-      "Ownership",
-      "LinkedIn Members",
-      "Country",
-      "Company URL",
-      // Financial Metrics
-      "Revenue",
-      "EBITDA",
-      "Enterprise Value",
-      "Revenue Multiple",
-      "Revenue Growth",
-      "EBITDA Margin",
-      "Rule of 40",
-      // Subscription Metrics
-      "Recurring Revenue",
-      "ARR",
-      "Churn",
-      "GRR",
-      "NRR",
-      "New Clients Revenue Growth",
-    ];
+    // Get headers from the first object keys
+    const headers = Object.keys(data[0]);
 
     // Create CSV content
     const csvBody = [
       // Headers row
-      allHeaders.map((header) => `"${header}"`).join(","),
+      headers.map((header) => `"${header}"`).join(","),
       // Data rows
       ...data.map((row) =>
-        allHeaders
+        headers
           .map((header) => {
-            const value = row[header];
-            // Escape quotes and wrap in quotes, default to empty string if undefined
-            return `"${String(value ?? "").replace(/"/g, '""')}"`;
+            const value = row[header as keyof CompanyCSVRow];
+            // Escape quotes and wrap in quotes
+            return `"${String(value).replace(/"/g, '""')}"`;
           })
           .join(",")
       ),
