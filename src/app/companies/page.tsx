@@ -2964,6 +2964,7 @@ const CompanySection = ({
 }) => {
   const router = useRouter();
   const { isTrialActive } = useAuth();
+  const sectionRef = useRef<HTMLDivElement | null>(null);
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
   const [exportsLeft, setExportsLeft] = useState(0);
 
@@ -3431,9 +3432,15 @@ const CompanySection = ({
 
   const handlePageChange = useCallback(
     (page: number) => {
-      fetchCompanies(page, currentFilters);
+      const totalPages = pagination.pageTotal || 1;
+      if (loading || page < 1 || page > totalPages || page === pagination.curPage) {
+        return;
+      }
+
+      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      void fetchCompanies(page, currentFilters);
     },
-    [fetchCompanies, currentFilters]
+    [fetchCompanies, currentFilters, loading, pagination.curPage, pagination.pageTotal]
   );
 
   const tableRows = useMemo(
@@ -3516,11 +3523,29 @@ const CompanySection = ({
   );
 
   const generatePaginationButtons = () => {
-    const buttons = [];
+    const buttons: React.ReactNode[] = [];
     const maxVisible = 7;
+    const totalPages = pagination.pageTotal || 0;
+    const prevPage = pagination.prevPage ?? pagination.curPage - 1;
+    const nextPage = pagination.nextPage ?? pagination.curPage + 1;
 
-    if (pagination.pageTotal <= maxVisible) {
-      for (let i = 1; i <= pagination.pageTotal; i++) {
+    if (totalPages <= 1) {
+      return buttons;
+    }
+
+    buttons.push(
+      <button
+        key="previous"
+        className="pagination-button pagination-nav"
+        onClick={() => handlePageChange(prevPage)}
+        disabled={pagination.curPage <= 1}
+      >
+        Previous
+      </button>
+    );
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
         buttons.push(
           <button
             key={i}
@@ -3557,10 +3582,10 @@ const CompanySection = ({
 
       // Show pages around current
       const start = Math.max(2, pagination.curPage - 1);
-      const end = Math.min(pagination.pageTotal - 1, pagination.curPage + 1);
+      const end = Math.min(totalPages - 1, pagination.curPage + 1);
 
       for (let i = start; i <= end; i++) {
-        if (i > 1 && i < pagination.pageTotal) {
+        if (i > 1 && i < totalPages) {
           buttons.push(
             <button
               key={i}
@@ -3575,7 +3600,7 @@ const CompanySection = ({
         }
       }
 
-      if (pagination.curPage < pagination.pageTotal - 2) {
+      if (pagination.curPage < totalPages - 2) {
         buttons.push(
           <span key="ellipsis2" className="pagination-ellipsis">
             ...
@@ -3584,20 +3609,31 @@ const CompanySection = ({
       }
 
       // Always show last page
-      if (pagination.pageTotal > 1) {
+      if (totalPages > 1) {
         buttons.push(
           <button
-            key={pagination.pageTotal}
+            key={totalPages}
             className={`pagination-button ${
-              pagination.pageTotal === pagination.curPage ? "active" : ""
+              totalPages === pagination.curPage ? "active" : ""
             }`}
-            onClick={() => handlePageChange(pagination.pageTotal)}
+            onClick={() => handlePageChange(totalPages)}
           >
-            {pagination.pageTotal}
+            {totalPages}
           </button>
         );
       }
     }
+
+    buttons.push(
+      <button
+        key="next"
+        className="pagination-button pagination-nav"
+        onClick={() => handlePageChange(nextPage)}
+        disabled={pagination.curPage >= totalPages}
+      >
+        Next
+      </button>
+    );
 
     return buttons;
   };
@@ -3789,6 +3825,7 @@ const CompanySection = ({
       display: flex;
       justify-content: center;
       align-items: center;
+      flex-wrap: wrap;
       gap: 8px;
       margin-top: 12px;
       padding: 8px;
@@ -3816,6 +3853,10 @@ const CompanySection = ({
       opacity: 0.3;
       cursor: not-allowed;
       color: #666;
+    }
+    .pagination-nav {
+      font-weight: 500;
+      white-space: nowrap;
     }
     .pagination-ellipsis {
       padding: 8px 12px;
@@ -3943,6 +3984,16 @@ const CompanySection = ({
       .company-cards {
         display: flex;
       }
+      .pagination {
+        gap: 4px;
+      }
+      .pagination-button {
+        padding: 8px 10px;
+      }
+      .pagination-nav {
+        flex: 1 1 88px;
+        max-width: 120px;
+      }
       .stats-column {
         grid-template-columns: 1fr !important;
         gap: 6px !important;
@@ -4060,9 +4111,36 @@ const CompanySection = ({
           : [])
       );
 
+    const skeletonCard = (i: number) =>
+      React.createElement(
+        "div",
+        { className: "company-card", key: i },
+        React.createElement(
+          "div",
+          { className: "company-card-header" },
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "50px", height: "35px" },
+          }),
+          React.createElement("div", {
+            className: "loading-skeleton",
+            style: { width: "65%", height: "18px" },
+          })
+        ),
+        React.createElement("div", {
+          className: "loading-skeleton",
+          style: { width: "100%", height: "72px" },
+        })
+      );
+
     return React.createElement(
       "div",
-      { className: "company-section" },
+      { className: "company-section", ref: sectionRef },
+      React.createElement(
+        "div",
+        { className: "company-cards" },
+        ...[...Array(6)].map((_, i) => skeletonCard(i))
+      ),
       React.createElement(
         "table",
         { className: "company-table" },
@@ -4100,7 +4178,7 @@ const CompanySection = ({
   if (error) {
     return React.createElement(
       "div",
-      { className: "company-section" },
+      { className: "company-section", ref: sectionRef },
       React.createElement("div", { className: "error" }, error),
       React.createElement("style", {
         dangerouslySetInnerHTML: { __html: style },
@@ -4110,7 +4188,7 @@ const CompanySection = ({
 
   return React.createElement(
     "div",
-    { className: "company-section" },
+    { className: "company-section", ref: sectionRef },
     React.createElement(
       "div",
       { className: "company-stats", style: { display: "none" } },
