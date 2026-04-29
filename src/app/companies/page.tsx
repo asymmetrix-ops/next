@@ -860,12 +860,6 @@ const makeTextColumn = (
   render: (company) => toPlainText(readCompanyValue(company, aliases)),
 });
 
-const formatMetric = (value: unknown, suffix = ""): string => {
-  const text = toPlainText(value);
-  if (text === "N/A") return text;
-  return suffix && !text.endsWith(suffix) ? `${text}${suffix}` : text;
-};
-
 const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinition[] }> = [
   {
     group: "Default",
