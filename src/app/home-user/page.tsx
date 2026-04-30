@@ -7,6 +7,7 @@ import { dashboardApiService } from "@/lib/dashboardApi";
 import { trackEvent } from "@/lib/tracking";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -1286,6 +1287,12 @@ export default function HomeUserPage() {
                 )}
               </div>
             )}
+          </div>
+          <div className="flex order-3 justify-start lg:justify-end lg:col-span-1 xl:col-span-8">
+            <RequestDataResearchButton
+              label="Request Data and Research"
+              sourcePage="Dashboard"
+            />
           </div>
         </div>
 

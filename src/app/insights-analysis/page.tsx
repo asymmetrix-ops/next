@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/components/providers/AuthProvider";
+import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { locationsService } from "@/lib/locationsService";
 import {
   ContentArticle,
@@ -1035,12 +1036,28 @@ const InsightsAnalysisPage = () => {
               }}
               className="filters-card"
             >
-              <h2
-                style={{ ...styles.heading, marginBottom: "16px" }}
-                className="filters-heading"
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                  marginBottom: "16px",
+                }}
               >
-                Insights & Analysis
-              </h2>
+                <h2
+                  style={{ ...styles.heading, marginBottom: 0 }}
+                  className="filters-heading"
+                >
+                  Insights & Analysis
+                </h2>
+                <RequestDataResearchButton
+                  label="Request Report"
+                  defaultType="Research Report"
+                  sourcePage="Insights & Analysis Search"
+                />
+              </div>
               <div style={styles.searchDiv} className="search-bar">
                 <input
                   type="text"

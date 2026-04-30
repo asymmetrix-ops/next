@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { IndividualsResponse, Individual } from "../../types/individuals";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
 import { useRightClick } from "@/hooks/useRightClick";
@@ -1220,9 +1221,28 @@ const IndividualsPage = () => {
       <div style={styles.container}>
         <div style={styles.maxWidth}>
           <div style={styles.card} className="filters-card">
-            <h2 style={styles.heading} className="filters-heading">
-              Individuals
-            </h2>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
+                flexWrap: "wrap",
+                marginBottom: "12px",
+              }}
+            >
+              <h2
+                style={{ ...styles.heading, marginBottom: 0 }}
+                className="filters-heading"
+              >
+                Individuals
+              </h2>
+              <RequestDataResearchButton
+                label="Request Individual Profile"
+                defaultType="Individual Profile"
+                sourcePage="Individuals Search"
+              />
+            </div>
             <p style={{ color: "#666", marginBottom: "16px" }}>
               Search and filter individuals by location, sectors, job titles,
               and more.

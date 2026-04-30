@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
 // import { useRightClick } from "@/hooks/useRightClick";
@@ -2422,15 +2423,22 @@ const AdvisorsPage = () => {
         <div className="advisor-stats">
           <div className="stats-header">
             <h2 className="stats-title">Advisors</h2>
-            <button
-              type="button"
-              className="export-csv-button"
-              onClick={exportToCsv}
-              disabled={exportingCsv || pagination.itemsTotal <= 0}
-              title="Export all filtered advisors to CSV"
-            >
-              {exportingCsv ? "Exporting..." : "Export CSV"}
-            </button>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <RequestDataResearchButton
+                label="Request Advisor Profile"
+                defaultType="Advisor Profile"
+                sourcePage="Advisors Search"
+              />
+              <button
+                type="button"
+                className="export-csv-button"
+                onClick={exportToCsv}
+                disabled={exportingCsv || pagination.itemsTotal <= 0}
+                title="Export all filtered advisors to CSV"
+              >
+                {exportingCsv ? "Exporting..." : "Export CSV"}
+              </button>
+            </div>
           </div>
           <div className="stats-grid">
             <div className="stats-column">
