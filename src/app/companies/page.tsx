@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { locationsService } from "@/lib/locationsService";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import {
@@ -2121,12 +2122,28 @@ const CompanyDashboard = ({
           className="filters-card"
         >
           {/* Page Title */}
-          <h2
-            style={{ ...styles.heading, marginBottom: "16px" }}
-            className="filters-heading"
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              flexWrap: "wrap",
+              marginBottom: "16px",
+            }}
           >
-            Companies
-          </h2>
+            <h2
+              style={{ ...styles.heading, marginBottom: 0 }}
+              className="filters-heading"
+            >
+              Companies
+            </h2>
+            <RequestDataResearchButton
+              label="Request Company Profile"
+              defaultType="Company Profile"
+              sourcePage="Companies Search"
+            />
+          </div>
 
           {/* Stat cards row – 5 cards: type name, X companies */}
           <div

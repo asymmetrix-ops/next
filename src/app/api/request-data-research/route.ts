@@ -1,111 +1,107 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import {
-  DATA_REQUEST_TYPES,
-  RESEARCH_REQUEST_TYPES,
-  RequestTab,
-  tabToCategory,
-  isDataRequestUrlRequired,
-} from "@/lib/requestDataResearch";
-import { USERS_DATA_RESEARCH_REQUESTS_URL } from "@/lib/usersDataResearchRequests";
+import * as postmark from "postmark";
+import { REQUEST_DATA_RESEARCH_TYPES } from "@/lib/requestDataResearch";
 
 export const runtime = "nodejs";
 
-const AUTH_API_URL =
-  process.env.NEXT_PUBLIC_XANO_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+const INTAKE_EMAIL = "Asymmetrix@asymmetrixintelligence.com";
+const XANO_REQUESTS_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:XlV_SpG5:develop/users_data_research_requests";
 
 type RequestPayload = {
-  tab?: unknown;
   requestType?: unknown;
-  url?: unknown;
   description?: unknown;
+  requesterName?: unknown;
+  requesterEmail?: unknown;
   sourcePage?: unknown;
 };
 
-const isDataType = (value: string) =>
-  (DATA_REQUEST_TYPES as readonly string[]).includes(value);
+type Requester = {
+  name: string;
+  email: string;
+};
 
-const isResearchType = (value: string) =>
-  (RESEARCH_REQUEST_TYPES as readonly string[]).includes(value);
+const isRequestType = (value: unknown): value is string =>
+  typeof value === "string" &&
+  REQUEST_DATA_RESEARCH_TYPES.includes(
+    value as (typeof REQUEST_DATA_RESEARCH_TYPES)[number]
+  );
 
-const getString = (value: unknown, fallback = "") =>
-  typeof value === "string" ? value.trim() : fallback;
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const getString = (value: unknown) =>
+  typeof value === "string" ? value.trim() : "";
+
+const resolveName = (user: Record<string, unknown>) => {
+  const directName = getString(
+    user.name || user.full_name || user.Full_Name || user.Name
+  );
+  if (directName) return directName;
+
+  const firstName = getString(user.first_name || user.First_Name);
+  const lastName = getString(user.last_name || user.Last_Name);
+  return [firstName, lastName].filter(Boolean).join(" ");
+};
 
 const getAuthToken = (request: Request) =>
   cookies().get("asymmetrix_auth_token")?.value ||
   request.headers.get("x-asym-token");
 
-async function fetchWithAuth(url: string, token: string, init: RequestInit = {}) {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(init.headers as Record<string, string> | undefined),
-  };
-
-  let response = await fetch(url, {
-    ...init,
-    headers: { ...headers, Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
-
-  if (response.status === 401) {
-    response = await fetch(url, {
-      ...init,
-      headers: { ...headers, Authorization: token },
-      cache: "no-store",
-    });
-  }
-
-  return response;
-}
-
-async function getSubmittedByUserId(request: Request): Promise<number | null> {
+async function getAuthenticatedRequester(
+  request: Request
+): Promise<Requester | null> {
   const token = getAuthToken(request);
+
   if (!token) return null;
 
-  const response = await fetchWithAuth(`${AUTH_API_URL}/auth/me`, token, {
-    method: "GET",
-  });
+  const apiUrl =
+    process.env.NEXT_PUBLIC_XANO_API_URL ||
+    "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
 
+  const fetchUser = (authorization: string) =>
+    fetch(`${apiUrl}/auth/me`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authorization,
+      },
+      cache: "no-store",
+    });
+
+  let response = await fetchUser(`Bearer ${token}`);
+  if (response.status === 401) response = await fetchUser(token);
   if (!response.ok) return null;
 
-  const data = (await response.json().catch(() => null)) as { id?: unknown } | null;
-  if (!data || typeof data !== "object") return null;
+  const user = (await response.json()) as Record<string, unknown>;
+  const email = getString(user.email || user.Email);
+  if (!email) return null;
 
-  if (typeof data.id === "number" && Number.isFinite(data.id)) return data.id;
-  if (typeof data.id === "string") {
-    const parsed = Number.parseInt(data.id, 10);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
+  return {
+    name: resolveName(user) || "Unknown",
+    email,
+  };
 }
 
-function buildRequestDetails(description: string, url: string, sourcePage: string) {
-  const parts: string[] = [];
-
-  if (url) parts.push(`Reference URL: ${url}`);
-  if (sourcePage) parts.push(`Source page: ${sourcePage}`);
-  if (parts.length > 0) parts.push("");
-  parts.push(description);
-
-  return parts.join("\n");
-}
-
-async function postToXano(
+async function createXanoResearchRequest(
   request: Request,
-  payload: {
-    type: string;
-    request_details: string;
-    submitted_by: number;
-    category: "Data" | "Analysis";
-  }
+  requestType: string,
+  description: string
 ) {
   const token = getAuthToken(request);
-  const body = JSON.stringify(payload);
+  const body = JSON.stringify({
+    type: requestType,
+    request_details: description,
+  });
 
-  const doPost = (authorization?: string) =>
-    fetch(USERS_DATA_RESEARCH_REQUESTS_URL, {
+  const postRequest = (authorization?: string) =>
+    fetch(XANO_REQUESTS_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -115,13 +111,13 @@ async function postToXano(
       cache: "no-store",
     });
 
-  let response = await doPost(token ? `Bearer ${token}` : undefined);
-  if (response.status === 401 && token) response = await doPost(token);
+  let response = await postRequest(token ? `Bearer ${token}` : undefined);
+  if (response.status === 401 && token) response = await postRequest(token);
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     throw new Error(
-      `Xano submission failed with status ${response.status}: ${text}`
+      `Xano request submission failed with status ${response.status}: ${text}`
     );
   }
 }
@@ -129,68 +125,92 @@ async function postToXano(
 export async function POST(request: Request) {
   try {
     const payload = (await request.json()) as RequestPayload;
-
-    const tab = getString(payload.tab) as RequestTab | "";
     const requestType = getString(payload.requestType);
-    const url = getString(payload.url);
     const description = getString(payload.description);
     const sourcePage = getString(payload.sourcePage);
 
-    if (tab !== "data" && tab !== "research") {
+    if (!isRequestType(requestType)) {
       return NextResponse.json(
-        { error: "Please select a valid request category." },
-        { status: 400 }
-      );
-    }
-
-    const category = tabToCategory(tab);
-
-    if (category === "Data" && !isDataType(requestType)) {
-      return NextResponse.json(
-        { error: "Please select a valid data request type." },
-        { status: 400 }
-      );
-    }
-
-    if (category === "Analysis" && !isResearchType(requestType)) {
-      return NextResponse.json(
-        { error: "Please select a valid analysis request type." },
-        { status: 400 }
-      );
-    }
-
-    if (
-      category === "Data" &&
-      isDataRequestUrlRequired(requestType) &&
-      !url
-    ) {
-      return NextResponse.json(
-        { error: "Please provide a URL." },
+        { error: "Please select a request type." },
         { status: 400 }
       );
     }
 
     if (!description) {
       return NextResponse.json(
-        { error: "Please provide request details." },
+        { error: "Please describe the request." },
         { status: 400 }
       );
     }
 
-    const submittedBy = await getSubmittedByUserId(request);
-    if (submittedBy == null) {
+    const authenticatedRequester = await getAuthenticatedRequester(request);
+    const requester: Requester = authenticatedRequester || {
+      name: getString(payload.requesterName) || "Unknown",
+      email: getString(payload.requesterEmail),
+    };
+
+    if (!requester.email) {
       return NextResponse.json(
-        { error: "Unable to identify the submitting user." },
-        { status: 401 }
+        { error: "Unable to identify the requesting user." },
+        { status: 400 }
       );
     }
 
-    await postToXano(request, {
-      type: requestType,
-      request_details: buildRequestDetails(description, url, sourcePage),
-      submitted_by: submittedBy,
-      category,
-    });
+    const serverToken = process.env.POSTMARK_SERVER_TOKEN;
+    const fromEmail = process.env.POSTMARK_FROM_EMAIL || INTAKE_EMAIL;
+    const messageStream = process.env.POSTMARK_MESSAGE_STREAM || "outbound";
+
+    if (!serverToken) {
+      return NextResponse.json(
+        { error: "Postmark is not configured for request submissions." },
+        { status: 500 }
+      );
+    }
+
+    const client = new postmark.ServerClient(serverToken);
+    const subject = `Asymmetrix request: ${requestType}`;
+    const textBody = [
+      "New data and research request",
+      "",
+      `Type: ${requestType}`,
+      `Request: ${description}`,
+      sourcePage ? `Source page: ${sourcePage}` : "",
+      "",
+      `Requester name: ${requester.name}`,
+      `Requester email: ${requester.email}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const htmlBody = `
+      <h2>New data and research request</h2>
+      <p><strong>Type:</strong> ${escapeHtml(requestType)}</p>
+      <p><strong>Request:</strong><br />${escapeHtml(description).replace(
+        /\n/g,
+        "<br />"
+      )}</p>
+      ${
+        sourcePage
+          ? `<p><strong>Source page:</strong> ${escapeHtml(sourcePage)}</p>`
+          : ""
+      }
+      <hr />
+      <p><strong>Requester name:</strong> ${escapeHtml(requester.name)}</p>
+      <p><strong>Requester email:</strong> ${escapeHtml(requester.email)}</p>
+    `;
+
+    await Promise.all([
+      createXanoResearchRequest(request, requestType, description),
+      client.sendEmail({
+        From: fromEmail,
+        To: INTAKE_EMAIL,
+        ReplyTo: requester.email,
+        Subject: subject,
+        TextBody: textBody,
+        HtmlBody: htmlBody,
+        MessageStream: messageStream,
+      }),
+    ]);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/components/providers/AuthProvider";
+import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
 import {
@@ -2985,6 +2986,11 @@ const CorporateEventsPage = () => {
         <div className="corporate-event-stats">
           <div className="stats-header">
             <h2 className="stats-title">Corporate Events</h2>
+            <RequestDataResearchButton
+              label="Request Corporate Event Profile"
+              defaultType="Corporate Event"
+              sourcePage="Corporate Events Search"
+            />
           </div>
         </div>
 

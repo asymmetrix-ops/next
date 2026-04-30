@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import SearchableMultiSelect from "@/components/ui/SearchableMultiSelect";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
@@ -2018,7 +2019,14 @@ const InvestorsPage = () => {
       <div className="investor-section">
         {/* Statistics Block */}
         <div className="investor-stats">
-          <h2 className="stats-title">Investors</h2>
+          <div className="stats-header">
+            <h2 className="stats-title">Investors</h2>
+            <RequestDataResearchButton
+              label="Request Investor Profile"
+              defaultType="Investor Profile"
+              sourcePage="Investors Search"
+            />
+          </div>
           <div className="stats-grid">
             <div className="stats-column">
               <div className="stats-item">
