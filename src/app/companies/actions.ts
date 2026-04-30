@@ -15,6 +15,8 @@ export interface CompaniesFilters {
   ownershipTypes?: number[];
   linkedinMembersMin?: number | null;
   linkedinMembersMax?: number | null;
+  lastInvestmentYearsMin?: number | null;
+  lastInvestmentYearsMax?: number | null;
   searchQuery?: string;
   keywordSearch?: string;
   // Financial Metrics
@@ -65,6 +67,11 @@ export interface CompanyItem {
   linkedin_members_latest: number;
   linkedin_members_old: number;
   linkedin_members: number;
+  last_investment?: {
+    display?: string | null;
+    date?: string | null;
+    days_since?: number | string | null;
+  } | null;
 }
 
 export interface CompaniesResponse {
@@ -86,6 +93,11 @@ export interface CompaniesResponse {
     };
   };
 }
+
+const yearsToDays = (years: number | null | undefined): number | null => {
+  if (years == null || !Number.isFinite(years)) return null;
+  return Math.round(years * 365);
+};
 
 export async function fetchCompaniesServer(
   page: number = 1,
@@ -160,6 +172,20 @@ export async function fetchCompaniesServer(
     }
     if (filters.linkedinMembersMax != null) {
       params.append("Max_linkedin_members", filters.linkedinMembersMax.toString());
+    }
+    const lastInvestmentDaysMin = yearsToDays(filters.lastInvestmentYearsMin);
+    const lastInvestmentDaysMax = yearsToDays(filters.lastInvestmentYearsMax);
+    if (lastInvestmentDaysMin != null) {
+      params.append(
+        "Last_investment_days_since_min",
+        lastInvestmentDaysMin.toString()
+      );
+    }
+    if (lastInvestmentDaysMax != null) {
+      params.append(
+        "Last_investment_days_since_max",
+        lastInvestmentDaysMax.toString()
+      );
     }
     if (filters.minGrowthPercent != null) {
       params.append("min_growth_percent", filters.minGrowthPercent.toString());

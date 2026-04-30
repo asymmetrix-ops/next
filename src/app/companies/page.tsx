@@ -64,6 +64,11 @@ interface Company {
   linkedin_members_latest: number;
   linkedin_members_old: number;
   linkedin_members: number;
+  last_investment?: {
+    display?: string | null;
+    date?: string | null;
+    days_since?: number | string | null;
+  } | null;
 }
 
 interface Country {
@@ -111,6 +116,8 @@ interface Filters {
   ownershipTypes: number[]; // Changed from string[] to number[]
   linkedinMembersMin: number | null;
   linkedinMembersMax: number | null;
+  lastInvestmentYearsMin: number | null;
+  lastInvestmentYearsMax: number | null;
   searchQuery: string;
   keywordSearch: string;
   // Financial Metrics
@@ -162,6 +169,8 @@ const createDefaultFilters = (): Filters => ({
   ownershipTypes: [],
   linkedinMembersMin: null,
   linkedinMembersMax: null,
+  lastInvestmentYearsMin: null,
+  lastInvestmentYearsMax: null,
   searchQuery: "",
   keywordSearch: "",
   revenueMin: null,
@@ -453,6 +462,8 @@ const useCompaniesAPI = () => {
             ownershipTypes: filtersToUse.ownershipTypes,
             linkedinMembersMin: filtersToUse.linkedinMembersMin,
             linkedinMembersMax: filtersToUse.linkedinMembersMax,
+            lastInvestmentYearsMin: filtersToUse.lastInvestmentYearsMin,
+            lastInvestmentYearsMax: filtersToUse.lastInvestmentYearsMax,
             searchQuery: filtersToUse.searchQuery,
             keywordSearch: ENABLE_COMPANIES_KEYWORD_SEARCH
               ? filtersToUse.keywordSearch
@@ -697,6 +708,7 @@ const toPlainText = (value: unknown): string => {
       rec.City ??
       rec.Country ??
       rec.Currency ??
+      rec.display ??
       rec.label;
     if (preferred != null) return toPlainText(preferred);
     return "N/A";
@@ -736,6 +748,11 @@ const formatMultipleValue = (value: unknown): string => {
       : Number(String(value).replace(/[^0-9.-]/g, ""));
   if (!Number.isFinite(num)) return toPlainText(value);
   return `${num.toFixed(1)}x`;
+};
+
+const yearsToDays = (years: number | null | undefined): number | null => {
+  if (years == null || !Number.isFinite(years)) return null;
+  return Math.round(years * 365);
 };
 
 const parseMaybeSetLikeList = (value: unknown): string[] => {
@@ -988,6 +1005,13 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         "investors",
         "_companies_investors",
       ], { wrap: true, minWidth: 220 }),
+      makeTextColumn(
+        "years_since_last_investment",
+        "Years Since Last Investment",
+        "Overview",
+        ["last_investment.display", "last_investment"],
+        { minWidth: 190 }
+      ),
       makeTextColumn("lifecycle_stage", "Lifecycle Stage", "Overview", [
         "Lifecycle_stage.Lifecycle_stage",
         "lifecycle_stage",
@@ -1394,6 +1418,10 @@ const CompanyDashboard = ({
   const [linkedinMembersMax, setLinkedinMembersMax] = useState<number | null>(
     null
   );
+  const [lastInvestmentYearsMin, setLastInvestmentYearsMin] =
+    useState<number | null>(null);
+  const [lastInvestmentYearsMax, setLastInvestmentYearsMax] =
+    useState<number | null>(null);
   // Local display states for linkedin members inputs — committed only on blur/Enter
   const [linkedinMembersMinInput, setLinkedinMembersMinInput] = useState<string>("");
   const [linkedinMembersMaxInput, setLinkedinMembersMaxInput] = useState<string>("");
@@ -1676,6 +1704,8 @@ const CompanyDashboard = ({
         ownershipTypes: selectedOwnershipTypes,
         linkedinMembersMin,
         linkedinMembersMax,
+        lastInvestmentYearsMin,
+        lastInvestmentYearsMax,
         searchQuery: searchTerm,
         keywordSearch: ENABLE_COMPANIES_KEYWORD_SEARCH ? keywordSearch : "",
         // Financial Metrics min/max
@@ -1733,6 +1763,8 @@ const CompanyDashboard = ({
       selectedOwnershipTypes,
       linkedinMembersMin,
       linkedinMembersMax,
+      lastInvestmentYearsMin,
+      lastInvestmentYearsMax,
       searchTerm,
       keywordSearch,
       // Financial Metrics min/max
@@ -1894,6 +1926,13 @@ const CompanyDashboard = ({
       if (linkedinRange) {
         filtersUsed.linkedin_members = linkedinRange;
       }
+      const lastInvestmentRange = range(
+        lastInvestmentYearsMin,
+        lastInvestmentYearsMax
+      );
+      if (lastInvestmentRange) {
+        filtersUsed.years_since_last_investment = lastInvestmentRange;
+      }
 
       const financial: Record<string, unknown> = {};
       const revenueRange = range(revenueMin, revenueMax);
@@ -1967,6 +2006,8 @@ const CompanyDashboard = ({
     hybridBusinessFocuses,
     linkedinMembersMin,
     linkedinMembersMax,
+    lastInvestmentYearsMin,
+    lastInvestmentYearsMax,
     revenueMin,
     revenueMax,
     ebitdaMin,
@@ -2011,6 +2052,8 @@ const CompanyDashboard = ({
     setSelectedOwnershipTypes([]);
     setLinkedinMembersMin(null);
     setLinkedinMembersMax(null);
+    setLastInvestmentYearsMin(null);
+    setLastInvestmentYearsMax(null);
     setLinkedinMembersMinInput("");
     setLinkedinMembersMaxInput("");
     setRevenueMin(null);
@@ -3052,6 +3095,38 @@ const CompanyDashboard = ({
                   />
                 </div>
 
+                <span style={styles.label}>Years Since Last Investment</span>
+                <div style={{ display: "flex", gap: "14px" }}>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    placeholder="Min years"
+                    value={lastInvestmentYearsMin ?? ""}
+                    onChange={(e) =>
+                      setLastInvestmentYearsMin(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    style={styles.rangeInput}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    placeholder="Max years"
+                    value={lastInvestmentYearsMax ?? ""}
+                    onChange={(e) =>
+                      setLastInvestmentYearsMax(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
                 <span style={styles.label}>Growth Time Frame</span>
                 <select
                   style={styles.select}
@@ -3760,6 +3835,8 @@ const CompanySection = ({
       currentFilters.ownershipTypes.length > 0 ||
       currentFilters.linkedinMembersMin !== null ||
       currentFilters.linkedinMembersMax !== null ||
+      currentFilters.lastInvestmentYearsMin !== null ||
+      currentFilters.lastInvestmentYearsMax !== null ||
       currentFilters.searchQuery.trim() !== "" ||
       (ENABLE_COMPANIES_KEYWORD_SEARCH &&
         currentFilters.keywordSearch.trim() !== "") ||
@@ -3861,6 +3938,14 @@ const CompanySection = ({
         // LinkedIn Members
         appendIfValue("Min_linkedin_members", f.linkedinMembersMin);
         appendIfValue("Max_linkedin_members", f.linkedinMembersMax);
+        appendIfValue(
+          "Last_investment_days_since_min",
+          yearsToDays(f.lastInvestmentYearsMin)
+        );
+        appendIfValue(
+          "Last_investment_days_since_max",
+          yearsToDays(f.lastInvestmentYearsMax)
+        );
         appendIfValue("min_growth_percent", f.minGrowthPercent);
         appendIfValue("max_growth_percent", f.maxGrowthPercent);
         if (f.timeFrame && f.timeFrame.trim()) {

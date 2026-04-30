@@ -64,6 +64,12 @@ interface CompanyEV {
   currency?: { Currency?: string };
 }
 
+interface LastInvestment {
+  display?: string | null;
+  date?: string | null;
+  days_since?: number | string | null;
+}
+
 // Financial metrics payload from Xano `company_financial_metrics`
 interface CompanyFinancialMetrics {
   id: number;
@@ -435,6 +441,7 @@ interface Company {
   Data_Collection_Method?: CompanyDataCollectionMethodItem[] | string;
   Revenue_Model_?: CompanyRevenueModelItem[] | string;
   have_parent_company?: HaveParentCompany;
+  last_investment?: LastInvestment | null;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
   }>;
@@ -450,6 +457,7 @@ interface CompanyResponse {
   Product_Type?: CompanyProductTypeItem[] | string;
   Data_Collection_Method?: CompanyDataCollectionMethodItem[] | string;
   Revenue_Model_?: CompanyRevenueModelItem[] | string;
+  last_investment?: LastInvestment | null;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
   }>;
@@ -750,6 +758,34 @@ const formatFinancialMetricsPeriod = (
   }
 
   return null;
+};
+
+const formatLastInvestmentDisplay = (
+  lastInvestment?: LastInvestment | null
+): string => {
+  const display = String(lastInvestment?.display ?? "").trim();
+  if (display) return display;
+
+  let daysSince = getNumeric(lastInvestment?.days_since);
+  if (daysSince === undefined && lastInvestment?.date) {
+    const investmentDate = new Date(lastInvestment.date);
+    if (!Number.isNaN(investmentDate.getTime())) {
+      daysSince = Math.max(
+        0,
+        Math.floor((Date.now() - investmentDate.getTime()) / 86_400_000)
+      );
+    }
+  }
+
+  if (daysSince === undefined) return "—";
+  if (daysSince < 365) {
+    if (daysSince < 30) return "This month";
+    const months = Math.max(1, Math.floor(daysSince / 30));
+    return `${months} ${months === 1 ? "month" : "months"}`;
+  }
+
+  const years = Math.floor(daysSince / 365);
+  return `${years} ${years === 1 ? "year" : "years"}`;
 };
 
 // Determines Year Founded using multiple fallbacks
@@ -1356,6 +1392,12 @@ const CompanyDetail = () => {
             data.Company?.Revenue_Model_ ||
             (data.Company as { Revenue_Model?: CompanyRevenueModelItem[] | string })
               ?.Revenue_Model,
+          last_investment:
+            (data as { last_investment?: LastInvestment | null })
+              .last_investment ??
+            (data.Company as { last_investment?: LastInvestment | null })
+              ?.last_investment ??
+            null,
           Lifecycle_stage:
             data.Company?.Lifecycle_stage ||
             (data as unknown as { Lifecycle_stage?: LifecycleStage })
@@ -3032,49 +3074,59 @@ const CompanyDetail = () => {
               )}
               {/* Investors — hide if parent company exists */}
               {!haveParentCompany && (
-                <div style={styles.infoRow} className="info-row">
-                  <span style={styles.label} className="info-label">
-                    Investors:
-                  </span>
-                  <div style={styles.value} className="info-value">
-                    {(() => {
-                      if (apiInvestorsLoading) {
-                        return "Loading...";
-                      }
-                      if (apiInvestors.length > 0) {
-                        const validApiInvestors = apiInvestors.filter(
-                          (investor) =>
-                            investor &&
-                            typeof investor.investor_id === "number" &&
-                            investor.investor_name
-                        );
-                        if (validApiInvestors.length > 0) {
-                          return (
-                            <div style={styles.tagContainer}>
-                              {validApiInvestors.map((investor) => (
-                                <Link
-                                  key={`api-investor-${investor.investor_id}`}
-                                  href={`/investors/${investor.investor_id}`}
-                                  style={styles.companyTag}
-                                  onMouseEnter={(e) => {
-                                    (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
-                                  }}
-                                  prefetch={false}
-                                >
-                                  {investor.investor_name}
-                                </Link>
-                              ))}
-                            </div>
-                          );
+                <>
+                  <div style={styles.infoRow} className="info-row">
+                    <span style={styles.label} className="info-label">
+                      Investors:
+                    </span>
+                    <div style={styles.value} className="info-value">
+                      {(() => {
+                        if (apiInvestorsLoading) {
+                          return "Loading...";
                         }
-                      }
-                      return "Not available";
-                    })()}
+                        if (apiInvestors.length > 0) {
+                          const validApiInvestors = apiInvestors.filter(
+                            (investor) =>
+                              investor &&
+                              typeof investor.investor_id === "number" &&
+                              investor.investor_name
+                          );
+                          if (validApiInvestors.length > 0) {
+                            return (
+                              <div style={styles.tagContainer}>
+                                {validApiInvestors.map((investor) => (
+                                  <Link
+                                    key={`api-investor-${investor.investor_id}`}
+                                    href={`/investors/${investor.investor_id}`}
+                                    style={styles.companyTag}
+                                    onMouseEnter={(e) => {
+                                      (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
+                                    }}
+                                    prefetch={false}
+                                  >
+                                    {investor.investor_name}
+                                  </Link>
+                                ))}
+                              </div>
+                            );
+                          }
+                        }
+                        return "Not available";
+                      })()}
+                    </div>
                   </div>
-                </div>
+                  <div style={styles.infoRow} className="info-row">
+                    <span style={styles.label} className="info-label">
+                      Years Since Last Investment:
+                    </span>
+                    <div style={styles.value} className="info-value">
+                      {formatLastInvestmentDisplay(company.last_investment)}
+                    </div>
+                  </div>
+                </>
               )}
               {hasManagement && (
                 <div style={{ marginTop: "16px" }}>
