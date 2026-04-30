@@ -2659,7 +2659,7 @@ const CompanyDetail = () => {
                           ? "Exporting Metrics..."
                           : "Exporting..."
                         : "Export PDF"}
-                      <span aria-hidden="true">v</span>
+                      <span aria-hidden="true"></span>
                     </button>
                     {showPdfExportOptions && !exportingPdf && company?.id && (
                       <div
