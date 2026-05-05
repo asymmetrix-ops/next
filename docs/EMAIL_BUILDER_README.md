@@ -1,3 +1,4 @@
+
 # Admin Email Builder – Specs & How It Works
 
 This document describes the **Email Template Builder** in the Admin panel (`/admin` → Emails tab): components, libraries, image upload, templates, and preview flow.
@@ -7,7 +8,7 @@ This document describes the **Email Template Builder** in the Admin panel (`/adm
 ## Summary: How the Email Builder Works
 
 1. **Location**: Admin page → **Emails** tab (`src/app/admin/page.tsx`, `EmailsTab` component).
-2. **Flow**: Admin edits **subject** and **body** (rich text), optionally picks a **template** from Xano, can **preview** in a new tab, **export/copy** full HTML, or **submit/save** to Xano as email content.
+2. **Flow**: Admin edits **subject** and **body** (rich text), sets optional **From** (free-form email with Asymmetrix suggestions), optionally picks a **template** from Xano, can **preview** in a new tab, **export/copy** full HTML, or **submit/save** to Xano as email content.
 3. **Body editor**: Tiptap-based rich text editor (`TiptapSimpleEditor`) with paste/drop/image upload. Images are uploaded to Xano and inserted as URLs (see **How images work** and **Image upload** below).
 4. **Output**: Emails are wrapped in a branded HTML shell (fonts, layout, badges, mobile styles). That full HTML can be exported, previewed, or stored in Xano.
 
@@ -20,7 +21,8 @@ This document describes the **Email Template Builder** in the Admin panel (`/adm
 | Component | Import Path | Purpose |
 |-----------|-------------|---------|
 | **TiptapSimpleEditor** | `@/components/ui/TiptapSimpleEditor` | Rich text body editor (bold, lists, links, tables, images, etc.). |
-| **Native elements** | — | Subject input, template `<select>`, checkboxes, buttons. No `SearchableSelect` in the Emails tab. |
+| **SuggestedSenderEmailInput** | `@/components/ui/SuggestedSenderEmailInput` | **From** field: free-text email plus dropdown **suggestions** from Asymmetrix users (`fetchAsymmetrixUsersForEmailSelect` → `/api/asymmetrix-users`). Any address can be typed; picking a row fills the email and keeps the directory display name for preview. |
+| **Native elements** | — | Subject input, template `<select>`, checkboxes, buttons. No generic `SearchableSelect` in the Emails tab. |
 
 ### TiptapSimpleEditor – Under the Hood
 
@@ -152,19 +154,29 @@ So “branded” = same layout/fonts/badges for every email; only the inner `bod
 ## Templates (Xano)
 
 - **List**: `GET https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content` → array of templates.
-- **Template shape**: `{ id, Headline?, Body?, Publication_Date?, created_at? }`. `Headline` = subject line; `Body` = full branded HTML (or similar).
-- **Selecting a template**: Populates **Subject** from `Headline` and **Body** from `Body`. Body is normalized with `extractInnerContent()` so only the inner content (e.g. container `<td>`) is loaded into the editor; the outer wrapper is stripped to avoid double-wrapping when saving.
-- **Create**: “Submit” with no template selected → `POST` to `.../email_content` with `Publication_Date: null`, `Headline: subject`, `Body: buildBrandedEmailHtml(...)`.
-- **Update**: Template selected → “Save” → `PATCH .../email_content/:id` with `email_content_id`, `Publication_Date`, `Headline`, `Body`.
+- **Template shape**: `{ id, Headline?, Body?, Publication_Date?, entity_type?, from_email?, created_at? }`. `Headline` = subject line; `Body` = full branded HTML (or similar); `from_email` = sender address stored with the template.
+- **Selecting a template**: Populates **Subject** from `Headline`, **Body** from `Body`, **From** from `from_email` when present (local part of the email used as display name when no separate name exists). Body is normalized with `extractInnerContent()` so only the inner content (e.g. container `<td>`) is loaded into the editor; the outer wrapper is stripped to avoid double-wrapping when saving.
+- **Create**: “Submit” with no template selected → `POST` to `.../email_content` with `Publication_Date: null`, `Headline`, `Body`, `entity_type`, `from_email` (whatever address is in the From field — typed or chosen from suggestions — or `""`).
+- **Update**: Template selected → “Save” → `PATCH .../email_content/:id` with `email_content_id`, `Publication_Date`, `Headline`, `Body`, `entity_type`, `from_email`.
+
+---
+
+## Sender (From)
+
+- **UI**: “From (sender email)” — optional combobox above **Entity Type**: always editable; opens suggestions while focused.
+- **Typing**: Filter the directory by substring on **name or email** (e.g. “Pier” surfaces Pieros). Multiple people with similar names stay distinguishable by **email** on each row.
+- **Choices**: Click a suggestion to fill that address, **or** keep typing any sender address (another Piero, external mail, etc.)—the field is never locked to the list.
+- **Suggestions source**: Directory list from **`GET /api/asymmetrix-users`** (Bearer auth), narrowed by what you type (`fetchAsymmetrixUsersForEmailSelect` in `src/lib/api.ts`). Rows are sorted by name then email.
+- **Save to Xano**: **Submit** / **Save** sends `from_email` as the field text (empty string if cleared).
 
 ---
 
 ## Preview
 
 - **Storage key**: `asymmetrix_email_preview_v1` (localStorage).
-- **Payload**: `{ created_at, subject, html, to? }`. `html` = full branded HTML; `to` is set only when “Single recipient” is checked and an email is entered.
+- **Payload**: `{ created_at, subject, html, from?, to? }`. `html` = full branded HTML. `from` is set when the From field has text (`{ name, email }`; **name** prefers the directory display name if the user picked a suggestion, otherwise the local part of the email); `to` is set only when “Single recipient” is checked and an email is entered.
 - **Action**: “Preview” builds the branded HTML, writes the payload to localStorage, and opens `/email/preview` in a new tab.
-- **Preview page** (`src/app/email/preview/page.tsx`): Reads the same key, renders `html` in an iframe (or similar), shows subject and “To” if present, “Back to Admin” link, and “Copy HTML” if needed.
+- **Preview page** (`src/app/email/preview/page.tsx`): Reads the same key, renders `html` in an iframe (or similar), shows subject, **From** and **To** when present, “Back to Admin” link, and “Copy HTML” if needed.
 
 ---
 
@@ -182,8 +194,8 @@ So “branded” = same layout/fonts/badges for every email; only the inner `bod
 | **Export HTML** | Builds branded HTML from current subject + body, sets local `html` state (and shows “Generated HTML” below). |
 | **Copy HTML** | Copies that generated `html` to clipboard (no export if not already built). |
 | **Preview** | Builds branded HTML, saves to localStorage under `asymmetrix_email_preview_v1`, opens `/email/preview`. Disabled if subject is empty. |
-| **Submit** | No template selected: POST new template to Xano (Headline + Body). |
-| **Save** | Template selected: PATCH existing template by id. |
+| **Submit** | No template selected: POST new template to Xano (`Headline`, `Body`, `entity_type`, `from_email`, …). |
+| **Save** | Template selected: PATCH existing template by id (same fields including `from_email`). |
 
 ---
 
@@ -191,7 +203,10 @@ So “branded” = same layout/fonts/badges for every email; only the inner `bod
 
 | Item | Location |
 |------|----------|
-| Email builder UI & logic | `src/app/admin/page.tsx` – `EmailsTab`, `sanitizeHtml`, `buildBrandedEmailHtml`, `extractInnerContent` |
+| Email builder UI & logic | `src/app/admin/page.tsx` – `EmailsTab`, `sanitizeHtml`, `buildBrandedEmailHtml`, `extractInnerContent`, sender `SuggestedSenderEmailInput` |
+| Asymmetrix users API proxy | `src/app/api/asymmetrix-users/route.ts` |
+| Sender search helper | `src/lib/api.ts` – `UserEmailItem`, `fetchAsymmetrixUsersForEmailSelect` |
+| Sender combobox (free text + suggestions) | `src/components/ui/SuggestedSenderEmailInput.tsx` |
 | Rich text editor | `src/components/ui/TiptapSimpleEditor.tsx` |
 | Email preview page | `src/app/email/preview/page.tsx` |
 | Tiptap/table deps | `package.json` – `@tiptap/*` |

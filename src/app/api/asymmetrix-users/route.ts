@@ -10,7 +10,7 @@ const XANO_USERS_URL =
 /** Xano list endpoints may return a bare array or wrapped `{ items: [...] }` rows with varying id keys. */
 function normalizeAsymmetrixUsers(
   data: unknown
-): Array<{ id: number; name: string }> {
+): Array<{ id: number; name: string; email: string }> {
   let rows: unknown[] = [];
   if (Array.isArray(data)) {
     rows = data;
@@ -32,7 +32,7 @@ function normalizeAsymmetrixUsers(
     }
   }
 
-  const out: Array<{ id: number; name: string }> = [];
+  const out: Array<{ id: number; name: string; email: string }> = [];
   const seen = new Set<number>();
   for (const row of rows) {
     if (!row || typeof row !== "object") continue;
@@ -59,10 +59,12 @@ function normalizeAsymmetrixUsers(
     if (seen.has(id)) continue;
     seen.add(id);
 
+    const email = String(r.email ?? r.Email ?? "").trim();
     const name =
-      String(r.name ?? r.Name ?? r.email ?? r.Email ?? "").trim() ||
+      String(r.name ?? r.Name ?? "").trim() ||
+      email ||
       `User #${id}`;
-    out.push({ id, name });
+    out.push({ id, name, email });
   }
   return out;
 }

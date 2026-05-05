@@ -7,6 +7,8 @@ type EmailPreviewPayload = {
   created_at?: number;
   subject?: string;
   html?: string;
+  /** Selected Asymmetrix sender from Email Builder */
+  from?: string | { name?: string; email?: string };
   to?: string;
 };
 
@@ -34,6 +36,15 @@ export default function EmailPreviewPage() {
   const subject = String(payload?.subject || "").trim();
   const html = String(payload?.html || "");
   const to = String(payload?.to || "").trim();
+  const fromLabel = useMemo(() => {
+    const f = payload?.from;
+    if (!f) return "";
+    if (typeof f === "string") return f.trim();
+    const name = String(f.name ?? "").trim();
+    const email = String(f.email ?? "").trim();
+    if (name && email) return `${name} <${email}>`;
+    return email || name;
+  }, [payload?.from]);
 
   const createdAtLabel = useMemo(() => {
     const ts = payload?.created_at;
@@ -59,6 +70,9 @@ export default function EmailPreviewPage() {
             <div className="text-xl font-semibold">
               {subject ? subject : "Email Preview"}
             </div>
+            {fromLabel ? (
+              <div className="text-sm text-gray-600">From: {fromLabel}</div>
+            ) : null}
             {to ? <div className="text-sm text-gray-600">To: {to}</div> : null}
           </div>
 

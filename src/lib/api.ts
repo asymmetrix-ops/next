@@ -129,3 +129,65 @@ class ApiService {
 
 export const apiService = new ApiService();
 export type { ApiResponse, CollectionParams };
+
+/** Asymmetrix directory user for searchable email pickers (admin). */
+export type UserEmailItem = {
+  id?: number;
+  name: string;
+  email: string;
+};
+
+/**
+ * Loads Asymmetrix users via `/api/asymmetrix-users` (Bearer auth) and filters by name/email.
+ * Only returns rows with a non-empty email.
+ */
+export async function fetchAsymmetrixUsersForEmailSelect(
+  token: string,
+  query: string
+): Promise<UserEmailItem[]> {
+  const res = await fetch("/api/asymmetrix-users", {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to load Asymmetrix users");
+  }
+  const data = (await res.json()) as unknown;
+  if (!Array.isArray(data)) return [];
+
+  const q = query.trim().toLowerCase();
+  const mapped: UserEmailItem[] = [];
+  for (const row of data) {
+    if (!row || typeof row !== "object") continue;
+    const r = row as Record<string, unknown>;
+    const idRaw = r.id;
+    const id =
+      typeof idRaw === "number" && Number.isFinite(idRaw)
+        ? Math.trunc(idRaw)
+        : typeof idRaw === "string"
+          ? parseInt(idRaw, 10)
+          : undefined;
+    const name = String(r.name ?? "").trim();
+    const email = String(r.email ?? "").trim();
+    if (!email) continue;
+    const item: UserEmailItem = {
+      ...(typeof id === "number" && Number.isFinite(id) && id > 0
+        ? { id }
+        : {}),
+      name: name || email || (id ? `User #${id}` : "User"),
+      email,
+    };
+    if (
+      !q ||
+      item.name.toLowerCase().includes(q) ||
+      item.email.toLowerCase().includes(q)
+    ) {
+      mapped.push(item);
+    }
+  }
+  return mapped;
+}

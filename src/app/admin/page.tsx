@@ -6,7 +6,13 @@ import Link from "next/link";
 import { CompetitorsTab } from "./analytics/_components/AnalyticsViews";
 import { ChangeStateTab } from "./_components/ChangeStatePanel";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import {
+  SuggestedSenderEmailInput,
+  type SenderEmailFieldValue,
+} from "@/components/ui/SuggestedSenderEmailInput";
 import TiptapSimpleEditor from "@/components/ui/TiptapSimpleEditor";
+import { fetchAsymmetrixUsersForEmailSelect } from "@/lib/api";
+import { authService } from "@/lib/auth";
 import { locationsService } from "@/lib/locationsService";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useRouter } from "next/navigation";
@@ -605,6 +611,9 @@ function EmailsTab() {
   const [entityType, setEntityType] = useState<EmailEntityType>("");
   const [singleRecipient, setSingleRecipient] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
+  const [senderField, setSenderField] = useState<SenderEmailFieldValue>({
+    email: "",
+  });
   const [sending, setSending] = useState(false);
   const EMAIL_PREVIEW_STORAGE_KEY = "asymmetrix_email_preview_v1";
 
@@ -650,6 +659,7 @@ function EmailsTab() {
     Headline?: string | null;
     Body?: string | null;
     entity_type?: EmailEntityType | null;
+    from_email?: string | null;
     Publication_Date?: unknown;
     created_at?: number;
   }
@@ -743,6 +753,15 @@ function EmailsTab() {
           created_at: Date.now(),
           subject: subjectTrimmed,
           html: brandedHtml,
+          from: senderField.email.trim()
+            ? {
+                name:
+                  senderField.directoryName ??
+                  senderField.email.split("@")[0] ??
+                  senderField.email,
+                email: senderField.email.trim(),
+              }
+            : "",
           to: singleRecipient ? recipientEmail.trim() : "",
         })
       );
@@ -796,6 +815,8 @@ function EmailsTab() {
             if (t) {
               setSubject(String(t.Headline ?? ""));
               setEntityType(coerceEmailEntityType(t.entity_type));
+              const fe = String(t.from_email ?? "").trim();
+              setSenderField(fe ? { email: fe } : { email: "" });
               if (t.Body) {
                 const inner = extractInnerContent(String(t.Body));
                 setBodyHtml(inner || "<p></p>");
@@ -822,6 +843,16 @@ function EmailsTab() {
           placeholder="Email subject"
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
+        />
+      </div>
+
+      <div className="mb-3 max-w-xl">
+        <SuggestedSenderEmailInput
+          token={authService.getToken()}
+          fetchSuggestions={fetchAsymmetrixUsersForEmailSelect}
+          value={senderField}
+          onChange={setSenderField}
+          label="From (sender email)"
         />
       </div>
 
@@ -900,6 +931,7 @@ function EmailsTab() {
                       Headline: subjectTrimmed,
                       Body: brandedHtml,
                       entity_type: entityType,
+                      from_email: senderField.email.trim(),
                     }),
                   }
                 );
@@ -945,6 +977,7 @@ function EmailsTab() {
                       Headline: subjectTrimmed,
                       Body: brandedHtml,
                       entity_type: entityType,
+                      from_email: senderField.email.trim(),
                     }),
                   }
                 );
