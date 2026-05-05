@@ -297,7 +297,7 @@ export async function fetchCompaniesServer(
     }
     params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
 
-    const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${params.toString()}`;
+    const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_companies?${params.toString()}`;
 
     const response = await fetch(url, {
       method: "GET",

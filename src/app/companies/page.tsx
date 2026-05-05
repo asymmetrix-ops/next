@@ -1685,12 +1685,10 @@ const CompanyDashboard = ({
     );
   };
 
-  const handleFollowedToggle = useCallback((checked: boolean) => {
-    setPendingPortfolioOnly(checked);
-  }, []);
-
   const handleSearch = useCallback(
-    (overrides?: Partial<Pick<Filters, "exclude_business_focus">>) => {
+    (overrides?: Partial<
+      Pick<Filters, "exclude_business_focus" | "portfolio_only">
+    >) => {
       const filters: Filters = {
         countries: selectedCountries,
         continentalRegions: selectedContinentalRegions,
@@ -1741,7 +1739,7 @@ const CompanyDashboard = ({
         maxGrowthPercent,
         timeFrame,
         transactionStatus: selectedTransactionStatus,
-        portfolio_only: pendingPortfolioOnly,
+        portfolio_only: overrides?.portfolio_only ?? pendingPortfolioOnly,
       };
       console.log("Searching with filters:", filters);
 
@@ -1802,6 +1800,15 @@ const CompanyDashboard = ({
       selectedTransactionStatus,
       pendingPortfolioOnly,
     ]
+  );
+
+  const handleFollowedToggle = useCallback(
+    (checked: boolean) => {
+      if (checked === pendingPortfolioOnly) return;
+      setPendingPortfolioOnly(checked);
+      handleSearch({ portfolio_only: checked });
+    },
+    [pendingPortfolioOnly, handleSearch]
   );
 
   const handleBusinessFocusToggle = useCallback(
@@ -3765,7 +3772,7 @@ const CompanySection = ({
         const params = new URLSearchParams();
         params.append("company_ids", JSON.stringify(ids));
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_table_data?${params.toString()}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_table_data?${params.toString()}`,
           {
             method: "GET",
             headers: {
@@ -4018,7 +4025,7 @@ const CompanySection = ({
       baseParams.append("Offset", "1");
       baseParams.append("Per_page", "25");
       
-      const firstPageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${baseParams.toString()}`;
+      const firstPageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Export_new_companies_csv?${baseParams.toString()}`;
       
       const firstResp = await fetch(firstPageUrl, {
         method: "GET",
@@ -4099,7 +4106,7 @@ const CompanySection = ({
           pageParams.append("Offset", page.toString());
           pageParams.append("Per_page", "25");
           
-          const pageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${pageParams.toString()}`;
+          const pageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Export_new_companies_csv?${pageParams.toString()}`;
           
           const pageResp = await fetch(pageUrl, {
             method: "GET",
