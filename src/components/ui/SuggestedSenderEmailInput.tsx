@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { UserEmailItem } from "@/lib/api";
 
@@ -25,9 +25,8 @@ export function SuggestedSenderEmailInput({
   value,
   onChange,
   label,
-  placeholder = "Start typing a name or email, or enter any address…",
+  placeholder = "Type any email, or pick an Asymmetrix user below…",
 }: SuggestedSenderEmailInputProps) {
-  const suggestionListId = useId();
   const [options, setOptions] = useState<UserEmailItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -38,6 +37,7 @@ export function SuggestedSenderEmailInput({
     width: number;
   } | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const menuPanelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const loadQueryRef = useRef<string>("");
@@ -55,13 +55,7 @@ export function SuggestedSenderEmailInput({
       try {
         const list = await fetchSuggestions(token, q);
         if (loadQueryRef.current !== q) return;
-        const sorted = [...list].sort((a, b) => {
-          const na = a.name.toLowerCase();
-          const nb = b.name.toLowerCase();
-          if (na !== nb) return na.localeCompare(nb);
-          return a.email.toLowerCase().localeCompare(b.email.toLowerCase());
-        });
-        setOptions(sorted);
+        setOptions(list);
         setHighlightIndex(0);
       } catch {
         if (loadQueryRef.current !== q) return;
@@ -92,7 +86,7 @@ export function SuggestedSenderEmailInput({
       const rect = wrapperRef.current?.getBoundingClientRect();
       if (!rect) return;
       setMenuStyle({
-        top: rect.bottom + 4,
+        top: rect.bottom + 8,
         left: rect.left,
         width: rect.width,
       });
@@ -115,7 +109,7 @@ export function SuggestedSenderEmailInput({
       const target = event.target as Node | null;
       if (!target) return;
       if (wrapperRef.current?.contains(target)) return;
-      if (listRef.current?.contains(target)) return;
+      if (menuPanelRef.current?.contains(target)) return;
       setOpen(false);
     };
 
@@ -130,6 +124,7 @@ export function SuggestedSenderEmailInput({
         directoryName: user.name,
       });
       setOpen(false);
+      inputRef.current?.blur();
     },
     [onChange]
   );
@@ -183,23 +178,29 @@ export function SuggestedSenderEmailInput({
   const dropdown =
     open && menuStyle
       ? createPortal(
-          <ul
-            id={suggestionListId}
-            ref={listRef}
-            className="fixed z-[200] max-h-48 overflow-auto rounded-md border border-gray-300 bg-white py-1 shadow-lg"
+          <div
+            ref={menuPanelRef}
+            className="fixed z-[200] flex max-h-52 flex-col overflow-hidden rounded-md border border-gray-300 bg-white shadow-lg"
             style={{
               top: menuStyle.top,
               left: menuStyle.left,
               width: menuStyle.width,
             }}
-            role="listbox"
           >
+            <div className="border-b border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700">
+              Directory suggestions (optional)
+            </div>
+            <ul
+              ref={listRef}
+              className="max-h-44 overflow-y-auto py-1"
+              role="listbox"
+            >
             {loading && (
               <li className="px-3 py-2 text-xs text-gray-500">Loading suggestions…</li>
             )}
             {!loading && options.length === 0 && token && (
               <li className="px-3 py-2 text-xs text-gray-500">
-                No directory matches — keep typing; you can use any address (not only people in the list).
+                No directory matches — keep typing; any email address is allowed.
               </li>
             )}
             {!loading && options.length === 0 && !token && (
@@ -229,7 +230,8 @@ export function SuggestedSenderEmailInput({
                   <span className="ml-2 text-gray-600">{user.email}</span>
                 </li>
               ))}
-          </ul>,
+            </ul>
+          </div>,
           document.body
         )
       : null;
@@ -238,41 +240,40 @@ export function SuggestedSenderEmailInput({
     <div ref={wrapperRef} className="relative">
       <label className="mb-1 block text-sm font-medium">{label}</label>
       <p className="mb-1.5 text-xs text-gray-500">
-        Focus the field to see everyone in the directory. Type to narrow (e.g. “Pier” shows matching names
-        and emails). Choose a row for that person, or ignore the list and enter any sender address—another
-        Piero, an external inbox, etc.
+        Enter any sender address here. While this field is focused, a separate directory panel
+        opens below with matching Asymmetrix users — click a row to fill the email, or ignore it
+        and keep typing a custom address.
       </p>
-      <div className="flex w-full items-center gap-2 rounded-md border border-gray-300 bg-white focus-within:ring-1 focus-within:ring-gray-400">
-        <input
-          ref={inputRef}
-          type="text"
-          inputMode="email"
-          autoComplete="off"
-          aria-autocomplete="list"
-          aria-expanded={open}
-          aria-controls={open ? suggestionListId : undefined}
-          value={value.email}
-          placeholder={placeholder}
-          onChange={(e) => {
-            onChange({
-              email: e.target.value,
-              directoryName: undefined,
-            });
-            setOpen(true);
-          }}
-          onFocus={() => setOpen(true)}
-          onKeyDown={handleKeyDown}
-          className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-400"
-        />
-        {value.email.trim() !== "" && (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-          >
-            Clear
-          </button>
-        )}
+      <div className="rounded-md border border-gray-300 bg-white focus-within:ring-1 focus-within:ring-gray-400">
+        <div className="flex items-center gap-2">
+          <input
+            ref={inputRef}
+            type="text"
+            inputMode="email"
+            autoComplete="email"
+            value={value.email}
+            placeholder={placeholder}
+            onChange={(e) => {
+              onChange({
+                email: e.target.value,
+                directoryName: undefined,
+              });
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+            onKeyDown={handleKeyDown}
+            className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-400"
+          />
+          {value.email.trim() !== "" && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
       {dropdown}
     </div>

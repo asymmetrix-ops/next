@@ -10,6 +10,8 @@ type EmailPreviewPayload = {
   /** Selected Asymmetrix sender from Email Builder */
   from?: string | { name?: string; email?: string };
   to?: string;
+  /** Basic users multi-select (builder only until API wiring) */
+  basic_users?: Array<{ id: number; name: string; email: string }>;
 };
 
 const EMAIL_PREVIEW_STORAGE_KEY = "asymmetrix_email_preview_v1";
@@ -36,6 +38,29 @@ export default function EmailPreviewPage() {
   const subject = String(payload?.subject || "").trim();
   const html = String(payload?.html || "");
   const to = String(payload?.to || "").trim();
+  const basicUsers = useMemo(() => {
+    const raw = payload?.basic_users;
+    if (!Array.isArray(raw) || raw.length === 0) return [];
+    return raw.filter(
+      (u): u is { id: number; name: string; email: string } =>
+        u &&
+        typeof u === "object" &&
+        typeof (u as { id?: unknown }).id === "number"
+    );
+  }, [payload?.basic_users]);
+
+  const basicUsersLabel = useMemo(() => {
+    if (basicUsers.length === 0) return "";
+    return basicUsers
+      .map((u) => {
+        const name = String(u.name ?? "").trim();
+        const email = String(u.email ?? "").trim();
+        if (name && email) return `${name} <${email}>`;
+        return email || name || `#${u.id}`;
+      })
+      .join("; ");
+  }, [basicUsers]);
+
   const fromLabel = useMemo(() => {
     const f = payload?.from;
     if (!f) return "";
@@ -74,6 +99,11 @@ export default function EmailPreviewPage() {
               <div className="text-sm text-gray-600">From: {fromLabel}</div>
             ) : null}
             {to ? <div className="text-sm text-gray-600">To: {to}</div> : null}
+            {basicUsersLabel ? (
+              <div className="text-sm text-gray-600">
+                Basic users: {basicUsersLabel}
+              </div>
+            ) : null}
           </div>
 
           <div className="flex gap-2">

@@ -191,3 +191,30 @@ export async function fetchAsymmetrixUsersForEmailSelect(
   }
   return mapped;
 }
+
+/** Basic user row from `all_users` (admin Email Builder multi-select). */
+export type BasicUserItem = {
+  id: number;
+  name: string;
+  email: string;
+  Company?: number;
+  created_at?: number;
+};
+
+/** Full list from `/api/all-users` (Bearer auth). Filter client-side for search. */
+export async function fetchAllUsers(token: string): Promise<BasicUserItem[]> {
+  const res = await fetch("/api/all-users", {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to load users");
+  }
+  const data = (await res.json()) as unknown;
+  if (!Array.isArray(data)) return [];
+  return data as BasicUserItem[];
+}

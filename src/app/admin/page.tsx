@@ -10,8 +10,12 @@ import {
   SuggestedSenderEmailInput,
   type SenderEmailFieldValue,
 } from "@/components/ui/SuggestedSenderEmailInput";
+import { BasicUsersMultiSelect } from "@/components/ui/BasicUsersMultiSelect";
 import TiptapSimpleEditor from "@/components/ui/TiptapSimpleEditor";
-import { fetchAsymmetrixUsersForEmailSelect } from "@/lib/api";
+import {
+  fetchAsymmetrixUsersForEmailSelect,
+  type BasicUserItem,
+} from "@/lib/api";
 import { authService } from "@/lib/auth";
 import { locationsService } from "@/lib/locationsService";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -614,6 +618,9 @@ function EmailsTab() {
   const [senderField, setSenderField] = useState<SenderEmailFieldValue>({
     email: "",
   });
+  const [selectedBasicUsers, setSelectedBasicUsers] = useState<BasicUserItem[]>(
+    []
+  );
   const [sending, setSending] = useState(false);
   const EMAIL_PREVIEW_STORAGE_KEY = "asymmetrix_email_preview_v1";
 
@@ -763,6 +770,11 @@ function EmailsTab() {
               }
             : "",
           to: singleRecipient ? recipientEmail.trim() : "",
+          basic_users: selectedBasicUsers.map((u) => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+          })),
         })
       );
       window.open("/email/preview", "_blank", "noopener,noreferrer");
@@ -770,6 +782,58 @@ function EmailsTab() {
       alert(e instanceof Error ? e.message : "Failed to open preview");
     }
   };
+
+  const SEND_EMAIL_URL =
+    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/send_email";
+
+  function extractEmailContentIdFromResponse(data: unknown): number | null {
+    if (typeof data === "number" && Number.isFinite(data) && data > 0) {
+      return Math.trunc(data);
+    }
+    if (Array.isArray(data) && data.length > 0) {
+      return extractEmailContentIdFromResponse(data[0]);
+    }
+    if (!data || typeof data !== "object") return null;
+    const o = data as Record<string, unknown>;
+    const keys = ["id", "email_content_id", "email_contentId"] as const;
+    for (const k of keys) {
+      const v = o[k];
+      if (typeof v === "number" && Number.isFinite(v) && v > 0) {
+        return Math.trunc(v);
+      }
+      if (typeof v === "string") {
+        const n = parseInt(v, 10);
+        if (Number.isFinite(n) && n > 0) return n;
+      }
+    }
+    return null;
+  }
+
+  async function postSendEmail(emailContentId: number): Promise<void> {
+    const token = localStorage.getItem("asymmetrix_auth_token");
+    const fromTrimmed = senderField.email.trim();
+    const payload = {
+      email_from: fromTrimmed ? fromTrimmed : null,
+      email_content_id: emailContentId,
+      emails_to: selectedBasicUsers
+        .map((u) => u.email.trim())
+        .filter((e) => e.length > 0),
+    };
+    const res = await fetch(SEND_EMAIL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      throw new Error(
+        `Send email failed (${res.status}): ${t || res.statusText}`.trim()
+      );
+    }
+  }
 
   return (
     <div>
@@ -856,6 +920,15 @@ function EmailsTab() {
         />
       </div>
 
+      <div className="mb-3 max-w-xl">
+        <BasicUsersMultiSelect
+          token={authService.getToken()}
+          value={selectedBasicUsers}
+          onChange={setSelectedBasicUsers}
+          label="Basic users"
+        />
+      </div>
+
       <div className="mb-3">
         <label className="block mb-1 text-sm font-medium">Entity Type</label>
         <select
@@ -883,7 +956,7 @@ function EmailsTab() {
         </p>
       </div>
 
-      <div className="flex gap-2 mt-4">
+      <div className="flex flex-wrap gap-2 mt-4">
         <button
           className="px-4 py-2 text-white bg-purple-600 rounded"
           onClick={handleExport}
@@ -909,94 +982,213 @@ function EmailsTab() {
           Preview
         </button>
         {selectedTemplateId === "" ? (
-          <button
-            className="px-4 py-2 text-white bg-blue-600 rounded disabled:opacity-50"
-            onClick={async () => {
-              if (sending) return;
-              const subjectTrimmed = subject.trim();
-              if (!subjectTrimmed) return;
+          <>
+            <button
+              className="px-4 py-2 text-white bg-blue-600 rounded disabled:opacity-50"
+              onClick={async () => {
+                if (sending) return;
+                const subjectTrimmed = subject.trim();
+                if (!subjectTrimmed) return;
 
-              const brandedHtml = buildCurrentEmailHtml(subjectTrimmed);
-              setHtml(brandedHtml);
+                const brandedHtml = buildCurrentEmailHtml(subjectTrimmed);
+                setHtml(brandedHtml);
 
-              setSending(true);
-              try {
-                const res = await fetch(
-                  "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content",
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      Publication_Date: null,
-                      Headline: subjectTrimmed,
-                      Body: brandedHtml,
-                      entity_type: entityType,
-                      from_email: senderField.email.trim(),
-                    }),
+                setSending(true);
+                try {
+                  const res = await fetch(
+                    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content",
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        Publication_Date: null,
+                        Headline: subjectTrimmed,
+                        Body: brandedHtml,
+                        entity_type: entityType,
+                        from_email: senderField.email.trim(),
+                      }),
+                    }
+                  );
+                  if (!res.ok) {
+                    alert("Failed to submit email content");
+                  } else {
+                    alert("Email content submitted");
                   }
-                );
-                if (!res.ok) {
-                  alert("Failed to submit email content");
-                } else {
-                  alert("Email content submitted");
+                } catch {
+                  alert("Network error while submitting content");
+                } finally {
+                  setSending(false);
                 }
-              } catch {
-                alert("Network error while submitting content");
-              } finally {
-                setSending(false);
-              }
-            }}
-            disabled={sending || !subject.trim()}
-            type="button"
-          >
-            Submit
-          </button>
+              }}
+              disabled={sending || !subject.trim()}
+              type="button"
+            >
+              Submit
+            </button>
+            <button
+              className="px-4 py-2 text-white bg-indigo-600 rounded disabled:opacity-50"
+              onClick={async () => {
+                if (sending) return;
+                const subjectTrimmed = subject.trim();
+                if (!subjectTrimmed) return;
+
+                const brandedHtml = buildCurrentEmailHtml(subjectTrimmed);
+                setHtml(brandedHtml);
+
+                setSending(true);
+                try {
+                  const res = await fetch(
+                    "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content",
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        Publication_Date: null,
+                        Headline: subjectTrimmed,
+                        Body: brandedHtml,
+                        entity_type: entityType,
+                        from_email: senderField.email.trim(),
+                      }),
+                    }
+                  );
+                  if (!res.ok) {
+                    alert("Failed to submit email content");
+                    return;
+                  }
+                  const json = await res.json().catch(() => null);
+                  const contentId = extractEmailContentIdFromResponse(json);
+                  if (!contentId) {
+                    alert(
+                      "Email content submitted, but the server did not return a content id. Send was not triggered."
+                    );
+                    return;
+                  }
+                  try {
+                    await postSendEmail(contentId);
+                    alert("Submitted and send requested.");
+                  } catch (err) {
+                    alert(
+                      err instanceof Error
+                        ? err.message
+                        : "Send email failed after submit."
+                    );
+                  }
+                } catch {
+                  alert("Network error while submitting content");
+                } finally {
+                  setSending(false);
+                }
+              }}
+              disabled={sending || !subject.trim()}
+              type="button"
+              title="Submit to Xano, then call send_email"
+            >
+              Save &amp; Send
+            </button>
+          </>
         ) : (
-          <button
-            className="px-4 py-2 text-white bg-blue-600 rounded disabled:opacity-50"
-            onClick={async () => {
-              if (sending) return;
-              const idNum = Number(selectedTemplateId);
-              if (!idNum) return;
-              const subjectTrimmed = subject.trim();
-              if (!subjectTrimmed) return;
+          <>
+            <button
+              className="px-4 py-2 text-white bg-blue-600 rounded disabled:opacity-50"
+              onClick={async () => {
+                if (sending) return;
+                const idNum = Number(selectedTemplateId);
+                if (!idNum) return;
+                const subjectTrimmed = subject.trim();
+                if (!subjectTrimmed) return;
 
-              const brandedHtml = buildCurrentEmailHtml(subjectTrimmed);
-              setHtml(brandedHtml);
+                const brandedHtml = buildCurrentEmailHtml(subjectTrimmed);
+                setHtml(brandedHtml);
 
-              setSending(true);
-              try {
-                const res = await fetch(
-                  `https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content/${idNum}`,
-                  {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      email_content_id: idNum,
-                      Publication_Date: null,
-                      Headline: subjectTrimmed,
-                      Body: brandedHtml,
-                      entity_type: entityType,
-                      from_email: senderField.email.trim(),
-                    }),
+                setSending(true);
+                try {
+                  const res = await fetch(
+                    `https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content/${idNum}`,
+                    {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        email_content_id: idNum,
+                        Publication_Date: null,
+                        Headline: subjectTrimmed,
+                        Body: brandedHtml,
+                        entity_type: entityType,
+                        from_email: senderField.email.trim(),
+                      }),
+                    }
+                  );
+                  if (!res.ok) {
+                    alert("Failed to save template");
+                  } else {
+                    alert("Template saved");
                   }
-                );
-                if (!res.ok) {
-                  alert("Failed to save template");
-                } else {
-                  alert("Template saved");
+                } catch {
+                  alert("Network error while saving");
+                } finally {
+                  setSending(false);
                 }
-              } catch {
-                alert("Network error while saving");
-              } finally {
-                setSending(false);
-              }
-            }}
-            disabled={sending || !subject.trim()}
-            type="button"
-          >
-            Save
-          </button>
+              }}
+              disabled={sending || !subject.trim()}
+              type="button"
+            >
+              Save
+            </button>
+            <button
+              className="px-4 py-2 text-white bg-indigo-600 rounded disabled:opacity-50"
+              onClick={async () => {
+                if (sending) return;
+                const idNum = Number(selectedTemplateId);
+                if (!idNum) return;
+                const subjectTrimmed = subject.trim();
+                if (!subjectTrimmed) return;
+
+                const brandedHtml = buildCurrentEmailHtml(subjectTrimmed);
+                setHtml(brandedHtml);
+
+                setSending(true);
+                try {
+                  const res = await fetch(
+                    `https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_content/${idNum}`,
+                    {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        email_content_id: idNum,
+                        Publication_Date: null,
+                        Headline: subjectTrimmed,
+                        Body: brandedHtml,
+                        entity_type: entityType,
+                        from_email: senderField.email.trim(),
+                      }),
+                    }
+                  );
+                  if (!res.ok) {
+                    alert("Failed to save template");
+                    return;
+                  }
+                  try {
+                    await postSendEmail(idNum);
+                    alert("Saved and send requested.");
+                  } catch (err) {
+                    alert(
+                      err instanceof Error
+                        ? err.message
+                        : "Send email failed after save."
+                    );
+                  }
+                } catch {
+                  alert("Network error while saving");
+                } finally {
+                  setSending(false);
+                }
+              }}
+              disabled={sending || !subject.trim()}
+              type="button"
+              title="Save template to Xano, then call send_email"
+            >
+              Save &amp; Send
+            </button>
+          </>
         )}
       </div>
 
