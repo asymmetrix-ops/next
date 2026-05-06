@@ -377,6 +377,17 @@ export async function POST(req: NextRequest) {
             box-decoration-break: clone;
             -webkit-box-decoration-break: clone;
         }
+        .content .asymmetrix-highlight-section {
+            background-color: #fffbeb;
+            border-left: 4px solid #facc15;
+            padding: 12px 14px;
+            margin: 14px 0;
+            border-radius: 6px;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        .content .asymmetrix-highlight-section > :first-child { margin-top: 0 !important; }
+        .content .asymmetrix-highlight-section > :last-child { margin-bottom: 0 !important; }
         .content em {
             font-style: italic;
         }

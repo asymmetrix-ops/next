@@ -567,6 +567,9 @@ function buildBrandedEmailHtml(params: {
       .card td { font-size:14px; line-height:1.5; padding:12px; border-top:1px solid #e5e7eb; color:#333333; }
       .col-date { width:110px; }
       .asymmetrix-key-point { background-color:#fff3bf; border-radius:3px; padding:0 2px; box-decoration-break:clone; -webkit-box-decoration-break:clone; }
+      .asymmetrix-highlight-section { background-color:#fffbeb;border-left:4px solid #facc15;padding:12px 14px;margin:14px 0;border-radius:6px; }
+      .asymmetrix-highlight-section > :first-child { margin-top:0 !important; }
+      .asymmetrix-highlight-section > :last-child { margin-bottom:0 !important; }
 
       /* Badges */
       .badge { font-size:11px; font-weight:700; text-transform:uppercase; display:inline-block; padding:2px 8px; border-radius:9999px; border:1px solid transparent; }
@@ -3090,7 +3093,12 @@ function ContentTab() {
           minHeightPx={500}
         />
         <p className="mt-1 text-xs text-gray-500">
-          Images are uploaded to Xano and inserted automatically.
+          Images are uploaded to Xano and inserted automatically. Select one or more
+          paragraphs (or headings, lists, etc.), then click{" "}
+          <span className="font-medium text-gray-700">Highlight section</span> to wrap
+          them in a shaded callout.{" "}
+          <span className="font-medium text-gray-700">Key Point</span> still highlights only
+          the selected phrase.
         </p>
       </div>
 

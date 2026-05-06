@@ -7,7 +7,13 @@ import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { TableKit } from "@tiptap/extension-table";
-import { Extension, Mark, mergeAttributes, type CommandProps } from "@tiptap/core";
+import {
+  Extension,
+  Mark,
+  Node as TipTapNode,
+  mergeAttributes,
+  type CommandProps,
+} from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 declare module "@tiptap/core" {
@@ -19,6 +25,9 @@ declare module "@tiptap/core" {
     keyPoint: {
       toggleKeyPoint: () => ReturnType;
       unsetKeyPoint: () => ReturnType;
+    };
+    highlightSection: {
+      toggleHighlightSection: () => ReturnType;
     };
   }
 }
@@ -176,18 +185,59 @@ const KeyPointExtension = Mark.create({
   },
 });
 
+const HighlightSectionExtension = TipTapNode.create({
+  name: "highlightSection",
+
+  group: "block",
+
+  content: "block+",
+
+  defining: true,
+
+  parseHTML() {
+    return [
+      { tag: 'div[data-highlight-section="true"]' },
+      { tag: "div.asymmetrix-highlight-section" },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return [
+      "div",
+      mergeAttributes(HTMLAttributes, {
+        "data-highlight-section": "true",
+        class: "asymmetrix-highlight-section",
+        style:
+          "background-color:#fffbeb;border-left:4px solid #facc15;padding:12px 14px;margin:14px 0;border-radius:6px;",
+      }),
+      0,
+    ];
+  },
+
+  addCommands() {
+    return {
+      toggleHighlightSection:
+        () =>
+        ({ commands }) =>
+          commands.toggleWrap(this.name),
+    };
+  },
+});
+
 function ToolbarButton(props: {
   label: string;
   active?: boolean;
   disabled?: boolean;
+  title?: string;
   onClick: () => void;
 }) {
-  const { label, active, disabled, onClick } = props;
+  const { label, active, disabled, title, onClick } = props;
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={title}
       className={[
         "px-2 py-1 text-sm rounded border",
         disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50",
@@ -215,6 +265,7 @@ export default function TiptapSimpleEditor({
       StarterKit,
       IndentExtension,
       KeyPointExtension,
+      HighlightSectionExtension,
       TableKit.configure({
         table: {
           HTMLAttributes: { class: "border-collapse w-full my-2" },
@@ -401,6 +452,15 @@ export default function TiptapSimpleEditor({
           active={editor?.isActive("keyPoint")}
           disabled={!canUse}
           onClick={() => editor?.chain().focus().toggleKeyPoint().run()}
+        />
+        <ToolbarButton
+          label="Highlight section"
+          active={editor?.isActive("highlightSection")}
+          disabled={!canUse}
+          title="Wrap selected blocks in a highlighted callout box"
+          onClick={() =>
+            editor?.chain().focus().toggleHighlightSection().run()
+          }
         />
         <ToolbarButton
           label="H2"

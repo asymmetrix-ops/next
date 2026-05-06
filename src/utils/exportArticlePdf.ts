@@ -561,6 +561,17 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
       .content ol { margin: 0 0 10px 18px; }
       .content h1,.content h2,.content h3 { margin: 16px 0 10px; break-after: avoid; page-break-after: avoid; }
       .content .asymmetrix-key-point { background-color:#fff3bf; border-radius:3px; padding:0 2px; box-decoration-break:clone; -webkit-box-decoration-break:clone; }
+      .content .asymmetrix-highlight-section {
+        background-color: #fffbeb;
+        border-left: 4px solid #facc15;
+        padding: 12px 14px;
+        margin: 14px 0;
+        border-radius: 6px;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .content .asymmetrix-highlight-section > :first-child { margin-top: 0 !important; }
+      .content .asymmetrix-highlight-section > :last-child { margin-bottom: 0 !important; }
       .rule { height: 1px; background: var(--rule); border: 0; margin: 14px 0; }
       .footer { margin-top: 22px; font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; }
       .badge { display:inline-block; font-size:10px; color:#1e40af; background:#eff6ff; border:1px solid #bfdbfe; border-radius:999px; padding:4px 8px; font-weight:700; }
