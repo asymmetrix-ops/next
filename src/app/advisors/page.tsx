@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
@@ -2479,14 +2480,16 @@ const AdvisorsPage = () => {
         </div>
 
         {/* Mobile Cards */}
-        {!loading && (
+        {!loading &&
+          !(filters.portfolio_only && advisors.length === 0) && (
           <div className="advisor-cards" key={`cards-${pagination.curPage}`}>
             {advisors.map((advisor, index) => AdvisorCard(advisor, index))}
           </div>
         )}
 
         {/* Desktop Table */}
-        {!loading && (
+        {!loading &&
+          !(filters.portfolio_only && advisors.length === 0) && (
           <table className="advisor-table" key={`table-${pagination.curPage}`}>
             <thead>
               <tr>
@@ -2503,12 +2506,19 @@ const AdvisorsPage = () => {
           </table>
         )}
 
+        {!loading && filters.portfolio_only && advisors.length === 0 && (
+          <FollowedOnlyEmptyState entity="advisors" />
+        )}
+
         {/* Loading state for table */}
         {loading && (
           <div style={styles.loading}>Loading page {filters.page}...</div>
         )}
 
-        <div className="pagination">{generatePaginationButtons()}</div>
+        <div className="pagination">
+          {!(filters.portfolio_only && !loading && advisors.length === 0) &&
+            generatePaginationButtons()}
+        </div>
       </div>
 
       <Footer />

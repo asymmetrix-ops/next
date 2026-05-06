@@ -6,15 +6,13 @@ export type FollowedOnlyEntity =
   | "companies"
   | "investors"
   | "advisors"
-  | "individuals"
-  | "corporate events";
+  | "individuals";
 
 const labels: Record<FollowedOnlyEntity, string> = {
   companies: "companies",
   investors: "investors",
   advisors: "advisors",
   individuals: "individuals",
-  "corporate events": "corporate events",
 };
 
 export function FollowedOnlyEmptyState({

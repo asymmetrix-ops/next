@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
@@ -5184,6 +5185,17 @@ const CompanySection = ({
       "div",
       { className: "company-section", ref: sectionRef },
       React.createElement("div", { className: "error" }, error),
+      React.createElement("style", {
+        dangerouslySetInnerHTML: { __html: style },
+      })
+    );
+  }
+
+  if (companies.length === 0 && currentFilters?.portfolio_only === true) {
+    return React.createElement(
+      "div",
+      { className: "company-section", ref: sectionRef },
+      React.createElement(FollowedOnlyEmptyState, { entity: "companies" }),
       React.createElement("style", {
         dangerouslySetInnerHTML: { __html: style },
       })
