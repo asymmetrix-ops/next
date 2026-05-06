@@ -208,7 +208,7 @@ const HighlightSectionExtension = TipTapNode.create({
         "data-highlight-section": "true",
         class: "asymmetrix-highlight-section",
         style:
-          "background-color:#fffbeb;border-left:4px solid #facc15;padding:12px 14px;margin:14px 0;border-radius:6px;",
+          "background-color:#f1f3fe;border-left:4px solid #5071f1;padding:12px 14px;margin:14px 0;border-radius:6px;",
       }),
       0,
     ];

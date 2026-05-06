@@ -562,8 +562,8 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
       .content h1,.content h2,.content h3 { margin: 16px 0 10px; break-after: avoid; page-break-after: avoid; }
       .content .asymmetrix-key-point { background-color:#fff3bf; border-radius:3px; padding:0 2px; box-decoration-break:clone; -webkit-box-decoration-break:clone; }
       .content .asymmetrix-highlight-section {
-        background-color: #fffbeb;
-        border-left: 4px solid #facc15;
+        background-color: #f1f3fe;
+        border-left: 4px solid #5071f1;
         padding: 12px 14px;
         margin: 14px 0;
         border-radius: 6px;

@@ -378,8 +378,8 @@ export async function POST(req: NextRequest) {
             -webkit-box-decoration-break: clone;
         }
         .content .asymmetrix-highlight-section {
-            background-color: #fffbeb;
-            border-left: 4px solid #facc15;
+            background-color: #f1f3fe;
+            border-left: 4px solid #5071f1;
             padding: 12px 14px;
             margin: 14px 0;
             border-radius: 6px;

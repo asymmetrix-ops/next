@@ -567,7 +567,7 @@ function buildBrandedEmailHtml(params: {
       .card td { font-size:14px; line-height:1.5; padding:12px; border-top:1px solid #e5e7eb; color:#333333; }
       .col-date { width:110px; }
       .asymmetrix-key-point { background-color:#fff3bf; border-radius:3px; padding:0 2px; box-decoration-break:clone; -webkit-box-decoration-break:clone; }
-      .asymmetrix-highlight-section { background-color:#fffbeb;border-left:4px solid #facc15;padding:12px 14px;margin:14px 0;border-radius:6px; }
+      .asymmetrix-highlight-section { background-color:#f1f3fe;border-left:4px solid #5071f1;padding:12px 14px;margin:14px 0;border-radius:6px; }
       .asymmetrix-highlight-section > :first-child { margin-top:0 !important; }
       .asymmetrix-highlight-section > :last-child { margin-bottom:0 !important; }
 
