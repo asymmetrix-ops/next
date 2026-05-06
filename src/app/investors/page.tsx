@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
@@ -2101,29 +2102,35 @@ const InvestorsPage = () => {
           </div>
         </div>
 
-        {/* Desktop Table */}
-        <table className="investor-table">
-          <thead>
-            <tr>
-              <th>Logo</th>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Description</th>
-              <th>Current D&A Portfolio Companies</th>
-              <th>D&A Primary Sectors</th>
-              <th>LinkedIn Members</th>
-              <th>Country</th>
-            </tr>
-          </thead>
-          <tbody>{tableRows}</tbody>
-        </table>
+        {filters.portfolio_only && !loading && investors.length === 0 ? (
+          <FollowedOnlyEmptyState entity="investors" />
+        ) : (
+          <>
+            {/* Desktop Table */}
+            <table className="investor-table">
+              <thead>
+                <tr>
+                  <th>Logo</th>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                  <th>Current D&A Portfolio Companies</th>
+                  <th>D&A Primary Sectors</th>
+                  <th>LinkedIn Members</th>
+                  <th>Country</th>
+                </tr>
+              </thead>
+              <tbody>{tableRows}</tbody>
+            </table>
 
-        {/* Mobile Cards */}
-        <div className="investor-cards">
-          {investors.map((investor, index) => InvestorCard(investor, index))}
-        </div>
+            {/* Mobile Cards */}
+            <div className="investor-cards">
+              {investors.map((investor, index) => InvestorCard(investor, index))}
+            </div>
 
-        <div className="pagination">{generatePaginationButtons()}</div>
+            <div className="pagination">{generatePaginationButtons()}</div>
+          </>
+        )}
       </div>
 
       <Footer />

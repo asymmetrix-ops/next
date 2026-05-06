@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { IndividualsResponse, Individual } from "../../types/individuals";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -497,9 +498,11 @@ const IndividualCard: React.FC<{ individual: Individual }> = ({
 const IndividualsTable = ({
   individuals,
   loading,
+  portfolioOnly,
 }: {
   individuals: Individual[];
   loading: boolean;
+  portfolioOnly: boolean;
 }) => {
   const { createClickableElement } = useRightClick();
 
@@ -508,6 +511,9 @@ const IndividualsTable = ({
   }
 
   if (!individuals || individuals.length === 0) {
+    if (portfolioOnly) {
+      return <FollowedOnlyEmptyState entity="individuals" />;
+    }
     return <div className="loading">No individuals found.</div>;
   }
 
@@ -2060,7 +2066,11 @@ const IndividualsPage = () => {
 
         {/* Results Table */}
         {individuals.length > 0 && (
-          <IndividualsTable individuals={individuals} loading={loading} />
+          <IndividualsTable
+            individuals={individuals}
+            loading={loading}
+            portfolioOnly={filters.portfolio_only}
+          />
         )}
 
         {/* Pagination */}
