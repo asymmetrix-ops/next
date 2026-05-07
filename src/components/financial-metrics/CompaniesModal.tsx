@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { authService } from "@/lib/auth";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import {
@@ -107,6 +108,57 @@ function formatValue(
   }
 }
 
+const COMPANY_TABLE_DATA_BASE =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_table_data";
+
+function toTrimmedString(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+}
+
+/** Same payload shape as article `get_company_table_data`; fills modal metric columns. */
+function mapTablePayloadRowToCompany(
+  row: Record<string, unknown>,
+  fallback?: Company
+): Company {
+  const id = Number(row.id) || fallback?.id || 0;
+  return {
+    id,
+    name:
+      toTrimmedString(row.name) ||
+      fallback?.name ||
+      (id > 0 ? `Company ${id}` : "—"),
+    description: fallback?.description ?? "",
+    country:
+      toTrimmedString(row.hq_country) || fallback?.country || "",
+    ownership:
+      toTrimmedString(row.ownership_type ?? row.ownership_status) ||
+      fallback?.ownership ||
+      "",
+    linkedin_members:
+      typeof row.linkedin_employee === "number"
+        ? row.linkedin_employee
+        : Number(row.linkedin_employee) ||
+          fallback?.linkedin_members ||
+          0,
+    Revenue_m: row.Revenue_m as Company["Revenue_m"],
+    EBITDA_m: row.EBITDA_m as Company["EBITDA_m"],
+    EBIT_m: row.EBIT_m as Company["EBIT_m"],
+    EV: row.EV as Company["EV"],
+    Revenue_multiple: row.Revenue_multiple as Company["Revenue_multiple"],
+    Rev_Growth_PC: row.Rev_Growth_PC as Company["Rev_Growth_PC"],
+    EBITDA_margin: row.EBITDA_margin as Company["EBITDA_margin"],
+    Rule_of_40: row.Rule_of_40 as Company["Rule_of_40"],
+    ARR_m: row.ARR_m as Company["ARR_m"],
+    ARR_pc: row.ARR_pc as Company["ARR_pc"],
+    NRR: row.NRR as Company["NRR"],
+    GRR_pc: row.GRR_pc as Company["GRR_pc"],
+    Churn_pc: row.Churn_pc as Company["Churn_pc"],
+    New_client_growth_pc:
+      row.New_client_growth_pc as Company["New_client_growth_pc"],
+  };
+}
+
 function getCompanyValue(company: Company, key: string): unknown {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const companyAny = company as unknown as Record<string, unknown>;
@@ -194,8 +246,6 @@ export default function CompaniesModal({
     setError(null);
 
     try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-
       // Fetch all pages if needed
       let allItems: Company[] = [];
       let currentPage = 1;
@@ -241,7 +291,7 @@ export default function CompaniesModal({
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
+            ...authService.getAuthHeaders(),
           },
           credentials: "include",
         });
@@ -263,21 +313,61 @@ export default function CompaniesModal({
         currentPage++;
       }
 
-      // Debug: Log first company to see structure
-      if (allItems.length > 0) {
-        const sampleCompany = allItems[0] as unknown as Record<string, unknown>;
-        console.log("[CompaniesModal] Sample company structure:", {
-          id: allItems[0].id,
-          name: allItems[0].name,
-          ARR_pc: sampleCompany.ARR_pc,
-          arr_pc: sampleCompany.arr_pc,
-          financial_metrics: sampleCompany.financial_metrics,
-          _financial_metrics: sampleCompany._financial_metrics,
-          allKeys: Object.keys(allItems[0]),
-        });
+      // Enrich with financial metrics via same endpoint as article generate-table flow.
+      const ids = allItems
+        .map((c) => c.id)
+        .filter((id): id is number => typeof id === "number" && id > 0);
+
+      let merged: Company[] = allItems;
+
+      if (ids.length > 0) {
+        try {
+          const tableParams = new URLSearchParams();
+          tableParams.append("company_ids", JSON.stringify(ids));
+          const tableResponse = await fetch(
+            `${COMPANY_TABLE_DATA_BASE}?${tableParams.toString()}`,
+            {
+              method: "GET",
+              credentials: "include",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                ...authService.getAuthHeaders(),
+              },
+            }
+          );
+
+          if (tableResponse.ok) {
+            const payload = (await tableResponse.json()) as unknown;
+            const tableRows = Array.isArray(payload) ? payload : [];
+            const tableById = new Map<number, Record<string, unknown>>();
+            for (const item of tableRows) {
+              if (!item || typeof item !== "object") continue;
+              const row = item as Record<string, unknown>;
+              const rid = Number(row.id);
+              if (rid > 0) tableById.set(rid, row);
+            }
+
+            merged = allItems.map((basic) => {
+              const row = tableById.get(basic.id);
+              return row ? mapTablePayloadRowToCompany(row, basic) : basic;
+            });
+          } else {
+            console.warn(
+              "[CompaniesModal] get_company_table_data failed:",
+              tableResponse.status,
+              await tableResponse.text()
+            );
+          }
+        } catch (tableErr) {
+          console.warn(
+            "[CompaniesModal] Could not load company table metrics:",
+            tableErr
+          );
+        }
       }
-      
-      setCompanies(allItems);
+
+      setCompanies(merged);
       // Reset sorting when new data is loaded
       setSortColumn(null);
       setSortDirection("desc");
@@ -361,7 +451,6 @@ export default function CompaniesModal({
       }
 
       setExporting(true);
-      const token = localStorage.getItem("asymmetrix_auth_token");
       const params = new URLSearchParams();
 
       // Add filters to export request
@@ -401,8 +490,8 @@ export default function CompaniesModal({
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          "Accept": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Accept: "application/json",
+          ...authService.getAuthHeaders(),
         },
         credentials: "include",
       });
@@ -515,8 +604,8 @@ export default function CompaniesModal({
             method: "GET",
             headers: {
               "Content-Type": "application/json",
-              "Accept": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              Accept: "application/json",
+              ...authService.getAuthHeaders(),
             },
             credentials: "include",
           });
