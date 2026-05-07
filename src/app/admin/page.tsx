@@ -20,8 +20,23 @@ import { authService } from "@/lib/auth";
 import { locationsService } from "@/lib/locationsService";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useRouter } from "next/navigation";
+import { fetchCompaniesServer } from "@/app/companies/actions";
 
 type SourceIdList = number[];
+
+async function searchCompaniesForMention(
+  query: string
+): Promise<Array<{ id: number; name: string }>> {
+  const q = query.trim();
+  if (!q) return [];
+  try {
+    const res = await fetchCompaniesServer(1, { searchQuery: q });
+    const items = res?.result1?.items ?? [];
+    return items.map((c) => ({ id: c.id, name: c.name }));
+  } catch {
+    return [];
+  }
+}
 
 interface FieldValue<T = unknown> {
   value: T;
@@ -951,11 +966,13 @@ function EmailsTab() {
           valueHtml={bodyHtml}
           onChangeHtml={setBodyHtml}
           onUploadImage={uploadImageToXano}
+          companyMentionSearch={searchCompaniesForMention}
           placeholder="Write the email body..."
           minHeightPx={500}
         />
         <p className="mt-1 text-xs text-gray-500">
-          Images are uploaded to Xano and inserted automatically.
+          Type <span className="font-medium text-gray-700">@</span> plus a company name to
+          link to its profile. Images are uploaded to Xano and inserted automatically.
         </p>
       </div>
 
@@ -3089,12 +3106,15 @@ function ContentTab() {
           valueHtml={bodyHtml}
           onChangeHtml={setBodyHtml}
           onUploadImage={uploadImageToXano}
+          companyMentionSearch={searchCompaniesForMention}
           placeholder="Write the article body..."
           minHeightPx={500}
         />
         <p className="mt-1 text-xs text-gray-500">
-          Images are uploaded to Xano and inserted automatically. Select one or more
-          paragraphs (or headings, lists, etc.), then click{" "}
+          Type <span className="font-medium text-gray-700">@</span> plus a company name to
+          insert a blue link to its profile (same search as the Companies directory). Images
+          are uploaded to Xano and inserted automatically. Select one or more paragraphs (or
+          headings, lists, etc.), then click{" "}
           <span className="font-medium text-gray-700">Highlight section</span> to wrap
           them in a shaded callout.{" "}
           <span className="font-medium text-gray-700">Key Point</span> still highlights only

@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
+import Mention from "@tiptap/extension-mention";
 import Placeholder from "@tiptap/extension-placeholder";
 import { TableKit } from "@tiptap/extension-table";
+import type { SuggestionProps } from "@tiptap/suggestion";
 import {
   Extension,
   Mark,
@@ -38,7 +41,118 @@ type Props = {
   onUploadImage?: (file: File) => Promise<string>;
   placeholder?: string;
   minHeightPx?: number;
+  /** When set, typing `@` opens a company picker; chosen companies become links to `/company/:id`. */
+  companyMentionSearch?: (query: string) => Promise<Array<{ id: number; name: string }>>;
 };
+
+type CompanyMentionItem = { id: string; label: string };
+
+function createCompanyMentionSuggestionRender() {
+  let root: Root | null = null;
+  let popup: HTMLDivElement | null = null;
+  let selectedIndex = 0;
+  let latest: SuggestionProps<CompanyMentionItem, CompanyMentionItem> | null = null;
+
+  function position(clientRect: (() => DOMRect | null) | null | undefined) {
+    const rect = clientRect?.();
+    if (!rect || !popup) return;
+    const vw = window.innerWidth;
+    const maxW = 320;
+    let left = rect.left;
+    if (left + maxW > vw - 8) {
+      left = Math.max(8, vw - maxW - 8);
+    }
+    popup.style.left = `${left}px`;
+    popup.style.top = `${rect.bottom + 4}px`;
+    popup.style.minWidth = `${Math.min(maxW, Math.max(200, vw - 16))}px`;
+  }
+
+  function refresh() {
+    if (!root || !latest) return;
+    const items = latest.items;
+    root.render(
+      <ul
+        className="m-0 max-h-48 list-none overflow-y-auto rounded border border-gray-200 bg-white p-1 text-left shadow-lg"
+        role="listbox"
+      >
+        {items.length === 0 ? (
+          <li className="px-2 py-1.5 text-sm text-gray-500">No companies found</li>
+        ) : (
+          items.map((item, i) => (
+            <li key={`${item.id}-${i}`}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={i === selectedIndex}
+                className={[
+                  "w-full rounded px-2 py-1.5 text-left text-sm",
+                  i === selectedIndex ? "bg-blue-50 text-blue-900" : "text-gray-900 hover:bg-gray-50",
+                ].join(" ")}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  latest?.command(item);
+                }}
+              >
+                {item.label}
+              </button>
+            </li>
+          ))
+        )}
+      </ul>
+    );
+  }
+
+  return () => ({
+    onStart: (props: SuggestionProps<CompanyMentionItem, CompanyMentionItem>) => {
+      latest = props;
+      selectedIndex = 0;
+      popup = document.createElement("div");
+      popup.className = "tiptap-company-mention-popup fixed z-[9999]";
+      document.body.appendChild(popup);
+      root = createRoot(popup);
+      position(props.clientRect);
+      refresh();
+    },
+    onUpdate: (props: SuggestionProps<CompanyMentionItem, CompanyMentionItem>) => {
+      latest = props;
+      selectedIndex = Math.min(selectedIndex, Math.max(0, props.items.length - 1));
+      position(props.clientRect);
+      refresh();
+    },
+    onExit: () => {
+      root?.unmount();
+      root = null;
+      popup?.remove();
+      popup = null;
+      latest = null;
+    },
+    onKeyDown: (props: { event: KeyboardEvent }) => {
+      const items = latest?.items;
+      if (!latest || !items || items.length === 0) {
+        return false;
+      }
+      const n = items.length;
+      if (props.event.key === "ArrowDown") {
+        selectedIndex = (selectedIndex + 1) % n;
+        refresh();
+        return true;
+      }
+      if (props.event.key === "ArrowUp") {
+        selectedIndex = (selectedIndex - 1 + n) % n;
+        refresh();
+        return true;
+      }
+      if (props.event.key === "Enter") {
+        const item = items[selectedIndex];
+        if (item) {
+          latest.command(item);
+        }
+        return true;
+      }
+      return false;
+    },
+  });
+}
 
 const INDENT_PX = 24;
 const MAX_INDENT_LEVEL = 8;
@@ -256,11 +370,56 @@ export default function TiptapSimpleEditor({
   onUploadImage,
   placeholder = "Write…",
   minHeightPx = 420,
+  companyMentionSearch,
 }: Props) {
   const lastEmittedHtmlRef = useRef<string | null>(null);
   const applyingExternalRef = useRef(false);
+  const companyMentionSearchRef = useRef(companyMentionSearch);
+  companyMentionSearchRef.current = companyMentionSearch;
 
   const extensions = useMemo(() => {
+    const companyMention = Mention.configure({
+      renderText: ({ node }) => String(node.attrs.label ?? ""),
+      renderHTML({ node }) {
+        const id = String(node.attrs.id ?? "");
+        const label = String(node.attrs.label ?? id);
+        const href = `/company/${id}`;
+        return [
+          "span",
+          {
+            "data-type": "mention",
+            "data-id": id,
+            "data-label": label,
+            class: "asymmetrix-company-mention",
+          },
+          [
+            "a",
+            {
+              href,
+              class: "text-blue-600 underline",
+              rel: "noopener noreferrer",
+            },
+            label,
+          ],
+        ];
+      },
+      suggestion: {
+        char: "@",
+        allowSpaces: true,
+        items: async ({ query }) => {
+          const search = companyMentionSearchRef.current;
+          if (!search) return [];
+          const q = query.trim();
+          if (!q) return [];
+          const rows = await search(q);
+          return rows
+            .filter((r) => r.id && r.name)
+            .map((c) => ({ id: String(c.id), label: c.name }) satisfies CompanyMentionItem);
+        },
+        render: createCompanyMentionSuggestionRender(),
+      },
+    });
+
     return [
       StarterKit,
       IndentExtension,
@@ -287,6 +446,7 @@ export default function TiptapSimpleEditor({
         linkOnPaste: true,
         HTMLAttributes: { class: "text-blue-600 underline" },
       }),
+      ...(companyMentionSearch ? [companyMention] : []),
       Image.configure({
         inline: false,
         allowBase64: false,
@@ -296,7 +456,7 @@ export default function TiptapSimpleEditor({
         placeholder,
       }),
     ];
-  }, [placeholder]);
+  }, [placeholder, companyMentionSearch]);
 
   const editor = useEditor({
     extensions,
@@ -361,7 +521,7 @@ export default function TiptapSimpleEditor({
         return true;
       },
     },
-  });
+  }, [extensions]);
 
   // Sync editor content when parent changes (e.g. selecting "Edit Content")
   useEffect(() => {
