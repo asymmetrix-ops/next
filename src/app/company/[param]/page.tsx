@@ -383,6 +383,8 @@ interface Company {
   EBITDA: CompanyEBITDA;
   ev_data: CompanyEV;
   _companies_employees_count_monthly: EmployeeCount[];
+  /** Deduplicated monthly headcount series (preferred for LinkedIn chart when present). */
+  employees_deduped?: EmployeeCount[];
   Lifecycle_stage: LifecycleStage;
   // Optional list of former names from API
   Former_name?: string[];
@@ -495,6 +497,8 @@ interface CompanyResponse {
       };
     }>;
   };
+  /** May be returned at response root alongside `Company`. */
+  employees_deduped?: EmployeeCount[];
 }
 
 // Utility functions
@@ -1400,6 +1404,14 @@ const CompanyDetail = () => {
             (data as unknown as { Lifecycle_stage?: LifecycleStage })
               .Lifecycle_stage ||
             undefined,
+          employees_deduped:
+            (data as unknown as { employees_deduped?: EmployeeCount[] })
+              .employees_deduped ??
+            (
+              data.Company as unknown as {
+                employees_deduped?: EmployeeCount[];
+              }
+            ).employees_deduped,
         };
 
         const companyTransactionStatus = String(
@@ -2042,8 +2054,11 @@ const CompanyDetail = () => {
         typeof row.ebitda === "number"
     );
 
-  // Process employee data
-  const employeeData = company._companies_employees_count_monthly || [];
+  // Process employee data (deduped series when API sends it; else legacy monthly array)
+  const employeeData =
+    company.employees_deduped ??
+    company._companies_employees_count_monthly ??
+    [];
   const currentEmployeeCount =
     employeeData.length > 0
       ? employeeData[employeeData.length - 1].employees_count
