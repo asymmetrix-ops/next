@@ -1082,8 +1082,16 @@ const InvestorDetailPage = () => {
       const data = await response.json();
       console.log("LinkedIn history API response", data);
 
+      const companyPayload = data.Company as unknown as {
+        employees_deduped?: LinkedInHistory[];
+        _companies_employees_count_monthly?: LinkedInHistory[];
+      } | undefined;
       const employeeData =
-        data.Company?._companies_employees_count_monthly || [];
+        (data as unknown as { employees_deduped?: LinkedInHistory[] })
+          .employees_deduped ??
+        companyPayload?.employees_deduped ??
+        companyPayload?._companies_employees_count_monthly ??
+        [];
       const historyData = employeeData.map(
         (item: { date?: string; employees_count?: number }) => ({
           date: item.date || "",
