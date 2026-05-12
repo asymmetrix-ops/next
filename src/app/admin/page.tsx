@@ -1548,6 +1548,13 @@ function ContentTab() {
   const [editingContentId, setEditingContentId] = useState<number | null>(null);
   const [visibility, setVisibility] = useState<Visibility>("Admin");
 
+  // Schedule publication modal
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [scheduleTimezone] = useState("Europe/London");
+  const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
+
   // Created by (single user from asymmetrix_users)
   type SimpleUser = { id: number; name: string };
   const [allUsers, setAllUsers] = useState<SimpleUser[]>([]);
@@ -2328,6 +2335,119 @@ function ContentTab() {
       alert(e instanceof Error ? e.message : "Failed to create content");
     } finally {
       setSending(false);
+    }
+  };
+
+  const submitScheduledContent = async () => {
+    if (scheduleSubmitting) return;
+    if (!scheduleDate || !scheduleTime) {
+      alert("Please select a date and time");
+      return;
+    }
+    const token = localStorage.getItem("asymmetrix_auth_token");
+    if (!token) {
+      alert("Authentication required");
+      return;
+    }
+
+    const Headline = headline.trim();
+    const Strapline = strapline.trim();
+    const Content_Type = contentType.trim();
+    if (!Headline) {
+      alert("Headline is required");
+      return;
+    }
+    if (!Content_Type) {
+      alert("Content Type is required");
+      return;
+    }
+
+    // Build ISO timestamp from date + time in the selected timezone
+    let publishAt: string;
+    try {
+      // Create a date string that includes timezone offset by using Intl
+      const localDateTimeStr = `${scheduleDate}T${scheduleTime}:00`;
+      // Get the UTC offset for the chosen timezone at that local time
+      const tzDate = new Date(
+        new Date(localDateTimeStr).toLocaleString("en-US", {
+          timeZone: scheduleTimezone,
+        })
+      );
+      const utcDate = new Date(localDateTimeStr);
+      const offsetMs = utcDate.getTime() - tzDate.getTime();
+      const finalDate = new Date(utcDate.getTime() + offsetMs);
+      publishAt = finalDate.toISOString();
+    } catch {
+      alert("Invalid date/time. Please check your selection.");
+      return;
+    }
+
+    const sanitized = sanitizeHtml(bodyHtml);
+    const Body = `<div>${sanitized}</div>`;
+
+    const companyOfFocusIds = companyOfFocus.map((c) => c.id);
+    const companiesMentionedIds = companiesMentioned.map((c) => c.id);
+    const peersAndCompetitorsIds = peersAndCompetitors.map((c) => c.id);
+    const potentialAcquirersIds = potentialAcquirers.map((c) => c.id);
+    const acquisitionTargetsIds = acquisitionTargets.map((c) => c.id);
+    const relatedCorporateEventIds = selectedCorporateEvents.map((e) => e.id);
+    const relatedDocs = [...uploadedRelatedFiles, ...uploadedMp3Files];
+
+    const payload: Record<string, unknown> = {
+      Publication_Date: "",
+      Headline,
+      Strapline,
+      Content_Type,
+      Body,
+      Visibility: visibility,
+      Company_of_Focus: companyOfFocusIds,
+      sectors: selectedSectorIds,
+      companies_mentioned: companiesMentionedIds,
+      Peers_and_Competitors: peersAndCompetitorsIds,
+      Potential_Acquirers: potentialAcquirersIds,
+      Acquisition_Targets: acquisitionTargetsIds,
+      Related_Corporate_Event: relatedCorporateEventIds,
+      summary: JSON.stringify(summaryItems),
+      last_sent_at: null,
+      publish_at: publishAt,
+      public: visibility === "Public",
+    };
+
+    if (relatedDocs.length > 0) {
+      payload.Related_Documents = relatedDocs;
+    }
+
+    const creatorId = parsePositiveCreatorId(createdByUserId);
+    if (creatorId != null) {
+      payload.Created_by = creatorId;
+      payload.created_by = creatorId;
+    }
+
+    setScheduleSubmitting(true);
+    try {
+      const res = await fetch(
+        "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/new_content",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+      const text = await res.text().catch(() => "");
+      if (!res.ok) {
+        throw new Error(`Failed to schedule content: ${res.status} ${text}`);
+      }
+      alert(`Content scheduled for publication at ${new Date(publishAt).toLocaleString("en-US", { timeZone: scheduleTimezone })} (${scheduleTimezone})`);
+      setShowScheduleModal(false);
+      setScheduleDate("");
+      setScheduleTime("09:00");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to schedule content");
+    } finally {
+      setScheduleSubmitting(false);
     }
   };
 
@@ -3152,6 +3272,17 @@ function ContentTab() {
         >
           {sending ? "Submitting…" : editingContentId ? "Update Content" : "Create Content"}
         </button>
+        {!editingContentId && (
+          <button
+            className="px-4 py-2 text-white bg-orange-500 rounded hover:bg-orange-600 disabled:opacity-50"
+            onClick={() => setShowScheduleModal(true)}
+            disabled={sending}
+            type="button"
+            title="Schedule this content for future publication"
+          >
+            Schedule
+          </button>
+        )}
         {editingContentId && (
           <button
             className="px-4 py-2 text-white bg-gray-500 rounded hover:bg-gray-600"
@@ -3189,6 +3320,77 @@ function ContentTab() {
           <pre className="overflow-x-auto p-2 text-sm bg-gray-100 rounded">
             {html}
           </pre>
+        </div>
+      )}
+
+      {/* Schedule Publication Modal */}
+      {showScheduleModal && (
+        <div className="flex fixed inset-0 z-50 justify-center items-center bg-black/50">
+          <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold">Schedule Publication</h3>
+            {visibility === "Public" && (
+              <div className="flex gap-2 items-center p-3 mb-4 text-sm text-orange-800 bg-orange-50 rounded border border-orange-200">
+                <span>⚡</span>
+                <span>
+                  Visibility is <strong>Public</strong> — content will be published with{" "}
+                  <code className="px-1 bg-orange-100 rounded">public: true</code> at the scheduled time.
+                </span>
+              </div>
+            )}
+            <div className="mb-4">
+              <label className="block mb-1 text-sm font-medium">Date</label>
+              <input
+                type="date"
+                className="p-2 w-full rounded border"
+                value={scheduleDate}
+                min={new Date().toISOString().split("T")[0]}
+                onChange={(e) => setScheduleDate(e.target.value)}
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block mb-1 text-sm font-medium">Time</label>
+              <input
+                type="time"
+                className="p-2 w-full rounded border"
+                value={scheduleTime}
+                onChange={(e) => setScheduleTime(e.target.value)}
+              />
+            </div>
+            <div className="mb-6">
+              <label className="block mb-1 text-sm font-medium">Time Zone</label>
+              <p className="text-sm text-gray-600">London (Europe/London)</p>
+            </div>
+            {scheduleDate && scheduleTime && (
+              <p className="mb-4 text-sm text-gray-500">
+                Will publish at{" "}
+                <strong>
+                  {scheduleDate} {scheduleTime} {scheduleTimezone}
+                </strong>
+              </p>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                className="px-4 py-2 rounded border hover:bg-gray-50"
+                onClick={() => {
+                  setShowScheduleModal(false);
+                  setScheduleDate("");
+                  setScheduleTime("09:00");
+                }}
+                disabled={scheduleSubmitting}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 text-white bg-orange-500 rounded hover:bg-orange-600 disabled:opacity-50"
+                onClick={submitScheduledContent}
+                disabled={scheduleSubmitting || !scheduleDate || !scheduleTime}
+                type="button"
+              >
+                {scheduleSubmitting ? "Scheduling…" : "Confirm Schedule"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
