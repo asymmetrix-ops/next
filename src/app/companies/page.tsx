@@ -2533,19 +2533,21 @@ const CompanyDashboard = ({
                   />
                 </div>
 
-                <span style={styles.label}>Growth Time Frame</span>
-                <select
-                  style={styles.select}
-                  value={timeFrame}
-                  onChange={(e) => setTimeFrame(e.target.value)}
-                >
-                  <option value="">Select Time Frame</option>
-                  <option value="Last Quarter">Last Quarter</option>
-                  <option value="Last Year">Last Year</option>
-                  <option value="Last 4 Quarters">Last 4 Quarters</option>
-                  <option value="YTD">YTD</option>
-                  <option value="Last 2 Years">Last 2 Years</option>
-                </select>
+                <div style={{ display: "none" }} aria-hidden>
+                  <span style={styles.label}>Growth Time Frame</span>
+                  <select
+                    style={styles.select}
+                    value={timeFrame}
+                    onChange={(e) => setTimeFrame(e.target.value)}
+                  >
+                    <option value="">Select Time Frame</option>
+                    <option value="Last Quarter">Last Quarter</option>
+                    <option value="Last Year">Last Year</option>
+                    <option value="Last 4 Quarters">Last 4 Quarters</option>
+                    <option value="YTD">YTD</option>
+                    <option value="Last 2 Years">Last 2 Years</option>
+                  </select>
+                </div>
               </div>
               <div style={styles.gridItem}>
                 <h3 style={styles.subHeading} className="filters-sub-heading">
