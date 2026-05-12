@@ -352,8 +352,12 @@ export default function HomeUserPage() {
 
   // Normalize entity link based on new API flags (route/path/entity_type)
   // Prefer ID-based routes; fall back to path when ID or route is missing/unknown
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const normalizeEntityHref = (entity: any | null | undefined): string => {
+  // Pass isInvestor=true when the entity is known to come from the investors field,
+  // since the API returns route:"company" even for investor entities.
+  const normalizeEntityHref = (
+    entity: Record<string, unknown> | null | undefined,
+    isInvestor = false
+  ): string => {
     if (!entity || typeof entity !== "object") return "";
     const id = Number((entity as { id?: unknown }).id);
     const route = String(
@@ -365,13 +369,14 @@ export default function HomeUserPage() {
       .trim();
     if (Number.isFinite(id) && id > 0) {
       // Our app uses plural investors route
-      if (route === "investor" || route === "investors")
+      if (isInvestor || route === "investor" || route === "investors")
         return `/investors/${id}`;
       return `/company/${id}`;
     }
     // Fallback to provided path (normalize investor singular to plural)
     const rawPath = String((entity as { path?: unknown }).path || "").trim();
     if (rawPath) {
+      if (isInvestor) return rawPath.replace(/^\/company\//, "/investors/");
       return rawPath.replace(/^\/investor\//, "/investors/");
     }
     return "";
@@ -2595,7 +2600,7 @@ export default function HomeUserPage() {
                                           {dedupeById(investorsArr).map(
                                             (inv, i, arr) => {
                                               const href =
-                                                normalizeEntityHref(inv);
+                                                normalizeEntityHref(inv, true);
                                               const name = inv?.name || "Unknown";
                                               return (
                                                 <span key={`investor-${i}`}>
