@@ -1,4 +1,40 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { dashboardApiService } from "@/lib/dashboardApi";
+
 const SolutionSection = () => {
+  const [companiesCount, setCompaniesCount] = useState<number | null>(null);
+  const [sectorsCount, setSectorsCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      const [companiesRes, sectorsRes] = await Promise.allSettled([
+        dashboardApiService.getHeroScreenStatisticCompanies(),
+        dashboardApiService.getHeroScreenStatisticSectors(),
+      ]);
+
+      if (companiesRes.status === "fulfilled") {
+        const val = companiesRes.value as unknown as number;
+        if (val && typeof val === "number") setCompaniesCount(val);
+      }
+
+      if (sectorsRes.status === "fulfilled") {
+        const val = sectorsRes.value as unknown as Record<string, unknown>;
+        if (val && typeof val === "object") {
+          const primary = (val.primarySectors as number) || 0;
+          const secondary = (val.secondarySectors as number) || 0;
+          const total = primary + secondary;
+          if (total > 0) setSectorsCount(total);
+        }
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  const formatCount = (n: number) => n.toLocaleString("en-US");
+
   const solutions = [
     {
       icon: (
@@ -12,7 +48,10 @@ const SolutionSection = () => {
       ),
       title: "Identify",
       description: "Data & Analytics companies",
-      metric: "5,000+ companies",
+      metric:
+        companiesCount !== null
+          ? `${formatCount(companiesCount)}+ companies`
+          : "5,000+ companies",
     },
     {
       icon: (
@@ -24,7 +63,10 @@ const SolutionSection = () => {
       ),
       title: "Track",
       description: "Data & Analytics sector",
-      metric: "700+ sub-sectors",
+      metric:
+        sectorsCount !== null
+          ? `${formatCount(sectorsCount)}+ sub-sectors`
+          : "700+ sub-sectors",
     },
     {
       icon: (
