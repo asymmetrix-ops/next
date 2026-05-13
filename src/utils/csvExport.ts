@@ -1,20 +1,4 @@
 import { CorporateEvent } from "@/types/corporateEvents";
-import {
-  derivePrimaryFromCompany,
-  deriveSecondaryFromCompany,
-  getTargetCompany,
-  getTargetCountry,
-} from "@/components/corporate-events/corporateEventsTableUtils";
-import {
-  extractBuyerLinks,
-  extractInvestorLinks,
-  extractSellerLinks,
-  extractTargetLinks,
-} from "@/components/corporate-events/corporateEventsPartyLinks";
-import {
-  formatCorporateEventEnterpriseValue,
-  formatCorporateEventInvestmentAmount,
-} from "@/lib/corporateEventAmountDisplay";
 
 export interface CorporateEventCSVRow {
   Description: string;
@@ -32,27 +16,6 @@ export interface CorporateEventCSVRow {
   Advisors: string;
   "Corporate Event Link": string;
 }
-
-type CorporateEventExportApiRow = {
-  description: string;
-  date: string;
-  target_name: string;
-  target_hq: string;
-  primary_sector: string;
-  secondary_sectors: string;
-  deal_type: string;
-  funding_stage: string;
-  amount_m: number | null;
-  ev_m: number | null;
-  buyers_investors: string;
-  sellers: string;
-  advisors: string;
-  corporate_event_link: string;
-};
-
-type CorporateEventExportApiResponse =
-  | CorporateEventExportApiRow[]
-  | { items?: CorporateEventExportApiRow[] };
 
 export class CSVExporter {
   static formatDate(dateString: string): string {
@@ -83,9 +46,19 @@ export class CSVExporter {
 
   static convertToCSVData(events: CorporateEvent[]): CorporateEventCSVRow[] {
     return events.map((event) => {
-      const looseEvent = event as CorporateEvent & Record<string, unknown>;
-      const target = getTargetCompany(event);
-      const targetLinks = extractTargetLinks(event);
+      const target = event.target_counterparty?.new_company as
+        | {
+            name?: string;
+            country?: string;
+            _location?: { Country?: string };
+            // Legacy sector arrays
+            _sectors_primary?: { sector_name: string }[];
+            _sectors_secondary?: { sector_name: string }[];
+            // New API variant: arrays of strings or objects
+            primary_sectors?: Array<string | { sector_name: string }>;
+            secondary_sectors?: Array<string | { sector_name: string }>;
+          }
+        | undefined;
 
       const formatSectorList = (
         list:
@@ -100,75 +73,24 @@ export class CSVExporter {
         return names.length > 0 ? names.join(", ") : "Not available";
       };
 
-      const targetName =
-        (typeof looseEvent.target_name === "string" &&
-          looseEvent.target_name.trim()) ||
-        targetLinks.map((link) => link.name).join(", ") ||
-        (typeof target?.name === "string" && target.name.trim()) ||
-        "Not Available";
+      // Split counterparties into buyers/investors and sellers (match dashboard filters)
+      const buyersInvestors = (event.other_counterparties || [])
+        .filter((cp) => {
+          const status = cp._counterparty_type?.counterparty_status || "";
+          return /investor|acquirer/i.test(status);
+        })
+        .map((cp) => cp._new_company?.name)
+        .filter(Boolean)
+        .join(", ");
 
-      const targetHq =
-        (typeof looseEvent.target_hq === "string" && looseEvent.target_hq.trim()) ||
-        (typeof looseEvent.target_hq_country === "string" &&
-          looseEvent.target_hq_country.trim()) ||
-        (typeof looseEvent.target_country === "string" &&
-          looseEvent.target_country.trim()) ||
-        getTargetCountry(event);
-
-      const primarySector =
-        (typeof looseEvent.primary_sectors === "string" &&
-          looseEvent.primary_sectors.trim()) ||
-        (typeof looseEvent.primary_sector === "string" &&
-          looseEvent.primary_sector.trim()) ||
-        derivePrimaryFromCompany(target, {}) ||
-        formatSectorList(
-          target?.primary_sectors as
-            | Array<string | { sector_name: string }>
-            | undefined
-        ) ||
-        this.formatSectors(
-          target?._sectors_primary as { sector_name: string }[] | undefined
-        );
-
-      const secondarySectors =
-        (typeof looseEvent.secondary_sectors === "string" &&
-          looseEvent.secondary_sectors.trim()) ||
-        deriveSecondaryFromCompany(target) ||
-        formatSectorList(
-          target?.secondary_sectors as
-            | Array<string | { sector_name: string }>
-            | undefined
-        ) ||
-        this.formatSectors(
-          target?._sectors_secondary as { sector_name: string }[] | undefined
-        );
-
-      const buyerInvestorLinks = [
-        ...extractBuyerLinks(event),
-        ...extractInvestorLinks(event),
-      ];
-      const buyersInvestors =
-        buyerInvestorLinks.map((link) => link.name).join(", ") ||
-        (event.other_counterparties || [])
-          .filter((cp) => {
-            const status = cp._counterparty_type?.counterparty_status || "";
-            return /investor|acquirer/i.test(status);
-          })
-          .map((cp) => cp._new_company?.name)
-          .filter(Boolean)
-          .join(", ");
-
-      const sellerLinks = extractSellerLinks(event);
-      const sellers =
-        sellerLinks.map((link) => link.name).join(", ") ||
-        (event.other_counterparties || [])
-          .filter((cp) => {
-            const status = cp._counterparty_type?.counterparty_status || "";
-            return /divestor|seller|vendor/i.test(status);
-          })
-          .map((cp) => cp._new_company?.name)
-          .filter(Boolean)
-          .join(", ");
+      const sellers = (event.other_counterparties || [])
+        .filter((cp) => {
+          const status = cp._counterparty_type?.counterparty_status || "";
+          return /divestor|seller|vendor/i.test(status);
+        })
+        .map((cp) => cp._new_company?.name)
+        .filter(Boolean)
+        .join(", ");
 
       // Format advisors
       const advisors =
@@ -197,21 +119,26 @@ export class CSVExporter {
       return {
         Description: event.description || "Not Available",
         Date: this.formatDate(event.announcement_date),
-        "Target Name": targetName === "-" ? "Not Available" : targetName,
+        "Target Name": target?.name || "Not Available",
         "Target HQ":
-          !targetHq || targetHq === "-" ? "Not Available" : targetHq,
+          target?.country || target?._location?.Country || "Not Available",
+        // Prefer new API fields; fallback to legacy
         "Primary Sector":
-          !primarySector || primarySector === "-"
-            ? "Not available"
-            : primarySector,
+          formatSectorList(target?.primary_sectors) ||
+          this.formatSectors(target?._sectors_primary),
         "Secondary Sectors":
-          !secondarySectors || secondarySectors === "-"
-            ? "Not available"
-            : secondarySectors,
+          formatSectorList(target?.secondary_sectors) ||
+          this.formatSectors(target?._sectors_secondary),
         "Deal Type": event.deal_type || "Not Available",
         "Funding Stage": fundingStage,
-        "Amount (m)": formatCorporateEventInvestmentAmount(event),
-        "EV (m)": formatCorporateEventEnterpriseValue(event),
+        "Amount (m)": this.formatCurrency(
+          event.investment_data?.investment_amount_m,
+          event.investment_data?.currency?.Currency
+        ),
+        "EV (m)": this.formatCurrency(
+          event.ev_data?.enterprise_value_m,
+          event.ev_data?.currency?.Currency
+        ),
         "Buyer(s)/Investor(s)": buyersInvestors || "Not Available",
         "Seller(s)": sellers || "Not Available",
         Advisors: advisors,
@@ -223,7 +150,6 @@ export class CSVExporter {
   static convertToCSV(data: CorporateEventCSVRow[]): string {
     if (data.length === 0) return "";
 
-    // Use explicit header order so columns don't depend on row[0] shape/order
     const headers: Array<keyof CorporateEventCSVRow> = [
       "Description",
       "Date",
@@ -294,31 +220,35 @@ export class CSVExporter {
     this.downloadCSV(csvContent, filename);
   }
 
-  private static normalizeExportApiResponse(
-    apiResponse: CorporateEventExportApiResponse
-  ): CorporateEventExportApiRow[] {
-    if (Array.isArray(apiResponse)) {
-      return apiResponse;
-    }
-
-    const items = apiResponse.items;
-    return Array.isArray(items) ? items : [];
-  }
-
-  // Convert export API response format to CSV format
   static convertExportApiResponseToCSVData(
-    apiResponse: CorporateEventExportApiRow[]
+    apiResponse: Array<{
+      description: string;
+      date: string;
+      target_name: string;
+      target_hq: string;
+      primary_sector: string;
+      secondary_sectors: string;
+      deal_type: string;
+      funding_stage: string;
+      amount_m: number | null;
+      ev_m: number | null;
+      buyers_investors: string;
+      sellers: string;
+      advisors: string;
+      corporate_event_link: string;
+    }>
   ): CorporateEventCSVRow[] {
     return apiResponse.map((item) => {
-      // Format date
       const formattedDate = item.date
         ? this.formatDate(item.date)
         : "Not available";
 
-      // Format amount - handle both string and number types
       let formattedAmount = "Not available";
       if (item.amount_m !== null && item.amount_m !== undefined) {
-        const amountValue = typeof item.amount_m === "string" ? parseFloat(item.amount_m) : item.amount_m;
+        const amountValue =
+          typeof item.amount_m === "string"
+            ? parseFloat(item.amount_m)
+            : item.amount_m;
         if (!Number.isNaN(amountValue)) {
           formattedAmount = `${amountValue.toLocaleString(undefined, {
             maximumFractionDigits: 3,
@@ -326,10 +256,10 @@ export class CSVExporter {
         }
       }
 
-      // Format EV - handle both string and number types
       let formattedEV = "Not available";
       if (item.ev_m !== null && item.ev_m !== undefined) {
-        const evValue = typeof item.ev_m === "string" ? parseFloat(item.ev_m) : item.ev_m;
+        const evValue =
+          typeof item.ev_m === "string" ? parseFloat(item.ev_m) : item.ev_m;
         if (!Number.isNaN(evValue)) {
           formattedEV = `${evValue.toLocaleString(undefined, {
             maximumFractionDigits: 3,
@@ -337,7 +267,6 @@ export class CSVExporter {
         }
       }
 
-      // Helper to handle empty strings and null/undefined values
       const safeString = (value: string | null | undefined): string => {
         if (value == null) return "Not Available";
         const trimmed = String(value).trim();
@@ -363,17 +292,26 @@ export class CSVExporter {
     });
   }
 
-  // Export from API response format (array or paginated { items: [...] } wrapper)
   static exportCorporateEventsFromApiResponse(
-    apiResponse: CorporateEventExportApiResponse,
+    apiResponse: Array<{
+      description: string;
+      date: string;
+      target_name: string;
+      target_hq: string;
+      primary_sector: string;
+      secondary_sectors: string;
+      deal_type: string;
+      funding_stage: string;
+      amount_m: number | null;
+      ev_m: number | null;
+      buyers_investors: string;
+      sellers: string;
+      advisors: string;
+      corporate_event_link: string;
+    }>,
     filename?: string
   ): void {
-    const rows = this.normalizeExportApiResponse(apiResponse);
-    if (rows.length === 0) {
-      throw new Error("No export data returned");
-    }
-
-    const csvData = this.convertExportApiResponseToCSVData(rows);
+    const csvData = this.convertExportApiResponseToCSVData(apiResponse);
     const csvContent = this.convertToCSV(csvData);
     this.downloadCSV(csvContent, filename);
   }

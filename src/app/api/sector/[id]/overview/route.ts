@@ -4,114 +4,84 @@ import { cookies } from 'next/headers';
 export const dynamic = 'force-dynamic';
 export const revalidate = 300; // Cache for 5 minutes
 
+const XANO_BASE = 'https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const startTime = performance.now();
   const sectorId = params.id;
-  
+
   console.log(`[API] 🚀 Fetching overview data for sector ${sectorId}`);
 
   try {
-    // Get auth token from cookie
     const cookieStore = cookies();
     const token = cookieStore.get('asymmetrix_auth_token')?.value;
 
     if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const headers = {
+    const authHeaders = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     };
 
     const qs = new URLSearchParams();
     qs.append('Sector_id', sectorId);
+    const strategicQs = new URLSearchParams();
+    strategicQs.append('Sector_id', sectorId);
+    strategicQs.append('limit', '5');
+    strategicQs.append('offset', '0');
+    const peQs = new URLSearchParams();
+    peQs.append('Sector_id', sectorId);
+    peQs.append('limit', '5');
+    peQs.append('offset', '0');
 
-    // Fetch all overview data in parallel ON THE SERVER
-    // Track individual API call timings to identify bottleneck
-    const fetchStartTime = performance.now();
-    
-    const sectorStart = performance.now();
-    const sectorRes = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sectors/${sectorId}`,
-      { 
-        method: 'GET', 
-        headers,
-        cache: 'no-store', // Disable caching temporarily to test raw speed
-      }
-    );
-    console.log(`[API] Sector (lightweight) fetch took: ${(performance.now() - sectorStart).toFixed(0)}ms`);
+    // Fetch all overview data in parallel
+    const [sectorRes, marketMapRes, strategicRes, peRes, recentRes] =
+      await Promise.all([
+        fetch(`${XANO_BASE}/sectors/${sectorId}`, {
+          method: 'GET',
+          headers: authHeaders,
+          cache: 'no-store',
+        }),
+        fetch(`${XANO_BASE}/sectors_market_map?${qs.toString()}`, {
+          method: 'GET',
+          headers: authHeaders,
+          cache: 'no-store',
+        }),
+        // Strategic acquirers — paginated GET endpoint, limit 5 for overview
+        fetch(`${XANO_BASE}/sectors_strategic_acquirers?${strategicQs.toString()}`, {
+          method: 'GET',
+          headers: authHeaders,
+          cache: 'no-store',
+        }),
+        fetch(`${XANO_BASE}/sectors_pe_investors?${peQs.toString()}`, {
+          method: 'GET',
+          headers: authHeaders,
+          cache: 'no-store',
+        }),
+        fetch(`${XANO_BASE}/sectors_resent_trasnactions?${qs.toString()}&top_15=true`, {
+          method: 'GET',
+          headers: authHeaders,
+          cache: 'no-store',
+        }),
+      ]);
 
-    const mmStart = performance.now();
-    const marketMapRes = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sectors_market_map?${qs.toString()}`,
-      { 
-        method: 'GET', 
-        headers,
-        cache: 'no-store',
-      }
-    );
-    console.log(`[API] Market Map fetch took: ${(performance.now() - mmStart).toFixed(0)}ms`);
-
-    const stratStart = performance.now();
-    const strategicRes = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sectors_strategic_acquirers?${qs.toString()}`,
-      { 
-        method: 'GET', 
-        headers,
-        cache: 'no-store',
-      }
-    );
-    console.log(`[API] Strategic fetch took: ${(performance.now() - stratStart).toFixed(0)}ms`);
-
-    const peStart = performance.now();
-    const peRes = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sectors_pe_investors?${qs.toString()}`,
-      { 
-        method: 'GET', 
-        headers,
-        cache: 'no-store',
-      }
-    );
-    console.log(`[API] PE fetch took: ${(performance.now() - peStart).toFixed(0)}ms`);
-
-    const recentStart = performance.now();
-    const recentRes = await fetch(
-      `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sectors_resent_trasnactions?${qs.toString()}&top_15=true`,
-      { 
-        method: 'GET', 
-        headers,
-        cache: 'no-store',
-      }
-    );
-    console.log(`[API] Recent fetch took: ${(performance.now() - recentStart).toFixed(0)}ms`);
-    
-    console.log(`[API] All fetches (sequential) took: ${(performance.now() - fetchStartTime).toFixed(0)}ms`);
-
-    // Parse all responses in parallel
-    const [sectorData, marketMap, strategic, pe, recentTransactions] = await Promise.all([
-      sectorRes.ok ? sectorRes.json() : null,
-      marketMapRes.ok ? marketMapRes.json() : null,
-      strategicRes.ok ? strategicRes.json() : null,
-      peRes.ok ? peRes.json() : null,
-      recentRes.ok ? recentRes.json() : null,
-    ]);
+    const [sectorData, marketMap, strategic, pe, recentTransactions] =
+      await Promise.all([
+        sectorRes.ok ? sectorRes.json() : null,
+        marketMapRes.ok ? marketMapRes.json() : null,
+        strategicRes.ok ? strategicRes.json() : null,
+        peRes.ok ? peRes.json() : null,
+        recentRes.ok ? recentRes.json() : null,
+      ]);
 
     const totalTime = performance.now() - startTime;
     console.log(`[API] ✅ Overview data fetched in ${totalTime.toFixed(0)}ms`);
-    console.log(`[API]    - Sector: ${sectorData ? 'OK' : 'failed'}`);
-    console.log(`[API]    - Market Map: ${marketMap ? 'OK' : 'failed'}`);
-    console.log(`[API]    - Strategic: ${strategic ? 'OK' : 'failed'}`);
-    console.log(`[API]    - PE: ${pe ? 'OK' : 'failed'}`);
-    console.log(`[API]    - Recent: ${recentTransactions ? 'OK' : 'failed'}`);
 
-    // Return everything in one response
     return NextResponse.json({
       sectorData,
       splitDatasets: {
@@ -130,4 +100,3 @@ export async function GET(
     );
   }
 }
-
