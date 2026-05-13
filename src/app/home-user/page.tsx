@@ -11,13 +11,6 @@ import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
-interface AsymmetrixData {
-  label: string;
-  value: string;
-  icon: string;
-  color: string;
-}
-
 interface CorporateEvent {
   id?: number;
   corporate_event_id?: number;
@@ -169,18 +162,6 @@ export default function HomeUserPage() {
     } catch {
       return "Invalid date";
     }
-  };
-
-  const resolveAsymmetrixStatHref = (label: string): string => {
-    const key = String(label || "").toLowerCase().trim();
-    if (key === "companies") return "/companies";
-    if (key === "corporate events") return "/corporate-events";
-    if (key === "individuals") return "/individuals";
-    if (key === "primary sectors" || key === "secondary sectors") return "/sectors";
-    if (key === "pe investors") return "/investors?investorTypeId=23699";
-    if (key === "vc investors") return "/investors?investorTypeId=23877";
-    if (key === "advisors") return "/advisors";
-    return "";
   };
 
   // Resolve corporate event id from inconsistent API shapes
@@ -449,7 +430,46 @@ export default function HomeUserPage() {
   );
 
   const [isLoading, setIsLoading] = useState(true);
-  const [asymmetrixData, setAsymmetrixData] = useState<AsymmetrixData[]>([]);
+
+  const DEAL_RADAR_LIMIT = 25;
+
+  const formatTransactionStatus = (status: string): string => {
+    const map: Record<string, string> = {
+      "Transaction anticipated within 18 months": "Anticipated within 18 months",
+    };
+    return map[status] ?? status;
+  };
+
+  const dealRadarStatusStyle = (status: string): React.CSSProperties => {
+    const s = status.toLowerCase();
+    if (s.includes("reported")) {
+      return {
+        backgroundColor: "#dcfce7",
+        color: "#166534",
+        border: "1.5px solid #4ade80",
+      };
+    }
+    if (s.includes("rumoured") || s.includes("rumored")) {
+      return {
+        backgroundColor: "#fef9c3",
+        color: "#854d0e",
+        border: "1.5px solid #fde047",
+      };
+    }
+    // anticipated / default
+    return {
+      backgroundColor: "#dbeafe",
+      color: "#1e40af",
+      border: "1.5px solid #93c5fd",
+    };
+  };
+  const [dealRadarItems, setDealRadarItems] = useState<
+    Array<{ companyId: number; companyName: string; transactionStatus: string }>
+  >([]);
+  const [dealRadarTotal, setDealRadarTotal] = useState(0);
+  const [dealRadarOffset, setDealRadarOffset] = useState(0);
+  const [dealRadarLoading, setDealRadarLoading] = useState(true);
+  const [dealRadarLoadingMore, setDealRadarLoadingMore] = useState(false);
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(true);
   const [corporateEventsView, setCorporateEventsView] = useState<
@@ -757,176 +777,6 @@ export default function HomeUserPage() {
     try {
       setIsLoading(true);
 
-      // Fetch all dashboard data in parallel using exact endpoints from Vue app
-      const [
-        companiesCountResponse,
-        eventsCountResponse,
-        individualsCountResponse,
-        sectorsCountResponse,
-        advisorsCountResponse,
-        investorsResponse,
-      ] = await Promise.allSettled([
-        dashboardApiService.getHeroScreenStatisticCompanies(),
-        dashboardApiService.getHeroScreenStatisticEventsCount(),
-        dashboardApiService.getAllIndividualsCount(),
-        dashboardApiService.getHeroScreenStatisticSectors(),
-        dashboardApiService.getHeroScreenStatisticAdvisorsCount(),
-        dashboardApiService.getHeroScreenStatisticInvestors(),
-      ]);
-
-      // Handle asymmetrix data - build from individual statistics
-      const statsData: AsymmetrixData[] = [];
-
-      // Companies count
-      if (companiesCountResponse.status === "fulfilled") {
-        // Raw number response
-        let companiesCount: number = 0;
-        const responseValue = companiesCountResponse.value as unknown as number;
-        companiesCount = responseValue || 0;
-        if (companiesCount) {
-          statsData.push({
-            label: "Companies",
-            value: companiesCount.toString(),
-            icon: "📊",
-            color: "blue",
-          });
-        }
-      }
-
-      // Events count
-      if (eventsCountResponse.status === "fulfilled") {
-        let eventsCount: number = 0;
-        const responseValue = eventsCountResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-
-        if (responseValue && typeof responseValue === "object") {
-          eventsCount = (responseValue.Corporate_Events_count as number) || 0;
-        }
-
-        if (eventsCount) {
-          statsData.push({
-            label: "Corporate Events",
-            value: eventsCount.toString(),
-            icon: "📈",
-            color: "purple",
-          });
-        }
-      }
-
-      // Individuals count
-      if (individualsCountResponse.status === "fulfilled") {
-        let individualsCount: number = 0;
-        const responseValue =
-          individualsCountResponse.value as unknown as Record<string, unknown>;
-
-        if (responseValue && typeof responseValue === "object") {
-          individualsCount = (responseValue.count as number) || 0;
-        }
-
-        if (individualsCount) {
-          statsData.push({
-            label: "Individuals",
-            value: individualsCount.toString(),
-            icon: "👤",
-            color: "green",
-          });
-        }
-      }
-
-      // Sectors count
-      if (sectorsCountResponse.status === "fulfilled") {
-        let primarySectorsCount: number = 0;
-        let secondarySectorsCount: number = 0;
-        const responseValue = sectorsCountResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-
-        if (responseValue && typeof responseValue === "object") {
-          primarySectorsCount = (responseValue.primarySectors as number) || 0;
-          secondarySectorsCount =
-            (responseValue.secondarySectors as number) || 0;
-        }
-
-        if (primarySectorsCount) {
-          statsData.push({
-            label: "Primary Sectors",
-            value: primarySectorsCount.toString(),
-            icon: "🎯",
-            color: "orange",
-          });
-        }
-
-        if (secondarySectorsCount) {
-          statsData.push({
-            label: "Secondary Sectors",
-            value: secondarySectorsCount.toString(),
-            icon: "🎯",
-            color: "orange",
-          });
-        }
-      }
-
-      // Investors (PE and VC)
-      if (investorsResponse.status === "fulfilled") {
-        let peInvestors: number = 0;
-        let vcInvestors: number = 0;
-        const responseValue = investorsResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-
-        if (responseValue && typeof responseValue === "object") {
-          peInvestors = (responseValue.peInvestors as number) || 0;
-          vcInvestors = (responseValue.vcInvestors as number) || 0;
-        }
-
-        if (peInvestors) {
-          statsData.push({
-            label: "PE investors",
-            value: peInvestors.toString(),
-            icon: "💰",
-            color: "green",
-          });
-        }
-
-        if (vcInvestors) {
-          statsData.push({
-            label: "VC investors",
-            value: vcInvestors.toString(),
-            icon: "💎",
-            color: "gold",
-          });
-        }
-      }
-
-      // Advisors count
-      if (advisorsCountResponse.status === "fulfilled") {
-        let advisorsCount: number = 0;
-        const responseValue = advisorsCountResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-
-        if (responseValue && typeof responseValue === "object") {
-          advisorsCount =
-            (responseValue.Advisorc_companies_count as number) || 0;
-        }
-
-        if (advisorsCount) {
-          statsData.push({
-            label: "Advisors",
-            value: advisorsCount.toString(),
-            icon: "👨‍💼",
-            color: "blue",
-          });
-        }
-      }
-
-      setAsymmetrixData(statsData);
-
       // Removed New Companies fetch handling
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -941,6 +791,53 @@ export default function HomeUserPage() {
       setIsLoading(false);
     }
   }, []);
+
+  const fetchDealRadar = useCallback(async () => {
+    try {
+      setDealRadarLoading(true);
+      const res = await dashboardApiService.getDealRadar({
+        limit: DEAL_RADAR_LIMIT,
+        offset: 0,
+      });
+      setDealRadarItems(
+        res.items.map((i) => ({
+          companyId: i.company_id,
+          companyName: i.name,
+          transactionStatus: i.transaction_status,
+        }))
+      );
+      setDealRadarTotal(res.total);
+      setDealRadarOffset(res.items.length);
+    } catch (error) {
+      console.error("Error fetching Deal Radar:", error);
+    } finally {
+      setDealRadarLoading(false);
+    }
+  }, []);
+
+  const loadMoreDealRadar = useCallback(async () => {
+    if (dealRadarLoadingMore) return;
+    try {
+      setDealRadarLoadingMore(true);
+      const res = await dashboardApiService.getDealRadar({
+        limit: DEAL_RADAR_LIMIT,
+        offset: dealRadarOffset,
+      });
+      setDealRadarItems((prev) => [
+        ...prev,
+        ...res.items.map((i) => ({
+          companyId: i.company_id,
+          companyName: i.name,
+          transactionStatus: i.transaction_status,
+        })),
+      ]);
+      setDealRadarOffset((prev) => prev + res.items.length);
+    } catch (error) {
+      console.error("Error loading more Deal Radar items:", error);
+    } finally {
+      setDealRadarLoadingMore(false);
+    }
+  }, [dealRadarOffset, dealRadarLoadingMore]);
 
   const fetchCorporateEvents = useCallback(async () => {
     try {
@@ -1051,6 +948,11 @@ export default function HomeUserPage() {
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
+    fetchDealRadar();
+  }, [authLoading, isAuthenticated, fetchDealRadar]);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
     fetchCorporateEvents();
   }, [authLoading, isAuthenticated, fetchCorporateEvents]);
 
@@ -1130,14 +1032,11 @@ export default function HomeUserPage() {
             </div>
           </div>
         )}
-        {/* Dashboard Subheader - same grid as content for alignment */}
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-4 sm:mb-6 lg:grid-cols-2 xl:grid-cols-[repeat(20,minmax(0,1fr))] items-center">
-          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl order-1 lg:col-span-2 xl:col-span-4">
-            Asymmetrix Dashboard
-          </h1>
+        {/* Dashboard Subheader */}
+        <div className="flex items-center justify-between gap-4 sm:gap-6 mb-4 sm:mb-6 w-full">
           <div
             ref={searchWrapRef}
-            className={`global-search-tooltip relative w-full order-2 lg:col-span-1 xl:col-span-8 rounded-lg border-2 bg-white shadow-sm ${
+            className={`global-search-tooltip relative w-full min-w-0 rounded-lg border-2 bg-white shadow-sm lg:w-[calc(50%-0.75rem)] xl:w-[30%] ${
               isTrialActive
                 ? "border-gray-200"
                 : "border-blue-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"
@@ -1288,7 +1187,7 @@ export default function HomeUserPage() {
               </div>
             )}
           </div>
-          <div className="flex order-3 justify-start lg:justify-end lg:col-span-1 xl:col-span-8">
+          <div className="shrink-0 ml-auto">
             <RequestDataResearchButton
               label="Request Data and Research"
               sourcePage="Dashboard"
@@ -1499,93 +1398,109 @@ export default function HomeUserPage() {
         )}
 
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 xl:grid-cols-[repeat(20,minmax(0,1fr))]">
-          {/* Asymmetrix Data - last on mobile, first on lg+ */}
-          <div className="bg-white rounded-lg shadow order-3 lg:order-1 lg:col-span-2 xl:col-span-4">
+          {/* Deal Radar - last on mobile, first on lg+ */}
+          <div className="bg-white rounded-lg shadow order-3 lg:order-1 lg:col-span-2 xl:col-span-6 flex flex-col">
             <div className="p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-2">
-                <img
-                  src="/icons/logo.svg"
-                  alt="Asymmetrix"
-                  className="w-5 h-5"
-                />
+                <svg
+                  className="w-4 h-4 text-blue-600 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="2" />
+                  <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49" />
+                  <path d="M20.49 3.51a12 12 0 0 1 0 16.97M3.51 3.51a12 12 0 0 0 0 16.97" />
+                </svg>
                 <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
-                  Asymmetrix Data
+                  Deal Radar
                 </h2>
               </div>
             </div>
             <div className="p-3 sm:p-4">
-              {asymmetrixData.length > 0 ? (
-                <div className="space-y-2 sm:space-y-3">
-                  {asymmetrixData.map((item, index) => {
-                    const href = resolveAsymmetrixStatHref(item.label);
-                    const RowTag = href ? "a" : "div";
-                    return (
-                      <RowTag
-                        // eslint-disable-next-line react/no-array-index-key
-                        key={`${item.label}-${index}`}
-                        href={href || undefined}
-                        className={`group flex justify-between items-center p-2 bg-gray-50 rounded-lg sm:p-2 transition-colors ${
-                          href
-                            ? "cursor-pointer hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                            : ""
-                        }`}
-                        onClick={(e: React.MouseEvent<HTMLElement>) => {
-                          if (!href) return;
-                          // Allow default behavior for right-click, ctrl+click, cmd+click, etc.
-                          if (
-                            e.defaultPrevented ||
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            (e as any).button !== 0 ||
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            (e as any).metaKey ||
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            (e as any).ctrlKey ||
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            (e as any).shiftKey ||
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            (e as any).altKey
-                          ) {
-                            return;
-                          }
-                          e.preventDefault();
-                          router.push(href);
-                        }}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <span className="text-base sm:text-lg">
-                            {item.icon}
-                          </span>
-                          <span
-                            className={`text-xs ${
-                              href
-                                ? "text-gray-700 group-hover:text-blue-700"
-                                : "text-gray-600"
-                            } transition-colors`}
-                          >
-                            {item.label}
-                          </span>
-                        </div>
-                        <span className="text-sm font-semibold text-gray-900">
-                          {parseInt(item.value)
-                            ? parseInt(item.value).toLocaleString()
-                            : item.value}
-                        </span>
-                      </RowTag>
-                    );
-                  })}
+              {dealRadarLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    // eslint-disable-next-line react/no-array-index-key
+                    <div key={i} className="flex items-center justify-between gap-3 py-1.5 animate-pulse">
+                      <div className="h-3.5 bg-gray-200 rounded w-2/3" />
+                      <div className="h-5 bg-gray-200 rounded-full w-24 shrink-0" />
+                    </div>
+                  ))}
                 </div>
+              ) : dealRadarItems.length > 0 ? (
+                <>
+                  <div className="divide-y divide-gray-100">
+                    {dealRadarItems.map((item) => (
+                      <div
+                        key={item.companyId}
+                        className="flex items-center justify-between gap-3 py-2 first:pt-0"
+                      >
+                        <a
+                          href={`/company/${item.companyId}`}
+                          className="text-sm font-medium text-blue-700 hover:text-blue-900 hover:underline truncate min-w-0"
+                          onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                            if (
+                              e.defaultPrevented ||
+                              e.button !== 0 ||
+                              e.metaKey ||
+                              e.ctrlKey ||
+                              e.shiftKey ||
+                              e.altKey
+                            ) {
+                              return;
+                            }
+                            e.preventDefault();
+                            router.push(`/company/${item.companyId}`);
+                          }}
+                        >
+                          {item.companyName}
+                        </a>
+                        <span
+                          className="text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap shrink-0"
+                          style={dealRadarStatusStyle(item.transactionStatus)}
+                        >
+                          {formatTransactionStatus(item.transactionStatus)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {dealRadarItems.length < dealRadarTotal && (
+                    <div className="pt-3 mt-1 border-t border-gray-100">
+                      <button
+                        type="button"
+                        disabled={dealRadarLoadingMore}
+                        onClick={loadMoreDealRadar}
+                        className="w-full py-1.5 text-xs font-medium text-blue-700 hover:text-blue-900 hover:bg-blue-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {dealRadarLoadingMore ? (
+                          <span className="flex items-center justify-center gap-1.5">
+                            <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                            </svg>
+                            Loading…
+                          </span>
+                        ) : (
+                          `Load more (${dealRadarTotal - dealRadarItems.length} remaining)`
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="py-6 text-center sm:py-8">
-                  <p className="text-sm text-gray-500">
-                    No statistics available
-                  </p>
+                  <p className="text-sm text-gray-500">No active transactions</p>
                 </div>
               )}
             </div>
           </div>
 
           {/* Insights & Analysis - first on mobile */}
-          <div className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-1 lg:order-2 lg:col-span-1 xl:col-span-8">
+          <div className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-1 lg:order-2 lg:col-span-1 xl:col-span-7">
             <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700">
@@ -1770,7 +1685,7 @@ export default function HomeUserPage() {
           </div>
 
           {/* Corporate Events - second on mobile */}
-          <div className="flex flex-col bg-white rounded-lg shadow order-2 lg:order-3 lg:col-span-1 xl:col-span-8">
+          <div className="flex flex-col bg-white rounded-lg shadow order-2 lg:order-3 lg:col-span-1 xl:col-span-7">
             <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-2">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-700">
