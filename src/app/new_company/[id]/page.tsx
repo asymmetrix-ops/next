@@ -3,19 +3,11 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
-import { readHqCountryIso2, COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { FollowButton } from "@/components/FollowButton";
-import { BellIcon } from "@heroicons/react/24/outline";
 import { useRightClick } from "@/hooks/useRightClick";
-import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
-import {
-  fetchCompanyFinancialMetricsCard,
-  resolveLatestFinancialMetricsRow,
-} from "@/lib/companyFinancialMetricsCard";
+import { FollowButton } from "@/components/FollowButton";
 import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
 import IndividualCards from "@/components/shared/IndividualCards";
 import {
@@ -28,33 +20,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ContentArticle } from "@/types/insightsAnalysis";
-import {
-  mapManagementRoleToCard,
-  type ManagementRoleLike,
-} from "@/utils/individualHelpers";
-import {
-  fetchCompanyLinkedIn,
-  mapLinkedInHistoryToTimeSeries,
-  resolveLinkedInDisplayEmployeeCount,
-  type CompanyLinkedInResponse,
-} from "@/lib/companyLinkedIn";
-import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
-import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
-import { ExpandableText } from "@/components/common/ExpandableText";
-import {
-  formatCompanyMcpDisplay,
-  isCompanyMcpPopulated,
-  readCompanyMcpStatus,
-  type CompanyMcpData,
-} from "@/lib/companyMcp";
-
-type ManagementRole = ManagementRoleLike & {
-  id: number;
-  individuals_id: number;
-  individual_id?: number;
-  employee_new_company_id?: number;
-  Status: string;
-};
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
 const FINANCIAL_METRICS_EXPORT_SOURCE = "contribution_email";
@@ -66,7 +31,6 @@ interface CompanyLocation {
   City: string;
   State__Province__County: string;
   Country: string;
-  iso2?: string;
 }
 
 interface CompanySector {
@@ -119,11 +83,11 @@ interface CompanyFinancialMetrics {
   Revenue_m?: number | null;
   Revenue_source_label?: string | null;
   Rev_source?: number | string | null;
-  Subscription_revenue_pc?: number | null;
-  Subscription_revenue_m?: number | null;
-  Subscription_revenue_source_label?: string | null;
-  Subscription_revenue_source?: number | string | null;
-  Subscription_revenue_currency_display?: string | null;
+  ARR_pc?: number | null;
+  ARR_currency?: unknown;
+  ARR_m?: number | null;
+  ARR_source_label?: string | null;
+  ARR_source?: number | string | null;
   Churn_pc?: number | null;
   Churn_source_label?: string | null;
   Churn_Source?: number | string | null;
@@ -185,10 +149,6 @@ interface CompanyFinancialMetrics {
   Revenue_per_employee_source_label?: string | null;
   Rev_per_employee_source?: number | string | null;
   Data_entry_notes?: string | null;
-  Income_statement_currency?: string | null;
-  Revenue_currency_display?: string | null;
-  EBITDA_currency_display?: string | null;
-  EBIT_currency_display?: string | null;
 }
 
 // Income statement types (subset for rendering)
@@ -271,6 +231,19 @@ interface CompanyInvestorFromAPI {
   event_id: number;
   deal_type: string;
   announcement_date: string;
+}
+
+// Competitors API response
+interface CompanyCompetitorItem {
+  id: number;
+  name: string;
+  linkedin_logo?: string;
+}
+
+interface CompanyCompetitorsResponse {
+  peers: CompanyCompetitorItem[];
+  potential_acquirers: CompanyCompetitorItem[];
+  acquisition_targets: CompanyCompetitorItem[];
 }
 
 // Investors list embedded on the company payload (Company._companies_investors)
@@ -408,17 +381,13 @@ interface Company {
   url: string;
   _linkedin_data_of_new_company: CompanyLinkedInData;
   linkedin_data?: CompanyRootLinkedInData;
-  /** YoY LinkedIn employee count growth % from company payload */
-  linkedin_growth_1y_pct?: number | string | null;
   _locations: CompanyLocation;
   _ownership_type: CompanyOwnershipType;
   sectors_id: CompanySector[];
   revenues: CompanyRevenue;
   EBITDA: CompanyEBITDA;
   ev_data: CompanyEV;
-  /** Legacy monthly series shape; superseded by root-level `employees_deduped` on API response */
-  _companies_employees_count_monthly?: EmployeeCount[];
-  employees_deduped?: EmployeeCount[];
+  _companies_employees_count_monthly: EmployeeCount[];
   Lifecycle_stage: LifecycleStage;
   // Optional list of former names from API
   Former_name?: string[];
@@ -445,8 +414,26 @@ interface Company {
       };
     }>;
   };
-  Managmant_Roles_current?: ManagementRole[];
-  Managmant_Roles_past?: ManagementRole[];
+  Managmant_Roles_current?: Array<{
+    id: number;
+    Individual_text: string;
+    individuals_id: number;
+    Status: string;
+    job_titles_id: Array<{
+      id: number;
+      job_title: string;
+    }>;
+  }>;
+  Managmant_Roles_past?: Array<{
+    id: number;
+    Individual_text: string;
+    individuals_id: number;
+    Status: string;
+    job_titles_id: Array<{
+      id: number;
+      job_title: string;
+    }>;
+  }>;
   // Optional market fields if/when API provides them
   ticker?: string;
   exchange?: string;
@@ -462,8 +449,6 @@ interface Company {
   new_sectors_data?: Array<{
     sectors_payload?: string | unknown;
   }>;
-  has_mcp?: boolean;
-  mcp_data?: CompanyMcpData;
 }
 
 interface CompanyResponse {
@@ -480,8 +465,26 @@ interface CompanyResponse {
   new_sectors_data?: Array<{
     sectors_payload?: string | unknown;
   }>;
-  Managmant_Roles_current?: ManagementRole[];
-  Managmant_Roles_past?: ManagementRole[];
+  Managmant_Roles_current?: Array<{
+    id: number;
+    Individual_text: string;
+    individuals_id: number;
+    Status: string;
+    job_titles_id: Array<{
+      id: number;
+      job_title: string;
+    }>;
+  }>;
+  Managmant_Roles_past?: Array<{
+    id: number;
+    Individual_text: string;
+    individuals_id: number;
+    Status: string;
+    job_titles_id: Array<{
+      id: number;
+      job_title: string;
+    }>;
+  }>;
   have_subsidiaries_companies?: {
     have_subsidiaries_companies: boolean;
     Subsidiaries_companies: Array<{
@@ -499,27 +502,6 @@ interface CompanyResponse {
       };
     }>;
   };
-  /** Deduplicated employee history (preferred for LinkedIn employee chart); may be omitted from nested `Company` */
-  employees_deduped?: EmployeeCount[];
-  has_mcp?: boolean;
-  mcp_data?: CompanyMcpData;
-}
-
-/** Prefer API root `employees_deduped`, then Company.`employees_deduped`, then legacy `_companies_employees_count_monthly`. */
-function resolveEmployeeTimeSeries(response: CompanyResponse): EmployeeCount[] {
-  const root = response.employees_deduped;
-  const nested = response.Company.employees_deduped;
-  const legacy = response.Company._companies_employees_count_monthly;
-  const pick =
-    Array.isArray(root) && root.length > 0
-      ? root
-      : Array.isArray(nested) && nested.length > 0
-        ? nested
-        : Array.isArray(legacy) && legacy.length > 0
-          ? legacy
-          : [];
-  if (!pick.length) return [];
-  return [...pick].sort((a, b) => String(a.date).localeCompare(String(b.date)));
 }
 
 // Utility functions
@@ -537,6 +519,25 @@ const formatDate = (dateString: string): string => {
   const date = new Date(parseInt(year), parseInt(month) - 1);
   return date.toLocaleDateString("en-US", { year: "numeric", month: "short" });
 };
+
+// Plain number formatter (no currency, preserve decimals as given)
+const formatPlainNumber = (value?: number | string | null): string => {
+  if (value === undefined || value === null) return "Not available";
+  if (typeof value === "number") {
+    return value.toLocaleString("en-US", { maximumFractionDigits: 10 });
+  }
+  const trimmed = String(value).trim();
+  if (trimmed.length === 0) return "Not available";
+  const num = Number(trimmed.replace(/,/g, ""));
+  if (!Number.isFinite(num)) return trimmed;
+  const match = trimmed.match(/\.([0-9]+)/);
+  const frac = match ? Math.min(10, match[1].length) : 0;
+  return num.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: frac,
+  });
+};
+
 // Numeric parsing helper for numbers that may arrive as strings
 const getNumeric = (value?: number | string | null): number | undefined => {
   if (value === null || value === undefined) return undefined;
@@ -553,29 +554,6 @@ const formatWholeNumber = (value?: number | string | null): string => {
   const n = getNumeric(value);
   if (n === undefined) return "Not available";
   return Math.round(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
-};
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$",
-  GBP: "£",
-  EUR: "€",
-  JPY: "¥",
-};
-
-const getCurrencySymbol = (currencyCode?: string): string | undefined => {
-  if (!currencyCode) return undefined;
-  return CURRENCY_SYMBOLS[currencyCode.trim().toUpperCase()];
-};
-
-const formatWholeNumberWithCurrency = (
-  value?: number | string | null,
-  currencyCode?: string
-): string => {
-  const formatted = formatWholeNumber(value);
-  if (formatted === "Not available") return formatted;
-  const symbol = getCurrencySymbol(currencyCode);
-  if (!symbol) return formatted;
-  return `${symbol}${formatted}`;
 };
 
 const parseStructuredArray = <T,>(value: unknown): T[] => {
@@ -595,24 +573,6 @@ const parseStructuredArray = <T,>(value: unknown): T[] => {
 
   return [];
 };
-
-/**
- * Root `[]` is truthy in JS — prefer nested `Company` data when root is empty.
- * See new_company merge: `root || company` drops rows when root is `[]`.
- */
-function firstNonEmptyStructuredField(
-  ...candidates: unknown[]
-): unknown {
-  for (const c of candidates) {
-    if (c == null) continue;
-    if (Array.isArray(c) && c.length > 0) return c;
-    if (typeof c === "string" && c.trim().length > 0) return c;
-  }
-  for (const c of candidates) {
-    if (c != null) return c;
-  }
-  return undefined;
-}
 
 // Map Xano source codes to human-readable labels (best-known mapping)
 const sourceLabel = (code?: number | string | null): string | undefined => {
@@ -800,6 +760,34 @@ const formatFinancialMetricsPeriod = (
   return null;
 };
 
+const formatLastInvestmentDisplay = (
+  lastInvestment?: LastInvestment | null
+): string => {
+  const display = String(lastInvestment?.display ?? "").trim();
+  if (display) return display;
+
+  let daysSince = getNumeric(lastInvestment?.days_since);
+  if (daysSince === undefined && lastInvestment?.date) {
+    const investmentDate = new Date(lastInvestment.date);
+    if (!Number.isNaN(investmentDate.getTime())) {
+      daysSince = Math.max(
+        0,
+        Math.floor((Date.now() - investmentDate.getTime()) / 86_400_000)
+      );
+    }
+  }
+
+  if (daysSince === undefined) return "—";
+  if (daysSince < 365) {
+    if (daysSince < 30) return "This month";
+    const months = Math.max(1, Math.floor(daysSince / 30));
+    return `${months} ${months === 1 ? "month" : "months"}`;
+  }
+
+  const years = Math.floor(daysSince / 365);
+  return `${years} ${years === 1 ? "year" : "years"}`;
+};
+
 // Determines Year Founded using multiple fallbacks
 const getYearFoundedDisplay = (company: Company): string => {
   const candidates: Array<unknown> = [
@@ -937,7 +925,6 @@ const EmployeeChart = ({ data }: { data: EmployeeCount[] }) => {
 const CompanyDetail = () => {
   const params = useParams();
   const companyId = params.id as string;
-  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const { createClickableElement } = useRightClick();
 
   const [company, setCompany] = useState<Company | null>(null);
@@ -974,6 +961,10 @@ const CompanyDetail = () => {
     CompanyInvestorFromAPI[]
   >([]);
   const [apiInvestorsLoading, setApiInvestorsLoading] = useState(false);
+  const [competitors, setCompetitors] =
+    useState<CompanyCompetitorsResponse | null>(null);
+  const [competitorsLoading, setCompetitorsLoading] = useState(false);
+  const [showCompetitorsModal, setShowCompetitorsModal] = useState(false);
   const [transactionStatusLabel, setTransactionStatusLabel] = useState<string>("");
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingPdfType, setExportingPdfType] =
@@ -982,8 +973,6 @@ const CompanyDetail = () => {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isDescriptionExpandable, setIsDescriptionExpandable] = useState(false);
   const [isOverviewNarrow, setIsOverviewNarrow] = useState(false);
-  const [companyLinkedIn, setCompanyLinkedIn] =
-    useState<CompanyLinkedInResponse | null>(null);
   const descriptionRef = useRef<HTMLDivElement | null>(null);
   const pdfExportMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -1062,6 +1051,7 @@ const CompanyDetail = () => {
     });
   };
 
+  // Fetch company with intelligent fallbacks (GET first, then POST with common payload keys)
   const requestCompany = useCallback(
     async (id: string): Promise<CompanyResponse> => {
       const token = localStorage.getItem("asymmetrix_auth_token");
@@ -1073,27 +1063,55 @@ const CompanyDetail = () => {
 
       const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${id}`;
 
-      const response = await fetch(endpoint, {
+      // Attempt 1: Standard GET
+      const getResponse = await fetch(endpoint, {
         method: "GET",
         headers,
         credentials: "include",
       });
-      if (response.status === 401) {
+      if (getResponse.status === 401) {
         throw new Error("Authentication required");
       }
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "");
-        throw new Error(
-          `API request failed: ${response.status} ${response.statusText} ${errorText}`
-        );
+      if (getResponse.ok) {
+        return (await Promise.race([
+          getResponse.json(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Request timed out")), 20000)
+          ),
+        ])) as CompanyResponse;
       }
 
-      return (await Promise.race([
-        response.json(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Request timed out")), 20000)
-        ),
-      ])) as CompanyResponse;
+      // Attempt 2..N: POST with typical id keys, in case backend expects a body
+      const candidateBodies = [
+        { new_company_id: Number(id) },
+        { company_id: Number(id) },
+        { id: Number(id) },
+      ];
+      for (const body of candidateBodies) {
+        const postResponse = await fetch(endpoint, {
+          method: "POST",
+          headers,
+          credentials: "include",
+          body: JSON.stringify(body),
+        });
+        if (postResponse.status === 401) {
+          throw new Error("Authentication required");
+        }
+        if (postResponse.ok) {
+          return (await Promise.race([
+            postResponse.json(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("Request timed out")), 20000)
+            ),
+          ])) as CompanyResponse;
+        }
+      }
+
+      // If we reached here, throw a detailed error
+      const errorText = await getResponse.text().catch(() => "");
+      throw new Error(
+        `API request failed: ${getResponse.status} ${getResponse.statusText} ${errorText}`
+      );
     },
     []
   );
@@ -1132,22 +1150,59 @@ const CompanyDetail = () => {
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
       if (!token) {
-        setFinancialMetrics(null);
+        // Keep silent failure; UI will show existing values
         return;
       }
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      };
 
-      const { metricsRows } = await fetchCompanyFinancialMetricsCard(
-        id,
-        preferredCurrencyId
-      );
-      const latest = resolveLatestFinancialMetricsRow(metricsRows);
-      setFinancialMetrics(
-        latest ? (latest as CompanyFinancialMetrics) : null
-      );
+      const base = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics`;
+      // Attempt GET with query param
+      const params = new URLSearchParams();
+      params.append("new_company_id", String(id));
+      let res = await fetch(`${base}?${params.toString()}`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        // Fallback to POST with common id keys
+        const candidateBodies = [
+          { new_company_id: Number(id) },
+          { company_id: Number(id) },
+          { id: Number(id) },
+        ];
+        for (const body of candidateBodies) {
+          const attempt = await fetch(base, {
+            method: "POST",
+            headers,
+            credentials: "include",
+            body: JSON.stringify(body),
+          });
+          if (attempt.ok) {
+            res = attempt;
+            break;
+          }
+        }
+      }
+
+      if (!res.ok) return;
+      const data = await res.json();
+      // API may return a single object or an array
+      const payload: CompanyFinancialMetrics | null = Array.isArray(data)
+        ? (data[0] as CompanyFinancialMetrics | undefined) || null
+        : (data as CompanyFinancialMetrics);
+      if (payload && typeof payload === "object") {
+        setFinancialMetrics(payload);
+      }
     } catch {
-      setFinancialMetrics(null);
+      // Non-fatal; keep defaults
     }
-  }, [preferredCurrencyId]);
+  }, []);
 
   // Fetch investors from company_investors API endpoint
   const fetchCompanyInvestors = useCallback(async (id: string | number) => {
@@ -1189,12 +1244,56 @@ const CompanyDetail = () => {
     }
   }, []);
 
+  const fetchCompanyCompetitors = useCallback(async (id: string | number) => {
+    setCompetitorsLoading(true);
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) {
+        setCompetitorsLoading(false);
+        return;
+      }
+      const headers: Record<string, string> = {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      };
+
+      const params = new URLSearchParams();
+      params.append("new_company_id", String(id));
+      const res = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_competitors?${params.toString()}`,
+        { method: "GET", headers, credentials: "include" }
+      );
+      if (!res.ok) {
+        setCompetitors(null);
+        return;
+      }
+      const data = (await res.json()) as {
+        competitors?: Partial<CompanyCompetitorsResponse>;
+      };
+      const payload = data?.competitors;
+      setCompetitors({
+        peers: Array.isArray(payload?.peers) ? payload.peers : [],
+        potential_acquirers: Array.isArray(payload?.potential_acquirers)
+          ? payload.potential_acquirers
+          : [],
+        acquisition_targets: Array.isArray(payload?.acquisition_targets)
+          ? payload.acquisition_targets
+          : [],
+      });
+    } catch (err) {
+      console.error("Error fetching company competitors:", err);
+      setCompetitors(null);
+    } finally {
+      setCompetitorsLoading(false);
+    }
+  }, []);
+
   const fetchCompanyTransactionStatus = useCallback(async (id: string | number) => {
     try {
       const params = new URLSearchParams();
       params.append("new_company_id", String(id));
       const res = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_transaction_status?${params.toString()}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_transaction_status?${params.toString()}`,
         { method: "GET" }
       );
       if (!res.ok) return;
@@ -1219,7 +1318,7 @@ const CompanyDetail = () => {
         try {
           data = await requestCompany(companyId);
         } catch (apiErr) {
-          // If the GET request failed, rethrow with a nicer message
+          // If the GET/POST attempts failed, rethrow with a nicer message
           const msg = apiErr instanceof Error ? apiErr.message : String(apiErr);
           if (msg.includes("404")) {
             throw new Error("Company not found");
@@ -1234,8 +1333,6 @@ const CompanyDetail = () => {
         }
 
         // Removed additional verbose logging
-
-        const mcpStatus = readCompanyMcpStatus(data.Company, data);
 
         // Use actual investor data from API
         const enrichedCompany = {
@@ -1254,14 +1351,11 @@ const CompanyDetail = () => {
           Managmant_Roles_current: data.Managmant_Roles_current || [],
           Managmant_Roles_past: data.Managmant_Roles_past || [],
           // Former company name(s) may come from root or inside Company
-          Former_name: parseStructuredArray<string>(
-            firstNonEmptyStructuredField(
-              (data as unknown as { Former_name?: unknown })?.Former_name,
-              (data as unknown as { former_names?: unknown })?.former_names,
-              (data.Company as unknown as { Former_name?: unknown })
-                ?.Former_name
-            )
-          ),
+          Former_name:
+            (data as unknown as { Former_name?: string[] })?.Former_name ||
+            (data.Company as unknown as { Former_name?: string[] })
+              ?.Former_name ||
+            [],
           have_subsidiaries_companies: data.have_subsidiaries_companies || {
             have_subsidiaries_companies: false,
             Subsidiaries_companies: [],
@@ -1279,52 +1373,36 @@ const CompanyDetail = () => {
                 have_parent_company?: HaveParentCompany;
               }
             ).have_parent_company,
-          Product_Type: firstNonEmptyStructuredField(
+          Product_Type:
             (data as { Product_Type?: CompanyProductTypeItem[] | string })
-              .Product_Type,
-            data.Company?.Product_Type
-          ) as Company["Product_Type"],
-          Data_Collection_Method: firstNonEmptyStructuredField(
+              .Product_Type || data.Company?.Product_Type,
+          Data_Collection_Method:
             (
               data as {
                 Data_Collection_Method?:
                   | CompanyDataCollectionMethodItem[]
                   | string;
               }
-            ).Data_Collection_Method,
-            (
-              data.Company as {
-                Data_Collection_Method?:
-                  | CompanyDataCollectionMethodItem[]
-                  | string;
-              }
-            )?.Data_Collection_Method
-          ) as Company["Data_Collection_Method"],
-          Revenue_Model_: firstNonEmptyStructuredField(
+            ).Data_Collection_Method || data.Company?.Data_Collection_Method,
+          Revenue_Model_:
             (data as { Revenue_Model_?: CompanyRevenueModelItem[] | string })
-              .Revenue_Model_,
+              .Revenue_Model_ ||
             (data as { Revenue_Model?: CompanyRevenueModelItem[] | string })
-              .Revenue_Model,
-            data.Company?.Revenue_Model_,
+              .Revenue_Model ||
+            data.Company?.Revenue_Model_ ||
             (data.Company as { Revenue_Model?: CompanyRevenueModelItem[] | string })
-              ?.Revenue_Model
-          ) as Company["Revenue_Model_"],
+              ?.Revenue_Model,
           last_investment:
             (data as { last_investment?: LastInvestment | null })
               .last_investment ??
             (data.Company as { last_investment?: LastInvestment | null })
               ?.last_investment ??
             null,
-          _companies_employees_count_monthly: resolveEmployeeTimeSeries(data),
           Lifecycle_stage:
             data.Company?.Lifecycle_stage ||
             (data as unknown as { Lifecycle_stage?: LifecycleStage })
               .Lifecycle_stage ||
             undefined,
-          ...(isCompanyMcpPopulated(mcpStatus) ? { has_mcp: mcpStatus } : {}),
-          mcp_data:
-            (data as { mcp_data?: CompanyMcpData }).mcp_data ??
-            data.Company?.mcp_data,
         };
 
         // Parse optional ebitda_data with display strings
@@ -1431,22 +1509,11 @@ const CompanyDetail = () => {
     };
 
     if (companyId) {
-      setFinancialMetrics(null);
       fetchCompanyData();
       fetchFinancialMetrics(companyId);
       fetchCompanyInvestors(companyId);
+      fetchCompanyCompetitors(companyId);
       fetchCompanyTransactionStatus(companyId);
-
-      setCompanyLinkedIn(null);
-      void (async () => {
-        try {
-          const token = localStorage.getItem("asymmetrix_auth_token");
-          const data = await fetchCompanyLinkedIn(companyId, token);
-          setCompanyLinkedIn(data);
-        } catch (err) {
-          console.warn("Failed to fetch company LinkedIn data:", err);
-        }
-      })();
     }
   }, [
     companyId,
@@ -1454,6 +1521,7 @@ const CompanyDetail = () => {
     requestCompany,
     fetchFinancialMetrics,
     fetchCompanyInvestors,
+    fetchCompanyCompetitors,
     fetchCompanyTransactionStatus,
   ]);
 
@@ -1518,34 +1586,29 @@ const CompanyDetail = () => {
     if (typeof window === "undefined") return;
 
     const checkDescriptionOverflow = () => {
-      if (isDescriptionExpanded) return;
-
       const element = descriptionRef.current;
       if (!element) {
         setIsDescriptionExpandable(false);
         return;
       }
 
-      setIsDescriptionExpandable(
-        element.scrollHeight > element.clientHeight + 1
-      );
+      const computedStyle = window.getComputedStyle(element);
+      const lineHeight = parseFloat(computedStyle.lineHeight || "0");
+      if (!lineHeight) {
+        setIsDescriptionExpandable(false);
+        return;
+      }
+
+      // Allow more of the description to be visible before collapsing
+      const collapsedHeight = lineHeight * 5;
+      setIsDescriptionExpandable(element.scrollHeight > collapsedHeight + 1);
     };
 
     checkDescriptionOverflow();
     window.addEventListener("resize", checkDescriptionOverflow);
 
-    let observer: ResizeObserver | undefined;
-    const element = descriptionRef.current;
-    if (element && typeof ResizeObserver !== "undefined") {
-      observer = new ResizeObserver(checkDescriptionOverflow);
-      observer.observe(element);
-    }
-
-    return () => {
-      window.removeEventListener("resize", checkDescriptionOverflow);
-      observer?.disconnect();
-    };
-  }, [company?.description, isMobile, isDescriptionExpanded]);
+    return () => window.removeEventListener("resize", checkDescriptionOverflow);
+  }, [company?.description, isMobile]);
 
   // Update page title when company data is loaded
   useEffect(() => {
@@ -1594,12 +1657,8 @@ const CompanyDetail = () => {
             financial_metrics_period: financialMetricsPeriod,
             financial_metrics_year: financialMetricsYear,
             source: FINANCIAL_METRICS_EXPORT_SOURCE,
-            preferred_currency_id: preferredCurrencyId,
           }
-        : {
-            company_id: company.id,
-            preferred_currency_id: preferredCurrencyId,
-          };
+        : { company_id: company.id };
       const response = await fetch(
         "https://asymmetrix-pdf-service.fly.dev/api/export-company-pdf",
         {
@@ -1651,7 +1710,6 @@ const CompanyDetail = () => {
     company?.id,
     company?.name,
     financialMetrics,
-    preferredCurrencyId,
   ]);
 
   if (loading) {
@@ -1730,9 +1788,7 @@ const CompanyDetail = () => {
 
   // Compute a safe LinkedIn URL from API (only allow linkedin.com domains)
   const linkedinUrl: string | undefined = (() => {
-    const raw =
-      companyLinkedIn?.profile?.linkedin_url ??
-      company.linkedin_data?.LinkedIn_URL;
+    const raw = company.linkedin_data?.LinkedIn_URL;
     if (!raw) return undefined;
     const trimmed = String(raw).trim();
     if (!trimmed) return undefined;
@@ -1831,41 +1887,9 @@ const CompanyDetail = () => {
             sector_id: toNumber(it?.id),
           }))
           .filter((s) => Boolean(s.sector_name));
-      const primary = toPrimary(payload.primary_sectors || []);
-      const secondary = toSecondary(payload.secondary_sectors || []);
-
-      const secondaryIds = new Set(
-        secondary.map((s) => s.sector_id).filter((id) => id > 0)
-      );
-      const secondaryNames = new Set(
-        secondary
-          .map((s) => s.sector_name.toLowerCase())
-          .filter(Boolean)
-      );
-
-      // When the API lists the same sector as both primary and secondary,
-      // secondary importance wins (e.g. Private Equity for CEPRES).
-      const reconciledPrimary = primary.filter(
-        (s) =>
-          !(s.sector_id > 0 && secondaryIds.has(s.sector_id)) &&
-          !secondaryNames.has(s.sector_name.toLowerCase())
-      );
-
-      const dedupedSecondary: CompanySector[] = [];
-      const seenSecondaryKeys = new Set<string>();
-      for (const sector of secondary) {
-        const key =
-          sector.sector_id > 0
-            ? `id:${sector.sector_id}`
-            : `name:${sector.sector_name.toLowerCase()}`;
-        if (seenSecondaryKeys.has(key)) continue;
-        seenSecondaryKeys.add(key);
-        dedupedSecondary.push(sector);
-      }
-
       return {
-        primary: reconciledPrimary,
-        secondary: dedupedSecondary,
+        primary: toPrimary(payload.primary_sectors || []),
+        secondary: toSecondary(payload.secondary_sectors || []),
       };
     } catch {
       return null;
@@ -1873,9 +1897,8 @@ const CompanyDetail = () => {
   })();
 
   // Determine sectors to display:
-  // Prefer `new_sectors_data.sectors_payload` for sector lists; if a sector appears in
-  // both primary and secondary, treat it as secondary. Fall back to `company.sectors_id`
-  // when `new_sectors_data` is missing/unparseable.
+  // Prefer `new_sectors_data.sectors_payload` (it already splits primary vs secondary).
+  // Only fall back to `company.sectors_id` when `new_sectors_data` is missing/unparseable.
   const hasNewSectors = parsedNewSectors !== null;
 
   const primarySectors =
@@ -1909,9 +1932,6 @@ const CompanyDetail = () => {
 
   // Process location
   const location = company._locations;
-  const hqCountryIso2 = readHqCountryIso2(
-    company as unknown as Record<string, unknown>
-  );
   const fullAddress = [
     location?.City,
     location?.State__Province__County,
@@ -1921,7 +1941,6 @@ const CompanyDetail = () => {
     .join(", ");
 
   // Process financial data
-  // Use revenue currency if valid; otherwise fall back to EV currency (income statement only)
   const revenueCurrency =
     normalizeCurrency(
       company.revenues?.revenues_currency ||
@@ -1934,13 +1953,35 @@ const CompanyDetail = () => {
         company.ev_data?.currency?.Currency
     ) || undefined;
 
-  const revenuePlain = formatMetricMillionsPlain(financialMetrics?.Revenue_m);
-  const ebitdaPlain = formatMetricMillionsPlain(financialMetrics?.EBITDA_m);
-  const evPlain = formatMetricMillionsPlain(financialMetrics?.EV);
+  // Use revenue currency if valid; otherwise fall back to EV currency
+  const displayCurrency = revenueCurrency || evCurrency;
 
-  // Currency suffix to show once in heading (from company_financial_metrics only)
+  // Keep preformatted displays for legacy widgets only (not used in Financial Metrics rendering)
+
+  // Prefer values from `company_financial_metrics` when available for base figures (plain numbers, no currency)
+  const revenueFromMetrics =
+    getNumeric(financialMetrics?.Revenue_m) !== undefined
+      ? formatPlainNumber(financialMetrics?.Revenue_m)
+      : undefined;
+  const ebitdaFromMetrics =
+    getNumeric(financialMetrics?.EBITDA_m) !== undefined
+      ? formatPlainNumber(financialMetrics?.EBITDA_m)
+      : undefined;
+  const evFromMetrics =
+    getNumeric(financialMetrics?.EV) !== undefined
+      ? formatPlainNumber(financialMetrics?.EV)
+      : undefined;
+
+  // Plain fallbacks from company data (no currency, preserve decimals)
+  const revenuePlain =
+    revenueFromMetrics ?? formatPlainNumber(company.revenues?.revenues_m);
+  const ebitdaPlain =
+    ebitdaFromMetrics ?? formatPlainNumber(company.EBITDA?.EBITDA_m);
+  const evPlain = evFromMetrics ?? formatPlainNumber(company.ev_data?.ev_value);
+
+  // Currency suffix to show once in heading
   const metricsCurrencyCode =
-    normalizeCurrency(financialMetrics?.Income_statement_currency) ||
+    // 1) Prefer explicit display strings from Xano metrics payload when present
     normalizeCurrency(
       (financialMetrics as unknown as { Revenue_currency_display?: string | null })
         ?.Revenue_currency_display
@@ -1957,23 +1998,19 @@ const CompanyDetail = () => {
       (financialMetrics as unknown as { EBIT_currency_display?: string | null })
         ?.EBIT_currency_display
     ) ||
+    // 2) Then fall back to structured currency objects
     normalizeCurrency(
       (financialMetrics as unknown as { _currency?: { Currency?: string } })
         ?._currency
     ) ||
+    // 3) Finally, consider legacy numeric/string codes and page-level fallbacks
     normalizeCurrency(financialMetrics?.Rev_Currency) ||
     normalizeCurrency(financialMetrics?.EBITDA_currency) ||
     normalizeCurrency(financialMetrics?.EV_currency) ||
-    undefined;
+    displayCurrency;
   const metricsCurrencySuffix = metricsCurrencyCode
     ? ` (${metricsCurrencyCode})`
     : "";
-  const subscriptionMoney = (formatted: string) =>
-    appendMetricCurrency(
-      formatted,
-      normalizeCurrency(financialMetrics?.Subscription_revenue_currency_display) ??
-        metricsCurrencyCode
-    );
 
   const financialMetricsPeriodDisplay = formatFinancialMetricsPeriod(financialMetrics);
 
@@ -2036,44 +2073,12 @@ const CompanyDetail = () => {
         typeof row.ebitda === "number"
     );
 
-  const incomeStatementCurrency =
-    metricsCurrencyCode ||
-    normalizeCurrency(
-      normalizedIncomeStatements
-        .map((row) => row.cost_of_goods_sold_currency)
-        .find((value) => normalizeCurrency(value))
-    ) ||
-    evCurrency ||
-    revenueCurrency ||
-    "";
-
-  const formatIncomeStatementValue = (
-    value?: number | null,
-    rowCurrency?: string
-  ) => {
-    if (typeof value !== "number") return "—";
-    return appendMetricCurrency(
-      Math.round(value / 1_000_000).toLocaleString(),
-      normalizeCurrency(rowCurrency) || incomeStatementCurrency || undefined
-    );
-  };
-
-  // Process employee data (LinkedIn history preferred; profile count for headline)
-  const employeeData =
-    companyLinkedIn?.employee_history &&
-    companyLinkedIn.employee_history.length > 0
-      ? mapLinkedInHistoryToTimeSeries(companyLinkedIn.employee_history)
-      : company._companies_employees_count_monthly || [];
-  const seriesEmployeeCount =
+  // Process employee data
+  const employeeData = company._companies_employees_count_monthly || [];
+  const currentEmployeeCount =
     employeeData.length > 0
       ? employeeData[employeeData.length - 1].employees_count
       : 0;
-  const currentEmployeeCount = resolveLinkedInDisplayEmployeeCount(
-    companyLinkedIn,
-    seriesEmployeeCount
-  );
-  const linkedinGrowthPct =
-    companyLinkedIn?.growth_1y_pct ?? company.linkedin_growth_1y_pct;
 
   // Determine if there are subsidiaries to display
   const hasSubsidiaries = Boolean(
@@ -2104,12 +2109,12 @@ const CompanyDetail = () => {
   // Market Overview removed: no TradingView symbols computation
 
   // Build a readable former name string if present
-  const formerNameDisplay = (() => {
-    const names = parseStructuredArray<string>(company?.Former_name).filter(
-      (v) => typeof v === "string" && v.trim().length > 0
-    );
-    return names.length > 0 ? names.join(", ") : null;
-  })();
+  const formerNameDisplay =
+    Array.isArray(company?.Former_name) && company.Former_name.length > 0
+      ? company.Former_name.filter(
+          (v) => typeof v === "string" && v.trim().length > 0
+        ).join(", ")
+      : null;
 
   const productTypeRows = parseStructuredArray<CompanyProductTypeItem>(
     company.Product_Type
@@ -2146,19 +2151,12 @@ const CompanyDetail = () => {
     }))
     .filter((item) => item.label);
 
-  const companyMcpStatus = readCompanyMcpStatus(company);
-  const showCompanyMcp = isCompanyMcpPopulated(companyMcpStatus);
-
-  const productTypeSection =
-    productTypeRows.length > 0
-      ? {
-          title: "Product Type",
-          valueHeader: "% of revenue",
-          rows: productTypeRows,
-        }
-      : null;
-
-  const otherAttributeSections = [
+  const companyAttributeSections = [
+    {
+      title: "Product Type",
+      valueHeader: "% of revenue",
+      rows: productTypeRows,
+    },
     {
       title: "Data Collection Method",
       valueHeader: "Predominance",
@@ -2170,18 +2168,6 @@ const CompanyDetail = () => {
       rows: revenueModelRows,
     },
   ].filter((section) => section.rows.length > 0);
-
-  const showAttributeCards =
-    productTypeSection !== null || showCompanyMcp || otherAttributeSections.length > 0;
-
-  const attributeCardStyle = {
-    padding: "16px",
-    backgroundColor: "#ffffff",
-    borderRadius: "8px",
-    border: "1px solid #e2e8f0",
-    flex: "1 1 200px",
-    minWidth: 0,
-  } as const;
 
   const styles = {
     container: {
@@ -2584,8 +2570,6 @@ const CompanyDetail = () => {
     .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
     .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
     .pill-green { background-color: #dcfce7; color: #15803d; }
-    .pill-neutral { background-color: #f1f5f9; color: #64748b; }
-    .mcp-status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 12px; font-weight: 600; border-radius: 999px; }
     /* Management card hover effects */
     .management-card:hover {
       background-color: #e6f0ff !important;
@@ -2657,9 +2641,6 @@ const CompanyDetail = () => {
                   <div style={{ minWidth: 0 }}>
                     <div
                       style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "8px",
                         fontSize: "22px",
                         fontWeight: 700,
                         color: "#1a202c",
@@ -2667,10 +2648,6 @@ const CompanyDetail = () => {
                       }}
                     >
                       {company.name}
-                      <CountryFlagImg
-                        iso2={hqCountryIso2}
-                        size={COUNTRY_FLAG_INLINE_SIZE_PX * 1.5}
-                      />
                     </div>
                     {formerNameDisplay && (
                       <div style={{ ...styles.formerName, marginTop: "4px" }}>
@@ -2692,9 +2669,7 @@ const CompanyDetail = () => {
                     <FollowButton
                       followKey="followed_companies"
                       entityId={Number(companyId)}
-                      entityType="company"
                       label="Company"
-                      icon={<BellIcon width={15} height={15} strokeWidth={2} aria-hidden />}
                     />
                   )}
                   <div
@@ -3077,7 +3052,7 @@ const CompanyDetail = () => {
                         return (
                           <div style={styles.tagContainer}>
                             <Link
-                              href={`/company/${parentId}`}
+                              href={`/new_company/${parentId}`}
                               style={styles.companyTag}
                               onMouseEnter={(e) => {
                                 (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
@@ -3143,6 +3118,14 @@ const CompanyDetail = () => {
                       })()}
                     </div>
                   </div>
+                  <div style={styles.infoRow} className="info-row">
+                    <span style={styles.label} className="info-label">
+                      Years Since Last Investment:
+                    </span>
+                    <div style={styles.value} className="info-value">
+                      {formatLastInvestmentDisplay(company.last_investment)}
+                    </div>
+                  </div>
                 </>
               )}
               {hasManagement && (
@@ -3162,7 +3145,14 @@ const CompanyDetail = () => {
                       <IndividualCards
                         title="Current:"
                         individuals={(company.Managmant_Roles_current || []).map(
-                          mapManagementRoleToCard
+                          (person) => ({
+                            id: person.id,
+                            name: person.Individual_text,
+                            jobTitles: (person.job_titles_id || [])
+                              .map((job) => job?.job_title)
+                              .filter(Boolean),
+                            individualId: person.individuals_id,
+                          })
                         )}
                         emptyMessage="Not available"
                       />
@@ -3174,7 +3164,14 @@ const CompanyDetail = () => {
                       <IndividualCards
                         title="Past:"
                         individuals={(company.Managmant_Roles_past || []).map(
-                          mapManagementRoleToCard
+                          (person) => ({
+                            id: person.id,
+                            name: person.Individual_text,
+                            jobTitles: (person.job_titles_id || [])
+                              .map((job) => job?.job_title)
+                              .filter(Boolean),
+                            individualId: person.individuals_id,
+                          })
                         )}
                         emptyMessage="Not available"
                       />
@@ -3214,7 +3211,7 @@ const CompanyDetail = () => {
                         display: isDescriptionExpanded ? "block" : "-webkit-box",
                         WebkitBoxOrient: "vertical",
                         // Show more lines in the collapsed state to improve readability
-                        WebkitLineClamp: isDescriptionExpanded ? undefined : 5,
+                        WebkitLineClamp: isDescriptionExpanded ? "unset" : 5,
                       }}
                     >
                       {company.description || "No description available"}
@@ -3240,203 +3237,73 @@ const CompanyDetail = () => {
                     )}
                   </div>
 
-                  {showAttributeCards && (
+                  {companyAttributeSections.length > 0 && (
                     <div
                       style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "14px",
+                        padding: "16px",
+                        backgroundColor: "#f9fafb",
+                        borderRadius: "8px",
+                        border: "1px solid #e2e8f0",
                       }}
                     >
-                      {(productTypeSection || showCompanyMcp) && (
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "12px",
-                            flexWrap: "wrap",
-                            alignItems: "stretch",
-                          }}
-                        >
-                          {productTypeSection && (
-                            <div style={attributeCardStyle}>
-                              <div
-                                style={{
-                                  fontSize: "14px",
-                                  fontWeight: 600,
-                                  color: "#334155",
-                                  marginBottom: "8px",
-                                }}
-                              >
-                                {productTypeSection.title}
-                              </div>
-                              <div style={{ overflowX: "auto" }}>
-                                <table
-                                  style={{
-                                    width: "100%",
-                                    borderCollapse: "collapse",
-                                    fontSize: "14px",
-                                  }}
-                                >
-                                  <tbody>
-                                    {productTypeSection.rows.map((row) => (
-                                      <tr key={`${productTypeSection.title}-${row.label}`}>
-                                        <td
-                                          style={{
-                                            padding: "7px 0",
-                                            borderBottom: "1px solid #f1f5f9",
-                                            color: "#1e293b",
-                                          }}
-                                        >
-                                          {row.label}
-                                        </td>
-                                        <td
-                                          style={{
-                                            padding: "7px 0",
-                                            borderBottom: "1px solid #f1f5f9",
-                                            textAlign: "right",
-                                            color: "#475569",
-                                            whiteSpace: "nowrap",
-                                          }}
-                                        >
-                                          {row.value}
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "14px",
+                        }}
+                      >
+                        {companyAttributeSections.map((section) => (
+                          <div key={section.title}>
+                            <div
+                              style={{
+                                fontSize: "14px",
+                                fontWeight: 600,
+                                color: "#334155",
+                                marginBottom: "8px",
+                              }}
+                            >
+                              {section.title}
                             </div>
-                          )}
-
-                          {showCompanyMcp && (
-                            <div style={attributeCardStyle}>
-                              <div
+                            <div style={{ overflowX: "auto" }}>
+                              <table
                                 style={{
+                                  width: "100%",
+                                  borderCollapse: "collapse",
                                   fontSize: "14px",
-                                  fontWeight: 600,
-                                  color: "#334155",
-                                  marginBottom: "8px",
                                 }}
                               >
-                                MCP
-                              </div>
-                              <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                  gap: "12px",
-                                  padding: "7px 0",
-                                  borderTop: "1px solid #f1f5f9",
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    fontSize: "14px",
-                                    color: "#1e293b",
-                                  }}
-                                >
-                                  MCP Implemented
-                                </span>
-                                <span
-                                  className={`mcp-status-badge ${
-                                    companyMcpStatus ? "pill-green" : "pill-neutral"
-                                  }`}
-                                >
-                                  {companyMcpStatus ? (
-                                    <svg
-                                      width="12"
-                                      height="12"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="3"
-                                      aria-hidden="true"
-                                    >
-                                      <path
-                                        d="M20 6L9 17l-5-5"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                      />
-                                    </svg>
-                                  ) : null}
-                                  {formatCompanyMcpDisplay(companyMcpStatus)}
-                                </span>
-                              </div>
+                                <tbody>
+                                  {section.rows.map((row) => (
+                                    <tr key={`${section.title}-${row.label}`}>
+                                      <td
+                                        style={{
+                                          padding: "7px 0",
+                                          borderBottom: "1px solid #f1f5f9",
+                                          color: "#1e293b",
+                                        }}
+                                      >
+                                        {row.label}
+                                      </td>
+                                      <td
+                                        style={{
+                                          padding: "7px 0",
+                                          borderBottom: "1px solid #f1f5f9",
+                                          textAlign: "right",
+                                          color: "#475569",
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        {row.value}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
-                          )}
-                        </div>
-                      )}
-
-                      {otherAttributeSections.length > 0 && (
-                        <div
-                          style={{
-                            padding: "16px",
-                            backgroundColor: "#f9fafb",
-                            borderRadius: "8px",
-                            border: "1px solid #e2e8f0",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "14px",
-                            }}
-                          >
-                            {otherAttributeSections.map((section) => (
-                              <div key={section.title}>
-                                <div
-                                  style={{
-                                    fontSize: "14px",
-                                    fontWeight: 600,
-                                    color: "#334155",
-                                    marginBottom: "8px",
-                                  }}
-                                >
-                                  {section.title}
-                                </div>
-                                <div style={{ overflowX: "auto" }}>
-                                  <table
-                                    style={{
-                                      width: "100%",
-                                      borderCollapse: "collapse",
-                                      fontSize: "14px",
-                                    }}
-                                  >
-                                    <tbody>
-                                      {section.rows.map((row) => (
-                                        <tr key={`${section.title}-${row.label}`}>
-                                          <td
-                                            style={{
-                                              padding: "7px 0",
-                                              borderBottom: "1px solid #f1f5f9",
-                                              color: "#1e293b",
-                                            }}
-                                          >
-                                            {row.label}
-                                          </td>
-                                          <td
-                                            style={{
-                                              padding: "7px 0",
-                                              borderBottom: "1px solid #f1f5f9",
-                                              textAlign: "right",
-                                              color: "#475569",
-                                              whiteSpace: "nowrap",
-                                            }}
-                                          >
-                                            {row.value}
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </div>
-                            ))}
                           </div>
-                        </div>
-                      )}
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -3805,7 +3672,7 @@ const CompanyDetail = () => {
                                 }}
                               >
                                 {createClickableElement(
-                                  `/company/${subsidiary.id}`,
+                                  `/new_company/${subsidiary.id}`,
                                   subsidiary.name
                                 )}
                               </td>
@@ -3820,17 +3687,36 @@ const CompanyDetail = () => {
                                 }}
                               >
                                 {subsidiary.description ? (
-                                  <ExpandableText
-                                    text={subsidiary.description}
-                                    expanded={expandedDescriptions.has(
-                                      subsidiary.id
+                                  <div>
+                                    {expandedDescriptions.has(subsidiary.id) ||
+                                    subsidiary.description.length <= 100
+                                      ? subsidiary.description
+                                      : `${subsidiary.description.substring(
+                                          0,
+                                          100
+                                        )}...`}
+                                    {subsidiary.description.length > 100 && (
+                                      <button
+                                        onClick={() =>
+                                          toggleDescription(subsidiary.id)
+                                        }
+                                        style={{
+                                          background: "none",
+                                          border: "none",
+                                          color: "#0075df",
+                                          cursor: "pointer",
+                                          fontSize: "12px",
+                                          textDecoration: "underline",
+                                          marginLeft: "4px",
+                                          padding: "0",
+                                        }}
+                                      >
+                                        {expandedDescriptions.has(subsidiary.id)
+                                          ? "Show less"
+                                          : "Expand description"}
+                                      </button>
                                     )}
-                                    onToggle={() =>
-                                      toggleDescription(subsidiary.id)
-                                    }
-                                    expandLabel="Expand description"
-                                    clampLines={3}
-                                  />
+                                  </div>
                                 ) : (
                                   "N/A"
                                 )}
@@ -3889,6 +3775,296 @@ const CompanyDetail = () => {
 
             {/* Desktop Financial Metrics */}
             <div style={styles.card} className="card desktop-financial-metrics">
+              {/* Competitors (table layout) */}
+              {(competitorsLoading ||
+                (competitors &&
+                  (competitors.peers.length > 0 ||
+                    competitors.potential_acquirers.length > 0 ||
+                    competitors.acquisition_targets.length > 0))) && (
+                <div style={{ marginBottom: "20px" }}>
+                  <h2 style={styles.sectionTitle}>Market Landscape</h2>
+                  {competitorsLoading ? (
+                    <div style={{ fontSize: "14px", color: "#6b7280" }}>
+                      Loading...
+                    </div>
+                  ) : (
+                    <>
+                      {(() => {
+                        const MAX_VISIBLE = 5;
+                        const competitorTag = {
+                          backgroundColor: "#e8f0fe",
+                          color: "#1a56db",
+                          padding: "4px 8px",
+                          borderRadius: "4px",
+                          fontSize: "12px",
+                          fontWeight: "500" as const,
+                          textDecoration: "none",
+                          display: "inline-block",
+                          maxWidth: "100%",
+                          minWidth: 0,
+                          whiteSpace: "normal" as const,
+                          wordBreak: "keep-all" as const,
+                          overflowWrap: "normal" as const,
+                          hyphens: "none" as const,
+                          lineHeight: 1.25,
+                          textAlign: "left" as const,
+                        };
+
+                        const sections: {
+                          key: string;
+                          label: string;
+                          items: CompanyCompetitorItem[];
+                        }[] = [
+                          {
+                            key: "peers",
+                            label: "Peers & Competitors",
+                            items: competitors?.peers || [],
+                          },
+                          {
+                            key: "acquirers",
+                            label: "Potential Acquirers",
+                            items: competitors?.potential_acquirers || [],
+                          },
+                          {
+                            key: "targets",
+                            label: "Acquisition Targets",
+                            items: competitors?.acquisition_targets || [],
+                          },
+                        ].filter((s) => s.items.length > 0);
+
+                        if (sections.length === 0) return null;
+
+                        const hasMore = sections.some(
+                          (s) => s.items.length > MAX_VISIBLE
+                        );
+                        const visibleSections = sections.map((s) => ({
+                          ...s,
+                          items: s.items.slice(0, MAX_VISIBLE),
+                        }));
+
+                        const renderCompetitorTable = (
+                          tableSections: typeof visibleSections
+                        ) => {
+                          const tMaxRows = Math.max(
+                            ...tableSections.map((s) => s.items.length)
+                          );
+                          return (
+                            <table
+                              style={{
+                                width: "100%",
+                                borderCollapse: "collapse",
+                                tableLayout: "fixed",
+                                fontSize: "13px",
+                              }}
+                            >
+                              <thead>
+                                <tr>
+                                  {tableSections.map((section) => (
+                                    <th
+                                      key={section.key}
+                                      style={{
+                                        textAlign: "center",
+                                        padding: "4px 6px 6px",
+                                        borderBottom: "1px solid #e2e8f0",
+                                        color: "#4b5563",
+                                        fontWeight: 600,
+                                        fontSize: "12px",
+                                      }}
+                                    >
+                                      {section.label}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {Array.from({ length: tMaxRows }).map(
+                                  (_, rowIdx) => (
+                                    <tr key={`competitor-row-${rowIdx}`}>
+                                      {tableSections.map((section) => {
+                                        const comp = section.items[rowIdx];
+                                        if (!comp) {
+                                          return (
+                                            <td
+                                              key={`${section.key}-${rowIdx}`}
+                                              style={{
+                                                padding: "5px 6px",
+                                                borderBottom:
+                                                  "1px solid #f1f5f9",
+                                              }}
+                                            />
+                                          );
+                                        }
+                                        return (
+                                          <td
+                                            key={`${section.key}-${rowIdx}`}
+                                            style={{
+                                              padding: "5px 6px",
+                                              borderBottom:
+                                                "1px solid #f1f5f9",
+                                              verticalAlign: "top",
+                                              minWidth: 0,
+                                            }}
+                                          >
+                                            <div
+                                              style={{
+                                                display: "flex",
+                                                alignItems: "flex-start",
+                                                gap: "5px",
+                                                minWidth: 0,
+                                              }}
+                                            >
+                                              {comp.linkedin_logo ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img
+                                                  src={`data:image/jpeg;base64,${comp.linkedin_logo}`}
+                                                  alt=""
+                                                  style={{
+                                                    width: "18px",
+                                                    height: "14px",
+                                                    borderRadius: "3px",
+                                                    objectFit: "contain",
+                                                    flexShrink: 0,
+                                                  }}
+                                                />
+                                              ) : null}
+                                              <Link
+                                                href={`/new_company/${comp.id}`}
+                                                prefetch={false}
+                                                style={{
+                                                  ...competitorTag,
+                                                  flex: "1 1 auto",
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c7d7fc";
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f0fe";
+                                                }}
+                                              >
+                                                {comp.name}
+                                              </Link>
+                                            </div>
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  )
+                                )}
+                              </tbody>
+                            </table>
+                          );
+                        };
+
+                        return (
+                          <>
+                            <div
+                              style={{
+                                backgroundColor: "#f9fafb",
+                                borderRadius: "8px",
+                                border: "1px solid #e2e8f0",
+                                padding: "8px 12px 10px",
+                              }}
+                            >
+                              <div>
+                                {renderCompetitorTable(visibleSections)}
+                              </div>
+                              {hasMore && (
+                                <div style={{ textAlign: "center", marginTop: "10px" }}>
+                                  <button
+                                    onClick={() => setShowCompetitorsModal(true)}
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      color: "#0075df",
+                                      fontSize: "13px",
+                                      fontWeight: 500,
+                                      textDecoration: "underline",
+                                      cursor: "pointer",
+                                      padding: 0,
+                                    }}
+                                  >
+                                    See more
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Competitors modal */}
+                            {showCompetitorsModal && (
+                              <div
+                                style={{
+                                  position: "fixed",
+                                  inset: 0,
+                                  backgroundColor: "rgba(0,0,0,0.5)",
+                                  zIndex: 1000,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  padding: "16px",
+                                }}
+                                onClick={() => setShowCompetitorsModal(false)}
+                              >
+                                <div
+                                  style={{
+                                    backgroundColor: "white",
+                                    borderRadius: "12px",
+                                    padding: "24px",
+                                    width: "100%",
+                                    maxWidth: "800px",
+                                    maxHeight: "80vh",
+                                    overflowY: "auto",
+                                    boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "center",
+                                      marginBottom: "16px",
+                                    }}
+                                  >
+                                    <h3
+                                      style={{
+                                        margin: 0,
+                                        fontSize: "18px",
+                                        fontWeight: 700,
+                                        color: "#1a202c",
+                                      }}
+                                    >
+                                      Market Landscape
+                                    </h3>
+                                    <button
+                                      onClick={() => setShowCompetitorsModal(false)}
+                                      style={{
+                                        background: "none",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        fontSize: "22px",
+                                        color: "#6b7280",
+                                        lineHeight: 1,
+                                        padding: "0 4px",
+                                      }}
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                  <div>
+                                    {renderCompetitorTable(
+                                      sections.map((s) => ({ ...s }))
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </>
+                  )}
+                </div>
+              )}
               <h2 style={styles.sectionTitle}>
                 Financial Metrics{metricsCurrencySuffix}
               </h2>
@@ -4009,7 +4185,7 @@ const CompanyDetail = () => {
                       marginBottom: 8,
                     }}
                   >
-                    Income statement
+                    Income Statement (Last 3 FY)
                   </div>
                   <div style={{ overflowX: "auto" }}>
                     <table
@@ -4060,6 +4236,18 @@ const CompanyDetail = () => {
                           const period = (
                             row.period_display_end_date || ""
                           ).replace(/[,\s]/g, "");
+                          const currency =
+                            row.cost_of_goods_sold_currency ||
+                            evCurrency ||
+                            revenueCurrency ||
+                            "";
+                          const fmt = (v?: number | null) =>
+                            typeof v === "number"
+                              ? (() => {
+                                  const millions = Math.round(v / 1_000_000);
+                                  return `${currency}${millions.toLocaleString()}`;
+                                })()
+                              : "—";
                           return (
                             <tr key={row.id}>
                               <td
@@ -4077,10 +4265,7 @@ const CompanyDetail = () => {
                                   textAlign: "right",
                                 }}
                               >
-                                {formatIncomeStatementValue(
-                                  row.revenue,
-                                  row.cost_of_goods_sold_currency
-                                )}
+                                {fmt(row.revenue)}
                               </td>
                               <td
                                 style={{
@@ -4089,10 +4274,7 @@ const CompanyDetail = () => {
                                   textAlign: "right",
                                 }}
                               >
-                                {formatIncomeStatementValue(
-                                  row.ebit,
-                                  row.cost_of_goods_sold_currency
-                                )}
+                                {fmt(row.ebit)}
                               </td>
                               <td
                                 style={{
@@ -4101,10 +4283,7 @@ const CompanyDetail = () => {
                                   textAlign: "right",
                                 }}
                               >
-                                {formatIncomeStatementValue(
-                                  row.ebitda,
-                                  row.cost_of_goods_sold_currency
-                                )}
+                                {fmt(row.ebitda)}
                               </td>
                             </tr>
                           );
@@ -4121,28 +4300,26 @@ const CompanyDetail = () => {
                 Subscription Metrics
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Subscription revenue (m):</span>
+                <span style={styles.label}>Recurring Revenue:</span>
                 <span style={styles.value}>
-                  {subscriptionMoney(
-                    formatMetricMillionsPlain(financialMetrics?.Subscription_revenue_m)
-                  )}
+                  {formatPercent(financialMetrics?.ARR_pc)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
-                    financialMetrics?.Subscription_revenue_source_label,
-                    financialMetrics?.Subscription_revenue_source
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
                   )}
                 </span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Subscription revenue %:</span>
+                <span style={styles.label}>ARR (m):</span>
                 <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Subscription_revenue_pc)}
+                  {formatPlainNumber(financialMetrics?.ARR_m)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
-                    financialMetrics?.Subscription_revenue_source_label,
-                    financialMetrics?.Subscription_revenue_source
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
                   )}
                 </span>
               </div>
@@ -4252,7 +4429,7 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>EBIT (m):</span>
                 <span style={styles.value}>
-                  {formatMetricMillionsPlain(financialMetrics?.EBIT_m)}
+                  {formatPlainNumber(financialMetrics?.EBIT_m)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4278,10 +4455,7 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per client:</span>
                 <span style={styles.value}>
-                  {formatWholeNumberWithCurrency(
-                    financialMetrics?.Rev_per_client,
-                    metricsCurrencyCode
-                  )}
+                  {formatWholeNumber(financialMetrics?.Rev_per_client)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4293,7 +4467,9 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>Number of employees:</span>
                 <span style={styles.value}>
-                  {formatWholeNumber(financialMetrics?.No_Employees)}
+                  {typeof financialMetrics?.No_Employees === "number"
+                    ? financialMetrics.No_Employees.toLocaleString()
+                    : formatNumber(currentEmployeeCount)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4305,10 +4481,7 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per employee:</span>
                 <span style={styles.value}>
-                  {formatWholeNumberWithCurrency(
-                    financialMetrics?.Revenue_per_employee,
-                    metricsCurrencyCode
-                  )}
+                  {formatWholeNumber(financialMetrics?.Revenue_per_employee)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4336,19 +4509,6 @@ const CompanyDetail = () => {
                     No employee data available
                   </div>
                 )}
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>
-                  LinkedIn growth (1 yr):
-                </span>
-                <span style={styles.value}>
-                  {formatPercent(linkedinGrowthPct)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getNumeric(linkedinGrowthPct) !== undefined
-                    ? "LinkedIn"
-                    : ""}
-                </span>
               </div>
               {/* LinkedIn Logo - Redirects to company LinkedIn */}
               {linkedinUrl && (
@@ -4527,7 +4687,7 @@ const CompanyDetail = () => {
                   <div
                     style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}
                   >
-                    Income statement
+                    Income Statement (Last 3 FY)
                   </div>
                   <div style={{ overflowX: "auto" }}>
                     <table
@@ -4582,6 +4742,18 @@ const CompanyDetail = () => {
                           const period = (
                             row.period_display_end_date || ""
                           ).replace(/[,\s]/g, "");
+                          const currency =
+                            row.cost_of_goods_sold_currency ||
+                            evCurrency ||
+                            revenueCurrency ||
+                            "";
+                          const fmt = (v?: number | null) =>
+                            typeof v === "number"
+                              ? (() => {
+                                  const millions = Math.round(v / 1_000_000);
+                                  return `${currency}${millions.toLocaleString()}`;
+                                })()
+                              : "—";
                           return (
                             <tr key={row.id}>
                               <td
@@ -4601,10 +4773,7 @@ const CompanyDetail = () => {
                                   fontSize: 12,
                                 }}
                               >
-                                {formatIncomeStatementValue(
-                                  row.revenue,
-                                  row.cost_of_goods_sold_currency
-                                )}
+                                {fmt(row.revenue)}
                               </td>
                               <td
                                 style={{
@@ -4614,10 +4783,7 @@ const CompanyDetail = () => {
                                   fontSize: 12,
                                 }}
                               >
-                                {formatIncomeStatementValue(
-                                  row.ebit,
-                                  row.cost_of_goods_sold_currency
-                                )}
+                                {fmt(row.ebit)}
                               </td>
                               <td
                                 style={{
@@ -4627,10 +4793,7 @@ const CompanyDetail = () => {
                                   fontSize: 12,
                                 }}
                               >
-                                {formatIncomeStatementValue(
-                                  row.ebitda,
-                                  row.cost_of_goods_sold_currency
-                                )}
+                                {fmt(row.ebitda)}
                               </td>
                             </tr>
                           );
@@ -4647,28 +4810,26 @@ const CompanyDetail = () => {
                 Subscription Metrics
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Subscription revenue (m):</span>
+                <span style={styles.label}>Recurring Revenue:</span>
                 <span style={styles.value}>
-                  {subscriptionMoney(
-                    formatMetricMillionsPlain(financialMetrics?.Subscription_revenue_m)
-                  )}
+                  {formatPercent(financialMetrics?.ARR_pc)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
-                    financialMetrics?.Subscription_revenue_source_label,
-                    financialMetrics?.Subscription_revenue_source
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
                   )}
                 </span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Subscription revenue %:</span>
+                <span style={styles.label}>ARR (m):</span>
                 <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Subscription_revenue_pc)}
+                  {formatPlainNumber(financialMetrics?.ARR_m)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
-                    financialMetrics?.Subscription_revenue_source_label,
-                    financialMetrics?.Subscription_revenue_source
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
                   )}
                 </span>
               </div>
@@ -4778,7 +4939,7 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>EBIT (m):</span>
                 <span style={styles.value}>
-                  {formatMetricMillionsPlain(financialMetrics?.EBIT_m)}
+                  {formatPlainNumber(financialMetrics?.EBIT_m)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4804,10 +4965,7 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per client:</span>
                 <span style={styles.value}>
-                  {formatWholeNumberWithCurrency(
-                    financialMetrics?.Rev_per_client,
-                    metricsCurrencyCode
-                  )}
+                  {formatWholeNumber(financialMetrics?.Rev_per_client)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4819,7 +4977,9 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>Number of employees:</span>
                 <span style={styles.value}>
-                  {formatWholeNumber(financialMetrics?.No_Employees)}
+                  {typeof financialMetrics?.No_Employees === "number"
+                    ? financialMetrics.No_Employees.toLocaleString()
+                    : formatNumber(currentEmployeeCount)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4831,10 +4991,7 @@ const CompanyDetail = () => {
               <div style={styles.infoRow}>
                 <span style={styles.label}>Revenue per employee:</span>
                 <span style={styles.value}>
-                  {formatWholeNumberWithCurrency(
-                    financialMetrics?.Revenue_per_employee,
-                    metricsCurrencyCode
-                  )}
+                  {formatWholeNumber(financialMetrics?.Revenue_per_employee)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4862,19 +5019,6 @@ const CompanyDetail = () => {
                     No employee data available
                   </div>
                 )}
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>
-                  LinkedIn growth (1 yr):
-                </span>
-                <span style={styles.value}>
-                  {formatPercent(linkedinGrowthPct)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getNumeric(linkedinGrowthPct) !== undefined
-                    ? "LinkedIn"
-                    : ""}
-                </span>
               </div>
             </div>
           </div>
