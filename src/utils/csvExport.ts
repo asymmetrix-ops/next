@@ -8,6 +8,7 @@ export interface CorporateEventCSVRow {
   "Primary Sector": string;
   "Secondary Sectors": string;
   "Deal Type": string;
+  "Funding Stage": string;
   "Amount (m)": string;
   "EV (m)": string;
   "Buyer(s)/Investor(s)": string;
@@ -104,6 +105,17 @@ export class CSVExporter {
           ? `${window.location.origin}/corporate-event/${event.id}`
           : `/corporate-event/${event.id}`;
 
+      const fundingStage =
+        (
+          ((event as unknown as {
+            investment_data?: { Funding_stage?: string; funding_stage?: string };
+          }).investment_data?.Funding_stage ||
+            (event as unknown as {
+              investment_data?: { Funding_stage?: string; funding_stage?: string };
+            }).investment_data?.funding_stage ||
+            "") as string
+        ).trim() || "Not Available";
+
       return {
         Description: event.description || "Not Available",
         Date: this.formatDate(event.announcement_date),
@@ -118,6 +130,7 @@ export class CSVExporter {
           formatSectorList(target?.secondary_sectors) ||
           this.formatSectors(target?._sectors_secondary),
         "Deal Type": event.deal_type || "Not Available",
+        "Funding Stage": fundingStage,
         "Amount (m)": this.formatCurrency(
           event.investment_data?.investment_amount_m,
           event.investment_data?.currency?.Currency
@@ -137,13 +150,27 @@ export class CSVExporter {
   static convertToCSV(data: CorporateEventCSVRow[]): string {
     if (data.length === 0) return "";
 
-    // Get headers from the first object keys
-    const headers = Object.keys(data[0]);
+    const headers: Array<keyof CorporateEventCSVRow> = [
+      "Description",
+      "Date",
+      "Target Name",
+      "Target HQ",
+      "Primary Sector",
+      "Secondary Sectors",
+      "Deal Type",
+      "Funding Stage",
+      "Amount (m)",
+      "EV (m)",
+      "Buyer(s)/Investor(s)",
+      "Seller(s)",
+      "Advisors",
+      "Corporate Event Link",
+    ];
 
     // Create CSV content
     const csvBody = [
       // Headers row
-      headers.map((header) => `"${header}"`).join(","),
+      headers.map((header) => `"${String(header)}"`).join(","),
       // Data rows
       ...data.map((row) =>
         headers
@@ -189,6 +216,102 @@ export class CSVExporter {
     filename?: string
   ): void {
     const csvData = this.convertToCSVData(events);
+    const csvContent = this.convertToCSV(csvData);
+    this.downloadCSV(csvContent, filename);
+  }
+
+  static convertExportApiResponseToCSVData(
+    apiResponse: Array<{
+      description: string;
+      date: string;
+      target_name: string;
+      target_hq: string;
+      primary_sector: string;
+      secondary_sectors: string;
+      deal_type: string;
+      funding_stage: string;
+      amount_m: number | null;
+      ev_m: number | null;
+      buyers_investors: string;
+      sellers: string;
+      advisors: string;
+      corporate_event_link: string;
+    }>
+  ): CorporateEventCSVRow[] {
+    return apiResponse.map((item) => {
+      const formattedDate = item.date
+        ? this.formatDate(item.date)
+        : "Not available";
+
+      let formattedAmount = "Not available";
+      if (item.amount_m !== null && item.amount_m !== undefined) {
+        const amountValue =
+          typeof item.amount_m === "string"
+            ? parseFloat(item.amount_m)
+            : item.amount_m;
+        if (!Number.isNaN(amountValue)) {
+          formattedAmount = `${amountValue.toLocaleString(undefined, {
+            maximumFractionDigits: 3,
+          })}m`;
+        }
+      }
+
+      let formattedEV = "Not available";
+      if (item.ev_m !== null && item.ev_m !== undefined) {
+        const evValue =
+          typeof item.ev_m === "string" ? parseFloat(item.ev_m) : item.ev_m;
+        if (!Number.isNaN(evValue)) {
+          formattedEV = `${evValue.toLocaleString(undefined, {
+            maximumFractionDigits: 3,
+          })}m`;
+        }
+      }
+
+      const safeString = (value: string | null | undefined): string => {
+        if (value == null) return "Not Available";
+        const trimmed = String(value).trim();
+        return trimmed === "" ? "Not Available" : trimmed;
+      };
+
+      return {
+        Description: safeString(item.description),
+        Date: formattedDate,
+        "Target Name": safeString(item.target_name),
+        "Target HQ": safeString(item.target_hq),
+        "Primary Sector": safeString(item.primary_sector),
+        "Secondary Sectors": safeString(item.secondary_sectors),
+        "Deal Type": safeString(item.deal_type),
+        "Funding Stage": safeString(item.funding_stage),
+        "Amount (m)": formattedAmount,
+        "EV (m)": formattedEV,
+        "Buyer(s)/Investor(s)": safeString(item.buyers_investors),
+        "Seller(s)": safeString(item.sellers),
+        Advisors: safeString(item.advisors),
+        "Corporate Event Link": safeString(item.corporate_event_link),
+      };
+    });
+  }
+
+  static exportCorporateEventsFromApiResponse(
+    apiResponse: Array<{
+      description: string;
+      date: string;
+      target_name: string;
+      target_hq: string;
+      primary_sector: string;
+      secondary_sectors: string;
+      deal_type: string;
+      funding_stage: string;
+      amount_m: number | null;
+      ev_m: number | null;
+      buyers_investors: string;
+      sellers: string;
+      advisors: string;
+      corporate_event_link: string;
+    }>,
+    filename?: string
+  ): void {
+    const csvData = this.convertExportApiResponseToCSVData(apiResponse);
     const csvContent = this.convertToCSV(csvData);
     this.downloadCSV(csvContent, filename);
   }

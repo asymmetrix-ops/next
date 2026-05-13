@@ -94,6 +94,8 @@ export class ServerDashboardApiService {
   async getSectorStrategicAcquirers(sectorId: string) {
     const qs = new URLSearchParams();
     qs.append('Sector_id', sectorId);
+    qs.append('limit', '5');
+    qs.append('offset', '0');
     return this.request(`/sectors_strategic_acquirers?${qs.toString()}`, {
       next: { revalidate: 300 },
     });
@@ -102,6 +104,8 @@ export class ServerDashboardApiService {
   async getSectorPEInvestors(sectorId: string) {
     const qs = new URLSearchParams();
     qs.append('Sector_id', sectorId);
+    qs.append('limit', '5');
+    qs.append('offset', '0');
     return this.request(`/sectors_pe_investors?${qs.toString()}`, {
       next: { revalidate: 300 },
     });

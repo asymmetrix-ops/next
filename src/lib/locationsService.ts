@@ -35,6 +35,49 @@ interface OwnershipType {
 }
 
 class LocationsService {
+  private contentTypesForArticlesCache: string[] | null = null;
+  private contentTypesForArticlesInFlight: Promise<string[]> | null = null;
+
+  private async fetchFirstOk<T>(
+    paths: string[],
+    errorPrefix: string
+  ): Promise<T> {
+    let lastError: unknown = null;
+    for (const path of paths) {
+      const url = `${BASE_URL}/${path}`;
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: { ...this.getAuthHeaders() },
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            authService.logout();
+            throw new Error("Authentication required");
+          }
+          if (response.status === 404) {
+            lastError = new Error(
+              `${errorPrefix}: ${response.status} ${response.statusText}`
+            );
+            continue;
+          }
+          const text = await response.text().catch(() => "");
+          throw new Error(
+            `${errorPrefix}: ${response.status} ${response.statusText}${text ? ` — ${text}` : ""}`
+          );
+        }
+
+        return (await response.json()) as T;
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    throw lastError instanceof Error
+      ? lastError
+      : new Error(`${errorPrefix}: failed`);
+  }
+
   private getAuthHeaders() {
     const token = authService.getToken();
     if (!token) {
@@ -347,6 +390,96 @@ class LocationsService {
       : [];
     // Deduplicate
     return Array.from(new Set(list));
+  }
+
+  /** Funding stage labels (e.g. "Seed", "Series A") used by sector / corporate events filters. */
+  async getFundingStages(): Promise<string[]> {
+    const data = await this.fetchFirstOk<unknown>(
+      [
+        "funding_stage_options",
+        "Funding_stage_options",
+        "get_funding_stage_options",
+        "Get_Funding_Stages",
+      ],
+      "Failed to fetch funding stages"
+    );
+
+    const items = Array.isArray(data) ? data : [];
+    const values = items
+      .map((item) => {
+        if (typeof item === "string") return item.trim();
+        if (item && typeof item === "object") {
+          const obj = item as Record<string, unknown>;
+          const v =
+            obj.funding_stage ??
+            obj.Funding_stage ??
+            obj.Funding_Stage ??
+            obj.stage ??
+            obj.label ??
+            null;
+          return String(v ?? "").trim();
+        }
+        return "";
+      })
+      .filter((v) => v.length > 0);
+
+    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
+  }
+
+  /**
+   * Distinct content type strings for Insights / analytics filters.
+   */
+  async getContentTypesForArticles(): Promise<string[]> {
+    if (this.contentTypesForArticlesCache) return this.contentTypesForArticlesCache;
+    if (this.contentTypesForArticlesInFlight) return this.contentTypesForArticlesInFlight;
+
+    const run = async () => {
+      const url = new URL(
+        "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/content_insights"
+      );
+      url.searchParams.set("view", "Content Type");
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: { ...this.getAuthHeaders() },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          authService.logout();
+          throw new Error("Authentication required");
+        }
+        throw new Error(
+          `Failed to fetch content types: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const data = (await response.json()) as unknown;
+      const rows = Array.isArray(data) ? (data as Array<Record<string, unknown>>) : [];
+
+      const values = rows
+        .map((row) => {
+          const v =
+            row.content_type ??
+            row.Content_Type ??
+            row.contentType ??
+            row.ContentType ??
+            null;
+          return String(v ?? "").trim();
+        })
+        .filter((v) => v.length > 0);
+
+      const uniqSorted = Array.from(new Set(values)).sort((a, b) =>
+        a.localeCompare(b)
+      );
+      this.contentTypesForArticlesCache = uniqSorted;
+      return uniqSorted;
+    };
+
+    this.contentTypesForArticlesInFlight = run().finally(() => {
+      this.contentTypesForArticlesInFlight = null;
+    });
+    return this.contentTypesForArticlesInFlight;
   }
 }
 
