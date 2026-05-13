@@ -452,6 +452,45 @@ class DashboardApiService {
     };
   }
 
+  // Deal Radar endpoint
+  async getDealRadar(params: {
+    limit: number;
+    offset: number;
+  }): Promise<{
+    items: Array<{
+      company_id: number;
+      name: string;
+      transaction_status: string;
+      last_updated_at: string;
+    }>;
+    total: number;
+    limit: number;
+    offset: number;
+    current_page: number;
+    total_pages: number;
+    next_page: number | null;
+  }> {
+    const dealRadarBaseUrl =
+      "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
+    const url = new URL(`${dealRadarBaseUrl}/get_deal_radar`);
+    url.searchParams.set("limit", String(params.limit));
+    url.searchParams.set("offset", String(params.offset));
+
+    const headers = {
+      "Content-Type": "application/json",
+      ...authService.getAuthHeaders(),
+    };
+
+    const response = await fetch(url.toString(), { method: "GET", headers });
+
+    if (!response.ok) {
+      if (response.status === 401) throw new Error("Authentication required");
+      throw new Error(`Deal Radar API failed: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
   // Clear cache method for manual cache invalidation
   clearSectorsCache(): void {
     this.sectorsCache = null;
