@@ -56,7 +56,7 @@ export function LinkedH({ children, target, right, level = 'panel' }) {
 }
 
 // The hoverable panel shell every card sits in.
-export function LinkPanel({ children }) {
+export function LinkPanel({ children, target }) {
   const [hover, setHover] = React.useState(false);
   return (
     <div

@@ -1,29 +1,42 @@
+"use client";
+/**
+ * SubscriptionCard — redesign/SubscriptionCard.jsx converted to TypeScript.
+ * ARR / NRR / GDR / Upsell / New logos mini-rows.
+ */
 import React from "react";
-import { LinkPanel, LinkedH, MiniKV, T, overviewBodyPadding } from "./primitives";
+import { LinkPanel, LinkedH, MiniKV, Delta, T } from "./primitives";
 
 export type SubscriptionMetrics = {
+  recurringRev?: string;
+  arrGrowth?: string;
   nrr?: string;
   gdr?: string;
   upsell?: string;
   newLogos?: string;
-  churn?: string;
-  crossSell?: string;
-  priceIncrease?: string;
-  revExpansion?: string;
 };
 
 export function SubscriptionCard({
+  recurringRev,
+  arrGrowth,
   nrr,
   gdr,
   upsell,
   newLogos,
-  churn,
-  crossSell,
-  priceIncrease,
-  revExpansion,
-  fillGridCell = false,
-}: SubscriptionMetrics & { fillGridCell?: boolean }) {
-  const rows = [
+}: SubscriptionMetrics) {
+  const rows: { k: string; v: React.ReactNode; mono?: boolean }[] = [
+    {
+      k: "Recurring rev",
+      v: recurringRev || <span style={{ color: T.faint }}>—</span>,
+      mono: true,
+    },
+    {
+      k: "ARR growth",
+      v: arrGrowth ? (
+        <Delta value={arrGrowth} />
+      ) : (
+        <span style={{ color: T.faint }}>—</span>
+      ),
+    },
     {
       k: "NRR",
       v: nrr || <span style={{ color: T.faint }}>—</span>,
@@ -44,32 +57,12 @@ export function SubscriptionCard({
       v: newLogos || <span style={{ color: T.faint }}>—</span>,
       mono: true,
     },
-    {
-      k: "Churn",
-      v: churn || <span style={{ color: T.faint }}>—</span>,
-      mono: true,
-    },
-    {
-      k: "Cross-sell",
-      v: crossSell || <span style={{ color: T.faint }}>—</span>,
-      mono: true,
-    },
-    {
-      k: "Price increase",
-      v: priceIncrease || <span style={{ color: T.faint }}>—</span>,
-      mono: true,
-    },
-    {
-      k: "Rev expansion",
-      v: revExpansion || <span style={{ color: T.faint }}>—</span>,
-      mono: true,
-    },
   ];
 
   return (
-    <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH>Subscription Metrics</LinkedH>
-      <div style={{ padding: overviewBodyPadding, flex: 1, minHeight: 0 }}>
+    <LinkPanel>
+      <LinkedH>Subscription metrics</LinkedH>
+      <div style={{ padding: "8px 16px 14px" }}>
         {rows.map((row, i) => (
           <MiniKV
             key={row.k}

@@ -1,20 +1,13 @@
 "use client";
 /**
- * ManagementCard — name · role · tenure · LinkedIn (icon link).
+ * ManagementCard — redesign/ManagementCard.jsx converted to TypeScript.
+ * Layout: 4-column grid — avatar initials · name (linked) · role · tenure.
+ * Shows all people passed in; "current" first, then "past" with a section
+ * label when both groups are present. Has optional See-more collapse.
  */
 import React, { useState } from "react";
 import Link from "next/link";
-import {
-  LinkPanel,
-  LinkedH,
-  T,
-  MANAGEMENT_ROW_GRID,
-  profileTableCellStyle,
-  tableColHeaderBarStyle,
-  tableColHeaderStyle,
-} from "./primitives";
-import { isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
-import { LinkedInProfileButton } from "./LinkedInProfileButton";
+import { LinkPanel, LinkedH, T } from "./primitives";
 
 export type ManagementPerson = {
   id?: number;
@@ -22,61 +15,103 @@ export type ManagementPerson = {
   role: string;
   tenure?: string;
   individualId?: number;
-  linkedinUrl?: string;
 };
 
 type Props = {
   current: ManagementPerson[];
   past?: ManagementPerson[];
-  /** Number of rows shown before "See more". Default 4. */
+  /** Number of rows shown before "See more". Default 6. */
   maxVisible?: number;
-  fillGridCell?: boolean;
 };
 
-const COL_GAP = 6;
+function initials(name: string) {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function Avatar({ name, index }: { name: string; index: number }) {
+  return (
+    <div
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: "50%",
+        background: `oklch(86% 0.04 ${(index * 53) % 360})`,
+        color: T.body,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: T.sans,
+        fontWeight: 600,
+        fontSize: 10.5,
+        flexShrink: 0,
+      }}
+    >
+      {initials(name)}
+    </div>
+  );
+}
+
+const COL = "32px 1.4fr 1fr auto";
 
 function ColHeader() {
   return (
     <div
       style={{
-        ...tableColHeaderBarStyle,
-        gridTemplateColumns: MANAGEMENT_ROW_GRID,
-        gap: COL_GAP,
+        display: "grid",
+        gridTemplateColumns: COL,
+        alignItems: "center",
+        gap: 10,
+        padding: "8px 16px",
+        background: T.paper,
+        borderBottom: `1px solid ${T.hair}`,
+        fontSize: 10.5,
+        fontWeight: 500,
+        color: T.muted,
+        textTransform: "uppercase",
+        letterSpacing: 0.4,
       }}
     >
-      <div style={tableColHeaderStyle}>Name</div>
-      <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>Role</div>
-      <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>LinkedIn</div>
+      <div />
+      <div>Name</div>
+      <div style={{ textAlign: "center" }}>Role</div>
+      <div style={{ textAlign: "right" }}>Tenure</div>
     </div>
   );
 }
 
 function PersonRow({
   person,
+  index,
   last,
 }: {
   person: ManagementPerson;
+  index: number;
   last: boolean;
 }) {
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: MANAGEMENT_ROW_GRID,
-        alignItems: "start",
-        gap: COL_GAP,
+        gridTemplateColumns: COL,
+        alignItems: "center",
+        gap: 10,
         padding: "10px 16px",
         borderBottom: last ? "none" : `1px solid ${T.hair}`,
-        ...profileTableCellStyle,
       }}
     >
-      <div style={{ minWidth: 0, paddingTop: 1, textAlign: "left" }}>
+      <Avatar name={person.name} index={index} />
+      <div style={{ minWidth: 0 }}>
         {person.individualId ? (
           <Link
             href={`/individual/${person.individualId}`}
             prefetch={false}
             style={{
-              fontSize: 13,
+              fontSize: 12.5,
               fontWeight: 500,
               color: T.azure,
               textDecoration: "underline",
@@ -84,7 +119,6 @@ function PersonRow({
               overflow: "hidden",
               textOverflow: "ellipsis",
               display: "block",
-              textAlign: "left",
             }}
           >
             {person.name}
@@ -92,14 +126,13 @@ function PersonRow({
         ) : (
           <span
             style={{
-              fontSize: 13,
+              fontSize: 12.5,
               fontWeight: 500,
               color: T.ink,
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
               display: "block",
-              textAlign: "left",
             }}
           >
             {person.name}
@@ -108,23 +141,26 @@ function PersonRow({
       </div>
       <div
         style={{
+          fontSize: 12,
           color: T.body,
           textAlign: "center",
-          lineHeight: 1.55,
-          minWidth: 0,
-          paddingTop: 1,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
         }}
       >
-        {isEmptyDisplayValue(person.role) ? "-" : normalizeEmptyDisplay(person.role)}
+        {person.role || "—"}
       </div>
       <div
         style={{
-          display: "flex",
-          justifyContent: "center",
-          paddingTop: 1,
+          fontFamily: T.mono,
+          fontSize: 11,
+          color: T.muted,
+          whiteSpace: "nowrap",
+          textAlign: "right",
         }}
       >
-        <LinkedInProfileButton href={person.linkedinUrl} />
+        {person.tenure || "—"}
       </div>
     </div>
   );
@@ -136,7 +172,7 @@ function SectionLabel({ label }: { label: string }) {
       style={{
         padding: "10px 16px 2px",
         fontSize: 10.5,
-        fontWeight: 500,
+        fontWeight: 600,
         color: T.muted,
         textTransform: "uppercase",
         letterSpacing: 0.4,
@@ -152,8 +188,7 @@ function SectionLabel({ label }: { label: string }) {
 export function ManagementCard({
   current,
   past = [],
-  maxVisible = 4,
-  fillGridCell = false,
+  maxVisible = 6,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
 
@@ -175,23 +210,31 @@ export function ManagementCard({
   const visible = expanded ? allPeople : allPeople.slice(0, maxVisible);
   const needsToggle = total > maxVisible;
 
+  // Track where section label should appear
   let lastSection: string | null = null;
 
   return (
-    <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH showArrow={false} right={headerRight || undefined}>
-        Management
-      </LinkedH>
+    <LinkPanel>
+      <LinkedH right={headerRight || undefined}>Management</LinkedH>
       <ColHeader />
-      <div>
+      <div style={{ padding: "4px 0" }}>
         {visible.map(({ person, section }, idx) => {
-          const showLabel = hasBoth && section !== lastSection && section !== "current";
+          const showLabel = hasBoth && section !== lastSection;
           if (showLabel) lastSection = section;
-          const isLastVisibleRow = idx === visible.length - 1;
+          const isLast =
+            idx === visible.length - 1 && (!needsToggle || expanded);
           return (
-            <React.Fragment key={`${section}-${person.id ?? person.individualId ?? idx}`}>
-              {showLabel && <SectionLabel label="Past" />}
-              <PersonRow person={person} last={isLastVisibleRow} />
+            <React.Fragment key={`${section}-${person.id ?? idx}`}>
+              {showLabel && (
+                <SectionLabel
+                  label={section === "current" ? "Current" : "Past"}
+                />
+              )}
+              <PersonRow
+                person={person}
+                index={idx}
+                last={isLast && !needsToggle}
+              />
             </React.Fragment>
           );
         })}
@@ -213,12 +256,12 @@ export function ManagementCard({
               color: T.azure,
               textDecoration: "underline",
               cursor: "pointer",
-              fontSize: 13,
+              fontSize: 12.5,
               fontWeight: 500,
               fontFamily: T.sans,
             }}
           >
-            {expanded ? "Show less" : "See more"}
+            {expanded ? "Show less" : `See all ${total}`}
           </button>
         </div>
       )}

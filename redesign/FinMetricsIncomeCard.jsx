@@ -124,7 +124,7 @@ export default function FinMetricsIncomeCard() {
             );
           })}
           <div style={{ marginTop: 10, fontSize: 11, color: T.muted, lineHeight: 1.5 }}>
-            Peers: S&P Global, MSCI, FactSet, Moody&apos;s Analytics, Verisk. Median across 5 firms.
+            Peers: S&P Global, MSCI, FactSet, Moody's Analytics, Verisk. Median across 5 firms.
           </div>
         </div>
       ) : (
