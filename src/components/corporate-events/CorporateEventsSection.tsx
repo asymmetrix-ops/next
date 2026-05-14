@@ -9,6 +9,8 @@ import {
 
 type CorporateEventsSectionProps = {
   title?: string;
+  /** When false, omit the section heading (e.g. use an outer card header) */
+  showTitle?: boolean;
   events: CorporateEvent[];
   loading?: boolean;
   onEventClick?: (eventId: number, description?: string) => void;
@@ -24,10 +26,12 @@ type CorporateEventsSectionProps = {
   dividerTop?: boolean;
   containerStyle?: React.CSSProperties;
   titleStyle?: React.CSSProperties;
+  tableVariant?: "legacy" | "v3";
 };
 
 export const CorporateEventsSection: React.FC<CorporateEventsSectionProps> = ({
   title = "Corporate Events",
+  showTitle = true,
   events,
   loading = false,
   onEventClick,
@@ -41,6 +45,7 @@ export const CorporateEventsSection: React.FC<CorporateEventsSectionProps> = ({
   dividerTop = false,
   containerStyle,
   titleStyle,
+  tableVariant = "legacy",
 }) => {
   if (hideWhenEmpty && !loading && (!events || events.length === 0)) return null;
 
@@ -57,16 +62,18 @@ export const CorporateEventsSection: React.FC<CorporateEventsSectionProps> = ({
         ...containerStyle,
       }}
     >
-      <h3
-        style={{
-          fontSize: "17px",
-          marginBottom: "12px",
-          marginTop: 0,
-          ...titleStyle,
-        }}
-      >
-        {title}
-      </h3>
+      {showTitle ? (
+        <h3
+          style={{
+            fontSize: "17px",
+            marginBottom: "12px",
+            marginTop: 0,
+            ...titleStyle,
+          }}
+        >
+          {title}
+        </h3>
+      ) : null}
 
       <CorporateEventsTable
         events={events}
@@ -78,6 +85,7 @@ export const CorporateEventsSection: React.FC<CorporateEventsSectionProps> = ({
         secondarySectors={secondarySectors}
         maxInitialEvents={maxInitialEvents}
         truncateDescriptionLength={truncateDescriptionLength}
+        variant={tableVariant}
       />
     </div>
   );

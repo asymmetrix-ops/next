@@ -1,25 +1,8 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useId } from "react";
 import type { CorporateEventsProfileTokens } from "@/components/corporate-events/CorporateEventsProfilePanel";
-import {
-  LinkedH,
-  profileTableColAlign,
-  profileTableCellStyle,
-  PROFILE_EVENTS_ROW_GAP,
-  PROFILE_EVENTS_ROW_PAD,
-  SUBS_PROFILE_ROW_GRID,
-  tableColHeaderBarStyle,
-  tableColHeaderStyle,
-} from "@/components/redesign/primitives";
 import { useRightClick } from "@/hooks/useRightClick";
-import {
-  enrichSectorEntries,
-  extractSectorId,
-  getSectorHref,
-  type SectorLinkEntry,
-  type SectorNameLookup,
-} from "@/lib/sectorLinks";
 
 export type SubsidiariesProfileTokens = CorporateEventsProfileTokens & {
   up: string;
@@ -28,163 +11,55 @@ export type SubsidiariesProfileTokens = CorporateEventsProfileTokens & {
 export type SubsidiaryProfileRecord = {
   id: number;
   name: string;
-  sectors_id?: Array<{
-    sector_name?: string;
-    Sector_importance?: string;
-    sector_id?: number;
-    id?: number;
-  }>;
+  sectors_id?: Array<{ sector_name?: string; Sector_importance?: string }>;
   _locations?: { Country?: string };
   _linkedin_data_of_new_company?: {
     linkedin_employee?: number | null;
     linkedin_logo?: string;
   };
-  /** Nested LinkedIn payload on get_company_profile subsidiaries */
-  linkedin_data?: {
-    linkedin_growth_1y_pct?: number | string | null;
-    LinkedIn_Growth_1y_Pct?: number | string | null;
-  };
-  /** YoY LinkedIn / headcount growth from API (`linkedin_growth_1y_pct`) */
-  linkedin_growth_1y_pct?: number | string | null;
-  /** Pre-normalized YoY % (optional; panel also reads `linkedin_growth_1y_pct`) */
+  /** When API provides a YoY % for LinkedIn / headcount growth */
   linkedin_growth_pct?: number | null;
   /** Normalized counts for sparkline (e.g. monthly headcount); min length 2 to draw */
   linkedin_growth_spark?: number[] | null;
 };
 
-/** Parse a raw YoY growth value already in percent points (e.g. 0.7 = 0.7%). */
-export function parseLinkedInGrowthPctValue(raw: unknown): number | null {
-  if (typeof raw === "number" && Number.isFinite(raw)) {
-    return Math.round(raw * 10) / 10;
-  }
-  if (typeof raw === "string" && raw.trim()) {
-    const num = Number(raw.replace(/[^0-9.-]/g, ""));
-    if (!Number.isFinite(num)) return null;
-    return Math.round(num * 10) / 10;
-  }
-  return null;
-}
-
-/** Parse subsidiary YoY growth from API fields (number or string). */
-export function parseSubsidiaryLinkedInGrowthPct(
-  sub: SubsidiaryProfileRecord
-): number | null {
-  const candidates = [
-    sub.linkedin_growth_1y_pct,
-    sub.linkedin_growth_pct,
-    sub.linkedin_data?.linkedin_growth_1y_pct,
-    sub.linkedin_data?.LinkedIn_Growth_1y_Pct,
-  ];
-  for (const raw of candidates) {
-    const parsed = parseLinkedInGrowthPctValue(raw);
-    if (parsed !== null) return parsed;
-  }
-  return null;
-}
-
-/** Simple trend sparkline when only YoY % is available (no monthly series). */
-export function growthPctToSpark(pct: number): number[] {
-  if (pct === 0) return [48, 49, 50, 51];
-  const sign = pct >= 0 ? 1 : -1;
-  const amt = Math.min(Math.abs(pct), 40) * 0.35;
-  return [
-    50 - sign * amt * 0.25,
-    50 - sign * amt * 0.08,
-    50 + sign * amt * 0.3,
-    50 + sign * amt,
-  ];
-}
-
 type SubsidiariesProfilePanelProps = {
   tokens: SubsidiariesProfileTokens;
   subsidiaries: SubsidiaryProfileRecord[];
-  /** Subsidiary company id → calendar year acquired (from acquisition corporate events). */
-  acquisitionYearByCompanyId?: Record<number, number>;
   maxInitial?: number;
-  /** `narrow` = single grid column; fits Revenue-model width */
-  layout?: "default" | "narrow";
-  /** Fallback name → id lookup when subsidiary sector refs omit ids. */
-  sectorNameToId?: SectorNameLookup;
 };
 
 const HEADERS = [
   "Company",
   "Sector",
   "Country",
-  "Year Acquired",
+  "Headcount",
+  "LinkedIn growth",
 ] as const;
 
-function subsidiarySectorEntries(
-  subsidiary: SubsidiaryProfileRecord
-): SectorLinkEntry[] {
-  return (
-    subsidiary.sectors_id
-      ?.filter((x) => x && typeof x.sector_name === "string")
-      .slice(0, 3)
-      .map((sector) => ({
-        name: sector.sector_name!.trim(),
-        id: extractSectorId(sector),
-        importance: sector.Sector_importance ?? "Primary",
-      })) ?? []
-  );
+function sectorLabel(s: SubsidiaryProfileRecord): string {
+  const raw = s.sectors_id
+    ?.filter((x) => x && typeof x.sector_name === "string")
+    .map((x) => x.sector_name as string);
+  if (!raw?.length) return "—";
+  return raw.slice(0, 3).join(", ");
 }
 
-function SubsidiarySectorLinks({
-  subsidiary,
-  sectorNameToId,
-  linkColor,
-  createClickableElement,
-}: {
-  subsidiary: SubsidiaryProfileRecord;
-  sectorNameToId?: SectorNameLookup;
-  linkColor: string;
-  createClickableElement: ReturnType<
-    typeof useRightClick
-  >["createClickableElement"];
-}) {
-  const sectors = enrichSectorEntries(
-    subsidiarySectorEntries(subsidiary),
-    sectorNameToId
-  );
-  if (sectors.length === 0) return <>-</>;
-
-  return (
-    <>
-      {sectors.map((sector, idx) => {
-        const href = getSectorHref(sector);
-        return (
-          <span key={`${sector.name}-${sector.id ?? idx}`}>
-            {href
-              ? createClickableElement(href, sector.name, undefined, {
-                  color: linkColor,
-                  fontWeight: 500,
-                  textDecoration: "underline",
-                })
-              : sector.name}
-            {idx < sectors.length - 1 ? ", " : ""}
-          </span>
-        );
-      })}
-    </>
-  );
+function headcountValue(s: SubsidiaryProfileRecord): number | null {
+  const v = s._linkedin_data_of_new_company?.linkedin_employee;
+  if (v === undefined || v === null) return null;
+  if (typeof v !== "number" || Number.isNaN(v)) return null;
+  return v;
 }
 
 function LogoLetter({
   name,
-  logo,
   T,
 }: {
   name: string;
-  logo?: string | null;
   T: SubsidiariesProfileTokens;
 }) {
   const letter = (name.trim()[0] || "?").toUpperCase();
-  const src = logo
-    ? logo.startsWith("data:") || logo.startsWith("http")
-      ? logo
-      : `data:image/jpeg;base64,${logo}`
-    : null;
-
   return (
     <div
       style={{
@@ -200,32 +75,63 @@ function LogoLetter({
         justifyContent: "center",
         fontFamily: T.sans,
         flexShrink: 0,
-        overflow: "hidden",
       }}
     >
-      {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={name} width={24} height={24} style={{ objectFit: "cover", display: "block" }} />
-      ) : (
-        letter
-      )}
+      {letter}
     </div>
   );
 }
 
+function MiniSpark({
+  data,
+  w,
+  h,
+  stroke,
+}: {
+  data: number[];
+  w: number;
+  h: number;
+  stroke: string;
+}) {
+  const uid = useId().replace(/:/g, "");
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const n = data.length;
+  const pts = data.map((v, i) => {
+    const x = (i / Math.max(1, n - 1)) * w;
+    const y = h - ((v - min) / range) * h * 0.9 - h * 0.05;
+    return [x, y] as const;
+  });
+  const d = pts
+    .map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)} ${p[1].toFixed(1)}`)
+    .join(" ");
+  const area = `${d} L${w} ${h} L0 ${h} Z`;
+  const gradId = `sg-${uid}`;
+
+  return (
+    <svg width={w} height={h} style={{ display: "block" }}>
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={stroke} stopOpacity={0.22} />
+          <stop offset="100%" stopColor={stroke} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${gradId})`} />
+      <path
+        d={d}
+        fill="none"
+        stroke={stroke}
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
-  ({
-    tokens: T,
-    subsidiaries: rawSubs,
-    acquisitionYearByCompanyId = {},
-    maxInitial = 3,
-    layout = "default",
-    sectorNameToId,
-  }) => {
-    const narrow = layout === "narrow";
-    const headers = narrow
-      ? (["Company", "Sector", "Country", "Year Acquired"] as const)
-      : HEADERS;
+  ({ tokens: T, subsidiaries: rawSubs, maxInitial = 3 }) => {
     const { createClickableElement } = useRightClick();
 
     const [showAll, setShowAll] = useState(false);
@@ -247,146 +153,164 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
     const headerRight =
       n === 0 ? "" : `${n} ${n === 1 ? "subsidiary" : "subsidiaries"}`;
 
-    const cellPad = narrow ? "10px 8px" : PROFILE_EVENTS_ROW_PAD.body;
-    const headerPad = narrow ? "8px 8px" : PROFILE_EVENTS_ROW_PAD.header;
-
-    const subsHeaderCell = (colIndex: number) => ({
-      ...tableColHeaderStyle,
-      textAlign: profileTableColAlign(colIndex),
-    });
-
     return (
-      <div style={{ fontFamily: T.sans, minWidth: 0, maxWidth: "100%" }}>
-        <LinkedH showArrow={false} right={headerRight || undefined}>
-          Current Subsidiaries
-        </LinkedH>
-
+      <div style={{ fontFamily: T.sans }}>
         <div
           style={{
-            overflowX: "auto",
-            maxWidth: "100%",
-            minWidth: 0,
-            ...profileTableCellStyle,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "14px 16px 12px",
+            borderBottom: `1px solid ${T.hair}`,
           }}
         >
           <div
             style={{
-              ...tableColHeaderBarStyle,
-              gridTemplateColumns: SUBS_PROFILE_ROW_GRID,
-              gap: PROFILE_EVENTS_ROW_GAP,
-              padding: headerPad,
+              fontSize: "13.5px",
+              fontWeight: 600,
+              color: T.ink,
             }}
           >
-            {headers.map((h, colIndex) => (
-              <div key={h} style={subsHeaderCell(colIndex)}>
-                {h}
-              </div>
-            ))}
+            Current subsidiaries
           </div>
+          {headerRight ? (
+            <div style={{ fontSize: "11.5px", color: T.muted }}>
+              {headerRight}
+            </div>
+          ) : null}
+        </div>
 
-          {displayed.map((subsidiary, index) => {
-            const last = index === displayed.length - 1;
-            const yearAcquired =
-              acquisitionYearByCompanyId[subsidiary.id] != null
-                ? String(acquisitionYearByCompanyId[subsidiary.id])
-                : "-";
-
-            const companyCell = (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "flex-start",
-                  gap: narrow ? 8 : 10,
-                  minWidth: 0,
-                }}
-              >
-                <LogoLetter
-                  name={subsidiary.name}
-                  logo={subsidiary._linkedin_data_of_new_company?.linkedin_logo}
-                  T={T}
-                />
-                <span
-                  style={{
-                    minWidth: 0,
-                    overflow: narrow ? "hidden" : undefined,
-                    textOverflow: narrow ? "ellipsis" : undefined,
-                    whiteSpace: narrow ? "nowrap" : undefined,
-                  }}
-                >
-                  {createClickableElement(
-                    `/company/${subsidiary.id}`,
-                    subsidiary.name,
-                    undefined,
-                    {
-                      color: T.azure,
+        <div style={{ overflowX: "auto" }}>
+          <table
+            style={{
+              width: "100%",
+              minWidth: "820px",
+              borderCollapse: "collapse",
+              fontSize: "12.5px",
+            }}
+          >
+            <thead>
+              <tr style={{ background: T.paper }}>
+                {HEADERS.map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      textAlign:
+                        h === "Headcount" ? "right" : "left",
+                      padding: "10px 12px",
+                      color: T.muted,
+                      fontSize: "11px",
                       fontWeight: 500,
-                      textDecoration: "underline",
-                    }
-                  )}
-                </span>
-              </div>
-            );
+                      textTransform: "uppercase",
+                      letterSpacing: 0.4,
+                      borderBottom: `1px solid ${T.hair}`,
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {displayed.map((subsidiary, index) => {
+                const hc = headcountValue(subsidiary);
+                const last = index === displayed.length - 1;
+                const spark =
+                  Array.isArray(subsidiary.linkedin_growth_spark) &&
+                  subsidiary.linkedin_growth_spark.length >= 2
+                    ? subsidiary.linkedin_growth_spark
+                    : null;
+                const pct =
+                  typeof subsidiary.linkedin_growth_pct === "number" &&
+                  Number.isFinite(subsidiary.linkedin_growth_pct)
+                    ? subsidiary.linkedin_growth_pct
+                    : null;
 
-            return (
-              <div
-                key={subsidiary.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: SUBS_PROFILE_ROW_GRID,
-                  gap: PROFILE_EVENTS_ROW_GAP,
-                  alignItems: "center",
-                  padding: cellPad,
-                  borderBottom: last ? "none" : `1px solid ${T.hair}`,
-                }}
-              >
-                <div
-                  style={{
-                    textAlign: profileTableColAlign(0),
-                    minWidth: 0,
-                  }}
-                >
-                  {companyCell}
-                </div>
-                <div
-                  style={{
-                    textAlign: profileTableColAlign(1),
-                    color: T.muted,
-                    minWidth: 0,
-                    overflow: narrow ? "hidden" : undefined,
-                    textOverflow: narrow ? "ellipsis" : undefined,
-                    whiteSpace: narrow ? "nowrap" : undefined,
-                  }}
-                >
-                  <SubsidiarySectorLinks
-                    subsidiary={subsidiary}
-                    sectorNameToId={sectorNameToId}
-                    linkColor={T.azure}
-                    createClickableElement={createClickableElement}
-                  />
-                </div>
-                <div
-                  style={{
-                    textAlign: profileTableColAlign(2),
-                    color: T.body,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {subsidiary._locations?.Country?.trim() || "-"}
-                </div>
-                <div
-                  style={{
-                    textAlign: profileTableColAlign(3),
-                    color: T.body,
-                    fontVariantNumeric: "tabular-nums",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {yearAcquired}
-                </div>
-              </div>
-            );
-          })}
+                return (
+                  <tr
+                    key={subsidiary.id}
+                    style={{
+                      borderBottom: last ? "none" : `1px solid ${T.hair}`,
+                    }}
+                  >
+                    <td style={{ padding: "10px 12px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                        }}
+                      >
+                        <LogoLetter name={subsidiary.name} T={T} />
+                        {createClickableElement(
+                          `/new_company/${subsidiary.id}`,
+                          subsidiary.name,
+                          undefined,
+                          {
+                            color: T.azure,
+                            fontWeight: 500,
+                            textDecoration: "underline",
+                          }
+                        )}
+                      </div>
+                    </td>
+                    <td
+                      style={{
+                        padding: "10px 12px",
+                        color: T.muted,
+                      }}
+                    >
+                      {sectorLabel(subsidiary)}
+                    </td>
+                    <td
+                      style={{
+                        padding: "10px 12px",
+                        fontFamily: T.mono,
+                        color: T.body,
+                      }}
+                    >
+                      {subsidiary._locations?.Country?.trim() || "—"}
+                    </td>
+                    <td
+                      style={{
+                        padding: "10px 12px",
+                        fontFamily: T.mono,
+                        color: T.body,
+                        textAlign: "right",
+                      }}
+                    >
+                      {hc === null ? "—" : hc.toLocaleString()}
+                    </td>
+                    <td style={{ padding: "10px 12px" }}>
+                      {spark && pct !== null ? (
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                          }}
+                        >
+                          <MiniSpark data={spark} w={80} h={22} stroke={T.azure} />
+                          <span
+                            style={{
+                              fontFamily: T.mono,
+                              color: T.up,
+                              fontSize: 11,
+                            }}
+                          >
+                            {pct >= 0 ? "+" : ""}
+                            {pct}%
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={{ color: T.muted }}>—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
 
         {n > maxInitial ? (

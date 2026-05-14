@@ -6,10 +6,10 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { useRightClick } from "@/hooks/useRightClick";
 import { FollowButton } from "@/components/FollowButton";
-import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
-import IndividualCards from "@/components/shared/IndividualCards";
+import { CorporateEventsProfilePanel } from "@/components/corporate-events/CorporateEventsProfilePanel";
+import { SubsidiariesProfilePanel } from "@/components/subsidiaries/SubsidiariesProfilePanel";
+import { ManagementProfilePanel } from "@/components/company/ManagementProfilePanel";
 import {
   LineChart,
   Line,
@@ -25,6 +25,7 @@ const FINANCIAL_SERVICES_FOCUS_ID = 74;
 const FINANCIAL_METRICS_EXPORT_SOURCE = "contribution_email";
 
 type CompanyPdfExportType = "profile" | "financial_metrics";
+type ProductMixTab = "product_type" | "data_collection";
 
 // Types for API integration
 interface CompanyLocation {
@@ -442,6 +443,12 @@ interface Company {
   Revenue_Model_?: CompanyRevenueModelItem[] | string;
   have_parent_company?: HaveParentCompany;
   last_investment?: LastInvestment | null;
+  /** Optional: total private funding / raised-to-date when API provides it */
+  total_amount_raised?: string | number | null;
+  /** Optional: employees YoY % when API provides it (e.g. 6.4 for +6.4%) */
+  employees_yoy_pct?: number | null;
+  /** Optional: end-user / buyer segments for Product & users card */
+  product_users?: string[] | string | null;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
   }>;
@@ -549,12 +556,157 @@ const getNumeric = (value?: number | string | null): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 
-// Format as a whole number with thousands separators (e.g. 54170 -> "54,170")
-const formatWholeNumber = (value?: number | string | null): string => {
-  const n = getNumeric(value);
-  if (n === undefined) return "Not available";
-  return Math.round(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
-};
+/** Max sector pills before "+N" overflow (matches V3 template) */
+const OVERVIEW_TAG_CAP = 3;
+
+const INSIGHTS_PREVIEW_COUNT = 2;
+
+/** Design-demo total for empty insights card (matches V3 mock pagination) */
+const INSIGHTS_EMPTY_STATE_DEMO_TOTAL = 17;
+
+const EM_DASH = "\u2014";
+
+/** En dash for numeric ranges, e.g. 1–2 */
+const RANGE_DASH = "\u2013";
+
+/** V3 template-style fallbacks for Product type / Data collection mix card */
+const PRODUCT_MIX_DEMO_ROWS: { label: string; pct: number }[] = [
+  { label: "Data", pct: 50 },
+  { label: "Software", pct: 20 },
+  { label: "Research", pct: 20 },
+  { label: "News / Other Media", pct: 10 },
+];
+
+const DATA_COLLECTION_MIX_DEMO: {
+  label: string;
+  pct: number;
+  displayRight: string;
+}[] = [
+  {
+    label: "Licensed third-party data",
+    pct: 45,
+    displayRight: "45%",
+  },
+  {
+    label: "Proprietary collection",
+    pct: 35,
+    displayRight: "35%",
+  },
+  {
+    label: "User-generated / community",
+    pct: 20,
+    displayRight: "20%",
+  },
+];
+
+const PRODUCT_USERS_DEMO: string[] = [
+  "Accounting & Tax Firms",
+  "Corporate Tax Departments",
+  "Tax Attorneys",
+  "Financial Advisors & Wealth Managers",
+];
+
+function formatInsightBadgeLabel(raw: string): string {
+  const s = raw.trim();
+  if (!s) return "";
+  return s
+    .split(/\s+/)
+    .map(
+      (w) =>
+        w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+    )
+    .join(" ");
+}
+
+function formatWebsiteDisplayLabel(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  try {
+    const withProto = /^https?:\/\//i.test(trimmed)
+      ? trimmed
+      : `https://${trimmed}`;
+    const url = new URL(withProto);
+    const host = url.hostname.replace(/^www\./i, "");
+    const path =
+      url.pathname === "/" ? "" : url.pathname.replace(/\/$/, "");
+    return path ? `${host}${path}` : host;
+  } catch {
+    return trimmed
+      .replace(/^https?:\/\//i, "")
+      .replace(/^www\./i, "")
+      .replace(/\/$/, "");
+  }
+}
+
+/** Picks a human-readable "total raised" string from known / future API keys */
+function pickTotalAmountRaisedDisplay(company: Company): string | null {
+  const c = company as unknown as Record<string, unknown>;
+  const keys = [
+    "total_amount_raised",
+    "Total_amount_raised",
+    "total_funding_raised",
+    "Total_funding_raised",
+    "funding_total",
+    "Funding_total",
+    "total_raised",
+    "Total_raised",
+  ];
+  for (const k of keys) {
+    const v = c[k];
+    if (v === null || v === undefined) continue;
+    if (typeof v === "number" && Number.isFinite(v)) {
+      if (v >= 1_000_000_000)
+        return `US$ ${(v / 1_000_000_000).toFixed(1)}bn`;
+      if (v >= 1_000_000) return `US$ ${(v / 1_000_000).toFixed(0)}m`;
+      if (v >= 1_000) return `US$ ${(v / 1_000).toFixed(0)}k`;
+      return `US$ ${v.toLocaleString("en-US")}`;
+    }
+    const s = String(v).trim();
+    if (s.length > 0) return s;
+  }
+  return null;
+}
+
+/** Approximate YoY from monthly employee counts when API does not send YoY */
+function computeEmployeeYoYFromMonthly(
+  data: EmployeeCount[]
+): string | null {
+  if (!Array.isArray(data) || data.length < 2) return null;
+  const sorted = [...data].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  const latest = sorted[sorted.length - 1];
+  const latestCount = latest?.employees_count;
+  if (typeof latestCount !== "number" || latestCount <= 0) return null;
+  const latestT = new Date(latest.date).getTime();
+  const yearMs = 365 * 86_400_000;
+  let best: EmployeeCount | null = null;
+  let bestDiff = Infinity;
+  for (let i = sorted.length - 2; i >= 0; i--) {
+    const row = sorted[i];
+    const t = new Date(row.date).getTime();
+    const diff = latestT - t;
+    if (diff >= yearMs * 0.85 && diff <= yearMs * 1.15) {
+      const d = Math.abs(diff - yearMs);
+      if (d < bestDiff) {
+        bestDiff = d;
+        best = row;
+      }
+    }
+  }
+  if (
+    !best ||
+    typeof best.employees_count !== "number" ||
+    best.employees_count <= 0
+  ) {
+    return null;
+  }
+  const prev = best.employees_count;
+  const pct = ((latestCount - prev) / prev) * 100;
+  const rounded = Math.round(pct * 10) / 10;
+  const sign = rounded > 0 ? "+" : "";
+  return `${sign}${rounded}% YoY`;
+}
 
 const parseStructuredArray = <T,>(value: unknown): T[] => {
   if (Array.isArray(value)) return value as T[];
@@ -573,6 +725,38 @@ const parseStructuredArray = <T,>(value: unknown): T[] => {
 
   return [];
 };
+
+/** Parse "12%" / "12" / numeric cell into 0–100 for mix progress bars */
+function parsePercentToken(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const m = trimmed.match(/(\d+(?:\.\d+)?)\s*%/);
+  if (m) {
+    const n = parseFloat(m[1]);
+    return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : null;
+  }
+  const n = getNumeric(trimmed.replace(/%/g, ""));
+  if (n !== undefined && n <= 100 && n >= 0) return n;
+  return null;
+}
+
+function predominanceBarWidth(
+  text: string,
+  index: number,
+  total: number
+): number {
+  const p = parsePercentToken(text);
+  if (p !== null) return p;
+  const t = text.toLowerCase();
+  if (/\bonly\b|exclusive|primary|sole/.test(t)) return 92;
+  if (/high|predominant|mostly|dominant/.test(t)) return 72;
+  if (/medium|mixed|moderate/.test(t)) return 48;
+  if (/low|minor|small/.test(t)) return 28;
+  return Math.max(
+    18,
+    Math.min(88, Math.round(100 / Math.max(1, total)) + index * 8)
+  );
+}
 
 // Map Xano source codes to human-readable labels (best-known mapping)
 const sourceLabel = (code?: number | string | null): string | undefined => {
@@ -802,7 +986,7 @@ const getYearFoundedDisplay = (company: Company): string => {
     if (year !== null) return String(year);
   }
 
-  return "Not available";
+  return EM_DASH;
 };
 
 // Company Logo Component
@@ -921,18 +1105,166 @@ const EmployeeChart = ({ data }: { data: EmployeeCount[] }) => {
   );
 };
 
+type V3RightPanelChrome = {
+  card: React.CSSProperties;
+  cardHeader: React.CSSProperties;
+  cardHeaderTitle: React.CSSProperties;
+  cardArrow: React.CSSProperties;
+};
+
+type FinanceRailTab = "financial" | "benchmark" | "income";
+
+function V3TabbedFinanceCard({
+  chrome,
+  tokens,
+  activeTab,
+  onTabChange,
+  tabs,
+  bodyStyle,
+  children,
+}: {
+  chrome: Pick<V3RightPanelChrome, "card" | "cardArrow">;
+  tokens: { hair: string; ink: string; muted: string; sans: string };
+  activeTab: FinanceRailTab;
+  onTabChange: (t: FinanceRailTab) => void;
+  tabs: { id: FinanceRailTab; label: string }[];
+  bodyStyle?: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        ...chrome.card,
+        padding: 0,
+        overflow: "hidden",
+        width: "100%",
+        boxSizing: "border-box",
+      }}
+      className="v3-finance-tabbed-card"
+    >
+      <div style={{ borderBottom: `1px solid ${tokens.hair}` }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "space-between",
+            gap: 4,
+            padding: "0 8px 0 2px",
+            flexWrap: "nowrap",
+            minWidth: 0,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              gap: 2,
+              flex: 1,
+              minWidth: 0,
+              flexWrap: "nowrap",
+              overflowX: "auto",
+              overscrollBehaviorX: "contain",
+              WebkitOverflowScrolling: "touch",
+              scrollbarWidth: "thin",
+            }}
+          >
+            {tabs.map((t) => {
+              const active = activeTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => onTabChange(t.id)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "12px 8px 10px",
+                    fontFamily: tokens.sans,
+                    fontSize: "13px",
+                    fontWeight: active ? 600 : 500,
+                    color: active ? tokens.ink : tokens.muted,
+                    borderBottom: active
+                      ? `2px solid ${tokens.ink}`
+                      : "2px solid transparent",
+                    marginBottom: -1,
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
+                  }}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+          <span
+            style={{
+              ...chrome.cardArrow,
+              paddingBottom: 10,
+              flexShrink: 0,
+              alignSelf: "flex-end",
+            }}
+          >
+            →
+          </span>
+        </div>
+      </div>
+      <div style={{ padding: "14px 16px", ...bodyStyle }}>{children}</div>
+    </div>
+  );
+}
+
+function V3RightPanel({
+  title,
+  styles,
+  headerRight,
+  showArrow,
+  bodyStyle,
+  children,
+}: {
+  title: string;
+  styles: V3RightPanelChrome;
+  /** When set, replaces the default → affordance */
+  headerRight?: React.ReactNode;
+  /** When false, hide the trailing → (use with headerRight or no affordance) */
+  showArrow?: boolean;
+  bodyStyle?: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  const trailing =
+    headerRight !== undefined
+      ? headerRight
+      : showArrow === false ? null : (
+          <span style={styles.cardArrow}>→</span>
+        );
+
+  return (
+    <div
+      style={{
+        ...styles.card,
+        padding: 0,
+        overflow: "hidden",
+        width: "100%",
+        boxSizing: "border-box",
+      }}
+    >
+      <div style={styles.cardHeader}>
+        <span style={styles.cardHeaderTitle}>{title}</span>
+        {trailing}
+      </div>
+      <div style={{ padding: "14px 16px", ...bodyStyle }}>{children}</div>
+    </div>
+  );
+}
+
 // Main Company Detail Component
 const CompanyDetail = () => {
   const params = useParams();
   const companyId = params.id as string;
-  const { createClickableElement } = useRightClick();
 
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(
-    new Set()
-  );
 
   const [isMobile, setIsMobile] = useState(false);
   const [showAllPrimarySectors, setShowAllPrimarySectors] = useState(false);
@@ -941,9 +1273,9 @@ const CompanyDetail = () => {
     CompanyCorporateEvent[]
   >([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(true);
-  const [showAllSubsidiaries, setShowAllSubsidiaries] = useState(false);
   const [companyArticles, setCompanyArticles] = useState<ContentArticle[]>([]);
   const [articlesLoading, setArticlesLoading] = useState(false);
+  const [insightsPageOffset, setInsightsPageOffset] = useState(0);
   // Optional preformatted displays from API (ebitda_data)
   const [, setMetricsDisplay] = useState<
     | {
@@ -965,6 +1297,8 @@ const CompanyDetail = () => {
     useState<CompanyCompetitorsResponse | null>(null);
   const [competitorsLoading, setCompetitorsLoading] = useState(false);
   const [showCompetitorsModal, setShowCompetitorsModal] = useState(false);
+  const [financeRailTab, setFinanceRailTab] =
+    useState<FinanceRailTab>("financial");
   const [transactionStatusLabel, setTransactionStatusLabel] = useState<string>("");
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingPdfType, setExportingPdfType] =
@@ -972,7 +1306,8 @@ const CompanyDetail = () => {
   const [showPdfExportOptions, setShowPdfExportOptions] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isDescriptionExpandable, setIsDescriptionExpandable] = useState(false);
-  const [isOverviewNarrow, setIsOverviewNarrow] = useState(false);
+  const [activeProductMixTab, setActiveProductMixTab] =
+    useState<ProductMixTab>("product_type");
   const descriptionRef = useRef<HTMLDivElement | null>(null);
   const pdfExportMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -984,14 +1319,33 @@ const CompanyDetail = () => {
     return withoutTransaction.replace(/^anticipated\b/i, "Anticipated");
   }, [transactionStatusLabel]);
 
-  useEffect(() => {
-    // Use the same breakpoint as the requested UI behavior (< 1280px)
-    const mql = window.matchMedia("(max-width: 1279px)");
-    const apply = () => setIsOverviewNarrow(mql.matches);
-    apply();
-    mql.addEventListener("change", apply);
-    return () => mql.removeEventListener("change", apply);
-  }, []);
+  const managementCurrentPeople = useMemo(
+    () =>
+      (company?.Managmant_Roles_current || []).map((person) => ({
+        id: person.id,
+        name: person.Individual_text,
+        role: (person.job_titles_id || [])
+          .map((job) => job?.job_title)
+          .filter(Boolean)
+          .join(", "),
+        individualId: person.individuals_id,
+      })),
+    [company]
+  );
+
+  const managementPastPeople = useMemo(
+    () =>
+      (company?.Managmant_Roles_past || []).map((person) => ({
+        id: person.id,
+        name: person.Individual_text,
+        role: (person.job_titles_id || [])
+          .map((job) => job?.job_title)
+          .filter(Boolean)
+          .join(", "),
+        individualId: person.individuals_id,
+      })),
+    [company]
+  );
 
   // Safely extract a sector id from various backend shapes
   const getSectorId = (sector: unknown): number | undefined => {
@@ -1038,18 +1392,6 @@ const CompanyDetail = () => {
     return Number.isFinite(single) ? [single] : [];
   };
 
-
-  const toggleDescription = (subsidiaryId: number) => {
-    setExpandedDescriptions((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(subsidiaryId)) {
-        newSet.delete(subsidiaryId);
-      } else {
-        newSet.add(subsidiaryId);
-      }
-      return newSet;
-    });
-  };
 
   // Fetch company with intelligent fallbacks (GET first, then POST with common payload keys)
   const requestCompany = useCallback(
@@ -1144,6 +1486,10 @@ const CompanyDetail = () => {
     },
     []
   );
+
+  useEffect(() => {
+    setInsightsPageOffset(0);
+  }, [company?.id, companyArticles.length]);
 
   // Fetch financial metrics (auth required) with GET + POST fallbacks
   const fetchFinancialMetrics = useCallback(async (id: string | number) => {
@@ -1599,8 +1945,8 @@ const CompanyDetail = () => {
         return;
       }
 
-      // Allow more of the description to be visible before collapsing
-      const collapsedHeight = lineHeight * 5;
+      // Match the template's eight-line collapsed description preview.
+      const collapsedHeight = lineHeight * 8;
       setIsDescriptionExpandable(element.scrollHeight > collapsedHeight + 1);
     };
 
@@ -2106,6 +2452,33 @@ const CompanyDetail = () => {
   );
   const hasManagement = hasCurrentManagement || hasPastManagement;
 
+  const totalAmountRaisedDisplay = pickTotalAmountRaisedDisplay(company);
+
+  const fmEmployeeHeadcount = financialMetrics?.No_Employees;
+  const overviewHeadcount = (() => {
+    if (
+      typeof fmEmployeeHeadcount === "number" &&
+      fmEmployeeHeadcount > 0
+    ) {
+      return fmEmployeeHeadcount;
+    }
+    if (typeof currentEmployeeCount === "number" && currentEmployeeCount > 0) {
+      return currentEmployeeCount;
+    }
+    const li = company.linkedin_data?.LinkedIn_Employee;
+    if (typeof li === "number" && li > 0) return li;
+    return null;
+  })();
+
+  const overviewEmployeesYoY = (() => {
+    const direct = company.employees_yoy_pct;
+    if (typeof direct === "number" && Number.isFinite(direct)) {
+      const rounded = Math.round(direct * 10) / 10;
+      return `${rounded >= 0 ? "+" : ""}${rounded}% YoY`;
+    }
+    return computeEmployeeYoYFromMonthly(employeeData);
+  })();
+
   // Market Overview removed: no TradingView symbols computation
 
   // Build a readable former name string if present
@@ -2139,41 +2512,58 @@ const CompanyDetail = () => {
       }))
       .filter((item) => item.label);
 
-  const revenueModelRows = parseStructuredArray<CompanyRevenueModelItem>(
-    company.Revenue_Model_ ??
-      (company as { Revenue_Model?: CompanyRevenueModelItem[] | string })
-        .Revenue_Model
-  )
-    .map((item) => ({
-      label: String(item?.Revenue_Model_ || "").trim(),
-      // Leave cell empty when predominance is missing (no "Not available")
-      value: String(item?.Predominance || "").trim(),
-    }))
-    .filter((item) => item.label);
+  const ownershipLabel = company._ownership_type?.ownership || "";
+  const lifecycleLabel = company.Lifecycle_stage?.Lifecycle_Stage || "";
+  const tickerDisplay = company.ticker && company.exchange
+    ? `${company.exchange}: ${company.ticker}`
+    : company.ticker || null;
 
-  const companyAttributeSections = [
-    {
-      title: "Product Type",
-      valueHeader: "% of revenue",
-      rows: productTypeRows,
-    },
-    {
-      title: "Data Collection Method",
-      valueHeader: "Predominance",
-      rows: dataCollectionMethodRows,
-    },
-    {
-      title: "Revenue Model",
-      valueHeader: "Predominance",
-      rows: revenueModelRows,
-    },
-  ].filter((section) => section.rows.length > 0);
+  const insightTotalCount = companyArticles.length;
+  const insightVisibleSlice = companyArticles.slice(
+    insightsPageOffset,
+    insightsPageOffset + INSIGHTS_PREVIEW_COUNT
+  );
+  const canInsightPrev =
+    insightTotalCount > 0 && insightsPageOffset > 0;
+  const canInsightNext =
+    insightTotalCount > 0 &&
+    insightsPageOffset + INSIGHTS_PREVIEW_COUNT < insightTotalCount;
+  const insightRangeEnd = Math.min(
+    insightsPageOffset + INSIGHTS_PREVIEW_COUNT,
+    insightTotalCount
+  );
+
+  // ── Design tokens (mirroring the HTML template's T object) ──────────────
+  const T = {
+    paper:   "#FAFAF7",
+    panel:   "#FFFFFF",
+    inset:   "#F4F3EE",
+    divider: "rgba(15,17,21,0.08)",
+    hair:    "rgba(15,17,21,0.06)",
+    ink:     "#0F1115",
+    body:    "#2A2D33",
+    muted:   "#6B6E76",
+    faint:   "#9A9CA3",
+    azure:   "oklch(54% 0.22 258)",
+    azureSoft: "oklch(96% 0.035 258)",
+    emerald: "oklch(56% 0.13 158)",
+    emeraldSoft: "oklch(95% 0.05 158)",
+    coral:   "oklch(68% 0.13 25)",
+    coralSoft: "oklch(95% 0.04 25)",
+    lavender: "oklch(64% 0.16 285)",
+    lavenderSoft: "oklch(94% 0.045 285)",
+    up:      "oklch(55% 0.13 150)",
+    down:    "oklch(55% 0.17 25)",
+    r:       6,
+    rLg:     10,
+    sans:    '"Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+    mono:    '"Geist Mono", ui-monospace, "SF Mono", Menlo, monospace',
+  };
 
   const styles = {
     container: {
-      backgroundColor: "#f9fafb",
-      fontFamily:
-        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      backgroundColor: T.paper,
+      fontFamily: T.sans,
       minHeight: "100vh",
       display: "flex",
       flexDirection: "column" as const,
@@ -2181,18 +2571,18 @@ const CompanyDetail = () => {
     maxWidth: {
       width: "100%",
       maxWidth: "100%",
-      padding: "24px",
+      padding: "18px",
       flex: "1",
       display: "flex",
       flexDirection: "column" as const,
       overflow: "hidden",
     },
     header: {
-      backgroundColor: "white",
-      borderRadius: "12px",
-      padding: "24px 24px",
-      marginBottom: "24px",
-      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+      backgroundColor: T.panel,
+      borderRadius: "10px",
+      padding: "20px",
+      marginBottom: "16px",
+      border: `1px solid ${T.divider}`,
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
@@ -2205,37 +2595,39 @@ const CompanyDetail = () => {
       gap: "16px",
     },
     companyName: {
-      fontSize: "28px",
-      fontWeight: "700",
-      color: "#1a202c",
+      fontSize: "24px",
+      fontWeight: "600",
+      color: T.ink,
       margin: "0",
+      letterSpacing: "-0.4px",
     },
     formerName: {
-      marginTop: "4px",
-      fontSize: "14px",
-      color: "#4a5568",
+      marginTop: "2px",
+      fontSize: "12px",
+      color: T.muted,
     },
     headerRight: {
       display: "flex",
       alignItems: "center",
-      gap: "16px",
+      gap: "8px",
     },
     scoreBadge: {
-      backgroundColor: "#f7fafc",
-      color: "#4a5568",
-      padding: "8px 16px",
-      borderRadius: "20px",
-      fontSize: "14px",
+      backgroundColor: T.inset,
+      color: T.body,
+      padding: "2px 8px",
+      borderRadius: "4px",
+      fontSize: "11.5px",
       fontWeight: "500",
+      border: `1px solid ${T.divider}`,
     },
     reportButton: {
-      backgroundColor: "#38a169",
+      backgroundColor: T.emerald,
       color: "white",
       border: "none",
-      padding: "8px 16px",
+      padding: "7px 14px",
       borderRadius: "6px",
-      fontSize: "14px",
-      fontWeight: "500",
+      fontSize: "12.5px",
+      fontWeight: "600",
       cursor: "pointer",
       textDecoration: "none",
     },
@@ -2244,54 +2636,109 @@ const CompanyDetail = () => {
       padding: "10px 12px",
       backgroundColor: "transparent",
       border: "none",
-      color: "#1a202c",
+      color: T.body,
       cursor: "pointer",
       display: "block",
-      fontSize: "14px",
+      fontSize: "13px",
       fontWeight: 500,
       textAlign: "left" as const,
     },
 
     card: {
-      backgroundColor: "white",
-      borderRadius: "12px",
-      padding: "24px 20px",
-      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-      // Important for CSS grid: allow cards to shrink so inner overflow containers can scroll
+      backgroundColor: T.panel,
+      borderRadius: `${T.rLg}px`,
+      overflow: "hidden",
+      border: `1px solid ${T.divider}`,
       minWidth: 0,
     },
+    cardHeader: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "14px 16px 12px",
+      borderBottom: `1px solid ${T.hair}`,
+    },
+    cardHeaderTitle: {
+      fontFamily: T.sans,
+      fontSize: "13.5px",
+      fontWeight: 600,
+      color: T.ink,
+    },
+    cardArrow: {
+      fontSize: "14px",
+      color: T.azure,
+      fontWeight: 500,
+      cursor: "pointer",
+      lineHeight: 1,
+      padding: "2px 4px",
+    },
     sectionTitle: {
-      fontSize: "20px",
+      fontSize: "13.5px",
       fontWeight: "600",
-      color: "#1a202c",
-      marginBottom: "24px",
+      color: T.ink,
+      marginBottom: "0",
       marginTop: "0",
     },
     infoRow: {
       display: "grid",
-      gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
-      columnGap: "4px",
-      alignItems: "center",
-      padding: "10px 0",
-      borderBottom: "1px solid #e2e8f0",
+      gridTemplateColumns: "120px 1fr",
+      columnGap: "10px",
+      alignItems: "start",
+      padding: "7px 0",
+      borderBottom: `1px solid ${T.hair}`,
+      fontSize: "12.5px",
     },
     infoRowLast: {
       display: "grid",
-      gridTemplateColumns: "minmax(180px, 220px) 1fr",
-      columnGap: "4px",
+      gridTemplateColumns: "120px 1fr",
+      columnGap: "10px",
       alignItems: "flex-start",
-      padding: "10px 0",
+      padding: "7px 0",
       borderBottom: "none",
+      fontSize: "12.5px",
+    },
+    /** Right-rail metric values — matches CompanyProfile KV mono column */
+    v3RailValue: {
+      fontSize: "12.5px",
+      color: T.body,
+      fontWeight: "400",
+      textAlign: "left" as const,
+      marginLeft: "0",
+      fontFamily: T.mono,
+      fontVariantNumeric: "tabular-nums",
+      wordBreak: "break-word" as const,
+      overflowWrap: "break-word" as const,
+    },
+    v3RailHeadlineCount: {
+      fontSize: "26px",
+      fontWeight: 600,
+      color: T.ink,
+      marginBottom: "8px",
+      fontVariantNumeric: "tabular-nums",
+      letterSpacing: "-0.3px",
+      lineHeight: 1.2,
+    },
+    /** Financial tab rows — label left, value right (full width), matches design mocks */
+    v3TabFinRow: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "baseline",
+      gap: 16,
+      width: "100%",
+      minWidth: 0,
+      padding: "10px 0",
+      borderBottom: `1px solid ${T.hair}`,
+      fontSize: "12.5px",
+      boxSizing: "border-box" as const,
     },
     label: {
-      fontSize: "14px",
-      color: "#4a5568",
-      fontWeight: "500",
-      width: "220px",
+      fontSize: "12.5px",
+      color: T.muted,
+      fontWeight: "400",
     },
     value: {
-      fontSize: "14px",
-      color: "#1a202c",
+      fontSize: "12.5px",
+      color: T.body,
       fontWeight: "400",
       textAlign: "left" as const,
       marginLeft: "0",
@@ -2299,86 +2746,171 @@ const CompanyDetail = () => {
       overflowWrap: "break-word" as const,
     },
     sourceValue: {
-      fontSize: "12px",
-      color: "#9ca3af",
-      textAlign: "right" as const,
-      whiteSpace: "nowrap" as const,
-      paddingLeft: "8px",
+      display: "none",
     },
     link: {
-      color: "#0075df",
-      textDecoration: "underline",
+      color: T.azure,
+      textDecoration: "none",
       cursor: "pointer",
     },
     description: {
-      fontSize: "14px",
-      color: "#1a202c",
-      lineHeight: "1.6",
-      marginTop: "16px",
+      fontSize: "13.5px",
+      color: T.body,
+      lineHeight: "1.65",
     },
     chartContainer: {
-      marginTop: "24px",
+      marginTop: "20px",
       overflow: "hidden",
     },
     chartTitle: {
-      fontSize: "16px",
-      fontWeight: "600",
-      color: "#1a202c",
-      marginBottom: "16px",
+      fontSize: "12px",
+      fontWeight: "500",
+      color: T.muted,
+      marginBottom: "8px",
+      textTransform: "uppercase" as const,
+      letterSpacing: "0.5px",
     },
     currentCount: {
-      fontSize: "24px",
-      fontWeight: "700",
-      color: "#0075df",
-      marginBottom: "16px",
+      fontSize: "22px",
+      fontWeight: "600",
+      color: T.ink,
+      marginBottom: "12px",
+      fontVariantNumeric: "tabular-nums",
+      letterSpacing: "-0.3px",
+    },
+    financialTabs: {
+      display: "grid",
+      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+      borderBottom: `1px solid ${T.hair}`,
+      backgroundColor: T.panel,
+    },
+    financialTab: {
+      appearance: "none" as const,
+      border: "none",
+      borderRight: `1px solid ${T.hair}`,
+      backgroundColor: "transparent",
+      color: T.muted,
+      cursor: "pointer",
+      fontFamily: T.sans,
+      fontSize: "12px",
+      fontWeight: 500,
+      padding: "11px 8px",
+      lineHeight: 1.2,
+    },
+    financialTabActive: {
+      color: T.ink,
+      backgroundColor: T.inset,
+      boxShadow: `inset 0 -2px 0 ${T.azure}`,
+    },
+    productMixHeader: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "0 14px 0 8px",
+      borderBottom: `1px solid ${T.hair}`,
+      backgroundColor: T.panel,
+      minHeight: 44,
+    },
+    productMixTabInner: {
+      display: "flex",
+      flex: 1,
+      alignItems: "stretch",
+      gap: 0,
+    },
+    productMixTabButton: {
+      appearance: "none" as const,
+      border: "none",
+      background: "none",
+      cursor: "pointer",
+      fontFamily: T.sans,
+      fontSize: "12.5px",
+      fontWeight: 500,
+      color: T.muted,
+      padding: "12px 14px 10px",
+      lineHeight: 1.2,
+      borderBottom: "2px solid transparent",
+      marginBottom: -1,
+    },
+    productMixTabButtonActive: {
+      color: T.ink,
+      borderBottomColor: T.ink,
+    },
+    emptyState: {
+      color: T.muted,
+      fontSize: "12.5px",
+      lineHeight: "1.5",
+      padding: "12px 0",
     },
     linkedinLink: {
       display: "flex",
       alignItems: "center",
       gap: "8px",
-      color: "#0075df",
+      color: T.azure,
       textDecoration: "none",
-      fontSize: "14px",
+      fontSize: "13px",
       fontWeight: "500",
     },
     tagContainer: {
       display: "flex",
       flexWrap: "wrap" as const,
-      gap: "6px",
-      marginTop: "4px",
+      gap: "4px",
     },
     sectorTag: {
-      backgroundColor: "#f3e5f5",
-      color: "#7b1fa2",
-      padding: "4px 8px",
+      backgroundColor: T.coralSoft,
+      color: T.coral,
+      padding: "2px 8px",
       borderRadius: "4px",
-      fontSize: "12px",
+      fontSize: "11.5px",
       fontWeight: "500",
       cursor: "pointer",
-      transition: "background-color 0.2s ease",
+      transition: "opacity 0.15s ease",
       textDecoration: "none",
-      display: "inline-block",
+      display: "inline-flex",
+      alignItems: "center",
+      border: "1px solid transparent",
+      whiteSpace: "nowrap" as const,
+      lineHeight: 1.5,
+    },
+    sectorTagSecondary: {
+      backgroundColor: T.lavenderSoft,
+      color: T.lavender,
+      padding: "2px 8px",
+      borderRadius: "4px",
+      fontSize: "11.5px",
+      fontWeight: "500",
+      cursor: "pointer",
+      transition: "opacity 0.15s ease",
+      textDecoration: "none",
+      display: "inline-flex",
+      alignItems: "center",
+      border: "1px solid transparent",
+      whiteSpace: "nowrap" as const,
+      lineHeight: 1.5,
     },
     companyTag: {
-      backgroundColor: "#e8f5e8",
-      color: "#2e7d32",
-      padding: "4px 8px",
+      backgroundColor: T.azureSoft,
+      color: T.azure,
+      padding: "2px 8px",
       borderRadius: "4px",
-      fontSize: "12px",
+      fontSize: "11.5px",
       fontWeight: "500",
       cursor: "pointer",
-      transition: "background-color 0.2s ease",
+      transition: "opacity 0.15s ease",
       textDecoration: "none",
-      display: "inline-block",
+      display: "inline-flex",
+      alignItems: "center",
+      border: "1px solid transparent",
+      whiteSpace: "nowrap" as const,
+      lineHeight: 1.5,
     },
     responsiveGrid: {
       display: "grid",
-      // Allow grid children to shrink and prevent wide tables from pushing/clipping the right column
-      gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)",
-      gap: "24px",
+      gridTemplateColumns: "minmax(0, 1fr) 440px",
+      gap: "18px",
       flex: "1",
       maxWidth: "100%",
       overflow: "hidden",
+      alignItems: "start",
     },
     "@media (max-width: 768px)": {
       responsiveGrid: {
@@ -2406,96 +2938,180 @@ const CompanyDetail = () => {
         gap: "6px",
       },
       maxWidth: {
-        padding: "16px 4px",
+        padding: "12px 4px",
       },
       card: {
-        padding: "14px 12px",
+        borderRadius: "8px",
       },
       companyName: {
-        fontSize: "22px",
+        fontSize: "20px",
         lineHeight: "1.3",
       },
       formerName: {
-        fontSize: "12px",
+        fontSize: "11px",
       },
       sectionTitle: {
-        fontSize: "17px",
-        marginBottom: "12px",
+        fontSize: "13px",
       },
       infoRow: {
         display: "flex",
         flexDirection: "column",
         alignItems: "flex-start",
-        gap: "2px",
-        padding: "8px 0",
+        gap: "1px",
+        padding: "6px 0",
         width: "100%",
       },
       label: {
-        fontSize: "12px",
-        color: "#718096",
-        fontWeight: "600",
+        fontSize: "11px",
+        color: T.faint,
+        fontWeight: "500",
         minWidth: "auto",
-        marginBottom: "2px",
+        marginBottom: "1px",
       },
       value: {
-        fontSize: "13px",
+        fontSize: "12.5px",
         textAlign: "left",
         marginLeft: "0",
-        lineHeight: "1.35",
+        lineHeight: "1.4",
         wordBreak: "break-word" as const,
         overflowWrap: "break-word" as const,
         width: "100%",
       },
       description: {
         fontSize: "13px",
-        lineHeight: "1.5",
-        marginTop: "8px",
+        lineHeight: "1.6",
       },
       chartTitle: {
-        fontSize: "15px",
-        marginBottom: "12px",
+        fontSize: "11px",
+        marginBottom: "8px",
       },
       currentCount: {
         fontSize: "20px",
-        marginBottom: "12px",
+        marginBottom: "10px",
       },
-
       scoreBadge: {
-        fontSize: "12px",
-        padding: "6px 12px",
+        fontSize: "11px",
+        padding: "2px 6px",
       },
       reportButton: {
         fontSize: "12px",
         padding: "6px 12px",
       },
       linkedinLink: {
-        fontSize: "13px",
+        fontSize: "12.5px",
         justifyContent: "center",
-        padding: "12px",
-        backgroundColor: "#f7fafc",
+        padding: "10px",
+        backgroundColor: T.inset,
         borderRadius: "8px",
         width: "100%",
       },
-      // Hide chart in desktop financial metrics on mobile
       chartContainer: {
-        marginTop: "20px",
+        marginTop: "16px",
         overflow: "hidden",
-        padding: "0 8px",
+        padding: "0 6px",
         width: "100%",
-        display: "none", // Hide on mobile by default
+        display: "none",
       },
-      // Show mobile chart section on mobile
       mobileChartSection: {
         display: "block",
       },
     },
   };
 
+  const mixBarColors = [
+    T.azure,
+    T.lavender,
+    T.coral,
+    "oklch(72% 0.14 65)",
+    T.emerald,
+    T.muted,
+  ];
+
+  const productUsersSegments = (() => {
+    const raw = company.product_users;
+    if (Array.isArray(raw)) {
+      return raw.map((x) => String(x).trim()).filter(Boolean);
+    }
+    if (typeof raw === "string" && raw.trim()) {
+      try {
+        const j = JSON.parse(raw) as unknown;
+        if (Array.isArray(j)) {
+          return j.map((x) => String(x).trim()).filter(Boolean);
+        }
+      } catch {
+        /* fall through */
+      }
+      return raw
+        .split(/[,;\n]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    return [...PRODUCT_USERS_DEMO];
+  })();
+
+  const productTypeBarRows =
+    productTypeRows.length > 0
+      ? productTypeRows.map((row, i) => {
+          const rawPct = parsePercentToken(row.value);
+          const pct = Math.min(100, Math.max(0, rawPct ?? 0));
+          const displayRight =
+            row.value.includes("%") && row.value.trim()
+              ? row.value.trim()
+              : rawPct !== null
+                ? `${Math.round(rawPct)}%`
+                : `${Math.round(pct)}%`;
+          return {
+            label: row.label,
+            pct,
+            displayRight,
+            color: mixBarColors[i % mixBarColors.length],
+          };
+        })
+      : PRODUCT_MIX_DEMO_ROWS.map((r, i) => ({
+          label: r.label,
+          pct: r.pct,
+          displayRight: `${r.pct}%`,
+          color: mixBarColors[i % mixBarColors.length],
+        }));
+
+  const dataCollectionBarRows =
+    dataCollectionMethodRows.length > 0
+      ? dataCollectionMethodRows.map((row, i) => {
+          const parsed = parsePercentToken(row.value);
+          const pct = Math.min(
+            100,
+            Math.max(
+              0,
+              parsed ??
+                predominanceBarWidth(
+                  row.value,
+                  i,
+                  dataCollectionMethodRows.length
+                )
+            )
+          );
+          const displayRight =
+            parsed !== null ? `${Math.round(parsed)}%` : row.value;
+          return {
+            label: row.label,
+            pct,
+            displayRight,
+            color: mixBarColors[i % mixBarColors.length],
+          };
+        })
+      : DATA_COLLECTION_MIX_DEMO.map((r, i) => ({
+          label: r.label,
+          pct: r.pct,
+          displayRight: r.displayRight,
+          color: mixBarColors[i % mixBarColors.length],
+        }));
+
   const responsiveCss = `
     .company-detail-page { overflow-x: hidden; }
-    .responsiveGrid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 24px; max-width: 100%; }
+    .responsiveGrid { display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 18px; max-width: 100%; align-items: start; }
     .responsiveGrid > * { min-width: 0; }
-    .card { background: white; border-radius: 12px; min-width: 0; }
+    .card { background: ${T.panel}; border-radius: ${T.rLg}px; min-width: 0; border: 1px solid ${T.divider}; }
+    /* insights-summary-card grid-column set via inline style */
     .transaction-status-pill {
       display: inline-flex;
       align-items: center;
@@ -2504,9 +3120,8 @@ const CompanyDetail = () => {
       white-space: nowrap;
       max-width: 100%;
     }
-    /* Give Overview right column more room on desktop */
-    .overview-card .info-row { grid-template-columns: minmax(140px, 170px) 1fr auto !important; }
-    .overview-card .info-label { width: 170px !important; }
+    .overview-card .info-row { grid-template-columns: 120px 1fr !important; }
+    .overview-card .info-label { width: auto !important; }
     /* Hover tooltips for metric values using title attribute */
     .desktop-financial-metrics span[title],
     .mobile-financial-metrics span[title] {
@@ -2570,12 +3185,8 @@ const CompanyDetail = () => {
     .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
     .pill-blue { background-color: #e6f0ff; color: #1d4ed8; }
     .pill-green { background-color: #dcfce7; color: #15803d; }
-    /* Management card hover effects */
-    .management-card:hover {
-      background-color: #e6f0ff !important;
-      border-color: #0075df !important;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 6px rgba(0, 117, 223, 0.1);
+    .management-profile-row:hover {
+      background-color: ${T.inset};
     }
     /* Insights & Analysis responsive grid */
     .insights-grid {
@@ -2590,10 +3201,10 @@ const CompanyDetail = () => {
         gap: 12px !important;
       }
       .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
+      .insights-summary-card { grid-column: 1 / -1 !important; }
       .desktop-financial-metrics { display: none !important; }
       .mobile-financial-metrics { display: block !important; }
       .desktop-linkedin-section { display: none !important; }
-      .management-grid { grid-template-columns: 1fr !important; }
       .overview-card .info-row { padding: 8px 0 !important; display: block !important; }
       .overview-card .info-label { font-size: 12px !important; color: #718096 !important; margin-bottom: 2px !important; }
       .overview-card .info-value { font-size: 13px !important; line-height: 1.35 !important; display: block !important; margin-left: 0 !important; word-break: break-word !important; overflow-wrap: break-word !important; }
@@ -2601,70 +3212,80 @@ const CompanyDetail = () => {
       .overview-grid { grid-template-columns: 1fr !important; }
       .overview-description { order: 2; margin-top: 16px !important; }
       .overview-fields { order: 1; }
+      .product-mix-users-row { grid-template-columns: 1fr !important; gap: 12px !important; }
     }
   `;
 
   return (
     <div className="company-detail-page" style={styles.container}>
       <Header />
-      <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <div className="company-detail-content" style={styles.maxWidth}>
-          {/* Desktop grid */}
-          <div style={styles.responsiveGrid} className="responsiveGrid">
-            {/* Overview card */}
-            <div style={styles.card} className="card overview-card">
-              {/* Company header moved into Overview */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: "16px",
-                  paddingBottom: "16px",
-                  marginBottom: "16px",
-                  borderBottom: "1px solid #e2e8f0",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "16px",
-                    minWidth: 0,
-                  }}
-                >
+
+      {/* ── Company profile header bar ── */}
+      <div style={{ backgroundColor: T.paper, borderBottom: `1px solid ${T.divider}`, padding: "0 24px" }}>
+        {/* Top row: logo + name + badges + actions */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          flexWrap: "wrap" as const, gap: "12px", padding: "22px 0 16px",
+        }}>
+          {/* Left: logo, name, badges */}
+          <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0, flex: 1 }}>
                   <CompanyLogo
                     logo={company._linkedin_data_of_new_company?.linkedin_logo}
                     name={company.name}
                   />
                   <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontSize: "22px",
-                        fontWeight: 700,
-                        color: "#1a202c",
-                        lineHeight: 1.2,
-                      }}
-                    >
+              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap" as const, gap: "8px" }}>
+                <span style={{
+                  fontSize: "24px", fontWeight: 600, color: T.ink,
+                  letterSpacing: "-0.4px", lineHeight: 1.2, fontFamily: T.sans,
+                }}>
                       {company.name}
+                </span>
+                {tickerDisplay && (
+                  <span style={{
+                    display: "inline-flex", alignItems: "center",
+                    fontSize: "11.5px", fontWeight: 500, color: T.body,
+                    backgroundColor: T.inset, border: `1px solid ${T.divider}`,
+                    borderRadius: "4px", padding: "2px 8px",
+                    whiteSpace: "nowrap" as const, lineHeight: 1.5,
+                  }}>
+                    {tickerDisplay}
+                  </span>
+                )}
+                {ownershipLabel && (
+                  <span style={{
+                    display: "inline-flex", alignItems: "center",
+                    fontSize: "11.5px", fontWeight: 500,
+                    color: T.emerald, backgroundColor: T.emeraldSoft,
+                    border: "1px solid transparent",
+                    borderRadius: "4px", padding: "2px 8px",
+                    whiteSpace: "nowrap" as const, lineHeight: 1.5,
+                  }}>
+                    {ownershipLabel}
+                  </span>
+                )}
+                {lifecycleLabel && (
+                  <span style={{
+                    display: "inline-flex", alignItems: "center",
+                    fontSize: "11.5px", fontWeight: 500, color: T.muted,
+                    backgroundColor: "transparent", border: `1px solid ${T.divider}`,
+                    borderRadius: "4px", padding: "2px 8px",
+                    whiteSpace: "nowrap" as const, lineHeight: 1.5,
+                  }}>
+                    {lifecycleLabel}
+                  </span>
+                )}
                     </div>
                     {formerNameDisplay && (
-                      <div style={{ ...styles.formerName, marginTop: "4px" }}>
-                        (Formerly {formerNameDisplay})
+                <div style={{ fontSize: "12px", color: T.muted, marginTop: "3px", fontFamily: T.sans }}>
+                  Formerly {formerNameDisplay}
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    flexWrap: "wrap",
-                  }}
-                >
+          {/* Right: action buttons */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" as const }}>
                   {companyId && !Number.isNaN(Number(companyId)) && (
                     <FollowButton
                       followKey="followed_companies"
@@ -2672,28 +3293,21 @@ const CompanyDetail = () => {
                       label="Company"
                     />
                   )}
-                  <div
-                    ref={pdfExportMenuRef}
-                    style={{ position: "relative", display: "inline-block" }}
-                  >
+            <div ref={pdfExportMenuRef} style={{ position: "relative", display: "inline-block" }}>
                     <button
                       type="button"
-                      onClick={() =>
-                        setShowPdfExportOptions((current) => !current)
-                      }
+                onClick={() => setShowPdfExportOptions((current) => !current)}
                       disabled={exportingPdf || !company?.id}
                       aria-haspopup="menu"
                       aria-expanded={showPdfExportOptions}
                       style={{
-                        ...styles.reportButton,
-                        backgroundColor: exportingPdf ? "#9ca3af" : "#0075df",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        cursor:
-                          exportingPdf || !company?.id
-                            ? "not-allowed"
-                            : "pointer",
+                  display: "inline-flex", alignItems: "center", gap: "5px",
+                  fontFamily: T.sans, fontSize: "12.5px", fontWeight: 600,
+                  color: "#fff",
+                  backgroundColor: exportingPdf ? T.faint : T.azure,
+                  border: "none", borderRadius: "6px",
+                  padding: "8px 14px",
+                  cursor: exportingPdf || !company?.id ? "not-allowed" : "pointer",
                       }}
                     >
                       {exportingPdf
@@ -2701,38 +3315,27 @@ const CompanyDetail = () => {
                           ? "Exporting Metrics..."
                           : "Exporting..."
                         : "Export PDF"}
-                      <span aria-hidden="true"></span>
                     </button>
                     {showPdfExportOptions && !exportingPdf && company?.id && (
                       <div
                         role="menu"
                         style={{
-                          position: "absolute",
-                          right: 0,
-                          top: "calc(100% + 6px)",
-                          zIndex: 30,
-                          minWidth: "220px",
-                          padding: "6px",
-                          backgroundColor: "#ffffff",
-                          border: "1px solid #e2e8f0",
+                    position: "absolute", right: 0, top: "calc(100% + 6px)",
+                    zIndex: 30, minWidth: "220px", padding: "6px",
+                    backgroundColor: T.panel, border: `1px solid ${T.divider}`,
                           borderRadius: "8px",
-                          boxShadow: "0 10px 20px rgba(15, 23, 42, 0.12)",
+                    boxShadow: "0 10px 20px rgba(15,17,21,0.12)",
                         }}
                       >
                         <button
-                          type="button"
-                          role="menuitem"
+                    type="button" role="menuitem"
                           onClick={() => handleExportPdf("profile")}
-                          style={{
-                            ...styles.exportMenuItem,
-                            borderBottom: "1px solid #edf2f7",
-                          }}
+                    style={{ ...styles.exportMenuItem, borderBottom: `1px solid ${T.hair}` }}
                         >
                           Export Whole Profile
                         </button>
                         <button
-                          type="button"
-                          role="menuitem"
+                    type="button" role="menuitem"
                           onClick={() => handleExportPdf("financial_metrics")}
                           style={styles.exportMenuItem}
                         >
@@ -2742,115 +3345,78 @@ const CompanyDetail = () => {
                     )}
                   </div>
                   <a
-                    style={{
-                      ...styles.reportButton,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      backgroundColor: "#38a169",
-                    }}
                     href="mailto:asymmetrix@asymmetrixintelligence.com?subject=Report%20Incorrect%20Company%20Data&body=Please%20describe%20the%20issue%20you%20found."
                     target="_blank"
                     rel="noopener noreferrer"
+              style={{
+                display: "inline-flex", alignItems: "center",
+                fontFamily: T.sans, fontSize: "12.5px", fontWeight: 600,
+                color: "#fff", backgroundColor: T.emerald,
+                borderRadius: "6px", padding: "8px 14px",
+                textDecoration: "none",
+              }}
                   >
                     Contribute Data
                   </a>
                 </div>
               </div>
+
+        {/* Navigation tabs */}
+        <div style={{ display: "flex", gap: "2px", overflowX: "auto" as const, scrollbarWidth: "none" as const }}>
+          {[
+            "Summary", "Products", "Methodology", "People",
+            "Financials", "Insights", "Deals", "Ownership", "Market",
+          ].map((tab) => {
+            const active = tab === "Summary";
+            return (
               <div
+                key={tab}
                 style={{
-                  display: "grid",
-                  // Give left column more room so Transaction Status can stay on one line
-                  gridTemplateColumns: "minmax(0, 1.15fr) minmax(0, 0.85fr)",
-                  gap: "24px",
+                  padding: "10px 14px",
+                  fontFamily: T.sans, fontSize: "13px",
+                  fontWeight: active ? 600 : 500,
+                  color: active ? T.ink : T.muted,
+                  borderBottom: `2px solid ${active ? T.azure : "transparent"}`,
+                  marginBottom: "-1px",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap" as const,
+                  transition: "color 120ms",
                 }}
-                className="overview-grid"
               >
-                {isOverviewNarrow && transactionStatusLabel && (
-                  <div
-                    style={{
-                      ...styles.infoRow,
-                      gridColumn: "1 / -1",
-                      backgroundColor: "#ffffff",
-                      border: "1px solid #bfdbfe",
-                      borderRadius: "12px",
-                      boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.10)",
-                      padding: "8px 8px",
-                      marginBottom: "10px",
-                      gridTemplateColumns: "auto 1fr",
-                      columnGap: "4px",
-                    }}
-                    className="info-row"
-                  >
-                    <span
-                      style={{ ...styles.label, width: "auto" }}
-                      className="info-label"
-                    >
-                      Transaction Status:
-                    </span>
-                    <div
-                      style={{
-                        ...styles.value,
-                        display: "flex",
-                        alignItems: "center",
-                      }}
-                      className="info-value"
-                    >
-                      <span
-                        className="transaction-status-pill"
-                        style={{
-                          backgroundColor: "#dcfce7",
-                          color: "#166534",
-                          border: "1.5px solid #4ade80",
-                          borderRadius: "999px",
-                          fontSize: "12px",
-                          fontWeight: 500,
-                          padding: "5px 10px",
-                        }}
-                      >
-                        {transactionStatusDisplayLabel}
-                      </span>
+                {tab}
                     </div>
+            );
+          })}
                   </div>
-                )}
-                {/* Left column: Basic fields */}
-                <div className="overview-fields">
-              {!isOverviewNarrow && transactionStatusLabel && (
-                <div
-                  style={{
-                    ...styles.infoRow,
-                    backgroundColor: "#ffffff",
-                    border: "1px solid #bfdbfe",
-                    borderRadius: "12px",
-                    boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.10)",
-                    padding: "8px 8px",
-                    marginBottom: "10px",
-                    gridTemplateColumns: "auto 1fr",
-                    columnGap: "4px",
-                  }}
-                  className="info-row"
-                >
-                  <span
-                    style={{ ...styles.label, width: "auto" }}
-                    className="info-label"
-                  >
-                    Transaction Status:
-                  </span>
-                  <div
-                    style={{ ...styles.value, display: "flex", alignItems: "center" }}
-                    className="info-value"
-                  >
-                    <span
-                      className="transaction-status-pill"
-                      style={{
-                        backgroundColor: "#dcfce7",
-                        color: "#166534",
-                        border: "1.5px solid #4ade80",
-                        borderRadius: "999px",
-                        fontSize: "12px",
-                        fontWeight: 500,
-                        padding: "5px 10px",
-                      }}
-                    >
+      </div>
+
+      <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <div className="company-detail-content" style={styles.maxWidth}>
+          {/* Desktop grid */}
+          <div style={styles.responsiveGrid} className="responsiveGrid">
+            {/* ══ LEFT COLUMN ══ */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px", minWidth: 0 }}>
+
+            {/* Row 1: Overview + Description side by side */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+
+            {/* ── Overview card ── */}
+            <div style={{ ...styles.card, alignSelf: "start" }} className="card overview-card">
+              <div style={styles.cardHeader}>
+                <span style={styles.cardHeaderTitle}>Overview</span>
+                <span style={styles.cardArrow}>→</span>
+              </div>
+              <div style={{ padding: "4px 16px 12px" }} className="overview-fields">
+              {transactionStatusLabel && (
+                <div style={{ ...styles.infoRow, gridTemplateColumns: "auto 1fr" }} className="info-row">
+                  <span style={styles.label} className="info-label">Transaction status</span>
+                  <div style={{ ...styles.value, display: "flex", alignItems: "center" }} className="info-value">
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", fontSize: "11.5px",
+                      fontWeight: 500, color: T.up, backgroundColor: "oklch(95% 0.05 150)",
+                      border: "1px solid transparent", borderRadius: "4px",
+                      padding: "2px 8px", lineHeight: 1.5,
+                    }}>
                       {transactionStatusDisplayLabel}
                     </span>
                   </div>
@@ -2858,15 +3424,15 @@ const CompanyDetail = () => {
               )}
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
-                  Primary Sector(s):
+                  Primary sector(s)
                 </span>
                 <div style={styles.value} className="info-value">
                   {augmentedPrimarySectors.length > 0 ? (
                     <>
                       <div style={styles.tagContainer}>
-                        {(isMobile && !showAllPrimarySectors
-                          ? augmentedPrimarySectors.slice(0, 4)
-                          : augmentedPrimarySectors
+                        {(showAllPrimarySectors
+                          ? augmentedPrimarySectors
+                          : augmentedPrimarySectors.slice(0, OVERVIEW_TAG_CAP)
                         ).map((sector) => {
                           if (!sector || !sector.sector_name) return null;
                           const id = getSectorId(sector);
@@ -2876,12 +3442,6 @@ const CompanyDetail = () => {
                                 key={`sector-${id}`}
                                 href={`/sector/${id}`}
                                 style={styles.sectorTag}
-                                onMouseEnter={(e) => {
-                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e1bee7";
-                                }}
-                                onMouseLeave={(e) => {
-                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#f3e5f5";
-                                }}
                                 prefetch={false}
                               >
                                 {sector.sector_name}
@@ -2897,41 +3457,65 @@ const CompanyDetail = () => {
                             </span>
                           );
                         })}
+                        {!showAllPrimarySectors &&
+                        augmentedPrimarySectors.length > OVERVIEW_TAG_CAP ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowAllPrimarySectors(true)}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              borderRadius: "4px",
+                              fontSize: "11.5px",
+                              fontWeight: 500,
+                              lineHeight: 1.5,
+                              padding: "2px 8px",
+                              backgroundColor: T.inset,
+                              color: T.muted,
+                              border: "1px solid transparent",
+                              cursor: "pointer",
+                            }}
+                          >
+                            +
+                            {augmentedPrimarySectors.length - OVERVIEW_TAG_CAP}
+                          </button>
+                        ) : null}
                       </div>
-                      {isMobile && augmentedPrimarySectors.length > 4 && (
+                      {showAllPrimarySectors &&
+                      augmentedPrimarySectors.length > OVERVIEW_TAG_CAP ? (
                         <button
-                          onClick={() => setShowAllPrimarySectors((v) => !v)}
+                          type="button"
+                          onClick={() => setShowAllPrimarySectors(false)}
                           style={{
                             background: "none",
                             border: "none",
-                            color: "#0075df",
+                            color: T.azure,
                             cursor: "pointer",
-                            fontSize: "12px",
-                            textDecoration: "underline",
-                            marginTop: "8px",
+                            fontSize: "11.5px",
+                            marginTop: "4px",
                             padding: 0,
                           }}
                         >
-                          {showAllPrimarySectors ? "Show less" : "Show more"}
+                          Show less
                         </button>
-                      )}
+                      ) : null}
                     </>
                   ) : (
-                    "Not available"
+                    EM_DASH
                   )}
                 </div>
               </div>
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
-                  Secondary Sector(s):
+                  Secondary sector(s)
                 </span>
                 <div style={styles.value} className="info-value">
                   {secondarySectors.length > 0 ? (
                     <>
                       <div style={styles.tagContainer}>
-                        {(isMobile && !showAllSecondarySectors
-                          ? secondarySectors.slice(0, 4)
-                          : secondarySectors
+                        {(showAllSecondarySectors
+                          ? secondarySectors
+                          : secondarySectors.slice(0, OVERVIEW_TAG_CAP)
                         ).map((sector) => {
                           if (!sector || !sector.sector_name) return null;
                           const id = getSectorId(sector);
@@ -2940,13 +3524,7 @@ const CompanyDetail = () => {
                               <Link
                                 key={`sub-sector-${id}`}
                                 href={`/sub-sector/${id}`}
-                                style={styles.sectorTag}
-                                onMouseEnter={(e) => {
-                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e1bee7";
-                                }}
-                                onMouseLeave={(e) => {
-                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#f3e5f5";
-                                }}
+                                style={styles.sectorTagSecondary}
                                 prefetch={false}
                               >
                                 {sector.sector_name}
@@ -2956,39 +3534,62 @@ const CompanyDetail = () => {
                           return (
                             <span
                               key={`sub-sector-${sector.sector_name}`}
-                              style={styles.sectorTag}
+                              style={styles.sectorTagSecondary}
                             >
                               {sector.sector_name}
                             </span>
                           );
                         })}
+                        {!showAllSecondarySectors &&
+                        secondarySectors.length > OVERVIEW_TAG_CAP ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowAllSecondarySectors(true)}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              borderRadius: "4px",
+                              fontSize: "11.5px",
+                              fontWeight: 500,
+                              lineHeight: 1.5,
+                              padding: "2px 8px",
+                              backgroundColor: T.inset,
+                              color: T.muted,
+                              border: "1px solid transparent",
+                              cursor: "pointer",
+                            }}
+                          >
+                            +{secondarySectors.length - OVERVIEW_TAG_CAP}
+                          </button>
+                        ) : null}
                       </div>
-                      {isMobile && secondarySectors.length > 4 && (
+                      {showAllSecondarySectors &&
+                      secondarySectors.length > OVERVIEW_TAG_CAP ? (
                         <button
-                          onClick={() => setShowAllSecondarySectors((v) => !v)}
+                          type="button"
+                          onClick={() => setShowAllSecondarySectors(false)}
                           style={{
                             background: "none",
                             border: "none",
-                            color: "#0075df",
+                            color: T.azure,
                             cursor: "pointer",
-                            fontSize: "12px",
-                            textDecoration: "underline",
-                            marginTop: "8px",
+                            fontSize: "11.5px",
+                            marginTop: "4px",
                             padding: 0,
                           }}
                         >
-                          {showAllSecondarySectors ? "Show less" : "Show more"}
+                          Show less
                         </button>
-                      )}
+                      ) : null}
                     </>
                   ) : (
-                    "Not available"
+                    EM_DASH
                   )}
                 </div>
               </div>
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
-                  Year Founded:
+                  Year founded
                 </span>
                 <span style={styles.value} className="info-value">
                   {getYearFoundedDisplay(company)}
@@ -2996,51 +3597,111 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
-                  Website:
+                  Website
                 </span>
                 <span style={styles.value} className="info-value">
-                  {company.url ? (
+                  {company.url?.trim() ? (
                     <a
-                      href={company.url}
+                      href={
+                        /^https?:\/\//i.test(company.url.trim())
+                          ? company.url.trim()
+                          : `https://${company.url.trim()}`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={styles.link}
+                      style={{ ...styles.link, textDecoration: "none" }}
                     >
-                      {company.url}
+                      {formatWebsiteDisplayLabel(company.url)}
                     </a>
                   ) : (
-                    "Not available"
+                    EM_DASH
                   )}
                 </span>
               </div>
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
-                  Ownership:
+                  Ownership
                 </span>
                 <span style={styles.value} className="info-value">
-                  {company._ownership_type?.ownership || "Not available"}
+                  {company._ownership_type?.ownership?.trim() || EM_DASH}
                 </span>
               </div>
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
-                  HQ:
+                  HQ
                 </span>
                 <span style={styles.value} className="info-value">
-                  {fullAddress || "Not available"}
+                  {fullAddress?.trim() || EM_DASH}
                 </span>
               </div>
               <div style={styles.infoRow} className="info-row">
                 <span style={styles.label} className="info-label">
-                  Lifecycle stage:
+                  Lifecycle stage
                 </span>
                 <span style={styles.value} className="info-value">
-                  {company.Lifecycle_stage?.Lifecycle_Stage || "Not available"}
+                  {company.Lifecycle_stage?.Lifecycle_Stage?.trim() || EM_DASH}
                 </span>
+              </div>
+              <div style={styles.infoRow} className="info-row">
+                <span style={styles.label} className="info-label">
+                  Total amount raised
+                </span>
+                <span style={styles.value} className="info-value">
+                  {totalAmountRaisedDisplay ?? EM_DASH}
+                </span>
+              </div>
+              <div style={styles.infoRow} className="info-row">
+                <span style={styles.label} className="info-label">
+                  Employees
+                </span>
+                <div
+                  style={{
+                    ...styles.value,
+                    display: "flex",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "6px",
+                  }}
+                  className="info-value"
+                >
+                  {overviewHeadcount != null ? (
+                    <>
+                      <span>
+                        {overviewHeadcount.toLocaleString("en-US")}
+                      </span>
+                      {overviewEmployeesYoY ? (
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            fontSize: "11.5px",
+                            fontWeight: 500,
+                            color: overviewEmployeesYoY.trim().startsWith("-")
+                              ? T.down
+                              : T.up,
+                            backgroundColor:
+                              overviewEmployeesYoY.trim().startsWith("-")
+                                ? "oklch(95% 0.04 25)"
+                                : "oklch(95% 0.05 150)",
+                            border: "1px solid transparent",
+                            borderRadius: "4px",
+                            padding: "2px 8px",
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {overviewEmployeesYoY}
+                        </span>
+                      ) : null}
+                    </>
+                  ) : (
+                    EM_DASH
+                  )}
+                </div>
               </div>
               {haveParentCompany && (
                 <div style={styles.infoRow} className="info-row">
                   <span style={styles.label} className="info-label">
-                    Parent Company:
+                    Parent company
                   </span>
                   <div style={styles.value} className="info-value">
                     {(() => {
@@ -3054,12 +3715,6 @@ const CompanyDetail = () => {
                             <Link
                               href={`/new_company/${parentId}`}
                               style={styles.companyTag}
-                              onMouseEnter={(e) => {
-                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
-                              }}
-                              onMouseLeave={(e) => {
-                                (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
-                              }}
                               prefetch={false}
                             >
                               {parentName}
@@ -3067,7 +3722,7 @@ const CompanyDetail = () => {
                           </div>
                         );
                       }
-                      return parentName || "Not available";
+                      return parentName || EM_DASH;
                     })()}
                   </div>
                 </div>
@@ -3077,7 +3732,7 @@ const CompanyDetail = () => {
                 <>
                   <div style={styles.infoRow} className="info-row">
                     <span style={styles.label} className="info-label">
-                      Investors:
+                      Investors
                     </span>
                     <div style={styles.value} className="info-value">
                       {(() => {
@@ -3099,12 +3754,6 @@ const CompanyDetail = () => {
                                     key={`api-investor-${investor.investor_id}`}
                                     href={`/investors/${investor.investor_id}`}
                                     style={styles.companyTag}
-                                    onMouseEnter={(e) => {
-                                      (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
-                                    }}
                                     prefetch={false}
                                   >
                                     {investor.investor_name}
@@ -3114,13 +3763,13 @@ const CompanyDetail = () => {
                             );
                           }
                         }
-                        return "Not available";
+                        return EM_DASH;
                       })()}
                     </div>
                   </div>
                   <div style={styles.infoRow} className="info-row">
                     <span style={styles.label} className="info-label">
-                      Years Since Last Investment:
+                      Years since last investment
                     </span>
                     <div style={styles.value} className="info-value">
                       {formatLastInvestmentDisplay(company.last_investment)}
@@ -3128,663 +3777,1352 @@ const CompanyDetail = () => {
                   </div>
                 </>
               )}
-              {hasManagement && (
-                <div style={{ marginTop: "16px" }}>
-                  <h3
-                    style={{
-                      ...styles.sectionTitle,
-                      fontSize: "17px",
-                      marginBottom: "12px",
-                    }}
-                  >
-                    Management
-                  </h3>
+              </div>{/* end overview-fields padding */}
+            </div>{/* end overview card */}
 
-                  {hasCurrentManagement && (
-                    <div style={{ marginBottom: hasPastManagement ? "20px" : 0 }}>
-                      <IndividualCards
-                        title="Current:"
-                        individuals={(company.Managmant_Roles_current || []).map(
-                          (person) => ({
-                            id: person.id,
-                            name: person.Individual_text,
-                            jobTitles: (person.job_titles_id || [])
-                              .map((job) => job?.job_title)
-                              .filter(Boolean),
-                            individualId: person.individuals_id,
-                          })
-                        )}
-                        emptyMessage="Not available"
-                      />
+            {/* ── Description card ── */}
+            <div style={{ ...styles.card, alignSelf: "start" }} className="overview-description">
+              <div style={styles.cardHeader}>
+                <span style={styles.cardHeaderTitle}>Description</span>
+                <span style={styles.cardArrow}>→</span>
                     </div>
-                  )}
-
-                  {hasPastManagement && (
+              <div style={{ padding: "14px 16px 16px" }}>
                     <div>
-                      <IndividualCards
-                        title="Past:"
-                        individuals={(company.Managmant_Roles_past || []).map(
-                          (person) => ({
-                            id: person.id,
-                            name: person.Individual_text,
-                            jobTitles: (person.job_titles_id || [])
-                              .map((job) => job?.job_title)
-                              .filter(Boolean),
-                            individualId: person.individuals_id,
-                          })
-                        )}
-                        emptyMessage="Not available"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-                </div>
-                {/* Right column: Description + Insights */}
-                <div
-                  className="overview-description"
-                  style={{
-                    alignSelf: "start",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                    minWidth: 0,
-                  }}
-                >
-                  {/* Description */}
-                  <div
-                    style={{
-                      padding: "16px",
-                      backgroundColor: "#f9fafb",
-                      borderRadius: "8px",
-                      border: "1px solid #e2e8f0",
-                    }}
-                  >
                     <div
                       ref={descriptionRef}
                       style={{
-                        fontSize: "14px",
-                        color: "#1a202c",
-                        lineHeight: "1.6",
+                        fontSize: "13.5px",
+                        color: T.body,
+                        lineHeight: "1.65",
+                        textAlign: "justify" as const,
                         overflow: "hidden",
-                        transition: "max-height 0.2s ease",
                         display: isDescriptionExpanded ? "block" : "-webkit-box",
                         WebkitBoxOrient: "vertical",
-                        // Show more lines in the collapsed state to improve readability
-                        WebkitLineClamp: isDescriptionExpanded ? "unset" : 5,
+                        WebkitLineClamp: isDescriptionExpanded ? "unset" : 8,
                       }}
                     >
-                      {company.description || "No description available"}
+                      {company.description?.trim() ? company.description.trim() : EM_DASH}
                     </div>
                     {isDescriptionExpandable && (
                       <button
-                        onClick={() =>
-                          setIsDescriptionExpanded((expanded) => !expanded)
-                        }
+                        onClick={() => setIsDescriptionExpanded((expanded) => !expanded)}
                         style={{
-                          marginTop: "8px",
-                          padding: 0,
-                          border: "none",
-                          background: "none",
-                          color: "#0075df",
-                          fontSize: "14px",
-                          fontWeight: 500,
-                          cursor: "pointer",
+                          marginTop: "10px", padding: 0, border: "none",
+                          background: "none", color: T.azure,
+                          fontSize: "12.5px", fontWeight: 500, cursor: "pointer",
                         }}
                       >
-                        {isDescriptionExpanded ? "Show less" : "Expand"}
+                        {isDescriptionExpanded ? "Show less" : "Expand →"}
                       </button>
                     )}
                   </div>
 
-                  {companyAttributeSections.length > 0 && (
-                    <div
+                  {/* attribute sections moved to dedicated row below */}
+                </div>
+              </div>
+
+            </div>{/* end Row 1: Overview + Description sub-grid */}
+
+            {/* ── Row 2: Insights card ── */}
+            <div
+              style={{ ...styles.card }}
+              className="card insights-summary-card"
+            >
+              <div style={styles.cardHeader}>
+                <span style={styles.cardHeaderTitle}>
+                  Recent insights &amp; analysis
+                </span>
+                <span
                       style={{
-                        padding: "16px",
-                        backgroundColor: "#f9fafb",
-                        borderRadius: "8px",
-                        border: "1px solid #e2e8f0",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    color: T.muted,
+                    fontSize: "12.5px",
+                  }}
+                >
+                  {articlesLoading
+                    ? "\u2026"
+                    : insightTotalCount === 0
+                      ? `${Math.min(INSIGHTS_PREVIEW_COUNT, INSIGHTS_EMPTY_STATE_DEMO_TOTAL)} of ${INSIGHTS_EMPTY_STATE_DEMO_TOTAL}`
+                      : `${Math.min(
+                          INSIGHTS_PREVIEW_COUNT,
+                          insightTotalCount - insightsPageOffset
+                        )} of ${insightTotalCount}`}
+                  <span style={styles.cardArrow}>→</span>
+                </span>
+              </div>
+              <div>
+                {articlesLoading ? (
+                  [1, 2].map((item) => (
+                    <div
+                      key={`insight-loading-${item}`}
+                        style={{
+                        display: "grid",
+                        gridTemplateColumns: "150px 1fr",
+                        gap: "12px",
+                        padding: "16px 18px",
+                        borderBottom: `1px solid ${T.hair}`,
                       }}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "14px",
-                        }}
-                      >
-                        {companyAttributeSections.map((section) => (
-                          <div key={section.title}>
                             <div
                               style={{
-                                fontSize: "14px",
-                                fontWeight: 600,
-                                color: "#334155",
-                                marginBottom: "8px",
-                              }}
-                            >
-                              {section.title}
-                            </div>
-                            <div style={{ overflowX: "auto" }}>
-                              <table
-                                style={{
-                                  width: "100%",
-                                  borderCollapse: "collapse",
-                                  fontSize: "14px",
-                                }}
-                              >
-                                <tbody>
-                                  {section.rows.map((row) => (
-                                    <tr key={`${section.title}-${row.label}`}>
-                                      <td
-                                        style={{
-                                          padding: "7px 0",
-                                          borderBottom: "1px solid #f1f5f9",
-                                          color: "#1e293b",
-                                        }}
-                                      >
-                                        {row.label}
-                                      </td>
-                                      <td
-                                        style={{
-                                          padding: "7px 0",
-                                          borderBottom: "1px solid #f1f5f9",
-                                          textAlign: "right",
-                                          color: "#475569",
-                                          whiteSpace: "nowrap",
-                                        }}
-                                      >
-                                        {row.value}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Insights & Analysis (scrollable card) */}
-                  {(articlesLoading || companyArticles.length > 0) && (
-                    <div
-                      className="bg-white rounded-xl border shadow-lg border-slate-200/60 flex flex-col overflow-hidden"
-                      style={{
-                        height:
-                          articlesLoading || companyArticles.length >= 4
-                            ? "535px"
-                            : "auto",
-                      }}
-                    >
-                      <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
-                        <div className="flex justify-between items-center">
-                          <div className="flex gap-3 items-center min-w-0">
-                            <span className="inline-flex justify-center items-center w-8 h-8 bg-blue-50 rounded-lg flex-shrink-0">
-                              <svg
-                                className="w-4 h-4 text-blue-600"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                              </svg>
-                            </span>
-                            <span className="font-semibold text-slate-900 truncate">
-                              Recent Insights &amp; Analysis
-                            </span>
-                          </div>
-                        </div>
-                      </div>
+                          height: "18px",
+                          backgroundColor: T.inset,
+                          borderRadius: "4px",
+                        }}
+                      />
                       <div
-                        className="px-5 py-4 overflow-hidden"
                         style={{
-                          flex:
-                            articlesLoading || companyArticles.length >= 4
-                              ? "1 1 0"
-                              : "0 0 auto",
-                          minHeight: 0,
+                          height: "36px",
+                          backgroundColor: T.inset,
+                          borderRadius: "4px",
+                        }}
+                      />
+                            </div>
+                  ))
+                ) : insightTotalCount === 0 ? (
+                  <>
+                    {[
+                      {
+                        badge: "Company Update",
+                        badgeStyle: {
+                          backgroundColor: T.coralSoft,
+                          color: T.coral,
+                        },
+                        date: "Apr 10, 2026",
+                        body: "Morningstar reports strong Q1 driven by PitchBook and Indexes; management flagged accelerating demand for private-markets data and a disciplined approach to GenAI-driven research automation.",
+                      },
+                      {
+                        badge: "Sector Analysis",
+                        badgeStyle: {
+                          backgroundColor: T.azureSoft,
+                          color: T.azure,
+                        },
+                        date: "Mar 22, 2026",
+                        body: "Private markets data vendors trade at premium multiples; Morningstar is increasingly viewed as a private-markets pure-play proxy via its PitchBook segment.",
+                      },
+                    ].map((row, idx) => (
+                      <div
+                        key={`insight-placeholder-${idx}`}
+                                style={{
+                          display: "grid",
+                          gridTemplateColumns: "150px 1fr",
+                          gap: "12px",
+                          padding: "16px 18px",
+                          borderBottom: `1px solid ${T.hair}`,
                         }}
                       >
-                        {articlesLoading ? (
-                          <div className="space-y-3 animate-pulse">
-                            {[1, 2, 3].map((i) => (
-                              <div
-                                key={i}
-                                className="space-y-1.5 pb-3 border-b border-slate-100 last:border-0"
-                              >
-                                <div className="h-3.5 bg-slate-200 rounded w-1/4"></div>
-                                <div className="h-4 bg-slate-200 rounded w-5/6"></div>
-                                <div className="h-3 bg-slate-200 rounded w-full"></div>
-                                <div className="h-3 bg-slate-200 rounded w-4/5"></div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : companyArticles.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center h-full text-center">
-                            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                              <svg
-                                className="w-6 h-6 text-slate-400"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-                                />
-                              </svg>
+                        <div>
+                          <span
+                                        style={{
+                              ...row.badgeStyle,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              borderRadius: "4px",
+                              fontSize: "11.5px",
+                              fontWeight: 500,
+                              lineHeight: 1.5,
+                              padding: "2px 8px",
+                            }}
+                          >
+                            {row.badge}
+                          </span>
+                          <div
+                                        style={{
+                              color: T.muted,
+                              fontFamily: T.mono,
+                              fontSize: "12px",
+                              marginTop: "9px",
+                            }}
+                          >
+                            {row.date}
                             </div>
-                            <p className="text-slate-500 text-sm">
-                              No insights available for this company yet
-                            </p>
                           </div>
-                        ) : (
-                          <div className="divide-y divide-slate-100 overflow-y-auto overflow-x-hidden h-full">
-                            {companyArticles.map((article) => {
+                        <div>
+                          <div
+                      style={{
+                              color: T.body,
+                              fontSize: "13.5px",
+                              lineHeight: 1.55,
+                            }}
+                          >
+                            {row.body}
+                      </div>
+                      <div
+                        style={{
+                              color: T.azure,
+                              fontSize: "12.5px",
+                              fontWeight: 500,
+                              marginTop: "8px",
+                              opacity: 0.45,
+                            }}
+                          >
+                            Open report →
+                              </div>
+                          </div>
+                            </div>
+                    ))}
+                  </>
+                ) : (
+                  insightVisibleSlice.map((article) => {
                                 const contentType = (article.Content_Type || "")
                                   .toLowerCase()
                                   .trim();
-                                const pinnedRaw = (
-                                  article as unknown as { pinned?: unknown }
-                                )?.pinned;
-                                const isPinned =
-                                  pinnedRaw === true ||
-                                  pinnedRaw === 1 ||
-                                  String(pinnedRaw ?? "")
-                                    .trim()
-                                    .toLowerCase() === "yes" ||
-                                  String(pinnedRaw ?? "")
-                                    .trim()
-                                    .toLowerCase() === "true";
                                 const badgeStyle =
-                                  contentType === "company analysis"
+                      contentType === "company analysis" ||
+                      contentType === "company update"
+                        ? { backgroundColor: T.coralSoft, color: T.coral }
+                        : contentType === "sector analysis"
                                     ? {
-                                        background: "#ecfdf5",
-                                        color: "#065f46",
-                                        border: "1px solid #a7f3d0",
+                              backgroundColor: T.azureSoft,
+                              color: T.azure,
                                       }
                                     : contentType === "deal analysis"
                                     ? {
-                                        background: "#eff6ff",
-                                        color: "#1e40af",
-                                        border: "1px solid #bfdbfe",
-                                      }
-                                    : contentType === "sector analysis"
-                                    ? {
-                                        background: "#f5f3ff",
-                                        color: "#5b21b6",
-                                        border: "1px solid #ddd6fe",
-                                      }
-                                    : contentType === "hot take"
-                                    ? {
-                                        background: "#fff7ed",
-                                        color: "#9a3412",
-                                        border: "1px solid #fed7aa",
-                                      }
-                                    : contentType === "executive interview"
-                                    ? {
-                                        background: "#f0fdf4",
-                                        color: "#166534",
-                                        border: "1px solid #bbf7d0",
-                                      }
-                                    : {
-                                        background: "#f8fafc",
-                                        color: "#475569",
-                                        border: "1px solid #e2e8f0",
-                                      };
-
+                                backgroundColor: T.emeraldSoft,
+                                color: T.emerald,
+                              }
+                            : {
+                                backgroundColor: T.inset,
+                                color: T.muted,
+                              };
                                 const dateLabel = (() => {
                                   if (!article.Publication_Date) return "";
                                   try {
                                     return new Date(
                                       article.Publication_Date
                                     ).toLocaleDateString("en-US", {
-                                      year: "numeric",
-                                      month: "long",
+                          month: "short",
                                       day: "numeric",
+                          year: "numeric",
                                     });
                                   } catch {
                                     return "";
                                   }
                                 })();
+                    const typeLabel = article.Content_Type?.trim()
+                      ? formatInsightBadgeLabel(article.Content_Type.trim())
+                      : "Sector Analysis";
 
                                 return (
-                                  <a
+                      <Link
                                     key={article.id}
                                     href={`/article/${article.id}`}
-                                    className="block py-3 first:pt-0 group hover:bg-slate-50/50 -mx-5 px-5 transition-colors duration-150"
-                                  >
-                                    <div className="flex items-center gap-2 mb-1">
-                                      {article.Content_Type && (
+                        prefetch={false}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "150px 1fr",
+                          gap: "12px",
+                          padding: "16px 18px",
+                          borderBottom: `1px solid ${T.hair}`,
+                          color: "inherit",
+                          textDecoration: "none",
+                        }}
+                      >
+                        <div>
                                         <span
-                                          className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full leading-none flex-shrink-0"
-                                          style={badgeStyle}
-                                        >
-                                          {article.Content_Type}
+                            style={{
+                              ...badgeStyle,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              borderRadius: "4px",
+                              fontSize: "11.5px",
+                              fontWeight: 500,
+                              lineHeight: 1.5,
+                              padding: "2px 8px",
+                            }}
+                          >
+                            {typeLabel}
                                         </span>
-                                      )}
-                                      {isPinned && (
-                                        <span
-                                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full leading-none flex-shrink-0"
-                                          style={{
-                                            background: "#fff7ed",
-                                            color: "#9a3412",
-                                            border: "1px solid #fed7aa",
-                                          }}
-                                          title="Pinned"
-                                        >
-                                          <svg
-                                            width="12"
-                                            height="12"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            aria-hidden="true"
-                                          >
-                                            <path
-                                              d="M14 3L21 10L19 12L16 9L10 15V18L8 20V15L3 10L5 8H8L14 3Z"
-                                              fill="currentColor"
-                                            />
-                                          </svg>
-                                          Pinned
-                                        </span>
-                                      )}
-                                      {dateLabel && (
-                                        <span className="text-xs text-slate-400 flex-shrink-0">
-                                          {dateLabel}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <h3 className="text-sm font-semibold text-slate-900 leading-snug mb-1 group-hover:text-blue-700 transition-colors line-clamp-1">
-                                      {article.Headline || "Untitled"}
-                                    </h3>
-                                    {article.Strapline && (
-                                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
-                                        {article.Strapline}
-                                      </p>
-                                    )}
-                                  </a>
-                                );
-                              })}
+                          {dateLabel ? (
+                            <div
+                              style={{
+                                color: T.muted,
+                                fontFamily: T.mono,
+                                fontSize: "12px",
+                                marginTop: "9px",
+                              }}
+                            >
+                              {dateLabel}
+                            </div>
+                          ) : (
+                            <div
+                              style={{
+                                color: T.muted,
+                                fontFamily: T.mono,
+                                fontSize: "12px",
+                                marginTop: "9px",
+                              }}
+                            >
+                              {EM_DASH}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <div
+                            style={{
+                              color: T.body,
+                              fontSize: "13.5px",
+                              lineHeight: 1.55,
+                            }}
+                          >
+                            {[
+                              article.Headline?.trim(),
+                              article.Strapline?.trim(),
+                            ]
+                              .filter(Boolean)
+                              .join(" ") || EM_DASH}
                           </div>
-                        )}
+                          <div
+                            style={{
+                              color: T.azure,
+                              fontSize: "12.5px",
+                              fontWeight: 500,
+                              marginTop: "8px",
+                            }}
+                          >
+                            Open report →
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })
+                )}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "12px 18px",
+                  color: T.muted,
+                  fontSize: "12.5px",
+                  borderTop: `1px solid ${T.hair}`,
+                }}
+              >
+                                        <span
+                                          style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "10px",
+                  }}
+                >
+                  <button
+                    type="button"
+                    disabled={!canInsightPrev}
+                    onClick={() =>
+                      setInsightsPageOffset((o) =>
+                        Math.max(0, o - INSIGHTS_PREVIEW_COUNT)
+                      )
+                    }
+                    aria-label="Previous insights"
+                    style={{
+                      border: `1px solid ${T.hair}`,
+                      background: T.panel,
+                      borderRadius: "6px",
+                      padding: "2px 10px",
+                      cursor: canInsightPrev ? "pointer" : "default",
+                      opacity: canInsightPrev ? 1 : 0.35,
+                      color: T.body,
+                      fontSize: "14px",
+                      lineHeight: 1,
+                    }}
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canInsightNext}
+                    onClick={() =>
+                      setInsightsPageOffset((o) => {
+                        const maxStart = Math.max(
+                          0,
+                          insightTotalCount - INSIGHTS_PREVIEW_COUNT
+                        );
+                        return Math.min(maxStart, o + INSIGHTS_PREVIEW_COUNT);
+                      })
+                    }
+                    aria-label="Next insights"
+                    style={{
+                      border: `1px solid ${T.hair}`,
+                      background: T.panel,
+                      borderRadius: "6px",
+                      padding: "2px 10px",
+                      cursor: canInsightNext ? "pointer" : "default",
+                      opacity: canInsightNext ? 1 : 0.35,
+                      color: T.body,
+                      fontSize: "14px",
+                      lineHeight: 1,
+                    }}
+                  >
+                    ›
+                  </button>
+                  <span>
+                    {articlesLoading
+                      ? EM_DASH
+                      : insightTotalCount === 0
+                        ? `Showing 1${RANGE_DASH}2 of ${INSIGHTS_EMPTY_STATE_DEMO_TOTAL}`
+                        : `Showing ${insightsPageOffset + 1}${RANGE_DASH}${insightRangeEnd} of ${insightTotalCount}`}
+                  </span>
+                </span>
+                <Link
+                  href="/insights-analysis"
+                  prefetch={false}
+                  style={{
+                    color: T.azure,
+                    textDecoration: "none",
+                    fontWeight: 500,
+                  }}
+                >
+                  {articlesLoading
+                    ? `Browse all ${EM_DASH} →`
+                    : insightTotalCount === 0
+                      ? `Browse all ${INSIGHTS_EMPTY_STATE_DEMO_TOTAL} →`
+                      : `Browse all ${insightTotalCount} →`}
+                </Link>
+              </div>
+            </div>
+
+            {/* ── Row 3: Product mix (tabs) + Product & Users (V3 template) ── */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+                gap: "16px",
+              }}
+              className="product-mix-users-row"
+            >
+              <div
+                style={{
+                  ...styles.card,
+                  padding: 0,
+                  overflow: "hidden",
+                  alignSelf: "start",
+                }}
+              >
+                <div style={styles.productMixHeader}>
+                  <div style={styles.productMixTabInner}>
+                    <button
+                      type="button"
+                      style={{
+                        ...styles.productMixTabButton,
+                        ...(activeProductMixTab === "product_type"
+                          ? styles.productMixTabButtonActive
+                          : {}),
+                      }}
+                      onClick={() => setActiveProductMixTab("product_type")}
+                    >
+                      Product type
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        ...styles.productMixTabButton,
+                        ...(activeProductMixTab === "data_collection"
+                          ? styles.productMixTabButtonActive
+                          : {}),
+                      }}
+                      onClick={() => setActiveProductMixTab("data_collection")}
+                    >
+                      Data collection
+                    </button>
+                  </div>
+                  <span style={styles.cardArrow}>→</span>
+                </div>
+                <div style={{ paddingBottom: "4px" }}>
+                  {(activeProductMixTab === "product_type"
+                    ? productTypeBarRows
+                    : dataCollectionBarRows
+                  ).map((row, idx, arr) => (
+                    <div
+                      key={`mix-${activeProductMixTab}-${row.label}-${idx}`}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        padding: "11px 16px",
+                        borderBottom:
+                          idx < arr.length - 1
+                            ? `1px solid ${T.hair}`
+                            : "none",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 2,
+                          backgroundColor: row.color,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: "12.5px",
+                          color: T.body,
+                          width: 128,
+                          flexShrink: 0,
+                          lineHeight: 1.35,
+                        }}
+                      >
+                        {row.label}
+                                        </span>
+                      <div
+                        style={{
+                          flex: 1,
+                          height: 10,
+                          backgroundColor: T.inset,
+                          borderRadius: 999,
+                          overflow: "hidden",
+                          minWidth: 32,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${row.pct}%`,
+                            height: "100%",
+                            backgroundColor: row.color,
+                            borderRadius: 999,
+                          }}
+                        />
                       </div>
+                      <span
+                        style={{
+                          width: 44,
+                          flexShrink: 0,
+                          textAlign: "right",
+                          fontSize: "12.5px",
+                          fontWeight: 600,
+                          color: T.ink,
+                          fontVariantNumeric: "tabular-nums",
+                        }}
+                      >
+                        {row.displayRight}
+                                        </span>
+                                    </div>
+                  ))}
+                          </div>
+                      </div>
+
+              <div style={{ ...styles.card, alignSelf: "start", padding: 0 }}>
+                <div style={styles.cardHeader}>
+                  <span style={styles.cardHeaderTitle}>Product &amp; Users</span>
+                  <span style={styles.cardArrow}>→</span>
                     </div>
-                  )}
+                <div style={{ paddingBottom: "4px" }}>
+                  {productUsersSegments.map((line, i, arr) => (
+                    <div
+                      key={`pu-${i}-${line.slice(0, 24)}`}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        padding: "12px 16px",
+                        borderBottom:
+                          i < arr.length - 1 ? `1px solid ${T.hair}` : "none",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          minWidth: 0,
+                          flex: 1,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            color: T.muted,
+                            width: 22,
+                            flexShrink: 0,
+                            fontVariantNumeric: "tabular-nums",
+                          }}
+                        >
+                          {i + 1}.
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            color: T.ink,
+                            lineHeight: 1.35,
+                          }}
+                        >
+                          {line}
+                        </span>
+                </div>
+                      <span
+                        style={{
+                          color: T.faint,
+                          fontSize: "15px",
+                          lineHeight: 1,
+                          flexShrink: 0,
+                        }}
+                        aria-hidden
+                      >
+                        ›
+                      </span>
+              </div>
+                  ))}
                 </div>
               </div>
-              {/* Corporate Events moved into Overview */}
-              <CorporateEventsSection
+            </div>
+
+            {/* ── Corporate events (V3 card, directly under product mix / users) ── */}
+            {(corporateEventsLoading || corporateEvents.length > 0) && (
+            <div
+              style={{
+                ...styles.card,
+                padding: 0,
+                overflow: "hidden",
+                marginBottom: "16px",
+              }}
+              className="corporate-events-v3-card"
+            >
+              <CorporateEventsProfilePanel
+                tokens={{
+                  paper: T.paper,
+                  hair: T.hair,
+                  ink: T.ink,
+                  body: T.body,
+                  muted: T.muted,
+                  inset: T.inset,
+                  azure: T.azure,
+                  azureSoft: T.azureSoft,
+                  coralSoft: T.coralSoft,
+                  down: T.down,
+                  sans: T.sans,
+                  mono: T.mono,
+                }}
                 events={corporateEvents}
                 loading={corporateEventsLoading}
-                showSectors={true}
                 primarySectors={augmentedPrimarySectors}
                 secondarySectors={secondarySectors}
                 maxInitialEvents={3}
-                truncateDescriptionLength={180}
-                hideWhenEmpty={true}
-                dividerTop={true}
-                titleStyle={{
-                  ...styles.sectionTitle,
-                  fontSize: "17px",
-                  marginBottom: "12px",
-                }}
               />
+            </div>
+            )}
 
-              {/* Current Subsidiaries section */}
-              {hasSubsidiaries && (
+            {/* ── Subsidiaries ── */}
+            {hasSubsidiaries && (
                 <div
                   style={{
-                    marginTop: "16px",
-                    paddingTop: "16px",
-                    borderTop: "1px solid #e2e8f0",
+                    ...styles.card,
+                    padding: 0,
+                    overflow: "hidden",
+                    marginBottom: "16px",
                   }}
+                  className="subsidiaries-profile-card"
                 >
+                  <SubsidiariesProfilePanel
+                    tokens={{
+                      paper: T.paper,
+                      hair: T.hair,
+                      ink: T.ink,
+                      body: T.body,
+                      muted: T.muted,
+                      inset: T.inset,
+                      azure: T.azure,
+                      azureSoft: T.azureSoft,
+                      coralSoft: T.coralSoft,
+                      down: T.down,
+                      sans: T.sans,
+                      mono: T.mono,
+                      up: T.up,
+                    }}
+                    subsidiaries={
+                      company.have_subsidiaries_companies
+                        ?.Subsidiaries_companies ?? []
+                    }
+                    maxInitial={3}
+                  />
+                </div>
+              )}
+
+            </div>{/* ══ end LEFT COLUMN ══ */}
+
+            {/* ══ RIGHT COLUMN: V3 stacked panels (Summary template) ══ */}
                   <div
                     style={{
                       display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "24px",
+                flexDirection: "column",
+                gap: 18,
+                alignItems: "stretch",
+                minWidth: 0,
+                width: "100%",
+              }}
+              className="desktop-financial-metrics v3-right-rail"
+            >
+              {/* v3-desktop-financial-rail — single tabbed card */}
+              <V3TabbedFinanceCard
+                chrome={{
+                  card: styles.card,
+                  cardArrow: styles.cardArrow,
+                }}
+                tokens={{
+                  hair: T.hair,
+                  ink: T.ink,
+                  muted: T.muted,
+                  sans: T.sans,
+                }}
+                activeTab={financeRailTab}
+                onTabChange={setFinanceRailTab}
+                tabs={[
+                  {
+                    id: "financial",
+                    label: `Financial metrics${metricsCurrencySuffix}`,
+                  },
+                  { id: "benchmark", label: "Benchmark vs peers" },
+                  { id: "income", label: "Income statement" },
+                ]}
+                bodyStyle={
+                  financeRailTab === "income" && hasIncomeStatementData
+                    ? { padding: "0 16px 4px" }
+                    : undefined
+                }
+              >
+              {financeRailTab === "financial" && (
+              <div style={{ width: "100%", minWidth: 0 }}>
+              {financialMetricsPeriodDisplay && (
+                <div
+                      style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
+                    marginTop: "-12px",
+                    marginBottom: "4px",
+                    fontSize: "13px",
+                    color: T.muted,
+                    fontWeight: 500,
+                  }}
+                >
+                  <span></span>
+                  <span style={{ textAlign: "left" }}>
+                    {financialMetricsPeriodDisplay}
+                  </span>
+                  <span style={{ ...styles.sourceValue, fontSize: "11px" }}>
+                    Source
+                  </span>
+                </div>
+              )}
+              {!hasIncomeStatementData && (
+                <div style={styles.v3TabFinRow}>
+                  <span style={styles.label}>Revenue (m)</span>
+                  <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
+                    {revenuePlain}
+                  </span>
+                  <span style={styles.sourceValue}>
+                    {getSourceText(
+                      financialMetrics?.Revenue_source_label,
+                      financialMetrics?.Rev_source
+                    )}
+                  </span>
+                </div>
+              )}
+              {!hasIncomeStatementData && (
+                <div style={styles.v3TabFinRow}>
+                  <span style={styles.label}>EBITDA (m)</span>
+                  <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
+                    {ebitdaPlain}
+                  </span>
+                  <span style={styles.sourceValue}>
+                    {getSourceText(
+                      financialMetrics?.EBITDA_source_label,
+                      financialMetrics?.EBITDA_source
+                    )}
+                  </span>
+                </div>
+              )}
+              <div style={styles.v3TabFinRow}>
+                <span style={styles.label}>Enterprise value</span>
+                <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
+                  {evPlain}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EV_source_label,
+                    financialMetrics?.EV_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.v3TabFinRow}>
+                <span style={styles.label}>EV / Revenue</span>
+                <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
+                  {formatMultiple(financialMetrics?.Revenue_multiple)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Revenue_multiple_source_label,
+                    financialMetrics?.Rev_x_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.v3TabFinRow}>
+                <span style={styles.label}>EV / EBITDA</span>
+                <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
+                  {(() => {
+                    const evN = getNumeric(financialMetrics?.EV);
+                    const ebd = getNumeric(financialMetrics?.EBITDA_m);
+                    if (
+                      evN === undefined ||
+                      ebd === undefined ||
+                      Math.abs(ebd) < 1e-9
+                    ) {
+                      return "Not available";
+                    }
+                    return `${(evN / ebd).toFixed(1)}x`;
+                  })()}
+                </span>
+                <span style={styles.sourceValue} />
+              </div>
+              <div style={styles.v3TabFinRow}>
+                <span style={styles.label}>Revenue growth</span>
+                <span
+                        style={{
+                    ...styles.v3RailValue,
+                    textAlign: "right",
+                    color: (() => {
+                      const g = getNumeric(financialMetrics?.Rev_Growth_PC);
+                      if (g === undefined) return T.body;
+                      return g >= 0 ? T.up : T.down;
+                    })(),
+                  }}
+                >
+                  {formatPercent(financialMetrics?.Rev_Growth_PC)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_growth_source_label,
+                    financialMetrics?.Rev_Growth_source
+                  )}
+                </span>
+                  </div>
+              <div style={styles.v3TabFinRow}>
+                <span style={styles.label}>EBITDA margin</span>
+                <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
+                  {formatPercent(financialMetrics?.EBITDA_margin)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EBITDA_margin_source_label,
+                    financialMetrics?.EBITDA_margin_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.v3TabFinRow}>
+                <span style={styles.label}>Rule of 40</span>
+                <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
+                  {(() => {
+                    const n = getNumeric(financialMetrics?.Rule_of_40);
+                    return n !== undefined
+                      ? Math.round(n).toLocaleString()
+                      : "Not available";
+                  })()}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rule_of_40_source_label,
+                    financialMetrics?.Rule_of_40_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.v3TabFinRow}>
+                <span style={styles.label}>Recurring revenue</span>
+                <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
+                  {formatPlainNumber(financialMetrics?.ARR_m)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.v3TabFinRow}>
+                <span style={styles.label}>NRR</span>
+                <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
+                  {formatPercent(financialMetrics?.NRR)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.NRR_source_label,
+                    financialMetrics?.NRR_source
+                  )}
+                </span>
+              </div>
+              </div>
+              )}
+              {financeRailTab === "income" && (
+              <>
+              {hasIncomeStatementData && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    marginBottom: 8,
+                    paddingRight: 2,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "11.5px",
+                      color: T.muted,
+                      fontWeight: 500,
                     }}
                   >
-                    <h3
-                      style={{
-                        ...styles.sectionTitle,
-                        fontSize: "17px",
-                        marginBottom: "0",
-                      }}
-                    >
-                      Current Subsidiaries
-                    </h3>
-                    {company.have_subsidiaries_companies?.Subsidiaries_companies &&
-                    company.have_subsidiaries_companies.Subsidiaries_companies
-                      .length > 3 ? (
-                      <button
-                        onClick={() => setShowAllSubsidiaries((prev) => !prev)}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#0075df",
-                          fontSize: "14px",
-                          textDecoration: "underline",
-                          cursor: "pointer",
-                        }}
-                      >
-                        {showAllSubsidiaries ? "Show less" : "See more"}
-                      </button>
-                    ) : null}
-                  </div>
-                  <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+                    Last 3 FY
+                  </span>
+                </div>
+              )}
+                {hasIncomeStatementData ? (
+                  <div style={{ overflowX: "auto" }}>
                     <table
                       style={{
                         width: "100%",
+                        tableLayout: "fixed",
                         borderCollapse: "collapse",
-                        minWidth: "800px",
+                        fontSize: "12.5px",
                       }}
                     >
                       <thead>
-                        <tr>
-                          {[
-                            "Logo",
-                            "Name",
-                            "Description",
-                            "Sectors",
-                            "LinkedIn Members",
-                            "Country",
-                          ].map((header) => (
-                            <th
-                              key={header}
+                        <tr style={{ background: T.paper }}>
+                          <th
                               style={{
                                 textAlign: "left",
-                                padding: "12px 8px",
-                                borderBottom: "1px solid #e2e8f0",
-                                fontSize: "14px",
-                                fontWeight: "600",
-                                color: "#4a5568",
-                              }}
-                            >
-                              {header}
+                              padding: "8px 14px",
+                              borderBottom: `1px solid ${T.hair}`,
+                              color: T.muted,
+                              fontWeight: 500,
+                              fontSize: "10.5px",
+                              textTransform: "uppercase" as const,
+                              letterSpacing: "0.4px",
+                            }}
+                          >
+                            Period
                             </th>
-                          ))}
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: "8px 14px",
+                              borderBottom: `1px solid ${T.hair}`,
+                              color: T.muted,
+                              fontWeight: 500,
+                              fontSize: "10.5px",
+                              textTransform: "uppercase" as const,
+                              letterSpacing: "0.4px",
+                            }}
+                          >
+                            Rev
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: "8px 14px",
+                              borderBottom: `1px solid ${T.hair}`,
+                              color: T.muted,
+                              fontWeight: 500,
+                              fontSize: "10.5px",
+                              textTransform: "uppercase" as const,
+                              letterSpacing: "0.4px",
+                            }}
+                          >
+                            EBIT
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: "8px 14px",
+                              borderBottom: `1px solid ${T.hair}`,
+                              color: T.muted,
+                              fontWeight: 500,
+                              fontSize: "10.5px",
+                              textTransform: "uppercase" as const,
+                              letterSpacing: "0.4px",
+                            }}
+                          >
+                            EBITDA
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {(
-                          company.have_subsidiaries_companies
-                            ?.Subsidiaries_companies ?? []
-                        )
-                          .filter(
-                            // Ensure valid objects with numeric ids before rendering
-                            (s) =>
-                              typeof s === "object" &&
-                              s !== null &&
-                              typeof (s as { id?: unknown }).id === "number"
-                          )
-                          .slice(0, showAllSubsidiaries ? undefined : 3)
-                          .map((subsidiary) => (
-                            <tr key={subsidiary.id}>
+                        {normalizedIncomeStatements.map((row, rIdx) => {
+                          const period = (
+                            row.period_display_end_date || ""
+                          ).replace(/[,\s]/g, "");
+                          const currency =
+                            row.cost_of_goods_sold_currency ||
+                            evCurrency ||
+                            revenueCurrency ||
+                            "";
+                          const fmt = (v?: number | null) =>
+                            typeof v === "number"
+                              ? (() => {
+                                  const millions = Math.round(v / 1_000_000);
+                                  return `${currency}${millions.toLocaleString()}`;
+                                })()
+                              : "—";
+                          const rowBorder =
+                            rIdx === normalizedIncomeStatements.length - 1
+                              ? "none"
+                              : `1px solid ${T.hair}`;
+                          return (
+                            <tr key={row.id}>
                               <td
                                 style={{
-                                  padding: "12px 8px",
-                                  borderBottom: "1px solid #e2e8f0",
+                                  padding: "9px 14px",
+                                  borderBottom: rowBorder,
+                                  fontFamily: T.mono,
+                                  color: T.body,
                                 }}
                               >
-                                {subsidiary._linkedin_data_of_new_company
-                                  ?.linkedin_logo ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={`data:image/jpeg;base64,${subsidiary._linkedin_data_of_new_company.linkedin_logo}`}
-                                    alt={`${subsidiary.name} logo`}
+                                {period || "—"}
+                              </td>
+                              <td
                                     style={{
-                                      width: "40px",
-                                      height: "30px",
-                                      objectFit: "contain",
-                                    }}
-                                  />
-                                ) : (
-                                  <div
+                                  padding: "9px 14px",
+                                  borderBottom: rowBorder,
+                                  textAlign: "right",
+                                  fontFamily: T.mono,
+                                  color: T.ink,
+                                }}
+                              >
+                                {fmt(row.revenue)}
+                              </td>
+                              <td
                                     style={{
-                                      width: "40px",
-                                      height: "30px",
-                                      backgroundColor: "#f7fafc",
-                                      borderRadius: "4px",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      fontSize: "10px",
-                                      color: "#718096",
-                                    }}
-                                  >
-                                    N/A
-                                  </div>
-                                )}
+                                  padding: "9px 14px",
+                                  borderBottom: rowBorder,
+                                  textAlign: "right",
+                                  fontFamily: T.mono,
+                                  color: T.ink,
+                                }}
+                              >
+                                {fmt(row.ebit)}
                               </td>
                               <td
                                 style={{
-                                  padding: "12px 8px",
-                                  borderBottom: "1px solid #e2e8f0",
+                                  padding: "9px 14px",
+                                  borderBottom: rowBorder,
+                                  textAlign: "right",
+                                  fontFamily: T.mono,
+                                  color: T.ink,
                                 }}
                               >
-                                {createClickableElement(
-                                  `/new_company/${subsidiary.id}`,
-                                  subsidiary.name
-                                )}
+                                {fmt(row.ebitda)}
                               </td>
-                              <td
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div style={styles.emptyState}>
+                    No income statement data available for this company yet.
+                  </div>
+                )}
+              </> )}
+              {financeRailTab === "benchmark" && (
+              <>
+                {(() => {
+                  const benchCo = (
+                    company?.name ||
+                    "Company"
+                  )
+                    .trim()
+                    .toUpperCase()
+                    .replace(/\s+/g, " ")
+                    .slice(0, 22);
+                  const peerEm = "—";
+                  const signVs = (
+                    n: number | undefined,
+                    baseline = 0
+                  ): "up" | "down" | "flat" | "na" => {
+                    if (n === undefined || !Number.isFinite(n)) return "na";
+                    if (n > baseline) return "up";
+                    if (n < baseline) return "down";
+                    return "flat";
+                  };
+                  const evMultCo = formatMultiple(
+                    financialMetrics?.Revenue_multiple
+                  );
+                  const evEbitdaCo = (() => {
+                    const evN = getNumeric(financialMetrics?.EV);
+                    const ebd = getNumeric(financialMetrics?.EBITDA_m);
+                    if (
+                      evN === undefined ||
+                      ebd === undefined ||
+                      Math.abs(ebd) < 1e-9
+                    ) {
+                      return "Not available";
+                    }
+                    return `${(evN / ebd).toFixed(1)}x`;
+                  })();
+                  const r40Co = (() => {
+                    const n = getNumeric(financialMetrics?.Rule_of_40);
+                    return n !== undefined
+                      ? Math.round(n).toLocaleString()
+                      : "—";
+                  })();
+                  const rows: {
+                    metric: string;
+                    co: string;
+                    peer: string;
+                    vs: "up" | "down" | "flat" | "na";
+                  }[] = [
+                    {
+                      metric: "Enterprise value",
+                      co: evPlain,
+                      peer: peerEm,
+                      vs: "na",
+                    },
+                    {
+                      metric: "EV / Revenue",
+                      co: evMultCo,
+                      peer: peerEm,
+                      vs: "na",
+                    },
+                    {
+                      metric: "EV / EBITDA",
+                      co: evEbitdaCo,
+                      peer: peerEm,
+                      vs: "na",
+                    },
+                    {
+                      metric: "Revenue growth",
+                      co: formatPercent(financialMetrics?.Rev_Growth_PC),
+                      peer: peerEm,
+                      vs: signVs(getNumeric(financialMetrics?.Rev_Growth_PC), 0),
+                    },
+                    {
+                      metric: "EBITDA margin",
+                      co: formatPercent(financialMetrics?.EBITDA_margin),
+                      peer: peerEm,
+                      vs: "na",
+                    },
+                    {
+                      metric: "Rule of 40",
+                      co: r40Co,
+                      peer: peerEm,
+                      vs: signVs(getNumeric(financialMetrics?.Rule_of_40), 40),
+                    },
+                    {
+                      metric: "NRR",
+                      co: formatPercent(financialMetrics?.NRR),
+                      peer: peerEm,
+                      vs: signVs(getNumeric(financialMetrics?.NRR), 100),
+                    },
+                  ];
+                  const vsBadge = (vs: (typeof rows)[0]["vs"]) => {
+                    const tones = {
+                      up: {
+                        bg: T.emeraldSoft,
+                        fg: T.up,
+                        sym: "↑",
+                      },
+                      down: {
+                        bg: T.coralSoft,
+                        fg: T.down,
+                        sym: "↓",
+                      },
+                      flat: {
+                        bg: T.inset,
+                        fg: T.muted,
+                        sym: "→",
+                      },
+                      na: {
+                        bg: T.inset,
+                        fg: T.faint,
+                        sym: "—",
+                      },
+                    }[vs];
+                    return (
+                      <span
                                 style={{
-                                  padding: "12px 8px",
-                                  borderBottom: "1px solid #e2e8f0",
-                                  fontSize: "14px",
-                                  maxWidth: "250px",
-                                  wordBreak: "break-word" as const,
-                                  overflowWrap: "break-word" as const,
-                                }}
-                              >
-                                {subsidiary.description ? (
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: 28,
+                          height: 28,
+                          borderRadius: 8,
+                          background: tones.bg,
+                          color: tones.fg,
+                          fontSize: 14,
+                          fontWeight: 700,
+                          fontFamily: T.mono,
+                        }}
+                      >
+                        {tones.sym}
+                      </span>
+                    );
+                  };
+                  const peerList =
+                    competitors?.peers?.map((p) => p.name).filter(Boolean) ||
+                    [];
+                  const peerNote =
+                    peerList.length > 0
+                      ? `Peers: ${peerList.slice(0, 6).join(", ")}${peerList.length > 6 ? "…" : ""}. Peer medians require a cohort API — shown as — until connected.`
+                      : "Define peers on the company to anchor benchmark context. Peer medians are not yet available for this profile.";
+                  return (
                                   <div>
-                                    {expandedDescriptions.has(subsidiary.id) ||
-                                    subsidiary.description.length <= 100
-                                      ? subsidiary.description
-                                      : `${subsidiary.description.substring(
-                                          0,
-                                          100
-                                        )}...`}
-                                    {subsidiary.description.length > 100 && (
-                                      <button
-                                        onClick={() =>
-                                          toggleDescription(subsidiary.id)
-                                        }
+                      <div style={{ overflowX: "auto" }}>
+                        <table
                                         style={{
-                                          background: "none",
-                                          border: "none",
-                                          color: "#0075df",
-                                          cursor: "pointer",
-                                          fontSize: "12px",
-                                          textDecoration: "underline",
-                                          marginLeft: "4px",
-                                          padding: "0",
-                                        }}
-                                      >
-                                        {expandedDescriptions.has(subsidiary.id)
-                                          ? "Show less"
-                                          : "Expand description"}
-                                      </button>
-                                    )}
-                                  </div>
-                                ) : (
-                                  "N/A"
-                                )}
-                              </td>
-                              <td
+                            width: "100%",
+                            tableLayout: "fixed",
+                            borderCollapse: "collapse",
+                            fontSize: "12.5px",
+                          }}
+                        >
+                          <thead>
+                            <tr>
+                              <th
                                 style={{
-                                  padding: "12px 8px",
-                                  borderBottom: "1px solid #e2e8f0",
-                                  fontSize: "14px",
+                                  textAlign: "left",
+                                  padding: "8px 10px 8px 0",
+                                  borderBottom: `1px solid ${T.hair}`,
+                                  color: T.muted,
+                                  fontWeight: 500,
+                                  fontSize: "10.5px",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.4px",
                                 }}
                               >
-                                {subsidiary.sectors_id
-                                  ?.filter(
-                                    (s) => s && typeof s.sector_name === "string"
-                                  )
-                                  .map((sector) => sector.sector_name)
-                                  .join(", ") || "N/A"}
-                              </td>
-                              <td
+                                Metric
+                              </th>
+                              <th
                                 style={{
-                                  padding: "12px 8px",
-                                  borderBottom: "1px solid #e2e8f0",
-                                  fontSize: "14px",
+                                  textAlign: "right",
+                                  padding: "8px 6px",
+                                  borderBottom: `1px solid ${T.hair}`,
+                                  color: T.muted,
+                                  fontWeight: 500,
+                                  fontSize: "10.5px",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.4px",
+                                }}
+                              >
+                                {benchCo}
+                              </th>
+                              <th
+                                style={{
+                                  textAlign: "right",
+                                  padding: "8px 6px",
+                                  borderBottom: `1px solid ${T.hair}`,
+                                  color: T.muted,
+                                  fontWeight: 500,
+                                  fontSize: "10.5px",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.4px",
+                                }}
+                              >
+                                Peer median
+                              </th>
+                              <th
+                                style={{
                                   textAlign: "center",
+                                  width: 44,
+                                  padding: "8px 0 8px 6px",
+                                  borderBottom: `1px solid ${T.hair}`,
+                                  color: T.muted,
+                                  fontWeight: 500,
+                                  fontSize: "10.5px",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.4px",
                                 }}
                               >
-                                {subsidiary._linkedin_data_of_new_company &&
-                                subsidiary._linkedin_data_of_new_company
-                                  .linkedin_employee !== undefined &&
-                                subsidiary._linkedin_data_of_new_company
-                                  .linkedin_employee !== null
-                                  ? formatNumber(
-                                      subsidiary._linkedin_data_of_new_company
-                                        .linkedin_employee
-                                    )
-                                  : "N/A"}
+                                Vs.
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((r, i) => (
+                              <tr key={`${r.metric}-${i}`}>
+                                <td
+                                  style={{
+                                    padding: "9px 10px 9px 0",
+                                    borderBottom:
+                                      i === rows.length - 1
+                                        ? "none"
+                                        : `1px solid ${T.hair}`,
+                                    color: T.body,
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  {r.metric}
                               </td>
                               <td
                                 style={{
-                                  padding: "12px 8px",
-                                  borderBottom: "1px solid #e2e8f0",
-                                  fontSize: "14px",
-                                }}
-                              >
-                                {subsidiary._locations?.Country || "N/A"}
+                                    padding: "9px 6px",
+                                    borderBottom:
+                                      i === rows.length - 1
+                                        ? "none"
+                                        : `1px solid ${T.hair}`,
+                                    textAlign: "right",
+                                    fontFamily: T.mono,
+                                    fontWeight: 700,
+                                    color: T.ink,
+                                  }}
+                                >
+                                  {r.co}
+                              </td>
+                              <td
+                                style={{
+                                    padding: "9px 6px",
+                                    borderBottom:
+                                      i === rows.length - 1
+                                        ? "none"
+                                        : `1px solid ${T.hair}`,
+                                    textAlign: "right",
+                                    fontFamily: T.mono,
+                                    color: T.muted,
+                                  }}
+                                >
+                                  {r.peer}
+                              </td>
+                              <td
+                                style={{
+                                    padding: "9px 0 9px 6px",
+                                    borderBottom:
+                                      i === rows.length - 1
+                                        ? "none"
+                                        : `1px solid ${T.hair}`,
+                                    textAlign: "center",
+                                  }}
+                                >
+                                  {vsBadge(r.vs)}
                               </td>
                             </tr>
                           ))}
                       </tbody>
                     </table>
                   </div>
+                      <div
+                        style={{
+                          marginTop: 12,
+                          fontSize: "11px",
+                          color: T.muted,
+                          lineHeight: 1.45,
+                        }}
+                      >
+                        {peerNote}
                 </div>
-              )}
-
             </div>
-
-            {/* Desktop Financial Metrics */}
-            <div style={styles.card} className="card desktop-financial-metrics">
+                  );
+                })()}
               {/* Competitors (table layout) */}
               {(competitorsLoading ||
                 (competitors &&
                   (competitors.peers.length > 0 ||
                     competitors.potential_acquirers.length > 0 ||
                     competitors.acquisition_targets.length > 0))) && (
-                <div style={{ marginBottom: "20px" }}>
-                  <h2 style={styles.sectionTitle}>Market Landscape</h2>
+                <div style={{ marginBottom: 0, marginTop: 18 }}>
                   {competitorsLoading ? (
-                    <div style={{ fontSize: "14px", color: "#6b7280" }}>
+                    <div style={{ fontSize: "14px", color: T.muted }}>
                       Loading...
                     </div>
                   ) : (
@@ -3792,8 +5130,8 @@ const CompanyDetail = () => {
                       {(() => {
                         const MAX_VISIBLE = 5;
                         const competitorTag = {
-                          backgroundColor: "#e8f0fe",
-                          color: "#1a56db",
+                          backgroundColor: T.azureSoft,
+                          color: T.azure,
                           padding: "4px 8px",
                           borderRadius: "4px",
                           fontSize: "12px",
@@ -3865,10 +5203,12 @@ const CompanyDetail = () => {
                                       style={{
                                         textAlign: "center",
                                         padding: "4px 6px 6px",
-                                        borderBottom: "1px solid #e2e8f0",
-                                        color: "#4b5563",
+                                        borderBottom: `1px solid ${T.hair}`,
+                                        color: T.muted,
                                         fontWeight: 600,
-                                        fontSize: "12px",
+                                        fontSize: "11px",
+                                        textTransform: "uppercase" as const,
+                                        letterSpacing: "0.4px",
                                       }}
                                     >
                                       {section.label}
@@ -3888,8 +5228,7 @@ const CompanyDetail = () => {
                                               key={`${section.key}-${rowIdx}`}
                                               style={{
                                                 padding: "5px 6px",
-                                                borderBottom:
-                                                  "1px solid #f1f5f9",
+                                                borderBottom: `1px solid ${T.hair}`,
                                               }}
                                             />
                                           );
@@ -3899,8 +5238,7 @@ const CompanyDetail = () => {
                                             key={`${section.key}-${rowIdx}`}
                                             style={{
                                               padding: "5px 6px",
-                                              borderBottom:
-                                                "1px solid #f1f5f9",
+                                              borderBottom: `1px solid ${T.hair}`,
                                               verticalAlign: "top",
                                               minWidth: 0,
                                             }}
@@ -3935,10 +5273,12 @@ const CompanyDetail = () => {
                                                   flex: "1 1 auto",
                                                 }}
                                                 onMouseEnter={(e) => {
-                                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c7d7fc";
+                                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
+                                                    T.inset;
                                                 }}
                                                 onMouseLeave={(e) => {
-                                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f0fe";
+                                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
+                                                    T.azureSoft;
                                                 }}
                                               >
                                                 {comp.name}
@@ -3959,9 +5299,9 @@ const CompanyDetail = () => {
                           <>
                             <div
                               style={{
-                                backgroundColor: "#f9fafb",
-                                borderRadius: "8px",
-                                border: "1px solid #e2e8f0",
+                                backgroundColor: T.inset,
+                                borderRadius: 8,
+                                border: `1px solid ${T.divider}`,
                                 padding: "8px 12px 10px",
                               }}
                             >
@@ -3975,7 +5315,7 @@ const CompanyDetail = () => {
                                     style={{
                                       background: "none",
                                       border: "none",
-                                      color: "#0075df",
+                                      color: T.azure,
                                       fontSize: "13px",
                                       fontWeight: 500,
                                       textDecoration: "underline",
@@ -4065,328 +5405,51 @@ const CompanyDetail = () => {
                   )}
                 </div>
               )}
-              <h2 style={styles.sectionTitle}>
-                Financial Metrics{metricsCurrencySuffix}
-              </h2>
-              {financialMetricsPeriodDisplay && (
-                <div
+              </> )}
+              </V3TabbedFinanceCard>
+              <V3RightPanel
+                title="Subscription metrics"
+                styles={{
+                  card: styles.card,
+                  cardHeader: styles.cardHeader,
+                  cardHeaderTitle: styles.cardHeaderTitle,
+                  cardArrow: styles.cardArrow,
+                }}
+              >
+                <div style={styles.infoRow}>
+                <span style={styles.label}>Recurring rev</span>
+                <span style={styles.v3RailValue}>
+                  {formatPlainNumber(financialMetrics?.ARR_m)}
+                  </span>
+                  <span style={styles.sourceValue}>
+                    {getSourceText(
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
+                    )}
+                  </span>
+                </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>ARR growth</span>
+                <span
                   style={{
-                    display: "grid",
-                    gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
-                    marginTop: "-12px",
-                    marginBottom: "4px",
-                    fontSize: "13px",
-                    color: "#6b7280",
-                    fontWeight: 500,
+                    ...styles.v3RailValue,
+                    color: (() => {
+                      const n =
+                        getNumeric(financialMetrics?.Rev_expansion_pc) ??
+                        getNumeric(financialMetrics?.New_client_growth_pc);
+                      if (n === undefined) return T.body;
+                      return n >= 0 ? T.up : T.down;
+                    })(),
                   }}
                 >
-                  <span></span>
-                  <span style={{ textAlign: "left" }}>
-                    {financialMetricsPeriodDisplay}
-                  </span>
-                  <span style={{ ...styles.sourceValue, fontSize: "11px" }}>
-                    Source
-                  </span>
-                </div>
-              )}
-              {!hasIncomeStatementData && (
-                <div style={styles.infoRow}>
-                  <span style={styles.label}>Revenue (m):</span>
-                  <span style={styles.value}>{revenuePlain}</span>
-                  <span style={styles.sourceValue}>
-                    {getSourceText(
-                      financialMetrics?.Revenue_source_label,
-                      financialMetrics?.Rev_source
-                    )}
-                  </span>
-                </div>
-              )}
-              {!hasIncomeStatementData && (
-                <div style={styles.infoRow}>
-                  <span style={styles.label}>EBITDA (m):</span>
-                  <span style={styles.value}>{ebitdaPlain}</span>
-                  <span style={styles.sourceValue}>
-                    {getSourceText(
-                      financialMetrics?.EBITDA_source_label,
-                      financialMetrics?.EBITDA_source
-                    )}
-                  </span>
-                </div>
-              )}
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Enterprise Value (m):</span>
-                <span style={styles.value}>{evPlain}</span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.EV_source_label,
-                    financialMetrics?.EV_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue multiple:</span>
-                <span style={styles.value}>
-                  {formatMultiple(financialMetrics?.Revenue_multiple)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Revenue_multiple_source_label,
-                    financialMetrics?.Rev_x_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue Growth:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Rev_Growth_PC)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Rev_growth_source_label,
-                    financialMetrics?.Rev_Growth_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>EBITDA margin:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.EBITDA_margin)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.EBITDA_margin_source_label,
-                    financialMetrics?.EBITDA_margin_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Rule of 40:</span>
-                <span style={styles.value}>
                   {(() => {
-                    const n = getNumeric(financialMetrics?.Rule_of_40);
+                    const n =
+                      getNumeric(financialMetrics?.Rev_expansion_pc) ??
+                      getNumeric(financialMetrics?.New_client_growth_pc);
                     return n !== undefined
-                      ? Math.round(n).toLocaleString()
-                      : "Not available";
+                      ? formatPercent(n)
+                      : formatPercent(financialMetrics?.ARR_pc);
                   })()}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Rule_of_40_source_label,
-                    financialMetrics?.Rule_of_40_source
-                  )}
-                </span>
-              </div>
-              {hasIncomeStatementData && (
-                <div style={{ marginTop: "16px" }}>
-                  <div
-                    style={{
-                      fontSize: "16px",
-                      fontWeight: 600,
-                      marginBottom: 8,
-                    }}
-                  >
-                    Income Statement (Last 3 FY)
-                  </div>
-                  <div style={{ overflowX: "auto" }}>
-                    <table
-                      style={{ width: "100%", borderCollapse: "collapse" }}
-                    >
-                      <thead>
-                        <tr style={{ background: "#f8fafc" }}>
-                          <th
-                            style={{
-                              textAlign: "left",
-                              padding: "8px",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            Financial Period
-                          </th>
-                          <th
-                            style={{
-                              textAlign: "right",
-                              padding: "8px",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            Revenue (m)
-                          </th>
-                          <th
-                            style={{
-                              textAlign: "right",
-                              padding: "8px",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            EBIT (m)
-                          </th>
-                          <th
-                            style={{
-                              textAlign: "right",
-                              padding: "8px",
-                              borderBottom: "1px solid #e2e8f0",
-                            }}
-                          >
-                            EBITDA (m)
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {normalizedIncomeStatements.map((row) => {
-                          const period = (
-                            row.period_display_end_date || ""
-                          ).replace(/[,\s]/g, "");
-                          const currency =
-                            row.cost_of_goods_sold_currency ||
-                            evCurrency ||
-                            revenueCurrency ||
-                            "";
-                          const fmt = (v?: number | null) =>
-                            typeof v === "number"
-                              ? (() => {
-                                  const millions = Math.round(v / 1_000_000);
-                                  return `${currency}${millions.toLocaleString()}`;
-                                })()
-                              : "—";
-                          return (
-                            <tr key={row.id}>
-                              <td
-                                style={{
-                                  padding: "8px",
-                                  borderBottom: "1px solid #e2e8f0",
-                                }}
-                              >
-                                {period || "—"}
-                              </td>
-                              <td
-                                style={{
-                                  padding: "8px",
-                                  borderBottom: "1px solid #e2e8f0",
-                                  textAlign: "right",
-                                }}
-                              >
-                                {fmt(row.revenue)}
-                              </td>
-                              <td
-                                style={{
-                                  padding: "8px",
-                                  borderBottom: "1px solid #e2e8f0",
-                                  textAlign: "right",
-                                }}
-                              >
-                                {fmt(row.ebit)}
-                              </td>
-                              <td
-                                style={{
-                                  padding: "8px",
-                                  borderBottom: "1px solid #e2e8f0",
-                                  textAlign: "right",
-                                }}
-                              >
-                                {fmt(row.ebitda)}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-              {/* Subscription Metrics */}
-              <div
-                style={{ ...styles.chartTitle, marginTop: 20, marginBottom: 8 }}
-              >
-                Subscription Metrics
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Recurring Revenue:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.ARR_pc)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.ARR_source_label,
-                    financialMetrics?.ARR_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>ARR (m):</span>
-                <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.ARR_m)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.ARR_source_label,
-                    financialMetrics?.ARR_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Churn:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Churn_pc)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Churn_source_label,
-                    financialMetrics?.Churn_Source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>GRR:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.GRR_pc)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.GRR_source_label,
-                    financialMetrics?.GRR_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Upsell:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Upsell_pc)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Upsell_source_label,
-                    financialMetrics?.Upsell_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Cross-sell:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Cross_sell_pc)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Cross_sell_source_label,
-                    financialMetrics?.Cross_sell_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Price increase:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Price_increase_pc)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Price_increase_source_label,
-                    financialMetrics?.Price_increase_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue expansion:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Rev_expansion_pc)}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
@@ -4396,8 +5459,8 @@ const CompanyDetail = () => {
                 </span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>NRR:</span>
-                <span style={styles.value}>
+                <span style={styles.label}>NRR</span>
+                <span style={styles.v3RailValue}>
                   {formatPercent(financialMetrics?.NRR)}
                 </span>
                 <span style={styles.sourceValue}>
@@ -4408,8 +5471,32 @@ const CompanyDetail = () => {
                 </span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>New clients revenue growth:</span>
-                <span style={styles.value}>
+                <span style={styles.label}>GDR</span>
+                <span style={styles.v3RailValue}>
+                  {formatPercent(financialMetrics?.GRR_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.GRR_source_label,
+                    financialMetrics?.GRR_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>Upsell</span>
+                <span style={styles.v3RailValue}>
+                  {formatPercent(financialMetrics?.Upsell_pc)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Upsell_source_label,
+                    financialMetrics?.Upsell_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>New logos</span>
+                <span style={styles.v3RailValue}>
                   {formatPercent(financialMetrics?.New_client_growth_pc)}
                 </span>
                 <span style={styles.sourceValue}>
@@ -4419,84 +5506,57 @@ const CompanyDetail = () => {
                   )}
                 </span>
               </div>
-
-              {/* Other Metrics */}
-              <div
-                style={{ ...styles.chartTitle, marginTop: 20, marginBottom: 8 }}
+              </V3RightPanel>
+              <V3RightPanel
+                title="LinkedIn employee count"
+                styles={{
+                  card: styles.card,
+                  cardHeader: styles.cardHeader,
+                  cardHeaderTitle: styles.cardHeaderTitle,
+                  cardArrow: styles.cardArrow,
+                }}
+                headerRight={
+                  overviewEmployeesYoY ? (
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        color: T.up,
+                        background: T.emeraldSoft,
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        fontFamily: T.sans,
+                      }}
+                    >
+                      {overviewEmployeesYoY}
+                    </span>
+                  ) : undefined
+                }
+                showArrow={!overviewEmployeesYoY}
+                bodyStyle={{ padding: "14px 16px" }}
               >
-                Other Metrics
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>EBIT (m):</span>
-                <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.EBIT_m)}
+              <div
+                style={{ ...styles.chartContainer, marginTop: 0 }}
+                className="chartContainer"
+              >
+                <div style={styles.v3RailHeadlineCount}>
+                  {formatNumber(currentEmployeeCount)}{" "}
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      color: T.muted,
+                      fontWeight: 400,
+                    }}
+                  >
+                    employees
                 </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.EBIT_source_label,
-                    financialMetrics?.EBIT_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Number of clients:</span>
-                <span style={styles.value}>
-                  {typeof financialMetrics?.No_of_Clients === "number"
-                    ? financialMetrics.No_of_Clients.toLocaleString()
-                    : "Not available"}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.No_of_Clients_source_label,
-                    financialMetrics?.No_Clients_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue per client:</span>
-                <span style={styles.value}>
-                  {formatWholeNumber(financialMetrics?.Rev_per_client)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Rev_per_client_source_label,
-                    financialMetrics?.Rev_per_client_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Number of employees:</span>
-                <span style={styles.value}>
-                  {typeof financialMetrics?.No_Employees === "number"
-                    ? financialMetrics.No_Employees.toLocaleString()
-                    : formatNumber(currentEmployeeCount)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.No_Employees_source_label,
-                    financialMetrics?.No_Employees_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue per employee:</span>
-                <span style={styles.value}>
-                  {formatWholeNumber(financialMetrics?.Revenue_per_employee)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Revenue_per_employee_source_label,
-                    financialMetrics?.Rev_per_employee_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.chartContainer} className="chartContainer">
-                <div style={styles.chartTitle}>LinkedIn Employee Count</div>
-                <div style={styles.currentCount}>
-                  {formatNumber(currentEmployeeCount)} employees
                 </div>
                 {employeeData.length > 0 ? (
+                  <div style={{ marginTop: 8 }}>
                   <EmployeeChart data={employeeData} />
+                  </div>
                 ) : (
                   <div
                     style={{
@@ -4552,6 +5612,39 @@ const CompanyDetail = () => {
                       <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
                     </svg>
                   </a>
+                </div>
+              )}
+              </V3RightPanel>
+              {hasManagement && (
+                <div
+                  style={{
+                    ...styles.card,
+                    padding: 0,
+                    overflow: "hidden",
+                    minWidth: 0,
+                    width: "100%",
+                  }}
+                  className="management-v3-card"
+                >
+                  <ManagementProfilePanel
+                    tokens={{
+                      paper: T.paper,
+                      hair: T.hair,
+                      ink: T.ink,
+                      body: T.body,
+                      muted: T.muted,
+                      inset: T.inset,
+                      azure: T.azure,
+                      azureSoft: T.azureSoft,
+                      coralSoft: T.coralSoft,
+                      down: T.down,
+                      sans: T.sans,
+                      mono: T.mono,
+                    }}
+                    current={managementCurrentPeople}
+                    past={managementPastPeople}
+                    maxInitialPerSection={8}
+                  />
                 </div>
               )}
             </div>
@@ -4810,19 +5903,7 @@ const CompanyDetail = () => {
                 Subscription Metrics
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Recurring Revenue:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.ARR_pc)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.ARR_source_label,
-                    financialMetrics?.ARR_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>ARR (m):</span>
+                <span style={styles.label}>Recurring rev:</span>
                 <span style={styles.value}>
                   {formatPlainNumber(financialMetrics?.ARR_m)}
                 </span>
@@ -4834,19 +5915,49 @@ const CompanyDetail = () => {
                 </span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Churn:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Churn_pc)}
+                <span style={styles.label}>ARR growth:</span>
+                <span
+                  style={{
+                    ...styles.value,
+                    color: (() => {
+                      const n =
+                        getNumeric(financialMetrics?.Rev_expansion_pc) ??
+                        getNumeric(financialMetrics?.New_client_growth_pc);
+                      if (n === undefined) return T.body;
+                      return n >= 0 ? T.up : T.down;
+                    })(),
+                  }}
+                >
+                  {(() => {
+                    const n =
+                      getNumeric(financialMetrics?.Rev_expansion_pc) ??
+                      getNumeric(financialMetrics?.New_client_growth_pc);
+                    return n !== undefined
+                      ? formatPercent(n)
+                      : formatPercent(financialMetrics?.ARR_pc);
+                  })()}
                 </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
-                    financialMetrics?.Churn_source_label,
-                    financialMetrics?.Churn_Source
+                    financialMetrics?.Rev_expansion_source_label,
+                    financialMetrics?.Rev_expansion_source
                   )}
                 </span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>GRR:</span>
+                <span style={styles.label}>NRR:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.NRR)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.NRR_source_label,
+                    financialMetrics?.NRR_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>GDR:</span>
                 <span style={styles.value}>
                   {formatPercent(financialMetrics?.GRR_pc)}
                 </span>
@@ -4870,55 +5981,7 @@ const CompanyDetail = () => {
                 </span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.label}>Cross-sell:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Cross_sell_pc)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Cross_sell_source_label,
-                    financialMetrics?.Cross_sell_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Price increase:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Price_increase_pc)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Price_increase_source_label,
-                    financialMetrics?.Price_increase_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue expansion:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Rev_expansion_pc)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Rev_expansion_source_label,
-                    financialMetrics?.Rev_expansion_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>NRR:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.NRR)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.NRR_source_label,
-                    financialMetrics?.NRR_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>New clients revenue growth:</span>
+                <span style={styles.label}>New logos:</span>
                 <span style={styles.value}>
                   {formatPercent(financialMetrics?.New_client_growth_pc)}
                 </span>
@@ -4930,76 +5993,6 @@ const CompanyDetail = () => {
                 </span>
               </div>
 
-              {/* Other Metrics */}
-              <div
-                style={{ ...styles.chartTitle, marginTop: 20, marginBottom: 8 }}
-              >
-                Other Metrics
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>EBIT (m):</span>
-                <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.EBIT_m)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.EBIT_source_label,
-                    financialMetrics?.EBIT_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Number of clients:</span>
-                <span style={styles.value}>
-                  {typeof financialMetrics?.No_of_Clients === "number"
-                    ? financialMetrics.No_of_Clients.toLocaleString()
-                    : "Not available"}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.No_of_Clients_source_label,
-                    financialMetrics?.No_Clients_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue per client:</span>
-                <span style={styles.value}>
-                  {formatWholeNumber(financialMetrics?.Rev_per_client)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Rev_per_client_source_label,
-                    financialMetrics?.Rev_per_client_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Number of employees:</span>
-                <span style={styles.value}>
-                  {typeof financialMetrics?.No_Employees === "number"
-                    ? financialMetrics.No_Employees.toLocaleString()
-                    : formatNumber(currentEmployeeCount)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.No_Employees_source_label,
-                    financialMetrics?.No_Employees_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue per employee:</span>
-                <span style={styles.value}>
-                  {formatWholeNumber(financialMetrics?.Revenue_per_employee)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Revenue_per_employee_source_label,
-                    financialMetrics?.Rev_per_employee_source
-                  )}
-                </span>
-              </div>
               <div style={styles.chartContainer}>
                 <div style={styles.chartTitle}>LinkedIn Employee Count</div>
                 <div style={styles.currentCount}>
@@ -5020,12 +6013,44 @@ const CompanyDetail = () => {
                   </div>
                 )}
               </div>
+              {hasManagement && (
+                <div
+                  style={{
+                    ...styles.card,
+                    padding: 0,
+                    overflow: "hidden",
+                    marginTop: 20,
+                    width: "100%",
+                  }}
+                  className="management-v3-card"
+                >
+                  <ManagementProfilePanel
+                    tokens={{
+                      paper: T.paper,
+                      hair: T.hair,
+                      ink: T.ink,
+                      body: T.body,
+                      muted: T.muted,
+                      inset: T.inset,
+                      azure: T.azure,
+                      azureSoft: T.azureSoft,
+                      coralSoft: T.coralSoft,
+                      down: T.down,
+                      sans: T.sans,
+                      mono: T.mono,
+                    }}
+                    current={managementCurrentPeople}
+                    past={managementPastPeople}
+                    maxInitialPerSection={8}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
           {/* LinkedIn section (desktop only) removed per request */}
 
-          {/* Management section moved into Overview above */}
+          {/* Management: desktop under LinkedIn rail; mobile block above */}
 
 
         </div>

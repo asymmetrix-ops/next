@@ -3,14 +3,12 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import type { CorporateEventsProfileTokens } from "@/components/corporate-events/CorporateEventsProfilePanel";
-import { LinkedInProfileButton } from "@/components/redesign/LinkedInProfileButton";
 
 export type ManagementProfilePerson = {
   id?: number;
   name: string;
   role: string;
   individualId?: number;
-  linkedinUrl?: string;
 };
 
 type ManagementProfilePanelProps = {
@@ -19,6 +17,36 @@ type ManagementProfilePanelProps = {
   past: ManagementProfilePerson[];
   maxInitialPerSection?: number;
 };
+
+function LogoLetter({
+  name,
+  T,
+}: {
+  name: string;
+  T: CorporateEventsProfileTokens;
+}) {
+  const letter = (name.trim()[0] || "?").toUpperCase();
+  return (
+    <div
+      style={{
+        width: 24,
+        height: 24,
+        borderRadius: 5,
+        background: T.inset,
+        color: T.body,
+        fontSize: 11,
+        fontWeight: 600,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: T.sans,
+        flexShrink: 0,
+      }}
+    >
+      {letter}
+    </div>
+  );
+}
 
 export const ManagementProfilePanel: React.FC<ManagementProfilePanelProps> = ({
   tokens: T,
@@ -31,7 +59,10 @@ export const ManagementProfilePanel: React.FC<ManagementProfilePanelProps> = ({
 
   const headerRight = useMemo(() => {
     const parts: string[] = [];
-    if (current.length) parts.push(`${current.length} current`);
+    if (current.length)
+      parts.push(
+        `${current.length} current`
+      );
     if (past.length) parts.push(`${past.length} past`);
     return parts.join(" · ");
   }, [current.length, past.length]);
@@ -46,21 +77,21 @@ export const ManagementProfilePanel: React.FC<ManagementProfilePanelProps> = ({
       <table
         style={{
           width: "100%",
-          minWidth: 480,
+          minWidth: 420,
           borderCollapse: "collapse",
           fontSize: "12.5px",
         }}
       >
         <thead>
           <tr style={{ background: T.paper }}>
-            {(["Name", "Role", "LinkedIn"] as const).map((h) => (
+            {(["Name", "Role"] as const).map((h) => (
               <th
                 key={h}
                 style={{
-                  textAlign: h === "LinkedIn" ? "center" : "left",
+                  textAlign: "left",
                   padding: "10px 12px",
                   color: T.muted,
-                  fontSize: "10.5px",
+                  fontSize: "11px",
                   fontWeight: 500,
                   textTransform: "uppercase",
                   letterSpacing: 0.4,
@@ -84,51 +115,52 @@ export const ManagementProfilePanel: React.FC<ManagementProfilePanelProps> = ({
                   borderBottom: last ? "none" : `1px solid ${T.hair}`,
                 }}
               >
-                <td style={{ padding: "10px 12px", verticalAlign: "middle" }}>
-                  {person.individualId ? (
-                    <Link
-                      href={`/individual/${person.individualId}`}
-                      prefetch={false}
-                      style={{
-                        color: T.azure,
-                        fontWeight: 500,
-                        textDecoration: "underline",
-                        minWidth: 0,
-                        wordBreak: "break-word" as const,
-                      }}
-                    >
-                      {person.name}
-                    </Link>
-                  ) : (
-                    <span
-                      style={{
-                        fontWeight: 500,
-                        color: T.ink,
-                        wordBreak: "break-word" as const,
-                      }}
-                    >
-                      {person.name}
-                    </span>
-                  )}
+                <td style={{ padding: "10px 12px", verticalAlign: "top" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      minWidth: 0,
+                    }}
+                  >
+                    <LogoLetter name={person.name} T={T} />
+                    {person.individualId ? (
+                      <Link
+                        href={`/individual/${person.individualId}`}
+                        prefetch={false}
+                        style={{
+                          color: T.azure,
+                          fontWeight: 500,
+                          textDecoration: "underline",
+                          minWidth: 0,
+                          wordBreak: "break-word" as const,
+                        }}
+                      >
+                        {person.name}
+                      </Link>
+                    ) : (
+                      <span
+                        style={{
+                          fontWeight: 500,
+                          color: T.ink,
+                          wordBreak: "break-word" as const,
+                        }}
+                      >
+                        {person.name}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td
                   style={{
                     padding: "10px 12px",
-                    color: T.body,
-                    verticalAlign: "middle",
+                    color: T.muted,
+                    verticalAlign: "top",
                     lineHeight: 1.45,
                   }}
                 >
-                  {person.role?.trim() ? person.role : "-"}
-                </td>
-                <td
-                  style={{
-                    padding: "10px 12px",
-                    verticalAlign: "middle",
-                    textAlign: "center",
-                  }}
-                >
-                  <LinkedInProfileButton href={person.linkedinUrl} />
+                  {person.role?.trim() ? person.role : "—"}
                 </td>
               </tr>
             );
@@ -141,14 +173,12 @@ export const ManagementProfilePanel: React.FC<ManagementProfilePanelProps> = ({
   const sectionLabel = (label: string) => (
     <div
       style={{
-        padding: "10px 16px 2px",
-        fontSize: 10.5,
-        fontWeight: 500,
+        padding: "12px 16px 0",
+        fontSize: "11px",
+        fontWeight: 600,
         color: T.muted,
         textTransform: "uppercase",
         letterSpacing: 0.4,
-        background: T.paper,
-        borderBottom: `1px solid ${T.hair}`,
       }}
     >
       {label}
