@@ -210,7 +210,55 @@ interface CorporateEventsTableProps {
   secondarySectors?: Sector[];
   maxInitialEvents?: number;
   truncateDescriptionLength?: number;
+  /** Match company profile V3 panel (Geist tokens, hairline borders) */
+  variant?: "legacy" | "v3";
 }
+
+type CePaletteKey = "legacy" | "v3";
+
+const CE_PALETTE: Record<
+  CePaletteKey,
+  {
+    wrapBorder: string;
+    wrapRadius: number | string;
+    cellBorder: string;
+    theadBg: string;
+    link: string;
+    muted: string;
+    tableFont: string;
+    thExtra: React.CSSProperties;
+    expandBtn: string;
+  }
+> = {
+  legacy: {
+    wrapBorder: "1px solid #e2e8f0",
+    wrapRadius: "8px",
+    cellBorder: "#e2e8f0",
+    theadBg: "#f8fafc",
+    link: "#3b82f6",
+    muted: "#64748b",
+    tableFont: "14px",
+    thExtra: {},
+    expandBtn: "#0075df",
+  },
+  v3: {
+    wrapBorder: "none",
+    wrapRadius: 0,
+    cellBorder: "rgba(15,17,21,0.06)",
+    theadBg: "#F4F3EE",
+    link: "oklch(54% 0.22 258)",
+    muted: "#6B6E76",
+    tableFont: "12.5px",
+    thExtra: {
+      fontSize: "11.5px",
+      fontWeight: 600,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em",
+      color: "#6B6E76",
+    },
+    expandBtn: "oklch(54% 0.22 258)",
+  },
+};
 
 const formatDate = (dateString: string | null | undefined): string => {
   if (!dateString) return "Not available";
@@ -259,9 +307,11 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
   secondarySectors = [],
   maxInitialEvents = 3,
   truncateDescriptionLength = 180,
+  variant = "legacy",
 }) => {
   const router = useRouter();
   const [showAllEvents, setShowAllEvents] = useState(false);
+  const pal = CE_PALETTE[variant === "v3" ? "v3" : "legacy"];
 
   const handleEventClick = (eventId: number | undefined, description?: string) => {
     if (eventId && onEventClick) {
@@ -281,7 +331,14 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
 
   if (loading) {
     return (
-      <div style={{ textAlign: "center", padding: "24px" }}>
+      <div
+        style={{
+          textAlign: "center",
+          padding: variant === "v3" ? "20px 16px" : "24px",
+          color: pal.muted,
+          fontSize: variant === "v3" ? "12.5px" : "14px",
+        }}
+      >
         Loading corporate events...
       </div>
     );
@@ -296,8 +353,8 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
       <div
         style={{
           overflowX: "auto",
-          border: "1px solid #e2e8f0",
-          borderRadius: "8px",
+          border: pal.wrapBorder,
+          borderRadius: pal.wrapRadius,
         }}
       >
         <table
@@ -305,43 +362,47 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
             width: "100%",
             minWidth: showSectors ? "1200px" : "900px",
             borderCollapse: "collapse",
-            fontSize: "14px",
+            fontSize: pal.tableFont,
           }}
         >
           <thead>
-            <tr style={{ backgroundColor: "#f8fafc" }}>
+            <tr style={{ backgroundColor: pal.theadBg }}>
               <th
                 style={{
-                  padding: "12px",
+                  padding: variant === "v3" ? "10px 12px" : "12px",
                   textAlign: "left",
-                  borderBottom: "1px solid #e2e8f0",
+                  borderBottom: `1px solid ${pal.cellBorder}`,
+                  ...pal.thExtra,
                 }}
               >
                 Event Details
               </th>
               <th
                 style={{
-                  padding: "12px",
+                  padding: variant === "v3" ? "10px 12px" : "12px",
                   textAlign: "left",
-                  borderBottom: "1px solid #e2e8f0",
+                  borderBottom: `1px solid ${pal.cellBorder}`,
+                  ...pal.thExtra,
                 }}
               >
                 Parties
               </th>
               <th
                 style={{
-                  padding: "12px",
+                  padding: variant === "v3" ? "10px 12px" : "12px",
                   textAlign: "left",
-                  borderBottom: "1px solid #e2e8f0",
+                  borderBottom: `1px solid ${pal.cellBorder}`,
+                  ...pal.thExtra,
                 }}
               >
                 Deal Details
               </th>
               <th
                 style={{
-                  padding: "12px",
+                  padding: variant === "v3" ? "10px 12px" : "12px",
                   textAlign: "left",
-                  borderBottom: "1px solid #e2e8f0",
+                  borderBottom: `1px solid ${pal.cellBorder}`,
+                  ...pal.thExtra,
                 }}
               >
                 Advisor(s)
@@ -349,9 +410,10 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
               {showSectors && (
                 <th
                   style={{
-                    padding: "12px",
+                    padding: variant === "v3" ? "10px 12px" : "12px",
                     textAlign: "left",
-                    borderBottom: "1px solid #e2e8f0",
+                    borderBottom: `1px solid ${pal.cellBorder}`,
+                    ...pal.thExtra,
                   }}
                 >
                   Sectors
@@ -470,7 +532,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                 return (
                   <tr
                     key={event.id || index}
-                    style={{ borderBottom: "1px solid #e2e8f0" }}
+                    style={{ borderBottom: `1px solid ${pal.cellBorder}` }}
                   >
                     {/* Event Details */}
                     <td
@@ -485,7 +547,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                             event.id ? `/corporate-event/${event.id}` : "#"
                           }
                           style={{
-                            color: "#3b82f6",
+                            color: pal.link,
                             textDecoration: "underline",
                             fontWeight: "500",
                             cursor: "pointer",
@@ -502,7 +564,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                       <div
                         style={{
                           fontSize: "12px",
-                          color: "#64748b",
+                          color: pal.muted,
                           marginTop: "4px",
                         }}
                       >
@@ -515,7 +577,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                       <div
                         style={{
                           fontSize: "12px",
-                          color: "#64748b",
+                          color: pal.muted,
                         }}
                       >
                         Target HQ: {targetCountry}
@@ -557,7 +619,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                   <a
                                     href={href}
                                     style={{
-                                      color: "#3b82f6",
+                                      color: pal.link,
                                       textDecoration: "underline",
                                     }}
                                   >
@@ -574,7 +636,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               <a
                                 href={`/company/${legacyTargetId}`}
                                 style={{
-                                  color: "#3b82f6",
+                                  color: pal.link,
                                   textDecoration: "underline",
                                 }}
                               >
@@ -596,7 +658,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                 <a
                                   href={href}
                                   style={{
-                                    color: "#3b82f6",
+                                    color: pal.link,
                                     textDecoration: "underline",
                                   }}
                                 >
@@ -706,7 +768,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                   <a
                                     href={b.href}
                                             style={{
-                                              color: "#3b82f6",
+                                              color: pal.link,
                                               textDecoration: "underline",
                                             }}
                                           >
@@ -818,7 +880,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                   <a
                                     href={inv.href}
                                         style={{
-                                          color: "#3b82f6",
+                                          color: pal.link,
                                           textDecoration: "underline",
                                         }}
                                       >
@@ -899,7 +961,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                   <a
                                     href={s.href}
                                         style={{
-                                          color: "#3b82f6",
+                                          color: pal.link,
                                           textDecoration: "underline",
                                         }}
                                       >
@@ -953,7 +1015,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                               <span key={advisor.id ?? `${advisor.name}-${idx}`}>
                                 <span
                                   style={{
-                                    color: "#3b82f6",
+                                    color: pal.link,
                                     cursor: "pointer",
                                   }}
                                   onClick={() => {
@@ -993,7 +1055,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                       <a
                                         href={`/sector/${id}`}
                                         style={{
-                                          color: "#3b82f6",
+                                          color: pal.link,
                                           textDecoration: "underline",
                                         }}
                                       >
@@ -1026,7 +1088,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                                       <a
                                         href={`/sub-sector/${id}`}
                                         style={{
-                                          color: "#3b82f6",
+                                          color: pal.link,
                                           textDecoration: "underline",
                                         }}
                                       >
@@ -1061,7 +1123,7 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
                   style={{
                     padding: "24px",
                     textAlign: "center",
-                    color: "#64748b",
+                    color: pal.muted,
                   }}
                 >
                   No corporate events found
@@ -1079,10 +1141,11 @@ export const CorporateEventsTable: React.FC<CorporateEventsTableProps> = ({
             style={{
               background: "none",
               border: "none",
-              color: "#0075df",
+              color: pal.expandBtn,
               textDecoration: "underline",
               cursor: "pointer",
-              fontSize: "14px",
+              fontSize: variant === "v3" ? "12.5px" : "14px",
+              fontWeight: variant === "v3" ? 500 : 400,
               padding: "8px 0",
             }}
           >
