@@ -10,6 +10,9 @@ import { FollowButton } from "@/components/FollowButton";
 import { CorporateEventsProfilePanel } from "@/components/corporate-events/CorporateEventsProfilePanel";
 import { SubsidiariesProfilePanel } from "@/components/subsidiaries/SubsidiariesProfilePanel";
 import { ManagementProfilePanel } from "@/components/company/ManagementProfilePanel";
+import { ManagementCard } from "@/components/redesign/ManagementCard";
+import { HeadcountCard } from "@/components/redesign/HeadcountCard";
+import { SubscriptionCard } from "@/components/redesign/SubscriptionCard";
 import {
   LineChart,
   Line,
@@ -25,7 +28,7 @@ const FINANCIAL_SERVICES_FOCUS_ID = 74;
 const FINANCIAL_METRICS_EXPORT_SOURCE = "contribution_email";
 
 type CompanyPdfExportType = "profile" | "financial_metrics";
-type ProductMixTab = "product_type" | "data_collection";
+type ProductMixTab = "product_type" | "data_collection" | "revenue_model";
 
 // Types for API integration
 interface CompanyLocation {
@@ -1214,48 +1217,6 @@ function V3TabbedFinanceCard({
   );
 }
 
-function V3RightPanel({
-  title,
-  styles,
-  headerRight,
-  showArrow,
-  bodyStyle,
-  children,
-}: {
-  title: string;
-  styles: V3RightPanelChrome;
-  /** When set, replaces the default → affordance */
-  headerRight?: React.ReactNode;
-  /** When false, hide the trailing → (use with headerRight or no affordance) */
-  showArrow?: boolean;
-  bodyStyle?: React.CSSProperties;
-  children: React.ReactNode;
-}) {
-  const trailing =
-    headerRight !== undefined
-      ? headerRight
-      : showArrow === false ? null : (
-          <span style={styles.cardArrow}>→</span>
-        );
-
-  return (
-    <div
-      style={{
-        ...styles.card,
-        padding: 0,
-        overflow: "hidden",
-        width: "100%",
-        boxSizing: "border-box",
-      }}
-    >
-      <div style={styles.cardHeader}>
-        <span style={styles.cardHeaderTitle}>{title}</span>
-        {trailing}
-      </div>
-      <div style={{ padding: "14px 16px", ...bodyStyle }}>{children}</div>
-    </div>
-  );
-}
 
 // Main Company Detail Component
 const CompanyDetail = () => {
@@ -2512,6 +2473,17 @@ const CompanyDetail = () => {
       }))
       .filter((item) => item.label);
 
+  const revenueModelRows = parseStructuredArray<CompanyRevenueModelItem>(
+    company.Revenue_Model_ ??
+      (company as { Revenue_Model?: CompanyRevenueModelItem[] | string })
+        .Revenue_Model
+  )
+    .map((item) => ({
+      label: String(item?.Revenue_Model_ || "").trim(),
+      value: String(item?.Predominance || "").trim(),
+    }))
+    .filter((item) => item.label);
+
   const ownershipLabel = company._ownership_type?.ownership || "";
   const lifecycleLabel = company.Lifecycle_stage?.Lifecycle_Stage || "";
   const tickerDisplay = company.ticker && company.exchange
@@ -3105,6 +3077,24 @@ const CompanyDetail = () => {
           displayRight: r.displayRight,
           color: mixBarColors[i % mixBarColors.length],
         }));
+
+  const revenueModelBarRows = revenueModelRows.map((row, i) => {
+    const parsed = parsePercentToken(row.value);
+    const pct = Math.min(
+      100,
+      Math.max(
+        0,
+        parsed ?? predominanceBarWidth(row.value, i, revenueModelRows.length)
+      )
+    );
+    const displayRight = parsed !== null ? `${Math.round(parsed)}%` : row.value;
+    return {
+      label: row.label,
+      pct,
+      displayRight,
+      color: mixBarColors[i % mixBarColors.length],
+    };
+  });
 
   const responsiveCss = `
     .company-detail-page { overflow-x: hidden; }
@@ -4227,13 +4217,29 @@ const CompanyDetail = () => {
                     >
                       Data collection
                     </button>
+                    {revenueModelBarRows.length > 0 && (
+                      <button
+                        type="button"
+                        style={{
+                          ...styles.productMixTabButton,
+                          ...(activeProductMixTab === "revenue_model"
+                            ? styles.productMixTabButtonActive
+                            : {}),
+                        }}
+                        onClick={() => setActiveProductMixTab("revenue_model")}
+                      >
+                        Revenue model
+                      </button>
+                    )}
                   </div>
                   <span style={styles.cardArrow}>→</span>
                 </div>
                 <div style={{ paddingBottom: "4px" }}>
                   {(activeProductMixTab === "product_type"
                     ? productTypeBarRows
-                    : dataCollectionBarRows
+                    : activeProductMixTab === "revenue_model"
+                      ? revenueModelBarRows
+                      : dataCollectionBarRows
                   ).map((row, idx, arr) => (
                     <div
                       key={`mix-${activeProductMixTab}-${row.label}-${idx}`}
@@ -5407,245 +5413,43 @@ const CompanyDetail = () => {
               )}
               </> )}
               </V3TabbedFinanceCard>
-              <V3RightPanel
-                title="Subscription metrics"
-                styles={{
-                  card: styles.card,
-                  cardHeader: styles.cardHeader,
-                  cardHeaderTitle: styles.cardHeaderTitle,
-                  cardArrow: styles.cardArrow,
-                }}
-              >
-                <div style={styles.infoRow}>
-                <span style={styles.label}>Recurring rev</span>
-                <span style={styles.v3RailValue}>
-                  {formatPlainNumber(financialMetrics?.ARR_m)}
-                  </span>
-                  <span style={styles.sourceValue}>
-                    {getSourceText(
-                    financialMetrics?.ARR_source_label,
-                    financialMetrics?.ARR_source
-                    )}
-                  </span>
-                </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>ARR growth</span>
-                <span
-                  style={{
-                    ...styles.v3RailValue,
-                    color: (() => {
-                      const n =
-                        getNumeric(financialMetrics?.Rev_expansion_pc) ??
-                        getNumeric(financialMetrics?.New_client_growth_pc);
-                      if (n === undefined) return T.body;
-                      return n >= 0 ? T.up : T.down;
-                    })(),
-                  }}
-                >
-                  {(() => {
-                    const n =
-                      getNumeric(financialMetrics?.Rev_expansion_pc) ??
-                      getNumeric(financialMetrics?.New_client_growth_pc);
-                    return n !== undefined
-                      ? formatPercent(n)
-                      : formatPercent(financialMetrics?.ARR_pc);
-                  })()}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Rev_expansion_source_label,
-                    financialMetrics?.Rev_expansion_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>NRR</span>
-                <span style={styles.v3RailValue}>
-                  {formatPercent(financialMetrics?.NRR)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.NRR_source_label,
-                    financialMetrics?.NRR_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>GDR</span>
-                <span style={styles.v3RailValue}>
-                  {formatPercent(financialMetrics?.GRR_pc)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.GRR_source_label,
-                    financialMetrics?.GRR_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Upsell</span>
-                <span style={styles.v3RailValue}>
-                  {formatPercent(financialMetrics?.Upsell_pc)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Upsell_source_label,
-                    financialMetrics?.Upsell_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>New logos</span>
-                <span style={styles.v3RailValue}>
-                  {formatPercent(financialMetrics?.New_client_growth_pc)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.New_client_growth_source_label,
-                    financialMetrics?.New_Client_Growth_Source
-                  )}
-                </span>
-              </div>
-              </V3RightPanel>
-              <V3RightPanel
-                title="LinkedIn employee count"
-                styles={{
-                  card: styles.card,
-                  cardHeader: styles.cardHeader,
-                  cardHeaderTitle: styles.cardHeaderTitle,
-                  cardArrow: styles.cardArrow,
-                }}
-                headerRight={
-                  overviewEmployeesYoY ? (
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        fontSize: "11px",
-                        fontWeight: 600,
-                        color: T.up,
-                        background: T.emeraldSoft,
-                        padding: "2px 8px",
-                        borderRadius: 999,
-                        fontFamily: T.sans,
-                      }}
-                    >
-                      {overviewEmployeesYoY}
-                    </span>
-                  ) : undefined
-                }
-                showArrow={!overviewEmployeesYoY}
-                bodyStyle={{ padding: "14px 16px" }}
-              >
-              <div
-                style={{ ...styles.chartContainer, marginTop: 0 }}
-                className="chartContainer"
-              >
-                <div style={styles.v3RailHeadlineCount}>
-                  {formatNumber(currentEmployeeCount)}{" "}
-                  <span
-                    style={{
-                      fontSize: "12px",
-                      color: T.muted,
-                      fontWeight: 400,
-                    }}
-                  >
-                    employees
-                </span>
-                </div>
-                {employeeData.length > 0 ? (
-                  <div style={{ marginTop: 8 }}>
-                  <EmployeeChart data={employeeData} />
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      textAlign: "center",
-                      padding: "40px",
-                      color: "#666",
-                      fontSize: "14px",
-                    }}
-                  >
-                    No employee data available
-                  </div>
-                )}
-              </div>
-              {/* LinkedIn Logo - Redirects to company LinkedIn */}
-              {linkedinUrl && (
-                <div
-                  style={{
-                    textAlign: "left",
-                    marginTop: "16px",
-                    paddingTop: "16px",
-                    borderTop: "1px solid #e2e8f0",
-                  }}
-                >
-                  <a
-                    href={linkedinUrl || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "30px",
-                      height: "30px",
-                      backgroundColor: "#0077b5",
-                      borderRadius: "6px",
-                      color: "white",
-                      textDecoration: "none",
-                      transition: "background-color 0.2s ease",
-                    }}
-                    onMouseOver={(e) =>
-                      (e.currentTarget.style.backgroundColor = "#005582")
-                    }
-                    onMouseOut={(e) =>
-                      (e.currentTarget.style.backgroundColor = "#0077b5")
-                    }
-                  >
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                    </svg>
-                  </a>
-                </div>
-              )}
-              </V3RightPanel>
+              <SubscriptionCard
+                recurringRev={formatPlainNumber(financialMetrics?.ARR_m)}
+                arrGrowth={(() => {
+                  const n =
+                    getNumeric(financialMetrics?.Rev_expansion_pc) ??
+                    getNumeric(financialMetrics?.New_client_growth_pc);
+                  const pct = n !== undefined
+                    ? formatPercent(n)
+                    : formatPercent(financialMetrics?.ARR_pc);
+                  return pct === "Not available" ? undefined : pct;
+                })()}
+                nrr={formatPercent(financialMetrics?.NRR) === "Not available" ? undefined : formatPercent(financialMetrics?.NRR)}
+                gdr={formatPercent(financialMetrics?.GRR_pc) === "Not available" ? undefined : formatPercent(financialMetrics?.GRR_pc)}
+                upsell={formatPercent(financialMetrics?.Upsell_pc) === "Not available" ? undefined : formatPercent(financialMetrics?.Upsell_pc)}
+                newLogos={formatPercent(financialMetrics?.New_client_growth_pc) === "Not available" ? undefined : formatPercent(financialMetrics?.New_client_growth_pc)}
+              />
+              <HeadcountCard
+                data={employeeData.map((e) => e.employees_count)}
+                dates={employeeData.map((e) => e.date)}
+                count={currentEmployeeCount}
+                yoyLabel={overviewEmployeesYoY || undefined}
+                asOf={(() => {
+                  const nonZero = employeeData.filter((e) => e.employees_count > 0);
+                  const ref = nonZero.length > 0 ? nonZero[nonZero.length - 1] : employeeData[employeeData.length - 1];
+                  if (!ref?.date) return undefined;
+                  try {
+                    return new Date(ref.date).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+                  } catch { return undefined; }
+                })()}
+                linkedinUrl={linkedinUrl}
+              />
               {hasManagement && (
-                <div
-                  style={{
-                    ...styles.card,
-                    padding: 0,
-                    overflow: "hidden",
-                    minWidth: 0,
-                    width: "100%",
-                  }}
-                  className="management-v3-card"
-                >
-                  <ManagementProfilePanel
-                    tokens={{
-                      paper: T.paper,
-                      hair: T.hair,
-                      ink: T.ink,
-                      body: T.body,
-                      muted: T.muted,
-                      inset: T.inset,
-                      azure: T.azure,
-                      azureSoft: T.azureSoft,
-                      coralSoft: T.coralSoft,
-                      down: T.down,
-                      sans: T.sans,
-                      mono: T.mono,
-                    }}
-                    current={managementCurrentPeople}
-                    past={managementPastPeople}
-                    maxInitialPerSection={8}
-                  />
-                </div>
+                <ManagementCard
+                  current={managementCurrentPeople}
+                  past={managementPastPeople}
+                  maxVisible={6}
+                />
               )}
             </div>
 
