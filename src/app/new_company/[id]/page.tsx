@@ -729,6 +729,25 @@ const parseStructuredArray = <T,>(value: unknown): T[] => {
   return [];
 };
 
+/**
+ * When merging API root + `Company`, root fields like `Data_Collection_Method: []`
+ * are truthy in JS, so `root || company` incorrectly drops nested rows.
+ * Prefer the first array with length > 0 or non-empty string; otherwise last defined.
+ */
+function firstNonEmptyStructuredField(
+  ...candidates: unknown[]
+): unknown {
+  for (const c of candidates) {
+    if (c == null) continue;
+    if (Array.isArray(c) && c.length > 0) return c;
+    if (typeof c === "string" && c.trim().length > 0) return c;
+  }
+  for (const c of candidates) {
+    if (c != null) return c;
+  }
+  return undefined;
+}
+
 /** Parse "12%" / "12" / numeric cell into 0–100 for mix progress bars */
 function parsePercentToken(value: string): number | null {
   const trimmed = value.trim();
@@ -1676,25 +1695,36 @@ const CompanyDetail = () => {
                 have_parent_company?: HaveParentCompany;
               }
             ).have_parent_company,
-          Product_Type:
+          Product_Type: firstNonEmptyStructuredField(
             (data as { Product_Type?: CompanyProductTypeItem[] | string })
-              .Product_Type || data.Company?.Product_Type,
-          Data_Collection_Method:
+              .Product_Type,
+            data.Company?.Product_Type
+          ) as Company["Product_Type"],
+          Data_Collection_Method: firstNonEmptyStructuredField(
             (
               data as {
                 Data_Collection_Method?:
                   | CompanyDataCollectionMethodItem[]
                   | string;
               }
-            ).Data_Collection_Method || data.Company?.Data_Collection_Method,
-          Revenue_Model_:
+            ).Data_Collection_Method,
+            (
+              data.Company as {
+                Data_Collection_Method?:
+                  | CompanyDataCollectionMethodItem[]
+                  | string;
+              }
+            )?.Data_Collection_Method
+          ) as Company["Data_Collection_Method"],
+          Revenue_Model_: firstNonEmptyStructuredField(
             (data as { Revenue_Model_?: CompanyRevenueModelItem[] | string })
-              .Revenue_Model_ ||
+              .Revenue_Model_,
             (data as { Revenue_Model?: CompanyRevenueModelItem[] | string })
-              .Revenue_Model ||
-            data.Company?.Revenue_Model_ ||
+              .Revenue_Model,
+            data.Company?.Revenue_Model_,
             (data.Company as { Revenue_Model?: CompanyRevenueModelItem[] | string })
-              ?.Revenue_Model,
+              ?.Revenue_Model
+          ) as Company["Revenue_Model_"],
           last_investment:
             (data as { last_investment?: LastInvestment | null })
               .last_investment ??
@@ -4242,26 +4272,6 @@ const CompanyDetail = () => {
               )}
               {financeRailTab === "income" && (
               <>
-              {hasIncomeStatementData && (
-                  <div
-                    style={{
-                      display: "flex",
-                    justifyContent: "flex-end",
-                    marginBottom: 8,
-                    paddingRight: 2,
-                  }}
-                >
-                  <span
-                      style={{
-                      fontSize: "11.5px",
-                      color: T.muted,
-                      fontWeight: 500,
-                    }}
-                  >
-                    Last 3 FY
-                  </span>
-                  </div>
-              )}
                 {hasIncomeStatementData ? (
                   <div style={{ overflowX: "auto" }}>
                     <table
@@ -5148,7 +5158,7 @@ const CompanyDetail = () => {
                   <div
                     style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}
                   >
-                    Income Statement (Last 3 FY)
+                    Income statement
                   </div>
                   <div style={{ overflowX: "auto" }}>
                     <table
