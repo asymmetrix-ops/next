@@ -22,6 +22,7 @@ type Props = {
   past?: ManagementPerson[];
   /** Number of rows shown before "See more". Default 6. */
   maxVisible?: number;
+  fillGridCell?: boolean;
 };
 
 function initials(name: string) {
@@ -189,6 +190,7 @@ export function ManagementCard({
   current,
   past = [],
   maxVisible = 6,
+  fillGridCell = false,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
 
@@ -214,7 +216,7 @@ export function ManagementCard({
   let lastSection: string | null = null;
 
   return (
-    <LinkPanel>
+    <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH right={headerRight || undefined}>Management</LinkedH>
       <ColHeader />
       <div style={{ padding: "4px 0" }}>

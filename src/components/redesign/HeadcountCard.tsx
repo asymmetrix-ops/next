@@ -8,9 +8,49 @@ import React from "react";
 import Link from "next/link";
 import { LinkPanel, LinkedH, Delta, T } from "./primitives";
 
+function toEmployeeCountNumber(v: unknown): number {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const n = Number(v.replace(/,/g, "").trim());
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
+/** ~5 human-readable Y ticks spanning [dataMin, dataMax] (ref: sparse left axis). */
+function buildYTicks(dataMin: number, dataMax: number, maxTicks = 5): number[] {
+  if (!Number.isFinite(dataMin) || !Number.isFinite(dataMax)) return [0, 1];
+  if (dataMax < dataMin) return buildYTicks(dataMax, dataMin, maxTicks);
+  if (dataMin === dataMax) {
+    const pad = Math.max(100, Math.round(Math.abs(dataMin) * 0.04) || 500);
+    return buildYTicks(dataMin - pad, dataMax + pad, maxTicks);
+  }
+  const range = dataMax - dataMin;
+  const rough = range / Math.max(1, maxTicks - 1);
+  const pow10 = 10 ** Math.floor(Math.log10(Math.max(rough, 1e-9)));
+  const fr = rough / pow10;
+  const niceFr = fr <= 1 ? 1 : fr <= 2 ? 2 : fr <= 5 ? 5 : 10;
+  const step = niceFr * pow10;
+  const y0 = Math.floor(dataMin / step) * step;
+  const y1 = Math.ceil(dataMax / step) * step;
+  const out: number[] = [];
+  for (let v = y0; v <= y1 + step * 1e-9; v += step) {
+    out.push(Math.round(v));
+    if (out.length > maxTicks + 3) break;
+  }
+  if (out.length < 2) return [y0, y1];
+  return out;
+}
+
+function formatAxisMonthYear(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.toLocaleString("en-US", { month: "short" })} '${String(d.getFullYear()).slice(2)}`;
+}
+
 type Props = {
-  /** Monthly headcount values (oldest → newest, min 2 points). */
-  data: number[];
+  /** Monthly headcount values (oldest → newest); strings / comma-formatted OK */
+  data: ReadonlyArray<unknown>;
   /**
    * ISO date strings aligned with each `data` entry.
    * The card picks 5 evenly-spaced ones for the X-axis after filtering zeros.
@@ -19,11 +59,12 @@ type Props = {
   /** Pre-formatted YoY label e.g. "+6.4% YoY". Optional. */
   yoyLabel?: string;
   /** Current (last) employee count. Falls back to last non-zero data point. */
-  count?: number;
+  count?: unknown;
   /** "As of" label shown under the headline. */
   asOf?: string;
   /** LinkedIn company URL for the footer icon. */
   linkedinUrl?: string;
+  fillGridCell?: boolean;
 };
 
 export function HeadcountCard({
@@ -33,37 +74,41 @@ export function HeadcountCard({
   count,
   asOf,
   linkedinUrl,
+  fillGridCell = false,
 }: Props) {
   const id = React.useId().replace(/:/g, "");
 
-  // Mirror EmployeeChart: strip zero entries so the chart doesn't flat-line
-  const hasAnyNonZero = data.some((v) => v > 0);
-  const filteredData = hasAnyNonZero ? data.filter((v) => v > 0) : data;
+  const numericData = data.map(toEmployeeCountNumber);
 
-  const rawPts = filteredData.length >= 2 ? filteredData : [];
+  // Mirror EmployeeChart: strip zero entries so the chart doesn't flat-line
+  const hasAnyNonZero = numericData.some((v) => v > 0);
+  const filteredData = hasAnyNonZero
+    ? numericData.filter((v) => v > 0)
+    : numericData;
+
+  // Need ≥2 points to draw a line; duplicate a single point so one month still renders
+  const rawPts =
+    filteredData.length >= 2
+      ? filteredData
+      : filteredData.length === 1
+        ? [filteredData[0]!, filteredData[0]!]
+        : [];
   const hasChart = rawPts.length >= 2;
   const pts = hasChart ? rawPts : [0, 1]; // safe fallback so math never divides by 0
   // Prefer the last non-zero value if caller passed 0
-  const lastNonZero = filteredData.length > 0 ? filteredData[filteredData.length - 1] : null;
-  const last = count != null && count > 0 ? count : lastNonZero;
+  const lastNonZero =
+    filteredData.length > 0 ? filteredData[filteredData.length - 1]! : null;
+  const countN = count != null ? toEmployeeCountNumber(count) : null;
+  const last =
+    countN != null && countN > 0 ? countN : lastNonZero;
 
   const dataMin = Math.min(...pts);
   const dataMax = Math.max(...pts);
 
-  // Nice Y-axis ticks — always ensure yMax > yMin to avoid division-by-zero
-  const niceStep = (() => {
-    const r = dataMax - dataMin;
-    if (r > 4000) return 2000;
-    if (r > 1500) return 1000;
-    if (r > 800) return 500;
-    if (r > 200) return 200;
-    return 100;
-  })();
-  const yMin = Math.floor(dataMin / niceStep) * niceStep;
-  const yMaxRaw = Math.ceil(dataMax / niceStep) * niceStep;
-  const yMax = yMaxRaw > yMin ? yMaxRaw : yMin + niceStep; // guarantee yMax > yMin
-  const ticks: number[] = [];
-  for (let v = yMin; v <= yMax; v += niceStep) ticks.push(v);
+  const ticks = buildYTicks(dataMin, dataMax, 5);
+  const yMin = ticks[0]!;
+  const yMax = ticks[ticks.length - 1]!;
+  const ySpan = yMax > yMin ? yMax - yMin : 1;
 
   const W = 460, H = 150;
   const padL = 44, padR = 8, padT = 8, padB = 22;
@@ -71,37 +116,39 @@ export function HeadcountCard({
   const iH = H - padT - padB;
 
   const cx = (i: number) => padL + (i / (pts.length - 1)) * iW;
-  const cy = (v: number) => padT + (1 - (v - yMin) / (yMax - yMin)) * iH;
+  const cy = (v: number) => padT + (1 - (v - yMin) / ySpan) * iH;
 
   const linePath = pts
     .map((v, i) => `${i ? "L" : "M"}${cx(i).toFixed(1)} ${cy(v).toFixed(1)}`)
     .join(" ");
   const areaPath = `${linePath} L${cx(pts.length - 1)} ${padT + iH} L${padL} ${padT + iH} Z`;
 
-  // Build x-axis labels from the filtered date strings
-  const autoXLabels: string[] = (() => {
-    if (!hasChart || pts.length < 5) return [];
-    // Build filtered dates aligned with filteredData
+  // X-axis: up to 5 ticks, placed at actual series indices (not fake even spacing)
+  const xAxisTicks: { i: number; label: string }[] = (() => {
+    if (!hasChart) return [];
     const filteredDates: string[] = [];
-    if (dates && dates.length === data.length) {
-      data.forEach((v, i) => {
-        if (!hasAnyNonZero || v > 0) filteredDates.push(dates[i]);
+    if (dates && dates.length === numericData.length) {
+      numericData.forEach((v, i) => {
+        if (!hasAnyNonZero || v > 0) filteredDates.push(dates[i]!);
       });
     }
     if (filteredDates.length < 2) return [];
     const n = filteredDates.length;
-    const indices = [0, Math.round(n * 0.25), Math.round(n * 0.5), Math.round(n * 0.75), n - 1];
-    const unique = indices.filter((v, i, arr) => arr.indexOf(v) === i);
-    return unique.map((idx) => {
-      try {
-        const d = new Date(filteredDates[idx]);
-        return `${d.toLocaleString("en-US", { month: "short" })} '${String(d.getFullYear()).slice(2)}`;
-      } catch { return ""; }
-    });
+    const rawIdx =
+      n <= 5
+        ? Array.from({ length: n }, (_, j) => j)
+        : [0, Math.round(n * 0.25), Math.round(n * 0.5), Math.round(n * 0.75), n - 1];
+    const uniqueIdx = rawIdx.filter((v, j, arr) => arr.indexOf(v) === j);
+    return uniqueIdx
+      .map((i) => ({ i, label: formatAxisMonthYear(filteredDates[i]!) }))
+      .filter((t) => t.label.length > 0);
   })();
 
+  /** Line stroke: blue-grey (ref), distinct from bright axis accent */
+  const lineStroke = "oklch(40% 0.06 258)";
+
   return (
-    <LinkPanel>
+    <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH
         right={yoyLabel ? <Delta value={yoyLabel} /> : undefined}
         showArrow={!yoyLabel}
@@ -109,7 +156,14 @@ export function HeadcountCard({
         LinkedIn employee count
       </LinkedH>
 
-      <div style={{ padding: "20px 18px 14px" }}>
+      <div
+        style={{
+          padding: "20px 18px 14px",
+          flex: 1,
+          minHeight: 0,
+          minWidth: 0,
+        }}
+      >
         {/* Headline count */}
         <div
           style={{
@@ -129,7 +183,7 @@ export function HeadcountCard({
 
         {/* SVG chart */}
         {hasChart && (
-          <div style={{ marginTop: 18 }}>
+          <div style={{ marginTop: 18, flexShrink: 0, minWidth: 0 }}>
             <svg
               viewBox={`0 0 ${W} ${H}`}
               width="100%"
@@ -138,7 +192,8 @@ export function HeadcountCard({
             >
               <defs>
                 <linearGradient id={`hcg-${id}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={T.azure} stopOpacity={0.18} />
+                  <stop offset="0%" stopColor={T.azure} stopOpacity={0.14} />
+                  <stop offset="55%" stopColor={T.azure} stopOpacity={0.05} />
                   <stop offset="100%" stopColor={T.azure} stopOpacity={0} />
                 </linearGradient>
               </defs>
@@ -155,14 +210,15 @@ export function HeadcountCard({
                       y2={yy}
                       stroke={T.hair}
                       strokeWidth={1}
+                      strokeDasharray="4 4"
                     />
                     <text
                       x={padL - 6}
                       y={yy + 3}
                       textAnchor="end"
-                      fontSize={9.5}
-                      fontFamily={T.mono}
-                      fill={T.faint}
+                      fontSize={10}
+                      fontFamily={T.sans}
+                      fill={T.muted}
                     >
                       {t.toLocaleString()}
                     </text>
@@ -170,26 +226,20 @@ export function HeadcountCard({
                 );
               })}
 
-              {/* X-axis labels */}
-              {autoXLabels.map((label, i) => {
-                const xx =
-                  autoXLabels.length > 1
-                    ? padL + (i / (autoXLabels.length - 1)) * iW
-                    : padL;
-                return (
-                  <text
-                    key={label}
-                    x={xx}
-                    y={H - 4}
-                    textAnchor="middle"
-                    fontSize={9.5}
-                    fontFamily={T.mono}
-                    fill={T.faint}
-                  >
-                    {label}
-                  </text>
-                );
-              })}
+              {/* X-axis labels — x = cx(i) so labels line up with the line chart */}
+              {xAxisTicks.map(({ i: xi, label }) => (
+                <text
+                  key={`${xi}-${label}`}
+                  x={cx(xi)}
+                  y={H - 4}
+                  textAnchor="middle"
+                  fontSize={10}
+                  fontFamily={T.sans}
+                  fill={T.muted}
+                >
+                  {label}
+                </text>
+              ))}
 
               {/* Area fill */}
               <path d={areaPath} fill={`url(#hcg-${id})`} />
@@ -198,8 +248,8 @@ export function HeadcountCard({
               <path
                 d={linePath}
                 fill="none"
-                stroke={T.azure}
-                strokeWidth={1.75}
+                stroke={lineStroke}
+                strokeWidth={2}
                 strokeLinejoin="round"
                 strokeLinecap="round"
               />
@@ -209,14 +259,14 @@ export function HeadcountCard({
                 cx={cx(pts.length - 1)}
                 cy={cy(pts[pts.length - 1])}
                 r={3.5}
-                fill={T.azure}
+                fill={lineStroke}
               />
               <circle
                 cx={cx(pts.length - 1)}
                 cy={cy(pts[pts.length - 1])}
                 r={6}
-                fill={T.azure}
-                fillOpacity={0.18}
+                fill={lineStroke}
+                fillOpacity={0.15}
               />
             </svg>
           </div>

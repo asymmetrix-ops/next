@@ -22,7 +22,8 @@ export function SubscriptionCard({
   gdr,
   upsell,
   newLogos,
-}: SubscriptionMetrics) {
+  fillGridCell = false,
+}: SubscriptionMetrics & { fillGridCell?: boolean }) {
   const rows: { k: string; v: React.ReactNode; mono?: boolean }[] = [
     {
       k: "Recurring rev",
@@ -60,9 +61,9 @@ export function SubscriptionCard({
   ];
 
   return (
-    <LinkPanel>
+    <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH>Subscription metrics</LinkedH>
-      <div style={{ padding: "8px 16px 14px" }}>
+      <div style={{ padding: "8px 16px 14px", flex: 1, minHeight: 0 }}>
         {rows.map((row, i) => (
           <MiniKV
             key={row.k}

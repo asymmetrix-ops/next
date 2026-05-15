@@ -4,10 +4,9 @@
  * Sector tags + key facts (ownership, lifecycle, HQ, raised, employees…).
  * Uses KV rows + TagRow pills from primitives, matching the V3 design token set.
  */
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { LinkPanel, LinkedH, KV, Delta, Pill, T } from "./primitives";
-import { EMPTY_DISPLAY, isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 
 export type OverviewSector = {
   name: string;
@@ -40,34 +39,31 @@ export type OverviewCardProps = {
   /** e.g. "3 years" or "< 1 year" — pass pre-formatted string */
   lastInvestment?: string | null;
   ticker?: string | null;
+  /** max sector tags shown before "+N" overflow */
+  maxSectors?: number;
   fillGridCell?: boolean;
 };
 
-const EM = EMPTY_DISPLAY;
-
-function faintDash() {
-  return <span style={{ color: T.faint }}>{EM}</span>;
-}
-
-function displayText(value: string | number | null | undefined): React.ReactNode {
-  if (value === null || value === undefined) return faintDash();
-  if (typeof value === "number") return String(value);
-  const normalized = normalizeEmptyDisplay(value);
-  return normalized === EM ? faintDash() : normalized;
-}
+const EM = "—";
 
 function SectorTags({
   sectors,
   tone,
+  max,
 }: {
   sectors: OverviewSector[];
   tone: "coral" | "lavender";
+  max: number;
 }) {
+  const [showAll, setShowAll] = useState(false);
   if (sectors.length === 0) return <span style={{ color: T.faint }}>{EM}</span>;
+
+  const visible = showAll ? sectors : sectors.slice(0, max);
+  const overflow = sectors.length - max;
 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
-      {sectors.map((s) =>
+      {visible.map((s) =>
         s.href ? (
           <Link key={s.name} href={s.href} prefetch={false} style={{ textDecoration: "none" }}>
             <Pill tone={tone}>{s.name}</Pill>
@@ -76,52 +72,31 @@ function SectorTags({
           <Pill key={s.name} tone={tone}>{s.name}</Pill>
         )
       )}
-    </div>
-  );
-}
-
-function TransactionStatusHighlight({ label }: { label: string }) {
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "auto 1fr",
-        columnGap: 4,
-        alignItems: "center",
-        backgroundColor: "#ffffff",
-        border: "1px solid #bfdbfe",
-        borderRadius: 12,
-        boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.10)",
-        padding: "8px 8px",
-        margin: "8px 0 10px",
-      }}
-    >
-      <span
-        style={{
-          fontSize: 13,
-          color: T.muted,
-          fontWeight: 400,
-          whiteSpace: "nowrap",
-        }}
-      >
-        Transaction Status:
-      </span>
-      <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
-        <span
-          className="transaction-status-pill"
+      {!showAll && overflow > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
           style={{
-            backgroundColor: "#dcfce7",
-            color: "#166534",
-            border: "1.5px solid #4ade80",
-            borderRadius: "999px",
-            fontSize: 13,
-            fontWeight: 500,
-            padding: "5px 10px",
+            background: "none", border: "none", padding: 0,
+            cursor: "pointer", fontFamily: T.sans,
           }}
         >
-          {label}
-        </span>
-      </div>
+          <Pill tone="ghost">+{overflow}</Pill>
+        </button>
+      )}
+      {showAll && overflow > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAll(false)}
+          style={{
+            background: "none", border: "none",
+            color: T.azure, cursor: "pointer",
+            fontSize: 11.5, fontFamily: T.sans, padding: 0,
+          }}
+        >
+          Show less
+        </button>
+      )}
     </div>
   );
 }
@@ -157,26 +132,34 @@ export function OverviewCard({
   investorsLoading,
   lastInvestment,
   ticker,
+  maxSectors = 3,
   fillGridCell = false,
 }: OverviewCardProps) {
   const hasParent = Boolean(parentCompany?.name);
 
   const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
     {
+      k: "Transaction status",
+      show: Boolean(transactionStatus),
+      v: (
+        <Pill tone="up">{transactionStatus}</Pill>
+      ),
+    },
+    {
       k: "Primary sector(s)",
       v: (
-        <SectorTags sectors={primarySectors} tone="coral" />
+        <SectorTags sectors={primarySectors} tone="coral" max={maxSectors} />
       ),
     },
     {
       k: "Secondary sector(s)",
       v: (
-        <SectorTags sectors={secondarySectors} tone="lavender" />
+        <SectorTags sectors={secondarySectors} tone="lavender" max={maxSectors} />
       ),
     },
     {
       k: "Year founded",
-      v: displayText(yearFounded),
+      v: yearFounded ?? <span style={{ color: T.faint }}>{EM}</span>,
     },
     {
       k: "Website",
@@ -195,21 +178,20 @@ export function OverviewCard({
     },
     {
       k: "Ownership",
-      v: displayText(ownership),
+      v: ownership?.trim() || <span style={{ color: T.faint }}>{EM}</span>,
     },
-    { k: "HQ", v: displayText(hq) },
+    { k: "HQ", v: hq?.trim() || <span style={{ color: T.faint }}>{EM}</span> },
     {
       k: "Lifecycle stage",
-      v: displayText(lifecycle),
+      v: lifecycle?.trim() || <span style={{ color: T.faint }}>{EM}</span>,
     },
     {
       k: "Total amount raised",
-      v:
-        totalAmountRaised && !isEmptyDisplayValue(totalAmountRaised) ? (
-          <span style={{ fontFamily: T.mono }}>{normalizeEmptyDisplay(totalAmountRaised)}</span>
-        ) : (
-          faintDash()
-        ),
+      v: totalAmountRaised ? (
+        <span style={{ fontFamily: T.mono }}>{totalAmountRaised}</span>
+      ) : (
+        <span style={{ color: T.faint }}>{EM}</span>
+      ),
     },
     {
       k: "Employees",
@@ -236,7 +218,7 @@ export function OverviewCard({
       show: hasParent,
       v: parentCompany ? (
         parentCompany.id ? (
-          <Link href={`/company/${parentCompany.id}`} prefetch={false} style={{ textDecoration: "none" }}>
+          <Link href={`/new_company/${parentCompany.id}`} prefetch={false} style={{ textDecoration: "none" }}>
             <Pill tone="neutral">{parentCompany.name}</Pill>
           </Link>
         ) : (
@@ -254,11 +236,9 @@ export function OverviewCard({
       ),
     },
     {
-      k: "Time since last investment",
+      k: "Yrs since last inv.",
       show: !hasParent,
-      v: lastInvestment && !isEmptyDisplayValue(lastInvestment)
-        ? lastInvestment
-        : faintDash(),
+      v: lastInvestment ?? <span style={{ color: T.faint }}>{EM}</span>,
     },
   ];
 
@@ -267,17 +247,7 @@ export function OverviewCard({
   return (
     <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH right={ticker ? undefined : undefined}>Overview</LinkedH>
-      <div
-        style={{
-          padding: "2px 14px 8px",
-          ...(fillGridCell
-            ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "flex-start" }
-            : {}),
-        }}
-      >
-        {transactionStatus ? (
-          <TransactionStatusHighlight label={transactionStatus} />
-        ) : null}
+      <div style={{ padding: "4px 16px 10px" }}>
         {visible.map((row, i) => (
           <KV
             key={row.k}

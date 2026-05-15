@@ -33,6 +33,9 @@ export const T = {
   rLg:          10,
   sans:         '"Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
   mono:         '"Geist Mono", ui-monospace, "SF Mono", Menlo, monospace',
+  /** Card hover — blue highlight without heavy inset ring */
+  cardHoverBorder: "oklch(58% 0.16 258 / 0.42)",
+  cardHoverShadow: "0 8px 28px oklch(54% 0.18 258 / 0.14)",
 } as const;
 
 // ── Pill ────────────────────────────────────────────────────────────────────
@@ -142,29 +145,69 @@ export function LinkedH({
 export function LinkPanel({
   children,
   style,
+  /** Fill grid row height (flex column). */
+  fillGridCell = false,
+  className,
 }: {
   children: React.ReactNode;
   style?: React.CSSProperties;
+  fillGridCell?: boolean;
+  className?: string;
 }) {
   const [hover, setHover] = React.useState(false);
   return (
     <div
+      className={className}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
         background: T.panel,
-        border: `1px solid ${hover ? "oklch(82% 0.07 258)" : T.divider}`,
+        border: `1px solid ${hover ? T.cardHoverBorder : T.divider}`,
         borderRadius: T.rLg,
         overflow: "hidden",
-        boxShadow: hover ? "0 4px 20px rgba(35,80,200,0.06)" : "none",
-        transition: "box-shadow 160ms, border-color 160ms, transform 160ms",
-        transform: hover ? "translateY(-1px)" : "translateY(0)",
+        boxShadow: hover ? T.cardHoverShadow : "none",
+        transition: "box-shadow 160ms ease, border-color 160ms ease",
+        zIndex: hover ? 1 : "auto",
         width: "100%",
         minWidth: 0,
+        ...(fillGridCell
+          ? {
+              height: "100%",
+              display: "flex" as const,
+              flexDirection: "column" as const,
+              minHeight: 0,
+            }
+          : {}),
         ...style,
       }}
     >
       {children}
+    </div>
+  );
+}
+
+// ── PctBar — inline bar for product-type rows (redesign _helpers) ──────────
+export function PctBar({ pct, color }: { pct: number; color: string }) {
+  const w = Math.min(100, Math.max(0, pct));
+  return (
+    <div
+      style={{
+        height: 6,
+        background: T.inset,
+        borderRadius: 3,
+        overflow: "hidden",
+        width: 90,
+        flexShrink: 0,
+      }}
+    >
+      <div
+        style={{
+          width: `${w}%`,
+          height: "100%",
+          background: color,
+          borderRadius: 3,
+        }}
+      />
     </div>
   );
 }
@@ -271,6 +314,45 @@ export function TagRow({
   );
 }
 
+// ── KV — overview-style key / value row ─────────────────────────────────────
+export function KV({
+  k,
+  v,
+  mono = false,
+  last = false,
+}: {
+  k: string;
+  v: React.ReactNode;
+  mono?: boolean;
+  last?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "120px 1fr",
+        gap: 10,
+        padding: "5px 0",
+        borderBottom: last ? "none" : `1px solid ${T.hair}`,
+        fontSize: 12.5,
+        alignItems: "start",
+      }}
+    >
+      <div style={{ color: T.muted, fontFamily: T.sans, paddingTop: 1 }}>{k}</div>
+      <div
+        style={{
+          color: T.body,
+          fontFamily: mono ? T.mono : T.sans,
+          fontVariantNumeric: "tabular-nums",
+          lineHeight: 1.5,
+        }}
+      >
+        {v}
+      </div>
+    </div>
+  );
+}
+
 // ── WeightChip ───────────────────────────────────────────────────────────────
 export function WeightChip({
   weight,
@@ -279,7 +361,23 @@ export function WeightChip({
   weight: string;
   hideMinor?: boolean;
 }) {
-  if (weight === "Main") return <Pill tone="azure">Main</Pill>;
-  if (hideMinor) return null;
-  return <Pill tone="ghost">Minor</Pill>;
+  const w = weight.trim();
+  const key = w.toLowerCase();
+  if (key === "main" || key === "primary")
+    return <Pill tone="azure">{w ? titleCaseWeight(w) : "Main"}</Pill>;
+  if (key === "secondary")
+    return <Pill tone="lavender">{w ? titleCaseWeight(w) : "Secondary"}</Pill>;
+  if (key === "minor") {
+    if (hideMinor) return null;
+    return <Pill tone="ghost">Minor</Pill>;
+  }
+  if (!w) return hideMinor ? null : <span style={{ color: T.faint }}>—</span>;
+  return <Pill tone="ghost">{w}</Pill>;
+}
+
+function titleCaseWeight(s: string) {
+  return s
+    .split(/\s+/)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+    .join(" ");
 }

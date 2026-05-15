@@ -13,6 +13,14 @@ import { ManagementProfilePanel } from "@/components/company/ManagementProfilePa
 import { ManagementCard } from "@/components/redesign/ManagementCard";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { SubscriptionCard } from "@/components/redesign/SubscriptionCard";
+import { OverviewCard } from "@/components/redesign/OverviewCard";
+import { RevenueModelCard } from "@/components/redesign/RevenueModelCard";
+import { InsightsCard } from "@/components/redesign/InsightsCard";
+import { DescriptionCard } from "@/components/redesign/DescriptionCard";
+import { ProductDataToggleCard } from "@/components/redesign/ProductDataToggleCard";
+import type { ProductMixTab } from "@/components/redesign/ProductDataToggleCard";
+import { ProductUsersListCard } from "@/components/redesign/ProductUsersListCard";
+import { LinkPanel } from "@/components/redesign/primitives";
 import {
   LineChart,
   Line,
@@ -28,7 +36,6 @@ const FINANCIAL_SERVICES_FOCUS_ID = 74;
 const FINANCIAL_METRICS_EXPORT_SOURCE = "contribution_email";
 
 type CompanyPdfExportType = "profile" | "financial_metrics";
-type ProductMixTab = "product_type" | "data_collection" | "revenue_model";
 
 // Types for API integration
 interface CompanyLocation {
@@ -392,6 +399,8 @@ interface Company {
   EBITDA: CompanyEBITDA;
   ev_data: CompanyEV;
   _companies_employees_count_monthly: EmployeeCount[];
+  /** Root-level headcount history from Get_new_company (fallback when monthly array is empty) */
+  employees_deduped?: EmployeeCount[];
   Lifecycle_stage: LifecycleStage;
   // Optional list of former names from API
   Former_name?: string[];
@@ -475,6 +484,8 @@ interface CompanyResponse {
   new_sectors_data?: Array<{
     sectors_payload?: string | unknown;
   }>;
+  /** Headcount history at API root (Get_new_company) */
+  employees_deduped?: EmployeeCount[];
   Managmant_Roles_current?: Array<{
     id: number;
     Individual_text: string;
@@ -569,8 +580,7 @@ const INSIGHTS_EMPTY_STATE_DEMO_TOTAL = 17;
 
 const EM_DASH = "\u2014";
 
-/** En dash for numeric ranges, e.g. 1–2 */
-const RANGE_DASH = "\u2013";
+// RANGE_DASH moved to InsightsCard component
 
 /** V3 template-style fallbacks for Product type / Data collection mix card */
 const PRODUCT_MIX_DEMO_ROWS: { label: string; pct: number }[] = [
@@ -609,17 +619,7 @@ const PRODUCT_USERS_DEMO: string[] = [
   "Financial Advisors & Wealth Managers",
 ];
 
-function formatInsightBadgeLabel(raw: string): string {
-  const s = raw.trim();
-  if (!s) return "";
-  return s
-    .split(/\s+/)
-    .map(
-      (w) =>
-        w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
-    )
-    .join(" ");
-}
+// formatInsightBadgeLabel moved to InsightsCard component
 
 function formatWebsiteDisplayLabel(raw: string): string {
   const trimmed = raw.trim();
@@ -741,24 +741,6 @@ function parsePercentToken(value: string): number | null {
   const n = getNumeric(trimmed.replace(/%/g, ""));
   if (n !== undefined && n <= 100 && n >= 0) return n;
   return null;
-}
-
-function predominanceBarWidth(
-  text: string,
-  index: number,
-  total: number
-): number {
-  const p = parsePercentToken(text);
-  if (p !== null) return p;
-  const t = text.toLowerCase();
-  if (/\bonly\b|exclusive|primary|sole/.test(t)) return 92;
-  if (/high|predominant|mostly|dominant/.test(t)) return 72;
-  if (/medium|mixed|moderate/.test(t)) return 48;
-  if (/low|minor|small/.test(t)) return 28;
-  return Math.max(
-    18,
-    Math.min(88, Math.round(100 / Math.max(1, total)) + index * 8)
-  );
 }
 
 // Map Xano source codes to human-readable labels (best-known mapping)
@@ -1142,10 +1124,14 @@ function V3TabbedFinanceCard({
         overflow: "hidden",
         width: "100%",
         boxSizing: "border-box",
+        flex: 1,
+        minHeight: 0,
+        display: "flex",
+        flexDirection: "column",
       }}
       className="v3-finance-tabbed-card"
     >
-      <div style={{ borderBottom: `1px solid ${tokens.hair}` }}>
+      <div style={{ borderBottom: `1px solid ${tokens.hair}`, flexShrink: 0 }}>
         <div
           style={{
             display: "flex",
@@ -1212,7 +1198,17 @@ function V3TabbedFinanceCard({
           </span>
         </div>
       </div>
-      <div style={{ padding: "14px 16px", ...bodyStyle }}>{children}</div>
+      <div
+        style={{
+          padding: "14px 16px",
+          ...bodyStyle,
+          flex: 1,
+          minHeight: 0,
+          overflow: "auto",
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -1710,6 +1706,14 @@ const CompanyDetail = () => {
             (data as unknown as { Lifecycle_stage?: LifecycleStage })
               .Lifecycle_stage ||
             undefined,
+          employees_deduped:
+            (data as unknown as { employees_deduped?: EmployeeCount[] })
+              .employees_deduped ??
+            (
+              data.Company as unknown as {
+                employees_deduped?: EmployeeCount[];
+              }
+            )?.employees_deduped,
         };
 
         // Parse optional ebitda_data with display strings
@@ -2380,8 +2384,11 @@ const CompanyDetail = () => {
         typeof row.ebitda === "number"
     );
 
-  // Process employee data
-  const employeeData = company._companies_employees_count_monthly || [];
+  // Process employee data (monthly in Company, or root-level employees_deduped)
+  const fromMonthly = company._companies_employees_count_monthly || [];
+  const fromDeduped = company.employees_deduped || [];
+  const employeeData =
+    fromMonthly.length > 0 ? fromMonthly : fromDeduped;
   const currentEmployeeCount =
     employeeData.length > 0
       ? employeeData[employeeData.length - 1].employees_count
@@ -2877,12 +2884,12 @@ const CompanyDetail = () => {
     },
     responsiveGrid: {
       display: "grid",
-      gridTemplateColumns: "minmax(0, 1fr) 440px",
-      gap: "18px",
+      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+      gap: "16px",
       flex: "1",
       maxWidth: "100%",
       overflow: "hidden",
-      alignItems: "start",
+      alignItems: "stretch",
     },
     "@media (max-width: 768px)": {
       responsiveGrid: {
@@ -3046,61 +3053,79 @@ const CompanyDetail = () => {
           color: mixBarColors[i % mixBarColors.length],
         }));
 
-  const dataCollectionBarRows =
+  const productDataToggleDataRows =
     dataCollectionMethodRows.length > 0
-      ? dataCollectionMethodRows.map((row, i) => {
-          const parsed = parsePercentToken(row.value);
-          const pct = Math.min(
-            100,
-            Math.max(
-              0,
-              parsed ??
-                predominanceBarWidth(
-                  row.value,
-                  i,
-                  dataCollectionMethodRows.length
-                )
-            )
-          );
-          const displayRight =
-            parsed !== null ? `${Math.round(parsed)}%` : row.value;
-          return {
-            label: row.label,
-            pct,
-            displayRight,
-            color: mixBarColors[i % mixBarColors.length],
-          };
-        })
-      : DATA_COLLECTION_MIX_DEMO.map((r, i) => ({
+      ? dataCollectionMethodRows
+      : DATA_COLLECTION_MIX_DEMO.map((r) => ({
           label: r.label,
-          pct: r.pct,
-          displayRight: r.displayRight,
-          color: mixBarColors[i % mixBarColors.length],
+          value: r.displayRight,
         }));
-
-  const revenueModelBarRows = revenueModelRows.map((row, i) => {
-    const parsed = parsePercentToken(row.value);
-    const pct = Math.min(
-      100,
-      Math.max(
-        0,
-        parsed ?? predominanceBarWidth(row.value, i, revenueModelRows.length)
-      )
-    );
-    const displayRight = parsed !== null ? `${Math.round(parsed)}%` : row.value;
-    return {
-      label: row.label,
-      pct,
-      displayRight,
-      color: mixBarColors[i % mixBarColors.length],
-    };
-  });
 
   const responsiveCss = `
     .company-detail-page { overflow-x: hidden; }
-    .responsiveGrid { display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 18px; max-width: 100%; align-items: start; }
-    .responsiveGrid > * { min-width: 0; }
-    .card { background: ${T.panel}; border-radius: ${T.rLg}px; min-width: 0; border: 1px solid ${T.divider}; }
+    .responsiveGrid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      max-width: 100%;
+      align-items: stretch;
+    }
+    .responsiveGrid > * { min-width: 0; min-height: 0; }
+    .company-grid-overview { grid-column: 1; grid-row: 1; min-height: 0; align-self: stretch; }
+    .company-grid-description { grid-column: 2; grid-row: 1; min-height: 0; align-self: stretch; }
+    .company-grid-finance {
+      grid-column: 3;
+      grid-row: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-self: stretch;
+    }
+    .company-grid-insights { grid-column: 1 / span 2; grid-row: 2; min-height: 0; align-self: stretch; }
+    .company-grid-subscription { grid-column: 3; grid-row: 2; min-width: 0; min-height: 0; align-self: stretch; }
+    .company-grid-product-mix { grid-column: 1; grid-row: 3; min-width: 0; min-height: 0; align-self: stretch; }
+    .company-grid-product-users { grid-column: 2; grid-row: 3; min-width: 0; min-height: 0; align-self: stretch; }
+    .company-grid-revenue-model { grid-column: 3; grid-row: 3; min-width: 0; min-height: 0; align-self: stretch; }
+    .company-grid-bottom {
+      grid-column: 1 / span 3;
+      grid-row: 4;
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+      grid-template-rows: auto auto;
+      gap: 16px;
+      min-width: 0;
+      min-height: 0;
+      align-items: stretch;
+    }
+    .company-grid-bottom-cell {
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .company-grid-bottom-cell > * {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .card {
+      background: ${T.panel};
+      border-radius: ${T.rLg}px;
+      min-width: 0;
+      border: 1px solid ${T.divider};
+      transition: box-shadow 160ms ease, border-color 160ms ease;
+    }
+    .card:hover,
+    .v3-finance-tabbed-card:hover,
+    .management-v3-card:hover {
+      border-color: oklch(58% 0.16 258 / 0.42);
+      box-shadow: 0 8px 28px oklch(54% 0.18 258 / 0.14);
+      z-index: 1;
+    }
+    .v3-finance-tabbed-card,
+    .management-v3-card {
+      transition: box-shadow 160ms ease, border-color 160ms ease;
+    }
     /* insights-summary-card grid-column set via inline style */
     .transaction-status-pill {
       display: inline-flex;
@@ -3110,8 +3135,7 @@ const CompanyDetail = () => {
       white-space: nowrap;
       max-width: 100%;
     }
-    .overview-card .info-row { grid-template-columns: 120px 1fr !important; }
-    .overview-card .info-label { width: auto !important; }
+    /* overview-card now uses OverviewCard component — legacy overrides removed */
     /* Hover tooltips for metric values using title attribute */
     .desktop-financial-metrics span[title],
     .mobile-financial-metrics span[title] {
@@ -3191,7 +3215,31 @@ const CompanyDetail = () => {
         gap: 12px !important;
       }
       .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
-      .insights-summary-card { grid-column: 1 / -1 !important; }
+      .company-grid-overview,
+      .company-grid-description,
+      .company-grid-finance,
+      .company-grid-insights,
+      .company-grid-subscription,
+      .company-grid-product-mix,
+      .company-grid-product-users,
+      .company-grid-revenue-model,
+      .company-grid-bottom {
+        grid-column: 1 / -1 !important;
+        grid-row: auto !important;
+        align-self: stretch !important;
+      }
+      .company-grid-bottom {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+      }
+      .company-grid-bottom-cell {
+        width: 100% !important;
+        flex: none !important;
+      }
+      .company-grid-bottom-cell > * {
+        flex: none !important;
+      }
       .desktop-financial-metrics { display: none !important; }
       .mobile-financial-metrics { display: block !important; }
       .desktop-linkedin-section { display: none !important; }
@@ -3200,8 +3248,6 @@ const CompanyDetail = () => {
       .overview-card .info-value { font-size: 13px !important; line-height: 1.35 !important; display: block !important; margin-left: 0 !important; word-break: break-word !important; overflow-wrap: break-word !important; }
       .overview-card { padding: 14px 8px !important; }
       .overview-grid { grid-template-columns: 1fr !important; }
-      .overview-description { order: 2; margin-top: 16px !important; }
-      .overview-fields { order: 1; }
       .product-mix-users-row { grid-template-columns: 1fr !important; gap: 12px !important; }
     }
   `;
@@ -3384,19 +3430,67 @@ const CompanyDetail = () => {
         <div className="company-detail-content" style={styles.maxWidth}>
           {/* Desktop grid */}
           <div style={styles.responsiveGrid} className="responsiveGrid">
-            {/* ══ LEFT COLUMN ══ */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px", minWidth: 0 }}>
 
-            {/* Row 1: Overview + Description side by side */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-
-            {/* ── Overview card ── */}
-            <div style={{ ...styles.card, alignSelf: "start" }} className="card overview-card">
-              <div style={styles.cardHeader}>
-                <span style={styles.cardHeaderTitle}>Overview</span>
-                <span style={styles.cardArrow}>→</span>
-              </div>
-              <div style={{ padding: "4px 16px 12px" }} className="overview-fields">
+            {/* ── Overview card (grid row 1, col 1) ── */}
+            <div
+              style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}
+              className="overview-card company-grid-overview"
+            >
+              <OverviewCard
+                fillGridCell
+                transactionStatus={transactionStatusDisplayLabel}
+                primarySectors={augmentedPrimarySectors
+                  .filter((s) => s?.sector_name)
+                  .map((s) => ({
+                    name: s.sector_name!,
+                    href: getSectorId(s) ? `/sector/${getSectorId(s)}` : undefined,
+                  }))}
+                secondarySectors={secondarySectors
+                  .filter((s) => s?.sector_name)
+                  .map((s) => ({
+                    name: s.sector_name!,
+                    href: getSectorId(s) ? `/sub-sector/${getSectorId(s)}` : undefined,
+                  }))}
+                yearFounded={getYearFoundedDisplay(company)}
+                website={company.url}
+                websiteLabel={company.url?.trim() ? formatWebsiteDisplayLabel(company.url) : undefined}
+                ownership={company._ownership_type?.ownership}
+                hq={fullAddress}
+                lifecycle={company.Lifecycle_stage?.Lifecycle_Stage}
+                totalAmountRaised={totalAmountRaisedDisplay ?? undefined}
+                employees={overviewHeadcount}
+                employeesYoY={overviewEmployeesYoY ?? undefined}
+                ticker={tickerDisplay ?? undefined}
+                parentCompany={
+                  haveParentCompany && company.have_parent_company?.Parant_companies?.[0]
+                    ? {
+                        id: company.have_parent_company.Parant_companies[0].id,
+                        name: (company.have_parent_company.Parant_companies[0].name || "").trim(),
+                      }
+                    : null
+                }
+                investors={
+                  !haveParentCompany && apiInvestors.length > 0
+                    ? apiInvestors
+                        .filter(
+                          (inv) =>
+                            inv &&
+                            typeof inv.investor_id === "number" &&
+                            inv.investor_name
+                        )
+                        .map((inv) => ({ id: inv.investor_id!, name: inv.investor_name! }))
+                    : []
+                }
+                investorsLoading={!haveParentCompany && apiInvestorsLoading}
+                lastInvestment={
+                  !haveParentCompany
+                    ? formatLastInvestmentDisplay(company.last_investment)
+                    : undefined
+                }
+                maxSectors={OVERVIEW_TAG_CAP}
+              />
+            {/* legacy invisible wrappers closed below */}
+            <div style={{ display: "none" }} className="overview-fields">
               {transactionStatusLabel && (
                 <div style={{ ...styles.infoRow, gridTemplateColumns: "auto 1fr" }} className="info-row">
                   <span style={styles.label} className="info-label">Transaction status</span>
@@ -3767,704 +3861,188 @@ const CompanyDetail = () => {
                   </div>
                 </>
               )}
-              </div>{/* end overview-fields padding */}
-            </div>{/* end overview card */}
+              </div>{/* end legacy hidden content */}
+            </div>{/* end overview card wrapper */}
 
-            {/* ── Description card ── */}
-            <div style={{ ...styles.card, alignSelf: "start" }} className="overview-description">
-              <div style={styles.cardHeader}>
-                <span style={styles.cardHeaderTitle}>Description</span>
-                <span style={styles.cardArrow}>→</span>
-                    </div>
-              <div style={{ padding: "14px 16px 16px" }}>
-                    <div>
-                    <div
-                      ref={descriptionRef}
-                      style={{
-                        fontSize: "13.5px",
-                        color: T.body,
-                        lineHeight: "1.65",
-                        textAlign: "justify" as const,
-                        overflow: "hidden",
-                        display: isDescriptionExpanded ? "block" : "-webkit-box",
-                        WebkitBoxOrient: "vertical",
-                        WebkitLineClamp: isDescriptionExpanded ? "unset" : 8,
-                      }}
-                    >
-                      {company.description?.trim() ? company.description.trim() : EM_DASH}
-                    </div>
-                    {isDescriptionExpandable && (
-                      <button
-                        onClick={() => setIsDescriptionExpanded((expanded) => !expanded)}
-                        style={{
-                          marginTop: "10px", padding: 0, border: "none",
-                          background: "none", color: T.azure,
-                          fontSize: "12.5px", fontWeight: 500, cursor: "pointer",
-                        }}
-                      >
-                        {isDescriptionExpanded ? "Show less" : "Expand →"}
-                      </button>
-                    )}
-                  </div>
-
-                  {/* attribute sections moved to dedicated row below */}
-                </div>
-              </div>
-
-            </div>{/* end Row 1: Overview + Description sub-grid */}
-
-            {/* ── Row 2: Insights card ── */}
-            <div
-              style={{ ...styles.card }}
-              className="card insights-summary-card"
-            >
-              <div style={styles.cardHeader}>
-                <span style={styles.cardHeaderTitle}>
-                  Recent insights &amp; analysis
-                </span>
-                <span
-                      style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    color: T.muted,
-                    fontSize: "12.5px",
-                  }}
-                >
-                  {articlesLoading
-                    ? "\u2026"
-                    : insightTotalCount === 0
-                      ? `${Math.min(INSIGHTS_PREVIEW_COUNT, INSIGHTS_EMPTY_STATE_DEMO_TOTAL)} of ${INSIGHTS_EMPTY_STATE_DEMO_TOTAL}`
-                      : `${Math.min(
-                          INSIGHTS_PREVIEW_COUNT,
-                          insightTotalCount - insightsPageOffset
-                        )} of ${insightTotalCount}`}
-                  <span style={styles.cardArrow}>→</span>
-                </span>
-              </div>
-              <div>
-                {articlesLoading ? (
-                  [1, 2].map((item) => (
-                    <div
-                      key={`insight-loading-${item}`}
-                        style={{
-                        display: "grid",
-                        gridTemplateColumns: "150px 1fr",
-                        gap: "12px",
-                        padding: "16px 18px",
-                        borderBottom: `1px solid ${T.hair}`,
-                      }}
-                    >
-                            <div
-                              style={{
-                          height: "18px",
-                          backgroundColor: T.inset,
-                          borderRadius: "4px",
-                        }}
-                      />
-                      <div
-                        style={{
-                          height: "36px",
-                          backgroundColor: T.inset,
-                          borderRadius: "4px",
-                        }}
-                      />
-                            </div>
-                  ))
-                ) : insightTotalCount === 0 ? (
-                  <>
-                    {[
-                      {
-                        badge: "Company Update",
-                        badgeStyle: {
-                          backgroundColor: T.coralSoft,
-                          color: T.coral,
-                        },
-                        date: "Apr 10, 2026",
-                        body: "Morningstar reports strong Q1 driven by PitchBook and Indexes; management flagged accelerating demand for private-markets data and a disciplined approach to GenAI-driven research automation.",
-                      },
-                      {
-                        badge: "Sector Analysis",
-                        badgeStyle: {
-                          backgroundColor: T.azureSoft,
-                          color: T.azure,
-                        },
-                        date: "Mar 22, 2026",
-                        body: "Private markets data vendors trade at premium multiples; Morningstar is increasingly viewed as a private-markets pure-play proxy via its PitchBook segment.",
-                      },
-                    ].map((row, idx) => (
-                      <div
-                        key={`insight-placeholder-${idx}`}
-                                style={{
-                          display: "grid",
-                          gridTemplateColumns: "150px 1fr",
-                          gap: "12px",
-                          padding: "16px 18px",
-                          borderBottom: `1px solid ${T.hair}`,
-                        }}
-                      >
-                        <div>
-                          <span
-                                        style={{
-                              ...row.badgeStyle,
-                              display: "inline-flex",
-                              alignItems: "center",
-                              borderRadius: "4px",
-                              fontSize: "11.5px",
-                              fontWeight: 500,
-                              lineHeight: 1.5,
-                              padding: "2px 8px",
-                            }}
-                          >
-                            {row.badge}
-                          </span>
-                          <div
-                                        style={{
-                              color: T.muted,
-                              fontFamily: T.mono,
-                              fontSize: "12px",
-                              marginTop: "9px",
-                            }}
-                          >
-                            {row.date}
-                            </div>
-                          </div>
-                        <div>
-                          <div
-                      style={{
-                              color: T.body,
-                              fontSize: "13.5px",
-                              lineHeight: 1.55,
-                            }}
-                          >
-                            {row.body}
-                      </div>
-                      <div
-                        style={{
-                              color: T.azure,
-                              fontSize: "12.5px",
-                              fontWeight: 500,
-                              marginTop: "8px",
-                              opacity: 0.45,
-                            }}
-                          >
-                            Open report →
-                              </div>
-                          </div>
-                            </div>
-                    ))}
-                  </>
-                ) : (
-                  insightVisibleSlice.map((article) => {
-                                const contentType = (article.Content_Type || "")
-                                  .toLowerCase()
-                                  .trim();
-                                const badgeStyle =
-                      contentType === "company analysis" ||
-                      contentType === "company update"
-                        ? { backgroundColor: T.coralSoft, color: T.coral }
-                        : contentType === "sector analysis"
-                                    ? {
-                              backgroundColor: T.azureSoft,
-                              color: T.azure,
-                                      }
-                                    : contentType === "deal analysis"
-                                    ? {
-                                backgroundColor: T.emeraldSoft,
-                                color: T.emerald,
-                              }
-                            : {
-                                backgroundColor: T.inset,
-                                color: T.muted,
-                              };
-                                const dateLabel = (() => {
-                                  if (!article.Publication_Date) return "";
-                                  try {
-                                    return new Date(
-                                      article.Publication_Date
-                                    ).toLocaleDateString("en-US", {
-                          month: "short",
-                                      day: "numeric",
-                          year: "numeric",
-                                    });
-                                  } catch {
-                                    return "";
-                                  }
-                                })();
-                    const typeLabel = article.Content_Type?.trim()
-                      ? formatInsightBadgeLabel(article.Content_Type.trim())
-                      : "Sector Analysis";
-
-                                return (
-                      <Link
-                                    key={article.id}
-                                    href={`/article/${article.id}`}
-                        prefetch={false}
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "150px 1fr",
-                          gap: "12px",
-                          padding: "16px 18px",
-                          borderBottom: `1px solid ${T.hair}`,
-                          color: "inherit",
-                          textDecoration: "none",
-                        }}
-                      >
-                        <div>
-                                        <span
-                            style={{
-                              ...badgeStyle,
-                              display: "inline-flex",
-                              alignItems: "center",
-                              borderRadius: "4px",
-                              fontSize: "11.5px",
-                              fontWeight: 500,
-                              lineHeight: 1.5,
-                              padding: "2px 8px",
-                            }}
-                          >
-                            {typeLabel}
-                                        </span>
-                          {dateLabel ? (
-                            <div
-                              style={{
-                                color: T.muted,
-                                fontFamily: T.mono,
-                                fontSize: "12px",
-                                marginTop: "9px",
-                              }}
-                            >
-                              {dateLabel}
-                            </div>
-                          ) : (
-                            <div
-                              style={{
-                                color: T.muted,
-                                fontFamily: T.mono,
-                                fontSize: "12px",
-                                marginTop: "9px",
-                              }}
-                            >
-                              {EM_DASH}
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <div
-                            style={{
-                              color: T.body,
-                              fontSize: "13.5px",
-                              lineHeight: 1.55,
-                            }}
-                          >
-                            {[
-                              article.Headline?.trim(),
-                              article.Strapline?.trim(),
-                            ]
-                              .filter(Boolean)
-                              .join(" ") || EM_DASH}
-                          </div>
-                          <div
-                            style={{
-                              color: T.azure,
-                              fontSize: "12.5px",
-                              fontWeight: 500,
-                              marginTop: "8px",
-                            }}
-                          >
-                            Open report →
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })
-                )}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "12px 18px",
-                  color: T.muted,
-                  fontSize: "12.5px",
-                  borderTop: `1px solid ${T.hair}`,
-                }}
-              >
-                                        <span
-                                          style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "10px",
-                  }}
-                >
-                  <button
-                    type="button"
-                    disabled={!canInsightPrev}
-                    onClick={() =>
-                      setInsightsPageOffset((o) =>
-                        Math.max(0, o - INSIGHTS_PREVIEW_COUNT)
-                      )
-                    }
-                    aria-label="Previous insights"
-                    style={{
-                      border: `1px solid ${T.hair}`,
-                      background: T.panel,
-                      borderRadius: "6px",
-                      padding: "2px 10px",
-                      cursor: canInsightPrev ? "pointer" : "default",
-                      opacity: canInsightPrev ? 1 : 0.35,
-                      color: T.body,
-                      fontSize: "14px",
-                      lineHeight: 1,
-                    }}
-                  >
-                    ‹
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!canInsightNext}
-                    onClick={() =>
-                      setInsightsPageOffset((o) => {
-                        const maxStart = Math.max(
-                          0,
-                          insightTotalCount - INSIGHTS_PREVIEW_COUNT
-                        );
-                        return Math.min(maxStart, o + INSIGHTS_PREVIEW_COUNT);
-                      })
-                    }
-                    aria-label="Next insights"
-                    style={{
-                      border: `1px solid ${T.hair}`,
-                      background: T.panel,
-                      borderRadius: "6px",
-                      padding: "2px 10px",
-                      cursor: canInsightNext ? "pointer" : "default",
-                      opacity: canInsightNext ? 1 : 0.35,
-                      color: T.body,
-                      fontSize: "14px",
-                      lineHeight: 1,
-                    }}
-                  >
-                    ›
-                  </button>
-                  <span>
-                    {articlesLoading
-                      ? EM_DASH
-                      : insightTotalCount === 0
-                        ? `Showing 1${RANGE_DASH}2 of ${INSIGHTS_EMPTY_STATE_DEMO_TOTAL}`
-                        : `Showing ${insightsPageOffset + 1}${RANGE_DASH}${insightRangeEnd} of ${insightTotalCount}`}
-                  </span>
-                </span>
-                <Link
-                  href="/insights-analysis"
-                  prefetch={false}
-                  style={{
-                    color: T.azure,
-                    textDecoration: "none",
-                    fontWeight: 500,
-                  }}
-                >
-                  {articlesLoading
-                    ? `Browse all ${EM_DASH} →`
-                    : insightTotalCount === 0
-                      ? `Browse all ${INSIGHTS_EMPTY_STATE_DEMO_TOTAL} →`
-                      : `Browse all ${insightTotalCount} →`}
-                </Link>
-              </div>
-            </div>
-
-            {/* ── Row 3: Product mix (tabs) + Product & Users (V3 template) ── */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-                gap: "16px",
-              }}
-              className="product-mix-users-row"
-            >
-              <div
-                style={{
-                  ...styles.card,
-                  padding: 0,
-                  overflow: "hidden",
-                  alignSelf: "start",
-                }}
-              >
-                <div style={styles.productMixHeader}>
-                  <div style={styles.productMixTabInner}>
-                    <button
-                      type="button"
-                      style={{
-                        ...styles.productMixTabButton,
-                        ...(activeProductMixTab === "product_type"
-                          ? styles.productMixTabButtonActive
-                          : {}),
-                      }}
-                      onClick={() => setActiveProductMixTab("product_type")}
-                    >
-                      Product type
-                    </button>
-                    <button
-                      type="button"
-                      style={{
-                        ...styles.productMixTabButton,
-                        ...(activeProductMixTab === "data_collection"
-                          ? styles.productMixTabButtonActive
-                          : {}),
-                      }}
-                      onClick={() => setActiveProductMixTab("data_collection")}
-                    >
-                      Data collection
-                    </button>
-                    {revenueModelBarRows.length > 0 && (
-                      <button
-                        type="button"
-                        style={{
-                          ...styles.productMixTabButton,
-                          ...(activeProductMixTab === "revenue_model"
-                            ? styles.productMixTabButtonActive
-                            : {}),
-                        }}
-                        onClick={() => setActiveProductMixTab("revenue_model")}
-                      >
-                        Revenue model
-                      </button>
-                    )}
-                  </div>
-                  <span style={styles.cardArrow}>→</span>
-                </div>
-                <div style={{ paddingBottom: "4px" }}>
-                  {(activeProductMixTab === "product_type"
-                    ? productTypeBarRows
-                    : activeProductMixTab === "revenue_model"
-                      ? revenueModelBarRows
-                      : dataCollectionBarRows
-                  ).map((row, idx, arr) => (
-                    <div
-                      key={`mix-${activeProductMixTab}-${row.label}-${idx}`}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "10px",
-                        padding: "11px 16px",
-                        borderBottom:
-                          idx < arr.length - 1
-                            ? `1px solid ${T.hair}`
-                            : "none",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: 2,
-                          backgroundColor: row.color,
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span
-                        style={{
-                          fontSize: "12.5px",
-                          color: T.body,
-                          width: 128,
-                          flexShrink: 0,
-                          lineHeight: 1.35,
-                        }}
-                      >
-                        {row.label}
-                                        </span>
-                      <div
-                        style={{
-                          flex: 1,
-                          height: 10,
-                          backgroundColor: T.inset,
-                          borderRadius: 999,
-                          overflow: "hidden",
-                          minWidth: 32,
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: `${row.pct}%`,
-                            height: "100%",
-                            backgroundColor: row.color,
-                            borderRadius: 999,
-                          }}
-                        />
-                      </div>
-                      <span
-                        style={{
-                          width: 44,
-                          flexShrink: 0,
-                          textAlign: "right",
-                          fontSize: "12.5px",
-                          fontWeight: 600,
-                          color: T.ink,
-                          fontVariantNumeric: "tabular-nums",
-                        }}
-                      >
-                        {row.displayRight}
-                                        </span>
-                                    </div>
-                  ))}
-                          </div>
-                      </div>
-
-              <div style={{ ...styles.card, alignSelf: "start", padding: 0 }}>
-                <div style={styles.cardHeader}>
-                  <span style={styles.cardHeaderTitle}>Product &amp; Users</span>
-                  <span style={styles.cardArrow}>→</span>
-                    </div>
-                <div style={{ paddingBottom: "4px" }}>
-                  {productUsersSegments.map((line, i, arr) => (
-                    <div
-                      key={`pu-${i}-${line.slice(0, 24)}`}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: "12px",
-                        padding: "12px 16px",
-                        borderBottom:
-                          i < arr.length - 1 ? `1px solid ${T.hair}` : "none",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          minWidth: 0,
-                          flex: 1,
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: "13px",
-                            fontWeight: 600,
-                            color: T.muted,
-                            width: 22,
-                            flexShrink: 0,
-                            fontVariantNumeric: "tabular-nums",
-                          }}
-                        >
-                          {i + 1}.
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "13px",
-                            fontWeight: 600,
-                            color: T.ink,
-                            lineHeight: 1.35,
-                          }}
-                        >
-                          {line}
-                        </span>
-                </div>
-                      <span
-                        style={{
-                          color: T.faint,
-                          fontSize: "15px",
-                          lineHeight: 1,
-                          flexShrink: 0,
-                        }}
-                        aria-hidden
-                      >
-                        ›
-                      </span>
-              </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* ── Corporate events (V3 card, directly under product mix / users) ── */}
-            {(corporateEventsLoading || corporateEvents.length > 0) && (
-            <div
-              style={{
-                ...styles.card,
-                padding: 0,
-                overflow: "hidden",
-                marginBottom: "16px",
-              }}
-              className="corporate-events-v3-card"
-            >
-              <CorporateEventsProfilePanel
-                tokens={{
-                  paper: T.paper,
-                  hair: T.hair,
-                  ink: T.ink,
-                  body: T.body,
-                  muted: T.muted,
-                  inset: T.inset,
-                  azure: T.azure,
-                  azureSoft: T.azureSoft,
-                  coralSoft: T.coralSoft,
-                  down: T.down,
-                  sans: T.sans,
-                  mono: T.mono,
-                }}
-                events={corporateEvents}
-                loading={corporateEventsLoading}
-                primarySectors={augmentedPrimarySectors}
-                secondarySectors={secondarySectors}
-                maxInitialEvents={3}
+            {/* ── Description card (grid row 1, col 2) ── */}
+            <div className="overview-description company-grid-description">
+              <DescriptionCard
+                text={company.description ?? ""}
+                expanded={isDescriptionExpanded}
+                expandable={isDescriptionExpandable}
+                onToggleExpand={() => setIsDescriptionExpanded((e) => !e)}
+                contentRef={descriptionRef}
+                fillGridCell
               />
             </div>
-            )}
 
-            {/* ── Subsidiaries ── */}
-            {hasSubsidiaries && (
-                <div
-                  style={{
-                    ...styles.card,
-                    padding: 0,
-                    overflow: "hidden",
-                    marginBottom: "16px",
-                  }}
-                  className="subsidiaries-profile-card"
-                >
-                  <SubsidiariesProfilePanel
-                    tokens={{
-                      paper: T.paper,
-                      hair: T.hair,
-                      ink: T.ink,
-                      body: T.body,
-                      muted: T.muted,
-                      inset: T.inset,
-                      azure: T.azure,
-                      azureSoft: T.azureSoft,
-                      coralSoft: T.coralSoft,
-                      down: T.down,
-                      sans: T.sans,
-                      mono: T.mono,
-                      up: T.up,
-                    }}
-                    subsidiaries={
-                      company.have_subsidiaries_companies
-                        ?.Subsidiaries_companies ?? []
-                    }
-                    maxInitial={3}
-                  />
-                </div>
-              )}
-
-            </div>{/* ══ end LEFT COLUMN ══ */}
-
-            {/* ══ RIGHT COLUMN: V3 stacked panels (Summary template) ══ */}
-                  <div
-                    style={{
-                      display: "flex",
-                flexDirection: "column",
-                gap: 18,
-                alignItems: "stretch",
-                minWidth: 0,
-                width: "100%",
-              }}
-              className="desktop-financial-metrics v3-right-rail"
+            {/* ── Row 2: Insights (grid row 2, cols 1–2) ── */}
+            <div
+              className="insights-summary-card company-grid-insights"
+              style={{ minHeight: 0, display: "flex", flexDirection: "column" }}
             >
-              {/* v3-desktop-financial-rail — single tabbed card */}
+              <InsightsCard
+                fillGridCell
+                articles={insightVisibleSlice}
+                loading={articlesLoading}
+                totalCount={insightTotalCount}
+                pageOffset={insightsPageOffset}
+                rangeEnd={insightRangeEnd}
+                canPrev={canInsightPrev}
+                canNext={canInsightNext}
+                onPrev={() => setInsightsPageOffset((o) => Math.max(0, o - INSIGHTS_PREVIEW_COUNT))}
+                onNext={() => setInsightsPageOffset((o) => Math.min(Math.max(0, insightTotalCount - INSIGHTS_PREVIEW_COUNT), o + INSIGHTS_PREVIEW_COUNT))}
+                emptyStateTotal={INSIGHTS_EMPTY_STATE_DEMO_TOTAL}
+              />
+            </div>{/* end insights-summary-card */}
+
+            {/* Row 3: Product mix | Product & Users | Revenue model (each 1 col) */}
+            <div className="company-grid-product-mix">
+              <ProductDataToggleCard
+                activeTab={activeProductMixTab}
+                onTabChange={setActiveProductMixTab}
+                productRows={productTypeBarRows}
+                dataRows={productDataToggleDataRows}
+                fillGridCell
+              />
+            </div>
+
+            <div className="company-grid-product-users">
+              <ProductUsersListCard lines={productUsersSegments} fillGridCell />
+            </div>
+
+            <div className="company-grid-revenue-model">
+              {revenueModelRows.length > 0 && (
+                <RevenueModelCard
+                  rows={revenueModelRows.map((r) => ({
+                    name: r.label,
+                    weight: r.value,
+                  }))}
+                  fillGridCell
+                />
+              )}
+            </div>
+
+            {/* Row 4: 2×2 grid — row heights align (wide + narrow columns) */}
+            <div className="company-grid-bottom">
+              <div className="company-grid-bottom-cell">
+                {(corporateEventsLoading || corporateEvents.length > 0) && (
+                  <LinkPanel
+                    fillGridCell
+                    className="corporate-events-v3-card"
+                  >
+                    <CorporateEventsProfilePanel
+                      tokens={{
+                        paper: T.paper,
+                        hair: T.hair,
+                        ink: T.ink,
+                        body: T.body,
+                        muted: T.muted,
+                        inset: T.inset,
+                        azure: T.azure,
+                        azureSoft: T.azureSoft,
+                        coralSoft: T.coralSoft,
+                        down: T.down,
+                        sans: T.sans,
+                        mono: T.mono,
+                      }}
+                      events={corporateEvents}
+                      loading={corporateEventsLoading}
+                      primarySectors={augmentedPrimarySectors}
+                      secondarySectors={secondarySectors}
+                      maxInitialEvents={3}
+                    />
+                  </LinkPanel>
+                )}
+              </div>
+              <div className="company-grid-bottom-cell">
+                <HeadcountCard
+                  fillGridCell
+                  data={employeeData.map((e) => e.employees_count)}
+                  dates={employeeData.map((e) => e.date)}
+                  count={currentEmployeeCount}
+                  yoyLabel={overviewEmployeesYoY || undefined}
+                  asOf={(() => {
+                    const nonZero = employeeData.filter((e) => e.employees_count > 0);
+                    const ref =
+                      nonZero.length > 0
+                        ? nonZero[nonZero.length - 1]
+                        : employeeData[employeeData.length - 1];
+                    if (!ref?.date) return undefined;
+                    try {
+                      return new Date(ref.date).toLocaleDateString("en-US", {
+                        month: "short",
+                        year: "numeric",
+                      });
+                    } catch {
+                      return undefined;
+                    }
+                  })()}
+                  linkedinUrl={linkedinUrl}
+                />
+              </div>
+              <div className="company-grid-bottom-cell">
+                {hasSubsidiaries && (
+                  <LinkPanel
+                    fillGridCell
+                    className="subsidiaries-profile-card"
+                  >
+                    <SubsidiariesProfilePanel
+                      tokens={{
+                        paper: T.paper,
+                        hair: T.hair,
+                        ink: T.ink,
+                        body: T.body,
+                        muted: T.muted,
+                        inset: T.inset,
+                        azure: T.azure,
+                        azureSoft: T.azureSoft,
+                        coralSoft: T.coralSoft,
+                        down: T.down,
+                        sans: T.sans,
+                        mono: T.mono,
+                        up: T.up,
+                      }}
+                      subsidiaries={
+                        company.have_subsidiaries_companies
+                          ?.Subsidiaries_companies ?? []
+                      }
+                      maxInitial={3}
+                    />
+                  </LinkPanel>
+                )}
+              </div>
+              <div className="company-grid-bottom-cell">
+                {hasManagement && (
+                  <ManagementCard
+                    fillGridCell
+                    current={managementCurrentPeople}
+                    past={managementPastPeople}
+                    maxVisible={6}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* ══ Col 3: Financial (row 1), Subscription (row 2), Headcount + Management (row 4) ══ */}
+                  <div
+                    className="company-grid-finance desktop-financial-metrics v3-right-rail"
+                    style={{
+                      minWidth: 0,
+                      minHeight: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignSelf: "stretch",
+                    }}
+                  >
+              <div
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
               <V3TabbedFinanceCard
                 chrome={{
                   card: styles.card,
@@ -4509,7 +4087,7 @@ const CompanyDetail = () => {
                   <span></span>
                   <span style={{ textAlign: "left" }}>
                     {financialMetricsPeriodDisplay}
-                  </span>
+                                        </span>
                   <span style={{ ...styles.sourceValue, fontSize: "11px" }}>
                     Source
                   </span>
@@ -4587,8 +4165,8 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.v3TabFinRow}>
                 <span style={styles.label}>Revenue growth</span>
-                <span
-                        style={{
+                                        <span
+                                          style={{
                     ...styles.v3RailValue,
                     textAlign: "right",
                     color: (() => {
@@ -4599,13 +4177,13 @@ const CompanyDetail = () => {
                   }}
                 >
                   {formatPercent(financialMetrics?.Rev_Growth_PC)}
-                </span>
+                                        </span>
                 <span style={styles.sourceValue}>
                   {getSourceText(
                     financialMetrics?.Rev_growth_source_label,
                     financialMetrics?.Rev_Growth_source
-                  )}
-                </span>
+                                      )}
+                                        </span>
                   </div>
               <div style={styles.v3TabFinRow}>
                 <span style={styles.label}>EBITDA margin</span>
@@ -4618,7 +4196,7 @@ const CompanyDetail = () => {
                     financialMetrics?.EBITDA_margin_source
                   )}
                 </span>
-              </div>
+                                    </div>
               <div style={styles.v3TabFinRow}>
                 <span style={styles.label}>Rule of 40</span>
                 <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
@@ -4635,7 +4213,7 @@ const CompanyDetail = () => {
                     financialMetrics?.Rule_of_40_source
                   )}
                 </span>
-              </div>
+                          </div>
               <div style={styles.v3TabFinRow}>
                 <span style={styles.label}>Recurring revenue</span>
                 <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
@@ -4647,7 +4225,7 @@ const CompanyDetail = () => {
                     financialMetrics?.ARR_source
                   )}
                 </span>
-              </div>
+                      </div>
               <div style={styles.v3TabFinRow}>
                 <span style={styles.label}>NRR</span>
                 <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
@@ -4659,22 +4237,22 @@ const CompanyDetail = () => {
                     financialMetrics?.NRR_source
                   )}
                 </span>
-              </div>
+                </div>
               </div>
               )}
               {financeRailTab === "income" && (
               <>
               {hasIncomeStatementData && (
-                <div
-                  style={{
-                    display: "flex",
+                  <div
+                    style={{
+                      display: "flex",
                     justifyContent: "flex-end",
                     marginBottom: 8,
                     paddingRight: 2,
                   }}
                 >
                   <span
-                    style={{
+                      style={{
                       fontSize: "11.5px",
                       color: T.muted,
                       fontWeight: 500,
@@ -4682,7 +4260,7 @@ const CompanyDetail = () => {
                   >
                     Last 3 FY
                   </span>
-                </div>
+                  </div>
               )}
                 {hasIncomeStatementData ? (
                   <div style={{ overflowX: "auto" }}>
@@ -5413,7 +4991,15 @@ const CompanyDetail = () => {
               )}
               </> )}
               </V3TabbedFinanceCard>
+              </div>
+            </div>
+
+            <div
+              className="company-grid-subscription"
+              style={{ minHeight: 0, display: "flex", flexDirection: "column" }}
+            >
               <SubscriptionCard
+                fillGridCell
                 recurringRev={formatPlainNumber(financialMetrics?.ARR_m)}
                 arrGrowth={(() => {
                   const n =
@@ -5423,34 +5009,12 @@ const CompanyDetail = () => {
                     ? formatPercent(n)
                     : formatPercent(financialMetrics?.ARR_pc);
                   return pct === "Not available" ? undefined : pct;
-                })()}
+                  })()}
                 nrr={formatPercent(financialMetrics?.NRR) === "Not available" ? undefined : formatPercent(financialMetrics?.NRR)}
                 gdr={formatPercent(financialMetrics?.GRR_pc) === "Not available" ? undefined : formatPercent(financialMetrics?.GRR_pc)}
                 upsell={formatPercent(financialMetrics?.Upsell_pc) === "Not available" ? undefined : formatPercent(financialMetrics?.Upsell_pc)}
                 newLogos={formatPercent(financialMetrics?.New_client_growth_pc) === "Not available" ? undefined : formatPercent(financialMetrics?.New_client_growth_pc)}
               />
-              <HeadcountCard
-                data={employeeData.map((e) => e.employees_count)}
-                dates={employeeData.map((e) => e.date)}
-                count={currentEmployeeCount}
-                yoyLabel={overviewEmployeesYoY || undefined}
-                asOf={(() => {
-                  const nonZero = employeeData.filter((e) => e.employees_count > 0);
-                  const ref = nonZero.length > 0 ? nonZero[nonZero.length - 1] : employeeData[employeeData.length - 1];
-                  if (!ref?.date) return undefined;
-                  try {
-                    return new Date(ref.date).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-                  } catch { return undefined; }
-                })()}
-                linkedinUrl={linkedinUrl}
-              />
-              {hasManagement && (
-                <ManagementCard
-                  current={managementCurrentPeople}
-                  past={managementPastPeople}
-                  maxVisible={6}
-                />
-              )}
             </div>
 
             {/* Market Overview removed */}
