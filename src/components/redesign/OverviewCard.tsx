@@ -1,0 +1,262 @@
+"use client";
+/**
+ * OverviewCard — redesign/OverviewCard.jsx converted to TypeScript.
+ * Sector tags + key facts (ownership, lifecycle, HQ, raised, employees…).
+ * Uses KV rows + TagRow pills from primitives, matching the V3 design token set.
+ */
+import React, { useState } from "react";
+import Link from "next/link";
+import { LinkPanel, LinkedH, KV, Delta, Pill, T } from "./primitives";
+
+export type OverviewSector = {
+  name: string;
+  /** /sector/:id or /sub-sector/:id */
+  href?: string;
+};
+
+export type OverviewInvestor = {
+  id: number;
+  name: string;
+};
+
+export type OverviewCardProps = {
+  transactionStatus?: string | null;
+  primarySectors?: OverviewSector[];
+  secondarySectors?: OverviewSector[];
+  yearFounded?: string | number | null;
+  website?: string | null;
+  /** pre-formatted display label, e.g. "asymmetrix.io" */
+  websiteLabel?: string | null;
+  ownership?: string | null;
+  hq?: string | null;
+  lifecycle?: string | null;
+  totalAmountRaised?: string | null;
+  employees?: number | null;
+  employeesYoY?: string | null;
+  parentCompany?: { id?: number; name: string } | null;
+  investors?: OverviewInvestor[];
+  investorsLoading?: boolean;
+  /** e.g. "3 years" or "< 1 year" — pass pre-formatted string */
+  lastInvestment?: string | null;
+  ticker?: string | null;
+  /** max sector tags shown before "+N" overflow */
+  maxSectors?: number;
+  fillGridCell?: boolean;
+};
+
+const EM = "—";
+
+function SectorTags({
+  sectors,
+  tone,
+  max,
+}: {
+  sectors: OverviewSector[];
+  tone: "coral" | "lavender";
+  max: number;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  if (sectors.length === 0) return <span style={{ color: T.faint }}>{EM}</span>;
+
+  const visible = showAll ? sectors : sectors.slice(0, max);
+  const overflow = sectors.length - max;
+
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+      {visible.map((s) =>
+        s.href ? (
+          <Link key={s.name} href={s.href} prefetch={false} style={{ textDecoration: "none" }}>
+            <Pill tone={tone}>{s.name}</Pill>
+          </Link>
+        ) : (
+          <Pill key={s.name} tone={tone}>{s.name}</Pill>
+        )
+      )}
+      {!showAll && overflow > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          style={{
+            background: "none", border: "none", padding: 0,
+            cursor: "pointer", fontFamily: T.sans,
+          }}
+        >
+          <Pill tone="ghost">+{overflow}</Pill>
+        </button>
+      )}
+      {showAll && overflow > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAll(false)}
+          style={{
+            background: "none", border: "none",
+            color: T.azure, cursor: "pointer",
+            fontSize: 11.5, fontFamily: T.sans, padding: 0,
+          }}
+        >
+          Show less
+        </button>
+      )}
+    </div>
+  );
+}
+
+function InvestorTags({ investors }: { investors: OverviewInvestor[] }) {
+  if (investors.length === 0) return <span style={{ color: T.faint }}>{EM}</span>;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+      {investors.map((inv) => (
+        <Link key={inv.id} href={`/investors/${inv.id}`} prefetch={false} style={{ textDecoration: "none" }}>
+          <Pill tone="azure">{inv.name}</Pill>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+export function OverviewCard({
+  transactionStatus,
+  primarySectors = [],
+  secondarySectors = [],
+  yearFounded,
+  website,
+  websiteLabel,
+  ownership,
+  hq,
+  lifecycle,
+  totalAmountRaised,
+  employees,
+  employeesYoY,
+  parentCompany,
+  investors = [],
+  investorsLoading,
+  lastInvestment,
+  ticker,
+  maxSectors = 3,
+  fillGridCell = false,
+}: OverviewCardProps) {
+  const hasParent = Boolean(parentCompany?.name);
+
+  const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
+    {
+      k: "Transaction status",
+      show: Boolean(transactionStatus),
+      v: (
+        <Pill tone="up">{transactionStatus}</Pill>
+      ),
+    },
+    {
+      k: "Primary sector(s)",
+      v: (
+        <SectorTags sectors={primarySectors} tone="coral" max={maxSectors} />
+      ),
+    },
+    {
+      k: "Secondary sector(s)",
+      v: (
+        <SectorTags sectors={secondarySectors} tone="lavender" max={maxSectors} />
+      ),
+    },
+    {
+      k: "Year founded",
+      v: yearFounded ?? <span style={{ color: T.faint }}>{EM}</span>,
+    },
+    {
+      k: "Website",
+      v: website?.trim() ? (
+        <a
+          href={/^https?:\/\//i.test(website.trim()) ? website.trim() : `https://${website.trim()}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: T.azure, textDecoration: "none" }}
+        >
+          {websiteLabel || website.trim()}
+        </a>
+      ) : (
+        <span style={{ color: T.faint }}>{EM}</span>
+      ),
+    },
+    {
+      k: "Ownership",
+      v: ownership?.trim() || <span style={{ color: T.faint }}>{EM}</span>,
+    },
+    { k: "HQ", v: hq?.trim() || <span style={{ color: T.faint }}>{EM}</span> },
+    {
+      k: "Lifecycle stage",
+      v: lifecycle?.trim() || <span style={{ color: T.faint }}>{EM}</span>,
+    },
+    {
+      k: "Total amount raised",
+      v: totalAmountRaised ? (
+        <span style={{ fontFamily: T.mono }}>{totalAmountRaised}</span>
+      ) : (
+        <span style={{ color: T.faint }}>{EM}</span>
+      ),
+    },
+    {
+      k: "Employees",
+      v: (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          {employees != null ? (
+            <>
+              {employees.toLocaleString("en-US")}
+              {employeesYoY && <Delta value={employeesYoY} />}
+            </>
+          ) : (
+            <span style={{ color: T.faint }}>{EM}</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      k: "Ticker",
+      show: Boolean(ticker),
+      v: <span style={{ fontFamily: T.mono }}>{ticker}</span>,
+    },
+    {
+      k: "Parent company",
+      show: hasParent,
+      v: parentCompany ? (
+        parentCompany.id ? (
+          <Link href={`/new_company/${parentCompany.id}`} prefetch={false} style={{ textDecoration: "none" }}>
+            <Pill tone="neutral">{parentCompany.name}</Pill>
+          </Link>
+        ) : (
+          <span>{parentCompany.name}</span>
+        )
+      ) : null,
+    },
+    {
+      k: "Investors",
+      show: !hasParent,
+      v: investorsLoading ? (
+        <span style={{ color: T.faint }}>Loading…</span>
+      ) : (
+        <InvestorTags investors={investors} />
+      ),
+    },
+    {
+      k: "Yrs since last inv.",
+      show: !hasParent,
+      v: lastInvestment ?? <span style={{ color: T.faint }}>{EM}</span>,
+    },
+  ];
+
+  const visible = rows.filter((r) => r.show !== false);
+
+  return (
+    <LinkPanel fillGridCell={fillGridCell}>
+      <LinkedH right={ticker ? undefined : undefined}>Overview</LinkedH>
+      <div style={{ padding: "4px 16px 10px" }}>
+        {visible.map((row, i) => (
+          <KV
+            key={row.k}
+            k={row.k}
+            v={row.v}
+            last={i === visible.length - 1}
+          />
+        ))}
+      </div>
+    </LinkPanel>
+  );
+}
