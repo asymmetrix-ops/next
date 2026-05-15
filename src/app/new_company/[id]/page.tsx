@@ -19,7 +19,10 @@ import { InsightsCard } from "@/components/redesign/InsightsCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import { ProductDataToggleCard } from "@/components/redesign/ProductDataToggleCard";
 import type { ProductMixTab } from "@/components/redesign/ProductDataToggleCard";
-import { ProductUsersListCard } from "@/components/redesign/ProductUsersListCard";
+import {
+  ProductUsersListCard,
+  type ProductUsersSection,
+} from "@/components/redesign/ProductUsersListCard";
 import { LinkPanel } from "@/components/redesign/primitives";
 import {
   LineChart,
@@ -214,6 +217,14 @@ interface EmployeeCount {
 interface CompanyProductTypeItem {
   Product_Type?: string;
   pc_of_revenues?: number | string | null;
+}
+
+/** One row from API `product_and_users` — segment → list of descriptive strings */
+interface ProductAndUsersEntry {
+  accounting_tax_firms?: unknown;
+  corporate_tax_departments?: unknown;
+  tax_attorneys?: unknown;
+  financial_advisors_wealth_managers?: unknown;
 }
 
 interface CompanyDataCollectionMethodItem {
@@ -459,8 +470,10 @@ interface Company {
   total_amount_raised?: string | number | null;
   /** Optional: employees YoY % when API provides it (e.g. 6.4 for +6.4%) */
   employees_yoy_pct?: number | null;
-  /** Optional: end-user / buyer segments for Product & users card */
+  /** Optional: end-user / buyer segments for Product & users card (flat list fallback) */
   product_users?: string[] | string | null;
+  /** Optional: structured Product & users segments (accordion); merged from API root or Company */
+  product_and_users?: ProductAndUsersEntry[];
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
   }>;
@@ -486,6 +499,7 @@ interface CompanyResponse {
   }>;
   /** Headcount history at API root (Get_new_company) */
   employees_deduped?: EmployeeCount[];
+  product_and_users?: ProductAndUsersEntry[];
   Managmant_Roles_current?: Array<{
     id: number;
     Individual_text: string;
@@ -618,6 +632,57 @@ const PRODUCT_USERS_DEMO: string[] = [
   "Tax Attorneys",
   "Financial Advisors & Wealth Managers",
 ];
+
+const PRODUCT_USERS_ACCORDION_FIELDS: {
+  key: keyof ProductAndUsersEntry;
+  title: string;
+}[] = [
+  { key: "accounting_tax_firms", title: "Accounting & Tax Firms" },
+  {
+    key: "corporate_tax_departments",
+    title: "Corporate Tax Departments",
+  },
+  { key: "tax_attorneys", title: "Tax Attorneys" },
+  {
+    key: "financial_advisors_wealth_managers",
+    title: "Financial Advisors & Wealth Managers",
+  },
+];
+
+function normalizeProductUsersStrings(v: unknown): string[] {
+  if (v == null) return [];
+  if (Array.isArray(v)) {
+    return v
+      .map((x) => String(x ?? "").trim())
+      .filter((s) => s.length > 0);
+  }
+  if (typeof v === "string") {
+    const t = v.trim();
+    return t ? [t] : [];
+  }
+  return [];
+}
+
+function buildProductUsersAccordionSections(
+  company: Company
+): ProductUsersSection[] {
+  const raw = company.product_and_users;
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  const merged: Partial<Record<keyof ProductAndUsersEntry, string[]>> = {};
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const entry = row as ProductAndUsersEntry;
+    for (const { key } of PRODUCT_USERS_ACCORDION_FIELDS) {
+      const part = normalizeProductUsersStrings(entry[key]);
+      if (!merged[key]) merged[key] = [];
+      merged[key]!.push(...part);
+    }
+  }
+  return PRODUCT_USERS_ACCORDION_FIELDS.map(({ key, title }) => ({
+    title,
+    items: merged[key] ?? [],
+  })).filter((s) => s.items.length > 0);
+}
 
 // formatInsightBadgeLabel moved to InsightsCard component
 
@@ -1744,6 +1809,15 @@ const CompanyDetail = () => {
                 employees_deduped?: EmployeeCount[];
               }
             )?.employees_deduped,
+          product_and_users: firstNonEmptyStructuredField(
+            (data as unknown as { product_and_users?: ProductAndUsersEntry[] })
+              .product_and_users,
+            (
+              data.Company as unknown as {
+                product_and_users?: ProductAndUsersEntry[];
+              }
+            )?.product_and_users
+          ) as Company["product_and_users"],
         };
 
         // Parse optional ebitda_data with display strings
@@ -3036,6 +3110,8 @@ const CompanyDetail = () => {
     T.muted,
   ];
 
+  const productUsersAccordionSections = buildProductUsersAccordionSections(company);
+
   const productUsersSegments = (() => {
     const raw = company.product_users;
     if (Array.isArray(raw)) {
@@ -3938,7 +4014,19 @@ const CompanyDetail = () => {
             </div>
 
             <div className="company-grid-product-users">
-              <ProductUsersListCard lines={productUsersSegments} fillGridCell />
+              <ProductUsersListCard
+                sections={
+                  productUsersAccordionSections.length > 0
+                    ? productUsersAccordionSections
+                    : undefined
+                }
+                lines={
+                  productUsersAccordionSections.length > 0
+                    ? []
+                    : productUsersSegments
+                }
+                fillGridCell
+              />
             </div>
 
             <div className="company-grid-revenue-model">
