@@ -6,12 +6,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { dispatchUnauthorized } from "@/lib/authEvents";
 import { useRightClick } from "@/hooks/useRightClick";
 import { CorporateEventsSection } from "@/components/corporate-events/CorporateEventsSection";
 import IndividualCards from "@/components/shared/IndividualCards";
-import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
-import { trackEvent } from "@/lib/tracking";
 import {
   LineChart,
   Line,
@@ -24,6 +21,9 @@ import {
 import { ContentArticle } from "@/types/insightsAnalysis";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
+const FINANCIAL_METRICS_EXPORT_SOURCE = "contribution_email";
+
+type CompanyPdfExportType = "profile" | "financial_metrics";
 
 // Types for API integration
 interface CompanyLocation {
@@ -61,6 +61,12 @@ interface CompanyEV {
   };
   _currency?: { Currency?: string };
   currency?: { Currency?: string };
+}
+
+interface LastInvestment {
+  display?: string | null;
+  date?: string | null;
+  days_since?: number | string | null;
 }
 
 // Financial metrics payload from Xano `company_financial_metrics`
@@ -234,7 +240,7 @@ interface CompanyCompetitorItem {
 }
 
 interface CompanyCompetitorsResponse {
-  peers_and_competitors: CompanyCompetitorItem[];
+  peers: CompanyCompetitorItem[];
   potential_acquirers: CompanyCompetitorItem[];
   acquisition_targets: CompanyCompetitorItem[];
 }
@@ -367,8 +373,6 @@ interface Company {
   id: number;
   name: string;
   description: string;
-  Transaction_status?: string | null;
-  linkedin_growth_1y_pct?: number | null;
   year_founded: number;
   _years?: {
     Year?: number | string;
@@ -383,8 +387,6 @@ interface Company {
   EBITDA: CompanyEBITDA;
   ev_data: CompanyEV;
   _companies_employees_count_monthly: EmployeeCount[];
-  /** Deduplicated monthly headcount series (preferred for LinkedIn chart when present). */
-  employees_deduped?: EmployeeCount[];
   Lifecycle_stage: LifecycleStage;
   // Optional list of former names from API
   Former_name?: string[];
@@ -438,6 +440,7 @@ interface Company {
   Data_Collection_Method?: CompanyDataCollectionMethodItem[] | string;
   Revenue_Model_?: CompanyRevenueModelItem[] | string;
   have_parent_company?: HaveParentCompany;
+  last_investment?: LastInvestment | null;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
   }>;
@@ -453,6 +456,7 @@ interface CompanyResponse {
   Product_Type?: CompanyProductTypeItem[] | string;
   Data_Collection_Method?: CompanyDataCollectionMethodItem[] | string;
   Revenue_Model_?: CompanyRevenueModelItem[] | string;
+  last_investment?: LastInvestment | null;
   income_statement?: Array<{
     income_statements?: IncomeStatementEntry[] | string;
   }>;
@@ -497,8 +501,6 @@ interface CompanyResponse {
       };
     }>;
   };
-  /** May be returned at response root alongside `Company`. */
-  employees_deduped?: EmployeeCount[];
 }
 
 // Utility functions
@@ -571,6 +573,24 @@ const parseStructuredArray = <T,>(value: unknown): T[] => {
   return [];
 };
 
+/**
+ * Root `[]` is truthy in JS — prefer nested `Company` data when root is empty.
+ * See new_company merge: `root || company` drops rows when root is `[]`.
+ */
+function firstNonEmptyStructuredField(
+  ...candidates: unknown[]
+): unknown {
+  for (const c of candidates) {
+    if (c == null) continue;
+    if (Array.isArray(c) && c.length > 0) return c;
+    if (typeof c === "string" && c.trim().length > 0) return c;
+  }
+  for (const c of candidates) {
+    if (c != null) return c;
+  }
+  return undefined;
+}
+
 // Map Xano source codes to human-readable labels (best-known mapping)
 const sourceLabel = (code?: number | string | null): string | undefined => {
   if (code == null) return undefined;
@@ -632,15 +652,6 @@ const formatPercent = (value?: number | string | null): string => {
   const n = getNumeric(value);
   if (n === undefined) return "Not available";
   return `${Math.round(n)}%`;
-};
-
-const formatLinkedInGrowthPercent = (
-  value?: number | string | null
-): string => {
-  const n = getNumeric(value);
-  if (n === undefined) return "Not available";
-  const rounded = Math.round(n * 10) / 10;
-  return `${rounded.toLocaleString()}%`;
 };
 
 const formatMultiple = (value?: number | string | null): string => {
@@ -764,6 +775,34 @@ const formatFinancialMetricsPeriod = (
   }
 
   return null;
+};
+
+const formatLastInvestmentDisplay = (
+  lastInvestment?: LastInvestment | null
+): string => {
+  const display = String(lastInvestment?.display ?? "").trim();
+  if (display) return display;
+
+  let daysSince = getNumeric(lastInvestment?.days_since);
+  if (daysSince === undefined && lastInvestment?.date) {
+    const investmentDate = new Date(lastInvestment.date);
+    if (!Number.isNaN(investmentDate.getTime())) {
+      daysSince = Math.max(
+        0,
+        Math.floor((Date.now() - investmentDate.getTime()) / 86_400_000)
+      );
+    }
+  }
+
+  if (daysSince === undefined) return "—";
+  if (daysSince < 365) {
+    if (daysSince < 30) return "This month";
+    const months = Math.max(1, Math.floor(daysSince / 30));
+    return `${months} ${months === 1 ? "month" : "months"}`;
+  }
+
+  const years = Math.floor(daysSince / 365);
+  return `${years} ${years === 1 ? "year" : "years"}`;
 };
 
 // Determines Year Founded using multiple fallbacks
@@ -944,12 +983,15 @@ const CompanyDetail = () => {
   const [competitorsLoading, setCompetitorsLoading] = useState(false);
   const [showCompetitorsModal, setShowCompetitorsModal] = useState(false);
   const [transactionStatusLabel, setTransactionStatusLabel] = useState<string>("");
-
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingPdfType, setExportingPdfType] =
+    useState<CompanyPdfExportType | null>(null);
+  const [showPdfExportOptions, setShowPdfExportOptions] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isDescriptionExpandable, setIsDescriptionExpandable] = useState(false);
   const [isOverviewNarrow, setIsOverviewNarrow] = useState(false);
   const descriptionRef = useRef<HTMLDivElement | null>(null);
+  const pdfExportMenuRef = useRef<HTMLDivElement | null>(null);
 
   const transactionStatusDisplayLabel = useMemo(() => {
     const raw = String(transactionStatusLabel || "").trim();
@@ -1045,9 +1087,6 @@ const CompanyDetail = () => {
         credentials: "include",
       });
       if (getResponse.status === 401) {
-        // Ensure the global login modal opens even if the fetch interceptor
-        // hasn't been attached yet (e.g. during initial mount ordering).
-        dispatchUnauthorized();
         throw new Error("Authentication required");
       }
       if (getResponse.ok) {
@@ -1073,7 +1112,6 @@ const CompanyDetail = () => {
           body: JSON.stringify(body),
         });
         if (postResponse.status === 401) {
-          dispatchUnauthorized();
           throw new Error("Authentication required");
         }
         if (postResponse.ok) {
@@ -1236,31 +1274,6 @@ const CompanyDetail = () => {
         Authorization: `Bearer ${token}`,
       };
 
-      const normalizeCompetitorArray = (
-        raw: unknown
-      ): CompanyCompetitorItem[] => {
-        if (Array.isArray(raw)) {
-          return raw as CompanyCompetitorItem[];
-        }
-        if (typeof raw !== "string") return [];
-        const tryParse = (text: string): unknown => {
-          const trimmed = text.trim();
-          if (!trimmed) return null;
-          try {
-            return JSON.parse(trimmed.replace(/\\u0022/g, '"'));
-          } catch {
-            return null;
-          }
-        };
-        const first = tryParse(raw);
-        if (Array.isArray(first)) return first as CompanyCompetitorItem[];
-        if (typeof first === "string") {
-          const second = tryParse(first);
-          if (Array.isArray(second)) return second as CompanyCompetitorItem[];
-        }
-        return [];
-      };
-
       const params = new URLSearchParams();
       params.append("new_company_id", String(id));
       const res = await fetch(
@@ -1271,22 +1284,19 @@ const CompanyDetail = () => {
         setCompetitors(null);
         return;
       }
-      const data = await res.json();
-      const payload = Array.isArray(data) ? data[0] : data;
-      if (payload && typeof payload === "object") {
-        setCompetitors({
-          peers_and_competitors: normalizeCompetitorArray(
-            (payload as { peers_and_competitors?: unknown })
-              .peers_and_competitors
-          ),
-          potential_acquirers: normalizeCompetitorArray(
-            (payload as { potential_acquirers?: unknown }).potential_acquirers
-          ),
-          acquisition_targets: normalizeCompetitorArray(
-            (payload as { acquisition_targets?: unknown }).acquisition_targets
-          ),
-        });
-      }
+      const data = (await res.json()) as {
+        competitors?: Partial<CompanyCompetitorsResponse>;
+      };
+      const payload = data?.competitors;
+      setCompetitors({
+        peers: Array.isArray(payload?.peers) ? payload.peers : [],
+        potential_acquirers: Array.isArray(payload?.potential_acquirers)
+          ? payload.potential_acquirers
+          : [],
+        acquisition_targets: Array.isArray(payload?.acquisition_targets)
+          ? payload.acquisition_targets
+          : [],
+      });
     } catch (err) {
       console.error("Error fetching company competitors:", err);
       setCompetitors(null);
@@ -1380,46 +1390,48 @@ const CompanyDetail = () => {
                 have_parent_company?: HaveParentCompany;
               }
             ).have_parent_company,
-          Product_Type:
+          Product_Type: firstNonEmptyStructuredField(
             (data as { Product_Type?: CompanyProductTypeItem[] | string })
-              .Product_Type || data.Company?.Product_Type,
-          Data_Collection_Method:
+              .Product_Type,
+            data.Company?.Product_Type
+          ) as Company["Product_Type"],
+          Data_Collection_Method: firstNonEmptyStructuredField(
             (
               data as {
                 Data_Collection_Method?:
                   | CompanyDataCollectionMethodItem[]
                   | string;
               }
-            ).Data_Collection_Method || data.Company?.Data_Collection_Method,
-          Revenue_Model_:
+            ).Data_Collection_Method,
+            (
+              data.Company as {
+                Data_Collection_Method?:
+                  | CompanyDataCollectionMethodItem[]
+                  | string;
+              }
+            )?.Data_Collection_Method
+          ) as Company["Data_Collection_Method"],
+          Revenue_Model_: firstNonEmptyStructuredField(
             (data as { Revenue_Model_?: CompanyRevenueModelItem[] | string })
-              .Revenue_Model_ ||
+              .Revenue_Model_,
             (data as { Revenue_Model?: CompanyRevenueModelItem[] | string })
-              .Revenue_Model ||
-            data.Company?.Revenue_Model_ ||
+              .Revenue_Model,
+            data.Company?.Revenue_Model_,
             (data.Company as { Revenue_Model?: CompanyRevenueModelItem[] | string })
-              ?.Revenue_Model,
+              ?.Revenue_Model
+          ) as Company["Revenue_Model_"],
+          last_investment:
+            (data as { last_investment?: LastInvestment | null })
+              .last_investment ??
+            (data.Company as { last_investment?: LastInvestment | null })
+              ?.last_investment ??
+            null,
           Lifecycle_stage:
             data.Company?.Lifecycle_stage ||
             (data as unknown as { Lifecycle_stage?: LifecycleStage })
               .Lifecycle_stage ||
             undefined,
-          employees_deduped:
-            (data as unknown as { employees_deduped?: EmployeeCount[] })
-              .employees_deduped ??
-            (
-              data.Company as unknown as {
-                employees_deduped?: EmployeeCount[];
-              }
-            ).employees_deduped,
         };
-
-        const companyTransactionStatus = String(
-          data.Company?.Transaction_status || ""
-        ).trim();
-        if (companyTransactionStatus) {
-          setTransactionStatusLabel(companyTransactionStatus);
-        }
 
         // Parse optional ebitda_data with display strings
         try {
@@ -1511,8 +1523,7 @@ const CompanyDetail = () => {
           message.includes("API request failed: 401");
 
         if (isUnauthorized) {
-          // Let the AuthProvider show the login modal; avoid rendering the red error state.
-          dispatchUnauthorized();
+          // AuthProvider will show the login modal via fetch interceptor.
           setError(null);
           console.error("Unauthorized while loading company:", err);
           return;
@@ -1634,8 +1645,24 @@ const CompanyDetail = () => {
     }
   }, [company?.name]);
 
+  useEffect(() => {
+    if (!showPdfExportOptions || typeof document === "undefined") return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        pdfExportMenuRef.current &&
+        !pdfExportMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowPdfExportOptions(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [showPdfExportOptions]);
+
   // Handle PDF export (ported from develop)
-  const handleExportPdf = useCallback(async () => {
+  const handleExportPdf = useCallback(async (exportType: CompanyPdfExportType) => {
     if (!company?.id) {
       console.error("Company ID not available");
       return;
@@ -1643,7 +1670,23 @@ const CompanyDetail = () => {
 
     try {
       setExportingPdf(true);
+      setExportingPdfType(exportType);
+      setShowPdfExportOptions(false);
       const token = localStorage.getItem("asymmetrix_auth_token");
+      const isFinancialMetricsExport = exportType === "financial_metrics";
+      const financialMetricsPeriod = formatFinancialMetricsPeriod(financialMetrics);
+      const financialMetricsYear = extractValidYear(
+        financialMetrics?.financial_year_text ?? financialMetrics?.Financial_Year
+      );
+      const requestBody = isFinancialMetricsExport
+        ? {
+            company_id: company.id,
+            company_name: company.name,
+            financial_metrics_period: financialMetricsPeriod,
+            financial_metrics_year: financialMetricsYear,
+            source: FINANCIAL_METRICS_EXPORT_SOURCE,
+          }
+        : { company_id: company.id };
       const response = await fetch(
         "https://asymmetrix-pdf-service.fly.dev/api/export-company-pdf",
         {
@@ -1652,7 +1695,7 @@ const CompanyDetail = () => {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({ company_id: company.id }),
+          body: JSON.stringify(requestBody),
         }
       );
 
@@ -1672,7 +1715,9 @@ const CompanyDetail = () => {
       const companyName = company.name
         ? sanitizeFilename(company.name)
         : `Company-${company.id}`;
-      const filename = `Asymmetrix ${companyName} Company Profile.pdf`;
+      const filename = isFinancialMetricsExport
+        ? `Asymmetrix ${companyName} Financial Metrics.pdf`
+        : `Asymmetrix ${companyName} Company Profile.pdf`;
 
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -1682,16 +1727,18 @@ const CompanyDetail = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      void trackEvent({
-        eventType: "download_pdf",
-      });
     } catch (error) {
       console.error("Error exporting PDF:", error);
       alert("Failed to export PDF. Please try again.");
     } finally {
       setExportingPdf(false);
+      setExportingPdfType(null);
     }
-  }, [company?.id, company?.name]);
+  }, [
+    company?.id,
+    company?.name,
+    financialMetrics,
+  ]);
 
   if (loading) {
     return (
@@ -2054,11 +2101,8 @@ const CompanyDetail = () => {
         typeof row.ebitda === "number"
     );
 
-  // Process employee data (deduped series when API sends it; else legacy monthly array)
-  const employeeData =
-    company.employees_deduped ??
-    company._companies_employees_count_monthly ??
-    [];
+  // Process employee data
+  const employeeData = company._companies_employees_count_monthly || [];
   const currentEmployeeCount =
     employeeData.length > 0
       ? employeeData[employeeData.length - 1].employees_count
@@ -2223,6 +2267,18 @@ const CompanyDetail = () => {
       cursor: "pointer",
       textDecoration: "none",
     },
+    exportMenuItem: {
+      width: "100%",
+      padding: "10px 12px",
+      backgroundColor: "transparent",
+      border: "none",
+      color: "#1a202c",
+      cursor: "pointer",
+      display: "block",
+      fontSize: "14px",
+      fontWeight: 500,
+      textAlign: "left" as const,
+    },
 
     card: {
       backgroundColor: "white",
@@ -2298,31 +2354,11 @@ const CompanyDetail = () => {
       color: "#1a202c",
       marginBottom: "16px",
     },
-    chartTitleRow: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: "12px",
-      marginBottom: "16px",
-    },
     currentCount: {
       fontSize: "24px",
       fontWeight: "700",
       color: "#0075df",
       marginBottom: "16px",
-    },
-    linkedinIconButton: {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      width: "30px",
-      height: "30px",
-      backgroundColor: "#0077b5",
-      borderRadius: "6px",
-      color: "white",
-      textDecoration: "none",
-      transition: "background-color 0.2s ease",
-      flexShrink: 0,
     },
     linkedinLink: {
       display: "flex",
@@ -2657,27 +2693,76 @@ const CompanyDetail = () => {
                     flexWrap: "wrap",
                   }}
                 >
-                  <NewFeatureCallout
-                    featureKey="company-profile-pdf-export"
-                    launchedAt="2026-02-02T00:00:00.000Z"
+                  {}
+                  <div
+                    ref={pdfExportMenuRef}
+                    style={{ position: "relative", display: "inline-block" }}
                   >
                     <button
-                      onClick={handleExportPdf}
+                      type="button"
+                      onClick={() =>
+                        setShowPdfExportOptions((current) => !current)
+                      }
                       disabled={exportingPdf || !company?.id}
+                      aria-haspopup="menu"
+                      aria-expanded={showPdfExportOptions}
                       style={{
                         ...styles.reportButton,
                         backgroundColor: exportingPdf ? "#9ca3af" : "#0075df",
                         display: "inline-flex",
                         alignItems: "center",
+                        gap: "6px",
                         cursor:
                           exportingPdf || !company?.id
                             ? "not-allowed"
                             : "pointer",
                       }}
                     >
-                      {exportingPdf ? "Exporting..." : "Export PDF"}
+                      {exportingPdf
+                        ? exportingPdfType === "financial_metrics"
+                          ? "Exporting Metrics..."
+                          : "Exporting..."
+                        : "Export PDF"}
+                      <span aria-hidden="true"></span>
                     </button>
-                  </NewFeatureCallout>
+                    {showPdfExportOptions && !exportingPdf && company?.id && (
+                      <div
+                        role="menu"
+                        style={{
+                          position: "absolute",
+                          right: 0,
+                          top: "calc(100% + 6px)",
+                          zIndex: 30,
+                          minWidth: "220px",
+                          padding: "6px",
+                          backgroundColor: "#ffffff",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "8px",
+                          boxShadow: "0 10px 20px rgba(15, 23, 42, 0.12)",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => handleExportPdf("profile")}
+                          style={{
+                            ...styles.exportMenuItem,
+                            borderBottom: "1px solid #edf2f7",
+                          }}
+                        >
+                          Export Whole Profile
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => handleExportPdf("financial_metrics")}
+                          style={styles.exportMenuItem}
+                        >
+                          Export Financial Metrics
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <a
                     style={{
                       ...styles.reportButton,
@@ -3011,49 +3096,59 @@ const CompanyDetail = () => {
               )}
               {/* Investors — hide if parent company exists */}
               {!haveParentCompany && (
-                <div style={styles.infoRow} className="info-row">
-                  <span style={styles.label} className="info-label">
-                    Investors:
-                  </span>
-                  <div style={styles.value} className="info-value">
-                    {(() => {
-                      if (apiInvestorsLoading) {
-                        return "Loading...";
-                      }
-                      if (apiInvestors.length > 0) {
-                        const validApiInvestors = apiInvestors.filter(
-                          (investor) =>
-                            investor &&
-                            typeof investor.investor_id === "number" &&
-                            investor.investor_name
-                        );
-                        if (validApiInvestors.length > 0) {
-                          return (
-                            <div style={styles.tagContainer}>
-                              {validApiInvestors.map((investor) => (
-                                <Link
-                                  key={`api-investor-${investor.investor_id}`}
-                                  href={`/investors/${investor.investor_id}`}
-                                  style={styles.companyTag}
-                                  onMouseEnter={(e) => {
-                                    (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
-                                  }}
-                                  prefetch={false}
-                                >
-                                  {investor.investor_name}
-                                </Link>
-                              ))}
-                            </div>
-                          );
+                <>
+                  <div style={styles.infoRow} className="info-row">
+                    <span style={styles.label} className="info-label">
+                      Investors:
+                    </span>
+                    <div style={styles.value} className="info-value">
+                      {(() => {
+                        if (apiInvestorsLoading) {
+                          return "Loading...";
                         }
-                      }
-                      return "Not available";
-                    })()}
+                        if (apiInvestors.length > 0) {
+                          const validApiInvestors = apiInvestors.filter(
+                            (investor) =>
+                              investor &&
+                              typeof investor.investor_id === "number" &&
+                              investor.investor_name
+                          );
+                          if (validApiInvestors.length > 0) {
+                            return (
+                              <div style={styles.tagContainer}>
+                                {validApiInvestors.map((investor) => (
+                                  <Link
+                                    key={`api-investor-${investor.investor_id}`}
+                                    href={`/investors/${investor.investor_id}`}
+                                    style={styles.companyTag}
+                                    onMouseEnter={(e) => {
+                                      (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c8e6c9";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f5e8";
+                                    }}
+                                    prefetch={false}
+                                  >
+                                    {investor.investor_name}
+                                  </Link>
+                                ))}
+                              </div>
+                            );
+                          }
+                        }
+                        return "Not available";
+                      })()}
+                    </div>
                   </div>
-                </div>
+                  <div style={styles.infoRow} className="info-row">
+                    <span style={styles.label} className="info-label">
+                      Years Since Last Investment:
+                    </span>
+                    <div style={styles.value} className="info-value">
+                      {formatLastInvestmentDisplay(company.last_investment)}
+                    </div>
+                  </div>
+                </>
               )}
               {hasManagement && (
                 <div style={{ marginTop: "16px" }}>
@@ -3702,13 +3797,14 @@ const CompanyDetail = () => {
 
             {/* Desktop Financial Metrics */}
             <div style={styles.card} className="card desktop-financial-metrics">
-              {/* Competitors */}
-              {false && (competitorsLoading ||
-                ((competitors?.peers_and_competitors?.length ?? 0) > 0 ||
-                  (competitors?.potential_acquirers?.length ?? 0) > 0 ||
-                  (competitors?.acquisition_targets?.length ?? 0) > 0)) && (
+              {/* Competitors (table layout) */}
+              {(competitorsLoading ||
+                (competitors &&
+                  (competitors.peers.length > 0 ||
+                    competitors.potential_acquirers.length > 0 ||
+                    competitors.acquisition_targets.length > 0))) && (
                 <div style={{ marginBottom: "20px" }}>
-                  <h2 style={styles.sectionTitle}>Competitors</h2>
+                  <h2 style={styles.sectionTitle}>Market Landscape</h2>
                   {competitorsLoading ? (
                     <div style={{ fontSize: "14px", color: "#6b7280" }}>
                       Loading...
@@ -3716,7 +3812,26 @@ const CompanyDetail = () => {
                   ) : (
                     <>
                       {(() => {
-                        const MAX_VISIBLE = 3;
+                        const MAX_VISIBLE = 5;
+                        const competitorTag = {
+                          backgroundColor: "#e8f0fe",
+                          color: "#1a56db",
+                          padding: "4px 8px",
+                          borderRadius: "4px",
+                          fontSize: "12px",
+                          fontWeight: "500" as const,
+                          textDecoration: "none",
+                          display: "inline-block",
+                          maxWidth: "100%",
+                          minWidth: 0,
+                          whiteSpace: "normal" as const,
+                          wordBreak: "keep-all" as const,
+                          overflowWrap: "normal" as const,
+                          hyphens: "none" as const,
+                          lineHeight: 1.25,
+                          textAlign: "left" as const,
+                        };
+
                         const sections: {
                           key: string;
                           label: string;
@@ -3725,7 +3840,7 @@ const CompanyDetail = () => {
                           {
                             key: "peers",
                             label: "Peers & Competitors",
-                            items: competitors?.peers_and_competitors || [],
+                            items: competitors?.peers || [],
                           },
                           {
                             key: "acquirers",
@@ -3749,194 +3864,118 @@ const CompanyDetail = () => {
                           items: s.items.slice(0, MAX_VISIBLE),
                         }));
 
-                        const previewLinkStyle = {
-                          color: "#1a56db",
-                          fontSize: "12px",
-                          fontWeight: 500,
-                          textDecoration: "none",
-                          lineHeight: 1.3,
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical" as const,
-                          overflow: "hidden",
-                          wordBreak: "keep-all" as const,
-                          overflowWrap: "break-word" as const,
-                        };
-
-                        const modalLinkStyle = {
-                          color: "#1a56db",
-                          fontSize: "13px",
-                          fontWeight: 500,
-                          textDecoration: "none",
-                          lineHeight: 1.35,
-                          whiteSpace: "normal" as const,
-                          wordBreak: "keep-all" as const,
-                          overflowWrap: "normal" as const,
-                        };
-
-                        const renderPreviewCards = (
-                          cardSections: typeof visibleSections
-                        ) => (
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: `repeat(${cardSections.length}, minmax(0, 1fr))`,
-                              gap: "10px",
-                            }}
-                          >
-                            {cardSections.map((section) => (
-                              <div
-                                key={section.key}
-                                style={{
-                                  backgroundColor: "white",
-                                  border: "1px solid #e2e8f0",
-                                  borderRadius: "10px",
-                                  overflow: "hidden",
-                                  minWidth: 0,
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    padding: "8px 10px",
-                                    backgroundColor: "#f8fafc",
-                                    borderBottom: "1px solid #e2e8f0",
-                                    textAlign: "center",
-                                    color: "#475569",
-                                    fontSize: "13px",
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {section.label}
-                                </div>
-                                <div>
-                                  {section.items.map((comp, idx) => (
-                                    <div
-                                      key={`${section.key}-${comp.id}`}
+                        const renderCompetitorTable = (
+                          tableSections: typeof visibleSections
+                        ) => {
+                          const tMaxRows = Math.max(
+                            ...tableSections.map((s) => s.items.length)
+                          );
+                          return (
+                            <table
+                              style={{
+                                width: "100%",
+                                borderCollapse: "collapse",
+                                tableLayout: "fixed",
+                                fontSize: "13px",
+                              }}
+                            >
+                              <thead>
+                                <tr>
+                                  {tableSections.map((section) => (
+                                    <th
+                                      key={section.key}
                                       style={{
-                                        padding: "8px 10px",
-                                        borderBottom:
-                                          idx === section.items.length - 1
-                                            ? "none"
-                                            : "1px solid #f1f5f9",
-                                        minHeight: "38px",
+                                        textAlign: "center",
+                                        padding: "4px 6px 6px",
+                                        borderBottom: "1px solid #e2e8f0",
+                                        color: "#4b5563",
+                                        fontWeight: 600,
+                                        fontSize: "12px",
                                       }}
                                     >
-                                      <Link
-                                        href={`/company/${comp.id}`}
-                                        prefetch={false}
-                                        style={previewLinkStyle}
-                                        title={comp.name}
-                                        onMouseEnter={(e) => {
-                                          (
-                                            e.currentTarget as HTMLAnchorElement
-                                          ).style.textDecoration = "underline";
-                                        }}
-                                        onMouseLeave={(e) => {
-                                          (
-                                            e.currentTarget as HTMLAnchorElement
-                                          ).style.textDecoration = "none";
-                                        }}
-                                      >
-                                        {comp.name}
-                                      </Link>
-                                    </div>
+                                      {section.label}
+                                    </th>
                                   ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        );
-
-                        const renderModalCards = (
-                          cardSections: typeof sections
-                        ) => (
-                          <div
-                            style={{
-                              width: "100%",
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "12px",
-                            }}
-                          >
-                            {cardSections.map((section) => (
-                              <div
-                                key={section.key}
-                                style={{
-                                  backgroundColor: "white",
-                                  border: "1px solid #e2e8f0",
-                                  borderRadius: "10px",
-                                  overflow: "hidden",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    padding: "10px 12px",
-                                    backgroundColor: "#f8fafc",
-                                    borderBottom: "1px solid #e2e8f0",
-                                    textAlign: "center",
-                                    color: "#475569",
-                                    fontSize: "14px",
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {section.label}
-                                </div>
-                                <div>
-                                  {section.items.map((comp, idx) => (
-                                    <div
-                                      key={`${section.key}-${comp.id}`}
-                                      style={{
-                                        display: "grid",
-                                        gridTemplateColumns: comp.linkedin_logo
-                                          ? "20px minmax(0, 1fr)"
-                                          : "minmax(0, 1fr)",
-                                        gap: "8px",
-                                        alignItems: "start",
-                                        padding: "10px 12px",
-                                        borderBottom:
-                                          idx === section.items.length - 1
-                                            ? "none"
-                                            : "1px solid #f1f5f9",
-                                      }}
-                                    >
-                                      {comp.linkedin_logo ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img
-                                          src={`data:image/jpeg;base64,${comp.linkedin_logo}`}
-                                          alt=""
-                                          style={{
-                                            width: "20px",
-                                            height: "16px",
-                                            borderRadius: "3px",
-                                            objectFit: "contain",
-                                            marginTop: "2px",
-                                          }}
-                                        />
-                                      ) : null}
-                                      <Link
-                                        href={`/company/${comp.id}`}
-                                        prefetch={false}
-                                        style={modalLinkStyle}
-                                        onMouseEnter={(e) => {
-                                          (
-                                            e.currentTarget as HTMLAnchorElement
-                                          ).style.textDecoration = "underline";
-                                        }}
-                                        onMouseLeave={(e) => {
-                                          (
-                                            e.currentTarget as HTMLAnchorElement
-                                          ).style.textDecoration = "none";
-                                        }}
-                                      >
-                                        {comp.name}
-                                      </Link>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        );
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {Array.from({ length: tMaxRows }).map(
+                                  (_, rowIdx) => (
+                                    <tr key={`competitor-row-${rowIdx}`}>
+                                      {tableSections.map((section) => {
+                                        const comp = section.items[rowIdx];
+                                        if (!comp) {
+                                          return (
+                                            <td
+                                              key={`${section.key}-${rowIdx}`}
+                                              style={{
+                                                padding: "5px 6px",
+                                                borderBottom:
+                                                  "1px solid #f1f5f9",
+                                              }}
+                                            />
+                                          );
+                                        }
+                                        return (
+                                          <td
+                                            key={`${section.key}-${rowIdx}`}
+                                            style={{
+                                              padding: "5px 6px",
+                                              borderBottom:
+                                                "1px solid #f1f5f9",
+                                              verticalAlign: "top",
+                                              minWidth: 0,
+                                            }}
+                                          >
+                                            <div
+                                              style={{
+                                                display: "flex",
+                                                alignItems: "flex-start",
+                                                gap: "5px",
+                                                minWidth: 0,
+                                              }}
+                                            >
+                                              {comp.linkedin_logo ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img
+                                                  src={`data:image/jpeg;base64,${comp.linkedin_logo}`}
+                                                  alt=""
+                                                  style={{
+                                                    width: "18px",
+                                                    height: "14px",
+                                                    borderRadius: "3px",
+                                                    objectFit: "contain",
+                                                    flexShrink: 0,
+                                                  }}
+                                                />
+                                              ) : null}
+                                              <Link
+                                                href={`/company/${comp.id}`}
+                                                prefetch={false}
+                                                style={{
+                                                  ...competitorTag,
+                                                  flex: "1 1 auto",
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#c7d7fc";
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#e8f0fe";
+                                                }}
+                                              >
+                                                {comp.name}
+                                              </Link>
+                                            </div>
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  )
+                                )}
+                              </tbody>
+                            </table>
+                          );
+                        };
 
                         return (
                           <>
@@ -3948,7 +3987,9 @@ const CompanyDetail = () => {
                                 padding: "8px 12px 10px",
                               }}
                             >
-                              {renderPreviewCards(visibleSections)}
+                              <div>
+                                {renderCompetitorTable(visibleSections)}
+                              </div>
                               {hasMore && (
                                 <div style={{ textAlign: "center", marginTop: "10px" }}>
                                   <button
@@ -3970,6 +4011,7 @@ const CompanyDetail = () => {
                               )}
                             </div>
 
+                            {/* Competitors modal */}
                             {showCompetitorsModal && (
                               <div
                                 style={{
@@ -4013,7 +4055,7 @@ const CompanyDetail = () => {
                                         color: "#1a202c",
                                       }}
                                     >
-                                      Competitors
+                                      Market Landscape
                                     </h3>
                                     <button
                                       onClick={() => setShowCompetitorsModal(false)}
@@ -4030,7 +4072,11 @@ const CompanyDetail = () => {
                                       ×
                                     </button>
                                   </div>
-                                  {renderModalCards(sections)}
+                                  <div>
+                                    {renderCompetitorTable(
+                                      sections.map((s) => ({ ...s }))
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             )}
@@ -4161,7 +4207,7 @@ const CompanyDetail = () => {
                       marginBottom: 8,
                     }}
                   >
-                    Income Statement (Last 3 FY)
+                    Income statement
                   </div>
                   <div style={{ overflowX: "auto" }}>
                     <table
@@ -4466,44 +4512,8 @@ const CompanyDetail = () => {
                   )}
                 </span>
               </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>LinkedIn growth 1 year %:</span>
-                <span style={styles.value}>
-                  {formatLinkedInGrowthPercent(company.linkedin_growth_1y_pct)}
-                </span>
-                <span style={styles.sourceValue}></span>
-              </div>
               <div style={styles.chartContainer} className="chartContainer">
-                <div style={styles.chartTitleRow}>
-                  <div style={{ ...styles.chartTitle, marginBottom: 0 }}>
-                    LinkedIn Employee Count
-                  </div>
-                  {linkedinUrl && (
-                    <a
-                      href={linkedinUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={styles.linkedinIconButton}
-                      onMouseOver={(e) =>
-                        (e.currentTarget.style.backgroundColor = "#005582")
-                      }
-                      onMouseOut={(e) =>
-                        (e.currentTarget.style.backgroundColor = "#0077b5")
-                      }
-                      aria-label="Open LinkedIn profile"
-                      title="Open LinkedIn profile"
-                    >
-                      <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                      </svg>
-                    </a>
-                  )}
-                </div>
+                <div style={styles.chartTitle}>LinkedIn Employee Count</div>
                 <div style={styles.currentCount}>
                   {formatNumber(currentEmployeeCount)} employees
                 </div>
@@ -4522,6 +4532,50 @@ const CompanyDetail = () => {
                   </div>
                 )}
               </div>
+              {/* LinkedIn Logo - Redirects to company LinkedIn */}
+              {linkedinUrl && (
+                <div
+                  style={{
+                    textAlign: "left",
+                    marginTop: "16px",
+                    paddingTop: "16px",
+                    borderTop: "1px solid #e2e8f0",
+                  }}
+                >
+                  <a
+                    href={linkedinUrl || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "30px",
+                      height: "30px",
+                      backgroundColor: "#0077b5",
+                      borderRadius: "6px",
+                      color: "white",
+                      textDecoration: "none",
+                      transition: "background-color 0.2s ease",
+                    }}
+                    onMouseOver={(e) =>
+                      (e.currentTarget.style.backgroundColor = "#005582")
+                    }
+                    onMouseOut={(e) =>
+                      (e.currentTarget.style.backgroundColor = "#0077b5")
+                    }
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                    </svg>
+                  </a>
+                </div>
+              )}
             </div>
 
             {/* Market Overview removed */}
@@ -4655,7 +4709,7 @@ const CompanyDetail = () => {
                   <div
                     style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}
                   >
-                    Income Statement (Last 3 FY)
+                    Income statement
                   </div>
                   <div style={{ overflowX: "auto" }}>
                     <table
@@ -4968,44 +5022,8 @@ const CompanyDetail = () => {
                   )}
                 </span>
               </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>LinkedIn growth 1 year %:</span>
-                <span style={styles.value}>
-                  {formatLinkedInGrowthPercent(company.linkedin_growth_1y_pct)}
-                </span>
-                <span style={styles.sourceValue}></span>
-              </div>
               <div style={styles.chartContainer}>
-                <div style={styles.chartTitleRow}>
-                  <div style={{ ...styles.chartTitle, marginBottom: 0 }}>
-                    LinkedIn Employee Count
-                  </div>
-                  {linkedinUrl && (
-                    <a
-                      href={linkedinUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={styles.linkedinIconButton}
-                      onMouseOver={(e) =>
-                        (e.currentTarget.style.backgroundColor = "#005582")
-                      }
-                      onMouseOut={(e) =>
-                        (e.currentTarget.style.backgroundColor = "#0077b5")
-                      }
-                      aria-label="Open LinkedIn profile"
-                      title="Open LinkedIn profile"
-                    >
-                      <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                      </svg>
-                    </a>
-                  )}
-                </div>
+                <div style={styles.chartTitle}>LinkedIn Employee Count</div>
                 <div style={styles.currentCount}>
                   {formatNumber(currentEmployeeCount)} employees
                 </div>

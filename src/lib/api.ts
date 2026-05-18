@@ -137,48 +137,115 @@ export type UserEmailItem = {
   email: string;
 };
 
-/**
- * Loads Asymmetrix users via `/api/asymmetrix-users` (Bearer auth) and filters by name/email.
- * Only returns rows with a non-empty email.
- */
-export async function fetchAsymmetrixUsersForEmailSelect(
+/** Canonical domain for admin / CRM sender pickers (`user_emails` search + UI suffix). */
+export const ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN =
+  "@asymmetrixintelligence.com";
+
+/** Search sent to `user_emails`. Lowercase tokens like `alex` → `alex@asymmetrixintelligence.com`; mixed-case (`Honor`) is sent raw for name matching. */
+function buildUserEmailsApiQuery(raw: string): string {
+  const q = raw.trim();
+  if (!q) return "";
+  if (q.includes("@")) return q;
+  const domainBody = ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN.slice(1).toLowerCase();
+  if (q.toLowerCase() === domainBody) return q;
+
+  // Display-name style fragment (Honor, Alex, Piero) — do not force email shape.
+  if (q !== q.toLowerCase()) return q;
+
+  if (/\s/.test(q)) return q;
+
+  // Typical initials.local address — narrow via full email at our domain.
+  if (q.includes(".")) return `${q}${ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN}`;
+
+  // Lowercase token without dot (e.g. alex) — historical email-prefix query.
+  return `${q}${ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN}`;
+}
+
+function unwrapUserEmailsRows(data: unknown): unknown[] {
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object") {
+    const o = data as Record<string, unknown>;
+    const candidates = [
+      o.user_emails,
+      o.items,
+      o.users,
+      o.emails,
+      o.result,
+      o.data,
+      o.records,
+    ];
+    for (const c of candidates) {
+      if (Array.isArray(c)) return c;
+    }
+  }
+  return [];
+}
+
+const XANO_USER_EMAILS_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI/user_emails";
+
+async function fetchUserEmailsJson(
   token: string,
-  query: string
-): Promise<UserEmailItem[]> {
-  const res = await fetch("/api/asymmetrix-users", {
+  queryParam: string
+): Promise<unknown> {
+  const url = new URL(XANO_USER_EMAILS_URL);
+  url.searchParams.set("query", queryParam);
+  const res = await fetch(url.toString(), {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${token.trim()}`,
     },
-    credentials: "include",
   });
   if (!res.ok) {
-    throw new Error("Failed to load Asymmetrix users");
+    throw new Error("Failed to load sender emails");
   }
-  const data = (await res.json()) as unknown;
-  if (!Array.isArray(data)) return [];
+  return res.json();
+}
 
-  const q = query.trim().toLowerCase();
+function mapUserEmailRows(
+  rows: unknown[],
+  filterQuery: string
+): UserEmailItem[] {
+  const q = filterQuery.trim().toLowerCase();
   const mapped: UserEmailItem[] = [];
-  for (const row of data) {
+  const seenEmail = new Set<string>();
+
+  for (const row of rows) {
     if (!row || typeof row !== "object") continue;
     const r = row as Record<string, unknown>;
-    const idRaw = r.id;
+    const idRaw = r.id ?? r._id ?? r.user_emails_id ?? r.user_email_id;
     const id =
       typeof idRaw === "number" && Number.isFinite(idRaw)
         ? Math.trunc(idRaw)
         : typeof idRaw === "string"
           ? parseInt(idRaw, 10)
           : undefined;
-    const name = String(r.name ?? "").trim();
-    const email = String(r.email ?? "").trim();
+
+    const emailRaw =
+      r.email ??
+      r.Email ??
+      r.user_email ??
+      r.address ??
+      r.mail ??
+      r.username ??
+      "";
+    const email = String(emailRaw ?? "").trim();
     if (!email) continue;
+    if (seenEmail.has(email)) continue;
+    seenEmail.add(email);
+
+    const name = String(
+      r.name ?? r.Name ?? r.display_name ?? r.full_name ?? ""
+    ).trim();
     const item: UserEmailItem = {
       ...(typeof id === "number" && Number.isFinite(id) && id > 0
         ? { id }
         : {}),
-      name: name || email || (id ? `User #${id}` : "User"),
+      name:
+        name ||
+        (email.includes("@") ? email.slice(0, email.indexOf("@")) : email) ||
+        email,
       email,
     };
     if (
@@ -190,6 +257,47 @@ export async function fetchAsymmetrixUsersForEmailSelect(
     }
   }
   return mapped;
+}
+
+/**
+ * Loads sender emails via Xano `GET …/user_emails` with Bearer auth.
+ * Uses `buildUserEmailsApiQuery`; if that yields no rows, retries once with the raw
+ * trimmed query so lowercase name fragments (e.g. honor → h.crean) still match.
+ */
+export async function fetchAsymmetrixUsersForEmailSelect(
+  token: string,
+  query: string
+): Promise<UserEmailItem[]> {
+  if (!token?.trim()) {
+    throw new Error("Authentication required");
+  }
+  const trimmed = query.trim();
+
+  const primaryQ = buildUserEmailsApiQuery(trimmed);
+  let data = await fetchUserEmailsJson(token, primaryQ);
+  let rows = unwrapUserEmailsRows(data);
+  let mapped = mapUserEmailRows(rows, trimmed);
+
+  if (
+    mapped.length === 0 &&
+    trimmed.length > 0 &&
+    !trimmed.includes("@") &&
+    primaryQ !== trimmed
+  ) {
+    data = await fetchUserEmailsJson(token, trimmed);
+    rows = unwrapUserEmailsRows(data);
+    mapped = mapUserEmailRows(rows, trimmed);
+  }
+
+  return mapped;
+}
+
+/** Alias for directory-backed sender search (same contract as Fin Metrics email modal). */
+export async function getUserEmails(
+  token: string,
+  query: string
+): Promise<UserEmailItem[]> {
+  return fetchAsymmetrixUsersForEmailSelect(token, query);
 }
 
 /** Basic user row from `all_users` (admin Email Builder multi-select). */

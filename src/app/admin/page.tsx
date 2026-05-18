@@ -6,15 +6,14 @@ import Link from "next/link";
 import { CompetitorsTab } from "./analytics/_components/AnalyticsViews";
 import { ChangeStateTab } from "./_components/ChangeStatePanel";
 import SearchableSelect from "@/components/ui/SearchableSelect";
-import {
-  SuggestedSenderEmailInput,
-  type SenderEmailFieldValue,
-} from "@/components/ui/SuggestedSenderEmailInput";
+import { SearchableUserEmailSelect } from "@/components/SearchableUserEmailSelect";
 import { BasicUsersMultiSelect } from "@/components/ui/BasicUsersMultiSelect";
 import TiptapSimpleEditor from "@/components/ui/TiptapSimpleEditor";
 import {
-  fetchAsymmetrixUsersForEmailSelect,
+  ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN,
+  getUserEmails,
   type BasicUserItem,
+  type UserEmailItem,
 } from "@/lib/api";
 import { authService } from "@/lib/auth";
 import { locationsService } from "@/lib/locationsService";
@@ -619,7 +618,51 @@ function buildBrandedEmailHtml(params: {
 </html>`;
 }
 
+const ADMIN_FROM_EXTRA_OPTIONS: UserEmailItem[] = [
+  {
+    name: "Asymmetrix",
+    email: `asymmetrix${ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN}`,
+  },
+];
+
+const ADMIN_DEFAULT_FROM_USER: UserEmailItem | null =
+  ADMIN_FROM_EXTRA_OPTIONS[0] ?? null;
+
+function adminEmailLocalPart(value: string): string {
+  return value.trim().split("@")[0]?.trim() ?? "";
+}
+
+/** Manual From row: local part + fixed asymmetrix intelligence domain. */
+function adminSenderEmailFromLocalPart(local: string): string {
+  const lp = adminEmailLocalPart(local);
+  return lp ? `${lp}${ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN}` : "";
+}
+
+/**
+ * Pass local part to `getUserEmails`; empty input uses bare hostname so `user_emails`
+ * gets an initial directory query (see `buildUserEmailsApiQuery` in api.ts).
+ */
+function adminUserEmailsSearchQuery(normalizedLocal: string): string {
+  const lp = adminEmailLocalPart(normalizedLocal);
+  return lp || ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN.slice(1);
+}
+
+function isAdminDirectorySenderEmail(user: UserEmailItem): boolean {
+  return user.email
+    .toLowerCase()
+    .endsWith(ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN.toLowerCase());
+}
+
+function matchAdminExtraFromEmail(fe: string): UserEmailItem | null {
+  const lc = fe.trim().toLowerCase();
+  return (
+    ADMIN_FROM_EXTRA_OPTIONS.find((o) => o.email.toLowerCase() === lc) ?? null
+  );
+}
+
 function EmailsTab() {
+  const apiAuthToken = authService.getToken();
+
   type EmailEntityType = "" | "contributon_email" | "client";
 
   function coerceEmailEntityType(value: unknown): EmailEntityType {
@@ -633,12 +676,22 @@ function EmailsTab() {
   const [entityType, setEntityType] = useState<EmailEntityType>("");
   const [singleRecipient, setSingleRecipient] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
-  const [senderField, setSenderField] = useState<SenderEmailFieldValue>({
-    email: "",
-  });
+  const [fromDirectoryUser, setFromDirectoryUser] =
+    useState<UserEmailItem | null>(() => ADMIN_DEFAULT_FROM_USER);
+  const [fromManualLocal, setFromManualLocal] = useState("");
   const [selectedBasicUsers, setSelectedBasicUsers] = useState<BasicUserItem[]>(
     []
   );
+
+  const senderField = useMemo(() => {
+    const manualEmail = adminSenderEmailFromLocalPart(fromManualLocal);
+    const email =
+      manualEmail || fromDirectoryUser?.email?.trim() || "";
+    const directoryName = fromManualLocal.trim()
+      ? undefined
+      : fromDirectoryUser?.name;
+    return { email, directoryName };
+  }, [fromDirectoryUser, fromManualLocal]);
   const [sending, setSending] = useState(false);
   const EMAIL_PREVIEW_STORAGE_KEY = "asymmetrix_email_preview_v1";
 
@@ -898,7 +951,27 @@ function EmailsTab() {
               setSubject(String(t.Headline ?? ""));
               setEntityType(coerceEmailEntityType(t.entity_type));
               const fe = String(t.from_email ?? "").trim();
-              setSenderField(fe ? { email: fe } : { email: "" });
+              const domainLc =
+                ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN.toLowerCase();
+              if (!fe) {
+                setFromDirectoryUser(ADMIN_DEFAULT_FROM_USER);
+                setFromManualLocal("");
+              } else {
+                const extraHit = matchAdminExtraFromEmail(fe);
+                if (extraHit) {
+                  setFromDirectoryUser(extraHit);
+                  setFromManualLocal("");
+                } else if (fe.toLowerCase().endsWith(domainLc)) {
+                  setFromManualLocal(adminEmailLocalPart(fe));
+                  setFromDirectoryUser(null);
+                } else {
+                  setFromDirectoryUser({
+                    name: adminEmailLocalPart(fe) || fe,
+                    email: fe,
+                  });
+                  setFromManualLocal("");
+                }
+              }
               if (t.Body) {
                 const inner = extractInnerContent(String(t.Body));
                 setBodyHtml(inner || "<p></p>");
@@ -928,19 +1001,50 @@ function EmailsTab() {
         />
       </div>
 
-      <div className="mb-3 max-w-xl">
-        <SuggestedSenderEmailInput
-          token={authService.getToken()}
-          fetchSuggestions={fetchAsymmetrixUsersForEmailSelect}
-          value={senderField}
-          onChange={setSenderField}
+      <div className="mb-3 max-w-xl space-y-3">
+        <SearchableUserEmailSelect
+          token={apiAuthToken}
+          fetchUsers={getUserEmails}
+          value={fromDirectoryUser}
+          onChange={(user) => {
+            setFromDirectoryUser(user);
+            if (user) setFromManualLocal("");
+          }}
           label="From (sender email)"
+          placeholder="Search sender local part…"
+          extraOptions={ADMIN_FROM_EXTRA_OPTIONS}
+          inputSuffix={ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN}
+          normalizeInput={adminEmailLocalPart}
+          searchQuery={adminUserEmailsSearchQuery}
+          optionFilter={isAdminDirectorySenderEmail}
         />
+        <div>
+          <label className="mb-1 block text-sm font-medium">
+            Or enter From email local part manually
+          </label>
+          <div className="flex items-center rounded-md border border-gray-300 bg-white focus-within:ring-1 focus-within:ring-gray-400">
+            <input
+              type="text"
+              autoComplete="off"
+              value={fromManualLocal}
+              onChange={(e) => {
+                const lp = adminEmailLocalPart(e.target.value);
+                setFromManualLocal(lp);
+                if (lp) setFromDirectoryUser(null);
+              }}
+              placeholder="e.g. sender"
+              className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-400"
+            />
+            <span className="shrink-0 pr-3 text-sm text-gray-500">
+              {ASYMMETRIX_INTELLIGENCE_EMAIL_DOMAIN}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className="mb-3 max-w-xl">
         <BasicUsersMultiSelect
-          token={authService.getToken()}
+          token={apiAuthToken}
           value={selectedBasicUsers}
           onChange={setSelectedBasicUsers}
           label="Basic users"
