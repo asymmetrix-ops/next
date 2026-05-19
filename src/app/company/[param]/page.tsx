@@ -367,6 +367,8 @@ interface Company {
   url: string;
   _linkedin_data_of_new_company: CompanyLinkedInData;
   linkedin_data?: CompanyRootLinkedInData;
+  /** YoY LinkedIn employee count growth % from company payload */
+  linkedin_growth_1y_pct?: number | string | null;
   _locations: CompanyLocation;
   _ownership_type: CompanyOwnershipType;
   sectors_id: CompanySector[];
@@ -4177,6 +4179,19 @@ const CompanyDetail = () => {
                   </div>
                 )}
               </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>
+                  LinkedIn headcount growth (1 yr):
+                </span>
+                <span style={styles.value}>
+                  {formatPercent(company.linkedin_growth_1y_pct)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getNumeric(company.linkedin_growth_1y_pct) !== undefined
+                    ? "LinkedIn"
+                    : ""}
+                </span>
+              </div>
               {/* LinkedIn Logo - Redirects to company LinkedIn */}
               {linkedinUrl && (
                 <div
@@ -4698,6 +4713,19 @@ const CompanyDetail = () => {
                     No employee data available
                   </div>
                 )}
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>
+                  LinkedIn headcount growth (1 yr):
+                </span>
+                <span style={styles.value}>
+                  {formatPercent(company.linkedin_growth_1y_pct)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getNumeric(company.linkedin_growth_1y_pct) !== undefined
+                    ? "LinkedIn"
+                    : ""}
+                </span>
               </div>
             </div>
           </div>
