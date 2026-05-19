@@ -17,6 +17,8 @@ export type ChangeRequestItem = {
   ai_reasoning?: unknown;
   /** Optional companies array (some endpoints attach this at the top level). */
   companies?: unknown;
+  /** Company names detected in the diff but not matched to the database. */
+  companies_not_in_db?: unknown;
   /** Whether this change request has been reviewed (admin). */
   reviewed?: boolean;
 };
@@ -155,6 +157,46 @@ export function getChangeRequestCompanies(
       })
       .filter((x): x is ChangeRequestCompanyRef => Boolean(x));
     if (mapped.length) return mapped;
+  }
+
+  return [];
+}
+
+function coerceStringArray(value: unknown): string[] | null {
+  if (Array.isArray(value)) {
+    const names = value
+      .map((x) => (typeof x === "string" ? x.trim() : ""))
+      .filter(Boolean);
+    return names.length ? names : null;
+  }
+  if (typeof value === "string") {
+    const t = value.trim();
+    if (!t) return null;
+    try {
+      const parsed = JSON.parse(t) as unknown;
+      return coerceStringArray(parsed);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+export function getChangeRequestCompaniesNotInDb(
+  item: ChangeRequestItem
+): string[] {
+  const candidates: unknown[] = [];
+  if (item.companies_not_in_db != null) {
+    candidates.push(item.companies_not_in_db);
+  }
+  const d = item.data;
+  if (d && typeof d === "object" && "companies_not_in_db" in d) {
+    candidates.push((d as Record<string, unknown>).companies_not_in_db);
+  }
+
+  for (const raw of candidates) {
+    const names = coerceStringArray(raw);
+    if (names?.length) return names;
   }
 
   return [];

@@ -15,6 +15,7 @@ import {
   type ChangeRequestResponse,
   formatAiReasoningCard,
   getChangeRequestCompanies,
+  getChangeRequestCompaniesNotInDb,
   getChangeRequestAiReasoning,
   getChangeRequestBucket,
   getChangeRequestDiffText,
@@ -641,6 +642,8 @@ export function ChangeStateTab() {
                 const addedRaw = getChangeRequestDiffText(item, "added_text");
                 const addedItems = textToDiffItems(addedRaw, "added");
                 const companies = getChangeRequestCompanies(item);
+                const companiesNotInDb =
+                  getChangeRequestCompaniesNotInDb(item);
                 const bucketLabel = getChangeRequestBucket(item);
 
                 return (
@@ -727,17 +730,16 @@ export function ChangeStateTab() {
                       </div>
                     </td>
                     <td className="h-full min-w-0 align-top px-3 py-4 sm:px-4">
-                      <div className="flex h-full min-h-full flex-col">
+                      <div className="flex h-full min-h-full flex-col gap-2">
                         {companies.length > 0 ? (
                           <div className="flex flex-wrap gap-1.5">
                             {companies.slice(0, 6).map((c) => (
                               <Link
                                 key={c.id}
                                 href={`/company/${c.id}`}
-                                className="inline-flex max-w-full items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
-                                title={c.name}
+                                className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium leading-snug text-slate-700 hover:bg-slate-100 [overflow-wrap:anywhere]"
                               >
-                                <span className="truncate">{c.name}</span>
+                                {c.name}
                               </Link>
                             ))}
                             {companies.length > 6 ? (
@@ -746,9 +748,33 @@ export function ChangeStateTab() {
                               </span>
                             ) : null}
                           </div>
-                        ) : (
+                        ) : null}
+                        {companiesNotInDb.length > 0 ? (
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">
+                              Not in DB
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {companiesNotInDb.slice(0, 6).map((name) => (
+                                <span
+                                  key={name}
+                                  className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium leading-snug text-amber-800 [overflow-wrap:anywhere]"
+                                >
+                                  {name}
+                                </span>
+                              ))}
+                              {companiesNotInDb.length > 6 ? (
+                                <span className="inline-flex items-center rounded-full border border-amber-200 bg-white px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                                  +{companiesNotInDb.length - 6}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : null}
+                        {companies.length === 0 &&
+                        companiesNotInDb.length === 0 ? (
                           <span className="text-xs text-gray-300">—</span>
-                        )}
+                        ) : null}
                       </div>
                     </td>
                     <td className="h-full min-w-0 align-top px-3 py-4 sm:px-4">
