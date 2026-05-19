@@ -11,6 +11,8 @@ import InlineAudioPlayer from "@/components/article/InlineAudioPlayer";
 import EmbeddedPdfViewer from "@/components/article/EmbeddedPdfViewer";
 import VideoTheatre from "@/components/article/VideoTheatre";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { canUserViewArticle } from "@/lib/articleVisibility";
 
 // Types for the article detail page
 interface ArticleDetail {
@@ -452,6 +454,7 @@ const isCompanyOfFocusSnapshotEligibleContentType = (contentType: string) =>
 const ArticleDetailPage = () => {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -569,6 +572,17 @@ const ArticleDetailPage = () => {
           >(raw.Related_Documents) || [],
       } as ArticleDetail;
 
+      const visibilityRaw =
+        (normalized as { Visibility?: unknown; visibility?: unknown })
+          .Visibility ??
+        (normalized as { visibility?: unknown }).visibility;
+
+      if (!canUserViewArticle(visibilityRaw, token, user)) {
+        setArticle(null);
+        setError("You do not have access to this article.");
+        return;
+      }
+
       setArticle(normalized);
     } catch (error) {
       console.error("Error fetching article:", error);
@@ -578,7 +592,7 @@ const ArticleDetailPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [articleId]);
+  }, [articleId, user]);
 
   useEffect(() => {
     if (articleId) {

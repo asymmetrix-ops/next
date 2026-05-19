@@ -1,11 +1,17 @@
 import type { ContentArticle } from "@/types/insightsAnalysis";
 import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
+import {
+  isPublicArticleVisibility,
+  normalizeArticleVisibility,
+} from "@/lib/articleVisibility";
 
 type PublicArticle = {
   id: number;
   Publication_Date?: string;
   Headline?: string;
   Strapline?: string;
+  Visibility?: string;
+  visibility?: string;
   // Content type fields may arrive in different shapes/keys
   Content_Type?: string;
   content_type?: string;
@@ -73,7 +79,7 @@ const ReportsSection = async () => {
       Body: "",
       sectors: [],
       companies_mentioned: [],
-      Visibility: "Public",
+      Visibility: normalizeArticleVisibility(a.Visibility ?? a.visibility),
       Related_Documents: [],
     };
   };
@@ -217,7 +223,13 @@ const ReportsSection = async () => {
                 <InsightsAnalysisCard
                   key={article.id}
                   article={toContentArticle(article)}
-                  href={`/article/${article.id}?from=home`}
+                  href={
+                    isPublicArticleVisibility(
+                      article.Visibility ?? article.visibility
+                    )
+                      ? `/article/${article.id}?from=home`
+                      : null
+                  }
                   showMeta={true}
                   badgeBelowDate={true}
                   metaStyle="badges"

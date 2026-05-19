@@ -9,8 +9,9 @@ interface InsightsAnalysisCardProps {
   /**
    * Optional link override (e.g. add tracking query params).
    * Defaults to `/article/${article.id}`.
+   * Pass `null` to render a non-clickable card (no navigation).
    */
-  href?: string;
+  href?: string | null;
   /**
    * When true, shows companies and sector metadata.
    * On contextual surfaces (company / corporate event detail pages),
@@ -354,7 +355,8 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
   metaStyle = "text",
 }) => {
   const router = useRouter();
-  const resolvedHref = href || `/article/${article.id}`;
+  const linkHref = href === null ? null : href ?? `/article/${article.id}`;
+  const isClickable = linkHref !== null;
 
   const transactionStatusBadgeStyle: React.CSSProperties = {
     display: "inline-flex",
@@ -414,6 +416,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
   );
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!isClickable || !linkHref) return;
     if (
       e.defaultPrevented ||
       e.button !== 0 ||
@@ -425,42 +428,59 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
       return;
     }
     e.preventDefault();
-    router.push(resolvedHref);
+    router.push(linkHref);
   };
 
-  return (
-    <a
-      href={resolvedHref}
-      onClick={handleClick}
-      className="content-card"
-      style={{
-        display: "block",
-        width: "100%",
-        maxWidth: "100%",
-        boxSizing: "border-box",
-        backgroundColor: "#ffffff",
-        borderRadius: 12,
-        boxShadow: "0 4px 10px rgba(15, 23, 42, 0.08)",
-        border: "1px solid #e2e8f0",
-        padding: 20,
-        textDecoration: "none",
-        color: "inherit",
-        transition: "transform 0.15s ease, box-shadow 0.15s ease",
-        overflow: "hidden",
-        wordWrap: "break-word",
-        overflowWrap: "break-word",
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget.style.transform = "translateY(-2px)");
-        e.currentTarget.style.boxShadow =
-          "0 10px 30px rgba(15, 23, 42, 0.18)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "translateY(0)";
-        e.currentTarget.style.boxShadow =
-          "0 4px 10px rgba(15, 23, 42, 0.08)";
-      }}
-    >
+  const shellStyle: React.CSSProperties = {
+    display: "block",
+    width: "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box",
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    boxShadow: "0 4px 10px rgba(15, 23, 42, 0.08)",
+    border: "1px solid #e2e8f0",
+    padding: 20,
+    textDecoration: "none",
+    color: "inherit",
+    transition: isClickable
+      ? "transform 0.15s ease, box-shadow 0.15s ease"
+      : undefined,
+    overflow: "hidden",
+    wordWrap: "break-word",
+    overflowWrap: "break-word",
+    cursor: isClickable ? "pointer" : "default",
+  };
+
+  const shellProps =
+    isClickable && linkHref
+      ? ({
+          href: linkHref,
+          onClick: handleClick,
+          onMouseEnter: (e: React.MouseEvent<HTMLAnchorElement>) => {
+            e.currentTarget.style.transform = "translateY(-2px)";
+            e.currentTarget.style.boxShadow =
+              "0 10px 30px rgba(15, 23, 42, 0.18)";
+          },
+          onMouseLeave: (e: React.MouseEvent<HTMLAnchorElement>) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow =
+              "0 4px 10px rgba(15, 23, 42, 0.08)";
+          },
+        } satisfies React.AnchorHTMLAttributes<HTMLAnchorElement>)
+      : ({
+          role: "group",
+          tabIndex: -1,
+        } satisfies React.HTMLAttributes<HTMLDivElement>);
+
+  return React.createElement(
+    isClickable ? "a" : "div",
+    {
+      ...shellProps,
+      className: "content-card",
+      style: shellStyle,
+    },
+    <>
       <div className="card-header">
         {badgeBelowDate ? (
           <>
@@ -718,15 +738,15 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
             style={{
               fontSize: 13,
               fontWeight: 600,
-              color: "#2563eb",
-              textDecoration: "underline",
+              color: isClickable ? "#2563eb" : "#9ca3af",
+              textDecoration: isClickable ? "underline" : "none",
             }}
           >
-            Read More
+            {isClickable ? "Read More" : "Members only"}
           </span>
         </div>
       </div>
-    </a>
+    </>
   );
 };
 
