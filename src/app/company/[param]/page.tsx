@@ -4181,7 +4181,7 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>
-                  LinkedIn headcount growth (1 yr):
+                  LinkedIn growth (1 yr):
                 </span>
                 <span style={styles.value}>
                   {formatPercent(company.linkedin_growth_1y_pct)}
@@ -4716,7 +4716,7 @@ const CompanyDetail = () => {
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.label}>
-                  LinkedIn headcount growth (1 yr):
+                  LinkedIn growth (1 yr):
                 </span>
                 <span style={styles.value}>
                   {formatPercent(company.linkedin_growth_1y_pct)}
