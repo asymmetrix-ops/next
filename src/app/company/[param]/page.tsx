@@ -4145,6 +4145,18 @@ const CompanyDetail = () => {
                   )}
                 </span>
               </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>1-year revenue growth:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Rev_Growth_PC)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_growth_source_label,
+                    financialMetrics?.Rev_Growth_source
+                  )}
+                </span>
+              </div>
               <div style={styles.chartContainer} className="chartContainer">
                 <div style={styles.chartTitle}>LinkedIn Employee Count</div>
                 <div style={styles.currentCount}>
@@ -4652,6 +4664,18 @@ const CompanyDetail = () => {
                   {getSourceText(
                     financialMetrics?.Revenue_per_employee_source_label,
                     financialMetrics?.Rev_per_employee_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.infoRow}>
+                <span style={styles.label}>1-year revenue growth:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Rev_Growth_PC)}
+                </span>
+                <span style={styles.sourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_growth_source_label,
+                    financialMetrics?.Rev_Growth_source
                   )}
                 </span>
               </div>
