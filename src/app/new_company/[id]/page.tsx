@@ -12,7 +12,6 @@ import { SubsidiariesProfilePanel } from "@/components/subsidiaries/Subsidiaries
 import { ManagementProfilePanel } from "@/components/company/ManagementProfilePanel";
 import { ManagementCard } from "@/components/redesign/ManagementCard";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
-import { SubscriptionCard } from "@/components/redesign/SubscriptionCard";
 import { OverviewCard } from "@/components/redesign/OverviewCard";
 import { RevenueModelCard } from "@/components/redesign/RevenueModelCard";
 import { InsightsCard } from "@/components/redesign/InsightsCard";
@@ -24,15 +23,6 @@ import {
   type ProductUsersSection,
 } from "@/components/redesign/ProductUsersListCard";
 import { LinkPanel } from "@/components/redesign/primitives";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 import { ContentArticle } from "@/types/insightsAnalysis";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
@@ -253,19 +243,6 @@ interface CompanyInvestorFromAPI {
   event_id: number;
   deal_type: string;
   announcement_date: string;
-}
-
-// Competitors API response
-interface CompanyCompetitorItem {
-  id: number;
-  name: string;
-  linkedin_logo?: string;
-}
-
-interface CompanyCompetitorsResponse {
-  peers: CompanyCompetitorItem[];
-  potential_acquirers: CompanyCompetitorItem[];
-  acquisition_targets: CompanyCompetitorItem[];
 }
 
 // Investors list embedded on the company payload (Company._companies_investors)
@@ -549,10 +526,10 @@ const formatNumber = (num: number | undefined): string => {
   return num.toLocaleString();
 };
 
-const formatDate = (dateString: string): string => {
-  const [year, month] = dateString.split("-");
-  const date = new Date(parseInt(year), parseInt(month) - 1);
-  return date.toLocaleDateString("en-US", { year: "numeric", month: "short" });
+const formatWholeNumber = (value?: number | string | null): string => {
+  const n = getNumeric(value);
+  if (n === undefined) return "Not available";
+  return Math.round(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
 };
 
 // Plain number formatter (no currency, preserve decimals as given)
@@ -1093,211 +1070,6 @@ const CompanyLogo = ({ logo, name }: { logo: string; name: string }) => {
   return <div style={placeholderStyle}>No Logo</div>;
 };
 
-// Employee Chart Component
-const EmployeeChart = ({ data }: { data: EmployeeCount[] }) => {
-  const hasNonZeroEmployees = data.some(
-    (item) => (item.employees_count ?? 0) > 0
-  );
-  const filteredData = hasNonZeroEmployees
-    ? data.filter((item) => (item.employees_count ?? 0) > 0)
-    : data;
-  const chartData = filteredData.map((item) => ({
-    date: formatDate(item.date),
-    count: item.employees_count,
-    fullDate: item.date,
-  }));
-
-  interface TooltipProps {
-    active?: boolean;
-    payload?: Array<{
-      value: number;
-      dataKey: string;
-    }>;
-    label?: string;
-  }
-
-  const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
-    if (active && payload && payload.length) {
-      return (
-        <div
-          style={{
-            backgroundColor: "white",
-            border: "1px solid #ccc",
-            padding: "10px",
-            borderRadius: "4px",
-          }}
-        >
-          <p style={{ margin: 0 }}>{`Date: ${label}`}</p>
-          <p style={{ margin: 0, color: "#0075df" }}>
-            {`Employees: ${payload[0].value.toLocaleString()}`}
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  return (
-    <div
-      style={{
-        width: "100%",
-        height: "300px",
-        minHeight: "250px",
-      }}
-    >
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey="date"
-            tick={{ fontSize: 12 }}
-            angle={-45}
-            textAnchor="end"
-            height={80}
-          />
-          <YAxis tick={{ fontSize: 12 }} />
-          <Tooltip content={<CustomTooltip />} />
-          <Line
-            type="monotone"
-            dataKey="count"
-            stroke="#0075df"
-            strokeWidth={2}
-            dot={{
-              fill: "#0075df",
-              strokeWidth: 2,
-              r: 4,
-            }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
-};
-
-type V3RightPanelChrome = {
-  card: React.CSSProperties;
-  cardHeader: React.CSSProperties;
-  cardHeaderTitle: React.CSSProperties;
-  cardArrow: React.CSSProperties;
-};
-
-type FinanceRailTab = "financial" | "benchmark" | "income";
-
-function V3TabbedFinanceCard({
-  chrome,
-  tokens,
-  activeTab,
-  onTabChange,
-  tabs,
-  bodyStyle,
-  children,
-}: {
-  chrome: Pick<V3RightPanelChrome, "card" | "cardArrow">;
-  tokens: { hair: string; ink: string; muted: string; sans: string };
-  activeTab: FinanceRailTab;
-  onTabChange: (t: FinanceRailTab) => void;
-  tabs: { id: FinanceRailTab; label: string }[];
-  bodyStyle?: React.CSSProperties;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        ...chrome.card,
-        padding: 0,
-        overflow: "hidden",
-        width: "100%",
-        boxSizing: "border-box",
-        flex: 1,
-        minHeight: 0,
-        display: "flex",
-        flexDirection: "column",
-      }}
-      className="v3-finance-tabbed-card"
-    >
-      <div style={{ borderBottom: `1px solid ${tokens.hair}`, flexShrink: 0 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "space-between",
-            gap: 4,
-            padding: "0 8px 0 2px",
-            flexWrap: "nowrap",
-            minWidth: 0,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-end",
-              gap: 2,
-              flex: 1,
-              minWidth: 0,
-              flexWrap: "nowrap",
-              overflowX: "auto",
-              overscrollBehaviorX: "contain",
-              WebkitOverflowScrolling: "touch",
-              scrollbarWidth: "thin",
-            }}
-          >
-            {tabs.map((t) => {
-              const active = activeTab === t.id;
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => onTabChange(t.id)}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: "12px 8px 10px",
-                    fontFamily: tokens.sans,
-                    fontSize: "13px",
-                    fontWeight: active ? 600 : 500,
-                    color: active ? tokens.ink : tokens.muted,
-                    borderBottom: active
-                      ? `2px solid ${tokens.ink}`
-                      : "2px solid transparent",
-                    marginBottom: -1,
-                    whiteSpace: "nowrap",
-                    flexShrink: 0,
-                  }}
-                >
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-          <span
-            style={{
-              ...chrome.cardArrow,
-              paddingBottom: 10,
-              flexShrink: 0,
-              alignSelf: "flex-end",
-            }}
-          >
-            →
-          </span>
-        </div>
-      </div>
-      <div
-        style={{
-          padding: "14px 16px",
-          ...bodyStyle,
-          flex: 1,
-          minHeight: 0,
-          overflow: "auto",
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-
 // Main Company Detail Component
 const CompanyDetail = () => {
   const params = useParams();
@@ -1334,12 +1106,6 @@ const CompanyDetail = () => {
     CompanyInvestorFromAPI[]
   >([]);
   const [apiInvestorsLoading, setApiInvestorsLoading] = useState(false);
-  const [competitors, setCompetitors] =
-    useState<CompanyCompetitorsResponse | null>(null);
-  const [competitorsLoading, setCompetitorsLoading] = useState(false);
-  const [showCompetitorsModal, setShowCompetitorsModal] = useState(false);
-  const [financeRailTab, setFinanceRailTab] =
-    useState<FinanceRailTab>("financial");
   const [transactionStatusLabel, setTransactionStatusLabel] = useState<string>("");
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingPdfType, setExportingPdfType] =
@@ -1631,50 +1397,6 @@ const CompanyDetail = () => {
     }
   }, []);
 
-  const fetchCompanyCompetitors = useCallback(async (id: string | number) => {
-    setCompetitorsLoading(true);
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) {
-        setCompetitorsLoading(false);
-        return;
-      }
-      const headers: Record<string, string> = {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      };
-
-      const params = new URLSearchParams();
-      params.append("new_company_id", String(id));
-      const res = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_competitors?${params.toString()}`,
-        { method: "GET", headers, credentials: "include" }
-      );
-      if (!res.ok) {
-        setCompetitors(null);
-        return;
-      }
-      const data = (await res.json()) as {
-        competitors?: Partial<CompanyCompetitorsResponse>;
-      };
-      const payload = data?.competitors;
-      setCompetitors({
-        peers: Array.isArray(payload?.peers) ? payload.peers : [],
-        potential_acquirers: Array.isArray(payload?.potential_acquirers)
-          ? payload.potential_acquirers
-          : [],
-        acquisition_targets: Array.isArray(payload?.acquisition_targets)
-          ? payload.acquisition_targets
-          : [],
-      });
-    } catch (err) {
-      console.error("Error fetching company competitors:", err);
-      setCompetitors(null);
-    } finally {
-      setCompetitorsLoading(false);
-    }
-  }, []);
-
   const fetchCompanyTransactionStatus = useCallback(async (id: string | number) => {
     try {
       const params = new URLSearchParams();
@@ -1927,7 +1649,6 @@ const CompanyDetail = () => {
       fetchCompanyData();
       fetchFinancialMetrics(companyId);
       fetchCompanyInvestors(companyId);
-      fetchCompanyCompetitors(companyId);
       fetchCompanyTransactionStatus(companyId);
     }
   }, [
@@ -1936,7 +1657,6 @@ const CompanyDetail = () => {
     requestCompany,
     fetchFinancialMetrics,
     fetchCompanyInvestors,
-    fetchCompanyCompetitors,
     fetchCompanyTransactionStatus,
   ]);
 
@@ -2762,6 +2482,22 @@ const CompanyDetail = () => {
       marginBottom: "0",
       marginTop: "0",
     },
+    finInfoRow: {
+      display: "grid",
+      gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
+      columnGap: "4px",
+      alignItems: "center",
+      padding: "10px 0",
+      borderBottom: `1px solid ${T.hair}`,
+      fontSize: "12.5px",
+    },
+    finSourceValue: {
+      fontSize: "11px",
+      color: T.muted,
+      textAlign: "right" as const,
+      whiteSpace: "nowrap" as const,
+      paddingLeft: "8px",
+    },
     infoRow: {
       display: "grid",
       gridTemplateColumns: "120px 1fr",
@@ -3181,7 +2917,7 @@ const CompanyDetail = () => {
     .company-grid-description { grid-column: 2; grid-row: 1; min-height: 0; align-self: stretch; }
     .company-grid-finance {
       grid-column: 3;
-      grid-row: 1;
+      grid-row: 1 / span 2;
       min-width: 0;
       min-height: 0;
       display: flex;
@@ -3189,7 +2925,7 @@ const CompanyDetail = () => {
       align-self: stretch;
     }
     .company-grid-insights { grid-column: 1 / span 2; grid-row: 2; min-height: 0; align-self: stretch; }
-    .company-grid-subscription { grid-column: 3; grid-row: 2; min-width: 0; min-height: 0; align-self: stretch; }
+    .company-grid-subscription { display: none; }
     .company-grid-product-mix { grid-column: 1; grid-row: 3; min-width: 0; min-height: 0; align-self: stretch; }
     .company-grid-product-users { grid-column: 2; grid-row: 3; min-width: 0; min-height: 0; align-self: stretch; }
     .company-grid-revenue-model { grid-column: 3; grid-row: 3; min-width: 0; min-height: 0; align-self: stretch; }
@@ -4142,82 +3878,50 @@ const CompanyDetail = () => {
               </div>
             </div>
 
-            {/* ══ Col 3: Financial (row 1), Subscription (row 2), Headcount + Management (row 4) ══ */}
-                  <div
-                    className="company-grid-finance desktop-financial-metrics v3-right-rail"
-                    style={{
-                      minWidth: 0,
-                      minHeight: 0,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignSelf: "stretch",
-                    }}
-                  >
+            {/* ══ Col 3: Financial metrics (from company page) ══ */}
+            <div
+              className="company-grid-finance desktop-financial-metrics v3-right-rail"
+              style={{
+                minWidth: 0,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignSelf: "stretch",
+              }}
+            >
               <div
-                style={{
-                  flex: 1,
-                  minHeight: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                }}
+                style={{ ...styles.card, padding: "14px 16px", flex: 1, minHeight: 0, overflow: "auto" }}
+                className="card"
               >
-              <V3TabbedFinanceCard
-                chrome={{
-                  card: styles.card,
-                  cardArrow: styles.cardArrow,
-                }}
-                tokens={{
-                  hair: T.hair,
-                  ink: T.ink,
-                  muted: T.muted,
-                  sans: T.sans,
-                }}
-                activeTab={financeRailTab}
-                onTabChange={setFinanceRailTab}
-                tabs={[
-                  {
-                    id: "financial",
-                    label: `Financial metrics${metricsCurrencySuffix}`,
-                  },
-                  { id: "benchmark", label: "Benchmark vs peers" },
-                  { id: "income", label: "Income statement" },
-                ]}
-                bodyStyle={
-                  financeRailTab === "income" && hasIncomeStatementData
-                    ? { padding: "0 16px 4px" }
-                    : undefined
-                }
-              >
-              {financeRailTab === "financial" && (
-              <div style={{ width: "100%", minWidth: 0 }}>
+              <h2 style={styles.sectionTitle}>
+                Financial Metrics{metricsCurrencySuffix}
+              </h2>
               {financialMetricsPeriodDisplay && (
                 <div
-                      style={{
+                  style={{
                     display: "grid",
                     gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
                     marginTop: "-12px",
                     marginBottom: "4px",
                     fontSize: "13px",
-                    color: T.muted,
+                    color: "#6b7280",
                     fontWeight: 500,
                   }}
                 >
                   <span></span>
                   <span style={{ textAlign: "left" }}>
                     {financialMetricsPeriodDisplay}
-                                        </span>
-                  <span style={{ ...styles.sourceValue, fontSize: "11px" }}>
+                  </span>
+                  <span style={{ ...styles.finSourceValue, fontSize: "11px" }}>
                     Source
                   </span>
                 </div>
               )}
               {!hasIncomeStatementData && (
-                <div style={styles.v3TabFinRow}>
-                  <span style={styles.label}>Revenue (m)</span>
-                  <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
-                    {revenuePlain}
-                  </span>
-                  <span style={styles.sourceValue}>
+                <div style={styles.finInfoRow} className="info-row">
+                  <span style={styles.label}>Revenue (m):</span>
+                  <span style={styles.value}>{revenuePlain}</span>
+                  <span style={styles.finSourceValue}>
                     {getSourceText(
                       financialMetrics?.Revenue_source_label,
                       financialMetrics?.Rev_source
@@ -4226,12 +3930,10 @@ const CompanyDetail = () => {
                 </div>
               )}
               {!hasIncomeStatementData && (
-                <div style={styles.v3TabFinRow}>
-                  <span style={styles.label}>EBITDA (m)</span>
-                  <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
-                    {ebitdaPlain}
-                  </span>
-                  <span style={styles.sourceValue}>
+                <div style={styles.finInfoRow} className="info-row">
+                  <span style={styles.label}>EBITDA (m):</span>
+                  <span style={styles.value}>{ebitdaPlain}</span>
+                  <span style={styles.finSourceValue}>
                     {getSourceText(
                       financialMetrics?.EBITDA_source_label,
                       financialMetrics?.EBITDA_source
@@ -4239,85 +3941,55 @@ const CompanyDetail = () => {
                   </span>
                 </div>
               )}
-              <div style={styles.v3TabFinRow}>
-                <span style={styles.label}>Enterprise value</span>
-                <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
-                  {evPlain}
-                </span>
-                <span style={styles.sourceValue}>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>Enterprise Value (m):</span>
+                <span style={styles.value}>{evPlain}</span>
+                <span style={styles.finSourceValue}>
                   {getSourceText(
                     financialMetrics?.EV_source_label,
                     financialMetrics?.EV_source
                   )}
                 </span>
               </div>
-              <div style={styles.v3TabFinRow}>
-                <span style={styles.label}>EV / Revenue</span>
-                <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>Revenue multiple:</span>
+                <span style={styles.value}>
                   {formatMultiple(financialMetrics?.Revenue_multiple)}
                 </span>
-                <span style={styles.sourceValue}>
+                <span style={styles.finSourceValue}>
                   {getSourceText(
                     financialMetrics?.Revenue_multiple_source_label,
                     financialMetrics?.Rev_x_source
                   )}
                 </span>
               </div>
-              <div style={styles.v3TabFinRow}>
-                <span style={styles.label}>EV / EBITDA</span>
-                <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
-                  {(() => {
-                    const evN = getNumeric(financialMetrics?.EV);
-                    const ebd = getNumeric(financialMetrics?.EBITDA_m);
-                    if (
-                      evN === undefined ||
-                      ebd === undefined ||
-                      Math.abs(ebd) < 1e-9
-                    ) {
-                      return "Not available";
-                    }
-                    return `${(evN / ebd).toFixed(1)}x`;
-                  })()}
-                </span>
-                <span style={styles.sourceValue} />
-              </div>
-              <div style={styles.v3TabFinRow}>
-                <span style={styles.label}>Revenue growth</span>
-                                        <span
-                                          style={{
-                    ...styles.v3RailValue,
-                    textAlign: "right",
-                    color: (() => {
-                      const g = getNumeric(financialMetrics?.Rev_Growth_PC);
-                      if (g === undefined) return T.body;
-                      return g >= 0 ? T.up : T.down;
-                    })(),
-                  }}
-                >
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>Revenue Growth:</span>
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.Rev_Growth_PC)}
-                                        </span>
-                <span style={styles.sourceValue}>
+                </span>
+                <span style={styles.finSourceValue}>
                   {getSourceText(
                     financialMetrics?.Rev_growth_source_label,
                     financialMetrics?.Rev_Growth_source
-                                      )}
-                                        </span>
-                  </div>
-              <div style={styles.v3TabFinRow}>
-                <span style={styles.label}>EBITDA margin</span>
-                <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
+                  )}
+                </span>
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>EBITDA margin:</span>
+                <span style={styles.value}>
                   {formatPercent(financialMetrics?.EBITDA_margin)}
                 </span>
-                <span style={styles.sourceValue}>
+                <span style={styles.finSourceValue}>
                   {getSourceText(
                     financialMetrics?.EBITDA_margin_source_label,
                     financialMetrics?.EBITDA_margin_source
                   )}
                 </span>
-                                    </div>
-              <div style={styles.v3TabFinRow}>
-                <span style={styles.label}>Rule of 40</span>
-                <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>Rule of 40:</span>
+                <span style={styles.value}>
                   {(() => {
                     const n = getNumeric(financialMetrics?.Rule_of_40);
                     return n !== undefined
@@ -4325,113 +3997,70 @@ const CompanyDetail = () => {
                       : "Not available";
                   })()}
                 </span>
-                <span style={styles.sourceValue}>
+                <span style={styles.finSourceValue}>
                   {getSourceText(
                     financialMetrics?.Rule_of_40_source_label,
                     financialMetrics?.Rule_of_40_source
                   )}
                 </span>
-                          </div>
-              <div style={styles.v3TabFinRow}>
-                <span style={styles.label}>Recurring revenue</span>
-                <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
-                  {formatPlainNumber(financialMetrics?.ARR_m)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.ARR_source_label,
-                    financialMetrics?.ARR_source
-                  )}
-                </span>
-                      </div>
-              <div style={styles.v3TabFinRow}>
-                <span style={styles.label}>NRR</span>
-                <span style={{ ...styles.v3RailValue, textAlign: "right" }}>
-                  {formatPercent(financialMetrics?.NRR)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.NRR_source_label,
-                    financialMetrics?.NRR_source
-                  )}
-                </span>
-                </div>
               </div>
-              )}
-              {financeRailTab === "income" && (
-              <>
-                {hasIncomeStatementData ? (
+              {hasIncomeStatementData && (
+                <div style={{ marginTop: "16px" }}>
+                  <div
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: 600,
+                      marginBottom: 8,
+                    }}
+                  >
+                    Income statement
+                  </div>
                   <div style={{ overflowX: "auto" }}>
                     <table
-                      style={{
-                        width: "100%",
-                        tableLayout: "fixed",
-                        borderCollapse: "collapse",
-                        fontSize: "12.5px",
-                      }}
+                      style={{ width: "100%", borderCollapse: "collapse" }}
                     >
                       <thead>
-                        <tr style={{ background: T.paper }}>
-                          <th
-                              style={{
-                                textAlign: "left",
-                              padding: "8px 14px",
-                              borderBottom: `1px solid ${T.hair}`,
-                              color: T.muted,
-                              fontWeight: 500,
-                              fontSize: "10.5px",
-                              textTransform: "uppercase" as const,
-                              letterSpacing: "0.4px",
-                            }}
-                          >
-                            Period
-                            </th>
+                        <tr style={{ background: "#f8fafc" }}>
                           <th
                             style={{
-                              textAlign: "right",
-                              padding: "8px 14px",
-                              borderBottom: `1px solid ${T.hair}`,
-                              color: T.muted,
-                              fontWeight: 500,
-                              fontSize: "10.5px",
-                              textTransform: "uppercase" as const,
-                              letterSpacing: "0.4px",
+                              textAlign: "left",
+                              padding: "8px",
+                              borderBottom: "1px solid #e2e8f0",
                             }}
                           >
-                            Rev
+                            Financial Period
                           </th>
                           <th
                             style={{
                               textAlign: "right",
-                              padding: "8px 14px",
-                              borderBottom: `1px solid ${T.hair}`,
-                              color: T.muted,
-                              fontWeight: 500,
-                              fontSize: "10.5px",
-                              textTransform: "uppercase" as const,
-                              letterSpacing: "0.4px",
+                              padding: "8px",
+                              borderBottom: "1px solid #e2e8f0",
                             }}
                           >
-                            EBIT
+                            Revenue (m)
                           </th>
                           <th
                             style={{
                               textAlign: "right",
-                              padding: "8px 14px",
-                              borderBottom: `1px solid ${T.hair}`,
-                              color: T.muted,
-                              fontWeight: 500,
-                              fontSize: "10.5px",
-                              textTransform: "uppercase" as const,
-                              letterSpacing: "0.4px",
+                              padding: "8px",
+                              borderBottom: "1px solid #e2e8f0",
                             }}
                           >
-                            EBITDA
+                            EBIT (m)
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: "8px",
+                              borderBottom: "1px solid #e2e8f0",
+                            }}
+                          >
+                            EBITDA (m)
                           </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {normalizedIncomeStatements.map((row, rIdx) => {
+                        {normalizedIncomeStatements.map((row) => {
                           const period = (
                             row.period_display_end_date || ""
                           ).replace(/[,\s]/g, "");
@@ -4447,51 +4076,39 @@ const CompanyDetail = () => {
                                   return `${currency}${millions.toLocaleString()}`;
                                 })()
                               : "—";
-                          const rowBorder =
-                            rIdx === normalizedIncomeStatements.length - 1
-                              ? "none"
-                              : `1px solid ${T.hair}`;
                           return (
                             <tr key={row.id}>
                               <td
                                 style={{
-                                  padding: "9px 14px",
-                                  borderBottom: rowBorder,
-                                  fontFamily: T.mono,
-                                  color: T.body,
+                                  padding: "8px",
+                                  borderBottom: "1px solid #e2e8f0",
                                 }}
                               >
                                 {period || "—"}
                               </td>
                               <td
-                                    style={{
-                                  padding: "9px 14px",
-                                  borderBottom: rowBorder,
+                                style={{
+                                  padding: "8px",
+                                  borderBottom: "1px solid #e2e8f0",
                                   textAlign: "right",
-                                  fontFamily: T.mono,
-                                  color: T.ink,
                                 }}
                               >
                                 {fmt(row.revenue)}
                               </td>
                               <td
-                                    style={{
-                                  padding: "9px 14px",
-                                  borderBottom: rowBorder,
+                                style={{
+                                  padding: "8px",
+                                  borderBottom: "1px solid #e2e8f0",
                                   textAlign: "right",
-                                  fontFamily: T.mono,
-                                  color: T.ink,
                                 }}
                               >
                                 {fmt(row.ebit)}
                               </td>
                               <td
                                 style={{
-                                  padding: "9px 14px",
-                                  borderBottom: rowBorder,
+                                  padding: "8px",
+                                  borderBottom: "1px solid #e2e8f0",
                                   textAlign: "right",
-                                  fontFamily: T.mono,
-                                  color: T.ink,
                                 }}
                               >
                                 {fmt(row.ebitda)}
@@ -4502,618 +4119,208 @@ const CompanyDetail = () => {
                       </tbody>
                     </table>
                   </div>
-                ) : (
-                  <div style={styles.emptyState}>
-                    No income statement data available for this company yet.
-                  </div>
-                )}
-              </> )}
-              {financeRailTab === "benchmark" && (
-              <>
-                {(() => {
-                  const benchCo = (
-                    company?.name ||
-                    "Company"
-                  )
-                    .trim()
-                    .toUpperCase()
-                    .replace(/\s+/g, " ")
-                    .slice(0, 22);
-                  const peerEm = "—";
-                  const signVs = (
-                    n: number | undefined,
-                    baseline = 0
-                  ): "up" | "down" | "flat" | "na" => {
-                    if (n === undefined || !Number.isFinite(n)) return "na";
-                    if (n > baseline) return "up";
-                    if (n < baseline) return "down";
-                    return "flat";
-                  };
-                  const evMultCo = formatMultiple(
-                    financialMetrics?.Revenue_multiple
-                  );
-                  const evEbitdaCo = (() => {
-                    const evN = getNumeric(financialMetrics?.EV);
-                    const ebd = getNumeric(financialMetrics?.EBITDA_m);
-                    if (
-                      evN === undefined ||
-                      ebd === undefined ||
-                      Math.abs(ebd) < 1e-9
-                    ) {
-                      return "Not available";
-                    }
-                    return `${(evN / ebd).toFixed(1)}x`;
-                  })();
-                  const r40Co = (() => {
-                    const n = getNumeric(financialMetrics?.Rule_of_40);
-                    return n !== undefined
-                      ? Math.round(n).toLocaleString()
-                      : "—";
-                  })();
-                  const rows: {
-                    metric: string;
-                    co: string;
-                    peer: string;
-                    vs: "up" | "down" | "flat" | "na";
-                  }[] = [
-                    {
-                      metric: "Enterprise value",
-                      co: evPlain,
-                      peer: peerEm,
-                      vs: "na",
-                    },
-                    {
-                      metric: "EV / Revenue",
-                      co: evMultCo,
-                      peer: peerEm,
-                      vs: "na",
-                    },
-                    {
-                      metric: "EV / EBITDA",
-                      co: evEbitdaCo,
-                      peer: peerEm,
-                      vs: "na",
-                    },
-                    {
-                      metric: "Revenue growth",
-                      co: formatPercent(financialMetrics?.Rev_Growth_PC),
-                      peer: peerEm,
-                      vs: signVs(getNumeric(financialMetrics?.Rev_Growth_PC), 0),
-                    },
-                    {
-                      metric: "EBITDA margin",
-                      co: formatPercent(financialMetrics?.EBITDA_margin),
-                      peer: peerEm,
-                      vs: "na",
-                    },
-                    {
-                      metric: "Rule of 40",
-                      co: r40Co,
-                      peer: peerEm,
-                      vs: signVs(getNumeric(financialMetrics?.Rule_of_40), 40),
-                    },
-                    {
-                      metric: "NRR",
-                      co: formatPercent(financialMetrics?.NRR),
-                      peer: peerEm,
-                      vs: signVs(getNumeric(financialMetrics?.NRR), 100),
-                    },
-                  ];
-                  const vsBadge = (vs: (typeof rows)[0]["vs"]) => {
-                    const tones = {
-                      up: {
-                        bg: T.emeraldSoft,
-                        fg: T.up,
-                        sym: "↑",
-                      },
-                      down: {
-                        bg: T.coralSoft,
-                        fg: T.down,
-                        sym: "↓",
-                      },
-                      flat: {
-                        bg: T.inset,
-                        fg: T.muted,
-                        sym: "→",
-                      },
-                      na: {
-                        bg: T.inset,
-                        fg: T.faint,
-                        sym: "—",
-                      },
-                    }[vs];
-                    return (
-                      <span
-                                style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: 28,
-                          height: 28,
-                          borderRadius: 8,
-                          background: tones.bg,
-                          color: tones.fg,
-                          fontSize: 14,
-                          fontWeight: 700,
-                          fontFamily: T.mono,
-                        }}
-                      >
-                        {tones.sym}
-                      </span>
-                    );
-                  };
-                  const peerList =
-                    competitors?.peers?.map((p) => p.name).filter(Boolean) ||
-                    [];
-                  const peerNote =
-                    peerList.length > 0
-                      ? `Peers: ${peerList.slice(0, 6).join(", ")}${peerList.length > 6 ? "…" : ""}. Peer medians require a cohort API — shown as — until connected.`
-                      : "Define peers on the company to anchor benchmark context. Peer medians are not yet available for this profile.";
-                  return (
-                                  <div>
-                      <div style={{ overflowX: "auto" }}>
-                        <table
-                                        style={{
-                            width: "100%",
-                            tableLayout: "fixed",
-                            borderCollapse: "collapse",
-                            fontSize: "12.5px",
-                          }}
-                        >
-                          <thead>
-                            <tr>
-                              <th
-                                style={{
-                                  textAlign: "left",
-                                  padding: "8px 10px 8px 0",
-                                  borderBottom: `1px solid ${T.hair}`,
-                                  color: T.muted,
-                                  fontWeight: 500,
-                                  fontSize: "10.5px",
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.4px",
-                                }}
-                              >
-                                Metric
-                              </th>
-                              <th
-                                style={{
-                                  textAlign: "right",
-                                  padding: "8px 6px",
-                                  borderBottom: `1px solid ${T.hair}`,
-                                  color: T.muted,
-                                  fontWeight: 500,
-                                  fontSize: "10.5px",
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.4px",
-                                }}
-                              >
-                                {benchCo}
-                              </th>
-                              <th
-                                style={{
-                                  textAlign: "right",
-                                  padding: "8px 6px",
-                                  borderBottom: `1px solid ${T.hair}`,
-                                  color: T.muted,
-                                  fontWeight: 500,
-                                  fontSize: "10.5px",
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.4px",
-                                }}
-                              >
-                                Peer median
-                              </th>
-                              <th
-                                style={{
-                                  textAlign: "center",
-                                  width: 44,
-                                  padding: "8px 0 8px 6px",
-                                  borderBottom: `1px solid ${T.hair}`,
-                                  color: T.muted,
-                                  fontWeight: 500,
-                                  fontSize: "10.5px",
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.4px",
-                                }}
-                              >
-                                Vs.
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {rows.map((r, i) => (
-                              <tr key={`${r.metric}-${i}`}>
-                                <td
-                                  style={{
-                                    padding: "9px 10px 9px 0",
-                                    borderBottom:
-                                      i === rows.length - 1
-                                        ? "none"
-                                        : `1px solid ${T.hair}`,
-                                    color: T.body,
-                                    fontWeight: 500,
-                                  }}
-                                >
-                                  {r.metric}
-                              </td>
-                              <td
-                                style={{
-                                    padding: "9px 6px",
-                                    borderBottom:
-                                      i === rows.length - 1
-                                        ? "none"
-                                        : `1px solid ${T.hair}`,
-                                    textAlign: "right",
-                                    fontFamily: T.mono,
-                                    fontWeight: 700,
-                                    color: T.ink,
-                                  }}
-                                >
-                                  {r.co}
-                              </td>
-                              <td
-                                style={{
-                                    padding: "9px 6px",
-                                    borderBottom:
-                                      i === rows.length - 1
-                                        ? "none"
-                                        : `1px solid ${T.hair}`,
-                                    textAlign: "right",
-                                    fontFamily: T.mono,
-                                    color: T.muted,
-                                  }}
-                                >
-                                  {r.peer}
-                              </td>
-                              <td
-                                style={{
-                                    padding: "9px 0 9px 6px",
-                                    borderBottom:
-                                      i === rows.length - 1
-                                        ? "none"
-                                        : `1px solid ${T.hair}`,
-                                    textAlign: "center",
-                                  }}
-                                >
-                                  {vsBadge(r.vs)}
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                      <div
-                        style={{
-                          marginTop: 12,
-                          fontSize: "11px",
-                          color: T.muted,
-                          lineHeight: 1.45,
-                        }}
-                      >
-                        {peerNote}
-                </div>
-            </div>
-                  );
-                })()}
-              {/* Competitors (table layout) */}
-              {(competitorsLoading ||
-                (competitors &&
-                  (competitors.peers.length > 0 ||
-                    competitors.potential_acquirers.length > 0 ||
-                    competitors.acquisition_targets.length > 0))) && (
-                <div style={{ marginBottom: 0, marginTop: 18 }}>
-                  {competitorsLoading ? (
-                    <div style={{ fontSize: "14px", color: T.muted }}>
-                      Loading...
-                    </div>
-                  ) : (
-                    <>
-                      {(() => {
-                        const MAX_VISIBLE = 5;
-                        const competitorTag = {
-                          backgroundColor: T.azureSoft,
-                          color: T.azure,
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          fontWeight: "500" as const,
-                          textDecoration: "none",
-                          display: "inline-block",
-                          maxWidth: "100%",
-                          minWidth: 0,
-                          whiteSpace: "normal" as const,
-                          wordBreak: "keep-all" as const,
-                          overflowWrap: "normal" as const,
-                          hyphens: "none" as const,
-                          lineHeight: 1.25,
-                          textAlign: "left" as const,
-                        };
-
-                        const sections: {
-                          key: string;
-                          label: string;
-                          items: CompanyCompetitorItem[];
-                        }[] = [
-                          {
-                            key: "peers",
-                            label: "Peers & Competitors",
-                            items: competitors?.peers || [],
-                          },
-                          {
-                            key: "acquirers",
-                            label: "Potential Acquirers",
-                            items: competitors?.potential_acquirers || [],
-                          },
-                          {
-                            key: "targets",
-                            label: "Acquisition Targets",
-                            items: competitors?.acquisition_targets || [],
-                          },
-                        ].filter((s) => s.items.length > 0);
-
-                        if (sections.length === 0) return null;
-
-                        const hasMore = sections.some(
-                          (s) => s.items.length > MAX_VISIBLE
-                        );
-                        const visibleSections = sections.map((s) => ({
-                          ...s,
-                          items: s.items.slice(0, MAX_VISIBLE),
-                        }));
-
-                        const renderCompetitorTable = (
-                          tableSections: typeof visibleSections
-                        ) => {
-                          const tMaxRows = Math.max(
-                            ...tableSections.map((s) => s.items.length)
-                          );
-                          return (
-                            <table
-                              style={{
-                                width: "100%",
-                                borderCollapse: "collapse",
-                                tableLayout: "fixed",
-                                fontSize: "13px",
-                              }}
-                            >
-                              <thead>
-                                <tr>
-                                  {tableSections.map((section) => (
-                                    <th
-                                      key={section.key}
-                                      style={{
-                                        textAlign: "center",
-                                        padding: "4px 6px 6px",
-                                        borderBottom: `1px solid ${T.hair}`,
-                                        color: T.muted,
-                                        fontWeight: 600,
-                                        fontSize: "11px",
-                                        textTransform: "uppercase" as const,
-                                        letterSpacing: "0.4px",
-                                      }}
-                                    >
-                                      {section.label}
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {Array.from({ length: tMaxRows }).map(
-                                  (_, rowIdx) => (
-                                    <tr key={`competitor-row-${rowIdx}`}>
-                                      {tableSections.map((section) => {
-                                        const comp = section.items[rowIdx];
-                                        if (!comp) {
-                                          return (
-                                            <td
-                                              key={`${section.key}-${rowIdx}`}
-                                              style={{
-                                                padding: "5px 6px",
-                                                borderBottom: `1px solid ${T.hair}`,
-                                              }}
-                                            />
-                                          );
-                                        }
-                                        return (
-                                          <td
-                                            key={`${section.key}-${rowIdx}`}
-                                            style={{
-                                              padding: "5px 6px",
-                                              borderBottom: `1px solid ${T.hair}`,
-                                              verticalAlign: "top",
-                                              minWidth: 0,
-                                            }}
-                                          >
-                                            <div
-                                              style={{
-                                                display: "flex",
-                                                alignItems: "flex-start",
-                                                gap: "5px",
-                                                minWidth: 0,
-                                              }}
-                                            >
-                                              {comp.linkedin_logo ? (
-                                                // eslint-disable-next-line @next/next/no-img-element
-                                                <img
-                                                  src={`data:image/jpeg;base64,${comp.linkedin_logo}`}
-                                                  alt=""
-                                                  style={{
-                                                    width: "18px",
-                                                    height: "14px",
-                                                    borderRadius: "3px",
-                                                    objectFit: "contain",
-                                                    flexShrink: 0,
-                                                  }}
-                                                />
-                                              ) : null}
-                                              <Link
-                                                href={`/new_company/${comp.id}`}
-                                                prefetch={false}
-                                                style={{
-                                                  ...competitorTag,
-                                                  flex: "1 1 auto",
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
-                                                    T.inset;
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                  (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
-                                                    T.azureSoft;
-                                                }}
-                                              >
-                                                {comp.name}
-                                              </Link>
-                                            </div>
-                                          </td>
-                                        );
-                                      })}
-                                    </tr>
-                                  )
-                                )}
-                              </tbody>
-                            </table>
-                          );
-                        };
-
-                        return (
-                          <>
-                            <div
-                              style={{
-                                backgroundColor: T.inset,
-                                borderRadius: 8,
-                                border: `1px solid ${T.divider}`,
-                                padding: "8px 12px 10px",
-                              }}
-                            >
-                              <div>
-                                {renderCompetitorTable(visibleSections)}
-                              </div>
-                              {hasMore && (
-                                <div style={{ textAlign: "center", marginTop: "10px" }}>
-                                  <button
-                                    onClick={() => setShowCompetitorsModal(true)}
-                                    style={{
-                                      background: "none",
-                                      border: "none",
-                                      color: T.azure,
-                                      fontSize: "13px",
-                                      fontWeight: 500,
-                                      textDecoration: "underline",
-                                      cursor: "pointer",
-                                      padding: 0,
-                                    }}
-                                  >
-                                    See more
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Competitors modal */}
-                            {showCompetitorsModal && (
-                              <div
-                                style={{
-                                  position: "fixed",
-                                  inset: 0,
-                                  backgroundColor: "rgba(0,0,0,0.5)",
-                                  zIndex: 1000,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  padding: "16px",
-                                }}
-                                onClick={() => setShowCompetitorsModal(false)}
-                              >
-                                <div
-                                  style={{
-                                    backgroundColor: "white",
-                                    borderRadius: "12px",
-                                    padding: "24px",
-                                    width: "100%",
-                                    maxWidth: "800px",
-                                    maxHeight: "80vh",
-                                    overflowY: "auto",
-                                    boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      justifyContent: "space-between",
-                                      alignItems: "center",
-                                      marginBottom: "16px",
-                                    }}
-                                  >
-                                    <h3
-                                      style={{
-                                        margin: 0,
-                                        fontSize: "18px",
-                                        fontWeight: 700,
-                                        color: "#1a202c",
-                                      }}
-                                    >
-                                      Market Landscape
-                                    </h3>
-                                    <button
-                                      onClick={() => setShowCompetitorsModal(false)}
-                                      style={{
-                                        background: "none",
-                                        border: "none",
-                                        cursor: "pointer",
-                                        fontSize: "22px",
-                                        color: "#6b7280",
-                                        lineHeight: 1,
-                                        padding: "0 4px",
-                                      }}
-                                    >
-                                      ×
-                                    </button>
-                                  </div>
-                                  <div>
-                                    {renderCompetitorTable(
-                                      sections.map((s) => ({ ...s }))
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </>
-                  )}
                 </div>
               )}
-              </> )}
-              </V3TabbedFinanceCard>
+              {/* Subscription Metrics */}
+              <div
+                style={{ ...styles.chartTitle, marginTop: 20, marginBottom: 8 }}
+              >
+                Subscription Metrics
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>Recurring Revenue:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.ARR_pc)}
+                </span>
+                <span style={styles.finSourceValue}>
+                  {getSourceText(
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>ARR (m):</span>
+                <span style={styles.value}>
+                  {formatPlainNumber(financialMetrics?.ARR_m)}
+                </span>
+                <span style={styles.finSourceValue}>
+                  {getSourceText(
+                    financialMetrics?.ARR_source_label,
+                    financialMetrics?.ARR_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>Churn:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Churn_pc)}
+                </span>
+                <span style={styles.finSourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Churn_source_label,
+                    financialMetrics?.Churn_Source
+                  )}
+                </span>
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>GRR:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.GRR_pc)}
+                </span>
+                <span style={styles.finSourceValue}>
+                  {getSourceText(
+                    financialMetrics?.GRR_source_label,
+                    financialMetrics?.GRR_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>Upsell:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Upsell_pc)}
+                </span>
+                <span style={styles.finSourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Upsell_source_label,
+                    financialMetrics?.Upsell_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>Cross-sell:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Cross_sell_pc)}
+                </span>
+                <span style={styles.finSourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Cross_sell_source_label,
+                    financialMetrics?.Cross_sell_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>Price increase:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Price_increase_pc)}
+                </span>
+                <span style={styles.finSourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Price_increase_source_label,
+                    financialMetrics?.Price_increase_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>Revenue expansion:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.Rev_expansion_pc)}
+                </span>
+                <span style={styles.finSourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_expansion_source_label,
+                    financialMetrics?.Rev_expansion_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>NRR:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.NRR)}
+                </span>
+                <span style={styles.finSourceValue}>
+                  {getSourceText(
+                    financialMetrics?.NRR_source_label,
+                    financialMetrics?.NRR_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>New clients revenue growth:</span>
+                <span style={styles.value}>
+                  {formatPercent(financialMetrics?.New_client_growth_pc)}
+                </span>
+                <span style={styles.finSourceValue}>
+                  {getSourceText(
+                    financialMetrics?.New_client_growth_source_label,
+                    financialMetrics?.New_Client_Growth_Source
+                  )}
+                </span>
+              </div>
+
+              {/* Other Metrics */}
+              <div
+                style={{ ...styles.chartTitle, marginTop: 20, marginBottom: 8 }}
+              >
+                Other Metrics
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>EBIT (m):</span>
+                <span style={styles.value}>
+                  {formatPlainNumber(financialMetrics?.EBIT_m)}
+                </span>
+                <span style={styles.finSourceValue}>
+                  {getSourceText(
+                    financialMetrics?.EBIT_source_label,
+                    financialMetrics?.EBIT_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>Number of clients:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.No_of_Clients === "number"
+                    ? financialMetrics.No_of_Clients.toLocaleString()
+                    : "Not available"}
+                </span>
+                <span style={styles.finSourceValue}>
+                  {getSourceText(
+                    financialMetrics?.No_of_Clients_source_label,
+                    financialMetrics?.No_Clients_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>Revenue per client:</span>
+                <span style={styles.value}>
+                  {formatWholeNumber(financialMetrics?.Rev_per_client)}
+                </span>
+                <span style={styles.finSourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Rev_per_client_source_label,
+                    financialMetrics?.Rev_per_client_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>Number of employees:</span>
+                <span style={styles.value}>
+                  {typeof financialMetrics?.No_Employees === "number"
+                    ? financialMetrics.No_Employees.toLocaleString()
+                    : formatNumber(currentEmployeeCount)}
+                </span>
+                <span style={styles.finSourceValue}>
+                  {getSourceText(
+                    financialMetrics?.No_Employees_source_label,
+                    financialMetrics?.No_Employees_source
+                  )}
+                </span>
+              </div>
+              <div style={styles.finInfoRow} className="info-row">
+                <span style={styles.label}>Revenue per employee:</span>
+                <span style={styles.value}>
+                  {formatWholeNumber(financialMetrics?.Revenue_per_employee)}
+                </span>
+                <span style={styles.finSourceValue}>
+                  {getSourceText(
+                    financialMetrics?.Revenue_per_employee_source_label,
+                    financialMetrics?.Rev_per_employee_source
+                  )}
+                </span>
+              </div>
               </div>
             </div>
 
-            <div
-              className="company-grid-subscription"
-              style={{ minHeight: 0, display: "flex", flexDirection: "column" }}
-            >
-              <SubscriptionCard
-                fillGridCell
-                recurringRev={formatPlainNumber(financialMetrics?.ARR_m)}
-                arrGrowth={(() => {
-                  const n =
-                    getNumeric(financialMetrics?.Rev_expansion_pc) ??
-                    getNumeric(financialMetrics?.New_client_growth_pc);
-                  const pct = n !== undefined
-                    ? formatPercent(n)
-                    : formatPercent(financialMetrics?.ARR_pc);
-                  return pct === "Not available" ? undefined : pct;
-                  })()}
-                nrr={formatPercent(financialMetrics?.NRR) === "Not available" ? undefined : formatPercent(financialMetrics?.NRR)}
-                gdr={formatPercent(financialMetrics?.GRR_pc) === "Not available" ? undefined : formatPercent(financialMetrics?.GRR_pc)}
-                upsell={formatPercent(financialMetrics?.Upsell_pc) === "Not available" ? undefined : formatPercent(financialMetrics?.Upsell_pc)}
-                newLogos={formatPercent(financialMetrics?.New_client_growth_pc) === "Not available" ? undefined : formatPercent(financialMetrics?.New_client_growth_pc)}
-              />
-            </div>
 
             {/* Market Overview removed */}
           </div>
@@ -5459,25 +4666,30 @@ const CompanyDetail = () => {
                 </span>
               </div>
 
-              <div style={styles.chartContainer}>
-                <div style={styles.chartTitle}>LinkedIn Employee Count</div>
-                <div style={styles.currentCount}>
-                  {formatNumber(currentEmployeeCount)} employees
-                </div>
-                {employeeData.length > 0 ? (
-                  <EmployeeChart data={employeeData} />
-                ) : (
-                  <div
-                    style={{
-                      textAlign: "center",
-                      padding: "40px",
-                      color: "#666",
-                      fontSize: "14px",
-                    }}
-                  >
-                    No employee data available
-                  </div>
-                )}
+              <div style={{ marginTop: 20 }}>
+                <HeadcountCard
+                  data={employeeData.map((e) => e.employees_count)}
+                  dates={employeeData.map((e) => e.date)}
+                  count={currentEmployeeCount}
+                  yoyLabel={overviewEmployeesYoY || undefined}
+                  asOf={(() => {
+                    const nonZero = employeeData.filter((e) => e.employees_count > 0);
+                    const ref =
+                      nonZero.length > 0
+                        ? nonZero[nonZero.length - 1]
+                        : employeeData[employeeData.length - 1];
+                    if (!ref?.date) return undefined;
+                    try {
+                      return new Date(ref.date).toLocaleDateString("en-US", {
+                        month: "short",
+                        year: "numeric",
+                      });
+                    } catch {
+                      return undefined;
+                    }
+                  })()}
+                  linkedinUrl={linkedinUrl}
+                />
               </div>
               {hasManagement && (
                 <div

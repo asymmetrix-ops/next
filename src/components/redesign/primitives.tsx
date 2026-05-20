@@ -96,10 +96,12 @@ export function LinkedH({
   children,
   right,
   showArrow = true,
+  leftSlot,
 }: {
   children: React.ReactNode;
   right?: React.ReactNode;
   showArrow?: boolean;
+  leftSlot?: React.ReactNode;
 }) {
   return (
     <div
@@ -117,8 +119,12 @@ export function LinkedH({
           fontSize: 13.5,
           fontWeight: 600,
           color: T.ink,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
         }}
       >
+        {leftSlot}
         {children}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -320,11 +326,13 @@ export function KV({
   v,
   mono = false,
   last = false,
+  style,
 }: {
   k: string;
   v: React.ReactNode;
   mono?: boolean;
   last?: boolean;
+  style?: React.CSSProperties;
 }) {
   return (
     <div
@@ -336,6 +344,7 @@ export function KV({
         borderBottom: last ? "none" : `1px solid ${T.hair}`,
         fontSize: 12.5,
         alignItems: "start",
+        ...style,
       }}
     >
       <div style={{ color: T.muted, fontFamily: T.sans, paddingTop: 1 }}>{k}</div>

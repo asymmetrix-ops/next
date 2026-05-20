@@ -247,13 +247,21 @@ export function OverviewCard({
   return (
     <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH right={ticker ? undefined : undefined}>Overview</LinkedH>
-      <div style={{ padding: "4px 16px 10px" }}>
+      <div
+        style={{
+          padding: "4px 16px 10px",
+          ...(fillGridCell
+            ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }
+            : {}),
+        }}
+      >
         {visible.map((row, i) => (
           <KV
             key={row.k}
             k={row.k}
             v={row.v}
             last={i === visible.length - 1}
+            style={fillGridCell ? { flex: 1, alignItems: "center", minHeight: 0 } : undefined}
           />
         ))}
       </div>
