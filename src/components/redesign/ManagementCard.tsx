@@ -221,17 +221,13 @@ export function ManagementCard({
       <ColHeader />
       <div style={{ padding: "4px 0" }}>
         {visible.map(({ person, section }, idx) => {
-          const showLabel = hasBoth && section !== lastSection;
+          const showLabel = hasBoth && section !== lastSection && section !== "current";
           if (showLabel) lastSection = section;
           const isLast =
             idx === visible.length - 1 && (!needsToggle || expanded);
           return (
             <React.Fragment key={`${section}-${person.id ?? idx}`}>
-              {showLabel && (
-                <SectionLabel
-                  label={section === "current" ? "Current" : "Past"}
-                />
-              )}
+              {showLabel && <SectionLabel label="Past" />}
               <PersonRow
                 person={person}
                 index={idx}

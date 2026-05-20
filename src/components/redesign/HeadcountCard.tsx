@@ -147,11 +147,37 @@ export function HeadcountCard({
   /** Line stroke: blue-grey (ref), distinct from bright axis accent */
   const lineStroke = "oklch(40% 0.06 258)";
 
+  const linkedinIcon = linkedinUrl ? (
+    <Link
+      href={linkedinUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 22,
+        height: 22,
+        backgroundColor: "#0077b5",
+        borderRadius: 4,
+        color: "white",
+        textDecoration: "none",
+        flexShrink: 0,
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <svg width={13} height={13} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+      </svg>
+    </Link>
+  ) : null;
+
   return (
     <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH
         right={yoyLabel ? <Delta value={yoyLabel} /> : undefined}
         showArrow={!yoyLabel}
+        leftSlot={linkedinIcon}
       >
         LinkedIn employee count
       </LinkedH>
@@ -164,21 +190,24 @@ export function HeadcountCard({
           minWidth: 0,
         }}
       >
-        {/* Headline count */}
-        <div
-          style={{
-            fontSize: 32,
-            fontWeight: 600,
-            color: T.ink,
-            fontVariantNumeric: "tabular-nums",
-            letterSpacing: -0.6,
-            lineHeight: 1.1,
-          }}
-        >
-          {last != null && last > 0 ? last.toLocaleString() : "—"}
-        </div>
-        <div style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>
-          Total full-time employees{asOf ? ` · ${asOf}` : ""}
+        {/* Headline count + subtitle inline */}
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+          <div
+            style={{
+              fontSize: 32,
+              fontWeight: 600,
+              color: T.ink,
+              fontVariantNumeric: "tabular-nums",
+              letterSpacing: -0.6,
+              lineHeight: 1.1,
+              flexShrink: 0,
+            }}
+          >
+            {last != null && last > 0 ? last.toLocaleString() : "—"}
+          </div>
+          <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.4 }}>
+            Total full-time employees{asOf ? ` · ${asOf}` : ""}
+          </div>
         </div>
 
         {/* SVG chart */}
@@ -272,42 +301,6 @@ export function HeadcountCard({
           </div>
         )}
 
-        {/* LinkedIn link */}
-        {linkedinUrl && (
-          <div
-            style={{
-              marginTop: 14,
-              paddingTop: 14,
-              borderTop: `1px solid ${T.hair}`,
-            }}
-          >
-            <Link
-              href={linkedinUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 30,
-                height: 30,
-                backgroundColor: "#0077b5",
-                borderRadius: 6,
-                color: "white",
-                textDecoration: "none",
-              }}
-            >
-              <svg
-                width={18}
-                height={18}
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-              </svg>
-            </Link>
-          </div>
-        )}
       </div>
     </LinkPanel>
   );

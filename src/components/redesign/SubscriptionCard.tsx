@@ -13,6 +13,10 @@ export type SubscriptionMetrics = {
   gdr?: string;
   upsell?: string;
   newLogos?: string;
+  churn?: string;
+  crossSell?: string;
+  priceIncrease?: string;
+  revExpansion?: string;
 };
 
 export function SubscriptionCard({
@@ -22,6 +26,10 @@ export function SubscriptionCard({
   gdr,
   upsell,
   newLogos,
+  churn,
+  crossSell,
+  priceIncrease,
+  revExpansion,
   fillGridCell = false,
 }: SubscriptionMetrics & { fillGridCell?: boolean }) {
   const rows: { k: string; v: React.ReactNode; mono?: boolean }[] = [
@@ -56,6 +64,26 @@ export function SubscriptionCard({
     {
       k: "New logos",
       v: newLogos || <span style={{ color: T.faint }}>—</span>,
+      mono: true,
+    },
+    {
+      k: "Churn",
+      v: churn || <span style={{ color: T.faint }}>—</span>,
+      mono: true,
+    },
+    {
+      k: "Cross-sell",
+      v: crossSell || <span style={{ color: T.faint }}>—</span>,
+      mono: true,
+    },
+    {
+      k: "Price increase",
+      v: priceIncrease || <span style={{ color: T.faint }}>—</span>,
+      mono: true,
+    },
+    {
+      k: "Rev expansion",
+      v: revExpansion || <span style={{ color: T.faint }}>—</span>,
       mono: true,
     },
   ];
