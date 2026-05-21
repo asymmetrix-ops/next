@@ -1244,9 +1244,9 @@ const IndividualsPage = () => {
                 Individuals
               </h2>
               <RequestDataResearchButton
-                label="Request Individual Profile"
-                defaultType="Individual Profile"
-                sourcePage="Individuals Search"
+              label="Request Individual Profile"
+              context="individual"
+              sourcePage="Individuals Search"
               />
             </div>
             <p style={{ color: "#666", marginBottom: "16px" }}>

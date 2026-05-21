@@ -2988,7 +2988,7 @@ const CorporateEventsPage = () => {
             <h2 className="stats-title">Corporate Events</h2>
             <RequestDataResearchButton
               label="Request Corporate Event Profile"
-              defaultType="Corporate Event"
+              context="corporate-event"
               sourcePage="Corporate Events Search"
             />
           </div>

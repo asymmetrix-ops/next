@@ -1190,6 +1190,7 @@ export default function HomeUserPage() {
           <div className="shrink-0 ml-auto">
             <RequestDataResearchButton
               label="Request Data and Research"
+              context="dashboard"
               sourcePage="Dashboard"
             />
           </div>
