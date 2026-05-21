@@ -2024,7 +2024,7 @@ const InvestorsPage = () => {
             <h2 className="stats-title">Investors</h2>
             <RequestDataResearchButton
               label="Request Investor Profile"
-              defaultType="Investor Profile"
+              context="investor"
               sourcePage="Investors Search"
             />
           </div>

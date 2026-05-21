@@ -1054,7 +1054,7 @@ const InsightsAnalysisPage = () => {
                 </h2>
                 <RequestDataResearchButton
                   label="Request Report"
-                  defaultType="Research Report"
+                  context="insights-analysis"
                   sourcePage="Insights & Analysis Search"
                 />
               </div>

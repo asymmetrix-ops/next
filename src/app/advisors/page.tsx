@@ -2427,7 +2427,7 @@ const AdvisorsPage = () => {
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               <RequestDataResearchButton
                 label="Request Advisor Profile"
-                defaultType="Advisor Profile"
+                context="advisor"
                 sourcePage="Advisors Search"
               />
               <button

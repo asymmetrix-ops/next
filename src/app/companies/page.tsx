@@ -2148,7 +2148,7 @@ const CompanyDashboard = ({
             </h2>
             <RequestDataResearchButton
               label="Request Company Profile"
-              defaultType="Company Profile"
+              context="company"
               sourcePage="Companies Search"
             />
           </div>
