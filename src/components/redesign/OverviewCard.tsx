@@ -101,6 +101,52 @@ function SectorTags({
   );
 }
 
+function TransactionStatusHighlight({ label }: { label: string }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "auto 1fr",
+        columnGap: 4,
+        alignItems: "center",
+        backgroundColor: "#ffffff",
+        border: "1px solid #bfdbfe",
+        borderRadius: 12,
+        boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.10)",
+        padding: "8px 8px",
+        margin: "8px 0 10px",
+      }}
+    >
+      <span
+        style={{
+          fontSize: 12.5,
+          color: T.muted,
+          fontWeight: 400,
+          whiteSpace: "nowrap",
+        }}
+      >
+        Transaction Status:
+      </span>
+      <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+        <span
+          className="transaction-status-pill"
+          style={{
+            backgroundColor: "#dcfce7",
+            color: "#166534",
+            border: "1.5px solid #4ade80",
+            borderRadius: "999px",
+            fontSize: 12,
+            fontWeight: 500,
+            padding: "5px 10px",
+          }}
+        >
+          {label}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function InvestorTags({ investors }: { investors: OverviewInvestor[] }) {
   if (investors.length === 0) return <span style={{ color: T.faint }}>{EM}</span>;
   return (
@@ -138,13 +184,6 @@ export function OverviewCard({
   const hasParent = Boolean(parentCompany?.name);
 
   const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
-    {
-      k: "Transaction status",
-      show: Boolean(transactionStatus),
-      v: (
-        <Pill tone="up">{transactionStatus}</Pill>
-      ),
-    },
     {
       k: "Primary sector(s)",
       v: (
@@ -255,6 +294,9 @@ export function OverviewCard({
             : {}),
         }}
       >
+        {transactionStatus ? (
+          <TransactionStatusHighlight label={transactionStatus} />
+        ) : null}
         {visible.map((row, i) => (
           <KV
             key={row.k}
