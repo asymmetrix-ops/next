@@ -343,6 +343,9 @@ const InsightsAnalysisPage = () => {
   const [primarySectors, setPrimarySectors] = useState<
     Array<{ id: number; sector_name: string }>
   >([]);
+  const [transactionStatuses, setTransactionStatuses] = useState<
+    Array<{ id: number; label: string }>
+  >([]);
 
   // State for insights analysis data
   const [articles, setArticles] = useState<ContentArticle[]>([]);
@@ -444,8 +447,8 @@ const InsightsAnalysisPage = () => {
         );
       const ct = (filters.Content_Type || filters.content_type || "").trim();
       if (ct) params.append("content_type", ct);
-      const ts = (filters.Transaction_status || "").trim();
-      if (ts) params.append("Transaction_status", ts);
+      const ts = filters.Transaction_status;
+      if (ts != null) params.append("Transaction_status", String(ts));
 
       const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
 
@@ -495,12 +498,14 @@ const InsightsAnalysisPage = () => {
   useEffect(() => {
     const run = async () => {
       try {
-        const [values, sectors] = await Promise.all([
+        const [values, sectors, statuses] = await Promise.all([
           locationsService.getContentTypesForArticles(),
           locationsService.getPrimarySectors(),
+          locationsService.getTransactionStatuses(),
         ]);
         setContentTypes(values);
         setPrimarySectors(sectors);
+        setTransactionStatuses(statuses);
       } catch {
         // ignore
       }
@@ -979,11 +984,17 @@ const InsightsAnalysisPage = () => {
                   <div style={styles.gridItem}>
                     <span style={styles.label}>Transaction Status</span>
                     <select
-                      value={filters.Transaction_status || ""}
+                      value={
+                        filters.Transaction_status != null
+                          ? String(filters.Transaction_status)
+                          : ""
+                      }
                       onChange={(e) => {
                         const updated = {
                           ...filters,
-                          Transaction_status: e.target.value || undefined,
+                          Transaction_status: e.target.value
+                            ? Number.parseInt(e.target.value, 10)
+                            : undefined,
                           Offset: 1,
                         };
                         setFilters(updated);
@@ -993,13 +1004,11 @@ const InsightsAnalysisPage = () => {
                       className="filters-input"
                     >
                       <option value="">All Transaction Statuses</option>
-                      <option value="Rumoured in Market">
-                        Rumoured in Market
-                      </option>
-                      <option value="Transaction anticipated within 18 months">
-                        Transaction anticipated within 18 months
-                      </option>
-                      <option value="Reported in Market">Reported in Market</option>
+                      {transactionStatuses.map((status) => (
+                        <option key={status.id} value={status.id}>
+                          {status.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>

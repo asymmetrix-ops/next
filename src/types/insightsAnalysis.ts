@@ -54,7 +54,7 @@ export interface InsightsAnalysisFilters {
   search_query: string;
   Content_Type?: string;
   content_type?: string;
-  Transaction_status?: string;
+  Transaction_status?: number;
   primary_sectors_ids: number[];
   Secondary_sectors_ids: number[];
   Countries: string[];
