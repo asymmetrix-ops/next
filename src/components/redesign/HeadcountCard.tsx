@@ -110,8 +110,8 @@ export function HeadcountCard({
   const yMax = ticks[ticks.length - 1]!;
   const ySpan = yMax > yMin ? yMax - yMin : 1;
 
-  const W = 460, H = 150;
-  const padL = 44, padR = 8, padT = 8, padB = 22;
+  const W = 460, H = 180;
+  const padL = 44, padR = 8, padT = 6, padB = 20;
   const iW = W - padL - padR;
   const iH = H - padT - padB;
 
@@ -184,40 +184,40 @@ export function HeadcountCard({
 
       <div
         style={{
-          padding: "20px 18px 14px",
+          padding: "10px 14px 10px",
           flex: 1,
           minHeight: 0,
           minWidth: 0,
         }}
       >
         {/* Headline count + subtitle inline */}
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
           <div
             style={{
-              fontSize: 32,
+              fontSize: 28,
               fontWeight: 600,
               color: T.ink,
               fontVariantNumeric: "tabular-nums",
-              letterSpacing: -0.6,
+              letterSpacing: -0.5,
               lineHeight: 1.1,
               flexShrink: 0,
             }}
           >
             {last != null && last > 0 ? last.toLocaleString() : "—"}
           </div>
-          <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.4 }}>
+          <div style={{ fontSize: 11.5, color: T.muted, lineHeight: 1.4 }}>
             Total full-time employees{asOf ? ` · ${asOf}` : ""}
           </div>
         </div>
 
         {/* SVG chart */}
         {hasChart && (
-          <div style={{ marginTop: 18, flexShrink: 0, minWidth: 0 }}>
+          <div style={{ flexShrink: 0, minWidth: 0 }}>
             <svg
               viewBox={`0 0 ${W} ${H}`}
               width="100%"
-              height={H}
-              style={{ display: "block", overflow: "visible" }}
+              height="auto"
+              style={{ display: "block", overflow: "visible", aspectRatio: `${W} / ${H}` }}
             >
               <defs>
                 <linearGradient id={`hcg-${id}`} x1="0" y1="0" x2="0" y2="1">
