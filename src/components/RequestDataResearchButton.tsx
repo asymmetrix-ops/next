@@ -541,22 +541,24 @@ export default function RequestDataResearchButton({
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
+                    justifyContent: isData ? "space-between" : "flex-end",
                     marginTop: "18px",
                   }}
                 >
-                  <span
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      fontSize: "12px",
-                      color: "#64748b",
-                    }}
-                  >
-                    <ClockIcon />
-                    Typical turnaround: 2–3 business days
-                  </span>
+                  {isData && (
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        fontSize: "12px",
+                        color: "#64748b",
+                      }}
+                    >
+                      <ClockIcon />
+                      Typical turnaround: 2–3 business days
+                    </span>
+                  )}
 
                   <div style={{ display: "flex", gap: "10px" }}>
                     <button
