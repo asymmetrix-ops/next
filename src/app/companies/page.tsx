@@ -98,6 +98,11 @@ interface OwnershipType {
   ownership: string;
 }
 
+interface TransactionStatusOption {
+  id: number;
+  label: string;
+}
+
 interface Filters {
   countries: string[];
   provinces: string[];
@@ -145,7 +150,7 @@ interface Filters {
   minGrowthPercent: number | null;
   maxGrowthPercent: number | null;
   timeFrame: string;
-  transactionStatus?: string[];
+  transactionStatus?: number[];
 }
 
 const createDefaultFilters = (): Filters => ({
@@ -937,14 +942,12 @@ const CompanyDashboard = ({
   const [maxGrowthPercent, setMaxGrowthPercent] = useState<number | null>(null);
   const [timeFrame, setTimeFrame] = useState<string>("");
 
-  const [selectedTransactionStatus, setSelectedTransactionStatus] = useState<string[]>(
+  const [selectedTransactionStatus, setSelectedTransactionStatus] = useState<number[]>(
     []
   );
-  const TRANSACTION_STATUS_OPTIONS = [
-    "Rumoured in Market",
-    "Transaction anticipated within 18 months",
-    "Reported in Market",
-  ] as const;
+  const [transactionStatuses, setTransactionStatuses] = useState<
+    TransactionStatusOption[]
+  >([]);
 
   // Loading states
   const [loadingCountries, setLoadingCountries] = useState(false);
@@ -955,6 +958,8 @@ const CompanyDashboard = ({
   const [loadingHybridBusinessFocuses, setLoadingHybridBusinessFocuses] =
     useState(false);
   const [loadingOwnershipTypes, setLoadingOwnershipTypes] = useState(false);
+  const [loadingTransactionStatuses, setLoadingTransactionStatuses] =
+    useState(false);
 
   // Fetch countries and primary sectors on component mount
   useEffect(() => {
@@ -1024,12 +1029,25 @@ const CompanyDashboard = ({
       }
     };
 
+    const fetchTransactionStatuses = async () => {
+      try {
+        setLoadingTransactionStatuses(true);
+        const statusData = await locationsService.getTransactionStatuses();
+        setTransactionStatuses(statusData);
+      } catch (error) {
+        console.error("Error fetching transaction statuses:", error);
+      } finally {
+        setLoadingTransactionStatuses(false);
+      }
+    };
+
     fetchCountries();
     fetchPrimarySectors();
     fetchContinentalRegions();
     fetchSubRegions();
     fetchHybridBusinessFocuses();
     fetchOwnershipTypes();
+    fetchTransactionStatuses();
   }, []);
 
   // Fetch provinces when countries are selected
@@ -1156,9 +1174,9 @@ const CompanyDashboard = ({
     );
   };
 
-  const removeTransactionStatus = (status: string) => {
+  const removeTransactionStatus = (statusId: number) => {
     setSelectedTransactionStatus(
-      selectedTransactionStatus.filter((value) => value !== status)
+      selectedTransactionStatus.filter((value) => value !== statusId)
     );
   };
 
@@ -1384,7 +1402,13 @@ const CompanyDashboard = ({
         filtersUsed.hybrid_business_focus = hybridFocusUsed;
       }
       if (selectedTransactionStatus.length > 0) {
-        filtersUsed.transaction_statuses = selectedTransactionStatus.slice();
+        filtersUsed.transaction_statuses = selectedTransactionStatus.map((id) => {
+          const status = transactionStatuses.find((x) => x.id === id);
+          return {
+            transaction_status_id: id,
+            transaction_status_label: status?.label ?? null,
+          };
+        });
       }
 
       const linkedinRange = range(linkedinMembersMin, linkedinMembersMax);
@@ -1462,6 +1486,7 @@ const CompanyDashboard = ({
     secondarySectors,
     ownershipTypes,
     hybridBusinessFocuses,
+    transactionStatuses,
     linkedinMembersMin,
     linkedinMembersMax,
     revenueMin,
@@ -2401,14 +2426,14 @@ const CompanyDashboard = ({
                 )}
                 <span style={styles.label}>Transaction Status</span>
                 <SearchableSelect
-                  options={TRANSACTION_STATUS_OPTIONS.map((opt) => ({
-                    value: opt,
-                    label: opt,
+                  options={transactionStatuses.map((status) => ({
+                    value: status.id,
+                    label: status.label,
                   }))}
                   value=""
                   onChange={(value) => {
                     if (
-                      typeof value === "string" &&
+                      typeof value === "number" &&
                       value &&
                       !selectedTransactionStatus.includes(value)
                     ) {
@@ -2418,7 +2443,12 @@ const CompanyDashboard = ({
                       ]);
                     }
                   }}
-                  placeholder="All Transaction Statuses"
+                  placeholder={
+                    loadingTransactionStatuses
+                      ? "Loading transaction statuses..."
+                      : "All Transaction Statuses"
+                  }
+                  disabled={loadingTransactionStatuses}
                   style={styles.select}
                 />
                 {selectedTransactionStatus.length > 0 && (
@@ -2431,9 +2461,13 @@ const CompanyDashboard = ({
                       gap: "4px",
                     }}
                   >
-                    {selectedTransactionStatus.map((status) => (
+                    {selectedTransactionStatus.map((statusId) => {
+                      const status = transactionStatuses.find(
+                        (s) => s.id === statusId
+                      );
+                      return (
                       <span
-                        key={status}
+                        key={statusId}
                         style={{
                           backgroundColor: "#e0f2fe",
                           color: "#0369a1",
@@ -2445,9 +2479,9 @@ const CompanyDashboard = ({
                           gap: "4px",
                         }}
                       >
-                        {status}
+                        {status?.label || `Status ${statusId}`}
                         <button
-                          onClick={() => removeTransactionStatus(status)}
+                          onClick={() => removeTransactionStatus(statusId)}
                           style={{
                             background: "none",
                             border: "none",
@@ -2460,7 +2494,8 @@ const CompanyDashboard = ({
                           ×
                         </button>
                       </span>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 <span style={styles.label}>LinkedIn Members Range</span>
@@ -3070,8 +3105,8 @@ const CompanySection = ({
         );
         const transactionStatuses = f.transactionStatus || [];
         if (transactionStatuses.length > 0) {
-          transactionStatuses.forEach((status) => {
-            params.append("transaction_status[]", status);
+          transactionStatuses.forEach((statusId) => {
+            params.append("transaction_status[]", String(statusId));
           });
         }
 

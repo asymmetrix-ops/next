@@ -36,6 +36,11 @@ interface OwnershipType {
   ownership: string;
 }
 
+interface TransactionStatusOption {
+  id: number;
+  label: string;
+}
+
 interface CurrencyOption {
   id: number;
   Currency: string;
@@ -474,6 +479,30 @@ class LocationsService {
     }
 
     return await response.json();
+  }
+
+  async getTransactionStatuses(): Promise<TransactionStatusOption[]> {
+    const url = `${BASE_URL}transaction_statuses`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch transaction statuses: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
   }
 
   // New: Fetch continental regions list (strings)

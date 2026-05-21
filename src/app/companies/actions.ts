@@ -112,7 +112,7 @@ export interface CompaniesFilters {
   minGrowthPercent?: number | null;
   maxGrowthPercent?: number | null;
   timeFrame?: string;
-  transactionStatus?: string[];
+  transactionStatus?: number[];
 }
 
 export interface CompanyItem {
@@ -346,8 +346,8 @@ export async function fetchCompaniesServer(
 
     const transactionStatuses = filters.transactionStatus || [];
     if (transactionStatuses.length > 0) {
-      transactionStatuses.forEach((status) => {
-        params.append("transaction_status[]", status);
+      transactionStatuses.forEach((statusId) => {
+        params.append("transaction_status[]", statusId.toString());
       });
     }
 
