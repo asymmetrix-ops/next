@@ -74,7 +74,8 @@ export async function POST(req: NextRequest) {
       validateStatus: () => true,
     });
 
-    if (response.status < 200 || response.status >= 300) {
+    // 202 Accepted = async job started
+    if (response.status < 200 || response.status >= 400) {
       const errBody =
         typeof response.data === "object" && response.data !== null
           ? response.data
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(response.data);
+    return NextResponse.json(response.data, { status: response.status });
   } catch (error: unknown) {
     console.error("[ia-writer/run-analysis]", error);
     const payload = serializeUpstreamError(error);
