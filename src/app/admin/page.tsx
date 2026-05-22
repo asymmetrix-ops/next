@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { CompetitorsTab } from "./analytics/_components/AnalyticsViews";
 import { ChangeStateTab } from "./_components/ChangeStatePanel";
+import { CompanyAnalysisTab } from "./_components/CompanyAnalysisTab";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { SearchableUserEmailSelect } from "@/components/SearchableUserEmailSelect";
 import { BasicUsersMultiSelect } from "@/components/ui/BasicUsersMultiSelect";
@@ -93,6 +94,7 @@ export default function AdminPage() {
     | "sectors"
     | "competitors"
     | "changeState"
+    | "companyAnalysis"
   >("valuation");
 
   // Only authenticated users with admin role may access; others are redirected.
@@ -267,6 +269,16 @@ Target company: {query} ({domain})`;
         >
           Change State
         </button>
+        <button
+          onClick={() => setActiveTab("companyAnalysis")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "companyAnalysis"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Company Analysis
+        </button>
       </div>
 
       {activeTab === "valuation" && (
@@ -334,6 +346,7 @@ Target company: {query} ({domain})`;
       {activeTab === "sectors" && <SectorsTab />}
       {activeTab === "competitors" && <CompetitorsTab />}
       {activeTab === "changeState" && <ChangeStateTab />}
+      {activeTab === "companyAnalysis" && <CompanyAnalysisTab />}
     </div>
   );
 }

@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Long-running IA writer analysis (5–7 min) proxied to Fly analyzer
+  experimental: {
+    proxyTimeout: 8 * 60 * 1000,
+  },
   images: {
     domains: [
       "www.asymmetrix.info",
@@ -98,6 +102,15 @@ const nextConfig = {
         source: "/test",
         destination: "/",
         permanent: false,
+      },
+    ];
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/analyzer-proxy/:path*",
+        destination:
+          "https://searxng-corporate-events-analyzer.fly.dev/:path*",
       },
     ];
   },
