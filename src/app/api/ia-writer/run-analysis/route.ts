@@ -1,101 +1,123 @@
 import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
 
-import { IA_WRITER_RUN_ANALYSIS_URL } from "@/lib/iaWriterAnalysis";
+const BASE = "https://searxng-corporate-events-analyzer.fly.dev";
+const TRIGGER_URL = `${BASE}/api/ia-writer/run-analysis`;
 
-/** Analysis can take 5–7 minutes; allow up to 7 min on this route. */
+/** Allow up to 9 minutes on this route (Vercel Pro max is 800 s). */
 export const maxDuration = 420;
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const UPSTREAM_TIMEOUT_MS = 8 * 60 * 1000;
+const POLL_INTERVAL_MS = 3_000;
+const DEADLINE_MS = 8 * 60 * 1_000; // 8 min hard stop
 
-function serializeUpstreamError(err: unknown): {
-  error: string;
-  details?: string;
-  cause?: string;
-  code?: string;
-} {
+function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms));
+}
+
+function upstreamError(err: unknown): NextResponse {
   if (axios.isAxiosError(err)) {
-    const cause = err.cause;
-    const responseBody =
-      typeof err.response?.data === "string"
-        ? err.response.data.slice(0, 800)
-        : err.response?.data
-          ? JSON.stringify(err.response.data).slice(0, 800)
-          : undefined;
-
-    return {
-      error: err.message || "Upstream request failed",
-      details: [
-        err.code,
-        err.response?.status != null && `HTTP ${err.response.status}`,
-        responseBody,
-        cause instanceof Error ? cause.message : cause ? String(cause) : null,
-      ]
-        .filter(Boolean)
-        .join(" · "),
-      cause: cause instanceof Error ? cause.message : undefined,
-      code: err.code,
-    };
+    const status = err.response?.status ?? 502;
+    const body = err.response?.data;
+    const msg =
+      (typeof body === "object" && body !== null
+        ? (body as Record<string, string>).error ??
+          (body as Record<string, string>).detail
+        : null) ??
+      err.message ??
+      "Upstream request failed";
+    console.error("[ia-writer] axios error", err.code, msg);
+    return NextResponse.json(
+      { error: msg, code: err.code ?? undefined },
+      { status }
+    );
   }
-
-  if (err instanceof Error) {
-    const cause = (err as Error & { cause?: unknown }).cause;
-    return {
-      error: err.message,
-      details: cause instanceof Error ? cause.message : cause ? String(cause) : undefined,
-      cause: cause instanceof Error ? cause.message : undefined,
-      code: (err as NodeJS.ErrnoException).code,
-    };
-  }
-
-  return { error: String(err) };
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error("[ia-writer] error", msg);
+  return NextResponse.json({ error: msg }, { status: 500 });
 }
 
 export async function POST(req: NextRequest) {
+  // — parse body —
+  let companyId: number;
   try {
     const body = await req.json();
-    const companyId = body?.company_id;
-
-    const id =
-      typeof companyId === "number" ? companyId : parseInt(String(companyId), 10);
-
-    if (!Number.isFinite(id) || id <= 0) {
-      return NextResponse.json(
-        { error: "Missing or invalid company_id" },
-        { status: 400 }
-      );
-    }
-
-    const response = await axios.post(IA_WRITER_RUN_ANALYSIS_URL, { company_id: id }, {
-      headers: { "Content-Type": "application/json" },
-      timeout: UPSTREAM_TIMEOUT_MS,
-      validateStatus: () => true,
-    });
-
-    // 202 Accepted = async job started
-    if (response.status < 200 || response.status >= 400) {
-      const errBody =
-        typeof response.data === "object" && response.data !== null
-          ? response.data
-          : { error: String(response.data ?? response.statusText) };
-      return NextResponse.json(
-        {
-          error:
-            (errBody as { error?: string }).error ||
-            (errBody as { detail?: string }).detail ||
-            `Upstream error (HTTP ${response.status})`,
-          details: JSON.stringify(errBody).slice(0, 800),
-        },
-        { status: response.status }
-      );
-    }
-
-    return NextResponse.json(response.data, { status: response.status });
-  } catch (error: unknown) {
-    console.error("[ia-writer/run-analysis]", error);
-    const payload = serializeUpstreamError(error);
-    return NextResponse.json(payload, { status: 500 });
+    companyId =
+      typeof body?.company_id === "number"
+        ? body.company_id
+        : parseInt(String(body?.company_id ?? ""), 10);
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
+
+  if (!Number.isFinite(companyId) || companyId <= 0) {
+    return NextResponse.json(
+      { error: "Missing or invalid company_id" },
+      { status: 400 }
+    );
+  }
+
+  // — trigger the job —
+  let jobId: string;
+  try {
+    const trigger = await axios.post(
+      TRIGGER_URL,
+      { company_id: companyId },
+      { headers: { "Content-Type": "application/json" }, timeout: 30_000 }
+    );
+    const data = trigger.data as { job_id?: string; status?: string };
+    if (!data?.job_id) {
+      // If the API returns the full result synchronously, pass it through
+      return NextResponse.json(data);
+    }
+    jobId = data.job_id;
+    console.log(`[ia-writer] job started: ${jobId}`);
+  } catch (err) {
+    return upstreamError(err);
+  }
+
+  // — poll until done —
+  const pollUrl = `${BASE}/api/ia-writer/run-analysis/${jobId}`;
+  const deadline = Date.now() + DEADLINE_MS;
+
+  while (Date.now() < deadline) {
+    await sleep(POLL_INTERVAL_MS);
+
+    let status: {
+      status: string;
+      result?: unknown;
+      error?: string | null;
+      progress?: string | null;
+    };
+
+    try {
+      const poll = await axios.get(pollUrl, { timeout: 15_000 });
+      status = poll.data;
+    } catch (err) {
+      return upstreamError(err);
+    }
+
+    console.log(
+      `[ia-writer] job ${jobId} — ${status.status}${status.progress ? ` — ${status.progress}` : ""}`
+    );
+
+    if (status.status === "done") {
+      return NextResponse.json(status.result ?? status);
+    }
+
+    if (status.status === "error") {
+      return NextResponse.json(
+        { error: status.error ?? "Analysis failed on server" },
+        { status: 500 }
+      );
+    }
+
+    // queued | running → keep polling
+  }
+
+  return NextResponse.json(
+    { error: "Analysis timed out after 8 minutes" },
+    { status: 504 }
+  );
 }
