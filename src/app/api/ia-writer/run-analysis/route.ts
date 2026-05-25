@@ -4,13 +4,13 @@ import { NextRequest, NextResponse } from "next/server";
 const BASE = "https://searxng-corporate-events-analyzer.fly.dev";
 const TRIGGER_URL = `${BASE}/api/ia-writer/run-analysis`;
 
-/** Allow up to 9 minutes on this route (Vercel Pro max is 800 s). */
-export const maxDuration = 420;
+/** Allow up to 17 minutes on this route (Vercel Pro max is 800 s). */
+export const maxDuration = 840;
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const POLL_INTERVAL_MS = 3_000;
-const DEADLINE_MS = 8 * 60 * 1_000; // 8 min hard stop
+const DEADLINE_MS = 16 * 60 * 1_000; // 16 min hard stop
 
 function sleep(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms));
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
     };
 
     try {
-      const poll = await axios.get(pollUrl, { timeout: 15_000 });
+      const poll = await axios.get(pollUrl, { timeout: 30_000 });
       status = poll.data;
     } catch (err) {
       return upstreamError(err);
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json(
-    { error: "Analysis timed out after 8 minutes" },
+    { error: "Analysis timed out after 16 minutes" },
     { status: 504 }
   );
 }

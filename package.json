@@ -33,6 +33,7 @@
     "clsx": "^2.0.0",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.0",
+    "docx": "^9.7.0",
     "framer-motion": "^10.16.0",
     "html-escaper": "^3.0.3",
     "jose": "^6.1.0",

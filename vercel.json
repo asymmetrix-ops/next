@@ -33,7 +33,7 @@
   ],
   "functions": {
     "src/app/api/ia-writer/run-analysis/route.ts": {
-      "maxDuration": 420
+      "maxDuration": 840
     }
   },
   "rewrites": [
