@@ -31,11 +31,6 @@
       "schedule": "0 5,6 * * 1-5"
     }
   ],
-  "functions": {
-    "src/app/api/ia-writer/run-analysis/route.ts": {
-      "maxDuration": 840
-    }
-  },
   "rewrites": [
     {
       "source": "/contributor-crm/:path*",
