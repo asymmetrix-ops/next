@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type AnalysisSections = Record<string, string>;
 
@@ -246,6 +246,14 @@ function WordIcon() {
   );
 }
 
+const POLL_INTERVAL_MS = 30_000;
+
+type JobState = {
+  jobId: string;
+  status: "queued" | "running" | "done" | "error";
+  progress: string | null;
+};
+
 export function CompanyAnalysisTab() {
   const [companyId, setCompanyId] = useState("");
   const [result, setResult] = useState<FullAnalysisResult | null>(null);
@@ -254,9 +262,12 @@ export function CompanyAnalysisTab() {
   const [loading, setLoading] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [exporting, setExporting] = useState<string | null>(null); // key or "all"
+  const [exporting, setExporting] = useState<string | null>(null);
   const [insiderData, setInsiderData] = useState("");
+  const [job, setJob] = useState<JobState | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Elapsed timer while loading
   useEffect(() => {
     if (!loading) { setElapsedSec(0); return; }
     const t0 = Date.now();
@@ -266,6 +277,9 @@ export function CompanyAnalysisTab() {
     );
     return () => window.clearInterval(id);
   }, [loading]);
+
+  // Cleanup poll on unmount
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   const keys = useMemo(() => (result ? orderedKeys(sections) : []), [result, sections]);
 
@@ -277,11 +291,64 @@ export function CompanyAnalysisTab() {
     });
   }, []);
 
+  function stopPolling() {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  }
+
+  async function pollJobStatus(jobId: string) {
+    try {
+      const res = await fetch(`/api/ia-writer/job-status/${encodeURIComponent(jobId)}`);
+      const text = await res.text();
+      let data: unknown;
+      try { data = JSON.parse(text); } catch {
+        return; // transient error, keep polling
+      }
+
+      if (!res.ok) {
+        const d = data as { error?: string };
+        // 404 = machine routing issue, keep polling
+        if (res.status === 404) return;
+        stopPolling();
+        setError(d.error ?? `Poll failed (HTTP ${res.status})`);
+        setLoading(false);
+        setJob(null);
+        return;
+      }
+
+      const d = data as {
+        status: string;
+        progress?: string | null;
+        result?: FullAnalysisResult | null;
+        error?: string | null;
+      };
+
+      setJob((prev) => prev ? { ...prev, status: d.status as JobState["status"], progress: d.progress ?? null } : null);
+
+      if (d.status === "done" && d.result) {
+        stopPolling();
+        setResult(d.result);
+        setSections({ ...(d.result.sections ?? {}) });
+        setExpanded(new Set(["summary", "overview"]));
+        setLoading(false);
+        setJob(null);
+      } else if (d.status === "error") {
+        stopPolling();
+        setError(d.error ?? "Analysis failed on server");
+        setLoading(false);
+        setJob(null);
+      }
+    } catch {
+      // network error — keep polling
+    }
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    stopPolling();
     setError(null);
     setResult(null);
     setSections({});
+    setJob(null);
 
     const id = parseInt(companyId.trim(), 10);
     if (!Number.isFinite(id) || id <= 0) {
@@ -308,13 +375,33 @@ export function CompanyAnalysisTab() {
 
       if (!res.ok) throw new Error(extractError(data, res.status));
 
-      const r = data as FullAnalysisResult;
-      setResult(r);
-      setSections({ ...(r.sections ?? {}) });
-      setExpanded(new Set(["summary", "overview"]));
+      const d = data as {
+        job_id?: string;
+        status?: string;
+        result?: FullAnalysisResult;
+        sections?: AnalysisSections;
+      };
+
+      // Synchronous result (unlikely but handle it)
+      if (!d.job_id && d.sections) {
+        const r = data as FullAnalysisResult;
+        setResult(r);
+        setSections({ ...(r.sections ?? {}) });
+        setExpanded(new Set(["summary", "overview"]));
+        setLoading(false);
+        return;
+      }
+
+      if (!d.job_id) throw new Error("No job_id returned from server");
+
+      const jobId = d.job_id;
+      setJob({ jobId, status: (d.status as JobState["status"]) ?? "queued", progress: null });
+
+      // Poll immediately, then every 30 s
+      await pollJobStatus(jobId);
+      pollRef.current = setInterval(() => pollJobStatus(jobId), POLL_INTERVAL_MS);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-    } finally {
       setLoading(false);
     }
   }
@@ -401,10 +488,17 @@ export function CompanyAnalysisTab() {
 
       {loading && (
         <div className="p-4 mb-6 text-sm rounded border border-amber-200 bg-amber-50 text-amber-900">
-          <p className="font-medium">Analysis in progress</p>
-          <p className="mt-1 text-amber-700">
-            The server is running the pipeline and will return the full result
-            when done. This can take up to 7 minutes — do not close or refresh the page.
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 border-2 border-amber-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+            <p className="font-medium">
+              {job ? `Job ${job.jobId.slice(0, 8)}… — ${job.status}` : "Starting analysis…"}
+            </p>
+          </div>
+          {job?.progress && (
+            <p className="mt-1.5 text-amber-800 font-mono text-xs">{job.progress}</p>
+          )}
+          <p className="mt-2 text-amber-700">
+            Elapsed: {fmtTime(elapsedSec)} · Polling every 30 s. Keep this tab open.
           </p>
         </div>
       )}
