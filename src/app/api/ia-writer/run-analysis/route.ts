@@ -41,12 +41,17 @@ function upstreamError(err: unknown): NextResponse {
 export async function POST(req: NextRequest) {
   // — parse body —
   let companyId: number;
+  let insiderData: string | undefined;
   try {
     const body = await req.json();
     companyId =
       typeof body?.company_id === "number"
         ? body.company_id
         : parseInt(String(body?.company_id ?? ""), 10);
+    insiderData =
+      typeof body?.insider_data === "string" && body.insider_data.trim()
+        ? body.insider_data.trim()
+        : undefined;
   } catch {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
@@ -63,7 +68,7 @@ export async function POST(req: NextRequest) {
   try {
     const trigger = await axios.post(
       TRIGGER_URL,
-      { company_id: companyId },
+      { company_id: companyId, ...(insiderData ? { insider_data: insiderData } : {}) },
       { headers: { "Content-Type": "application/json" }, timeout: 30_000 }
     );
     const data = trigger.data as { job_id?: string; status?: string };

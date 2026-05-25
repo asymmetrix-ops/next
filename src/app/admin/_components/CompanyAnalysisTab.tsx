@@ -255,6 +255,7 @@ export function CompanyAnalysisTab() {
   const [elapsedSec, setElapsedSec] = useState(0);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState<string | null>(null); // key or "all"
+  const [insiderData, setInsiderData] = useState("");
 
   useEffect(() => {
     if (!loading) { setElapsedSec(0); return; }
@@ -293,7 +294,10 @@ export function CompanyAnalysisTab() {
       const res = await fetch("/api/ia-writer/run-analysis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company_id: id }),
+        body: JSON.stringify({
+          company_id: id,
+          ...(insiderData.trim() ? { insider_data: insiderData.trim() } : {}),
+        }),
       });
 
       let data: unknown;
@@ -345,34 +349,54 @@ export function CompanyAnalysisTab() {
         Runs the full IA writer pipeline for a company (5–7 min). Keep this tab open.
       </p>
 
-      <form onSubmit={onSubmit} className="mb-8 flex flex-wrap items-end gap-4">
-        <div className="min-w-[200px]">
-          <label className="block mb-1 text-sm font-medium">Company ID</label>
-          <input
-            type="number"
-            min={1}
-            value={companyId}
-            onChange={(e) => setCompanyId(e.target.value)}
-            placeholder="e.g. 3222"
-            className="px-3 py-2 w-full rounded border"
-            required
+      <form onSubmit={onSubmit} className="mb-8 space-y-4">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="min-w-[200px]">
+            <label className="block mb-1 text-sm font-medium">Company ID</label>
+            <input
+              type="number"
+              min={1}
+              value={companyId}
+              onChange={(e) => setCompanyId(e.target.value)}
+              placeholder="e.g. 3222"
+              className="px-3 py-2 w-full rounded border"
+              required
+              disabled={loading}
+            />
+          </div>
+          <button
+            type="submit"
             disabled={loading}
-          />
+            className="inline-flex items-center gap-2 px-4 py-2 text-white bg-black rounded disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                {elapsedSec > 0 ? `Running… (${fmtTime(elapsedSec)})` : "Running…"}
+              </>
+            ) : (
+              "Run analysis"
+            )}
+          </button>
         </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="inline-flex items-center gap-2 px-4 py-2 text-white bg-black rounded disabled:opacity-50"
-        >
-          {loading ? (
-            <>
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              {elapsedSec > 0 ? `Running… (${fmtTime(elapsedSec)})` : "Running…"}
-            </>
-          ) : (
-            "Run analysis"
-          )}
-        </button>
+
+        <div>
+          <label className="block mb-1 text-sm font-medium">
+            Insider data{" "}
+            <span className="font-normal text-gray-400">(optional)</span>
+          </label>
+          <textarea
+            value={insiderData}
+            onChange={(e) => setInsiderData(e.target.value)}
+            disabled={loading}
+            rows={4}
+            placeholder="Non-public context the AI should factor in — e.g. sale process status, diligence parties, upcoming announcements…"
+            className="px-3 py-2 w-full text-sm rounded border resize-y border-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 disabled:opacity-50"
+          />
+          <p className="mt-1 text-xs text-gray-400">
+            Sent as <code className="bg-gray-100 px-1 rounded">insider_data</code> in the request payload. Leave blank to omit.
+          </p>
+        </div>
       </form>
 
       {loading && (
