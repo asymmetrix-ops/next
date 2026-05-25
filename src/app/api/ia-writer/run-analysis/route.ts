@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // — trigger the job —
+
   let jobId: string;
   try {
     const trigger = await axios.post(
