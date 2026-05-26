@@ -10,6 +10,7 @@ import {
   RequestTab,
   RequestContext,
   getContextDefaults,
+  isDataRequestUrlRequired,
 } from "@/lib/requestDataResearch";
 
 interface RequestDataResearchButtonProps {
@@ -154,7 +155,7 @@ export default function RequestDataResearchButton({
       setError("Please select a type.");
       return;
     }
-    if (isData && !url) {
+    if (isData && isDataRequestUrlRequired(dataType) && !url) {
       setError("Please provide a URL.");
       return;
     }
@@ -208,6 +209,7 @@ export default function RequestDataResearchButton({
   };
 
   const isData = activeTab === "data";
+  const dataUrlRequired = isData && isDataRequestUrlRequired(dataType);
 
   return (
     <>
@@ -444,7 +446,20 @@ export default function RequestDataResearchButton({
                     }}
                   >
                     <label htmlFor="rdr-url" style={labelStyle}>
-                      URL{isData ? <RequiredMark /> : <span style={{ color: "#94a3b8", fontWeight: 400, marginLeft: "4px" }}>optional</span>}
+                      URL
+                      {dataUrlRequired ? (
+                        <RequiredMark />
+                      ) : (
+                        <span
+                          style={{
+                            color: "#94a3b8",
+                            fontWeight: 400,
+                            marginLeft: "4px",
+                          }}
+                        >
+                          optional
+                        </span>
+                      )}
                     </label>
                     <span style={{ fontSize: "12px", color: "#94a3b8" }}>
                       {isData ? DATA_URL_HINT : RESEARCH_URL_HINT}
