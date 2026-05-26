@@ -433,41 +433,80 @@ export default function HomeUserPage() {
 
   const DEAL_RADAR_LIMIT = 25;
 
-  const formatTransactionStatus = (status: string): string => {
-    const map: Record<string, string> = {
-      "Transaction anticipated within 18 months": "Anticipated within 18 months",
-    };
-    return map[status] ?? status;
+  type DealRadarLatestContent = {
+    id: number;
+    headline: string;
+    contentType: string;
+    publicationDate: string;
   };
 
-  const dealRadarStatusStyle = (status: string): React.CSSProperties => {
+  type DealRadarItem = {
+    companyId: number;
+    companyName: string;
+    transactionStatus: string;
+    primarySectors: string[];
+    latestContent: DealRadarLatestContent | null;
+  };
+
+  const dealRadarStageLabel = (status: string): string => {
+    const s = status.toLowerCase();
+    if (s.includes("reported")) return "Reported";
+    if (s.includes("rumoured") || s.includes("rumored")) return "Rumoured";
+    if (s.includes("anticipated")) return "Anticipated";
+    return status;
+  };
+
+  const dealRadarStageStyle = (
+    status: string
+  ): { pill: React.CSSProperties; dot: string } => {
     const s = status.toLowerCase();
     if (s.includes("reported")) {
       return {
-        backgroundColor: "#dcfce7",
-        color: "#166534",
-        border: "1.5px solid #4ade80",
+        pill: { backgroundColor: "#dcfce7", color: "#166534" },
+        dot: "#22c55e",
       };
     }
     if (s.includes("rumoured") || s.includes("rumored")) {
       return {
-        backgroundColor: "#fef9c3",
-        color: "#854d0e",
-        border: "1.5px solid #fde047",
+        pill: { backgroundColor: "#fef9c3", color: "#854d0e" },
+        dot: "#eab308",
       };
     }
-    // anticipated / default
     return {
-      backgroundColor: "#dbeafe",
-      color: "#1e40af",
-      border: "1.5px solid #93c5fd",
+      pill: { backgroundColor: "#dbeafe", color: "#1e40af" },
+      dot: "#3b82f6",
     };
   };
-  const [dealRadarItems, setDealRadarItems] = useState<
-    Array<{ companyId: number; companyName: string; transactionStatus: string }>
-  >([]);
+
+  const mapDealRadarItem = (i: {
+    company_id: number;
+    name: string;
+    transaction_status: string;
+    primary_sectors: string[];
+    latest_content: {
+      id: number;
+      headline: string;
+      content_type: string;
+      publication_date: string;
+    } | null;
+  }): DealRadarItem => ({
+    companyId: i.company_id,
+    companyName: i.name,
+    transactionStatus: i.transaction_status,
+    primarySectors: i.primary_sectors ?? [],
+    latestContent: i.latest_content
+      ? {
+          id: i.latest_content.id,
+          headline: i.latest_content.headline,
+          contentType: i.latest_content.content_type,
+          publicationDate: i.latest_content.publication_date,
+        }
+      : null,
+  });
+
+  const [dealRadarItems, setDealRadarItems] = useState<DealRadarItem[]>([]);
   const [dealRadarTotal, setDealRadarTotal] = useState(0);
-  const [dealRadarOffset, setDealRadarOffset] = useState(0);
+  const [dealRadarNextPage, setDealRadarNextPage] = useState<number | null>(null);
   const [dealRadarLoading, setDealRadarLoading] = useState(true);
   const [dealRadarLoadingMore, setDealRadarLoadingMore] = useState(false);
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
@@ -797,17 +836,11 @@ export default function HomeUserPage() {
       setDealRadarLoading(true);
       const res = await dashboardApiService.getDealRadar({
         limit: DEAL_RADAR_LIMIT,
-        offset: 0,
+        offset: 1,
       });
-      setDealRadarItems(
-        res.items.map((i) => ({
-          companyId: i.company_id,
-          companyName: i.name,
-          transactionStatus: i.transaction_status,
-        }))
-      );
+      setDealRadarItems(res.items.map(mapDealRadarItem));
       setDealRadarTotal(res.total);
-      setDealRadarOffset(res.items.length);
+      setDealRadarNextPage(res.next_page);
     } catch (error) {
       console.error("Error fetching Deal Radar:", error);
     } finally {
@@ -816,28 +849,24 @@ export default function HomeUserPage() {
   }, []);
 
   const loadMoreDealRadar = useCallback(async () => {
-    if (dealRadarLoadingMore) return;
+    if (dealRadarLoadingMore || dealRadarNextPage == null) return;
     try {
       setDealRadarLoadingMore(true);
       const res = await dashboardApiService.getDealRadar({
         limit: DEAL_RADAR_LIMIT,
-        offset: dealRadarOffset,
+        offset: dealRadarNextPage,
       });
       setDealRadarItems((prev) => [
         ...prev,
-        ...res.items.map((i) => ({
-          companyId: i.company_id,
-          companyName: i.name,
-          transactionStatus: i.transaction_status,
-        })),
+        ...res.items.map(mapDealRadarItem),
       ]);
-      setDealRadarOffset((prev) => prev + res.items.length);
+      setDealRadarNextPage(res.next_page);
     } catch (error) {
       console.error("Error loading more Deal Radar items:", error);
     } finally {
       setDealRadarLoadingMore(false);
     }
-  }, [dealRadarOffset, dealRadarLoadingMore]);
+  }, [dealRadarNextPage, dealRadarLoadingMore]);
 
   const fetchCorporateEvents = useCallback(async () => {
     try {
@@ -1398,13 +1427,13 @@ export default function HomeUserPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 xl:grid-cols-[repeat(20,minmax(0,1fr))]">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
           {/* Deal Radar - last on mobile, first on lg+ */}
-          <div className="bg-white rounded-lg shadow order-3 lg:order-1 lg:col-span-2 xl:col-span-6 flex flex-col">
+          <div className="bg-white rounded-lg shadow order-3 lg:order-1 flex flex-col">
             <div className="p-3 border-b border-gray-200 sm:p-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-start gap-2">
                 <svg
-                  className="w-4 h-4 text-blue-600 shrink-0"
+                  className="w-4 h-4 text-blue-600 shrink-0 mt-0.5"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -1416,60 +1445,136 @@ export default function HomeUserPage() {
                   <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49" />
                   <path d="M20.49 3.51a12 12 0 0 1 0 16.97M3.51 3.51a12 12 0 0 0 0 16.97" />
                 </svg>
-                <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
-                  Deal Radar
-                </h2>
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
+                    Deal Radar
+                  </h2>
+                  {!dealRadarLoading && dealRadarTotal > 0 && (
+                    <p className="mt-0.5 text-xs text-gray-500 sm:text-sm">
+                      Active signals with paired analysis · {dealRadarTotal}{" "}
+                      {dealRadarTotal === 1 ? "signal" : "signals"}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
             <div className="p-3 sm:p-4">
               {dealRadarLoading ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 8 }).map((_, i) => (
+                <div className="space-y-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
                     // eslint-disable-next-line react/no-array-index-key
-                    <div key={i} className="flex items-center justify-between gap-3 py-1.5 animate-pulse">
-                      <div className="h-3.5 bg-gray-200 rounded w-2/3" />
-                      <div className="h-5 bg-gray-200 rounded-full w-24 shrink-0" />
+                    <div key={i} className="grid grid-cols-3 gap-3 py-2 animate-pulse">
+                      <div className="space-y-1.5 col-span-1">
+                        <div className="h-3.5 bg-gray-200 rounded w-3/4" />
+                        <div className="h-3 bg-gray-200 rounded w-1/2" />
+                      </div>
+                      <div className="h-3.5 bg-gray-200 rounded col-span-1" />
+                      <div className="h-5 bg-gray-200 rounded-full col-span-1 w-20" />
                     </div>
                   ))}
                 </div>
               ) : dealRadarItems.length > 0 ? (
                 <>
-                  <div className="divide-y divide-gray-100">
-                    {dealRadarItems.map((item) => (
-                      <div
-                        key={item.companyId}
-                        className="flex items-center justify-between gap-3 py-2 first:pt-0"
-                      >
-                        <a
-                          href={`/company/${item.companyId}`}
-                          className="text-sm font-medium text-blue-700 hover:text-blue-900 hover:underline truncate min-w-0"
-                          onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
-                            if (
-                              e.defaultPrevented ||
-                              e.button !== 0 ||
-                              e.metaKey ||
-                              e.ctrlKey ||
-                              e.shiftKey ||
-                              e.altKey
-                            ) {
-                              return;
-                            }
-                            e.preventDefault();
-                            router.push(`/company/${item.companyId}`);
-                          }}
-                        >
-                          {item.companyName}
-                        </a>
-                        <span
-                          className="text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap shrink-0"
-                          style={dealRadarStatusStyle(item.transactionStatus)}
-                        >
-                          {formatTransactionStatus(item.transactionStatus)}
-                        </span>
-                      </div>
-                    ))}
+                  <div className="overflow-x-auto -mx-3 sm:-mx-4">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="px-3 pb-2 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:px-4">
+                            Company
+                          </th>
+                          <th className="px-3 pb-2 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:px-4">
+                            Sector
+                          </th>
+                          <th className="px-3 pb-2 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:px-4">
+                            Stage
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {dealRadarItems.map((item) => {
+                          const stageStyle = dealRadarStageStyle(
+                            item.transactionStatus
+                          );
+
+                          return (
+                            <tr key={item.companyId} className="align-top">
+                              <td className="px-3 py-3 sm:px-4">
+                                <div className="space-y-1">
+                                  <a
+                                    href={`/company/${item.companyId}`}
+                                    className="text-sm font-semibold text-blue-700 hover:text-blue-900 hover:underline"
+                                    onClick={(
+                                      e: React.MouseEvent<HTMLAnchorElement>
+                                    ) => {
+                                      if (
+                                        e.defaultPrevented ||
+                                        e.button !== 0 ||
+                                        e.metaKey ||
+                                        e.ctrlKey ||
+                                        e.shiftKey ||
+                                        e.altKey
+                                      ) {
+                                        return;
+                                      }
+                                      e.preventDefault();
+                                      router.push(`/company/${item.companyId}`);
+                                    }}
+                                  >
+                                    {item.companyName}
+                                  </a>
+                                  {item.latestContent && (
+                                    <a
+                                      href={`/article/${item.latestContent.id}?from=home`}
+                                      className="block text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                                      onClick={(
+                                        e: React.MouseEvent<HTMLAnchorElement>
+                                      ) => {
+                                        if (
+                                          e.defaultPrevented ||
+                                          e.button !== 0 ||
+                                          e.metaKey ||
+                                          e.ctrlKey ||
+                                          e.shiftKey ||
+                                          e.altKey
+                                        ) {
+                                          return;
+                                        }
+                                        e.preventDefault();
+                                        router.push(
+                                          `/article/${item.latestContent!.id}?from=home`
+                                        );
+                                      }}
+                                    >
+                                      Read our research
+                                    </a>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-3 py-3 text-sm text-gray-700 sm:px-4">
+                                {item.primarySectors.length > 0
+                                  ? item.primarySectors.join(", ")
+                                  : "—"}
+                              </td>
+                              <td className="px-3 py-3 sm:px-4">
+                                <span
+                                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap"
+                                  style={stageStyle.pill}
+                                >
+                                  <span
+                                    className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                                    style={{ backgroundColor: stageStyle.dot }}
+                                  />
+                                  {dealRadarStageLabel(item.transactionStatus)}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                  {dealRadarItems.length < dealRadarTotal && (
+                  {dealRadarNextPage != null &&
+                    dealRadarItems.length < dealRadarTotal && (
                     <div className="pt-3 mt-1 border-t border-gray-100">
                       <button
                         type="button"
@@ -1501,7 +1606,7 @@ export default function HomeUserPage() {
           </div>
 
           {/* Insights & Analysis - first on mobile */}
-          <div className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-1 lg:order-2 lg:col-span-1 xl:col-span-7">
+          <div className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-1 lg:order-2">
             <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700">
@@ -1686,7 +1791,7 @@ export default function HomeUserPage() {
           </div>
 
           {/* Corporate Events - second on mobile */}
-          <div className="flex flex-col bg-white rounded-lg shadow order-2 lg:order-3 lg:col-span-1 xl:col-span-7">
+          <div className="flex flex-col bg-white rounded-lg shadow order-2 lg:order-3">
             <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-2">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-700">
