@@ -36,6 +36,13 @@ const RESEARCH_DETAILS_PLACEHOLDER =
 const confirmationMessage =
   "Thank you for submitting a request. Asymmetrix will review your request and determine suitability for inclusion in our platform.";
 
+function normalizeUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
 function LinkIcon() {
   return (
     <svg
@@ -139,7 +146,8 @@ export default function RequestDataResearchButton({
 
     const isData = activeTab === "data";
     const requestType = isData ? dataType : researchType;
-    const url = (isData ? dataUrl : researchUrl).trim();
+    const rawUrl = (isData ? dataUrl : researchUrl).trim();
+    const url = rawUrl ? normalizeUrl(rawUrl) : "";
     const details = (isData ? dataDetails : researchDetails).trim();
 
     if (!requestType) {
@@ -456,14 +464,16 @@ export default function RequestDataResearchButton({
                     <LinkIcon />
                     <input
                       id="rdr-url"
-                      type="url"
+                      type="text"
+                      inputMode="url"
+                      autoComplete="url"
                       value={isData ? dataUrl : researchUrl}
                       onChange={(e) =>
                         isData
                           ? setDataUrl(e.target.value)
                           : setResearchUrl(e.target.value)
                       }
-                      placeholder="https://"
+                      placeholder="example.com"
                       style={{
                         flex: 1,
                         border: "none",

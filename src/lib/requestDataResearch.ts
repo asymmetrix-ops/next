@@ -5,6 +5,7 @@ export const DATA_REQUEST_TYPES = [
   "Advisor",
   "Individual",
   "Corporate Event",
+  "Financial Metrics Estimates",
 ] as const;
 
 export const RESEARCH_REQUEST_TYPES = [
