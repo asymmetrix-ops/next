@@ -451,6 +451,11 @@ export default function HomeUserPage() {
 
   const DEAL_RADAR_LIMIT = 25;
 
+  type DealRadarSector = {
+    id: number;
+    name: string;
+  };
+
   type DealRadarLatestContent = {
     id: number;
     headline: string;
@@ -462,7 +467,7 @@ export default function HomeUserPage() {
     companyId: number;
     companyName: string;
     transactionStatus: string;
-    primarySectors: string[];
+    primarySectors: DealRadarSector[];
     latestContent: DealRadarLatestContent | null;
   };
 
@@ -496,11 +501,36 @@ export default function HomeUserPage() {
     };
   };
 
+  const mapDealRadarPrimarySectors = (
+    sectors: Array<string | { id?: number; name?: string }> | undefined
+  ): DealRadarSector[] => {
+    if (!Array.isArray(sectors)) return [];
+
+    return sectors
+      .map((sector) => {
+        if (typeof sector === "string") {
+          const name = sector.trim();
+          return name ? { id: 0, name } : null;
+        }
+
+        if (sector && typeof sector === "object") {
+          const name = String(sector.name || "").trim();
+          if (!name) return null;
+
+          const id = Number(sector.id);
+          return Number.isFinite(id) && id > 0 ? { id, name } : { id: 0, name };
+        }
+
+        return null;
+      })
+      .filter((sector): sector is DealRadarSector => sector !== null);
+  };
+
   const mapDealRadarItem = (i: {
     company_id: number;
     name: string;
     transaction_status: string;
-    primary_sectors: string[];
+    primary_sectors: Array<string | { id?: number; name?: string }>;
     latest_content: {
       id: number;
       headline: string;
@@ -511,7 +541,7 @@ export default function HomeUserPage() {
     companyId: i.company_id,
     companyName: i.name,
     transactionStatus: i.transaction_status,
-    primarySectors: i.primary_sectors ?? [],
+    primarySectors: mapDealRadarPrimarySectors(i.primary_sectors),
     latestContent: i.latest_content
       ? {
           id: i.latest_content.id,
@@ -1769,9 +1799,41 @@ export default function HomeUserPage() {
                                 </div>
                               </td>
                               <td className="px-3 py-3 text-sm text-gray-700 sm:px-4">
-                                {item.primarySectors.length > 0
-                                  ? item.primarySectors.join(", ")
-                                  : "—"}
+                                {item.primarySectors.length > 0 ? (
+                                  item.primarySectors.map((sector, idx) => (
+                                    <span key={`${sector.id}-${sector.name}-${idx}`}>
+                                      {sector.id > 0 ? (
+                                        <a
+                                          href={`/sector/${sector.id}`}
+                                          className="text-blue-700 hover:text-blue-900 hover:underline"
+                                          onClick={(
+                                            e: React.MouseEvent<HTMLAnchorElement>
+                                          ) => {
+                                            if (
+                                              e.defaultPrevented ||
+                                              e.button !== 0 ||
+                                              e.metaKey ||
+                                              e.ctrlKey ||
+                                              e.shiftKey ||
+                                              e.altKey
+                                            ) {
+                                              return;
+                                            }
+                                            e.preventDefault();
+                                            router.push(`/sector/${sector.id}`);
+                                          }}
+                                        >
+                                          {sector.name}
+                                        </a>
+                                      ) : (
+                                        sector.name
+                                      )}
+                                      {idx < item.primarySectors.length - 1 && ", "}
+                                    </span>
+                                  ))
+                                ) : (
+                                  "—"
+                                )}
                               </td>
                               <td className="px-3 py-3 sm:px-4">
                                 <span

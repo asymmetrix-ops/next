@@ -462,7 +462,10 @@ class DashboardApiService {
       name: string;
       transaction_status: string;
       last_updated_at: string;
-      primary_sectors: string[];
+      primary_sectors: Array<{
+        id: number;
+        name: string;
+      }>;
       latest_content: {
         id: number;
         headline: string;
