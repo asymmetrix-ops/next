@@ -267,6 +267,12 @@ export function CompanyAnalysisTab() {
   const [job, setJob] = useState<JobState | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Regeneration state per section
+  const [regenOpen, setRegenOpen] = useState<string | null>(null);     // section key with panel open
+  const [regenFeedback, setRegenFeedback] = useState<Record<string, string>>({});
+  const [regenLoading, setRegenLoading] = useState<string | null>(null); // section key being regenerated
+  const [regenError, setRegenError] = useState<Record<string, string>>({});
+
   // Elapsed timer while loading
   useEffect(() => {
     if (!loading) { setElapsedSec(0); return; }
@@ -426,6 +432,54 @@ export function CompanyAnalysisTab() {
     }
   }
 
+  async function handleRegenerate(key: string) {
+    if (!result) return;
+    const feedback = regenFeedback[key]?.trim() ?? "";
+    setRegenLoading(key);
+    setRegenError((prev) => { const n = { ...prev }; delete n[key]; return n; });
+
+    try {
+      const payload: Record<string, unknown> = {
+        company_id: result.company_id,
+        section: key,
+      };
+      if (feedback) payload.feedback = feedback;
+      if (insiderData.trim()) payload.insider_data = insiderData.trim();
+      // summary and conclusion need the other sections as context
+      if (key === "summary" || key === "conclusion") {
+        payload.compiled_sections = sections;
+      }
+
+      const res = await fetch("/api/ia-writer/regenerate-section", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      let data: unknown;
+      try { data = JSON.parse(text); } catch {
+        throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+      }
+      if (!res.ok) {
+        const d = data as { error?: string };
+        throw new Error(d.error ?? `Request failed (HTTP ${res.status})`);
+      }
+      const d = data as { text: string };
+      setSections((prev) => ({ ...prev, [key]: d.text }));
+      setRegenOpen(null);
+      setRegenFeedback((prev) => { const n = { ...prev }; delete n[key]; return n; });
+      // Expand so the user sees the new text immediately
+      setExpanded((prev) => { const n = new Set(prev); n.add(key); return n; });
+    } catch (err) {
+      setRegenError((prev) => ({
+        ...prev,
+        [key]: err instanceof Error ? err.message : String(err),
+      }));
+    } finally {
+      setRegenLoading(null);
+    }
+  }
+
   const fmtTime = (s: number) =>
     `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
@@ -569,6 +623,8 @@ export function CompanyAnalysisTab() {
             {keys.map((key) => {
               const content = sections[key] ?? "";
               const isOpen = expanded.has(key);
+              const isRegenOpen = regenOpen === key;
+              const isRegenerating = regenLoading === key;
               const preview = content.length > 280 ? `${content.slice(0, 280).trim()}…` : content;
 
               return (
@@ -576,6 +632,7 @@ export function CompanyAnalysisTab() {
                   key={key}
                   className="overflow-hidden bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
                 >
+                  {/* ── Header row ── */}
                   <div className="flex items-stretch">
                     <button
                       type="button"
@@ -584,7 +641,7 @@ export function CompanyAnalysisTab() {
                     >
                       <div className="min-w-0">
                         <h4 className="font-semibold text-slate-900">{sectionLabel(key)}</h4>
-                        {!isOpen && preview && (
+                        {!isOpen && !isRegenOpen && preview && (
                           <p className="mt-1 text-sm text-slate-500 line-clamp-2">{preview}</p>
                         )}
                       </div>
@@ -601,23 +658,89 @@ export function CompanyAnalysisTab() {
                       </div>
                     </button>
 
-                    {/* Per-section export button */}
+                    {/* Regenerate button */}
+                    <button
+                      type="button"
+                      title="Regenerate this section"
+                      onClick={() => setRegenOpen(isRegenOpen ? null : key)}
+                      disabled={isRegenerating}
+                      className={`flex items-center gap-1.5 px-4 border-l border-slate-200 text-xs font-semibold transition-colors disabled:opacity-40
+                        ${isRegenOpen
+                          ? "bg-violet-600 text-white hover:bg-violet-700"
+                          : "bg-violet-500 text-white hover:bg-violet-600"}`}
+                    >
+                      {isRegenerating
+                        ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        : <span>↺</span>}
+                      <span className="hidden sm:inline">Regenerate</span>
+                    </button>
+
+                    {/* Export button */}
                     <button
                       type="button"
                       title={`Export "${sectionLabel(key)}" as Word`}
                       onClick={() => handleExportSection(key)}
                       disabled={exporting !== null}
-                      className="flex items-center gap-1.5 px-3 border-l border-slate-200 bg-slate-50/80 hover:bg-blue-50 text-slate-400 hover:text-blue-600 disabled:opacity-40 transition-colors text-xs font-medium"
+                      className="flex items-center gap-1.5 px-4 border-l border-slate-200 bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-40 transition-colors text-xs font-semibold"
                     >
-                      {exporting === key ? (
-                        <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <WordIcon />
-                      )}
+                      {exporting === key
+                        ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        : <WordIcon />}
                       <span className="hidden sm:inline">.docx</span>
                     </button>
                   </div>
 
+                  {/* ── Regenerate panel ── */}
+                  {isRegenOpen && (
+                    <div className="px-5 py-4 border-t border-violet-100 bg-violet-50/40">
+                      <p className="mb-2 text-xs font-semibold text-violet-700 uppercase tracking-wide">
+                        Regenerate — {sectionLabel(key)}
+                      </p>
+                      <textarea
+                        value={regenFeedback[key] ?? ""}
+                        onChange={(e) =>
+                          setRegenFeedback((prev) => ({ ...prev, [key]: e.target.value }))
+                        }
+                        rows={4}
+                        placeholder={`What was wrong or missing?\n\ne.g. "The overview missed the London founding location and understated the data moat. Please also be more specific about the founding team roles."`}
+                        className="px-3 py-2 w-full text-sm rounded-lg border border-violet-200 bg-white resize-y placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-400/40 focus:border-violet-300"
+                      />
+                      {regenError[key] && (
+                        <p className="mt-2 text-xs text-red-600">{regenError[key]}</p>
+                      )}
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          type="button"
+                          onClick={() => handleRegenerate(key)}
+                          disabled={isRegenerating}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50 rounded-lg"
+                        >
+                          {isRegenerating && (
+                            <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          )}
+                          {isRegenerating ? "Regenerating…" : "Submit"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRegenOpen(null)}
+                          disabled={isRegenerating}
+                          className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Regenerating overlay ── */}
+                  {isRegenerating && (
+                    <div className="flex items-center gap-2 px-5 py-3 border-t border-violet-100 bg-violet-50/60 text-sm text-violet-700">
+                      <span className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                      Regenerating {sectionLabel(key)}… (~15–30 s)
+                    </div>
+                  )}
+
+                  {/* ── Editable content ── */}
                   {isOpen && (
                     <div className="p-5 border-t border-slate-100">
                       <textarea
