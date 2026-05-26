@@ -19,6 +19,20 @@ export type ResearchRequestType = (typeof RESEARCH_REQUEST_TYPES)[number];
 export type RequestTab = "data" | "research";
 export type RequestCategory = "Data" | "Analysis";
 
+/** Data request types where a reference URL is not expected */
+export const DATA_REQUEST_TYPES_URL_OPTIONAL = [
+  "Sector",
+  "Financial Metrics Estimates",
+] as const satisfies readonly DataRequestType[];
+
+export function isDataRequestUrlRequired(type: string): boolean {
+  const trimmed = type.trim();
+  if (!trimmed) return true;
+  return !(DATA_REQUEST_TYPES_URL_OPTIONAL as readonly string[]).includes(
+    trimmed
+  );
+}
+
 export function tabToCategory(tab: RequestTab): RequestCategory {
   return tab === "research" ? "Analysis" : "Data";
 }

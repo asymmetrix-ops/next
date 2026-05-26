@@ -1685,39 +1685,31 @@ export default function HomeUserPage() {
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
           {/* Deal Radar - last on mobile, first on lg+ */}
           <div className="bg-white rounded-lg shadow order-3 lg:order-1 flex flex-col">
-            <div className="border-b border-gray-200">
-              <div className="flex items-center justify-between p-3 sm:p-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700 shrink-0">
-                    <svg
-                      className="w-[18px] h-[18px]"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <circle cx="12" cy="12" r="2" />
-                      <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49" />
-                      <path d="M20.49 3.51a12 12 0 0 1 0 16.97M3.51 3.51a12 12 0 0 0 0 16.97" />
-                    </svg>
-                  </div>
-                  <h2
-                    className="text-base font-semibold text-gray-900 sm:text-lg"
-                    style={{ fontWeight: "600" }}
+            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700 shrink-0">
+                  <svg
+                    className="w-[18px] h-[18px]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
                   >
-                    Deal Radar
-                  </h2>
+                    <circle cx="12" cy="12" r="2" />
+                    <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49" />
+                    <path d="M20.49 3.51a12 12 0 0 1 0 16.97M3.51 3.51a12 12 0 0 0 0 16.97" />
+                  </svg>
                 </div>
+                <h2
+                  className="text-base font-semibold text-gray-900 sm:text-lg"
+                  style={{ fontWeight: "600" }}
+                >
+                  Deal Radar
+                </h2>
               </div>
-              {!dealRadarLoading && dealRadarTotal > 0 && (
-                <p className="px-3 pb-3 text-xs text-gray-500 sm:px-4 sm:text-sm">
-                  Active signals with paired analysis · {dealRadarTotal}{" "}
-                  {dealRadarTotal === 1 ? "signal" : "signals"}
-                </p>
-              )}
             </div>
             <div>
               {dealRadarLoading ? (

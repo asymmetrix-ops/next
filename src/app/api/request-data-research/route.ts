@@ -5,6 +5,7 @@ import {
   RESEARCH_REQUEST_TYPES,
   RequestTab,
   tabToCategory,
+  isDataRequestUrlRequired,
 } from "@/lib/requestDataResearch";
 
 export const runtime = "nodejs";
@@ -160,7 +161,11 @@ export async function POST(request: Request) {
       );
     }
 
-    if (category === "Data" && !url) {
+    if (
+      category === "Data" &&
+      isDataRequestUrlRequired(requestType) &&
+      !url
+    ) {
       return NextResponse.json(
         { error: "Please provide a URL." },
         { status: 400 }
