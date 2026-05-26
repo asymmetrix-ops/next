@@ -755,7 +755,7 @@ export function ChangeStateTab() {
                               Not in DB
                             </p>
                             <div className="flex flex-wrap gap-1.5">
-                              {companiesNotInDb.slice(0, 6).map((name) => (
+                              {companiesNotInDb.map((name) => (
                                 <span
                                   key={name}
                                   className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium leading-snug text-amber-800 [overflow-wrap:anywhere]"
@@ -763,11 +763,6 @@ export function ChangeStateTab() {
                                   {name}
                                 </span>
                               ))}
-                              {companiesNotInDb.length > 6 ? (
-                                <span className="inline-flex items-center rounded-full border border-amber-200 bg-white px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                                  +{companiesNotInDb.length - 6}
-                                </span>
-                              ) : null}
                             </div>
                           </div>
                         ) : null}
