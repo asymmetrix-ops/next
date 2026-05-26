@@ -268,10 +268,11 @@ export function CompanyAnalysisTab() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Regeneration state per section
-  const [regenOpen, setRegenOpen] = useState<string | null>(null);     // section key with panel open
+  const [regenOpen, setRegenOpen] = useState<string | null>(null);
   const [regenFeedback, setRegenFeedback] = useState<Record<string, string>>({});
-  const [regenLoading, setRegenLoading] = useState<string | null>(null); // section key being regenerated
+  const [regenLoading, setRegenLoading] = useState<string | null>(null);
   const [regenError, setRegenError] = useState<Record<string, string>>({});
+  const [regenProgress, setRegenProgress] = useState<Record<string, string>>({});
 
   // Elapsed timer while loading
   useEffect(() => {
@@ -435,8 +436,13 @@ export function CompanyAnalysisTab() {
   async function handleRegenerate(key: string) {
     if (!result) return;
     const feedback = regenFeedback[key]?.trim() ?? "";
+
     setRegenLoading(key);
     setRegenError((prev) => { const n = { ...prev }; delete n[key]; return n; });
+    setRegenProgress((prev) => ({ ...prev, [key]: "" }));
+
+    // Expand immediately so the user watches the text appear
+    setExpanded((prev) => { const n = new Set(prev); n.add(key); return n; });
 
     try {
       const payload: Record<string, unknown> = {
@@ -445,31 +451,62 @@ export function CompanyAnalysisTab() {
       };
       if (feedback) payload.feedback = feedback;
       if (insiderData.trim()) payload.insider_data = insiderData.trim();
-      // summary and conclusion need the other sections as context
-      if (key === "summary" || key === "conclusion") {
+      if (key === "summary" || key === "conclusion")
         payload.compiled_sections = sections;
-      }
 
-      const res = await fetch("/api/ia-writer/regenerate-section", {
+      const res = await fetch("/api/ia-writer/regenerate-section/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const text = await res.text();
-      let data: unknown;
-      try { data = JSON.parse(text); } catch {
-        throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+
+      if (!res.ok || !res.body) {
+        const text = await res.text();
+        let msg = text.slice(0, 300);
+        try { msg = (JSON.parse(text) as { error?: string }).error ?? msg; } catch { /* noop */ }
+        throw new Error(msg || `HTTP ${res.status}`);
       }
-      if (!res.ok) {
-        const d = data as { error?: string };
-        throw new Error(d.error ?? `Request failed (HTTP ${res.status})`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let firstToken = true;
+
+      outer: while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          let event: { type: string; text?: string };
+          try { event = JSON.parse(line.slice(6)); } catch { continue; }
+
+          if (event.type === "progress" && event.text) {
+            setRegenProgress((prev) => ({ ...prev, [key]: event.text! }));
+          }
+          if (event.type === "token" && event.text !== undefined) {
+            if (firstToken) {
+              // Clear old content on first token
+              setSections((prev) => ({ ...prev, [key]: event.text! }));
+              firstToken = false;
+            } else {
+              // event.text is cumulative — replace, not append
+              setSections((prev) => ({ ...prev, [key]: event.text! }));
+            }
+          }
+          if (event.type === "done") {
+            break outer;
+          }
+        }
       }
-      const d = data as { text: string };
-      setSections((prev) => ({ ...prev, [key]: d.text }));
+
+      // Close panel on success
       setRegenOpen(null);
       setRegenFeedback((prev) => { const n = { ...prev }; delete n[key]; return n; });
-      // Expand so the user sees the new text immediately
-      setExpanded((prev) => { const n = new Set(prev); n.add(key); return n; });
     } catch (err) {
       setRegenError((prev) => ({
         ...prev,
@@ -477,6 +514,7 @@ export function CompanyAnalysisTab() {
       }));
     } finally {
       setRegenLoading(null);
+      setRegenProgress((prev) => { const n = { ...prev }; delete n[key]; return n; });
     }
   }
 
@@ -732,11 +770,13 @@ export function CompanyAnalysisTab() {
                     </div>
                   )}
 
-                  {/* ── Regenerating overlay ── */}
+                  {/* ── Streaming progress bar ── */}
                   {isRegenerating && (
                     <div className="flex items-center gap-2 px-5 py-3 border-t border-violet-100 bg-violet-50/60 text-sm text-violet-700">
-                      <span className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                      Regenerating {sectionLabel(key)}… (~15–30 s)
+                      <span className="w-4 h-4 flex-shrink-0 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="font-mono text-xs truncate">
+                        {regenProgress[key] || `Regenerating ${sectionLabel(key)}…`}
+                      </span>
                     </div>
                   )}
 
