@@ -566,13 +566,7 @@ export default function HomeUserPage() {
   const [dealRadarLoadingMore, setDealRadarLoadingMore] = useState(false);
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(true);
-  const [corporateEventsView, setCorporateEventsView] = useState<
-    "followed" | "all"
-  >("all");
   const [insightsArticlesLoading, setInsightsArticlesLoading] = useState(true);
-  const [insightsArticlesView, setInsightsArticlesView] = useState<
-    "followed" | "all"
-  >("all");
   const [insightsArticles, setInsightsArticles] = useState<InsightArticle[]>(
     []
   );
@@ -1066,23 +1060,9 @@ export default function HomeUserPage() {
     try {
       setCorporateEventsLoading(true);
 
-      const parsedUserId =
-        user?.id != null ? Number.parseInt(String(user.id), 10) : NaN;
-      const shouldShowFollowed = corporateEventsView === "followed";
-      const followedUserId =
-        shouldShowFollowed &&
-        Number.isFinite(parsedUserId) &&
-        parsedUserId > 0
-          ? parsedUserId
-          : null;
-
-      if (shouldShowFollowed && followedUserId === null) {
-        throw new Error("Unable to load followed content for the current user.");
-      }
-
       const eventsResponse = await dashboardApiService.getCorporateEvents({
-        showFollowed: shouldShowFollowed,
-        userId: followedUserId,
+        showFollowed: false,
+        userId: null,
       });
 
       let eventsData: CorporateEvent[] = [];
@@ -1109,7 +1089,7 @@ export default function HomeUserPage() {
     } finally {
       setCorporateEventsLoading(false);
     }
-  }, [corporateEventsView, user?.id]);
+  }, []);
 
   const fetchInsightsArticles = useCallback(async () => {
     try {
@@ -1118,7 +1098,7 @@ export default function HomeUserPage() {
       const insightsResponse = await dashboardApiService.getAllContentArticlesHome(
         {
           search: "",
-          portfolioOnly: insightsArticlesView === "followed",
+          portfolioOnly: false,
         }
       );
 
@@ -1144,7 +1124,7 @@ export default function HomeUserPage() {
     } finally {
       setInsightsArticlesLoading(false);
     }
-  }, [insightsArticlesView]);
+  }, []);
 
   // Check authentication on component mount
   useEffect(() => {
@@ -1890,7 +1870,7 @@ export default function HomeUserPage() {
 
           {/* Insights & Analysis - first on mobile */}
           <div className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-1 lg:order-2">
-            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
+            <div className="flex items-center p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700">
                   <svg
@@ -1917,34 +1897,6 @@ export default function HomeUserPage() {
                 >
                   Insights &amp; Analysis
                 </a>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="inline-flex p-1 bg-gray-100 rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => setInsightsArticlesView("followed")}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      insightsArticlesView === "followed"
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                    aria-pressed={insightsArticlesView === "followed"}
-                  >
-                    Followed
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInsightsArticlesView("all")}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      insightsArticlesView === "all"
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                    aria-pressed={insightsArticlesView === "all"}
-                  >
-                    All
-                  </button>
-                </div>
               </div>
             </div>
             <div className="flex-1 p-3 overflow-y-auto sm:p-4">
@@ -2063,11 +2015,7 @@ export default function HomeUserPage() {
                 </div>
               ) : (
                 <div className="py-6 text-center sm:py-8">
-                  <p className="text-sm text-gray-500">
-                    {insightsArticlesView === "followed"
-                      ? "No followed insights available"
-                      : "No insights available"}
-                  </p>
+                  <p className="text-sm text-gray-500">No insights available</p>
                 </div>
               )}
             </div>
@@ -2075,7 +2023,7 @@ export default function HomeUserPage() {
 
           {/* Corporate Events - second on mobile */}
           <div className="flex flex-col bg-white rounded-lg shadow order-2 lg:order-3">
-            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
+            <div className="flex items-center p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-700">
                   <svg
@@ -2102,34 +2050,6 @@ export default function HomeUserPage() {
                 >
                   Corporate Events
                 </a>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="inline-flex p-1 bg-gray-100 rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => setCorporateEventsView("followed")}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      corporateEventsView === "followed"
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                    aria-pressed={corporateEventsView === "followed"}
-                  >
-                    Followed
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCorporateEventsView("all")}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      corporateEventsView === "all"
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                    aria-pressed={corporateEventsView === "all"}
-                  >
-                    All
-                  </button>
-                </div>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -3251,9 +3171,7 @@ export default function HomeUserPage() {
               ) : (
                 <div className="p-4 text-center">
                   <p className="text-sm text-gray-500">
-                    {corporateEventsView === "followed"
-                      ? "No followed corporate events available"
-                      : "No corporate events available"}
+                    No corporate events available
                   </p>
                 </div>
               )}
