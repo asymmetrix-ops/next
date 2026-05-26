@@ -501,6 +501,13 @@ export default function HomeUserPage() {
     };
   };
 
+  const normalizeDealRadarSectorName = (raw: string): string =>
+    raw
+      .trim()
+      .replace(/\\u0022/g, '"')
+      .replace(/^["']+|["']+$/g, "")
+      .trim();
+
   const mapDealRadarPrimarySectors = (
     sectors: Array<string | { id?: number; name?: string }> | undefined
   ): DealRadarSector[] => {
@@ -509,12 +516,12 @@ export default function HomeUserPage() {
     return sectors
       .map((sector) => {
         if (typeof sector === "string") {
-          const name = sector.trim();
+          const name = normalizeDealRadarSectorName(sector);
           return name ? { id: 0, name } : null;
         }
 
         if (sector && typeof sector === "object") {
-          const name = String(sector.name || "").trim();
+          const name = normalizeDealRadarSectorName(String(sector.name || ""));
           if (!name) return null;
 
           const id = Number(sector.id);
