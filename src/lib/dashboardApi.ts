@@ -462,6 +462,13 @@ class DashboardApiService {
       name: string;
       transaction_status: string;
       last_updated_at: string;
+      primary_sectors: string[];
+      latest_content: {
+        id: number;
+        headline: string;
+        content_type: string;
+        publication_date: string;
+      } | null;
     }>;
     total: number;
     limit: number;
