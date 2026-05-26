@@ -11,6 +11,11 @@ import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
+interface AsymmetrixData {
+  label: string;
+  value: string;
+}
+
 interface CorporateEvent {
   id?: number;
   corporate_event_id?: number;
@@ -162,6 +167,18 @@ export default function HomeUserPage() {
     } catch {
       return "Invalid date";
     }
+  };
+
+  const resolveAsymmetrixStatHref = (label: string): string => {
+    const key = String(label || "").toLowerCase().trim();
+    if (key === "companies") return "/companies";
+    if (key === "corporate events") return "/corporate-events";
+    if (key === "individuals") return "/individuals";
+    if (key === "primary sectors" || key === "secondary sectors") return "/sectors";
+    if (key === "pe investors") return "/investors?investorTypeId=23699";
+    if (key === "vc investors") return "/investors?investorTypeId=23877";
+    if (key === "advisors") return "/advisors";
+    return "";
   };
 
   // Resolve corporate event id from inconsistent API shapes
@@ -430,6 +447,7 @@ export default function HomeUserPage() {
   );
 
   const [isLoading, setIsLoading] = useState(true);
+  const [asymmetrixData, setAsymmetrixData] = useState<AsymmetrixData[]>([]);
 
   const DEAL_RADAR_LIMIT = 25;
 
@@ -816,7 +834,146 @@ export default function HomeUserPage() {
     try {
       setIsLoading(true);
 
-      // Removed New Companies fetch handling
+      const [
+        companiesCountResponse,
+        eventsCountResponse,
+        individualsCountResponse,
+        sectorsCountResponse,
+        advisorsCountResponse,
+        investorsResponse,
+      ] = await Promise.allSettled([
+        dashboardApiService.getHeroScreenStatisticCompanies(),
+        dashboardApiService.getHeroScreenStatisticEventsCount(),
+        dashboardApiService.getAllIndividualsCount(),
+        dashboardApiService.getHeroScreenStatisticSectors(),
+        dashboardApiService.getHeroScreenStatisticAdvisorsCount(),
+        dashboardApiService.getHeroScreenStatisticInvestors(),
+      ]);
+
+      const statsData: AsymmetrixData[] = [];
+
+      if (companiesCountResponse.status === "fulfilled") {
+        const companiesCount =
+          (companiesCountResponse.value as unknown as number) || 0;
+        if (companiesCount) {
+          statsData.push({
+            label: "Companies",
+            value: companiesCount.toString(),
+          });
+        }
+      }
+
+      if (eventsCountResponse.status === "fulfilled") {
+        const responseValue = eventsCountResponse.value as unknown as Record<
+          string,
+          unknown
+        >;
+        const eventsCount =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.Corporate_Events_count as number) || 0
+            : 0;
+
+        if (eventsCount) {
+          statsData.push({
+            label: "Corporate Events",
+            value: eventsCount.toString(),
+          });
+        }
+      }
+
+      if (individualsCountResponse.status === "fulfilled") {
+        const responseValue =
+          individualsCountResponse.value as unknown as Record<string, unknown>;
+        const individualsCount =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.count as number) || 0
+            : 0;
+
+        if (individualsCount) {
+          statsData.push({
+            label: "Individuals",
+            value: individualsCount.toString(),
+          });
+        }
+      }
+
+      if (sectorsCountResponse.status === "fulfilled") {
+        const responseValue = sectorsCountResponse.value as unknown as Record<
+          string,
+          unknown
+        >;
+        const primarySectorsCount =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.primarySectors as number) || 0
+            : 0;
+        const secondarySectorsCount =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.secondarySectors as number) || 0
+            : 0;
+
+        if (primarySectorsCount) {
+          statsData.push({
+            label: "Primary Sectors",
+            value: primarySectorsCount.toString(),
+          });
+        }
+
+        if (secondarySectorsCount) {
+          statsData.push({
+            label: "Secondary Sectors",
+            value: secondarySectorsCount.toString(),
+          });
+        }
+      }
+
+      if (investorsResponse.status === "fulfilled") {
+        const responseValue = investorsResponse.value as unknown as Record<
+          string,
+          unknown
+        >;
+        const peInvestors =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.peInvestors as number) || 0
+            : 0;
+        const vcInvestors =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.vcInvestors as number) || 0
+            : 0;
+
+        if (peInvestors) {
+          statsData.push({
+            label: "PE Investors",
+            value: peInvestors.toString(),
+          });
+        }
+
+        if (vcInvestors) {
+          statsData.push({
+            label: "VC Investors",
+            value: vcInvestors.toString(),
+          });
+        }
+      }
+
+      if (advisorsCountResponse.status === "fulfilled") {
+        const responseValue = advisorsCountResponse.value as unknown as Record<
+          string,
+          unknown
+        >;
+        const advisorsCount =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.Advisorc_companies_count as number) || 0
+            : 0;
+
+        if (advisorsCount) {
+          statsData.push({
+            label: "Advisors",
+            value: advisorsCount.toString(),
+          });
+        }
+      }
+
+      setAsymmetrixData(statsData);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       if (
@@ -1224,6 +1381,67 @@ export default function HomeUserPage() {
             />
           </div>
         </div>
+
+        {asymmetrixData.length > 0 && (
+          <div className="mb-4 sm:mb-6 overflow-x-auto rounded-lg border border-gray-200 bg-white">
+            <div className="flex min-w-max w-full divide-x divide-gray-200">
+              {asymmetrixData.map((item, index) => {
+                const href = resolveAsymmetrixStatHref(item.label);
+                const RowTag = href ? "a" : "div";
+                const formattedValue = parseInt(item.value, 10)
+                  ? parseInt(item.value, 10).toLocaleString()
+                  : item.value;
+
+                return (
+                  <RowTag
+                    // eslint-disable-next-line react/no-array-index-key
+                    key={`${item.label}-${index}`}
+                    href={href || undefined}
+                    className={`group flex flex-1 flex-col items-start justify-center min-w-[7.5rem] px-4 py-3.5 sm:min-w-0 sm:px-5 sm:py-4 transition-colors ${
+                      href
+                        ? "cursor-pointer hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-200"
+                        : ""
+                    }`}
+                    onClick={(e: React.MouseEvent<HTMLElement>) => {
+                      if (!href) return;
+                      if (
+                        e.defaultPrevented ||
+                        e.button !== 0 ||
+                        e.metaKey ||
+                        e.ctrlKey ||
+                        e.shiftKey ||
+                        e.altKey
+                      ) {
+                        return;
+                      }
+                      e.preventDefault();
+                      router.push(href);
+                    }}
+                  >
+                    <span
+                      className={`text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap ${
+                        href
+                          ? "text-gray-500 group-hover:text-blue-600"
+                          : "text-gray-500"
+                      } transition-colors`}
+                    >
+                      {item.label}
+                    </span>
+                    <span
+                      className={`mt-1 text-lg font-semibold tabular-nums tracking-tight sm:text-xl ${
+                        href
+                          ? "text-gray-900 group-hover:text-blue-700"
+                          : "text-gray-900"
+                      } transition-colors`}
+                    >
+                      {formattedValue}
+                    </span>
+                  </RowTag>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Search results popup */}
         {searchPopupOpen && (
