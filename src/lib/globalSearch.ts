@@ -33,7 +33,6 @@ export type GlobalSearchResult = {
   match_rank?: number;
   type_order?: number;
   sort_date?: string;
-  sector_importance?: string;
 };
 
 const TYPE_ORDER: Record<string, number> = {
@@ -108,16 +107,6 @@ export const SEARCH_SOURCES = [
 
 export type SearchSource = (typeof SEARCH_SOURCES)[number];
 
-const PAGE_TYPE_TO_SOURCE: Record<SearchPageType, SearchSource> = {
-  companies: "company",
-  sectors: "sector",
-  investors: "investor",
-  advisors: "advisor",
-  individuals: "individual",
-  "corporate events": "corporate_event",
-  "insights and analysis": "insight",
-};
-
 /**
  * Fetch from a single search source (for progressive loading).
  */
@@ -150,39 +139,72 @@ export async function fetchGlobalSearchBySource(
   return { items };
 }
 
+export type ProgressiveSearchOptions = {
+  onBatch: (items: GlobalSearchResult[], source: SearchSource) => void;
+  onComplete: () => void;
+  onError?: (source: SearchSource, err: unknown) => void;
+  signal?: AbortSignal;
+  /** When set, only these sources are queried (e.g. exclude corporate_event and insight). */
+  sources?: SearchSource[];
+};
+
+/** Sources used for portfolio fallback search (followable entities only; no events or content). */
+export const PORTFOLIO_FALLBACK_SOURCES: SearchSource[] = [
+  "sector",
+  "investor",
+  "individual",
+  "company",
+  "advisor",
+];
+
 /**
- * Fetch from all selected sources in parallel and return a single combined result set.
+ * Fetch from all sources in parallel; call onBatch as each source responds (progressive loading).
  */
-export async function fetchGlobalSearch(
+export function fetchGlobalSearchProgressive(
   query: string,
   pageType: SearchPageType | null,
-  signal?: AbortSignal
-): Promise<{ items: GlobalSearchResult[] }> {
+  options: ProgressiveSearchOptions
+): void {
+  const { onBatch, onComplete, onError, signal, sources: sourcesOverride } = options;
   const q = query.trim();
   if (!q || q.length < 2) {
-    return { items: [] };
+    onComplete();
+    return;
   }
 
-  const sources: SearchSource[] = pageType
-    ? [PAGE_TYPE_TO_SOURCE[pageType] ?? "company"]
-    : [...SEARCH_SOURCES];
+  const typeToSource: Record<string, SearchSource> = {
+    companies: "company",
+    sectors: "sector",
+    investors: "investor",
+    advisors: "advisor",
+    individuals: "individual",
+    "corporate events": "corporate_event",
+    "insights and analysis": "insight",
+  };
 
-  const batches = await Promise.all(
-    sources.map(async (source) => {
-      const { items } = await fetchGlobalSearchBySource(q, source, signal);
-      return items;
-    })
-  );
+  const sources: SearchSource[] =
+    sourcesOverride ??
+    (pageType ? [typeToSource[pageType] ?? "company"] : [...SEARCH_SOURCES]);
 
-  const seen = new Set<string>();
-  const items = batches.flat().filter((item) => {
-    const key = `${item.type}-${item.id}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
+  let pending = sources.length;
+
+  sources.forEach((source) => {
+    fetchGlobalSearchBySource(q, source, signal)
+      .then(({ items }) => {
+        if (items.length > 0) {
+          onBatch(items, source);
+        }
+      })
+      .catch((err) => {
+        onError?.(source, err);
+      })
+      .finally(() => {
+        pending -= 1;
+        if (pending === 0) {
+          onComplete();
+        }
+      });
   });
-
-  return { items };
 }
 
 /**
@@ -287,10 +309,8 @@ export function resolveSearchHref(result: GlobalSearchResult): string {
     return `/corporate-event/${id}`;
   if (t === "insight" || t === "insights" || t === "article")
     return `/article/${id}`;
-  if (t === "sector" || t === "sub_sector" || t === "sub-sector") {
-    const importance = String(result.sector_importance || "").trim().toLowerCase();
-    return importance === "secondary" ? `/sub-sector/${id}` : `/sector/${id}`;
-  }
+  if (t === "sector") return `/sector/${id}`;
+  if (t === "sub_sector" || t === "sub-sector") return `/sub-sector/${id}`;
 
   return "";
 }

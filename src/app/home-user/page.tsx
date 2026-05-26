@@ -7,14 +7,13 @@ import { dashboardApiService } from "@/lib/dashboardApi";
 import { trackEvent } from "@/lib/tracking";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
 interface AsymmetrixData {
   label: string;
   value: string;
-  icon: string;
-  color: string;
 }
 
 interface CorporateEvent {
@@ -93,7 +92,6 @@ interface InsightArticle {
   Strapline?: string;
   Publication_Date?: string;
   created_at?: number;
-  Transaction_status?: string | null;
   // Content type fields may arrive in different shapes/keys
   Content_Type?: string;
   content_type?: string;
@@ -122,7 +120,7 @@ import {
   type GlobalSearchResult,
   type GlobalSearchPagination,
   type SearchPageType,
-  fetchGlobalSearch,
+  fetchGlobalSearchProgressive,
   sortSearchResults,
   badgeClassForSearchType,
   resolveSearchHref,
@@ -146,18 +144,7 @@ export default function HomeUserPage() {
 
   const [showSearchNewFeatureTip, setShowSearchNewFeatureTip] = useState(true);
 
-  // Hide the tooltip 30 days after the feature shipped
-  const SEARCH_FEATURE_RELEASE_DATE = new Date("2026-03-01");
-  const SEARCH_FEATURE_TIP_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-
   useEffect(() => {
-    const expired =
-      Date.now() - SEARCH_FEATURE_RELEASE_DATE.getTime() >
-      SEARCH_FEATURE_TIP_TTL_MS;
-    if (expired) {
-      setShowSearchNewFeatureTip(false);
-      return;
-    }
     try {
       const dismissed = localStorage.getItem(
         "asym_global_search_new_feature_tip_dismissed"
@@ -192,111 +179,6 @@ export default function HomeUserPage() {
     if (key === "vc investors") return "/investors?investorTypeId=23877";
     if (key === "advisors") return "/advisors";
     return "";
-  };
-
-  const normalizeContentTypeLabel = (raw: unknown): string | undefined => {
-    if (typeof raw !== "string") return undefined;
-    const trimmed = raw.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
-  };
-
-  const inferContentTypeFromHeadline = (headline: unknown): string | undefined => {
-    const h = normalizeContentTypeLabel(headline);
-    if (!h) return undefined;
-
-    const parts = h.split(/\s*[–—-]\s*/);
-    const candidate = (parts[0] || "").trim().toLowerCase();
-
-    const known = new Map<string, string>([
-      ["company analysis", "Company Analysis"],
-      ["deal analysis", "Deal Analysis"],
-      ["deal perspective", "Deal Perspective"],
-      ["market commentary", "Market Commentary"],
-      ["sector analysis", "Sector Analysis"],
-      ["hot take", "Hot Take"],
-      ["executive interview", "Executive Interview"],
-    ]);
-
-    return known.get(candidate) || undefined;
-  };
-
-  const contentTypeBadgeStyle = (
-    contentType?: string
-  ): React.CSSProperties => {
-    const base: React.CSSProperties = {
-      display: "inline-block",
-      fontSize: 12,
-      lineHeight: 1,
-      padding: "6px 10px",
-      borderRadius: 9999,
-      border: "1px solid transparent",
-      fontWeight: 600,
-    };
-
-    const t = String(contentType || "").toLowerCase();
-    if (t === "company analysis") {
-      return {
-        ...base,
-        backgroundColor: "#ecfdf5",
-        color: "#065f46",
-        borderColor: "#a7f3d0",
-      };
-    }
-    if (t === "deal analysis") {
-      return {
-        ...base,
-        backgroundColor: "#eff6ff",
-        color: "#1e40af",
-        borderColor: "#bfdbfe",
-      };
-    }
-    if (t === "deal perspective") {
-      return {
-        ...base,
-        backgroundColor: "#ecfeff",
-        color: "#155e75",
-        borderColor: "#a5f3fc",
-      };
-    }
-    if (t === "market commentary") {
-      return {
-        ...base,
-        backgroundColor: "#fefce8",
-        color: "#854d0e",
-        borderColor: "#fde68a",
-      };
-    }
-    if (t === "sector analysis") {
-      return {
-        ...base,
-        backgroundColor: "#f5f3ff",
-        color: "#5b21b6",
-        borderColor: "#ddd6fe",
-      };
-    }
-    if (t === "hot take") {
-      return {
-        ...base,
-        backgroundColor: "#fff7ed",
-        color: "#9a3412",
-        borderColor: "#fed7aa",
-      };
-    }
-    if (t === "executive interview") {
-      return {
-        ...base,
-        backgroundColor: "#f0fdf4",
-        color: "#166534",
-        borderColor: "#bbf7d0",
-      };
-    }
-
-    return {
-      ...base,
-      backgroundColor: "#f3f4f6",
-      color: "#374151",
-      borderColor: "#e5e7eb",
-    };
   };
 
   // Resolve corporate event id from inconsistent API shapes
@@ -352,12 +234,8 @@ export default function HomeUserPage() {
 
   // Normalize entity link based on new API flags (route/path/entity_type)
   // Prefer ID-based routes; fall back to path when ID or route is missing/unknown
-  // Pass isInvestor=true when the entity is known to come from the investors field,
-  // since the API returns route:"company" even for investor entities.
-  const normalizeEntityHref = (
-    entity: Record<string, unknown> | null | undefined,
-    isInvestor = false
-  ): string => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const normalizeEntityHref = (entity: any | null | undefined): string => {
     if (!entity || typeof entity !== "object") return "";
     const id = Number((entity as { id?: unknown }).id);
     const route = String(
@@ -369,14 +247,13 @@ export default function HomeUserPage() {
       .trim();
     if (Number.isFinite(id) && id > 0) {
       // Our app uses plural investors route
-      if (isInvestor || route === "investor" || route === "investors")
+      if (route === "investor" || route === "investors")
         return `/investors/${id}`;
       return `/company/${id}`;
     }
     // Fallback to provided path (normalize investor singular to plural)
     const rawPath = String((entity as { path?: unknown }).path || "").trim();
     if (rawPath) {
-      if (isInvestor) return rawPath.replace(/^\/company\//, "/investors/");
       return rawPath.replace(/^\/investor\//, "/investors/");
     }
     return "";
@@ -571,9 +448,131 @@ export default function HomeUserPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [asymmetrixData, setAsymmetrixData] = useState<AsymmetrixData[]>([]);
+
+  const DEAL_RADAR_LIMIT = 25;
+
+  type DealRadarSector = {
+    id: number;
+    name: string;
+  };
+
+  type DealRadarLatestContent = {
+    id: number;
+    headline: string;
+    contentType: string;
+    publicationDate: string;
+  };
+
+  type DealRadarItem = {
+    companyId: number;
+    companyName: string;
+    transactionStatus: string;
+    primarySectors: DealRadarSector[];
+    latestContent: DealRadarLatestContent | null;
+  };
+
+  const dealRadarStageLabel = (status: string): string => {
+    const s = status.toLowerCase();
+    if (s.includes("reported")) return "Reported";
+    if (s.includes("rumoured") || s.includes("rumored")) return "Rumoured";
+    if (s.includes("anticipated")) return "Anticipated";
+    return status;
+  };
+
+  const dealRadarStageStyle = (
+    status: string
+  ): { pill: React.CSSProperties; dot: string } => {
+    const s = status.toLowerCase();
+    if (s.includes("reported")) {
+      return {
+        pill: { backgroundColor: "#dcfce7", color: "#166534" },
+        dot: "#22c55e",
+      };
+    }
+    if (s.includes("rumoured") || s.includes("rumored")) {
+      return {
+        pill: { backgroundColor: "#fef9c3", color: "#854d0e" },
+        dot: "#eab308",
+      };
+    }
+    return {
+      pill: { backgroundColor: "#dbeafe", color: "#1e40af" },
+      dot: "#3b82f6",
+    };
+  };
+
+  const normalizeDealRadarSectorName = (raw: string): string =>
+    raw
+      .trim()
+      .replace(/\\u0022/g, '"')
+      .replace(/^["']+|["']+$/g, "")
+      .trim();
+
+  const mapDealRadarPrimarySectors = (
+    sectors: Array<string | { id?: number; name?: string }> | undefined
+  ): DealRadarSector[] => {
+    if (!Array.isArray(sectors)) return [];
+
+    return sectors
+      .map((sector) => {
+        if (typeof sector === "string") {
+          const name = normalizeDealRadarSectorName(sector);
+          return name ? { id: 0, name } : null;
+        }
+
+        if (sector && typeof sector === "object") {
+          const name = normalizeDealRadarSectorName(String(sector.name || ""));
+          if (!name) return null;
+
+          const id = Number(sector.id);
+          return Number.isFinite(id) && id > 0 ? { id, name } : { id: 0, name };
+        }
+
+        return null;
+      })
+      .filter((sector): sector is DealRadarSector => sector !== null);
+  };
+
+  const mapDealRadarItem = (i: {
+    company_id: number;
+    name: string;
+    transaction_status: string;
+    primary_sectors: Array<string | { id?: number; name?: string }>;
+    latest_content: {
+      id: number;
+      headline: string;
+      content_type: string;
+      publication_date: string;
+    } | null;
+  }): DealRadarItem => ({
+    companyId: i.company_id,
+    companyName: i.name,
+    transactionStatus: i.transaction_status,
+    primarySectors: mapDealRadarPrimarySectors(i.primary_sectors),
+    latestContent: i.latest_content
+      ? {
+          id: i.latest_content.id,
+          headline: i.latest_content.headline,
+          contentType: i.latest_content.content_type,
+          publicationDate: i.latest_content.publication_date,
+        }
+      : null,
+  });
+
+  const [dealRadarItems, setDealRadarItems] = useState<DealRadarItem[]>([]);
+  const [dealRadarTotal, setDealRadarTotal] = useState(0);
+  const [dealRadarNextPage, setDealRadarNextPage] = useState<number | null>(null);
+  const [dealRadarLoading, setDealRadarLoading] = useState(true);
+  const [dealRadarLoadingMore, setDealRadarLoadingMore] = useState(false);
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(true);
+  const [corporateEventsView, setCorporateEventsView] = useState<
+    "followed" | "all"
+  >("all");
   const [insightsArticlesLoading, setInsightsArticlesLoading] = useState(true);
+  const [insightsArticlesView, setInsightsArticlesView] = useState<
+    "followed" | "all"
+  >("all");
   const [insightsArticles, setInsightsArticles] = useState<InsightArticle[]>(
     []
   );
@@ -597,6 +596,20 @@ export default function HomeUserPage() {
   const popupAbortRef = useRef<AbortController | null>(null);
   const searchRunIdRef = useRef(0);
   const loggedSearchRunIdRef = useRef(0);
+
+  const mergeResults = useCallback(
+    (prev: GlobalSearchResult[], newItems: GlobalSearchResult[]) => {
+      const seen = new Set(prev.map((r) => `${r.type}-${r.id}`));
+      const added = newItems.filter((r) => {
+        const key = `${r.type}-${r.id}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      return [...prev, ...added];
+    },
+    []
+  );
 
   useEffect(() => {
     if (isTrialActive) {
@@ -630,17 +643,19 @@ export default function HomeUserPage() {
     searchRunIdRef.current += 1;
     const runId = searchRunIdRef.current;
 
-    const t = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const { items } = await fetchGlobalSearch(q, null, ac.signal);
-          if (ac.signal.aborted) return;
+    const allResultsRef = { current: [] as GlobalSearchResult[] };
 
-          const sortedItems = sortSearchResults(items);
-          setSearchResults(sortedItems);
+    const t = window.setTimeout(() => {
+      fetchGlobalSearchProgressive(q, null, {
+        signal: ac.signal,
+        onBatch: (items) => {
+          if (ac.signal.aborted) return;
+          const merged = mergeResults(allResultsRef.current, items);
+          allResultsRef.current = merged;
+          setSearchResults(merged);
 
           // Log platform-wide search only once per search run, and only when we actually have results.
-          if (sortedItems.length > 0 && loggedSearchRunIdRef.current !== runId) {
+          if (merged.length > 0 && loggedSearchRunIdRef.current !== runId) {
             loggedSearchRunIdRef.current = runId;
             const parsedUserId = Number.parseInt(String(user?.id || ""), 10);
             const userId =
@@ -655,8 +670,13 @@ export default function HomeUserPage() {
               query: q,
             });
           }
-
-          const total = sortedItems.length;
+        },
+        onComplete: () => {
+          if (ac.signal.aborted) return;
+          setSearchResults(sortSearchResults(allResultsRef.current));
+          setSearchLoading(false);
+          setSearchLoadingSources(false);
+          const total = allResultsRef.current.length;
           const perPage = 25;
           const totalPages = Math.max(1, Math.ceil(total / perPage));
           setSearchPagination({
@@ -668,19 +688,15 @@ export default function HomeUserPage() {
             prev_page: null,
             pages_left: Math.max(0, totalPages - 1),
           });
-        } catch (err) {
+        },
+        onError: (_source, err) => {
           const name =
             err && typeof err === "object" ? String((err as { name?: unknown }).name) : "";
           if (name !== "AbortError") {
             setSearchError("Search failed. Please try again.");
           }
-        } finally {
-          if (!ac.signal.aborted) {
-            setSearchLoading(false);
-            setSearchLoadingSources(false);
-          }
-        }
-      })();
+        },
+      });
     }, 250);
 
     return () => {
@@ -688,7 +704,7 @@ export default function HomeUserPage() {
       ac.abort();
       searchAbortRef.current = null;
     };
-  }, [searchQuery, isTrialActive, user?.id]);
+  }, [searchQuery, mergeResults, isTrialActive, user?.id]);
 
   const [popupDisplayedCount, setPopupDisplayedCount] = useState(25);
   const popupQueryRef = useRef("");
@@ -751,15 +767,19 @@ export default function HomeUserPage() {
       const ac = new AbortController();
       popupAbortRef.current = ac;
 
-      void (async () => {
-        try {
-          const { items } = await fetchGlobalSearch(q, pageType, ac.signal);
+      const allResultsRef = { current: [] as GlobalSearchResult[] };
+      fetchGlobalSearchProgressive(q, pageType, {
+        signal: ac.signal,
+        onBatch: (items) => {
           if (ac.signal.aborted) return;
-
-          const sortedItems = sortSearchResults(items);
-          setPopupResults(sortedItems);
-
-          const total = sortedItems.length;
+          const merged = mergeResults(allResultsRef.current, items);
+          allResultsRef.current = merged;
+          setPopupResults(merged);
+        },
+        onComplete: () => {
+          if (ac.signal.aborted) return;
+          setPopupResults(sortSearchResults(allResultsRef.current));
+          const total = allResultsRef.current.length;
           const perPage = 25;
           const totalPages = Math.max(1, Math.ceil(total / perPage));
           setSearchPagination({
@@ -771,20 +791,19 @@ export default function HomeUserPage() {
             prev_page: null,
             pages_left: Math.max(0, totalPages - 1),
           });
-        } catch (err) {
+          setPopupFiltering(false);
+        },
+        onError: (_source, err) => {
           const name =
             err && typeof err === "object"
               ? String((err as { name?: unknown }).name)
               : "";
           if (name === "AbortError") return;
-        } finally {
-          if (!ac.signal.aborted) {
-            setPopupFiltering(false);
-          }
-        }
-      })();
+          setPopupFiltering(false);
+        },
+      });
     },
-    [searchQuery, searchResults]
+    [searchQuery, mergeResults, searchResults]
   );
 
   const matchesPopupFilter = useCallback(
@@ -852,7 +871,6 @@ export default function HomeUserPage() {
     try {
       setIsLoading(true);
 
-      // Fetch all dashboard data in parallel using exact endpoints from Vue app
       const [
         companiesCountResponse,
         eventsCountResponse,
@@ -869,88 +887,71 @@ export default function HomeUserPage() {
         dashboardApiService.getHeroScreenStatisticInvestors(),
       ]);
 
-      // Handle asymmetrix data - build from individual statistics
       const statsData: AsymmetrixData[] = [];
 
-      // Companies count
       if (companiesCountResponse.status === "fulfilled") {
-        // Raw number response
-        let companiesCount: number = 0;
-        const responseValue = companiesCountResponse.value as unknown as number;
-        companiesCount = responseValue || 0;
+        const companiesCount =
+          (companiesCountResponse.value as unknown as number) || 0;
         if (companiesCount) {
           statsData.push({
             label: "Companies",
             value: companiesCount.toString(),
-            icon: "📊",
-            color: "blue",
           });
         }
       }
 
-      // Events count
       if (eventsCountResponse.status === "fulfilled") {
-        let eventsCount: number = 0;
         const responseValue = eventsCountResponse.value as unknown as Record<
           string,
           unknown
         >;
-
-        if (responseValue && typeof responseValue === "object") {
-          eventsCount = (responseValue.Corporate_Events_count as number) || 0;
-        }
+        const eventsCount =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.Corporate_Events_count as number) || 0
+            : 0;
 
         if (eventsCount) {
           statsData.push({
             label: "Corporate Events",
             value: eventsCount.toString(),
-            icon: "📈",
-            color: "purple",
           });
         }
       }
 
-      // Individuals count
       if (individualsCountResponse.status === "fulfilled") {
-        let individualsCount: number = 0;
         const responseValue =
           individualsCountResponse.value as unknown as Record<string, unknown>;
-
-        if (responseValue && typeof responseValue === "object") {
-          individualsCount = (responseValue.count as number) || 0;
-        }
+        const individualsCount =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.count as number) || 0
+            : 0;
 
         if (individualsCount) {
           statsData.push({
             label: "Individuals",
             value: individualsCount.toString(),
-            icon: "👤",
-            color: "green",
           });
         }
       }
 
-      // Sectors count
       if (sectorsCountResponse.status === "fulfilled") {
-        let primarySectorsCount: number = 0;
-        let secondarySectorsCount: number = 0;
         const responseValue = sectorsCountResponse.value as unknown as Record<
           string,
           unknown
         >;
-
-        if (responseValue && typeof responseValue === "object") {
-          primarySectorsCount = (responseValue.primarySectors as number) || 0;
-          secondarySectorsCount =
-            (responseValue.secondarySectors as number) || 0;
-        }
+        const primarySectorsCount =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.primarySectors as number) || 0
+            : 0;
+        const secondarySectorsCount =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.secondarySectors as number) || 0
+            : 0;
 
         if (primarySectorsCount) {
           statsData.push({
             label: "Primary Sectors",
             value: primarySectorsCount.toString(),
-            icon: "🎯",
-            color: "orange",
           });
         }
 
@@ -958,71 +959,58 @@ export default function HomeUserPage() {
           statsData.push({
             label: "Secondary Sectors",
             value: secondarySectorsCount.toString(),
-            icon: "🎯",
-            color: "orange",
           });
         }
       }
 
-      // Investors (PE and VC)
       if (investorsResponse.status === "fulfilled") {
-        let peInvestors: number = 0;
-        let vcInvestors: number = 0;
         const responseValue = investorsResponse.value as unknown as Record<
           string,
           unknown
         >;
-
-        if (responseValue && typeof responseValue === "object") {
-          peInvestors = (responseValue.peInvestors as number) || 0;
-          vcInvestors = (responseValue.vcInvestors as number) || 0;
-        }
+        const peInvestors =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.peInvestors as number) || 0
+            : 0;
+        const vcInvestors =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.vcInvestors as number) || 0
+            : 0;
 
         if (peInvestors) {
           statsData.push({
-            label: "PE investors",
+            label: "PE Investors",
             value: peInvestors.toString(),
-            icon: "💰",
-            color: "green",
           });
         }
 
         if (vcInvestors) {
           statsData.push({
-            label: "VC investors",
+            label: "VC Investors",
             value: vcInvestors.toString(),
-            icon: "💎",
-            color: "gold",
           });
         }
       }
 
-      // Advisors count
       if (advisorsCountResponse.status === "fulfilled") {
-        let advisorsCount: number = 0;
         const responseValue = advisorsCountResponse.value as unknown as Record<
           string,
           unknown
         >;
-
-        if (responseValue && typeof responseValue === "object") {
-          advisorsCount =
-            (responseValue.Advisorc_companies_count as number) || 0;
-        }
+        const advisorsCount =
+          responseValue && typeof responseValue === "object"
+            ? (responseValue.Advisorc_companies_count as number) || 0
+            : 0;
 
         if (advisorsCount) {
           statsData.push({
             label: "Advisors",
             value: advisorsCount.toString(),
-            icon: "👨‍💼",
-            color: "blue",
           });
         }
       }
 
       setAsymmetrixData(statsData);
-
-      // Removed New Companies fetch handling
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       if (
@@ -1037,10 +1025,65 @@ export default function HomeUserPage() {
     }
   }, []);
 
+  const fetchDealRadar = useCallback(async () => {
+    try {
+      setDealRadarLoading(true);
+      const res = await dashboardApiService.getDealRadar({
+        limit: DEAL_RADAR_LIMIT,
+        offset: 1,
+      });
+      setDealRadarItems(res.items.map(mapDealRadarItem));
+      setDealRadarTotal(res.total);
+      setDealRadarNextPage(res.next_page);
+    } catch (error) {
+      console.error("Error fetching Deal Radar:", error);
+    } finally {
+      setDealRadarLoading(false);
+    }
+  }, []);
+
+  const loadMoreDealRadar = useCallback(async () => {
+    if (dealRadarLoadingMore || dealRadarNextPage == null) return;
+    try {
+      setDealRadarLoadingMore(true);
+      const res = await dashboardApiService.getDealRadar({
+        limit: DEAL_RADAR_LIMIT,
+        offset: dealRadarNextPage,
+      });
+      setDealRadarItems((prev) => [
+        ...prev,
+        ...res.items.map(mapDealRadarItem),
+      ]);
+      setDealRadarNextPage(res.next_page);
+    } catch (error) {
+      console.error("Error loading more Deal Radar items:", error);
+    } finally {
+      setDealRadarLoadingMore(false);
+    }
+  }, [dealRadarNextPage, dealRadarLoadingMore]);
+
   const fetchCorporateEvents = useCallback(async () => {
     try {
       setCorporateEventsLoading(true);
-      const eventsResponse = await dashboardApiService.getCorporateEvents();
+
+      const parsedUserId =
+        user?.id != null ? Number.parseInt(String(user.id), 10) : NaN;
+      const shouldShowFollowed = corporateEventsView === "followed";
+      const followedUserId =
+        shouldShowFollowed &&
+        Number.isFinite(parsedUserId) &&
+        parsedUserId > 0
+          ? parsedUserId
+          : null;
+
+      if (shouldShowFollowed && followedUserId === null) {
+        throw new Error("Unable to load followed content for the current user.");
+      }
+
+      const eventsResponse = await dashboardApiService.getCorporateEvents({
+        showFollowed: shouldShowFollowed,
+        userId: followedUserId,
+      });
 
       let eventsData: CorporateEvent[] = [];
       const responseValue = eventsResponse as unknown as Record<string, unknown>;
@@ -1066,13 +1109,18 @@ export default function HomeUserPage() {
     } finally {
       setCorporateEventsLoading(false);
     }
-  }, []);
+  }, [corporateEventsView, user?.id]);
 
   const fetchInsightsArticles = useCallback(async () => {
     try {
       setInsightsArticlesLoading(true);
-      const insightsResponse =
-        await dashboardApiService.getAllContentArticlesHome();
+
+      const insightsResponse = await dashboardApiService.getAllContentArticlesHome(
+        {
+          search: "",
+          portfolioOnly: insightsArticlesView === "followed",
+        }
+      );
 
       let insightsData: InsightArticle[] = [];
       const responseValue = insightsResponse as unknown as Record<string, unknown>;
@@ -1096,7 +1144,7 @@ export default function HomeUserPage() {
     } finally {
       setInsightsArticlesLoading(false);
     }
-  }, []);
+  }, [insightsArticlesView]);
 
   // Check authentication on component mount
   useEffect(() => {
@@ -1120,6 +1168,11 @@ export default function HomeUserPage() {
       fetchDashboardData();
     }
   }, [fetchDashboardData, isAuthenticated, authLoading]);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+    fetchDealRadar();
+  }, [authLoading, isAuthenticated, fetchDealRadar]);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
@@ -1202,14 +1255,11 @@ export default function HomeUserPage() {
             </div>
           </div>
         )}
-        {/* Dashboard Subheader - same grid as content for alignment */}
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-4 sm:mb-6 lg:grid-cols-2 xl:grid-cols-[repeat(20,minmax(0,1fr))] items-center">
-          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl order-1 lg:col-span-2 xl:col-span-4">
-            Asymmetrix Dashboard
-          </h1>
+        {/* Dashboard Subheader */}
+        <div className="flex items-center justify-between gap-4 sm:gap-6 mb-4 sm:mb-6 w-full">
           <div
             ref={searchWrapRef}
-            className={`global-search-tooltip relative w-full order-2 lg:col-span-1 xl:col-span-8 rounded-lg border-2 bg-white shadow-sm ${
+            className={`global-search-tooltip relative w-full min-w-0 rounded-lg border-2 bg-white shadow-sm lg:w-[calc(50%-0.75rem)] xl:w-[30%] ${
               isTrialActive
                 ? "border-gray-200"
                 : "border-blue-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"
@@ -1360,7 +1410,75 @@ export default function HomeUserPage() {
               </div>
             )}
           </div>
+          <div className="shrink-0 ml-auto">
+            <RequestDataResearchButton
+              label="Request Data and Research"
+              context="dashboard"
+              sourcePage="Dashboard"
+            />
+          </div>
         </div>
+
+        {asymmetrixData.length > 0 && (
+          <div className="mb-4 sm:mb-6 overflow-x-auto rounded-lg border border-gray-200 bg-white">
+            <div className="flex min-w-max w-full divide-x divide-gray-200">
+              {asymmetrixData.map((item, index) => {
+                const href = resolveAsymmetrixStatHref(item.label);
+                const RowTag = href ? "a" : "div";
+                const formattedValue = parseInt(item.value, 10)
+                  ? parseInt(item.value, 10).toLocaleString()
+                  : item.value;
+
+                return (
+                  <RowTag
+                    // eslint-disable-next-line react/no-array-index-key
+                    key={`${item.label}-${index}`}
+                    href={href || undefined}
+                    className={`group flex flex-1 flex-col items-start justify-center min-w-[7.5rem] px-4 py-3.5 sm:min-w-0 sm:px-5 sm:py-4 transition-colors ${
+                      href
+                        ? "cursor-pointer hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-200"
+                        : ""
+                    }`}
+                    onClick={(e: React.MouseEvent<HTMLElement>) => {
+                      if (!href) return;
+                      if (
+                        e.defaultPrevented ||
+                        e.button !== 0 ||
+                        e.metaKey ||
+                        e.ctrlKey ||
+                        e.shiftKey ||
+                        e.altKey
+                      ) {
+                        return;
+                      }
+                      e.preventDefault();
+                      router.push(href);
+                    }}
+                  >
+                    <span
+                      className={`text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap ${
+                        href
+                          ? "text-gray-500 group-hover:text-blue-600"
+                          : "text-gray-500"
+                      } transition-colors`}
+                    >
+                      {item.label}
+                    </span>
+                    <span
+                      className={`mt-1 text-lg font-semibold tabular-nums tracking-tight sm:text-xl ${
+                        href
+                          ? "text-gray-900 group-hover:text-blue-700"
+                          : "text-gray-900"
+                      } transition-colors`}
+                    >
+                      {formattedValue}
+                    </span>
+                  </RowTag>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Search results popup */}
         {searchPopupOpen && (
@@ -1564,95 +1682,215 @@ export default function HomeUserPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 xl:grid-cols-[repeat(20,minmax(0,1fr))]">
-          {/* Asymmetrix Data - last on mobile, first on lg+ */}
-          <div className="bg-white rounded-lg shadow order-3 lg:order-1 lg:col-span-2 xl:col-span-4">
-            <div className="p-3 border-b border-gray-200 sm:p-4">
-              <div className="flex items-center gap-2">
-                <img
-                  src="/icons/logo.svg"
-                  alt="Asymmetrix"
-                  className="w-5 h-5"
-                />
-                <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
-                  Asymmetrix Data
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
+          {/* Deal Radar - last on mobile, first on lg+ */}
+          <div className="bg-white rounded-lg shadow order-3 lg:order-1 flex flex-col">
+            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700 shrink-0">
+                  <svg
+                    className="w-[18px] h-[18px]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="2" />
+                    <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49" />
+                    <path d="M20.49 3.51a12 12 0 0 1 0 16.97M3.51 3.51a12 12 0 0 0 0 16.97" />
+                  </svg>
+                </div>
+                <h2
+                  className="text-base font-semibold text-gray-900 sm:text-lg"
+                  style={{ fontWeight: "600" }}
+                >
+                  Deal Radar
                 </h2>
               </div>
             </div>
-            <div className="p-3 sm:p-4">
-              {asymmetrixData.length > 0 ? (
-                <div className="space-y-2 sm:space-y-3">
-                  {asymmetrixData.map((item, index) => {
-                    const href = resolveAsymmetrixStatHref(item.label);
-                    const RowTag = href ? "a" : "div";
-                    return (
-                      <RowTag
-                        // eslint-disable-next-line react/no-array-index-key
-                        key={`${item.label}-${index}`}
-                        href={href || undefined}
-                        className={`group flex justify-between items-center p-2 bg-gray-50 rounded-lg sm:p-2 transition-colors ${
-                          href
-                            ? "cursor-pointer hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                            : ""
-                        }`}
-                        onClick={(e: React.MouseEvent<HTMLElement>) => {
-                          if (!href) return;
-                          // Allow default behavior for right-click, ctrl+click, cmd+click, etc.
-                          if (
-                            e.defaultPrevented ||
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            (e as any).button !== 0 ||
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            (e as any).metaKey ||
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            (e as any).ctrlKey ||
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            (e as any).shiftKey ||
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            (e as any).altKey
-                          ) {
-                            return;
-                          }
-                          e.preventDefault();
-                          router.push(href);
-                        }}
+            <div>
+              {dealRadarLoading ? (
+                <div className="p-4 space-y-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    // eslint-disable-next-line react/no-array-index-key
+                    <div key={i} className="grid grid-cols-3 gap-3 py-2 animate-pulse">
+                      <div className="space-y-1.5 col-span-1">
+                        <div className="h-3.5 bg-gray-200 rounded w-3/4" />
+                        <div className="h-3 bg-gray-200 rounded w-1/2" />
+                      </div>
+                      <div className="h-3.5 bg-gray-200 rounded col-span-1" />
+                      <div className="h-5 bg-gray-200 rounded-full col-span-1 w-20" />
+                    </div>
+                  ))}
+                </div>
+              ) : dealRadarItems.length > 0 ? (
+                <div className="min-w-full">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                            Company
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                            Sector
+                          </th>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
+                            Stage
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {dealRadarItems.map((item) => {
+                          const stageStyle = dealRadarStageStyle(
+                            item.transactionStatus
+                          );
+
+                          return (
+                            <tr key={item.companyId} className="align-top hover:bg-gray-50">
+                              <td className="px-4 py-4">
+                                <div className="space-y-1">
+                                  <a
+                                    href={`/company/${item.companyId}`}
+                                    className="text-sm font-semibold text-blue-700 hover:text-blue-900 hover:underline"
+                                    onClick={(
+                                      e: React.MouseEvent<HTMLAnchorElement>
+                                    ) => {
+                                      if (
+                                        e.defaultPrevented ||
+                                        e.button !== 0 ||
+                                        e.metaKey ||
+                                        e.ctrlKey ||
+                                        e.shiftKey ||
+                                        e.altKey
+                                      ) {
+                                        return;
+                                      }
+                                      e.preventDefault();
+                                      router.push(`/company/${item.companyId}`);
+                                    }}
+                                  >
+                                    {item.companyName}
+                                  </a>
+                                  {item.latestContent && (
+                                    <a
+                                      href={`/article/${item.latestContent.id}?from=home`}
+                                      className="block text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                                      onClick={(
+                                        e: React.MouseEvent<HTMLAnchorElement>
+                                      ) => {
+                                        if (
+                                          e.defaultPrevented ||
+                                          e.button !== 0 ||
+                                          e.metaKey ||
+                                          e.ctrlKey ||
+                                          e.shiftKey ||
+                                          e.altKey
+                                        ) {
+                                          return;
+                                        }
+                                        e.preventDefault();
+                                        router.push(
+                                          `/article/${item.latestContent!.id}?from=home`
+                                        );
+                                      }}
+                                    >
+                                      Read our research
+                                    </a>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-4 text-sm text-gray-700">
+                                {item.primarySectors.length > 0 ? (
+                                  item.primarySectors.map((sector, idx) => (
+                                    <span key={`${sector.id}-${sector.name}-${idx}`}>
+                                      {sector.id > 0 ? (
+                                        <a
+                                          href={`/sector/${sector.id}`}
+                                          className="text-blue-700 hover:text-blue-900 hover:underline"
+                                          onClick={(
+                                            e: React.MouseEvent<HTMLAnchorElement>
+                                          ) => {
+                                            if (
+                                              e.defaultPrevented ||
+                                              e.button !== 0 ||
+                                              e.metaKey ||
+                                              e.ctrlKey ||
+                                              e.shiftKey ||
+                                              e.altKey
+                                            ) {
+                                              return;
+                                            }
+                                            e.preventDefault();
+                                            router.push(`/sector/${sector.id}`);
+                                          }}
+                                        >
+                                          {sector.name}
+                                        </a>
+                                      ) : (
+                                        sector.name
+                                      )}
+                                      {idx < item.primarySectors.length - 1 && ", "}
+                                    </span>
+                                  ))
+                                ) : (
+                                  "—"
+                                )}
+                              </td>
+                              <td className="px-4 py-4">
+                                <span
+                                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap"
+                                  style={stageStyle.pill}
+                                >
+                                  <span
+                                    className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                                    style={{ backgroundColor: stageStyle.dot }}
+                                  />
+                                  {dealRadarStageLabel(item.transactionStatus)}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  {dealRadarNextPage != null &&
+                    dealRadarItems.length < dealRadarTotal && (
+                    <div className="px-4 py-3 border-t border-gray-200">
+                      <button
+                        type="button"
+                        disabled={dealRadarLoadingMore}
+                        onClick={loadMoreDealRadar}
+                        className="w-full py-1.5 text-xs font-medium text-blue-700 hover:text-blue-900 hover:bg-blue-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <div className="flex items-center space-x-2">
-                          <span className="text-base sm:text-lg">
-                            {item.icon}
+                        {dealRadarLoadingMore ? (
+                          <span className="flex items-center justify-center gap-1.5">
+                            <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                            </svg>
+                            Loading…
                           </span>
-                          <span
-                            className={`text-xs ${
-                              href
-                                ? "text-gray-700 group-hover:text-blue-700"
-                                : "text-gray-600"
-                            } transition-colors`}
-                          >
-                            {item.label}
-                          </span>
-                        </div>
-                        <span className="text-sm font-semibold text-gray-900">
-                          {parseInt(item.value)
-                            ? parseInt(item.value).toLocaleString()
-                            : item.value}
-                        </span>
-                      </RowTag>
-                    );
-                  })}
+                        ) : (
+                          `Load more (${dealRadarTotal - dealRadarItems.length} remaining)`
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="py-6 text-center sm:py-8">
-                  <p className="text-sm text-gray-500">
-                    No statistics available
-                  </p>
+                <div className="p-4 py-6 text-center sm:py-8">
+                  <p className="text-sm text-gray-500">No active transactions</p>
                 </div>
               )}
             </div>
           </div>
 
           {/* Insights & Analysis - first on mobile */}
-          <div className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-1 lg:order-2 lg:col-span-1 xl:col-span-8">
-            <div className="flex items-center p-3 border-b border-gray-200 sm:p-4">
+          <div className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-1 lg:order-2">
+            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700">
                   <svg
@@ -1680,6 +1918,34 @@ export default function HomeUserPage() {
                   Insights &amp; Analysis
                 </a>
               </div>
+              <div className="flex items-center gap-3">
+                <div className="inline-flex p-1 bg-gray-100 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setInsightsArticlesView("followed")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      insightsArticlesView === "followed"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    aria-pressed={insightsArticlesView === "followed"}
+                  >
+                    Followed
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInsightsArticlesView("all")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      insightsArticlesView === "all"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    aria-pressed={insightsArticlesView === "all"}
+                  >
+                    All
+                  </button>
+                </div>
+              </div>
             </div>
             <div className="flex-1 p-3 overflow-y-auto sm:p-4">
               {insightsArticlesLoading ? (
@@ -1694,31 +1960,33 @@ export default function HomeUserPage() {
                     .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
                     .slice(0, 10)
                     .map((article) => {
-                    const ct =
-                      normalizeContentTypeLabel(
-                        article.Content_Type ||
-                          article.content_type ||
-                          article.Content?.Content_type ||
-                          article.Content?.Content_Type
-                      ) || inferContentTypeFromHeadline(article.Headline) || "";
+                    const ct = (
+                      article.Content_Type ||
+                      article.content_type ||
+                      article.Content?.Content_type ||
+                      article.Content?.Content_Type ||
+                      ""
+                    ).trim();
                     const href = `/article/${article.id}?from=home`;
-
-                    const ts =
-                      article.Transaction_status?.trim() ||
-                      article.Company_of_Focus?.find(
-                        (c) => c?.Transaction_status
-                      )?.Transaction_status?.trim() ||
-                      "";
 
                     return (
                       <div
                         key={article.id}
                         className="p-4 rounded-xl border border-blue-100 bg-white shadow-sm hover:shadow transition-shadow"
                       >
-                        <div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg border border-blue-100">
+                            {ct || "Insight"}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {formatDate(article.Publication_Date)}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-start gap-x-3 gap-y-2 mt-3">
                           <a
                             href={href}
-                            className="text-sm font-semibold text-gray-900 hover:text-blue-700"
+                            className="min-w-0 flex-1 text-sm font-semibold text-gray-900 hover:text-blue-700"
                             onClick={(e) => {
                               if (
                                 e.defaultPrevented ||
@@ -1735,42 +2003,33 @@ export default function HomeUserPage() {
                           >
                             {article.Headline}
                           </a>
-                        </div>
 
-                        <div className="mt-2">
-                          <span className="text-xs text-gray-500">
-                            {formatDate(article.Publication_Date)}
-                          </span>
-                        </div>
-
-                        {ts ? (
-                          <div className="mt-3">
-                            <span
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                fontSize: 11,
-                                lineHeight: 1,
-                                padding: "5px 10px",
-                                borderRadius: 9999,
-                                fontWeight: 700,
-                                letterSpacing: "0.03em",
-                                textTransform: "uppercase",
-                                backgroundColor: "#dcfce7",
-                                color: "#166534",
-                                border: "1.5px solid #4ade80",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {ts}
-                            </span>
-                          </div>
-                        ) : null}
-
-                        <div className="mt-3">
-                          <span style={contentTypeBadgeStyle(ct || "Insight")}>
-                            {ct || "Insight"}
-                          </span>
+                          {(() => {
+                            const ts = article.Company_of_Focus?.find(
+                              (c) => c?.Transaction_status
+                            )?.Transaction_status;
+                            return ts ? (
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  fontSize: 11,
+                                  lineHeight: 1,
+                                  padding: "5px 10px",
+                                  borderRadius: 9999,
+                                  fontWeight: 700,
+                                  letterSpacing: "0.03em",
+                                  textTransform: "uppercase",
+                                  backgroundColor: "#dcfce7",
+                                  color: "#166534",
+                                  border: "1.5px solid #4ade80",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {ts}
+                              </span>
+                            ) : null;
+                          })()}
                         </div>
 
                         {article.Strapline ? (
@@ -1804,16 +2063,20 @@ export default function HomeUserPage() {
                 </div>
               ) : (
                 <div className="py-6 text-center sm:py-8">
-                  <p className="text-sm text-gray-500">No insights available</p>
+                  <p className="text-sm text-gray-500">
+                    {insightsArticlesView === "followed"
+                      ? "No followed insights available"
+                      : "No insights available"}
+                  </p>
                 </div>
               )}
             </div>
           </div>
 
           {/* Corporate Events - second on mobile */}
-          <div className="flex flex-col bg-white rounded-lg shadow order-2 lg:order-3 lg:col-span-1 xl:col-span-8">
-            <div className="flex items-center p-3 border-b border-gray-200 sm:p-4">
-              <div className="flex items-center gap-2">
+          <div className="flex flex-col bg-white rounded-lg shadow order-2 lg:order-3">
+            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
+              <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-700">
                   <svg
                     width="18"
@@ -1839,6 +2102,34 @@ export default function HomeUserPage() {
                 >
                   Corporate Events
                 </a>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="inline-flex p-1 bg-gray-100 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setCorporateEventsView("followed")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      corporateEventsView === "followed"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    aria-pressed={corporateEventsView === "followed"}
+                  >
+                    Followed
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCorporateEventsView("all")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      corporateEventsView === "all"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    aria-pressed={corporateEventsView === "all"}
+                  >
+                    All
+                  </button>
+                </div>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -2600,7 +2891,7 @@ export default function HomeUserPage() {
                                           {dedupeById(investorsArr).map(
                                             (inv, i, arr) => {
                                               const href =
-                                                normalizeEntityHref(inv, true);
+                                                normalizeEntityHref(inv);
                                               const name = inv?.name || "Unknown";
                                               return (
                                                 <span key={`investor-${i}`}>
@@ -2960,7 +3251,9 @@ export default function HomeUserPage() {
               ) : (
                 <div className="p-4 text-center">
                   <p className="text-sm text-gray-500">
-                    No corporate events available
+                    {corporateEventsView === "followed"
+                      ? "No followed corporate events available"
+                      : "No corporate events available"}
                   </p>
                 </div>
               )}
