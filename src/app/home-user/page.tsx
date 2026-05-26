@@ -1685,37 +1685,43 @@ export default function HomeUserPage() {
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
           {/* Deal Radar - last on mobile, first on lg+ */}
           <div className="bg-white rounded-lg shadow order-3 lg:order-1 flex flex-col">
-            <div className="p-3 border-b border-gray-200 sm:p-4">
-              <div className="flex items-start gap-2">
-                <svg
-                  className="w-4 h-4 text-blue-600 shrink-0 mt-0.5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="12" cy="12" r="2" />
-                  <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49" />
-                  <path d="M20.49 3.51a12 12 0 0 1 0 16.97M3.51 3.51a12 12 0 0 0 0 16.97" />
-                </svg>
-                <div>
-                  <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
+            <div className="border-b border-gray-200">
+              <div className="flex items-center justify-between p-3 sm:p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700 shrink-0">
+                    <svg
+                      className="w-[18px] h-[18px]"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="2" />
+                      <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49" />
+                      <path d="M20.49 3.51a12 12 0 0 1 0 16.97M3.51 3.51a12 12 0 0 0 0 16.97" />
+                    </svg>
+                  </div>
+                  <h2
+                    className="text-base font-semibold text-gray-900 sm:text-lg"
+                    style={{ fontWeight: "600" }}
+                  >
                     Deal Radar
                   </h2>
-                  {!dealRadarLoading && dealRadarTotal > 0 && (
-                    <p className="mt-0.5 text-xs text-gray-500 sm:text-sm">
-                      Active signals with paired analysis · {dealRadarTotal}{" "}
-                      {dealRadarTotal === 1 ? "signal" : "signals"}
-                    </p>
-                  )}
                 </div>
               </div>
+              {!dealRadarLoading && dealRadarTotal > 0 && (
+                <p className="px-3 pb-3 text-xs text-gray-500 sm:px-4 sm:text-sm">
+                  Active signals with paired analysis · {dealRadarTotal}{" "}
+                  {dealRadarTotal === 1 ? "signal" : "signals"}
+                </p>
+              )}
             </div>
-            <div className="p-3 sm:p-4">
+            <div>
               {dealRadarLoading ? (
-                <div className="space-y-3">
+                <div className="p-4 space-y-3">
                   {Array.from({ length: 6 }).map((_, i) => (
                     // eslint-disable-next-line react/no-array-index-key
                     <div key={i} className="grid grid-cols-3 gap-3 py-2 animate-pulse">
@@ -1729,31 +1735,30 @@ export default function HomeUserPage() {
                   ))}
                 </div>
               ) : dealRadarItems.length > 0 ? (
-                <>
-                  <div className="overflow-x-auto -mx-3 sm:-mx-4">
-                    <table className="w-full text-sm border-collapse">
-                      <thead>
-                        <tr className="border-b border-gray-100">
-                          <th className="px-3 pb-2 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:px-4">
+                <div className="min-w-full">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Company
                           </th>
-                          <th className="px-3 pb-2 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:px-4">
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Sector
                           </th>
-                          <th className="px-3 pb-2 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:px-4">
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Stage
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody className="bg-white divide-y divide-gray-200">
                         {dealRadarItems.map((item) => {
                           const stageStyle = dealRadarStageStyle(
                             item.transactionStatus
                           );
 
                           return (
-                            <tr key={item.companyId} className="align-top">
-                              <td className="px-3 py-3 sm:px-4">
+                            <tr key={item.companyId} className="align-top hover:bg-gray-50">
+                              <td className="px-4 py-4">
                                 <div className="space-y-1">
                                   <a
                                     href={`/company/${item.companyId}`}
@@ -1805,7 +1810,7 @@ export default function HomeUserPage() {
                                   )}
                                 </div>
                               </td>
-                              <td className="px-3 py-3 text-sm text-gray-700 sm:px-4">
+                              <td className="px-4 py-4 text-sm text-gray-700">
                                 {item.primarySectors.length > 0 ? (
                                   item.primarySectors.map((sector, idx) => (
                                     <span key={`${sector.id}-${sector.name}-${idx}`}>
@@ -1842,7 +1847,7 @@ export default function HomeUserPage() {
                                   "—"
                                 )}
                               </td>
-                              <td className="px-3 py-3 sm:px-4">
+                              <td className="px-4 py-4">
                                 <span
                                   className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap"
                                   style={stageStyle.pill}
@@ -1859,10 +1864,9 @@ export default function HomeUserPage() {
                         })}
                       </tbody>
                     </table>
-                  </div>
                   {dealRadarNextPage != null &&
                     dealRadarItems.length < dealRadarTotal && (
-                    <div className="pt-3 mt-1 border-t border-gray-100">
+                    <div className="px-4 py-3 border-t border-gray-200">
                       <button
                         type="button"
                         disabled={dealRadarLoadingMore}
@@ -1883,9 +1887,9 @@ export default function HomeUserPage() {
                       </button>
                     </div>
                   )}
-                </>
+                </div>
               ) : (
-                <div className="py-6 text-center sm:py-8">
+                <div className="p-4 py-6 text-center sm:py-8">
                   <p className="text-sm text-gray-500">No active transactions</p>
                 </div>
               )}
@@ -2080,7 +2084,7 @@ export default function HomeUserPage() {
           {/* Corporate Events - second on mobile */}
           <div className="flex flex-col bg-white rounded-lg shadow order-2 lg:order-3">
             <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-700">
                   <svg
                     width="18"
