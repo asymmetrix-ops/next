@@ -162,6 +162,14 @@ export function getChangeRequestCompanies(
   return [];
 }
 
+export type ChangeRequestCompanyNotInDb = {
+  company_name: string | null;
+  website: string | null;
+  verdict: string | null;
+  confidence: string | null;
+  reasoning: string | null;
+};
+
 function coerceStringArray(value: unknown): string[] | null {
   if (Array.isArray(value)) {
     const names = value
@@ -182,9 +190,69 @@ function coerceStringArray(value: unknown): string[] | null {
   return null;
 }
 
+function coerceCompanyNotInDbArray(value: unknown): unknown[] | null {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    const t = value.trim();
+    if (!t) return null;
+    try {
+      const parsed = JSON.parse(t) as unknown;
+      return Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function coerceCompanyNotInDbEntry(
+  value: unknown
+): ChangeRequestCompanyNotInDb | null {
+  if (typeof value === "string") {
+    const name = value.trim();
+    if (!name) return null;
+    return {
+      company_name: name,
+      website: null,
+      verdict: null,
+      confidence: null,
+      reasoning: null,
+    };
+  }
+  if (!value || typeof value !== "object") return null;
+  const o = value as Record<string, unknown>;
+  const company_name =
+    typeof o.company_name === "string" ? o.company_name.trim() || null : null;
+  const website =
+    typeof o.website === "string" ? o.website.trim() || null : null;
+  const verdict =
+    typeof o.verdict === "string" ? o.verdict.trim().toLowerCase() || null : null;
+  const confidence =
+    typeof o.confidence === "string" ? o.confidence.trim() || null : null;
+  const reasoning =
+    typeof o.reasoning === "string" ? o.reasoning.trim() || null : null;
+
+  if (!company_name && !website && !verdict && !confidence && !reasoning) {
+    return null;
+  }
+
+  return { company_name, website, verdict, confidence, reasoning };
+}
+
+function sortCompaniesNotInDb(
+  entries: ChangeRequestCompanyNotInDb[]
+): ChangeRequestCompanyNotInDb[] {
+  const rank = (verdict: string | null) => {
+    if (verdict === "da") return 0;
+    if (verdict === "not_da") return 1;
+    return 2;
+  };
+  return [...entries].sort((a, b) => rank(a.verdict) - rank(b.verdict));
+}
+
 export function getChangeRequestCompaniesNotInDb(
   item: ChangeRequestItem
-): string[] {
+): ChangeRequestCompanyNotInDb[] {
   const candidates: unknown[] = [];
   if (item.companies_not_in_db != null) {
     candidates.push(item.companies_not_in_db);
@@ -195,11 +263,52 @@ export function getChangeRequestCompaniesNotInDb(
   }
 
   for (const raw of candidates) {
-    const names = coerceStringArray(raw);
-    if (names?.length) return names;
+    const arr = coerceCompanyNotInDbArray(raw);
+    if (arr?.length) {
+      const mapped = arr
+        .map(coerceCompanyNotInDbEntry)
+        .filter((x): x is ChangeRequestCompanyNotInDb => Boolean(x));
+      if (mapped.length) return sortCompaniesNotInDb(mapped);
+    }
+
+    const legacyNames = coerceStringArray(raw);
+    if (legacyNames?.length) {
+      return sortCompaniesNotInDb(
+        legacyNames.map((name) => ({
+          company_name: name,
+          website: null,
+          verdict: null,
+          confidence: null,
+          reasoning: null,
+        }))
+      );
+    }
   }
 
   return [];
+}
+
+export function getCompanyNotInDbDisplayName(
+  entry: ChangeRequestCompanyNotInDb
+): string {
+  if (entry.company_name) return entry.company_name;
+  if (entry.website) {
+    try {
+      return new URL(entry.website).hostname.replace(/^www\./, "");
+    } catch {
+      return entry.website;
+    }
+  }
+  return "Unknown company";
+}
+
+export function formatCompanyNotInDbVerdict(
+  verdict: string | null
+): string | null {
+  if (!verdict) return null;
+  if (verdict === "da") return "D&A";
+  if (verdict === "not_da") return "Not D&A";
+  return verdict.replace(/_/g, " ").toUpperCase();
 }
 
 /** Split plain diff strings into line items for the DiffBlock UI. */

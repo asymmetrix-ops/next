@@ -11,14 +11,17 @@ import React, {
 } from "react";
 
 import {
+  type ChangeRequestCompanyNotInDb,
   type ChangeRequestItem,
   type ChangeRequestResponse,
   formatAiReasoningCard,
+  formatCompanyNotInDbVerdict,
   getChangeRequestCompanies,
   getChangeRequestCompaniesNotInDb,
   getChangeRequestAiReasoning,
   getChangeRequestBucket,
   getChangeRequestDiffText,
+  getCompanyNotInDbDisplayName,
   parseChangeMessageMeta,
   splitCreatedForDisplay,
   textToDiffItems,
@@ -42,6 +45,102 @@ function getTagColor(tag: string) {
       : tag.toLowerCase().includes("skip")
         ? "bg-orange-50 text-orange-800 border-orange-200"
         : "bg-gray-100 text-gray-600 border-gray-200")
+  );
+}
+
+function CompanyNotInDbCard({
+  entry,
+  index,
+}: {
+  entry: ChangeRequestCompanyNotInDb;
+  index: number;
+}) {
+  const isDa = entry.verdict === "da";
+  const isNotDa = entry.verdict === "not_da";
+  const displayName = getCompanyNotInDbDisplayName(entry);
+  const verdictLabel = formatCompanyNotInDbVerdict(entry.verdict);
+
+  return (
+    <div
+      className={[
+        "relative min-w-0 rounded-lg border p-2.5 text-left shadow-sm transition",
+        isDa
+          ? "border-emerald-400 border-l-4 border-l-emerald-600 bg-gradient-to-br from-emerald-50 via-lime-50 to-amber-50 shadow-lg shadow-emerald-200/60 ring-2 ring-emerald-400/80 ring-offset-1"
+          : isNotDa
+            ? "border-slate-200 bg-slate-50/80"
+            : "border-amber-200 bg-amber-50/70",
+      ].join(" ")}
+    >
+      {isDa ? (
+        <span className="absolute -right-1 -top-1 animate-pulse rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-md">
+          New D&A
+        </span>
+      ) : null}
+      <div className="flex min-w-0 flex-wrap items-start gap-1.5">
+        <p
+          className={[
+            "min-w-0 flex-1 break-words text-[11px] leading-snug [overflow-wrap:anywhere]",
+            isDa
+              ? "font-bold text-emerald-950"
+              : isNotDa
+                ? "font-medium text-slate-700"
+                : "font-medium text-amber-900",
+          ].join(" ")}
+        >
+          {displayName}
+        </p>
+        {verdictLabel ? (
+          <span
+            className={[
+              "shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
+              isDa
+                ? "border-emerald-600 bg-emerald-600 text-white"
+                : isNotDa
+                  ? "border-slate-300 bg-white text-slate-500"
+                  : "border-amber-300 bg-white text-amber-700",
+            ].join(" ")}
+          >
+            {verdictLabel}
+          </span>
+        ) : null}
+        {entry.confidence ? (
+          <span
+            className={[
+              "shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-medium capitalize",
+              isDa
+                ? "border-emerald-300 bg-emerald-100 text-emerald-800"
+                : "border-slate-200 bg-white text-slate-500",
+            ].join(" ")}
+          >
+            {entry.confidence}
+          </span>
+        ) : null}
+      </div>
+      {entry.website ? (
+        <a
+          href={entry.website}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={[
+            "mt-1.5 block break-all text-[10px] hover:underline [overflow-wrap:anywhere]",
+            isDa ? "font-medium text-emerald-700" : "text-blue-600",
+          ].join(" ")}
+        >
+          {entry.website}
+        </a>
+      ) : null}
+      {entry.reasoning ? (
+        <p
+          className={[
+            "mt-1.5 line-clamp-4 text-[10px] leading-relaxed [overflow-wrap:anywhere]",
+            isDa ? "text-emerald-900/90" : "text-slate-500",
+          ].join(" ")}
+        >
+          {entry.reasoning}
+        </p>
+      ) : null}
+      <span className="sr-only">{`Company not in DB ${index + 1}`}</span>
+    </div>
   );
 }
 
@@ -593,10 +692,10 @@ export function ChangeStateTab() {
               <col style={{ width: "4.5%" }} />
               <col style={{ width: "6.5%" }} />
               <col style={{ width: "14%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "37%" }} />
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "7%" }} />
+              <col style={{ width: "20%" }} />
+              <col style={{ width: "46.1%" }} />
+              <col style={{ width: "2.4%" }} />
+              <col style={{ width: "1.4%" }} />
             </colgroup>
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
@@ -623,9 +722,15 @@ export function ChangeStateTab() {
                 ].map((col) => (
                   <th
                     key={col}
-                    className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:px-4 ${
+                    className={`py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 ${
                       col === "Read" ? "text-center" : "text-left"
-                    } ${col === "Added" ? "min-w-0" : ""}`}
+                    } ${
+                      col === "Added"
+                        ? "min-w-0 px-3 sm:px-4"
+                        : col === "Watch URL" || col === "Bucket"
+                          ? "w-[1%] whitespace-nowrap px-1.5 sm:px-2"
+                          : "px-3 sm:px-4"
+                    }`}
                   >
                     {col}
                   </th>
@@ -750,18 +855,22 @@ export function ChangeStateTab() {
                           </div>
                         ) : null}
                         {companiesNotInDb.length > 0 ? (
-                          <div className="space-y-1">
+                          <div className="space-y-1.5">
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">
                               Not in DB
-                            </p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {companiesNotInDb.map((name) => (
-                                <span
-                                  key={name}
-                                  className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium leading-snug text-amber-800 [overflow-wrap:anywhere]"
-                                >
-                                  {name}
+                              {companiesNotInDb.some((c) => c.verdict === "da") ? (
+                                <span className="ml-1.5 rounded bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal text-white">
+                                  D&A found
                                 </span>
+                              ) : null}
+                            </p>
+                            <div className="space-y-2">
+                              {companiesNotInDb.map((entry, idx) => (
+                                <CompanyNotInDbCard
+                                  key={`${item.id}-${idx}-${entry.company_name ?? entry.website ?? idx}`}
+                                  entry={entry}
+                                  index={idx}
+                                />
                               ))}
                             </div>
                           </div>
@@ -777,14 +886,15 @@ export function ChangeStateTab() {
                         <AddedDiffBlock items={addedItems} />
                       </div>
                     </td>
-                    <td className="h-full min-w-0 align-top px-3 py-4 sm:px-4">
+                    <td className="h-full w-[1%] max-w-[7rem] align-top px-1.5 py-4 sm:px-2">
                       <div className="flex h-full min-h-full flex-col justify-start">
                         {item.watch_url ? (
                           <a
                             href={item.watch_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={linkClass}
+                            title={item.watch_url}
+                            className={`${linkClass} block truncate`}
                           >
                             {item.watch_url}
                           </a>
@@ -793,7 +903,7 @@ export function ChangeStateTab() {
                         )}
                       </div>
                     </td>
-                    <td className="h-full align-top px-3 py-4 sm:px-4">
+                    <td className="h-full w-[1%] whitespace-nowrap align-top px-1.5 py-4 sm:px-2">
                       <div className="flex h-full min-h-full flex-col justify-start">
                         {bucketLabel ? (
                           <span className="w-fit rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
