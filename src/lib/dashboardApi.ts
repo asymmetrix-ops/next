@@ -452,7 +452,7 @@ class DashboardApiService {
     };
   }
 
-  // Deal Radar endpoint
+  // Deal Radar endpoint: `offset` is a row skip (0, 25, 50…); `next_page` is the next 1-based page number
   async getDealRadar(params: {
     limit: number;
     offset: number;

@@ -9,7 +9,11 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
-import { mapDealRadarItem, type DealRadarItem } from "@/lib/dealRadar";
+import {
+  appendDealRadarItems,
+  mapDealRadarItem,
+  type DealRadarItem,
+} from "@/lib/dealRadar";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -439,6 +443,11 @@ export default function HomeUserPage() {
   const [asymmetrixData, setAsymmetrixData] = useState<AsymmetrixData[]>([]);
 
   const DEAL_RADAR_PAGE_LIMIT = 25;
+  const DEAL_RADAR_SCROLL_THRESHOLD_PX = 48;
+
+  /** `next_page` from the API is 1-based; the `offset` query param is a row skip. */
+  const dealRadarPageToOffset = (page: number): number =>
+    Math.max(0, (page - 1) * DEAL_RADAR_PAGE_LIMIT);
 
   const dealRadarStageLabel = (status: string): string => {
     const s = status.toLowerCase();
@@ -479,6 +488,7 @@ export default function HomeUserPage() {
   const dealRadarScrollRef = useRef<HTMLDivElement | null>(null);
   const dealRadarNextPageRef = useRef<number | null>(null);
   const dealRadarLoadingMoreRef = useRef(false);
+  const dealRadarLoadedOffsetsRef = useRef<Set<number>>(new Set());
   const insightsCardRef = useRef<HTMLDivElement | null>(null);
   const [sideColumnHeight, setSideColumnHeight] = useState<number | null>(null);
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
@@ -946,10 +956,12 @@ export default function HomeUserPage() {
       setDealRadarLoading(true);
       setDealRadarNextPage(null);
       dealRadarNextPageRef.current = null;
+      dealRadarLoadedOffsetsRef.current = new Set();
 
+      const initialOffset = 0;
       const res = await dashboardApiService.getDealRadar({
         limit: DEAL_RADAR_PAGE_LIMIT,
-        offset: 0,
+        offset: initialOffset,
         signal: controller.signal,
       });
       if (generation !== dealRadarFetchGenerationRef.current) return;
@@ -959,6 +971,7 @@ export default function HomeUserPage() {
           mapDealRadarItem(item as unknown as Record<string, unknown>)
         )
       );
+      dealRadarLoadedOffsetsRef.current.add(initialOffset);
       setDealRadarNextPage(res.next_page);
       dealRadarNextPageRef.current = res.next_page;
     } catch (error) {
@@ -971,34 +984,80 @@ export default function HomeUserPage() {
     }
   }, []);
 
+  const isDealRadarNearBottom = useCallback((): boolean => {
+    const scrollRoot = dealRadarScrollRef.current;
+    if (!scrollRoot) return false;
+    const distanceFromBottom =
+      scrollRoot.scrollHeight -
+      scrollRoot.scrollTop -
+      scrollRoot.clientHeight;
+    return distanceFromBottom <= DEAL_RADAR_SCROLL_THRESHOLD_PX;
+  }, []);
+
   const loadMoreDealRadar = useCallback(async () => {
     const nextPage = dealRadarNextPageRef.current;
-    if (nextPage == null || dealRadarLoadingMoreRef.current) return;
+    if (nextPage == null || dealRadarLoadingMoreRef.current) {
+      return;
+    }
+
+    const requestOffset = dealRadarPageToOffset(nextPage);
+    if (dealRadarLoadedOffsetsRef.current.has(requestOffset)) {
+      return;
+    }
 
     dealRadarLoadingMoreRef.current = true;
+    dealRadarLoadedOffsetsRef.current.add(requestOffset);
     setDealRadarLoadingMore(true);
 
     try {
       const res = await dashboardApiService.getDealRadar({
         limit: DEAL_RADAR_PAGE_LIMIT,
-        offset: nextPage,
+        offset: requestOffset,
       });
 
-      setDealRadarItems((prev) => [
-        ...prev,
-        ...res.items.map((item) =>
-          mapDealRadarItem(item as unknown as Record<string, unknown>)
-        ),
-      ]);
+      const incoming = res.items.map((item) =>
+        mapDealRadarItem(item as unknown as Record<string, unknown>)
+      );
+
+      setDealRadarItems((prev) => appendDealRadarItems(prev, incoming));
       setDealRadarNextPage(res.next_page);
       dealRadarNextPageRef.current = res.next_page;
     } catch (error) {
       console.error("Error loading more Deal Radar items:", error);
+      dealRadarLoadedOffsetsRef.current.delete(requestOffset);
     } finally {
       dealRadarLoadingMoreRef.current = false;
       setDealRadarLoadingMore(false);
     }
   }, []);
+
+  const tryLoadMoreDealRadarIfNearBottom = useCallback(() => {
+    if (
+      dealRadarLoading ||
+      sideColumnHeight == null ||
+      dealRadarNextPageRef.current == null ||
+      dealRadarLoadingMoreRef.current
+    ) {
+      return;
+    }
+    if (isDealRadarNearBottom()) {
+      void loadMoreDealRadar();
+    }
+  }, [
+    dealRadarLoading,
+    isDealRadarNearBottom,
+    loadMoreDealRadar,
+    sideColumnHeight,
+  ]);
+
+  const scheduleDealRadarScrollCheck = useCallback(() => {
+    if (typeof window === "undefined") return;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        tryLoadMoreDealRadarIfNearBottom();
+      });
+    });
+  }, [tryLoadMoreDealRadarIfNearBottom]);
 
   const fetchCorporateEvents = useCallback(async () => {
     try {
@@ -1160,36 +1219,25 @@ export default function HomeUserPage() {
   useEffect(() => {
     const scrollRoot = dealRadarScrollRef.current;
     // Only paginate inside the fixed-height scroll area (never while unconstrained).
-    if (
-      !scrollRoot ||
-      dealRadarLoading ||
-      sideColumnHeight == null ||
-      dealRadarNextPage == null
-    ) {
+    if (!scrollRoot || dealRadarLoading || sideColumnHeight == null) {
       return;
     }
 
-    const maybeLoadMore = () => {
-      if (dealRadarNextPageRef.current == null || dealRadarLoadingMoreRef.current) {
-        return;
-      }
-      const distanceFromBottom =
-        scrollRoot.scrollHeight - scrollRoot.scrollTop - scrollRoot.clientHeight;
-      if (distanceFromBottom <= 48) {
-        loadMoreDealRadar();
-      }
+    const onScroll = () => {
+      tryLoadMoreDealRadarIfNearBottom();
     };
 
-    scrollRoot.addEventListener("scroll", maybeLoadMore, { passive: true });
-    maybeLoadMore();
+    scrollRoot.addEventListener("scroll", onScroll, { passive: true });
+    scheduleDealRadarScrollCheck();
 
-    return () => scrollRoot.removeEventListener("scroll", maybeLoadMore);
+    return () => scrollRoot.removeEventListener("scroll", onScroll);
   }, [
     dealRadarLoading,
-    dealRadarItems.length,
+    dealRadarLoadingMore,
     dealRadarNextPage,
-    loadMoreDealRadar,
+    scheduleDealRadarScrollCheck,
     sideColumnHeight,
+    tryLoadMoreDealRadarIfNearBottom,
   ]);
 
   useEffect(() => {
@@ -1747,14 +1795,14 @@ export default function HomeUserPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {dealRadarItems.map((item, idx) => {
+                        {dealRadarItems.map((item) => {
                           const stageStyle = dealRadarStageStyle(
                             item.transactionStatus
                           );
 
                           return (
                             <tr
-                              key={`${item.companyId}-${idx}`}
+                              key={item.companyId}
                               className="align-top hover:bg-gray-50"
                             >
                               <td className="px-4 py-4">

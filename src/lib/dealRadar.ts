@@ -152,6 +152,23 @@ const mapDealRadarLatestContent = (
   };
 };
 
+/** Append a page of results without duplicate companies (by companyId). */
+export const appendDealRadarItems = (
+  existing: DealRadarItem[],
+  incoming: DealRadarItem[]
+): DealRadarItem[] => {
+  if (incoming.length === 0) return existing;
+
+  const seen = new Set(existing.map((item) => item.companyId));
+  const uniqueIncoming = incoming.filter((item) => {
+    if (!item.companyId || seen.has(item.companyId)) return false;
+    seen.add(item.companyId);
+    return true;
+  });
+
+  return uniqueIncoming.length > 0 ? [...existing, ...uniqueIncoming] : existing;
+};
+
 export const mapDealRadarItem = (raw: Record<string, unknown>): DealRadarItem => {
   const companyId = Number(raw.company_id);
   const primarySectorsRaw =
