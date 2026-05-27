@@ -8,6 +8,7 @@ import { trackEvent } from "@/lib/tracking";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
+import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
 import { mapDealRadarItem, type DealRadarItem } from "@/lib/dealRadar";
 // import { useRightClick } from "@/hooks/useRightClick";
 
@@ -142,19 +143,6 @@ export default function HomeUserPage() {
     trialDaysLeft,
   } = useAuth();
   // Right-click handled via native anchors now
-
-  const [showSearchNewFeatureTip, setShowSearchNewFeatureTip] = useState(true);
-
-  useEffect(() => {
-    try {
-      const dismissed = localStorage.getItem(
-        "asym_global_search_new_feature_tip_dismissed"
-      );
-      if (dismissed === "1") setShowSearchNewFeatureTip(false);
-    } catch {
-      // ignore
-    }
-  }, []);
 
   // Helper function to format dates consistently
   const formatDate = (dateString?: string) => {
@@ -1189,48 +1177,12 @@ export default function HomeUserPage() {
         <div className="flex items-center justify-between gap-4 sm:gap-6 mb-4 sm:mb-6 w-full">
           <div
             ref={searchWrapRef}
-            className={`global-search-tooltip relative w-full min-w-0 rounded-lg border-2 bg-white shadow-sm lg:w-[calc(50%-0.75rem)] xl:w-[30%] ${
+            className={`relative w-full min-w-0 rounded-lg border-2 bg-white shadow-sm lg:w-[calc(50%-0.75rem)] xl:w-[30%] ${
               isTrialActive
                 ? "border-gray-200"
                 : "border-blue-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"
             }`}
           >
-            {showSearchNewFeatureTip && (
-              <div className="global-search-feature-tip">
-                <span>New Feature</span>
-                <button
-                  type="button"
-                  className="global-search-feature-tip-close"
-                  aria-label="Dismiss"
-                  onClick={() => {
-                    setShowSearchNewFeatureTip(false);
-                    try {
-                      localStorage.setItem(
-                        "asym_global_search_new_feature_tip_dismissed",
-                        "1"
-                      );
-                    } catch {
-                      // ignore
-                    }
-                  }}
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            )}
             <input
               type="search"
               value={searchQuery}
@@ -1341,11 +1293,19 @@ export default function HomeUserPage() {
             )}
           </div>
           <div className="shrink-0 ml-auto">
-            <RequestDataResearchButton
-              label="Request Data and Research"
-              context="dashboard"
-              sourcePage="Dashboard"
-            />
+            <NewFeatureCallout
+              featureKey="dashboard-request-data-research"
+              launchedAt="2026-05-26T00:00:00.000Z"
+              durationDays={30}
+              persistDismissal
+              side="left"
+            >
+              <RequestDataResearchButton
+                label="Request Data and Research"
+                context="dashboard"
+                sourcePage="Dashboard"
+              />
+            </NewFeatureCallout>
           </div>
         </div>
 
@@ -1633,12 +1593,20 @@ export default function HomeUserPage() {
                     <path d="M20.49 3.51a12 12 0 0 1 0 16.97M3.51 3.51a12 12 0 0 0 0 16.97" />
                   </svg>
                 </div>
-                <h2
-                  className="text-base font-semibold text-gray-900 sm:text-lg"
-                  style={{ fontWeight: "600" }}
+                <NewFeatureCallout
+                  featureKey="dashboard-deal-radar"
+                  launchedAt="2026-05-26T00:00:00.000Z"
+                  durationDays={30}
+                  persistDismissal
+                  side="right"
                 >
-                  Deal Radar
-                </h2>
+                  <h2
+                    className="text-base font-semibold text-gray-900 sm:text-lg"
+                    style={{ fontWeight: "600" }}
+                  >
+                    Deal Radar
+                  </h2>
+                </NewFeatureCallout>
               </div>
             </div>
             <div>
@@ -3130,68 +3098,6 @@ export default function HomeUserPage() {
         </div>
       </main>
       <Footer />
-
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-          /* Always-visible "New Feature" bubble above search input */
-          .global-search-tooltip{
-            position: relative;
-          }
-          .global-search-feature-tip{
-            position: absolute;
-            left: 0;
-            bottom: calc(100% + 10px);
-            background: rgba(17, 24, 39, 0.95);
-            color: #fff;
-            font-size: 12px;
-            line-height: 1.2;
-            padding: 8px 10px;
-            border-radius: 6px;
-            white-space: nowrap;
-            z-index: 60;
-            pointer-events: auto;
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-          }
-          .global-search-feature-tip-close{
-            appearance: none;
-            border: 0;
-            background: transparent;
-            color: inherit;
-            padding: 0;
-            margin: 0;
-            cursor: pointer;
-            opacity: 0.9;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 20px;
-            height: 20px;
-            border-radius: 4px;
-          }
-          .global-search-feature-tip-close:hover{
-            opacity: 1;
-            background: rgba(255,255,255,0.10);
-          }
-          .global-search-feature-tip::before{
-            content: '';
-            position: absolute;
-            left: 14px;
-            top: 100%;
-            border: 6px solid transparent;
-            border-top-color: rgba(17, 24, 39, 0.95);
-            z-index: 61;
-            pointer-events: none;
-          }
-          @media (max-width: 640px){
-            .global-search-feature-tip{ max-width: 92vw; }
-          }
-        `,
-        }}
-      />
     </div>
   );
 }

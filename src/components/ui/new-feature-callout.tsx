@@ -23,6 +23,11 @@ type NewFeatureCalloutProps = {
   className?: string;
   /** If true, only open the popover once the target enters the viewport. */
   openWhenInView?: boolean;
+  /**
+   * Popover position relative to the anchor.
+   * `auto` centers above/below; `right` / `left` sit beside the anchor (vertically centered).
+   */
+  side?: "auto" | "left" | "right";
   children: React.ReactNode;
 };
 
@@ -60,6 +65,7 @@ export function NewFeatureCallout({
   persistDismissal = false,
   className,
   openWhenInView = false,
+  side = "auto",
   children,
 }: NewFeatureCalloutProps) {
   const launchedAtMs = React.useMemo(() => toMs(launchedAt), [launchedAt]);
@@ -128,8 +134,10 @@ export function NewFeatureCallout({
       setIsMobile(typeof window !== "undefined" && window.innerWidth <= 768);
       const rect = el.getBoundingClientRect();
       setAnchorRect(rect);
-      // If there's not enough space above, flip to bottom.
-      setPlacement(rect.top < 120 ? "bottom" : "top");
+      if (side === "auto") {
+        // If there's not enough space above, flip to bottom.
+        setPlacement(rect.top < 120 ? "bottom" : "top");
+      }
     };
     update();
     // Keep it anchored during scroll/resize/layout shifts.
@@ -160,7 +168,7 @@ export function NewFeatureCallout({
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open]);
+  }, [open, side]);
 
   const visible = ready && withinWindow && !dismissed;
   if (!visible) return <>{children}</>;
@@ -193,37 +201,47 @@ export function NewFeatureCallout({
               "ring-1 ring-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.35)]",
               "px-4 py-3"
             )}
-            style={
-              isMobile
-                ? (() => {
-                    const padding = 16;
-                    const halfPopoverMax = 120;
-                    const viewportW =
-                      typeof window !== "undefined" ? window.innerWidth : 800;
-                    const center =
-                      anchorRect.left + anchorRect.width / 2;
-                    const clampedLeft = Math.max(
-                      padding + halfPopoverMax,
-                      Math.min(
-                        viewportW - padding - halfPopoverMax,
-                        center
-                      )
-                    );
-                    return {
-                      left: clampedLeft,
-                      top: anchorRect.bottom + 10,
-                      transform: "translate(-50%, 0)",
-                    };
-                  })()
-                : {
-                    left: anchorRect.right,
-                    top: placement === "top" ? anchorRect.top : anchorRect.bottom,
-                    transform:
-                      placement === "top"
-                        ? "translate(calc(-100% + 0px), calc(-100% - 10px))"
-                        : "translate(calc(-100% + 0px), 10px)",
-                  }
-            }
+            style={(() => {
+              const gap = 10;
+              const padding = 16;
+              const halfPopoverMax = 120;
+              const viewportW =
+                typeof window !== "undefined" ? window.innerWidth : 800;
+              const centerY = anchorRect.top + anchorRect.height / 2;
+              const useHorizontal =
+                !isMobile && (side === "left" || side === "right");
+
+              if (useHorizontal && side === "right") {
+                return {
+                  left: anchorRect.right + gap,
+                  top: centerY,
+                  transform: "translate(0, -50%)",
+                };
+              }
+
+              if (useHorizontal && side === "left") {
+                return {
+                  left: anchorRect.left - gap,
+                  top: centerY,
+                  transform: "translate(-100%, -50%)",
+                };
+              }
+
+              const center = anchorRect.left + anchorRect.width / 2;
+              const clampedLeft = Math.max(
+                padding + halfPopoverMax,
+                Math.min(viewportW - padding - halfPopoverMax, center)
+              );
+              const showBelow =
+                isMobile || placement === "bottom" || anchorRect.top < 140;
+              return {
+                left: clampedLeft,
+                top: showBelow ? anchorRect.bottom + gap : anchorRect.top - gap,
+                transform: showBelow
+                  ? "translate(-50%, 0)"
+                  : "translate(-50%, -100%)",
+              };
+            })()}
           >
             <div className="flex items-center justify-between gap-3">
               <div className="text-sm font-semibold tracking-tight">
