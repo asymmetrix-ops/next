@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
@@ -438,7 +438,7 @@ export default function HomeUserPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [asymmetrixData, setAsymmetrixData] = useState<AsymmetrixData[]>([]);
 
-  const DEAL_RADAR_LIMIT = 25;
+  const DEAL_RADAR_PAGE_LIMIT = 25;
 
   const dealRadarStageLabel = (status: string): string => {
     const s = status.toLowerCase();
@@ -471,13 +471,16 @@ export default function HomeUserPage() {
   };
 
   const [dealRadarItems, setDealRadarItems] = useState<DealRadarItem[]>([]);
-  const [dealRadarTotal, setDealRadarTotal] = useState(0);
   const [dealRadarNextPage, setDealRadarNextPage] = useState<number | null>(null);
   const [dealRadarLoading, setDealRadarLoading] = useState(true);
   const [dealRadarLoadingMore, setDealRadarLoadingMore] = useState(false);
   const dealRadarFetchAbortRef = useRef<AbortController | null>(null);
   const dealRadarFetchGenerationRef = useRef(0);
-  const dealRadarLoadMoreGenerationRef = useRef(0);
+  const dealRadarScrollRef = useRef<HTMLDivElement | null>(null);
+  const dealRadarNextPageRef = useRef<number | null>(null);
+  const dealRadarLoadingMoreRef = useRef(false);
+  const insightsCardRef = useRef<HTMLDivElement | null>(null);
+  const [sideColumnHeight, setSideColumnHeight] = useState<number | null>(null);
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(true);
   const [insightsArticlesLoading, setInsightsArticlesLoading] = useState(true);
@@ -941,21 +944,23 @@ export default function HomeUserPage() {
 
     try {
       setDealRadarLoading(true);
+      setDealRadarNextPage(null);
+      dealRadarNextPageRef.current = null;
+
       const res = await dashboardApiService.getDealRadar({
-        limit: DEAL_RADAR_LIMIT,
+        limit: DEAL_RADAR_PAGE_LIMIT,
         offset: 0,
         signal: controller.signal,
       });
       if (generation !== dealRadarFetchGenerationRef.current) return;
 
-      // Preserve API `items` array order (no client-side sort).
       setDealRadarItems(
         res.items.map((item) =>
           mapDealRadarItem(item as unknown as Record<string, unknown>)
         )
       );
-      setDealRadarTotal(res.total);
       setDealRadarNextPage(res.next_page);
+      dealRadarNextPageRef.current = res.next_page;
     } catch (error) {
       if (controller.signal.aborted) return;
       console.error("Error fetching Deal Radar:", error);
@@ -967,32 +972,33 @@ export default function HomeUserPage() {
   }, []);
 
   const loadMoreDealRadar = useCallback(async () => {
-    if (dealRadarLoadingMore || dealRadarNextPage == null) return;
+    const nextPage = dealRadarNextPageRef.current;
+    if (nextPage == null || dealRadarLoadingMoreRef.current) return;
 
-    const generation = ++dealRadarLoadMoreGenerationRef.current;
-    const page = dealRadarNextPage;
+    dealRadarLoadingMoreRef.current = true;
+    setDealRadarLoadingMore(true);
 
     try {
-      setDealRadarLoadingMore(true);
       const res = await dashboardApiService.getDealRadar({
-        limit: DEAL_RADAR_LIMIT,
-        offset: page,
+        limit: DEAL_RADAR_PAGE_LIMIT,
+        offset: nextPage,
       });
-      if (generation !== dealRadarLoadMoreGenerationRef.current) return;
 
-      const nextItems = res.items.map((item) =>
-        mapDealRadarItem(item as unknown as Record<string, unknown>)
-      );
-      setDealRadarItems((prev) => [...prev, ...nextItems]);
+      setDealRadarItems((prev) => [
+        ...prev,
+        ...res.items.map((item) =>
+          mapDealRadarItem(item as unknown as Record<string, unknown>)
+        ),
+      ]);
       setDealRadarNextPage(res.next_page);
+      dealRadarNextPageRef.current = res.next_page;
     } catch (error) {
       console.error("Error loading more Deal Radar items:", error);
     } finally {
-      if (generation === dealRadarLoadMoreGenerationRef.current) {
-        setDealRadarLoadingMore(false);
-      }
+      dealRadarLoadingMoreRef.current = false;
+      setDealRadarLoadingMore(false);
     }
-  }, [dealRadarNextPage, dealRadarLoadingMore]);
+  }, []);
 
   const fetchCorporateEvents = useCallback(async () => {
     try {
@@ -1091,6 +1097,100 @@ export default function HomeUserPage() {
     if (authLoading || !isAuthenticated) return;
     fetchDealRadar();
   }, [authLoading, isAuthenticated, fetchDealRadar]);
+
+  // I&A sets the row height; Deal Radar + CE match it and scroll inside.
+  const syncInsightsColumnHeight = useCallback(() => {
+    const el = insightsCardRef.current;
+    if (!el) return;
+    const h = Math.round(el.offsetHeight);
+    if (h > 0) {
+      setSideColumnHeight((prev) => (prev === h ? prev : h));
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    if (insightsArticlesLoading) return;
+    syncInsightsColumnHeight();
+    const raf = requestAnimationFrame(syncInsightsColumnHeight);
+    const el = insightsCardRef.current;
+    if (!el) return () => cancelAnimationFrame(raf);
+
+    const ro = new ResizeObserver(syncInsightsColumnHeight);
+    ro.observe(el);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [
+    insightsArticlesLoading,
+    insightsArticles.length,
+    dealRadarLoading,
+    corporateEventsLoading,
+    syncInsightsColumnHeight,
+  ]);
+
+  // Re-sync after side columns paint so height stays locked to I&A.
+  useLayoutEffect(() => {
+    if (
+      insightsArticlesLoading ||
+      dealRadarLoading ||
+      corporateEventsLoading
+    ) {
+      return;
+    }
+    syncInsightsColumnHeight();
+  }, [
+    dealRadarLoading,
+    dealRadarItems.length,
+    corporateEventsLoading,
+    corporateEvents.length,
+    insightsArticlesLoading,
+    syncInsightsColumnHeight,
+  ]);
+
+  const sideColumnHeightStyle: React.CSSProperties | undefined =
+    sideColumnHeight != null
+      ? {
+          height: sideColumnHeight,
+          maxHeight: sideColumnHeight,
+          minHeight: sideColumnHeight,
+        }
+      : undefined;
+
+  useEffect(() => {
+    const scrollRoot = dealRadarScrollRef.current;
+    // Only paginate inside the fixed-height scroll area (never while unconstrained).
+    if (
+      !scrollRoot ||
+      dealRadarLoading ||
+      sideColumnHeight == null ||
+      dealRadarNextPage == null
+    ) {
+      return;
+    }
+
+    const maybeLoadMore = () => {
+      if (dealRadarNextPageRef.current == null || dealRadarLoadingMoreRef.current) {
+        return;
+      }
+      const distanceFromBottom =
+        scrollRoot.scrollHeight - scrollRoot.scrollTop - scrollRoot.clientHeight;
+      if (distanceFromBottom <= 48) {
+        loadMoreDealRadar();
+      }
+    };
+
+    scrollRoot.addEventListener("scroll", maybeLoadMore, { passive: true });
+    maybeLoadMore();
+
+    return () => scrollRoot.removeEventListener("scroll", maybeLoadMore);
+  }, [
+    dealRadarLoading,
+    dealRadarItems.length,
+    dealRadarNextPage,
+    loadMoreDealRadar,
+    sideColumnHeight,
+  ]);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
@@ -1572,10 +1672,13 @@ export default function HomeUserPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3 lg:items-start">
           {/* Deal Radar - last on mobile, first on lg+ */}
-          <div className="bg-white rounded-lg shadow order-3 lg:order-1 flex flex-col">
-            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4">
+          <div
+            className="grid grid-rows-[auto_1fr] overflow-hidden bg-white rounded-lg shadow order-3 lg:order-1"
+            style={sideColumnHeightStyle}
+          >
+            <div className="flex items-center justify-between p-3 border-b border-gray-200 sm:p-4 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700 shrink-0">
                   <svg
@@ -1609,7 +1712,10 @@ export default function HomeUserPage() {
                 </NewFeatureCallout>
               </div>
             </div>
-            <div>
+            <div
+              ref={dealRadarScrollRef}
+              className="min-h-0 min-w-0 overflow-y-auto overflow-x-auto"
+            >
               {dealRadarLoading ? (
                 <div className="p-4 space-y-3">
                   {Array.from({ length: 6 }).map((_, i) => (
@@ -1627,7 +1733,7 @@ export default function HomeUserPage() {
               ) : dealRadarItems.length > 0 ? (
                 <div className="min-w-full">
                     <table className="w-full">
-                      <thead className="bg-gray-50">
+                      <thead className="sticky top-0 z-10 bg-gray-50">
                         <tr>
                           <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Company
@@ -1757,29 +1863,33 @@ export default function HomeUserPage() {
                         })}
                       </tbody>
                     </table>
-                  {dealRadarNextPage != null &&
-                    dealRadarItems.length < dealRadarTotal && (
-                    <div className="px-4 py-3 border-t border-gray-200">
-                      <button
-                        type="button"
-                        disabled={dealRadarLoadingMore}
-                        onClick={loadMoreDealRadar}
-                        className="w-full py-1.5 text-xs font-medium text-blue-700 hover:text-blue-900 hover:bg-blue-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {dealRadarLoadingMore ? (
-                          <span className="flex items-center justify-center gap-1.5">
-                            <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                            </svg>
-                            Loading…
-                          </span>
-                        ) : (
-                          `Load more (${dealRadarTotal - dealRadarItems.length} remaining)`
-                        )}
-                      </button>
-                    </div>
-                  )}
+                    {dealRadarLoadingMore && (
+                      <div className="flex justify-center px-4 py-3 border-t border-gray-100">
+                        <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                          <svg
+                            className="w-3 h-3 animate-spin"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            aria-hidden="true"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8v8H4z"
+                            />
+                          </svg>
+                          Loading more…
+                        </span>
+                      </div>
+                    )}
                 </div>
               ) : (
                 <div className="p-4 py-6 text-center sm:py-8">
@@ -1790,7 +1900,10 @@ export default function HomeUserPage() {
           </div>
 
           {/* Insights & Analysis - first on mobile */}
-          <div className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-1 lg:order-2">
+          <div
+            ref={insightsCardRef}
+            className="flex flex-col bg-white rounded-lg shadow border-2 border-blue-200 order-1 lg:order-2"
+          >
             <div className="flex items-center p-3 border-b border-gray-200 sm:p-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 text-blue-700">
@@ -1820,7 +1933,7 @@ export default function HomeUserPage() {
                 </a>
               </div>
             </div>
-            <div className="flex-1 p-3 overflow-y-auto sm:p-4">
+            <div className="p-3 sm:p-4">
               {insightsArticlesLoading ? (
                 <div className="py-6 text-center sm:py-8">
                   <p className="text-sm text-gray-500">
@@ -1940,8 +2053,11 @@ export default function HomeUserPage() {
           </div>
 
           {/* Corporate Events - second on mobile */}
-          <div className="flex flex-col bg-white rounded-lg shadow order-2 lg:order-3">
-            <div className="flex items-center p-3 border-b border-gray-200 sm:p-4">
+          <div
+            className="grid grid-rows-[auto_1fr] overflow-hidden bg-white rounded-lg shadow order-2 lg:order-3"
+            style={sideColumnHeightStyle}
+          >
+            <div className="flex items-center p-3 border-b border-gray-200 sm:p-4 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-700">
                   <svg
@@ -1970,7 +2086,7 @@ export default function HomeUserPage() {
                 </a>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="min-h-0 min-w-0 overflow-y-auto overflow-x-auto">
               {corporateEventsLoading ? (
                 <div className="p-4 text-center">
                   <p className="text-sm text-gray-500">
@@ -2489,8 +2605,8 @@ export default function HomeUserPage() {
                     </div>
                   </div>
 
-                  {/* Desktop view - table */}
-                  <div className="hidden lg:block overflow-x-auto max-h-[800px]">
+                  {/* Desktop view - table (scroll handled by parent column body) */}
+                  <div className="hidden lg:block min-w-full">
                     <table className="w-full min-w-max table-fixed">
                       <colgroup>
                         <col />
@@ -2498,18 +2614,18 @@ export default function HomeUserPage() {
                         <col />
                         <col />
                       </colgroup>
-                      <thead className="sticky top-0 bg-gray-50">
+                      <thead className="sticky top-0 z-10 bg-gray-50">
                         <tr>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Event Details
                           </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Parties
                           </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Deal Details
                           </th>
-                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                          <th className="px-4 py-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase bg-gray-50">
                             Sectors
                           </th>
                         </tr>
