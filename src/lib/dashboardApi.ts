@@ -456,16 +456,15 @@ class DashboardApiService {
   async getDealRadar(params: {
     limit: number;
     offset: number;
+    signal?: AbortSignal;
   }): Promise<{
     items: Array<{
       company_id: number;
       name: string;
+      transaction_status_id?: number;
       transaction_status: string;
       last_updated_at: string;
-      primary_sectors: Array<{
-        id: number;
-        name: string;
-      }>;
+      primary_sectors: unknown;
       latest_content: {
         id: number;
         headline: string;
@@ -480,18 +479,24 @@ class DashboardApiService {
     total_pages: number;
     next_page: number | null;
   }> {
-    const dealRadarBaseUrl =
-      "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
-    const url = new URL(`${dealRadarBaseUrl}/get_deal_radar`);
+    const url = new URL(
+      "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/get_deal_radar"
+    );
     url.searchParams.set("limit", String(params.limit));
     url.searchParams.set("offset", String(params.offset));
 
     const headers = {
       "Content-Type": "application/json",
+      "X-Data-Source": "live",
       ...authService.getAuthHeaders(),
     };
 
-    const response = await fetch(url.toString(), { method: "GET", headers });
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers,
+      cache: "no-store",
+      signal: params.signal,
+    });
 
     if (!response.ok) {
       if (response.status === 401) throw new Error("Authentication required");

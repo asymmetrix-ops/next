@@ -8,6 +8,7 @@ import { trackEvent } from "@/lib/tracking";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
+import { mapDealRadarItem, type DealRadarItem } from "@/lib/dealRadar";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
@@ -451,26 +452,6 @@ export default function HomeUserPage() {
 
   const DEAL_RADAR_LIMIT = 25;
 
-  type DealRadarSector = {
-    id: number;
-    name: string;
-  };
-
-  type DealRadarLatestContent = {
-    id: number;
-    headline: string;
-    contentType: string;
-    publicationDate: string;
-  };
-
-  type DealRadarItem = {
-    companyId: number;
-    companyName: string;
-    transactionStatus: string;
-    primarySectors: DealRadarSector[];
-    latestContent: DealRadarLatestContent | null;
-  };
-
   const dealRadarStageLabel = (status: string): string => {
     const s = status.toLowerCase();
     if (s.includes("reported")) return "Reported";
@@ -501,69 +482,14 @@ export default function HomeUserPage() {
     };
   };
 
-  const normalizeDealRadarSectorName = (raw: string): string =>
-    raw
-      .trim()
-      .replace(/\\u0022/g, '"')
-      .replace(/^["']+|["']+$/g, "")
-      .trim();
-
-  const mapDealRadarPrimarySectors = (
-    sectors: Array<string | { id?: number; name?: string }> | undefined
-  ): DealRadarSector[] => {
-    if (!Array.isArray(sectors)) return [];
-
-    return sectors
-      .map((sector) => {
-        if (typeof sector === "string") {
-          const name = normalizeDealRadarSectorName(sector);
-          return name ? { id: 0, name } : null;
-        }
-
-        if (sector && typeof sector === "object") {
-          const name = normalizeDealRadarSectorName(String(sector.name || ""));
-          if (!name) return null;
-
-          const id = Number(sector.id);
-          return Number.isFinite(id) && id > 0 ? { id, name } : { id: 0, name };
-        }
-
-        return null;
-      })
-      .filter((sector): sector is DealRadarSector => sector !== null);
-  };
-
-  const mapDealRadarItem = (i: {
-    company_id: number;
-    name: string;
-    transaction_status: string;
-    primary_sectors: Array<string | { id?: number; name?: string }>;
-    latest_content: {
-      id: number;
-      headline: string;
-      content_type: string;
-      publication_date: string;
-    } | null;
-  }): DealRadarItem => ({
-    companyId: i.company_id,
-    companyName: i.name,
-    transactionStatus: i.transaction_status,
-    primarySectors: mapDealRadarPrimarySectors(i.primary_sectors),
-    latestContent: i.latest_content
-      ? {
-          id: i.latest_content.id,
-          headline: i.latest_content.headline,
-          contentType: i.latest_content.content_type,
-          publicationDate: i.latest_content.publication_date,
-        }
-      : null,
-  });
-
   const [dealRadarItems, setDealRadarItems] = useState<DealRadarItem[]>([]);
   const [dealRadarTotal, setDealRadarTotal] = useState(0);
   const [dealRadarNextPage, setDealRadarNextPage] = useState<number | null>(null);
   const [dealRadarLoading, setDealRadarLoading] = useState(true);
   const [dealRadarLoadingMore, setDealRadarLoadingMore] = useState(false);
+  const dealRadarFetchAbortRef = useRef<AbortController | null>(null);
+  const dealRadarFetchGenerationRef = useRef(0);
+  const dealRadarLoadMoreGenerationRef = useRef(0);
   const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(true);
   const [insightsArticlesLoading, setInsightsArticlesLoading] = useState(true);
@@ -1020,39 +946,63 @@ export default function HomeUserPage() {
   }, []);
 
   const fetchDealRadar = useCallback(async () => {
+    dealRadarFetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    dealRadarFetchAbortRef.current = controller;
+    const generation = ++dealRadarFetchGenerationRef.current;
+
     try {
       setDealRadarLoading(true);
       const res = await dashboardApiService.getDealRadar({
         limit: DEAL_RADAR_LIMIT,
-        offset: 1,
+        offset: 0,
+        signal: controller.signal,
       });
-      setDealRadarItems(res.items.map(mapDealRadarItem));
+      if (generation !== dealRadarFetchGenerationRef.current) return;
+
+      // Preserve API `items` array order (no client-side sort).
+      setDealRadarItems(
+        res.items.map((item) =>
+          mapDealRadarItem(item as unknown as Record<string, unknown>)
+        )
+      );
       setDealRadarTotal(res.total);
       setDealRadarNextPage(res.next_page);
     } catch (error) {
+      if (controller.signal.aborted) return;
       console.error("Error fetching Deal Radar:", error);
     } finally {
-      setDealRadarLoading(false);
+      if (generation === dealRadarFetchGenerationRef.current) {
+        setDealRadarLoading(false);
+      }
     }
   }, []);
 
   const loadMoreDealRadar = useCallback(async () => {
     if (dealRadarLoadingMore || dealRadarNextPage == null) return;
+
+    const generation = ++dealRadarLoadMoreGenerationRef.current;
+    const page = dealRadarNextPage;
+
     try {
       setDealRadarLoadingMore(true);
       const res = await dashboardApiService.getDealRadar({
         limit: DEAL_RADAR_LIMIT,
-        offset: dealRadarNextPage,
+        offset: page,
       });
-      setDealRadarItems((prev) => [
-        ...prev,
-        ...res.items.map(mapDealRadarItem),
-      ]);
+      if (generation !== dealRadarLoadMoreGenerationRef.current) return;
+
+      const nextItems = res.items.map((item) =>
+        mapDealRadarItem(item as unknown as Record<string, unknown>)
+      );
+      setDealRadarItems((prev) => [...prev, ...nextItems]);
       setDealRadarNextPage(res.next_page);
     } catch (error) {
       console.error("Error loading more Deal Radar items:", error);
     } finally {
-      setDealRadarLoadingMore(false);
+      if (generation === dealRadarLoadMoreGenerationRef.current) {
+        setDealRadarLoadingMore(false);
+      }
     }
   }, [dealRadarNextPage, dealRadarLoadingMore]);
 
@@ -1723,13 +1673,16 @@ export default function HomeUserPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {dealRadarItems.map((item) => {
+                        {dealRadarItems.map((item, idx) => {
                           const stageStyle = dealRadarStageStyle(
                             item.transactionStatus
                           );
 
                           return (
-                            <tr key={item.companyId} className="align-top hover:bg-gray-50">
+                            <tr
+                              key={`${item.companyId}-${idx}`}
+                              className="align-top hover:bg-gray-50"
+                            >
                               <td className="px-4 py-4">
                                 <div className="space-y-1">
                                   <a
@@ -1908,10 +1861,7 @@ export default function HomeUserPage() {
                 </div>
               ) : insightsArticles.length > 0 ? (
                 <div className="space-y-4">
-                  {[...insightsArticles]
-                    .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
-                    .slice(0, 10)
-                    .map((article) => {
+                  {insightsArticles.slice(0, 10).map((article) => {
                     const ct = (
                       article.Content_Type ||
                       article.content_type ||
