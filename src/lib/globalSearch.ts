@@ -186,25 +186,29 @@ export function fetchGlobalSearchProgressive(
     sourcesOverride ??
     (pageType ? [typeToSource[pageType] ?? "company"] : [...SEARCH_SOURCES]);
 
-  let pending = sources.length;
-
-  sources.forEach((source) => {
+  const promises = sources.map((source) =>
     fetchGlobalSearchBySource(q, source, signal)
-      .then(({ items }) => {
-        if (items.length > 0) {
-          onBatch(items, source);
-        }
-      })
-      .catch((err) => {
-        onError?.(source, err);
-      })
-      .finally(() => {
-        pending -= 1;
-        if (pending === 0) {
-          onComplete();
-        }
-      });
-  });
+      .then(({ items }) => ({ items, source, error: null as unknown }))
+      .catch((err: unknown) => ({ items: [] as GlobalSearchResult[], source, error: err }))
+  );
+
+  Promise.all(promises).then((results) => {
+    if (signal?.aborted) return;
+
+    const allItems: GlobalSearchResult[] = [];
+    for (const result of results) {
+      if (result.error) {
+        onError?.(result.source, result.error);
+      } else if (result.items.length > 0) {
+        allItems.push(...result.items);
+      }
+    }
+
+    if (allItems.length > 0) {
+      onBatch(allItems, sources[0]);
+    }
+    onComplete();
+    });
 }
 
 /**
