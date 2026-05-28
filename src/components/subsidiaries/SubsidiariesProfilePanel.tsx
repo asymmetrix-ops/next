@@ -27,6 +27,8 @@ type SubsidiariesProfilePanelProps = {
   tokens: SubsidiariesProfileTokens;
   subsidiaries: SubsidiaryProfileRecord[];
   maxInitial?: number;
+  /** `narrow` = single grid column; fits Revenue-model width */
+  layout?: "default" | "narrow";
 };
 
 const HEADERS = [
@@ -131,7 +133,11 @@ function MiniSpark({
 }
 
 export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
-  ({ tokens: T, subsidiaries: rawSubs, maxInitial = 3 }) => {
+  ({ tokens: T, subsidiaries: rawSubs, maxInitial = 3, layout = "default" }) => {
+    const narrow = layout === "narrow";
+    const headers = narrow
+      ? (["Company", "Sector", "Country"] as const)
+      : HEADERS;
     const { createClickableElement } = useRightClick();
 
     const [showAll, setShowAll] = useState(false);
@@ -154,7 +160,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
       n === 0 ? "" : `${n} ${n === 1 ? "subsidiary" : "subsidiaries"}`;
 
     return (
-      <div style={{ fontFamily: T.sans }}>
+      <div style={{ fontFamily: T.sans, minWidth: 0, maxWidth: "100%" }}>
         <div
           style={{
             display: "flex",
@@ -180,18 +186,19 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
           ) : null}
         </div>
 
-        <div style={{ overflowX: "auto" }}>
+        <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0 }}>
           <table
             style={{
               width: "100%",
-              minWidth: "820px",
+              minWidth: narrow ? 0 : "820px",
+              tableLayout: narrow ? "fixed" : "auto",
               borderCollapse: "collapse",
-              fontSize: "12.5px",
+              fontSize: narrow ? "12px" : "12.5px",
             }}
           >
             <thead>
               <tr style={{ background: T.paper }}>
-                {HEADERS.map((h) => (
+                {headers.map((h) => (
                   <th
                     key={h}
                     style={{
@@ -226,6 +233,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                     ? subsidiary.linkedin_growth_pct
                     : null;
 
+                const cellPad = narrow ? "10px 8px" : "10px 12px";
                 return (
                   <tr
                     key={subsidiary.id}
@@ -233,79 +241,102 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                       borderBottom: last ? "none" : `1px solid ${T.hair}`,
                     }}
                   >
-                    <td style={{ padding: "10px 12px" }}>
+                    <td style={{ padding: cellPad }}>
                       <div
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: 10,
+                          gap: narrow ? 8 : 10,
+                          minWidth: 0,
                         }}
                       >
                         <LogoLetter name={subsidiary.name} T={T} />
-                        {createClickableElement(
-                          `/new_company/${subsidiary.id}`,
-                          subsidiary.name,
-                          undefined,
-                          {
-                            color: T.azure,
-                            fontWeight: 500,
-                            textDecoration: "underline",
-                          }
-                        )}
+                        <span
+                          style={{
+                            minWidth: 0,
+                            overflow: narrow ? "hidden" : undefined,
+                            textOverflow: narrow ? "ellipsis" : undefined,
+                            whiteSpace: narrow ? "nowrap" : undefined,
+                          }}
+                        >
+                          {createClickableElement(
+                            `/new_company/${subsidiary.id}`,
+                            subsidiary.name,
+                            undefined,
+                            {
+                              color: T.azure,
+                              fontWeight: 500,
+                              textDecoration: "underline",
+                            }
+                          )}
+                        </span>
                       </div>
                     </td>
                     <td
                       style={{
-                        padding: "10px 12px",
+                        padding: cellPad,
                         color: T.muted,
+                        overflow: narrow ? "hidden" : undefined,
+                        textOverflow: narrow ? "ellipsis" : undefined,
+                        whiteSpace: narrow ? "nowrap" : undefined,
                       }}
                     >
                       {sectorLabel(subsidiary)}
                     </td>
                     <td
                       style={{
-                        padding: "10px 12px",
+                        padding: cellPad,
                         fontFamily: T.mono,
                         color: T.body,
+                        whiteSpace: narrow ? "nowrap" : undefined,
                       }}
                     >
                       {subsidiary._locations?.Country?.trim() || "—"}
                     </td>
-                    <td
-                      style={{
-                        padding: "10px 12px",
-                        fontFamily: T.mono,
-                        color: T.body,
-                        textAlign: "right",
-                      }}
-                    >
-                      {hc === null ? "—" : hc.toLocaleString()}
-                    </td>
-                    <td style={{ padding: "10px 12px" }}>
-                      {spark && pct !== null ? (
-                        <div
+                    {!narrow && (
+                      <>
+                        <td
                           style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
+                            padding: cellPad,
+                            fontFamily: T.mono,
+                            color: T.body,
+                            textAlign: "right",
                           }}
                         >
-                          <MiniSpark data={spark} w={80} h={22} stroke={T.azure} />
-                          <span
-                            style={{
-                              fontFamily: T.mono,
-                              color: T.up,
-                              fontSize: 11,
-                            }}
-                          >
-                            {pct >= 0 ? "+" : ""}
-                            {pct}%
-                          </span>
-                        </div>
-                      ) : (
-                        <span style={{ color: T.muted }}>—</span>
-                      )}
-                    </td>
+                          {hc === null ? "—" : hc.toLocaleString()}
+                        </td>
+                        <td style={{ padding: cellPad }}>
+                          {spark && pct !== null ? (
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                              }}
+                            >
+                              <MiniSpark
+                                data={spark}
+                                w={80}
+                                h={22}
+                                stroke={T.azure}
+                              />
+                              <span
+                                style={{
+                                  fontFamily: T.mono,
+                                  color: T.up,
+                                  fontSize: 11,
+                                }}
+                              >
+                                {pct >= 0 ? "+" : ""}
+                                {pct}%
+                              </span>
+                            </div>
+                          ) : (
+                            <span style={{ color: T.muted }}>—</span>
+                          )}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 );
               })}

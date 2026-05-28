@@ -1,171 +1,141 @@
 "use client";
 /**
- * AIRiskCard — hand-built SVG radar chart (AI Defensibility Index).
- * No charting library; click axes to highlight on the radar.
+ * AIRiskCard — hand-built SVG radar chart (Risk vs. Defensibility wedges).
+ * No charting library; click axes to show tier + blurb detail.
  */
 import React, { useState } from "react";
-import { createPortal } from "react-dom";
 import { T } from "./tokens.jsx";
-import {
-  AI_SCORE_MAX,
-  getAiExposureFactorDescription,
-  getAiExposureHeadline,
-  sortAiRiskAxesForRadar,
-} from "@/lib/companyAiRisks";
 
-export const AI_DEFENSIBILITY_INDEX_TITLE = "AI Defensibility Index";
+export type AIRiskAxisGroup = "risk" | "def";
 
 export type AIRiskAxis = {
   key: string;
   label: string;
   score: number;
+  group: AIRiskAxisGroup;
   tier: string;
   blurb: string;
 };
 
-function resolveFactorDescription(axis: AIRiskAxis): string | undefined {
-  return (
-    getAiExposureFactorDescription(axis.key) ??
-    getAiExposureFactorDescription(
-      axis.label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
-    )
-  );
-}
+export const AI_RISK_AXES: AIRiskAxis[] = [
+  {
+    key: "replic",
+    label: "Replicability",
+    score: 4,
+    group: "risk",
+    tier: "Limited Risk of Replicability",
+    blurb:
+      "AI can classify merchants and infer spending patterns from partial data, but cannot reconstruct transactions never captured through permissioned card relationships.",
+  },
+  {
+    key: "accuracy",
+    label: "Accuracy Matters",
+    score: 4,
+    group: "risk",
+    tier: "High Defensibility",
+    blurb:
+      "Outputs inform campaign ROI, audience targeting and merchant-funded offers — users will not swap observed purchase data for AI-generated estimates where budgets are at stake.",
+  },
+  {
+    key: "stakes",
+    label: "Value at Stake",
+    score: 4,
+    group: "risk",
+    tier: "High Defensibility",
+    blurb:
+      "Dataset supports decisions across media spend, retail-media investment and bank engagement — real purchase evidence outweighs modelled intent.",
+  },
+  {
+    key: "workflow",
+    label: "Workflow Moat",
+    score: 3,
+    group: "def",
+    tier: "Moderate Workflow Moat",
+    blurb:
+      "Embedded in marketing workflows via Snowflake Marketplace, AWS Clean Rooms, MS Curate for Commerce — moat deepens with recurring campaign use.",
+  },
+  {
+    key: "authority",
+    label: "Authority",
+    score: 3,
+    group: "def",
+    tier: "Moderate Defensibility",
+    blurb:
+      "Observed spending behaviour beats survey- or impression-based proxies, but it is not the only source of truth for purchase measurement.",
+  },
+  {
+    key: "history",
+    label: "Historical Data",
+    score: 5,
+    group: "def",
+    tier: "Strong Differentiator",
+    blurb:
+      "AI can analyse historical data once it exists, but cannot reconstruct a comparable permissioned transaction history after the fact.",
+  },
+  {
+    key: "data",
+    label: "Data Moat",
+    score: 5,
+    group: "def",
+    tier: "Deep Moat",
+    blurb:
+      "Defensibility comes from access to permissioned debit and credit card transaction data — not approximable from surveys, web traffic or social signals.",
+  },
+];
 
-const DEFENSIBILITY_TONE = {
-  fg: "oklch(40% 0.12 158)",
-  fill: "oklch(56% 0.13 158)",
-  bg: "oklch(95% 0.05 158)",
-  ring: "oklch(60% 0.14 158)",
+const GROUP_TONE = {
+  risk: {
+    fg: "oklch(50% 0.18 25)",
+    fill: "oklch(62% 0.20 25)",
+    bg: "oklch(96% 0.035 25)",
+    ring: "oklch(72% 0.14 25)",
+    label: "Risk",
+  },
+  def: {
+    fg: "oklch(40% 0.12 158)",
+    fill: "oklch(56% 0.13 158)",
+    bg: "oklch(95% 0.05 158)",
+    ring: "oklch(60% 0.14 158)",
+    label: "Defensibility",
+  },
 } as const;
 
-type FactorTooltipProps = {
-  axis: AIRiskAxis;
-  description: string;
-  x: number;
-  y: number;
+type Tone = {
+  fg: string;
+  fill?: string;
+  bg: string;
+  ring: string;
 };
 
-function FactorTooltip({ axis, description, x, y }: FactorTooltipProps) {
-  const [mounted, setMounted] = React.useState(false);
-  const ref = React.useRef<HTMLDivElement>(null);
-  const [layout, setLayout] = React.useState<{
-    x: number;
-    y: number;
-    above: boolean;
-  }>({ x, y, above: true });
-
-  React.useEffect(() => setMounted(true), []);
-
-  React.useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const rect = el.getBoundingClientRect();
-    const pad = 16;
-    const gap = 12;
-    const halfW = rect.width / 2;
-    const clampedX = Math.min(
-      window.innerWidth - halfW - pad,
-      Math.max(halfW + pad, x)
-    );
-
-    const spaceAbove = y - gap;
-    const spaceBelow = window.innerHeight - y - gap;
-    const above =
-      spaceAbove >= rect.height || spaceAbove >= spaceBelow;
-
-    setLayout({
-      x: clampedX,
-      y: above ? y - gap : y + gap,
-      above,
-    });
-  }, [x, y, description]);
-
-  if (!mounted) return null;
-
-  return createPortal(
-    <div
-      ref={ref}
-      role="tooltip"
-      className="fixed z-[10000] w-[min(22.5rem,calc(100vw-2rem))] rounded-lg border border-gray-200 bg-white shadow-xl pointer-events-none"
-      style={{
-        left: layout.x,
-        top: layout.y,
-        transform: layout.above
-          ? "translate(-50%, -100%)"
-          : "translate(-50%, 0)",
-      }}
-    >
-      <div className="border-b border-gray-100 px-4 py-3">
-        <div className="text-sm font-semibold text-gray-900">
-          {AI_DEFENSIBILITY_INDEX_TITLE}
-        </div>
-      </div>
-      <div className="px-4 py-3">
-        <div className="text-sm font-semibold text-gray-900">{axis.label}</div>
-        <p className="mt-2 text-[13px] leading-relaxed text-gray-600">
-          {description}
-        </p>
-      </div>
-    </div>,
-    document.body
-  );
+function tierTone(score: number, group?: AIRiskAxisGroup): Tone {
+  if (group && GROUP_TONE[group]) return GROUP_TONE[group];
+  if (score >= 5)
+    return { fg: T.up, bg: "oklch(95% 0.06 150)", ring: "oklch(65% 0.16 150)" };
+  if (score >= 4)
+    return { fg: T.azure, bg: T.azureSoft, ring: "oklch(70% 0.15 258)" };
+  if (score >= 3)
+    return { fg: T.signal, bg: T.signalSoft, ring: "oklch(72% 0.13 48)" };
+  return { fg: T.down, bg: "oklch(95% 0.05 25)", ring: "oklch(70% 0.14 25)" };
 }
 
 type RadarChartProps = {
   axes: AIRiskAxis[];
   active: string;
-  tooltipKey: string | null;
   onPick?: (key: string) => void;
-  onLabelHover?: (key: string | null, event?: React.MouseEvent) => void;
   size?: number;
   maxScore?: number;
 };
 
-const LABEL_FONT_SIZE = 14;
-const LABEL_LINE_HEIGHT = 17;
-
-// Extra viewBox space (in SVG user units) reserved for axis labels on each side.
-const RADAR_PAD_H = 140;
-const RADAR_PAD_V = 58;
-
-function wrapLabel(label: string): string[] {
-  if (label.includes(" / ")) {
-    return label.split(" / ").map((part) => part.trim());
-  }
-
-  const maxChars = 24;
-  const words = label.split(/\s+/);
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-    if (next.length > maxChars && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = next;
-    }
-  }
-
-  if (current) lines.push(current);
-  return lines.length > 0 ? lines : [label];
-}
-
 function RadarChart({
   axes,
   active,
-  tooltipKey,
   onPick,
-  onLabelHover,
   size = 280,
-  maxScore = AI_SCORE_MAX,
+  maxScore = 5,
 }: RadarChartProps) {
   const cx = size / 2;
   const cy = size / 2;
-  const R = size * 0.38;
+  const R = size * 0.4;
   const N = axes.length;
   const angleFor = (i: number) => -Math.PI / 2 + (i / N) * Math.PI * 2;
   const point = (i: number, r: number): [number, number] => {
@@ -192,6 +162,7 @@ function RadarChart({
 
   const spokes = axes.map((ax, i) => {
     const [x, y] = point(i, R);
+    const isActive = active === ax.key;
     return (
       <line
         key={ax.key}
@@ -199,27 +170,85 @@ function RadarChart({
         y1={cy}
         x2={x}
         y2={y}
-        stroke={T.divider}
-        strokeWidth={1}
+        stroke={isActive ? T.azure : T.divider}
+        strokeWidth={isActive ? 1.5 : 1}
       />
     );
   });
 
-  const dataPoints = axes.map((ax, i) => point(i, (ax.score / maxScore) * R));
-  const dataPolygon = (
-    <polygon
-      points={dataPoints.map((p) => p.join(",")).join(" ")}
-      fill={DEFENSIBILITY_TONE.fill}
-      fillOpacity="0.22"
-      stroke={DEFENSIBILITY_TONE.fill}
-      strokeOpacity="0.85"
-      strokeWidth="1.4"
-      strokeLinejoin="round"
-    />
-  );
+  const groupRuns: Array<{
+    group: AIRiskAxisGroup;
+    start: number;
+    end: number;
+    wraps?: boolean;
+  }> = [];
+  {
+    let cur: (typeof groupRuns)[number] | null = null;
+    axes.forEach((ax, i) => {
+      if (!cur || cur.group !== ax.group) {
+        cur = { group: ax.group, start: i, end: i };
+        groupRuns.push(cur);
+      } else {
+        cur.end = i;
+      }
+    });
+    if (
+      groupRuns.length > 1 &&
+      groupRuns[0].group === groupRuns[groupRuns.length - 1].group
+    ) {
+      const last = groupRuns.pop()!;
+      groupRuns[0].start = last.start;
+      groupRuns[0].wraps = true;
+    }
+  }
+
+  const wedges = groupRuns.map((run) => {
+    const tone = GROUP_TONE[run.group] || GROUP_TONE.def;
+    const runIdx: number[] = [];
+    if (run.wraps) {
+      for (let i = run.start; i < N; i++) runIdx.push(i);
+      for (let i = 0; i <= run.end; i++) runIdx.push(i);
+    } else {
+      for (let i = run.start; i <= run.end; i++) runIdx.push(i);
+    }
+    const firstIdx = runIdx[0];
+    const lastIdx = runIdx[runIdx.length - 1];
+    const prevIdx = (firstIdx - 1 + N) % N;
+    const nextIdx = (lastIdx + 1) % N;
+    const halfStep = Math.PI / N;
+    const startAngle = angleFor(firstIdx) - halfStep;
+    const endAngle = angleFor(lastIdx) + halfStep;
+    const startScore = (axes[prevIdx].score + axes[firstIdx].score) / 2;
+    const endScore = (axes[lastIdx].score + axes[nextIdx].score) / 2;
+
+    const pts: [number, number][] = [[cx, cy]];
+    pts.push([
+      cx + Math.cos(startAngle) * (startScore / maxScore) * R,
+      cy + Math.sin(startAngle) * (startScore / maxScore) * R,
+    ]);
+    runIdx.forEach((i) => pts.push(point(i, (axes[i].score / maxScore) * R)));
+    pts.push([
+      cx + Math.cos(endAngle) * (endScore / maxScore) * R,
+      cy + Math.sin(endAngle) * (endScore / maxScore) * R,
+    ]);
+
+    return (
+      <polygon
+        key={`${run.group}-${run.start}`}
+        points={pts.map((p) => p.join(",")).join(" ")}
+        fill={tone.fill}
+        fillOpacity="0.22"
+        stroke={tone.fill}
+        strokeOpacity="0.85"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+    );
+  });
 
   const dots = axes.map((ax, i) => {
-    const [x, y] = dataPoints[i];
+    const [x, y] = point(i, (ax.score / maxScore) * R);
+    const tone = tierTone(ax.score, ax.group);
     const isActive = active === ax.key;
     return (
       <g
@@ -234,14 +263,14 @@ function RadarChart({
           cx={x}
           cy={y}
           r={isActive ? 9 : 6}
-          fill={DEFENSIBILITY_TONE.fill}
+          fill={tone.fill || tone.fg}
           fillOpacity={isActive ? 0.22 : 0}
         />
         <circle
           cx={x}
           cy={y}
           r={isActive ? 4.5 : 3.6}
-          fill={DEFENSIBILITY_TONE.fill}
+          fill={tone.fill || tone.fg}
           stroke="#fff"
           strokeWidth="1.6"
         />
@@ -251,7 +280,7 @@ function RadarChart({
 
   const labels = axes.map((ax, i) => {
     const a = angleFor(i);
-    const lr = R + 38;
+    const lr = R + 22;
     const lx = cx + Math.cos(a) * lr;
     const ly = cy + Math.sin(a) * lr;
     const anchor =
@@ -261,57 +290,39 @@ function RadarChart({
           ? "start"
           : "end";
     const isActive = active === ax.key;
-    const isTooltip = tooltipKey === ax.key;
-    const lines = wrapLabel(ax.label);
-    const totalH = lines.length * LABEL_LINE_HEIGHT;
-    const startDy = -(totalH / 2) + LABEL_LINE_HEIGHT / 2;
-    const hitW = Math.max(...lines.map((line) => line.length)) * (LABEL_FONT_SIZE * 0.58);
-    const hitH = totalH + 8;
-
     return (
       <g
         key={`lbl-${ax.key}`}
-        style={{ cursor: "default" }}
-        onMouseEnter={(e) => onLabelHover?.(ax.key, e)}
-        onMouseMove={(e) => onLabelHover?.(ax.key, e)}
-        onMouseLeave={() => onLabelHover?.(null)}
+        style={{ cursor: "pointer" }}
         onClick={(e) => {
           e.stopPropagation();
           onPick?.(ax.key);
         }}
       >
-        <rect
-          x={
-            anchor === "middle"
-              ? lx - hitW / 2
-              : anchor === "end"
-                ? lx - hitW
-                : lx
-          }
-          y={ly - hitH / 2}
-          width={hitW}
-          height={hitH}
-          fill="transparent"
-        />
         <text
           x={lx}
           y={ly}
           textAnchor={anchor}
+          dominantBaseline="middle"
           fontFamily={T.sans}
-          fontSize={LABEL_FONT_SIZE}
-          fontWeight={isActive || isTooltip ? 700 : 600}
-          fill={isActive || isTooltip ? T.ink : T.body}
-          style={{ letterSpacing: 0.1, pointerEvents: "none" }}
+          fontSize="10.5"
+          fontWeight={isActive ? 700 : 600}
+          fill={isActive ? T.ink : T.body}
+          style={{ letterSpacing: 0.1 }}
         >
-          {lines.map((line, li) => (
-            <tspan
-              key={li}
-              x={lx}
-              dy={li === 0 ? startDy : LABEL_LINE_HEIGHT}
-            >
-              {line}
-            </tspan>
-          ))}
+          {ax.label}
+        </text>
+        <text
+          x={lx}
+          y={ly + 12}
+          textAnchor={anchor}
+          dominantBaseline="middle"
+          fontFamily={T.mono}
+          fontSize="9.5"
+          fill={T.muted}
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {ax.score}/{maxScore}
         </text>
       </g>
     );
@@ -319,15 +330,14 @@ function RadarChart({
 
   return (
     <svg
-      viewBox={`${-RADAR_PAD_H} ${-RADAR_PAD_V} ${size + 2 * RADAR_PAD_H} ${size + 2 * RADAR_PAD_V}`}
+      viewBox={`0 0 ${size} ${size}`}
       width="100%"
       height={size}
-      preserveAspectRatio="xMidYMid meet"
-      style={{ display: "block" }}
+      style={{ display: "block", overflow: "visible" }}
     >
       {rings}
       {spokes}
-      {dataPolygon}
+      {wedges}
       {dots}
       {labels}
     </svg>
@@ -336,71 +346,35 @@ function RadarChart({
 
 type AIRiskCardProps = {
   axes?: AIRiskAxis[];
-  avgDefensibility?: number;
-  tier?: string;
   defaultActiveKey?: string;
   /** Stretch to fill a tall grid cell (product row, col 3). */
   fillGridCell?: boolean;
 };
 
 export function AIRiskCard({
-  axes: axesProp,
-  avgDefensibility: avgProp,
-  tier: tierProp,
-  defaultActiveKey = "data_moat",
+  axes = AI_RISK_AXES,
+  defaultActiveKey = "data",
   fillGridCell = false,
 }: AIRiskCardProps) {
-  const axes = React.useMemo(
-    () =>
-      axesProp?.length ? sortAiRiskAxesForRadar(axesProp) : [],
-    [axesProp]
-  );
-  const hasApiAxes = axes.length > 0;
   const [active, setActive] = useState(defaultActiveKey);
-  const [tooltipKey, setTooltipKey] = useState<string | null>(null);
-  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(
-    null
-  );
-  const chartWrapRef = React.useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState(false);
+  const activeAxis = axes.find((a) => a.key === active) || axes[0];
+  const tone = tierTone(activeAxis.score, activeAxis.group);
 
-  const handleLabelHover = React.useCallback(
-    (key: string | null, event?: React.MouseEvent) => {
-      if (!key || !event) {
-        setTooltipKey(null);
-        setTooltipPos(null);
-        return;
-      }
-      setTooltipKey(key);
-      setTooltipPos({
-        x: event.clientX,
-        y: event.clientY,
-      });
-    },
-    []
-  );
-
-  React.useEffect(() => {
-    if (!axes.some((a) => a.key === active)) {
-      setActive(axes[0]?.key ?? defaultActiveKey);
-    }
-  }, [axes, active, defaultActiveKey]);
-
-  if (!hasApiAxes) return null;
-
-  const computedAvg =
-    axes.reduce((sum, axis) => sum + axis.score, 0) / axes.length;
-  const defAvg = avgProp ?? computedAvg;
-  const { label: computedTier, hint: headlineHint } =
-    getAiExposureHeadline(defAvg);
-  const headlineTier = tierProp?.trim() || computedTier;
-  const activeAxis = axes.find((a) => a.key === active) ?? axes[0];
-  const tooltipAxis = tooltipKey
-    ? axes.find((a) => a.key === tooltipKey)
-    : undefined;
-  const tooltipDescription = tooltipAxis
-    ? resolveFactorDescription(tooltipAxis)
-    : undefined;
+  const riskAxes = axes.filter((a) => a.group === "risk");
+  const defAxes = axes.filter((a) => a.group === "def");
+  const riskAvg =
+    riskAxes.reduce((s, a) => s + a.score, 0) / riskAxes.length;
+  const defAvg = defAxes.reduce((s, a) => s + a.score, 0) / defAxes.length;
+  const avg = axes.reduce((s, a) => s + a.score, 0) / axes.length;
+  const headlineTier =
+    avg >= 4.3
+      ? "Strong overall moat vs. AI"
+      : avg >= 3.6
+        ? "Resilient — selective AI exposure"
+        : avg >= 2.8
+          ? "Moderate — partial exposure"
+          : "Limited — AI substitution risk";
 
   return (
     <div
@@ -410,6 +384,7 @@ export function AIRiskCard({
         background: T.panel,
         border: `1px solid ${hover ? "oklch(82% 0.07 258)" : T.divider}`,
         borderRadius: T.rLg,
+        overflow: "hidden",
         boxShadow: hover ? "0 4px 20px rgba(35,80,200,0.06)" : "none",
         transition:
           "box-shadow 160ms, border-color 160ms, transform 160ms",
@@ -427,7 +402,7 @@ export function AIRiskCard({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "12px 14px 10px",
+          padding: "14px 16px 12px",
           borderBottom: `1px solid ${T.hair}`,
         }}
       >
@@ -439,150 +414,151 @@ export function AIRiskCard({
             color: T.ink,
           }}
         >
-          {AI_DEFENSIBILITY_INDEX_TITLE}
+          AI risk
         </div>
         <span
           style={{
             display: "inline-flex",
             alignItems: "center",
-            gap: 6,
-            fontFamily: T.sans,
-            fontSize: 11.5,
-            fontWeight: 600,
-            color: T.body,
-            flexWrap: "wrap",
-            justifyContent: "flex-end",
-            maxWidth: "62%",
-            textAlign: "right",
-            lineHeight: 1.35,
+            gap: 10,
+            fontFamily: T.mono,
+            fontVariantNumeric: "tabular-nums",
+            fontSize: 11,
+            color: T.muted,
           }}
-          title={headlineHint}
         >
-          <span
-            style={{
-              width: 7,
-              height: 7,
-              borderRadius: 2,
-              background: DEFENSIBILITY_TONE.fill,
-              flexShrink: 0,
-            }}
-          />
-          <span>{headlineTier}</span>
-          <span
-            style={{
-              fontFamily: T.mono,
-              fontWeight: 500,
-              fontVariantNumeric: "tabular-nums",
-              color: T.muted,
-              flexShrink: 0,
-            }}
-          >
-            {defAvg.toFixed(1)} / {AI_SCORE_MAX.toFixed(1)}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: 2,
+                background: GROUP_TONE.risk.fill,
+              }}
+            />
+            <span>Risk {riskAvg.toFixed(1)}</span>
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: 2,
+                background: GROUP_TONE.def.fill,
+              }}
+            />
+            <span>Def {defAvg.toFixed(1)}</span>
           </span>
         </span>
       </div>
 
       <div
         style={{
-          padding: "8px 12px 8px",
+          padding: "10px 16px 4px",
           display: "flex",
-          justifyContent: "center",
-          flex: fillGridCell ? "0 0 auto" : undefined,
+          alignItems: "center",
+          gap: 10,
         }}
       >
-        <div
-          ref={chartWrapRef}
-          onMouseLeave={() => {
-            setTooltipKey(null);
-            setTooltipPos(null);
-          }}
+        <span
           style={{
-            position: "relative",
-            width: "100%",
-            maxWidth: 420,
-            overflow: "visible",
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: T.azure,
+            flexShrink: 0,
+            boxShadow: `0 0 0 4px ${T.azureSoft}`,
+          }}
+        />
+        <div
+          style={{
+            fontFamily: T.sans,
+            fontSize: 13,
+            fontWeight: 600,
+            color: T.ink,
+            letterSpacing: -0.1,
           }}
         >
-          <RadarChart
-            axes={axes}
-            active={active}
-            tooltipKey={tooltipKey}
-            onPick={setActive}
-            onLabelHover={handleLabelHover}
-            size={300}
-          />
-          {tooltipKey &&
-          tooltipDescription &&
-          tooltipPos &&
-          tooltipAxis ? (
-            <FactorTooltip
-              axis={tooltipAxis}
-              description={tooltipDescription}
-              x={tooltipPos.x}
-              y={tooltipPos.y}
-            />
-          ) : null}
+          {headlineTier}
         </div>
       </div>
 
-      {activeAxis?.blurb ? (
+      <div
+        style={{
+          padding: "4px 18px 0",
+          display: "flex",
+          justifyContent: "center",
+        }}
+      >
+        <div style={{ width: "100%", maxWidth: 340 }}>
+          <RadarChart
+            axes={axes}
+            active={active}
+            onPick={setActive}
+            size={300}
+          />
+        </div>
+      </div>
+
+      <div
+        style={{
+          margin: "6px 16px 14px",
+          marginTop: "auto",
+          padding: "10px 12px",
+          background: tone.bg,
+          border: `1px solid ${tone.ring}`,
+          borderRadius: 8,
+          display: "grid",
+          gridTemplateColumns: "1fr",
+          gap: 6,
+        }}
+      >
         <div
           style={{
-            margin: "0 14px 14px",
-            padding: "12px 14px",
-            borderRadius: T.rLg,
-            background: DEFENSIBILITY_TONE.bg,
-            border: `1px solid ${DEFENSIBILITY_TONE.ring}`,
-            flex: fillGridCell ? "1 1 auto" : undefined,
-            minHeight: fillGridCell ? 0 : undefined,
-            overflowY: fillGridCell ? "auto" : undefined,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
           }}
         >
           <div
             style={{
-              display: "flex",
-              alignItems: "baseline",
-              justifyContent: "space-between",
-              gap: 8,
-              marginBottom: 6,
+              fontFamily: T.sans,
+              fontSize: 12,
+              fontWeight: 600,
+              color: T.ink,
+              letterSpacing: -0.1,
             }}
           >
-            <div
-              style={{
-                fontFamily: T.sans,
-                fontSize: 12.5,
-                fontWeight: 600,
-                color: T.ink,
-                lineHeight: 1.35,
-              }}
-            >
-              {activeAxis.label}
-            </div>
-            <span
-              style={{
-                fontFamily: T.mono,
-                fontSize: 11,
-                fontWeight: 600,
-                color: DEFENSIBILITY_TONE.fg,
-                flexShrink: 0,
-              }}
-            >
-              {activeAxis.tier} · {activeAxis.score.toFixed(1)} /{" "}
-              {AI_SCORE_MAX.toFixed(1)}
-            </span>
+            {activeAxis.label}
           </div>
           <div
             style={{
               fontFamily: T.sans,
-              fontSize: 12.5,
-              lineHeight: 1.55,
-              color: T.body,
+              fontSize: 10.5,
+              fontWeight: 600,
+              color: tone.fg,
+              background: "#fff",
+              padding: "3px 8px",
+              borderRadius: 999,
+              border: `1px solid ${tone.ring}`,
+              whiteSpace: "nowrap",
             }}
           >
-            {activeAxis.blurb}
+            {activeAxis.tier}
           </div>
         </div>
-      ) : null}
+        <div
+          style={{
+            fontFamily: T.sans,
+            fontSize: 11.5,
+            lineHeight: 1.5,
+            color: T.body,
+          }}
+        >
+          {activeAxis.blurb}
+        </div>
+      </div>
     </div>
   );
 }
