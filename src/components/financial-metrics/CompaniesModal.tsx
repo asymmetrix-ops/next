@@ -8,6 +8,7 @@ import {
   CompaniesCSVExporter,
   CompanyCSVRow,
 } from "@/utils/companiesCSVExport";
+import { COMPANY_TABLE_DATA_URL } from "@/lib/companyTableData";
 
 interface Company {
   id: number;
@@ -107,9 +108,6 @@ function formatValue(
       return String(num);
   }
 }
-
-const COMPANY_TABLE_DATA_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_table_data";
 
 function toTrimmedString(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -325,7 +323,7 @@ export default function CompaniesModal({
           const tableParams = new URLSearchParams();
           tableParams.append("company_ids", JSON.stringify(ids));
           const tableResponse = await fetch(
-            `${COMPANY_TABLE_DATA_BASE}?${tableParams.toString()}`,
+            `${COMPANY_TABLE_DATA_URL}?${tableParams.toString()}`,
             {
               method: "GET",
               credentials: "include",

@@ -2,37 +2,12 @@
  * Shared client for Xano `get_company_table_data` (article Generate Table, Companies Search).
  */
 
-import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
-import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
-import type { CompanyColumnType } from "@/components/companies/companiesColumnCategories";
-import { EMPTY_DISPLAY, normalizeEmptyDisplay, isEmptyDisplayValue } from "@/lib/emptyDisplay";
-
 export const COMPANY_TABLE_DATA_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_table_data";
 
-/** Unwraps `get_company_table_data` as a bare array or `{ items: [...] }`. */
-export function extractCompanyTableItems(
-  payload: unknown
-): Record<string, unknown>[] {
-  const isRow = (item: unknown): item is Record<string, unknown> =>
-    Boolean(item) && typeof item === "object" && !Array.isArray(item);
-
-  if (Array.isArray(payload)) {
-    return payload.filter(isRow);
-  }
-
-  if (payload && typeof payload === "object") {
-    const items = (payload as { items?: unknown }).items;
-    if (Array.isArray(items)) {
-      return items.filter(isRow);
-    }
-  }
-
-  return [];
-}
-
 /** Columns rendered from Companies Search results only (no table-data fetch). */
 export const SEARCH_ONLY_COLUMN_KEYS = new Set([
+  "logo",
   "name",
   "description",
   "primary_sectors",
@@ -44,11 +19,10 @@ export function selectedColumnsNeedTableData(columnKeys: string[]): boolean {
 }
 
 const toPlainText = (value: unknown): string => {
-  if (value == null || value === "") return EMPTY_DISPLAY;
-  if (typeof value === "number")
-    return Number.isFinite(value) ? value.toLocaleString() : EMPTY_DISPLAY;
+  if (value == null || value === "") return "N/A";
+  if (typeof value === "number") return Number.isFinite(value) ? value.toLocaleString() : "N/A";
   if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (typeof value === "string") return normalizeEmptyDisplay(value);
+  if (typeof value === "string") return value.trim() || "N/A";
   if (Array.isArray(value)) {
     const text = value
       .map((item) => {
@@ -70,7 +44,7 @@ const toPlainText = (value: unknown): string => {
       .map((item) => String(item).trim())
       .filter(Boolean)
       .join(", ");
-    return text || EMPTY_DISPLAY;
+    return text || "N/A";
   }
   if (typeof value === "object") {
     const rec = value as Record<string, unknown>;
@@ -84,13 +58,13 @@ const toPlainText = (value: unknown): string => {
       rec.display ??
       rec.label;
     if (preferred != null) return toPlainText(preferred);
-    return EMPTY_DISPLAY;
+    return "N/A";
   }
   return String(value);
 };
 
 export const formatPlainNumber = (value: unknown): string => {
-  if (value == null || value === "") return EMPTY_DISPLAY;
+  if (value == null || value === "") return "N/A";
   const num =
     typeof value === "number"
       ? value
@@ -102,7 +76,7 @@ export const formatPlainNumber = (value: unknown): string => {
 };
 
 export const formatPercentValue = (value: unknown): string => {
-  if (value == null || value === "") return EMPTY_DISPLAY;
+  if (value == null || value === "") return "N/A";
   const num =
     typeof value === "number"
       ? value
@@ -114,7 +88,7 @@ export const formatPercentValue = (value: unknown): string => {
 };
 
 export const formatMultipleValue = (value: unknown): string => {
-  if (value == null || value === "") return EMPTY_DISPLAY;
+  if (value == null || value === "") return "N/A";
   const num =
     typeof value === "number"
       ? value
@@ -123,166 +97,10 @@ export const formatMultipleValue = (value: unknown): string => {
   return `${num.toFixed(1)}x`;
 };
 
-const DEFAULT_METRIC_CURRENCY = "USD";
-
-const isEmptyMetricValue = (value: unknown): boolean => {
-  if (value == null || value === "") return true;
-  if (typeof value === "string" && isEmptyDisplayValue(value)) return true;
-  return false;
-};
-
-export function formatNrrValue(value: unknown): string {
-  if (isEmptyMetricValue(value)) return EMPTY_DISPLAY;
-  const str = String(value).trim();
-  if (str.includes("%")) {
-    const num = Number(str.replace(/[^0-9.-]/g, ""));
-    if (Number.isFinite(num) && Math.abs(num) > 1000) {
-      const normalized = num / 100;
-      const decimals = Math.abs(normalized) % 1 === 0 ? 0 : 1;
-      return `${normalized.toFixed(decimals)}%`;
-    }
-    return normalizeEmptyDisplay(str);
-  }
-  return formatPercentValue(value);
-}
-
-export function formatMetricMillions(
-  value: unknown,
-  currencyCode: string = DEFAULT_METRIC_CURRENCY
-): string {
-  if (isEmptyMetricValue(value)) return EMPTY_DISPLAY;
-  return appendMetricCurrency(formatMetricMillionsPlain(value), currencyCode);
-}
-
-export function formatMetricCurrency(
-  value: unknown,
-  currencyCode: string = DEFAULT_METRIC_CURRENCY
-): string {
-  if (isEmptyMetricValue(value)) return EMPTY_DISPLAY;
-  const num =
-    typeof value === "number"
-      ? value
-      : Number(String(value).replace(/[^0-9.-]/g, ""));
-  if (!Number.isFinite(num)) return toPlainText(value);
-  const formatted = Math.round(num).toLocaleString("en-US", {
-    maximumFractionDigits: 0,
-  });
-  return appendMetricCurrency(formatted, currencyCode);
-}
-
-export function formatWholeNumberValue(value: unknown): string {
-  if (isEmptyMetricValue(value)) return EMPTY_DISPLAY;
-  const num =
-    typeof value === "number"
-      ? value
-      : Number(String(value).replace(/[^0-9.-]/g, ""));
-  if (!Number.isFinite(num)) return toPlainText(value);
-  return Math.round(num).toLocaleString("en-US", { maximumFractionDigits: 0 });
-}
-
-export function formatYearValue(value: unknown): string {
-  if (isEmptyMetricValue(value)) return EMPTY_DISPLAY;
-  const num = Number(String(value).replace(/[^0-9.-]/g, ""));
-  if (Number.isFinite(num) && num >= 1800 && num <= 2100) {
-    return String(Math.round(num));
-  }
-  return toPlainText(value);
-}
-
-const PERCENT_COLUMN_KEYS = new Set([
-  "linkedin_growth",
-  "revenue_growth",
-  "ebitda_margin",
-  "churn_pc",
-  "grr_pc",
-  "nrr",
-  "new_client_growth_pc",
-  "upsell_pc",
-  "cross_sell_pc",
-  "price_increase_pc",
-  "rev_expansion_pc",
-]);
-
-/** Formats a Companies Search cell using the same units as the company profile. */
-export function formatCompanyColumnDisplay(
-  columnKey: string,
-  columnType: CompanyColumnType,
-  raw: unknown,
-  currencyCode: string = DEFAULT_METRIC_CURRENCY
-): string {
-  if (isEmptyMetricValue(raw)) return EMPTY_DISPLAY;
-
-  if (typeof raw === "string") {
-    const trimmed = raw.trim();
-    if (/[%x]$/i.test(trimmed)) {
-      return normalizeEmptyDisplay(trimmed);
-    }
-  }
-
-  if (columnKey === "nrr") return formatNrrValue(raw);
-  if (columnKey === "years_since_last_investment") return toPlainText(raw);
-  if (columnKey === "created_at") {
-    if (isEmptyMetricValue(raw)) return EMPTY_DISPLAY;
-    const date = new Date(String(raw));
-    if (Number.isNaN(date.getTime())) return EMPTY_DISPLAY;
-    return date.toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  }
-  if (columnKey === "revenue_multiple") return formatMultipleValue(raw);
-  if (columnKey === "rule_of_40") {
-    const formatted = formatPlainNumber(raw);
-    return formatted === EMPTY_DISPLAY ? formatted : `${formatted}%`;
-  }
-
-  if (PERCENT_COLUMN_KEYS.has(columnKey) || columnType === "percent") {
-    return formatPercentValue(raw);
-  }
-
-  if (
-    columnKey === "revenue_m" ||
-    columnKey === "ebitda_m" ||
-    columnKey === "enterprise_value" ||
-    columnKey === "ev" ||
-    columnKey === "ebit_m" ||
-    columnKey === "subscription_revenue_m" ||
-    columnKey === "arr_m"
-  ) {
-    return formatMetricMillions(raw, currencyCode);
-  }
-
-  if (columnKey === "rev_per_client" || columnKey === "rev_per_employee") {
-    return formatMetricCurrency(raw, currencyCode);
-  }
-
-  if (columnType === "currency") {
-    return formatMetricMillions(raw, currencyCode);
-  }
-
-  if (columnType === "number") {
-    if (
-      columnKey === "linkedin_members" ||
-      columnKey === "no_of_clients" ||
-      columnKey === "no_employees"
-    ) {
-      return formatWholeNumberValue(raw);
-    }
-    return formatPlainNumber(raw);
-  }
-
-  if (columnType === "date") {
-    return formatYearValue(raw);
-  }
-
-  return toPlainText(raw);
-}
-
 const parseMaybeSetLikeList = (value: unknown): string[] => {
   if (value == null) return [];
   if (Array.isArray(value)) {
-    return value.map(toPlainText).filter((item) => item !== EMPTY_DISPLAY);
+    return value.map(toPlainText).filter((item) => item !== "N/A");
   }
   if (typeof value === "object") {
     return Object.values(value as Record<string, unknown>)
@@ -291,15 +109,15 @@ const parseMaybeSetLikeList = (value: unknown): string[] => {
           ? Object.values(item as Record<string, unknown>).map(toPlainText)
           : [toPlainText(item)]
       )
-      .filter((item) => item !== EMPTY_DISPLAY);
+      .filter((item) => item !== "N/A");
   }
   const text = toPlainText(value);
-  if (text === EMPTY_DISPLAY || text === "{}" || text === "[]") return [];
+  if (text === "N/A" || text === "{}" || text === "[]") return [];
 
   try {
     const parsed = JSON.parse(text) as unknown;
     if (Array.isArray(parsed)) {
-      return parsed.map(toPlainText).filter((item) => item !== EMPTY_DISPLAY);
+      return parsed.map(toPlainText).filter((item) => item !== "N/A");
     }
   } catch {
     // Fall through to set-like string parsing.
@@ -315,7 +133,7 @@ const parseMaybeSetLikeList = (value: unknown): string[] => {
 
 const normalizeWebsite = (raw: unknown): string => {
   const text = toPlainText(raw);
-  if (text === EMPTY_DISPLAY) return text;
+  if (text === "N/A") return text;
   return /^https?:\/\//i.test(text) ? text : `https://${text}`;
 };
 
@@ -332,7 +150,7 @@ export function mapCompanyTableApiRow(
     toPlainText(row.hq_state),
     toPlainText(row.hq_country),
   ]
-    .filter((item) => item !== EMPTY_DISPLAY)
+    .filter((item) => item !== "N/A")
     .join(", ");
 
   return {
@@ -341,27 +159,29 @@ export function mapCompanyTableApiRow(
     name: toPlainText(row.name),
     url: normalizeWebsite(row.url),
     website: normalizeWebsite(row.url),
-    loc: hqLocation || EMPTY_DISPLAY,
-    hq: hqLocation || EMPTY_DISPLAY,
+    loc: hqLocation || "N/A",
+    hq: hqLocation || "N/A",
     city: toPlainText(row.hq_city),
     state: toPlainText(row.hq_state),
     country: toPlainText(row.hq_country),
     year_founded: toPlainText(row.year_founded_label ?? row.year_founded),
-    primary_sector_names: primarySectors || EMPTY_DISPLAY,
-    secondary_sector_names: secondarySectors || EMPTY_DISPLAY,
-    investor_names: investorNames || EMPTY_DISPLAY,
-    investors: investorNames || EMPTY_DISPLAY,
+    primary_sector_names: primarySectors || "N/A",
+    secondary_sector_names: secondarySectors || "N/A",
+    investor_names: investorNames || "N/A",
+    investors: investorNames || "N/A",
     ownership: toPlainText(row.ownership_type ?? row.ownership_status),
     ownership_type: toPlainText(row.ownership_type ?? row.ownership_status),
     linkedin_members: formatPlainNumber(row.linkedin_employee),
     li_emp: formatPlainNumber(row.linkedin_employee),
     li_growth_pc: formatPercentValue(row.linkedin_growth_1y_pct),
     linkedin_growth: formatPercentValue(row.linkedin_growth_1y_pct),
-    revenue_m: formatMetricMillionsPlain(row.Revenue_m),
-    ebitda_m: formatMetricMillionsPlain(row.EBITDA_m),
-    ebit_m: formatMetricMillionsPlain(row.EBIT_m),
-    ev: formatMetricMillionsPlain(row.EV),
-    enterprise_value: formatMetricMillionsPlain(row.EV),
+    revenue_m: formatPlainNumber(row.Revenue_m),
+    arr_m: formatPlainNumber(row.ARR_m),
+    ebitda_m: formatPlainNumber(row.EBITDA_m),
+    ebit_m: formatPlainNumber(row.EBIT_m),
+    ev: formatPlainNumber(row.EV),
+    enterprise_value: formatPlainNumber(row.EV),
+    arr_pc: formatPercentValue(row.ARR_pc),
     churn_pc: formatPercentValue(row.Churn_pc),
     grr_pc: formatPercentValue(row.GRR_pc),
     nrr: formatPercentValue(row.NRR),
@@ -405,8 +225,10 @@ export async function fetchCompanyTableDataByIds(
   }
 
   const payload = (await response.json()) as unknown;
-  const rows = extractCompanyTableItems(payload)
-    .map((item) => mapCompanyTableApiRow(item))
+  const items = Array.isArray(payload) ? payload : [];
+  const rows = items
+    .filter((item) => item && typeof item === "object")
+    .map((item) => mapCompanyTableApiRow(item as Record<string, unknown>))
     .filter((row) => Number(row.id) > 0);
 
   return new Map(rows.map((row) => [Number(row.id), row]));

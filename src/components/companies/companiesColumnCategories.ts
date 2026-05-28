@@ -6,8 +6,8 @@ export type CompanyColumnType =
   | "currency"
   | "percent"
   | "date"
-  | "follow"
-  | "boolean";
+  | "logo"
+  | "follow";
 
 export interface CompanyColumnMeta {
   /** Modal / persistence id */
@@ -34,12 +34,27 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
     name: "Identity",
     columns: [
       {
+        id: "logo",
+        columnKey: "logo",
+        label: "Logo",
+        type: "logo",
+        locked: true,
+        defaultVisible: true,
+      },
+      {
         id: "name",
         columnKey: "name",
         label: "Name",
         type: "text",
         locked: true,
         defaultVisible: true,
+      },
+      {
+        id: "ticker",
+        columnKey: "ticker",
+        label: "Ticker",
+        type: "text",
+        defaultVisible: false,
       },
       {
         id: "website",
@@ -58,10 +73,17 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
       {
         id: "follow",
         columnKey: "follow",
-        label: "My Portfolio",
+        label: "Follow",
         type: "follow",
-        defaultVisible: false,
+        defaultVisible: true,
         badge: "New",
+      },
+      {
+        id: "list_count",
+        columnKey: "list_count",
+        label: "Lists",
+        type: "number",
+        defaultVisible: false,
       },
     ],
   },
@@ -86,7 +108,7 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
       {
         id: "sectors",
         columnKey: "secondary_sectors",
-        label: "Secondary Sector(s)",
+        label: "Sectors",
         type: "text",
         defaultVisible: true,
       },
@@ -105,9 +127,9 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
         defaultVisible: true,
       },
       {
-        id: "hq",
-        columnKey: "hq",
-        label: "HQ",
+        id: "country",
+        columnKey: "country",
+        label: "Country",
         type: "text",
         defaultVisible: true,
       },
@@ -121,7 +143,14 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
         id: "year_founded",
         columnKey: "year_founded",
         label: "Year Founded",
-        type: "date",
+        type: "number",
+        defaultVisible: false,
+      },
+      {
+        id: "hq",
+        columnKey: "hq",
+        label: "HQ",
+        type: "text",
         defaultVisible: false,
       },
       {
@@ -134,7 +163,7 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
       {
         id: "state",
         columnKey: "state",
-        label: "State",
+        label: "State / Province",
         type: "text",
         defaultVisible: false,
       },
@@ -163,7 +192,7 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
         id: "years_since",
         columnKey: "years_since_last_investment",
         label: "Years Since Last Investment",
-        type: "text",
+        type: "number",
         defaultVisible: false,
       },
       {
@@ -199,20 +228,6 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
         columnKey: "transaction_status",
         label: "Transaction Status",
         type: "text",
-        defaultVisible: false,
-      },
-      {
-        id: "has_mcp",
-        columnKey: "has_mcp",
-        label: "MCP",
-        type: "boolean",
-        defaultVisible: false,
-      },
-      {
-        id: "created_at",
-        columnKey: "created_at",
-        label: "Date Added",
-        type: "date",
         defaultVisible: false,
       },
     ],
@@ -276,6 +291,20 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
     id: "subscription",
     name: "Subscription metrics",
     columns: [
+      {
+        id: "recurring_revenue",
+        columnKey: "arr_pc",
+        label: "Recurring Revenue",
+        type: "currency",
+        defaultVisible: false,
+      },
+      {
+        id: "arr",
+        columnKey: "arr_m",
+        label: "ARR (m)",
+        type: "currency",
+        defaultVisible: false,
+      },
       {
         id: "churn",
         columnKey: "churn_pc",
@@ -392,68 +421,9 @@ export const CANONICAL_COMPANY_COLUMN_KEYS = ALL_COMPANIES_COLUMN_META.map(
   (column) => column.columnKey
 );
 
-/** Current PROD default visible columns (reset in customise modal). */
-export const PROD_DEFAULT_COMPANY_COLUMN_KEYS = [
-  "name",
-  "description",
-  "primary_sectors",
-  "secondary_sectors",
-  "ownership",
-  "linkedin_members",
-  "hq",
-] as const;
-
-/** Always visible, frozen in table — first column, not hideable. */
-export const FROZEN_COLUMN_KEYS = ["name"] as const;
-
-export const DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS: string[] = [
-  ...PROD_DEFAULT_COMPANY_COLUMN_KEYS,
-];
-
-export function getEffectiveFrozenColumnKeys(
-  filterPinnedKeys: string[] = []
-): string[] {
-  const seen = new Set<string>(FROZEN_COLUMN_KEYS);
-  const ordered: string[] = [...FROZEN_COLUMN_KEYS];
-  for (const key of filterPinnedKeys) {
-    if (CANONICAL_COMPANY_COLUMN_KEYS.includes(key) && !seen.has(key)) {
-      seen.add(key);
-      ordered.push(key);
-    }
-  }
-  return ordered;
-}
-
-export function enforceColumnKeyOrder(
-  keys: string[],
-  filterPinnedKeys: string[] = []
-): string[] {
-  const normalizedKeys = keys.filter((key) => key !== "logo");
-  const frozenKeys = getEffectiveFrozenColumnKeys(filterPinnedKeys);
-  const frozenSet = new Set(frozenKeys);
-  const seen = new Set<string>();
-  const ordered: string[] = [];
-
-  for (const key of frozenKeys) {
-    if (CANONICAL_COMPANY_COLUMN_KEYS.includes(key) && !seen.has(key)) {
-      seen.add(key);
-      ordered.push(key);
-    }
-  }
-
-  for (const key of normalizedKeys) {
-    if (
-      CANONICAL_COMPANY_COLUMN_KEYS.includes(key) &&
-      !seen.has(key) &&
-      !frozenSet.has(key)
-    ) {
-      seen.add(key);
-      ordered.push(key);
-    }
-  }
-
-  return ordered.length > 0 ? ordered : [...PROD_DEFAULT_COMPANY_COLUMN_KEYS];
-}
+export const DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS = ALL_COMPANIES_COLUMN_META.filter(
+  (column) => column.defaultVisible
+).map((column) => column.columnKey);
 
 export const columnKeysToVisibility = (
   keys: string[]
@@ -491,44 +461,5 @@ export const visibilityToColumnKeys = (
     }
   });
 
-  const base =
-    ordered.length > 0 ? ordered : [...PROD_DEFAULT_COMPANY_COLUMN_KEYS];
-  return enforceColumnKeyOrder(base);
+  return ordered.length > 0 ? ordered : DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS;
 };
-
-/** Move one column before another; Name and filter-pinned columns cannot be dragged. */
-export function reorderColumnKeys(
-  keys: string[],
-  dragKey: string,
-  dropKey: string,
-  filterPinnedKeys: string[] = []
-): string[] {
-  const frozenKeys = getEffectiveFrozenColumnKeys(filterPinnedKeys);
-  const frozenSet = new Set(frozenKeys);
-  const ordered = enforceColumnKeyOrder(keys, filterPinnedKeys);
-  if (dragKey === dropKey) return ordered;
-  if (frozenSet.has(dragKey)) {
-    return ordered;
-  }
-
-  const fromIndex = ordered.indexOf(dragKey);
-  if (fromIndex < 0) return ordered;
-
-  let toIndex = ordered.indexOf(dropKey);
-  if (toIndex < 0) return ordered;
-
-  if (frozenSet.has(dropKey)) {
-    toIndex = frozenKeys.reduce((max, frozenKey) => {
-      const idx = ordered.indexOf(frozenKey);
-      return idx >= 0 ? Math.max(max, idx) : max;
-    }, -1);
-    if (toIndex < 0) toIndex = 0;
-    else toIndex += 1;
-  }
-
-  const next = [...ordered];
-  const [item] = next.splice(fromIndex, 1);
-  const insertAt = fromIndex < toIndex ? toIndex - 1 : toIndex;
-  next.splice(insertAt, 0, item);
-  return enforceColumnKeyOrder(next, filterPinnedKeys);
-}
