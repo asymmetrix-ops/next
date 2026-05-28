@@ -17,13 +17,13 @@ import { RevenueModelCard } from "@/components/redesign/RevenueModelCard";
 import { InsightsCard } from "@/components/redesign/InsightsCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import { ProductDataToggleCard } from "@/components/redesign/ProductDataToggleCard";
-import type { ProductMixTab } from "@/components/redesign/ProductDataToggleCard";
 import {
   ProductUsersListCard,
   type ProductUsersSection,
 } from "@/components/redesign/ProductUsersListCard";
 import { LinkPanel } from "@/components/redesign/primitives";
 import { IncomeStatementSection } from "@/components/redesign/IncomeStatementSection";
+import { AIRiskCard } from "@/components/redesign/AIRiskCard";
 import { ContentArticle } from "@/types/insightsAnalysis";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
@@ -1114,8 +1114,6 @@ const CompanyDetail = () => {
   const [showPdfExportOptions, setShowPdfExportOptions] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isDescriptionExpandable, setIsDescriptionExpandable] = useState(false);
-  const [activeProductMixTab, setActiveProductMixTab] =
-    useState<ProductMixTab>("product_type");
   const descriptionRef = useRef<HTMLDivElement | null>(null);
   const pdfExportMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -2925,31 +2923,31 @@ const CompanyDetail = () => {
       align-self: stretch;
     }
     .company-grid-insights { grid-column: 1 / span 2; grid-row: 2; min-height: 0; align-self: stretch; }
-    .company-grid-subscription { display: none; }
-    .company-grid-product-mix { grid-column: 1; grid-row: 3; min-width: 0; min-height: 0; align-self: stretch; }
-    .company-grid-product-users { grid-column: 2; grid-row: 3; min-width: 0; min-height: 0; align-self: stretch; }
-    .company-grid-revenue-model { grid-column: 3; grid-row: 3; min-width: 0; min-height: 0; align-self: stretch; }
-    .company-grid-bottom {
-      grid-column: 1 / span 3;
-      grid-row: 4;
-      display: grid;
-      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-      grid-template-rows: auto auto;
-      gap: 16px;
+    .company-grid-product-mix { grid-column: 1; grid-row: 3; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
+    .company-grid-revenue-model { grid-column: 1; grid-row: 4; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
+    .company-grid-product-users { grid-column: 2; grid-row: 3; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
+    .company-grid-data-collection { grid-column: 2; grid-row: 4; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
+    .company-grid-ai-risk { grid-column: 3; grid-row: 3 / span 2; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
+    .company-grid-corporate-events,
+    .company-grid-subsidiaries,
+    .company-grid-headcount,
+    .company-grid-management {
       min-width: 0;
       min-height: 0;
-      align-items: stretch;
-    }
-    .company-grid-bottom-cell {
-      min-width: 0;
-      min-height: 0;
+      align-self: stretch;
       display: flex;
       flex-direction: column;
     }
-    .company-grid-bottom-cell > * {
-      flex: 1 1 auto;
-      min-height: 0;
+    .company-grid-corporate-events { grid-column: 1 / span 2; grid-row: 5; overflow: hidden; max-width: 100%; }
+    .company-grid-subsidiaries { grid-column: 1 / span 2; grid-row: 6; overflow: hidden; max-width: 100%; }
+    .company-grid-corporate-events > *,
+    .company-grid-subsidiaries > * {
+      min-width: 0;
+      max-width: 100%;
+      width: 100%;
     }
+    .company-grid-headcount { grid-column: 3; grid-row: 5; }
+    .company-grid-management { grid-column: 3; grid-row: 6; }
     .card {
       background: ${T.panel};
       border-radius: ${T.rLg}px;
@@ -3061,26 +3059,18 @@ const CompanyDetail = () => {
       .company-grid-description,
       .company-grid-finance,
       .company-grid-insights,
-      .company-grid-subscription,
       .company-grid-product-mix,
-      .company-grid-product-users,
       .company-grid-revenue-model,
-      .company-grid-bottom {
+      .company-grid-product-users,
+      .company-grid-data-collection,
+      .company-grid-ai-risk,
+      .company-grid-corporate-events,
+      .company-grid-subsidiaries,
+      .company-grid-headcount,
+      .company-grid-management {
         grid-column: 1 / -1 !important;
         grid-row: auto !important;
         align-self: stretch !important;
-      }
-      .company-grid-bottom {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 12px !important;
-      }
-      .company-grid-bottom-cell {
-        width: 100% !important;
-        flex: none !important;
-      }
-      .company-grid-bottom-cell > * {
-        flex: none !important;
       }
       .desktop-financial-metrics { display: none !important; }
       .mobile-financial-metrics { display: block !important; }
@@ -3712,15 +3702,31 @@ const CompanyDetail = () => {
               />
             </div>{/* end insights-summary-card */}
 
-            {/* Row 3: Product mix | Product & Users | Revenue model (each 1 col) */}
+            {/* Rows 3–4: Product type + Revenue | Users + Data collection | AI risk (tall) */}
             <div className="company-grid-product-mix">
               <ProductDataToggleCard
-                activeTab={activeProductMixTab}
-                onTabChange={setActiveProductMixTab}
+                variant="product_type"
                 productRows={productTypeBarRows}
                 dataRows={productDataToggleDataRows}
+                productSubtitle={
+                  financialMetrics?.financial_year_text
+                    ? `FY${financialMetrics.financial_year_text} mix`
+                    : undefined
+                }
                 fillGridCell
               />
+            </div>
+
+            <div className="company-grid-revenue-model">
+              {revenueModelRows.length > 0 && (
+                <RevenueModelCard
+                  rows={revenueModelRows.map((r) => ({
+                    name: r.label,
+                    weight: r.value,
+                  }))}
+                  fillGridCell
+                />
+              )}
             </div>
 
             <div className="company-grid-product-users">
@@ -3739,118 +3745,120 @@ const CompanyDetail = () => {
               />
             </div>
 
-            <div className="company-grid-revenue-model">
-              {revenueModelRows.length > 0 && (
-                <RevenueModelCard
-                  rows={revenueModelRows.map((r) => ({
-                    name: r.label,
-                    weight: r.value,
-                  }))}
-                  fillGridCell
-                />
-              )}
+            <div className="company-grid-data-collection">
+              <ProductDataToggleCard
+                variant="data_collection"
+                productRows={productTypeBarRows}
+                dataRows={productDataToggleDataRows}
+                fillGridCell
+              />
             </div>
 
-            {/* Row 4: 2×2 grid — row heights align (wide + narrow columns) */}
-            <div className="company-grid-bottom">
-              <div className="company-grid-bottom-cell">
-                {(corporateEventsLoading || corporateEvents.length > 0) && (
-                  <LinkPanel
-                    fillGridCell
-                    className="corporate-events-v3-card"
-                  >
-                    <CorporateEventsProfilePanel
-                      tokens={{
-                        paper: T.paper,
-                        hair: T.hair,
-                        ink: T.ink,
-                        body: T.body,
-                        muted: T.muted,
-                        inset: T.inset,
-                        azure: T.azure,
-                        azureSoft: T.azureSoft,
-                        coralSoft: T.coralSoft,
-                        down: T.down,
-                        sans: T.sans,
-                        mono: T.mono,
-                      }}
-                      events={corporateEvents}
-                      loading={corporateEventsLoading}
-                      primarySectors={augmentedPrimarySectors}
-                      secondarySectors={secondarySectors}
-                      maxInitialEvents={3}
-                    />
-                  </LinkPanel>
-                )}
-              </div>
-              <div className="company-grid-bottom-cell">
-                <HeadcountCard
+            <div className="company-grid-ai-risk">
+              <AIRiskCard fillGridCell />
+            </div>
+
+            {/* Rows 5–6: Col 1 = events + subs (Revenue-model width); Col 3 = headcount + management under AI risk */}
+            {(corporateEventsLoading || corporateEvents.length > 0) && (
+              <div className="company-grid-corporate-events">
+                <LinkPanel
                   fillGridCell
-                  data={employeeData.map((e) => e.employees_count)}
-                  dates={employeeData.map((e) => e.date)}
-                  count={currentEmployeeCount}
-                  yoyLabel={overviewEmployeesYoY || undefined}
-                  asOf={(() => {
-                    const nonZero = employeeData.filter((e) => e.employees_count > 0);
-                    const ref =
-                      nonZero.length > 0
-                        ? nonZero[nonZero.length - 1]
-                        : employeeData[employeeData.length - 1];
-                    if (!ref?.date) return undefined;
-                    try {
-                      return new Date(ref.date).toLocaleDateString("en-US", {
-                        month: "short",
-                        year: "numeric",
-                      });
-                    } catch {
-                      return undefined;
-                    }
-                  })()}
-                  linkedinUrl={linkedinUrl}
-                />
+                  className="corporate-events-v3-card"
+                >
+                  <CorporateEventsProfilePanel
+                    tokens={{
+                      paper: T.paper,
+                      hair: T.hair,
+                      ink: T.ink,
+                      body: T.body,
+                      muted: T.muted,
+                      inset: T.inset,
+                      azure: T.azure,
+                      azureSoft: T.azureSoft,
+                      coralSoft: T.coralSoft,
+                      down: T.down,
+                      sans: T.sans,
+                      mono: T.mono,
+                    }}
+                    events={corporateEvents}
+                    loading={corporateEventsLoading}
+                    primarySectors={augmentedPrimarySectors}
+                    secondarySectors={secondarySectors}
+                    maxInitialEvents={3}
+                  />
+                </LinkPanel>
               </div>
-              <div className="company-grid-bottom-cell">
-                {hasSubsidiaries && (
-                  <LinkPanel
-                    fillGridCell
-                    className="subsidiaries-profile-card"
-                  >
-                    <SubsidiariesProfilePanel
-                      tokens={{
-                        paper: T.paper,
-                        hair: T.hair,
-                        ink: T.ink,
-                        body: T.body,
-                        muted: T.muted,
-                        inset: T.inset,
-                        azure: T.azure,
-                        azureSoft: T.azureSoft,
-                        coralSoft: T.coralSoft,
-                        down: T.down,
-                        sans: T.sans,
-                        mono: T.mono,
-                        up: T.up,
-                      }}
-                      subsidiaries={
-                        company.have_subsidiaries_companies
-                          ?.Subsidiaries_companies ?? []
-                      }
+            )}
+
+            <div className="company-grid-headcount">
+              <HeadcountCard
+                fillGridCell
+                data={employeeData.map((e) => e.employees_count)}
+                dates={employeeData.map((e) => e.date)}
+                count={currentEmployeeCount}
+                yoyLabel={overviewEmployeesYoY || undefined}
+                asOf={(() => {
+                  const nonZero = employeeData.filter((e) => e.employees_count > 0);
+                  const ref =
+                    nonZero.length > 0
+                      ? nonZero[nonZero.length - 1]
+                      : employeeData[employeeData.length - 1];
+                  if (!ref?.date) return undefined;
+                  try {
+                    return new Date(ref.date).toLocaleDateString("en-US", {
+                      month: "short",
+                      year: "numeric",
+                    });
+                  } catch {
+                    return undefined;
+                  }
+                })()}
+                linkedinUrl={linkedinUrl}
+              />
+            </div>
+
+            {hasSubsidiaries && (
+              <div className="company-grid-subsidiaries">
+                <LinkPanel
+                  fillGridCell
+                  className="subsidiaries-profile-card"
+                >
+                  <SubsidiariesProfilePanel
+                    tokens={{
+                      paper: T.paper,
+                      hair: T.hair,
+                      ink: T.ink,
+                      body: T.body,
+                      muted: T.muted,
+                      inset: T.inset,
+                      azure: T.azure,
+                      azureSoft: T.azureSoft,
+                      coralSoft: T.coralSoft,
+                      down: T.down,
+                      sans: T.sans,
+                      mono: T.mono,
+                      up: T.up,
+                    }}
+                    subsidiaries={
+                      company.have_subsidiaries_companies
+                        ?.Subsidiaries_companies ?? []
+                    }
                       maxInitial={3}
                     />
                   </LinkPanel>
-                )}
               </div>
-              <div className="company-grid-bottom-cell">
-                {hasManagement && (
-                  <ManagementCard
-                    fillGridCell
-                    current={managementCurrentPeople}
-                    past={managementPastPeople}
-                    maxVisible={6}
-                  />
-                )}
+            )}
+
+            {hasManagement && (
+              <div className="company-grid-management">
+                <ManagementCard
+                  fillGridCell
+                  current={managementCurrentPeople}
+                  past={managementPastPeople}
+                  maxVisible={6}
+                />
               </div>
-            </div>
+            )}
 
             {/* ══ Col 3: Financial metrics (from company page) ══ */}
             <div
@@ -4485,6 +4493,7 @@ const CompanyDetail = () => {
                   )}
                 </span>
               </div>
+
               {/* Other Metrics */}
               <div style={{ marginTop: 20, marginBottom: 2 }}>
                 <h3 style={styles.sectionTitle}>Other Metrics</h3>

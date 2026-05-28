@@ -5,6 +5,7 @@
 import React from "react";
 import {
   LinkPanel,
+  LinkedH,
   WeightChip,
   PctBar,
   Pill,
@@ -25,12 +26,18 @@ export type DataMixRow = {
   value: string;
 };
 
+/** `toggle` = tabbed card; `product_type` / `data_collection` = standalone grid cells */
+export type ProductDataCardVariant = "toggle" | "product_type" | "data_collection";
+
 type Props = {
-  activeTab: ProductMixTab;
-  onTabChange: (t: ProductMixTab) => void;
+  variant?: ProductDataCardVariant;
+  activeTab?: ProductMixTab;
+  onTabChange?: (t: ProductMixTab) => void;
   productRows: ProductBarRow[];
   dataRows: DataMixRow[];
   fillGridCell?: boolean;
+  /** Shown under title on product-type card, e.g. "FY2025 mix" */
+  productSubtitle?: string;
 };
 
 function DataValue({ value }: { value: string }) {
@@ -46,20 +53,129 @@ function DataValue({ value }: { value: string }) {
   return <span style={{ color: T.faint }}>—</span>;
 }
 
+function ProductTypeBody({ productRows }: { productRows: ProductBarRow[] }) {
+  return (
+    <div style={{ padding: "8px 18px 14px", flex: 1, minHeight: 0 }}>
+      {productRows.map((p, i) => (
+        <div
+          key={`${p.label}-${i}`}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 100px 60px",
+            alignItems: "center",
+            gap: 12,
+            padding: "9px 0",
+            borderBottom:
+              i === productRows.length - 1 ? "none" : `1px solid ${T.hair}`,
+            fontSize: 12.5,
+          }}
+        >
+          <div
+            style={{
+              color: T.body,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              minWidth: 0,
+            }}
+          >
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 2,
+                background: p.color,
+                display: "inline-block",
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+              {p.label}
+            </span>
+          </div>
+          <PctBar pct={p.pct} color={p.color} />
+          <div
+            style={{
+              fontFamily: T.mono,
+              fontSize: 12,
+              color: T.ink,
+              textAlign: "right",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {p.displayRight}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DataCollectionBody({ dataRows }: { dataRows: DataMixRow[] }) {
+  return (
+    <div style={{ padding: "8px 16px 14px", flex: 1, minHeight: 0 }}>
+      {dataRows.map((d, i) => (
+        <div
+          key={`${d.label}-${i}`}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "9px 0",
+            gap: 12,
+            borderBottom:
+              i === dataRows.length - 1 ? "none" : `1px solid ${T.hair}`,
+            fontSize: 12.5,
+          }}
+        >
+          <div style={{ color: T.body, minWidth: 0 }}>{d.label}</div>
+          <DataValue value={d.value} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ProductDataToggleCard({
-  activeTab,
+  variant = "toggle",
+  activeTab = "product_type",
   onTabChange,
   productRows,
   dataRows,
   fillGridCell = true,
+  productSubtitle,
 }: Props) {
+  if (variant === "product_type") {
+    return (
+      <LinkPanel fillGridCell={fillGridCell}>
+        <LinkedH right={productSubtitle ? (
+          <span style={{ fontFamily: T.mono, fontSize: 11, color: T.muted, fontWeight: 500 }}>
+            {productSubtitle}
+          </span>
+        ) : undefined}>
+          Product type
+        </LinkedH>
+        <ProductTypeBody productRows={productRows} />
+      </LinkPanel>
+    );
+  }
+
+  if (variant === "data_collection") {
+    return (
+      <LinkPanel fillGridCell={fillGridCell}>
+        <LinkedH>Data collection method</LinkedH>
+        <DataCollectionBody dataRows={dataRows} />
+      </LinkPanel>
+    );
+  }
+
   const tabBtn = (id: ProductMixTab, label: string) => (
     <button
       key={id}
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        onTabChange(id);
+        onTabChange?.(id);
       }}
       style={{
         background: "transparent",
@@ -109,80 +225,9 @@ export function ProductDataToggleCard({
       </div>
 
       {activeTab === "product_type" ? (
-        <div style={{ padding: "8px 18px 14px", flex: 1, minHeight: 0 }}>
-          {productRows.map((p, i) => (
-            <div
-              key={`${p.label}-${i}`}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 100px 60px",
-                alignItems: "center",
-                gap: 12,
-                padding: "9px 0",
-                borderBottom:
-                  i === productRows.length - 1 ? "none" : `1px solid ${T.hair}`,
-                fontSize: 12.5,
-              }}
-            >
-              <div
-                style={{
-                  color: T.body,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  minWidth: 0,
-                }}
-              >
-                <span
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: 2,
-                    background: p.color,
-                    display: "inline-block",
-                    flexShrink: 0,
-                  }}
-                />
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {p.label}
-                </span>
-              </div>
-              <PctBar pct={p.pct} color={p.color} />
-              <div
-                style={{
-                  fontFamily: T.mono,
-                  fontSize: 12,
-                  color: T.ink,
-                  textAlign: "right",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {p.displayRight}
-              </div>
-            </div>
-          ))}
-        </div>
+        <ProductTypeBody productRows={productRows} />
       ) : (
-        <div style={{ padding: "8px 16px 14px", flex: 1, minHeight: 0 }}>
-          {dataRows.map((d, i) => (
-            <div
-              key={`${d.label}-${i}`}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "9px 0",
-                gap: 12,
-                borderBottom:
-                  i === dataRows.length - 1 ? "none" : `1px solid ${T.hair}`,
-                fontSize: 12.5,
-              }}
-            >
-              <div style={{ color: T.body, minWidth: 0 }}>{d.label}</div>
-              <DataValue value={d.value} />
-            </div>
-          ))}
-        </div>
+        <DataCollectionBody dataRows={dataRows} />
       )}
     </LinkPanel>
   );

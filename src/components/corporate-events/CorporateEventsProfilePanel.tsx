@@ -26,6 +26,8 @@ type CorporateEventsProfilePanelProps = {
   primarySectors?: Sector[];
   secondarySectors?: Sector[];
   maxInitialEvents?: number;
+  /** `narrow` = single grid column; table scrolls inside card without widening the layout */
+  layout?: "default" | "narrow";
   onEventClick?: (eventId: number, description?: string) => void;
   onAdvisorClick?: (advisorId?: number, advisorName?: string) => void;
 };
@@ -333,9 +335,14 @@ export const CorporateEventsProfilePanel: React.FC<
   primarySectors = [],
   secondarySectors = [],
   maxInitialEvents = 3,
+  layout = "default",
   onEventClick,
   onAdvisorClick,
 }) => {
+  const narrow = layout === "narrow";
+  const headers = narrow
+    ? (["Date", "Type", "Target / Counterparty"] as const)
+    : CE_HEADERS;
   const router = useRouter();
   const [showAll, setShowAll] = useState(false);
 
@@ -384,7 +391,7 @@ export const CorporateEventsProfilePanel: React.FC<
   }
 
   return (
-    <div style={{ fontFamily: T.sans }}>
+    <div style={{ fontFamily: T.sans, minWidth: 0, maxWidth: "100%" }}>
       <div
         style={{
           display: "flex",
@@ -408,18 +415,25 @@ export const CorporateEventsProfilePanel: React.FC<
         ) : null}
       </div>
 
-      <div style={{ overflowX: "auto" }}>
+      <div
+        style={{
+          overflowX: "auto",
+          maxWidth: "100%",
+          minWidth: 0,
+        }}
+      >
         <table
           style={{
             width: "100%",
-            minWidth: "920px",
+            minWidth: narrow ? 0 : "920px",
+            tableLayout: narrow ? "fixed" : "auto",
             borderCollapse: "collapse",
-            fontSize: "12.5px",
+            fontSize: narrow ? "12px" : "12.5px",
           }}
         >
           <thead>
             <tr style={{ background: T.paper }}>
-              {CE_HEADERS.map((h) => (
+              {headers.map((h) => (
                 <th
                   key={h}
                   style={{
@@ -457,6 +471,7 @@ export const CorporateEventsProfilePanel: React.FC<
                     ? { background: T.coralSoft, color: T.down }
                     : { background: T.inset, color: T.muted };
 
+                const cellPad = narrow ? "10px 8px" : "12px";
                 return (
                   <tr
                     key={event.id ?? `ce-${index}`}
@@ -464,9 +479,10 @@ export const CorporateEventsProfilePanel: React.FC<
                   >
                     <td
                       style={{
-                        padding: "12px",
+                        padding: cellPad,
                         fontFamily: T.mono,
                         color: T.body,
+                        whiteSpace: narrow ? "nowrap" : undefined,
                       }}
                     >
                       {event.id ? (
@@ -489,14 +505,14 @@ export const CorporateEventsProfilePanel: React.FC<
                         formatMonthYear(dateRaw)
                       )}
                     </td>
-                    <td style={{ padding: "12px" }}>
+                    <td style={{ padding: cellPad }}>
                       <span
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
-                          padding: "3px 9px",
+                          padding: narrow ? "2px 7px" : "3px 9px",
                           borderRadius: 999,
-                          fontSize: "11.5px",
+                          fontSize: narrow ? "10.5px" : "11.5px",
                           fontWeight: 600,
                           ...pillStyle,
                         }}
@@ -504,52 +520,67 @@ export const CorporateEventsProfilePanel: React.FC<
                         {dealTypeStr}
                       </span>
                     </td>
-                    <td style={{ padding: "12px", color: T.ink }}>
-                      {renderTargetCell(event, T.azure)}
-                    </td>
-                    <td style={{ padding: "12px", color: T.muted }}>
-                      {advisorList.length === 0
-                        ? "—"
-                        : advisorList.map((advisor, idx) => (
-                            <span key={`${advisor.name}-${idx}`}>
-                              <span
-                                style={{
-                                  color: T.azure,
-                                  cursor: advisor.id
-                                    ? "pointer"
-                                    : "default",
-                                }}
-                                onClick={() =>
-                                  advisor.id &&
-                                  handleAdvisorNav(advisor.id, advisor.name)
-                                }
-                              >
-                                {advisor.name}
-                              </span>
-                              {idx < advisorList.length - 1 ? ", " : ""}
-                            </span>
-                          ))}
-                    </td>
-                    <td style={{ padding: "12px", color: T.muted }}>
-                      {sectorCol}
-                    </td>
                     <td
                       style={{
-                        padding: "12px",
-                        fontFamily: T.mono,
-                        textAlign: "right",
-                        color: T.body,
+                        padding: cellPad,
+                        color: T.ink,
+                        overflow: narrow ? "hidden" : undefined,
+                        textOverflow: narrow ? "ellipsis" : undefined,
+                        whiteSpace: narrow ? "nowrap" : undefined,
                       }}
                     >
-                      {formatAmountCell(event)}
+                      {renderTargetCell(event, T.azure)}
                     </td>
+                    {!narrow && (
+                      <>
+                        <td style={{ padding: cellPad, color: T.muted }}>
+                          {advisorList.length === 0
+                            ? "—"
+                            : advisorList.map((advisor, idx) => (
+                                <span key={`${advisor.name}-${idx}`}>
+                                  <span
+                                    style={{
+                                      color: T.azure,
+                                      cursor: advisor.id
+                                        ? "pointer"
+                                        : "default",
+                                    }}
+                                    onClick={() =>
+                                      advisor.id &&
+                                      handleAdvisorNav(
+                                        advisor.id,
+                                        advisor.name
+                                      )
+                                    }
+                                  >
+                                    {advisor.name}
+                                  </span>
+                                  {idx < advisorList.length - 1 ? ", " : ""}
+                                </span>
+                              ))}
+                        </td>
+                        <td style={{ padding: cellPad, color: T.muted }}>
+                          {sectorCol}
+                        </td>
+                        <td
+                          style={{
+                            padding: cellPad,
+                            fontFamily: T.mono,
+                            textAlign: "right",
+                            color: T.body,
+                          }}
+                        >
+                          {formatAmountCell(event)}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 );
               })
             ) : (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={headers.length}
                   style={{
                     padding: "24px",
                     textAlign: "center",
