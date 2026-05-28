@@ -24,6 +24,17 @@ import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { trackEvent } from "@/lib/tracking";
 import { fetchCompaniesServer, CompaniesFilters as ServerFilters } from "./actions";
+import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
+import {
+  CANONICAL_COMPANY_COLUMN_KEYS,
+  DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS,
+  columnKeysToVisibility,
+  visibilityToColumnKeys,
+} from "@/components/companies/companiesColumnCategories";
+import {
+  fetchCompanyTableDataByIds,
+  selectedColumnsNeedTableData,
+} from "@/lib/companyTableData";
 
 // Feature flags (master only)
 const ENABLE_COMPANIES_KEYWORD_SEARCH = false;
@@ -718,134 +729,9 @@ const toPlainText = (value: unknown): string => {
   return String(value);
 };
 
-const formatPlainNumber = (value: unknown): string => {
-  if (value == null || value === "") return "N/A";
-  const num =
-    typeof value === "number"
-      ? value
-      : Number(String(value).replace(/[^0-9.-]/g, ""));
-  if (!Number.isFinite(num)) return toPlainText(value);
-  return num.toLocaleString("en-US", {
-    maximumFractionDigits: Math.abs(num) >= 100 ? 0 : 1,
-  });
-};
-
-const formatPercentValue = (value: unknown): string => {
-  if (value == null || value === "") return "N/A";
-  const num =
-    typeof value === "number"
-      ? value
-      : Number(String(value).replace(/[^0-9.-]/g, ""));
-  if (!Number.isFinite(num)) return toPlainText(value);
-  const pct = Math.abs(num) <= 1 ? num * 100 : num;
-  const decimals = Math.abs(pct) % 1 === 0 ? 0 : 1;
-  return `${pct.toFixed(decimals)}%`;
-};
-
-const formatMultipleValue = (value: unknown): string => {
-  if (value == null || value === "") return "N/A";
-  const num =
-    typeof value === "number"
-      ? value
-      : Number(String(value).replace(/[^0-9.-]/g, ""));
-  if (!Number.isFinite(num)) return toPlainText(value);
-  return `${num.toFixed(1)}x`;
-};
-
 const yearsToDays = (years: number | null | undefined): number | null => {
   if (years == null || !Number.isFinite(years)) return null;
   return Math.round(years * 365);
-};
-
-const parseMaybeSetLikeList = (value: unknown): string[] => {
-  if (value == null) return [];
-  if (Array.isArray(value)) {
-    return value.map(toPlainText).filter((item) => item !== "N/A");
-  }
-  if (typeof value === "object") {
-    return Object.values(value as Record<string, unknown>)
-      .flatMap((item) =>
-        item && typeof item === "object" && !Array.isArray(item)
-          ? Object.values(item as Record<string, unknown>).map(toPlainText)
-          : [toPlainText(item)]
-      )
-      .filter((item) => item !== "N/A");
-  }
-  const text = toPlainText(value);
-  if (text === "N/A" || text === "{}" || text === "[]") return [];
-
-  try {
-    const parsed = JSON.parse(text) as unknown;
-    if (Array.isArray(parsed)) {
-      return parsed.map(toPlainText).filter((item) => item !== "N/A");
-    }
-  } catch {
-    // Fall through to set-like string parsing.
-  }
-
-  return text
-    .replace(/^\{/, "")
-    .replace(/\}$/, "")
-    .split(",")
-    .map((item) => item.replace(/^["']|["']$/g, "").trim())
-    .filter(Boolean);
-};
-
-const normalizeWebsite = (raw: unknown): string => {
-  const text = toPlainText(raw);
-  if (text === "N/A") return text;
-  return /^https?:\/\//i.test(text) ? text : `https://${text}`;
-};
-
-const mapCompanyTableApiRow = (row: Record<string, unknown>): Record<string, unknown> => {
-  const id = Number(row.id) || 0;
-  const primarySectors = parseMaybeSetLikeList(row.primary_sector_names).join(", ");
-  const secondarySectors = parseMaybeSetLikeList(row.secondary_sector_names).join(", ");
-  const investorNames = parseMaybeSetLikeList(row.investor_names).join(", ");
-  const hqLocation = [
-    toPlainText(row.hq_city),
-    toPlainText(row.hq_state),
-    toPlainText(row.hq_country),
-  ]
-    .filter((item) => item !== "N/A")
-    .join(", ");
-
-  return {
-    ...row,
-    id,
-    name: toPlainText(row.name),
-    url: normalizeWebsite(row.url),
-    loc: hqLocation || "N/A",
-    year_founded: toPlainText(row.year_founded_label ?? row.year_founded),
-    primary_sector_names: primarySectors || "N/A",
-    secondary_sector_names: secondarySectors || "N/A",
-    investor_names: investorNames || "N/A",
-    ownership_type: toPlainText(row.ownership_type ?? row.ownership_status),
-    li_emp: formatPlainNumber(row.linkedin_employee),
-    li_growth_pc: formatPercentValue(row.linkedin_growth_1y_pct),
-    revenue_m: formatPlainNumber(row.Revenue_m),
-    arr_m: formatPlainNumber(row.ARR_m),
-    ebitda_m: formatPlainNumber(row.EBITDA_m),
-    ebit_m: formatPlainNumber(row.EBIT_m),
-    ev: formatPlainNumber(row.EV),
-    arr_pc: formatPercentValue(row.ARR_pc),
-    churn_pc: formatPercentValue(row.Churn_pc),
-    grr_pc: formatPercentValue(row.GRR_pc),
-    nrr: formatPercentValue(row.NRR),
-    upsell_pc: formatPercentValue(row.Upsell_pc),
-    cross_sell_pc: formatPercentValue(row.Cross_sell_pc),
-    price_increase_pc: formatPercentValue(row.Price_increase_pc),
-    rev_expansion_pc: formatPercentValue(row.Rev_expansion_pc),
-    new_client_growth_pc: formatPercentValue(row.New_client_growth_pc),
-    rev_growth_pc: formatPercentValue(row.Rev_Growth_PC),
-    ebitda_margin: formatPercentValue(row.EBITDA_margin),
-    rule_of_40: formatPlainNumber(row.Rule_of_40),
-    revenue_multiple: formatMultipleValue(row.Revenue_multiple),
-    no_of_clients: formatPlainNumber(row.No_of_Clients),
-    rev_per_client: formatPlainNumber(row.Rev_per_client),
-    no_employees: formatPlainNumber(row.No_Employees),
-    rev_per_employee: formatPlainNumber(row.Revenue_per_employee),
-  };
 };
 
 const readCompanyValue = (company: Company, aliases: string[]): unknown => {
@@ -881,12 +767,12 @@ const makeTextColumn = (
 
 const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinition[] }> = [
   {
-    group: "Default",
+    group: "Identity",
     cols: [
       {
         key: "logo",
         label: "Logo",
-        group: "Default",
+        group: "Identity",
         minWidth: 88,
         render: (company) => (
           <CompanyLogo logo={String(company.linkedin_logo || "")} name={company.name} />
@@ -895,7 +781,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
       {
         key: "name",
         label: "Name",
-        group: "Default",
+        group: "Identity",
         minWidth: 160,
         render: (company, { onCompanyClick }) => (
           <a
@@ -921,6 +807,35 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
           </a>
         ),
       },
+      makeTextColumn("ticker", "Ticker", "Identity", [
+        "ticker",
+        "Ticker",
+        "stock_ticker",
+      ]),
+      makeTextColumn("website", "Website", "Identity", ["url", "website", "Website"], {
+        wrap: true,
+        minWidth: 220,
+      }),
+    ],
+  },
+  {
+    group: "Lists",
+    cols: [
+      makeTextColumn("follow", "Follow", "Lists", [
+        "follow_status",
+        "is_followed",
+        "followed",
+      ]),
+      makeTextColumn("list_count", "Lists", "Lists", [
+        "list_count",
+        "lists_count",
+        "portfolio_list_count",
+      ], { minWidth: 90 }),
+    ],
+  },
+  {
+    group: "Default",
+    cols: [
       {
         key: "description",
         label: "Description",
@@ -957,16 +872,19 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
       },
       makeTextColumn("ownership", "Ownership", "Default", [
         "ownership",
+        "ownership_type",
         "_ownership_type.ownership",
       ]),
-      {
-        key: "linkedin_members",
-        label: "LinkedIn Members",
-        group: "Default",
-        minWidth: 130,
-        render: (company) => formatNumber(company.linkedin_members),
-      },
-      makeTextColumn("country", "Country", "Default", ["country", "_locations.Country"]),
+      makeTextColumn("linkedin_members", "LinkedIn Members", "Default", [
+        "li_emp",
+        "linkedin_members",
+        "linkedin_employee",
+      ], { minWidth: 130 }),
+      makeTextColumn("country", "Country", "Default", [
+        "country",
+        "hq_country",
+        "_locations.Country",
+      ]),
     ],
   },
   {
@@ -977,18 +895,15 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
         "year_founded_label",
         "_years.Year",
       ]),
-      makeTextColumn("website", "Website", "Overview", ["url", "website", "Website"], {
+      makeTextColumn("hq", "HQ", "Overview", ["loc", "hq", "location", "_locations"], {
         wrap: true,
         minWidth: 220,
       }),
-      makeTextColumn("hq", "HQ", "Overview", ["loc", "location", "_locations"], {
-        wrap: true,
-        minWidth: 220,
-      }),
-      makeTextColumn("city", "City", "Overview", ["city", "_locations.City"]),
+      makeTextColumn("city", "City", "Overview", ["city", "hq_city", "_locations.City"]),
       makeTextColumn("state", "State/Province", "Overview", [
         "province",
         "state",
+        "hq_state",
         "_locations.State__Province__County",
       ]),
       makeTextColumn("linkedin_url", "LinkedIn URL", "Overview", [
@@ -1133,17 +1048,8 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
 ];
 
 const ALL_COMPANY_COLUMNS = COMPANY_COLUMN_GROUPS.flatMap((group) => group.cols);
-const ALL_COMPANY_COLUMN_KEYS = ALL_COMPANY_COLUMNS.map((column) => column.key);
-const DEFAULT_COMPANY_COLUMN_KEYS = [
-  "logo",
-  "name",
-  "description",
-  "primary_sectors",
-  "secondary_sectors",
-  "ownership",
-  "linkedin_members",
-  "country",
-];
+const ALL_COMPANY_COLUMN_KEYS = CANONICAL_COMPANY_COLUMN_KEYS;
+const DEFAULT_COMPANY_COLUMN_KEYS = DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS;
 
 const getValidColumnKeys = (keys: string[]): string[] => {
   const seen = new Set<string>();
@@ -3709,7 +3615,7 @@ const CompanySection = ({
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
   const [exportsLeft, setExportsLeft] = useState(0);
-  const [showColumnCustomizer, setShowColumnCustomizer] = useState(false);
+  const [showColumnsModal, setShowColumnsModal] = useState(false);
   const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(false);
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
     DEFAULT_COMPANY_COLUMN_KEYS
@@ -3754,7 +3660,7 @@ const CompanySection = ({
       .map((company) => Number(company.id))
       .filter((id) => Number.isFinite(id) && id > 0);
 
-    if (ids.length === 0) {
+    if (ids.length === 0 || !selectedColumnsNeedTableData(selectedColumnKeys)) {
       setCompanyTableDataById(new Map());
       setCompanyTableDataLoading(false);
       return;
@@ -3770,34 +3676,9 @@ const CompanySection = ({
 
       setCompanyTableDataLoading(true);
       try {
-        const params = new URLSearchParams();
-        params.append("company_ids", JSON.stringify(ids));
-        const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_table_data?${params.toString()}`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json",
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`Failed to load company table data: ${response.status}`);
-        }
-
-        const payload = (await response.json()) as unknown;
-        const items = Array.isArray(payload) ? payload : [];
-        const rows = items
-          .filter((item) => item && typeof item === "object")
-          .map((item) => mapCompanyTableApiRow(item as Record<string, unknown>))
-          .filter((row) => Number(row.id) > 0);
-
+        const rows = await fetchCompanyTableDataByIds(ids, token);
         if (!cancelled) {
-          setCompanyTableDataById(
-            new Map(rows.map((row) => [Number(row.id), row]))
-          );
+          setCompanyTableDataById(rows);
         }
       } catch (error) {
         console.error("Error loading company table data:", error);
@@ -3815,7 +3696,7 @@ const CompanySection = ({
     return () => {
       cancelled = true;
     };
-  }, [companies]);
+  }, [companies, selectedColumnKeys]);
 
   const selectedColumns = useMemo(() => {
     const columnsByKey = new Map(ALL_COMPANY_COLUMNS.map((column) => [column.key, column]));
@@ -3824,25 +3705,20 @@ const CompanySection = ({
       .filter((column): column is CompanyColumnDefinition => Boolean(column));
   }, [selectedColumnKeys]);
 
-  const toggleColumn = useCallback((key: string, checked: boolean) => {
-    setSelectedColumnKeys((current) => {
-      if (checked) {
-        return current.includes(key) ? current : [...current, key];
-      }
-      return current.length <= 1 ? current : current.filter((item) => item !== key);
-    });
-  }, []);
+  const columnVisibilityInitial = useMemo(
+    () => columnKeysToVisibility(selectedColumnKeys),
+    [selectedColumnKeys]
+  );
 
-  const moveColumn = useCallback((key: string, direction: -1 | 1) => {
-    setSelectedColumnKeys((current) => {
-      const index = current.indexOf(key);
-      const nextIndex = index + direction;
-      if (index < 0 || nextIndex < 0 || nextIndex >= current.length) return current;
-      const next = current.slice();
-      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
-      return next;
-    });
-  }, []);
+  const handleApplyColumnVisibility = useCallback(
+    (visible: Record<string, boolean>) => {
+      setSelectedColumnKeys((current) =>
+        getValidColumnKeys(visibilityToColumnKeys(visible, current))
+      );
+      setShowColumnsModal(false);
+    },
+    []
+  );
 
   // Check if any filters are applied
   const hasActiveFilters = () => {
@@ -4336,8 +4212,8 @@ const CompanySection = ({
       companies.map((company, index) => {
         const tableData = companyTableDataById.get(company.id) || {};
         const displayCompany = {
-          ...tableData,
           ...company,
+          ...tableData,
         } as Company;
 
         return (
@@ -4561,28 +4437,6 @@ const CompanySection = ({
       -webkit-overflow-scrolling: touch;
       width: 100%;
     }
-    .company-columns-panel {
-      background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 14px;
-      margin-bottom: 16px;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-    }
-    .company-columns-panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 12px;
-    }
-    .company-columns-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
     .company-columns-button {
       border: 1px solid #e2e8f0;
       background: #fff;
@@ -4596,49 +4450,6 @@ const CompanySection = ({
     .company-columns-button.primary {
       border-color: #0075df;
       color: #0075df;
-    }
-    .company-columns-layout {
-      display: grid;
-      grid-template-columns: minmax(220px, 1fr) minmax(260px, 1fr);
-      gap: 16px;
-    }
-    .company-columns-group-title {
-      margin: 10px 0 6px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      color: #94a3b8;
-    }
-    .company-column-option,
-    .company-selected-column {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      color: #1a202c;
-      padding: 4px 0;
-    }
-    .company-selected-column {
-      justify-content: space-between;
-      border-bottom: 1px solid #f1f5f9;
-      padding: 6px 0;
-    }
-    .company-selected-column-actions {
-      display: flex;
-      gap: 4px;
-    }
-    .company-column-move {
-      border: 1px solid #e2e8f0;
-      background: #fff;
-      color: #334155;
-      border-radius: 6px;
-      min-width: 28px;
-      height: 28px;
-      cursor: pointer;
-    }
-    .company-column-move:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
     }
     .company-table-cell-wrap {
       white-space: normal !important;
@@ -4933,12 +4744,6 @@ const CompanySection = ({
       .filters-button {
         max-width: 100% !important;
       }
-      .company-columns-layout {
-        grid-template-columns: 1fr;
-      }
-      .company-columns-panel {
-        margin: 0 12px 16px;
-      }
     }
     
     @media (min-width: 769px) {
@@ -4950,95 +4755,6 @@ const CompanySection = ({
       }
     }
   `;
-
-  const columnCustomizer = (
-    <div className="company-columns-panel">
-      <div className="company-columns-panel-header">
-        <div>
-          <h3 style={{ margin: 0, fontSize: 16, color: "#0f172a" }}>
-            Customise columns
-          </h3>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: "#64748b" }}>
-            Choose and reorder the columns shown in Companies Search.
-          </p>
-        </div>
-        <div className="company-columns-actions">
-          <button
-            type="button"
-            className="company-columns-button"
-            onClick={() => setSelectedColumnKeys(DEFAULT_COMPANY_COLUMN_KEYS)}
-          >
-            Reset defaults
-          </button>
-          <button
-            type="button"
-            className="company-columns-button"
-            onClick={() => setSelectedColumnKeys(ALL_COMPANY_COLUMN_KEYS)}
-          >
-            Select all
-          </button>
-          <button
-            type="button"
-            className="company-columns-button primary"
-            onClick={() => setShowColumnCustomizer(false)}
-          >
-            Done
-          </button>
-        </div>
-      </div>
-      <div className="company-columns-layout">
-        <div>
-          {COMPANY_COLUMN_GROUPS.map((group) => (
-            <div key={group.group}>
-              <p className="company-columns-group-title">{group.group}</p>
-              {group.cols.map((column) => (
-                <label key={column.key} className="company-column-option">
-                  <input
-                    type="checkbox"
-                    checked={selectedColumnKeys.includes(column.key)}
-                    disabled={
-                      selectedColumnKeys.length <= 1 &&
-                      selectedColumnKeys.includes(column.key)
-                    }
-                    onChange={(event) => toggleColumn(column.key, event.target.checked)}
-                  />
-                  <span>{column.label}</span>
-                </label>
-              ))}
-            </div>
-          ))}
-        </div>
-        <div>
-          <p className="company-columns-group-title">Selected column order</p>
-          {selectedColumns.map((column, index) => (
-            <div key={`selected-${column.key}`} className="company-selected-column">
-              <span>{column.label}</span>
-              <span className="company-selected-column-actions">
-                <button
-                  type="button"
-                  className="company-column-move"
-                  onClick={() => moveColumn(column.key, -1)}
-                  disabled={index === 0}
-                  aria-label={`Move ${column.label} left`}
-                >
-                  Up
-                </button>
-                <button
-                  type="button"
-                  className="company-column-move"
-                  onClick={() => moveColumn(column.key, 1)}
-                  disabled={index === selectedColumns.length - 1}
-                  aria-label={`Move ${column.label} right`}
-                >
-                  Down
-                </button>
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
 
   if (loading) {
     const skeletonRow = (i: number) =>
@@ -5431,12 +5147,17 @@ const CompanySection = ({
         {
           type: "button",
           className: "company-columns-button primary",
-          onClick: () => setShowColumnCustomizer((current) => !current),
+          onClick: () => setShowColumnsModal(true),
         },
-        showColumnCustomizer ? "Hide column customisation" : "Customise columns"
+        "Customise columns"
       )
     ),
-    showColumnCustomizer && columnCustomizer,
+    showColumnsModal &&
+      React.createElement(ColumnsControlRoom, {
+        initial: columnVisibilityInitial,
+        onClose: () => setShowColumnsModal(false),
+        onApply: handleApplyColumnVisibility,
+      }),
     React.createElement(
       "div",
       { className: "company-cards" },
