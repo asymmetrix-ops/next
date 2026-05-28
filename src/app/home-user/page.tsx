@@ -445,10 +445,6 @@ export default function HomeUserPage() {
   const DEAL_RADAR_PAGE_LIMIT = 25;
   const DEAL_RADAR_SCROLL_THRESHOLD_PX = 48;
 
-  /** `next_page` from the API is 1-based; the `offset` query param is a row skip. */
-  const dealRadarPageToOffset = (page: number): number =>
-    Math.max(0, (page - 1) * DEAL_RADAR_PAGE_LIMIT);
-
   const dealRadarStageLabel = (status: string): string => {
     const s = status.toLowerCase();
     if (s.includes("reported")) return "Reported";
@@ -480,13 +476,15 @@ export default function HomeUserPage() {
   };
 
   const [dealRadarItems, setDealRadarItems] = useState<DealRadarItem[]>([]);
-  const [dealRadarNextPage, setDealRadarNextPage] = useState<number | null>(null);
+  const [dealRadarNextOffset, setDealRadarNextOffset] = useState<number | null>(
+    null
+  );
   const [dealRadarLoading, setDealRadarLoading] = useState(true);
   const [dealRadarLoadingMore, setDealRadarLoadingMore] = useState(false);
   const dealRadarFetchAbortRef = useRef<AbortController | null>(null);
   const dealRadarFetchGenerationRef = useRef(0);
   const dealRadarScrollRef = useRef<HTMLDivElement | null>(null);
-  const dealRadarNextPageRef = useRef<number | null>(null);
+  const dealRadarNextOffsetRef = useRef<number | null>(null);
   const dealRadarLoadingMoreRef = useRef(false);
   const dealRadarLoadedOffsetsRef = useRef<Set<number>>(new Set());
   const insightsCardRef = useRef<HTMLDivElement | null>(null);
@@ -954,11 +952,11 @@ export default function HomeUserPage() {
 
     try {
       setDealRadarLoading(true);
-      setDealRadarNextPage(null);
-      dealRadarNextPageRef.current = null;
+      setDealRadarNextOffset(null);
+      dealRadarNextOffsetRef.current = null;
       dealRadarLoadedOffsetsRef.current = new Set();
 
-      const initialOffset = 0;
+      const initialOffset = 1;
       const res = await dashboardApiService.getDealRadar({
         limit: DEAL_RADAR_PAGE_LIMIT,
         offset: initialOffset,
@@ -972,8 +970,9 @@ export default function HomeUserPage() {
         )
       );
       dealRadarLoadedOffsetsRef.current.add(initialOffset);
-      setDealRadarNextPage(res.next_page);
-      dealRadarNextPageRef.current = res.next_page;
+      const nextOffset = res.has_next_page ? res.next_offset : null;
+      setDealRadarNextOffset(nextOffset);
+      dealRadarNextOffsetRef.current = nextOffset;
     } catch (error) {
       if (controller.signal.aborted) return;
       console.error("Error fetching Deal Radar:", error);
@@ -995,12 +994,11 @@ export default function HomeUserPage() {
   }, []);
 
   const loadMoreDealRadar = useCallback(async () => {
-    const nextPage = dealRadarNextPageRef.current;
-    if (nextPage == null || dealRadarLoadingMoreRef.current) {
+    const requestOffset = dealRadarNextOffsetRef.current;
+    if (requestOffset == null || dealRadarLoadingMoreRef.current) {
       return;
     }
 
-    const requestOffset = dealRadarPageToOffset(nextPage);
     if (dealRadarLoadedOffsetsRef.current.has(requestOffset)) {
       return;
     }
@@ -1020,8 +1018,9 @@ export default function HomeUserPage() {
       );
 
       setDealRadarItems((prev) => appendDealRadarItems(prev, incoming));
-      setDealRadarNextPage(res.next_page);
-      dealRadarNextPageRef.current = res.next_page;
+      const nextOffset = res.has_next_page ? res.next_offset : null;
+      setDealRadarNextOffset(nextOffset);
+      dealRadarNextOffsetRef.current = nextOffset;
     } catch (error) {
       console.error("Error loading more Deal Radar items:", error);
       dealRadarLoadedOffsetsRef.current.delete(requestOffset);
@@ -1035,7 +1034,7 @@ export default function HomeUserPage() {
     if (
       dealRadarLoading ||
       sideColumnHeight == null ||
-      dealRadarNextPageRef.current == null ||
+      dealRadarNextOffsetRef.current == null ||
       dealRadarLoadingMoreRef.current
     ) {
       return;
@@ -1234,7 +1233,7 @@ export default function HomeUserPage() {
   }, [
     dealRadarLoading,
     dealRadarLoadingMore,
-    dealRadarNextPage,
+    dealRadarNextOffset,
     scheduleDealRadarScrollCheck,
     sideColumnHeight,
     tryLoadMoreDealRadarIfNearBottom,

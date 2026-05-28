@@ -64,6 +64,109 @@ export type FinancialMetricsRow = {
   median_new_client_growth_pc?: string | number | null;
 };
 
+export type DealRadarApiItem = {
+  company_id: number;
+  name: string;
+  transaction_status_id?: number;
+  transaction_status: string;
+  last_updated_at: string;
+  primary_sectors: unknown;
+  latest_content: {
+    id: number;
+    headline: string;
+    content_type: string;
+    publication_date: string;
+  } | null;
+};
+
+export type DealRadarListResponse = {
+  items: DealRadarApiItem[];
+  limit: number;
+  offset: number;
+  current_page: number;
+  total_pages: number;
+  total_items: number;
+  /** Next request `offset` from the API (`pagination.next_offset`). */
+  next_offset: number | null;
+  next_page: number | null;
+  has_next_page: boolean;
+};
+
+const readDealRadarNumber = (value: unknown): number | null => {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+/** API returns pagination under `pagination`; normalize for callers. */
+export const normalizeDealRadarResponse = (
+  raw: unknown
+): DealRadarListResponse => {
+  const obj =
+    raw && typeof raw === "object"
+      ? (raw as Record<string, unknown>)
+      : {};
+  const pag =
+    obj.pagination && typeof obj.pagination === "object"
+      ? (obj.pagination as Record<string, unknown>)
+      : null;
+
+  const items = Array.isArray(obj.items)
+    ? (obj.items as DealRadarApiItem[])
+    : [];
+
+  const limit =
+    readDealRadarNumber(pag?.page_size) ??
+    readDealRadarNumber(obj.limit) ??
+    readDealRadarNumber(pag?.limit) ??
+    25;
+  const offset =
+    readDealRadarNumber(pag?.offset) ??
+    readDealRadarNumber(obj.offset) ??
+    0;
+  const current_page =
+    readDealRadarNumber(pag?.current_page) ??
+    readDealRadarNumber(obj.current_page) ??
+    1;
+  const total_pages =
+    readDealRadarNumber(pag?.total_pages) ??
+    readDealRadarNumber(obj.total_pages) ??
+    0;
+  const total_items =
+    readDealRadarNumber(pag?.total_items) ??
+    readDealRadarNumber(obj.total) ??
+    readDealRadarNumber(obj.total_items) ??
+    items.length;
+
+  const next_page =
+    readDealRadarNumber(pag?.next_page) ??
+    readDealRadarNumber(obj.next_page);
+  let next_offset =
+    readDealRadarNumber(pag?.next_offset) ??
+    readDealRadarNumber(obj.next_offset);
+  const has_next_page =
+    pag?.has_next_page === true ||
+    obj.has_next_page === true ||
+    next_offset != null ||
+    next_page != null;
+
+  // API uses 1-based row cursors (page 2 → offset 26 when page_size is 25).
+  if (next_offset == null && next_page != null && next_page > current_page) {
+    next_offset = (next_page - 1) * limit + 1;
+  }
+
+  return {
+    items,
+    limit,
+    offset,
+    current_page,
+    total_pages,
+    total_items,
+    next_offset,
+    next_page,
+    has_next_page,
+  };
+};
+
 class DashboardApiService {
   private baseUrl: string;
   private sectorsCache: {
@@ -452,33 +555,12 @@ class DashboardApiService {
     };
   }
 
-  // Deal Radar endpoint: `offset` is a row skip (0, 25, 50…); `next_page` is the next 1-based page number
+  // Deal Radar endpoint: `offset` is the API row cursor (`pagination.next_offset` for follow-up pages)
   async getDealRadar(params: {
     limit: number;
     offset: number;
     signal?: AbortSignal;
-  }): Promise<{
-    items: Array<{
-      company_id: number;
-      name: string;
-      transaction_status_id?: number;
-      transaction_status: string;
-      last_updated_at: string;
-      primary_sectors: unknown;
-      latest_content: {
-        id: number;
-        headline: string;
-        content_type: string;
-        publication_date: string;
-      } | null;
-    }>;
-    total: number;
-    limit: number;
-    offset: number;
-    current_page: number;
-    total_pages: number;
-    next_page: number | null;
-  }> {
+  }): Promise<DealRadarListResponse> {
     const url = new URL(
       "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/get_deal_radar"
     );
@@ -503,7 +585,8 @@ class DashboardApiService {
       throw new Error(`Deal Radar API failed: ${response.statusText}`);
     }
 
-    return response.json();
+    const raw: unknown = await response.json();
+    return normalizeDealRadarResponse(raw);
   }
 
   // Clear cache method for manual cache invalidation
