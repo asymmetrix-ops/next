@@ -24,6 +24,11 @@ import {
 import { LinkPanel } from "@/components/redesign/primitives";
 import { IncomeStatementSection } from "@/components/redesign/IncomeStatementSection";
 import { AIRiskCard } from "@/components/redesign/AIRiskCard";
+import type { AIRiskAxis } from "@/components/redesign/AIRiskCard";
+import {
+  fetchCompanyAiRisks,
+  mapCompanyAiRisksToAxes,
+} from "@/lib/companyAiRisks";
 import { ContentArticle } from "@/types/insightsAnalysis";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
@@ -1102,6 +1107,8 @@ const CompanyDetail = () => {
   // Financial metrics from Xano `company_financial_metrics`
   const [financialMetrics, setFinancialMetrics] =
     useState<CompanyFinancialMetrics | null>(null);
+  const [aiRiskAxes, setAiRiskAxes] = useState<AIRiskAxis[] | null>(null);
+  const [aiRisksLoading, setAiRisksLoading] = useState(false);
   // New investors from company_investors API endpoint
   const [apiInvestors, setApiInvestors] = useState<
     CompanyInvestorFromAPI[]
@@ -1353,6 +1360,18 @@ const CompanyDetail = () => {
       }
     } catch {
       // Non-fatal; keep defaults
+    }
+  }, []);
+
+  const fetchCompanyAiRisksData = useCallback(async (id: string | number) => {
+    setAiRisksLoading(true);
+    try {
+      const record = await fetchCompanyAiRisks(id);
+      setAiRiskAxes(mapCompanyAiRisksToAxes(record));
+    } catch {
+      setAiRiskAxes(null);
+    } finally {
+      setAiRisksLoading(false);
     }
   }, []);
 
@@ -1649,6 +1668,7 @@ const CompanyDetail = () => {
       fetchFinancialMetrics(companyId);
       fetchCompanyInvestors(companyId);
       fetchCompanyTransactionStatus(companyId);
+      fetchCompanyAiRisksData(companyId);
     }
   }, [
     companyId,
@@ -1657,6 +1677,7 @@ const CompanyDetail = () => {
     fetchFinancialMetrics,
     fetchCompanyInvestors,
     fetchCompanyTransactionStatus,
+    fetchCompanyAiRisksData,
   ]);
 
 
@@ -3755,7 +3776,12 @@ const CompanyDetail = () => {
             </div>
 
             <div className="company-grid-ai-risk">
-              <AIRiskCard fillGridCell />
+              <AIRiskCard
+                fillGridCell
+                axes={aiRiskAxes ?? undefined}
+                loading={aiRisksLoading}
+                defaultActiveKey="data"
+              />
             </div>
 
             {/* Rows 5–6: Col 1 = events + subs (Revenue-model width); Col 3 = headcount + management under AI risk */}

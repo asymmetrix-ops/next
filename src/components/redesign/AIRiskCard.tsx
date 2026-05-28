@@ -347,17 +347,90 @@ function RadarChart({
 type AIRiskCardProps = {
   axes?: AIRiskAxis[];
   defaultActiveKey?: string;
+  loading?: boolean;
   /** Stretch to fill a tall grid cell (product row, col 3). */
   fillGridCell?: boolean;
 };
 
 export function AIRiskCard({
-  axes = AI_RISK_AXES,
+  axes: axesProp,
   defaultActiveKey = "data",
+  loading = false,
   fillGridCell = false,
 }: AIRiskCardProps) {
+  const hasApiAxes = Boolean(axesProp && axesProp.length > 0);
+  const axes = hasApiAxes ? axesProp! : AI_RISK_AXES;
   const [active, setActive] = useState(defaultActiveKey);
   const [hover, setHover] = useState(false);
+
+  const shellStyle: React.CSSProperties = {
+    background: T.panel,
+    border: `1px solid ${T.divider}`,
+    borderRadius: T.rLg,
+    width: "100%",
+    height: fillGridCell ? "100%" : undefined,
+    minHeight: fillGridCell ? 200 : undefined,
+    display: "flex",
+    flexDirection: "column",
+  };
+
+  React.useEffect(() => {
+    if (!axes.some((a) => a.key === active)) {
+      setActive(axes[0]?.key ?? defaultActiveKey);
+    }
+  }, [axes, active, defaultActiveKey]);
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          ...shellStyle,
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: T.sans,
+          fontSize: 13,
+          color: T.muted,
+        }}
+      >
+        Loading AI risk…
+      </div>
+    );
+  }
+
+  if (!hasApiAxes) {
+    return (
+      <div style={shellStyle}>
+        <div
+          style={{
+            padding: "14px 16px 12px",
+            borderBottom: `1px solid ${T.hair}`,
+            fontFamily: T.sans,
+            fontSize: 13.5,
+            fontWeight: 600,
+            color: T.ink,
+          }}
+        >
+          AI risk
+        </div>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            fontFamily: T.sans,
+            fontSize: 13,
+            color: T.muted,
+            textAlign: "center",
+          }}
+        >
+          AI risk data is not available for this company.
+        </div>
+      </div>
+    );
+  }
+
   const activeAxis = axes.find((a) => a.key === active) || axes[0];
   const tone = tierTone(activeAxis.score, activeAxis.group);
 
