@@ -13,7 +13,11 @@ import {
   PlusIcon,
 } from "@heroicons/react/24/outline";
 import { CorporateEventsProfilePanel } from "@/components/corporate-events/CorporateEventsProfilePanel";
-import { SubsidiariesProfilePanel } from "@/components/subsidiaries/SubsidiariesProfilePanel";
+import {
+  SubsidiariesProfilePanel,
+  parseLinkedInGrowthPctValue,
+} from "@/components/subsidiaries/SubsidiariesProfilePanel";
+import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
 import { ManagementProfilePanel } from "@/components/company/ManagementProfilePanel";
 import { ManagementCard } from "@/components/redesign/ManagementCard";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
@@ -431,6 +435,7 @@ interface Company {
         linkedin_employee: number;
         linkedin_logo: string;
       };
+      linkedin_growth_1y_pct?: number | string | null;
     }>;
   };
   Managmant_Roles_current?: Array<{
@@ -530,8 +535,101 @@ interface CompanyResponse {
         linkedin_employee: number;
         linkedin_logo: string;
       };
+      linkedin_growth_1y_pct?: number | string | null;
     }>;
   };
+}
+
+type SubsidiariesBlock = NonNullable<Company["have_subsidiaries_companies"]>;
+type SubsidiaryRecord = SubsidiariesBlock["Subsidiaries_companies"][number];
+
+type RawSubsidiaryRecord = SubsidiaryRecord & {
+  linkedin_data?: {
+    LinkedIn_Employee?: number;
+    linkedin_logo?: string;
+    linkedin_growth_1y_pct?: number | string | null;
+    LinkedIn_Growth_1y_Pct?: number | string | null;
+  };
+};
+
+/** Normalize subsidiary shape from Get_new_company (linkedin_data vs legacy fields). */
+function normalizeSubsidiaryRecord(sub: RawSubsidiaryRecord): SubsidiaryRecord {
+  const ld = sub.linkedin_data;
+  const legacy = sub._linkedin_data_of_new_company;
+  const linkedin_employee =
+    legacy?.linkedin_employee ??
+    ld?.LinkedIn_Employee ??
+    0;
+  const linkedin_logo = legacy?.linkedin_logo || ld?.linkedin_logo || "";
+  const linkedin_growth_1y_pct =
+    sub.linkedin_growth_1y_pct ??
+    ld?.linkedin_growth_1y_pct ??
+    ld?.LinkedIn_Growth_1y_Pct ??
+    null;
+
+  return {
+    ...sub,
+    _linkedin_data_of_new_company: {
+      linkedin_employee,
+      linkedin_logo,
+    },
+    linkedin_growth_1y_pct,
+  };
+}
+
+/** Merge subsidiary lists from Company + root so fields like `linkedin_growth_1y_pct` are kept. */
+function mergeHaveSubsidiariesCompanies(
+  fromCompany?: SubsidiariesBlock,
+  fromRoot?: SubsidiariesBlock
+): SubsidiariesBlock {
+  const companyList = fromCompany?.Subsidiaries_companies ?? [];
+  const rootList = fromRoot?.Subsidiaries_companies ?? [];
+  if (companyList.length === 0 && rootList.length === 0) {
+    return { have_subsidiaries_companies: false, Subsidiaries_companies: [] };
+  }
+  const byId = new Map<number, RawSubsidiaryRecord>();
+  for (const s of rootList) {
+    if (typeof s?.id === "number") byId.set(s.id, s as RawSubsidiaryRecord);
+  }
+  for (const s of companyList) {
+    if (typeof s?.id === "number") {
+      const prev = byId.get(s.id);
+      byId.set(
+        s.id,
+        prev
+          ? { ...prev, ...(s as RawSubsidiaryRecord) }
+          : (s as RawSubsidiaryRecord)
+      );
+    }
+  }
+  const merged = Array.from(byId.values()).map(normalizeSubsidiaryRecord);
+  return {
+    have_subsidiaries_companies:
+      Boolean(fromCompany?.have_subsidiaries_companies) ||
+      Boolean(fromRoot?.have_subsidiaries_companies) ||
+      merged.length > 0,
+    Subsidiaries_companies: merged,
+  };
+}
+
+/** Get_new_company subsidiaries omit YoY growth; batch-fetch from get_company_table_data. */
+async function enrichSubsidiariesLinkedInGrowth(
+  subsidiaries: SubsidiaryRecord[],
+  token: string
+): Promise<SubsidiaryRecord[]> {
+  const ids = subsidiaries
+    .map((s) => s.id)
+    .filter((id) => typeof id === "number" && id > 0);
+  if (ids.length === 0) return subsidiaries;
+
+  const tableRows = await fetchCompanyTableDataByIds(ids, token);
+  return subsidiaries.map((sub) => {
+    const row = tableRows.get(sub.id);
+    if (!row) return sub;
+    const pct = parseLinkedInGrowthPctValue(row.linkedin_growth_1y_pct);
+    if (pct === null) return sub;
+    return { ...sub, linkedin_growth_1y_pct: pct };
+  });
 }
 
 // Utility functions
@@ -1525,10 +1623,11 @@ const CompanyDetail = () => {
             (data.Company as unknown as { Former_name?: string[] })
               ?.Former_name ||
             [],
-          have_subsidiaries_companies: data.have_subsidiaries_companies || {
-            have_subsidiaries_companies: false,
-            Subsidiaries_companies: [],
-          },
+          // Merge Company + root subsidiary payloads (growth % may only exist on one).
+          have_subsidiaries_companies: mergeHaveSubsidiariesCompanies(
+            data.Company.have_subsidiaries_companies,
+            data.have_subsidiaries_companies
+          ),
           // Prefer root-level new_sectors_data when present; fallback to Company-level
           new_sectors_data:
             data.new_sectors_data || data.Company?.new_sectors_data,
@@ -1678,6 +1777,30 @@ const CompanyDetail = () => {
         // Removed verbose logging of enriched object
 
         setCompany(enrichedCompany);
+
+        const token = localStorage.getItem("asymmetrix_auth_token");
+        const initialSubs =
+          enrichedCompany.have_subsidiaries_companies?.Subsidiaries_companies ??
+          [];
+        if (token && initialSubs.length > 0) {
+          void enrichSubsidiariesLinkedInGrowth(initialSubs, token)
+            .then((enrichedSubs) => {
+              setCompany((prev) => {
+                if (!prev?.have_subsidiaries_companies) return prev;
+                return {
+                  ...prev,
+                  have_subsidiaries_companies: {
+                    ...prev.have_subsidiaries_companies,
+                    Subsidiaries_companies: enrichedSubs,
+                  },
+                };
+              });
+            })
+            .catch((err) => {
+              console.warn("[subsidiaries] linkedin growth enrich failed:", err);
+            });
+        }
+
         // Trigger fetching related articles using company id (requires auth)
         if (enrichedCompany?.id) {
           fetchCompanyArticles(enrichedCompany.id);
