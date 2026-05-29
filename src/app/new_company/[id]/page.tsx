@@ -27,7 +27,11 @@ import {
   type ProductUsersSection,
 } from "@/components/redesign/ProductUsersListCard";
 import { LinkPanel } from "@/components/redesign/primitives";
-import { FinMetricsIncomeCard } from "@/components/redesign/FinMetricsIncomeCard";
+import {
+  FinMetricsIncomeCard,
+  FinMetricsPrimaryCard,
+  FinMetricsSecondaryCard,
+} from "@/components/redesign/FinMetricsIncomeCard";
 import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
 import { buildBenchmarkPeersData } from "@/lib/buildBenchmarkPeersData";
 import { AIRiskCard } from "@/components/redesign/AIRiskCard";
@@ -1088,7 +1092,6 @@ const CompanyDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [isMobile, setIsMobile] = useState(false);
   const [showAllPrimarySectors, setShowAllPrimarySectors] = useState(false);
   const [showAllSecondarySectors, setShowAllSecondarySectors] = useState(false);
   const [corporateEvents, setCorporateEvents] = useState<
@@ -1123,8 +1126,9 @@ const CompanyDetail = () => {
     useState<CompanyPdfExportType | null>(null);
   const [showPdfExportOptions, setShowPdfExportOptions] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [isDescriptionExpandable, setIsDescriptionExpandable] = useState(false);
+  const [overviewCellHeight, setOverviewCellHeight] = useState(0);
   const descriptionRef = useRef<HTMLDivElement | null>(null);
+  const overviewGridRef = useRef<HTMLDivElement | null>(null);
   const pdfExportMenuRef = useRef<HTMLDivElement | null>(null);
 
   const transactionStatusDisplayLabel = useMemo(() => {
@@ -1726,64 +1730,22 @@ const CompanyDetail = () => {
     }
   }, [company, corporateEvents]);
 
-  // Detect mobile once on mount
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const check = () => setIsMobile(window.innerWidth <= 768);
-      check();
-      window.addEventListener("resize", check);
-      return () => window.removeEventListener("resize", check);
-    }
-  }, []);
 
   useEffect(() => {
     setIsDescriptionExpanded(false);
   }, [company?.description]);
 
+  // Measure Overview cell height so Description can match it when collapsed
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    const el = overviewGridRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => setOverviewCellHeight(el.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [company]);
 
-    const checkDescriptionOverflow = () => {
-      const element = descriptionRef.current;
-      if (!element) {
-        setIsDescriptionExpandable(false);
-        return;
-      }
-
-      if (isDescriptionExpanded) {
-        setIsDescriptionExpandable(true);
-        return;
-      }
-
-      setIsDescriptionExpandable(
-        element.scrollHeight > element.clientHeight + 1
-      );
-    };
-
-    checkDescriptionOverflow();
-    const rafId = requestAnimationFrame(checkDescriptionOverflow);
-
-    const element = descriptionRef.current;
-    let resizeObserver: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== "undefined" && element) {
-      resizeObserver = new ResizeObserver(checkDescriptionOverflow);
-      resizeObserver.observe(element);
-    }
-
-    window.addEventListener("resize", checkDescriptionOverflow);
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      resizeObserver?.disconnect();
-      window.removeEventListener("resize", checkDescriptionOverflow);
-    };
-  }, [
-    company?.description,
-    isMobile,
-    isDescriptionExpanded,
-    apiInvestorsLoading,
-    transactionStatusDisplayLabel,
-  ]);
 
   // Update page title when company data is loaded
   useEffect(() => {
@@ -2440,12 +2402,12 @@ const CompanyDetail = () => {
       justifyContent: "space-between",
       alignItems: "center",
       flexWrap: "wrap" as const,
-      gap: "16px",
+      gap: "12px",
     },
     headerLeft: {
       display: "flex",
       alignItems: "center",
-      gap: "16px",
+      gap: "12px",
     },
     companyName: {
       fontSize: "24px",
@@ -2775,7 +2737,7 @@ const CompanyDetail = () => {
     responsiveGrid: {
       display: "grid",
       gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-      gap: "16px",
+      gap: "12px",
       flex: "1",
       maxWidth: "100%",
       overflow: "hidden",
@@ -2958,16 +2920,25 @@ const CompanyDetail = () => {
     .responsiveGrid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px;
+      gap: 12px;
       max-width: 100%;
       align-items: stretch;
     }
     .responsiveGrid > * { min-width: 0; min-height: 0; }
-    .company-grid-overview { grid-column: 1; grid-row: 1; min-height: 0; align-self: stretch; }
-    .company-grid-description { grid-column: 2; grid-row: 1; min-height: 0; align-self: stretch; }
-    .company-grid-finance {
+    .company-grid-overview { grid-column: 1; grid-row: 1; min-height: 0; align-self: start; }
+    .company-grid-description { grid-column: 2; grid-row: 1; min-height: 0; }
+    .company-grid-finance-primary {
       grid-column: 3;
-      grid-row: 1 / span 2;
+      grid-row: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-self: stretch;
+    }
+    .company-grid-finance-secondary {
+      grid-column: 3;
+      grid-row: 2;
       min-width: 0;
       min-height: 0;
       display: flex;
@@ -3064,17 +3035,17 @@ const CompanyDetail = () => {
     }
     /* Tighter rows inside Financial Metrics */
     .desktop-financial-metrics .info-row {
-      padding: 6px 0 !important;
-      grid-template-columns: minmax(150px, 170px) minmax(0, 1fr) auto !important;
-      column-gap: 12px !important;
+      padding: 4px 0 !important;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr) auto !important;
+      column-gap: 6px !important;
     }
     .desktop-financial-metrics .info-row > :nth-child(2) {
       min-width: 0;
     }
     .mobile-financial-metrics .info-row {
-      padding: 6px 0 !important;
-      grid-template-columns: minmax(150px, 170px) minmax(0, 1fr) auto !important;
-      column-gap: 12px !important;
+      padding: 4px 0 !important;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr) auto !important;
+      column-gap: 6px !important;
     }
     .mobile-financial-metrics .info-row > :nth-child(2) {
       min-width: 0;
@@ -3109,7 +3080,8 @@ const CompanyDetail = () => {
       .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
       .company-grid-overview,
       .company-grid-description,
-      .company-grid-finance,
+      .company-grid-finance-primary,
+      .company-grid-finance-secondary,
       .company-grid-insights,
       .company-grid-product-mix,
       .company-grid-revenue-model,
@@ -3277,7 +3249,8 @@ const CompanyDetail = () => {
 
             {/* ── Overview card (grid row 1, col 1) ── */}
             <div
-              style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}
+              ref={overviewGridRef}
+              style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", alignSelf: "start" }}
               className="overview-card company-grid-overview"
             >
               <OverviewCard
@@ -3695,16 +3668,26 @@ const CompanyDetail = () => {
 
             {/* ── Description card (grid row 1, col 2) ── */}
             <div
-              style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}
+              style={{
+                minWidth: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignSelf: isDescriptionExpanded ? "start" : "stretch",
+                // When collapsed: clamp to overview height so it doesn't drive row height
+                ...(isDescriptionExpanded
+                  ? {}
+                  : overviewCellHeight > 0
+                    ? { height: overviewCellHeight, overflow: "hidden" }
+                    : { overflow: "hidden" }),
+              }}
               className="overview-description company-grid-description"
             >
               <DescriptionCard
                 text={company.description ?? ""}
                 expanded={isDescriptionExpanded}
-                expandable={isDescriptionExpandable}
                 onToggleExpand={() => setIsDescriptionExpanded((e) => !e)}
                 contentRef={descriptionRef}
-                fillGridCell
+                collapsedHeight={overviewCellHeight}
               />
             </div>
 
@@ -3891,25 +3874,31 @@ const CompanyDetail = () => {
               </div>
             )}
 
-            {/* ══ Col 3: Financial metrics (merged tab card) ══ */}
+            {/* ══ Col 3 row 1: Primary financial metrics (aligned with Overview + Description) ══ */}
             <div
-              className="company-grid-finance desktop-financial-metrics v3-right-rail"
-              style={{
-                minWidth: 0,
-                minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
-                alignSelf: "stretch",
-              }}
+              className="company-grid-finance-primary desktop-financial-metrics v3-right-rail"
+              style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}
             >
-              <FinMetricsIncomeCard
+              <FinMetricsPrimaryCard
                 fillGridCell
                 currencySuffix={metricsCurrencySuffix}
-                data={finMetricsData}
+                primary={finMetricsData.primary}
                 benchmarkData={benchmarkPeersData}
                 hasIncomeStatement={hasIncomeStatementData}
                 incomeStatementRows={normalizedIncomeStatements}
                 incomeStatementCurrency={evCurrency || revenueCurrency || ""}
+              />
+            </div>
+
+            {/* ══ Col 3 row 2: Subscription / other metrics (aligned with Insights) ══ */}
+            <div
+              className="company-grid-finance-secondary desktop-financial-metrics v3-right-rail"
+              style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}
+            >
+              <FinMetricsSecondaryCard
+                fillGridCell
+                subscription={finMetricsData.subscription}
+                other={finMetricsData.other}
               />
             </div>
 
