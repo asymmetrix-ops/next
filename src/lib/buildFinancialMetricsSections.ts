@@ -1,5 +1,3 @@
-import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
-
 type FinancialMetricsPayload = {
   Revenue_m?: number | null;
   Revenue_source_label?: string | null;
@@ -22,11 +20,10 @@ type FinancialMetricsPayload = {
   Rule_of_40?: number | string | null;
   Rule_of_40_source_label?: string | null;
   Rule_of_40_source?: number | string | null;
-  Subscription_revenue_pc?: number | null;
-  Subscription_revenue_m?: number | null;
-  Subscription_revenue_source_label?: string | null;
-  Subscription_revenue_source?: number | string | null;
-  Subscription_revenue_currency_display?: string | null;
+  ARR_pc?: number | null;
+  ARR_m?: number | null;
+  ARR_source_label?: string | null;
+  ARR_source?: number | string | null;
   Churn_pc?: number | null;
   Churn_source_label?: string | null;
   Churn_Source?: number | string | null;
@@ -91,64 +88,17 @@ type SourceResolver = (
   code?: number | string | null
 ) => string;
 
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$",
-  GBP: "£",
-  EUR: "€",
-  JPY: "¥",
-};
-
-function normalizeCurrencyCode(raw: string): string {
-  const trimmed = raw.trim();
-  const compact = trimmed.replace(/\s/g, "").toUpperCase();
-  if (compact === "US$" || compact === "US" || compact === "U.S.$" || compact === "USD") {
-    return "USD";
-  }
-  return trimmed.toUpperCase();
-}
-
-/** Ignore API placeholders like "0" or bare numeric currency ids. */
-function resolveMetricCurrencyDisplay(
-  display?: string | null,
-  fallback?: string
-): string | undefined {
-  if (!display) return fallback;
-  const trimmed = display.trim();
-  if (!trimmed || trimmed === "0" || /^\d+$/.test(trimmed)) {
-    return fallback;
-  }
-  return normalizeCurrencyCode(trimmed);
-}
-
-/** Strip legacy "US$" prefixes from API/display strings. */
-function stripLegacyUsPrefix(value: string): string {
-  return value.replace(/US\$\s*/gi, "$");
-}
-
-/** Prefixes a formatted metric value with the currency symbol/code when available. */
-export function appendMetricCurrency(
-  formatted: string,
-  currencyCode?: string
-): string {
-  const value = stripLegacyUsPrefix(formatted.trim());
-  if (value === "-") return value;
-  if (!currencyCode) return value;
-
-  const code = normalizeCurrencyCode(currencyCode);
-  const sym = CURRENCY_SYMBOLS[code];
-  if (sym) {
-    if (value.startsWith(sym)) return value;
-    return `${sym}${value}`;
-  }
-  return `${value} ${code}`;
-}
-
 type BuildSectionsInput = {
   financialMetrics: FinancialMetricsPayload | null;
-  currencyCode?: string;
+  hasIncomeStatementData: boolean;
+  revenuePlain: string;
+  ebitdaPlain: string;
+  evPlain: string;
+  currentEmployeeCount: number;
   getSourceText: SourceResolver;
   formatPercent: (value?: number | string | null) => string;
   formatMultiple: (value?: number | string | null) => string;
+  formatPlainNumber: (value?: number | string | null) => string;
   formatWholeNumber: (value?: number | string | null) => string;
   getNumeric: (value?: number | string | null) => number | undefined;
   periodDisplay?: string;
@@ -165,45 +115,43 @@ function row(
 /** Assembles PROD-style financial metric sections for the two tabbed cards. */
 export function buildFinancialMetricsSections({
   financialMetrics,
+  hasIncomeStatementData,
+  revenuePlain,
+  ebitdaPlain,
+  evPlain,
+  currentEmployeeCount,
   getSourceText,
   formatPercent,
   formatMultiple,
+  formatPlainNumber,
   formatWholeNumber,
   getNumeric,
   periodDisplay,
-  currencyCode,
 }: BuildSectionsInput): FinancialMetricsCardData {
   const fm = financialMetrics;
   const src = getSourceText;
-  const formatMillions = (value?: number | string | null) =>
-    formatMetricMillionsPlain(value);
-  const money = (formatted: string) => appendMetricCurrency(formatted, currencyCode);
-  const subscriptionMoney = (formatted: string) =>
-    appendMetricCurrency(
-      formatted,
-      resolveMetricCurrencyDisplay(
-        fm?.Subscription_revenue_currency_display,
-        currencyCode
+
+  const mainRows: FinancialMetricRow[] = [];
+
+  if (!hasIncomeStatementData) {
+    mainRows.push(
+      row(
+        "Revenue (m):",
+        revenuePlain,
+        src(fm?.Revenue_source_label, fm?.Rev_source)
+      ),
+      row(
+        "EBITDA (m):",
+        ebitdaPlain,
+        src(fm?.EBITDA_source_label, fm?.EBITDA_source)
       )
     );
-
-  const mainRows: FinancialMetricRow[] = [
-    row(
-      "Revenue (m):",
-      money(formatMillions(fm?.Revenue_m)),
-      src(fm?.Revenue_source_label, fm?.Rev_source)
-    ),
-    row(
-      "EBITDA (m):",
-      money(formatMillions(fm?.EBITDA_m)),
-      src(fm?.EBITDA_source_label, fm?.EBITDA_source)
-    ),
-  ];
+  }
 
   mainRows.push(
     row(
       "Enterprise Value (m):",
-      money(formatMillions(fm?.EV)),
+      evPlain,
       src(fm?.EV_source_label, fm?.EV_source)
     ),
     row(
@@ -227,7 +175,7 @@ export function buildFinancialMetricsSections({
         const n = getNumeric(fm?.Rule_of_40);
         return n !== undefined
           ? Math.round(n).toLocaleString()
-          : "-";
+          : "Not available";
       })(),
       src(fm?.Rule_of_40_source_label, fm?.Rule_of_40_source)
     )
@@ -235,20 +183,14 @@ export function buildFinancialMetricsSections({
 
   const subscriptionRows: FinancialMetricRow[] = [
     row(
-      "Subscription revenue %:",
-      formatPercent(fm?.Subscription_revenue_pc),
-      src(
-        fm?.Subscription_revenue_source_label,
-        fm?.Subscription_revenue_source
-      )
+      "Recurring Revenue:",
+      formatPercent(fm?.ARR_pc),
+      src(fm?.ARR_source_label, fm?.ARR_source)
     ),
     row(
-      "Subscription revenue (m):",
-      subscriptionMoney(formatMillions(fm?.Subscription_revenue_m)),
-      src(
-        fm?.Subscription_revenue_source_label,
-        fm?.Subscription_revenue_source
-      )
+      "ARR (m):",
+      formatPlainNumber(fm?.ARR_m),
+      src(fm?.ARR_source_label, fm?.ARR_source)
     ),
     row(
       "Churn:",
@@ -295,29 +237,31 @@ export function buildFinancialMetricsSections({
   const otherRows: FinancialMetricRow[] = [
     row(
       "EBIT (m):",
-      money(formatMillions(fm?.EBIT_m)),
+      formatPlainNumber(fm?.EBIT_m),
       src(fm?.EBIT_source_label, fm?.EBIT_source)
     ),
     row(
       "Number of clients:",
       typeof fm?.No_of_Clients === "number"
         ? fm.No_of_Clients.toLocaleString()
-        : "-",
+        : "Not available",
       src(fm?.No_of_Clients_source_label, fm?.No_Clients_source)
     ),
     row(
       "Revenue per client:",
-      money(formatWholeNumber(fm?.Rev_per_client)),
+      formatWholeNumber(fm?.Rev_per_client),
       src(fm?.Rev_per_client_source_label, fm?.Rev_per_client_source)
     ),
     row(
       "Number of employees:",
-      formatWholeNumber(fm?.No_Employees),
+      typeof fm?.No_Employees === "number"
+        ? fm.No_Employees.toLocaleString()
+        : currentEmployeeCount.toLocaleString(),
       src(fm?.No_Employees_source_label, fm?.No_Employees_source)
     ),
     row(
       "Revenue per employee:",
-      money(formatWholeNumber(fm?.Revenue_per_employee)),
+      formatWholeNumber(fm?.Revenue_per_employee),
       src(fm?.Revenue_per_employee_source_label, fm?.Rev_per_employee_source)
     ),
   ];

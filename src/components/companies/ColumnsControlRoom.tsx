@@ -4,6 +4,8 @@ import React, { useMemo, useState } from "react";
 import {
   COMPANIES_COLUMN_CATEGORIES,
   ALL_COMPANIES_COLUMN_META,
+  PROD_DEFAULT_COMPANY_COLUMN_KEYS,
+  columnKeysToVisibility,
   type CompanyColumnCategory,
   type CompanyColumnMeta,
   type CompanyColumnType,
@@ -460,7 +462,8 @@ export function ColumnsControlRoom({
   const toggle = (id: string, on: boolean) =>
     setVisible((current) => ({ ...current, [id]: on }));
 
-  const reset = () => setVisible(buildState("default"));
+  const reset = () =>
+    setVisible(columnKeysToVisibility([...PROD_DEFAULT_COMPANY_COLUMN_KEYS]));
 
   const filterCol = (column: CompanyColumnMeta) => {
     if (query && !column.label.toLowerCase().includes(query.toLowerCase())) {

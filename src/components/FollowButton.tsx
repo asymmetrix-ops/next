@@ -14,6 +14,7 @@ type FollowButtonProps = {
   label: string;
   style?: React.CSSProperties;
   className?: string;
+  icon?: React.ReactNode;
 };
 
 export function FollowButton({
@@ -22,6 +23,7 @@ export function FollowButton({
   label,
   style,
   className,
+  icon,
 }: FollowButtonProps) {
   const [loading, setLoading] = useState(false);
   const isFollowed = usePortfolioStore((s) => s.isFollowed(followKey, entityId));
@@ -75,21 +77,23 @@ export function FollowButton({
           : `Follow ${label}`
       }
       style={{
-        padding: "8px 16px",
+        padding: "8px 14px",
         color: "white",
         border: "none",
-        borderRadius: "4px",
+        borderRadius: "6px",
         cursor: isLoading ? "not-allowed" : "pointer",
-        fontSize: "14px",
-        fontWeight: 500,
+        fontSize: "12.5px",
+        fontWeight: 600,
         display: "inline-flex",
         alignItems: "center",
+        gap: "5px",
         ...style,
         // Ensure page-passed styles (e.g. reportButton) don't override follow colors
         backgroundColor: isFollowed ? "#ef4444" : "#7c3aed",
       }}
       className={className}
     >
+      {icon}
       {isLoading
         ? "Updating..."
         : isFollowed

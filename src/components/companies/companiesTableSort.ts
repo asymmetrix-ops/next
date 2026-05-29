@@ -1,89 +1,22 @@
 /** Sort behaviour per Companies Search column (functional spec). */
 
-import type { CompanySearchPayload } from "@/lib/filterBuilder";
-import { isEmptyDisplayValue } from "@/lib/emptyDisplay";
-import {
-  COMPANY_COLUMN_FIELD_ALIASES,
-  getFieldAliasesForColumn,
-} from "./companiesColumnFields";
-
 export type ColumnSortKind = "text" | "number";
 
 const NOT_SORTABLE = null;
-
-/** UI column key → Get_new_companies `sort_column` (server-side sort). */
-export const UI_COLUMN_TO_API_SORT_COLUMN: Record<string, string> = {
-  linkedin_members: "linkedin_members",
-  linkedin_growth: "linkedin_growth",
-  year_founded: "year_founded",
-  created_at: "created_at",
-  hq: "country",
-  country: "country",
-  revenue_m: "revenue_m",
-  ebitda_m: "ebitda_m",
-  enterprise_value: "ev",
-  subscription_revenue_m: "arr_m",
-  ebit_m: "ebit_m",
-  rev_per_client: "rev_per_client",
-  rev_per_employee: "rev_per_employee",
-  revenue_multiple: "revenue_multiple",
-  revenue_growth: "revenue_growth",
-  ebitda_margin: "ebitda_margin",
-  rule_of_40: "rule_of_40",
-  subscription_revenue_pc: "subscription_revenue_pc",
-  churn_pc: "churn",
-  grr_pc: "grr_pc",
-  nrr: "nrr",
-  new_client_growth_pc: "new_client_growth_pc",
-  upsell_pc: "upsell_pc",
-  cross_sell_pc: "cross_sell_pc",
-  price_increase_pc: "price_increase_pc",
-  rev_expansion_pc: "rev_expansion_pc",
-  no_of_clients: "no_clients",
-  no_employees: "employees_count",
-  financial_year: "financial_year",
-};
-
-export function getApiSortColumn(columnKey: string): string | undefined {
-  return UI_COLUMN_TO_API_SORT_COLUMN[columnKey];
-}
-
-export function getUiColumnForApiSortColumn(
-  apiColumn: string
-): string | undefined {
-  const entry = Object.entries(UI_COLUMN_TO_API_SORT_COLUMN).find(
-    ([, api]) => api === apiColumn
-  );
-  return entry?.[0];
-}
-
-export function isServerSortableColumn(columnKey: string): boolean {
-  return Boolean(getApiSortColumn(columnKey));
-}
-
-export function getSortPayloadFromState(
-  sort: { key: string; dir: "asc" | "desc" } | null
-): Pick<CompanySearchPayload, "sort_column" | "sort_direction"> {
-  const apiColumn = sort ? getApiSortColumn(sort.key) : undefined;
-  if (!apiColumn || !sort) {
-    return { sort_column: null, sort_direction: null };
-  }
-  return {
-    sort_column: apiColumn,
-    sort_direction: sort.dir,
-  };
-}
 
 export const COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
   logo: NOT_SORTABLE,
   name: NOT_SORTABLE,
   description: NOT_SORTABLE,
+  ticker: NOT_SORTABLE,
   website: NOT_SORTABLE,
   follow: NOT_SORTABLE,
+  list_count: NOT_SORTABLE,
   primary_sectors: "text",
   secondary_sectors: "text",
   ownership: "text",
   linkedin_members: "number",
+  country: "text",
   year_founded: "number",
   hq: "text",
   city: "text",
@@ -97,7 +30,6 @@ export const COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
   data_collection_method: "text",
   revenue_model: "text",
   transaction_status: "text",
-  created_at: "text",
   revenue_m: "number",
   ebitda_m: "number",
   enterprise_value: "number",
@@ -105,8 +37,8 @@ export const COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
   revenue_growth: "number",
   ebitda_margin: "number",
   rule_of_40: "number",
-  subscription_revenue_pc: "number",
-  subscription_revenue_m: "number",
+  arr_pc: "number",
+  arr_m: "number",
   churn_pc: "number",
   grr_pc: "number",
   nrr: "number",
@@ -121,23 +53,18 @@ export const COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
   no_employees: "number",
   rev_per_employee: "number",
   financial_year: "number",
-  has_mcp: "number",
 };
 
 export function getColumnSortKind(columnKey: string): ColumnSortKind | null {
   return COLUMN_SORT_KIND[columnKey] ?? null;
 }
 
-export function getServerSortDefaultDirection(
-  columnKey: string
-): "asc" | "desc" {
-  const kind = getColumnSortKind(columnKey);
-  return kind === "text" ? "asc" : "desc";
-}
-
 const isEmptySortValue = (value: unknown): boolean => {
   if (value == null) return true;
-  if (typeof value === "string") return isEmptyDisplayValue(value);
+  if (typeof value === "string") {
+    const t = value.trim();
+    return !t || t === "N/A" || t === "Not available" || t === "—";
+  }
   return false;
 };
 
@@ -169,12 +96,26 @@ export const parseSortText = (value: unknown): string => {
   return String(value).trim().toLowerCase();
 };
 
-const SORT_FIELD_ALIASES: Record<string, string[]> = Object.fromEntries(
-  Object.entries(COMPANY_COLUMN_FIELD_ALIASES).map(([key, aliases]) => [
-    key,
-    [...aliases],
-  ])
-);
+const SORT_FIELD_ALIASES: Record<string, string[]> = {
+  primary_sectors: ["primary_sector_names", "primary_sectors"],
+  secondary_sectors: ["secondary_sector_names", "secondary_sectors"],
+  ownership: ["ownership", "ownership_type"],
+  linkedin_members: ["li_emp", "linkedin_members", "linkedin_employee"],
+  country: ["country", "hq_country"],
+  hq: ["loc", "hq"],
+  city: ["city", "hq_city"],
+  state: ["state", "hq_state", "province"],
+  linkedin_growth: ["linkedin_growth", "li_growth_pc", "linkedin_growth_1y_pct"],
+  investors: ["investors", "investor_names"],
+  lifecycle_stage: ["lifecycle_stage", "Lifecycle_stage.Lifecycle_stage"],
+  product_type: ["Product_Type", "product_type"],
+  data_collection_method: ["Data_Collection_Method", "data_collection_method"],
+  revenue_model: ["Revenue_Model_", "Revenue_Model", "revenue_model"],
+  transaction_status: ["transaction_status", "transactionStatus"],
+  enterprise_value: ["enterprise_value", "ev", "EV"],
+  revenue_growth: ["revenue_growth", "rev_growth_pc", "Rev_Growth_PC"],
+  website: ["website", "url"],
+};
 
 const readMergedField = (
   row: Record<string, unknown>,
@@ -199,15 +140,9 @@ export function getSortValueForColumn(
   row: Record<string, unknown>,
   columnKey: string
 ): string | number | null {
-  const aliases = SORT_FIELD_ALIASES[columnKey] ?? getFieldAliasesForColumn(columnKey);
+  const aliases = SORT_FIELD_ALIASES[columnKey] ?? [columnKey];
   const raw = readMergedField(row, aliases);
   const kind = getColumnSortKind(columnKey);
-
-  if (columnKey === "has_mcp") {
-    if (raw === true) return 1;
-    if (raw === false) return 0;
-    return null;
-  }
 
   if (kind === "number") {
     return parseSortNumber(raw);

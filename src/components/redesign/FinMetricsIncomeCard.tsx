@@ -2,26 +2,11 @@
 
 /**
  * FinMetricsIncomeCard — two stacked tab-switching cards (V3 right rail):
- * 1. Financial Metrics · Income Statement
+ * 1. Financial Metrics · Benchmark vs Peers · Income Statement
  * 2. Subscription Metrics · Other Metrics
  */
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  LinkPanel,
-  T,
-  finMetricLabelStyle,
-  finMetricRowStyle,
-  finMetricPeriodColStyle,
-  FIN_METRIC_VALUE_CLASS,
-  finMetricValueColStyle,
-  finMetricSourceColStyle,
-  finMetricPeriodSourceColStyle,
-  finMetricsContentXPad,
-  finMetricsPeriodHeaderStyle,
-  FIN_METRIC_GRID_COLS,
-  FIN_METRICS_TAB_BAR_STYLE,
-  FIN_METRICS_TAB_STYLE,
-} from "./primitives";
+import { LinkPanel, Pill, T } from "./primitives";
 import {
   IncomeStatementTable,
   type IncomeStatementRow,
@@ -31,38 +16,50 @@ import type {
   FinancialMetricSection,
   FinancialMetricsCardData,
 } from "@/lib/buildFinancialMetricsSections";
-export type PrimaryFinTab = "metrics" | "income";
+import {
+  benchmarkDeltaTone,
+  type BenchmarkPeersData,
+} from "@/lib/buildBenchmarkPeersData";
+
+export type PrimaryFinTab = "metrics" | "benchmark" | "income";
 export type SecondaryFinTab = "subscription" | "other";
 
 type Props = {
+  currencySuffix?: string;
   data: FinancialMetricsCardData;
+  benchmarkData?: BenchmarkPeersData | null;
   hasIncomeStatement?: boolean;
   incomeStatementRows?: IncomeStatementRow[];
   incomeStatementCurrency?: string;
   fillGridCell?: boolean;
 };
 
-const GRID_COLS = FIN_METRIC_GRID_COLS;
+const GRID_COLS = "minmax(180px, 220px) 1fr auto";
 
 function PeriodHeader({ period }: { period?: string }) {
   if (!period) return null;
   return (
     <div
-      className="info-row fin-metric-period-header"
       style={{
         display: "grid",
         gridTemplateColumns: GRID_COLS,
-        gap: 8,
-        alignItems: "center",
-        padding: `6px ${finMetricsContentXPad}px 4px`,
-        background: T.paper,
-        borderBottom: `1px solid ${T.hair}`,
-        ...finMetricsPeriodHeaderStyle,
+        marginBottom: 4,
+        fontSize: 13,
+        color: T.muted,
+        fontWeight: 500,
       }}
     >
       <span />
-      <span className="fin-metric-period-col" style={finMetricPeriodColStyle}>{period}</span>
-      <span className="fin-metric-period-source-col" style={finMetricPeriodSourceColStyle}>
+      <span style={{ textAlign: "left" }}>{period}</span>
+      <span
+        style={{
+          fontSize: 11,
+          color: T.muted,
+          textAlign: "right",
+          whiteSpace: "nowrap",
+          paddingLeft: 8,
+        }}
+      >
         Source
       </span>
     </div>
@@ -74,106 +71,140 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
     <div
       className="info-row"
       style={{
-        ...finMetricRowStyle,
-        borderBottom: last ? "none" : finMetricRowStyle.borderBottom,
+        display: "grid",
+        gridTemplateColumns: GRID_COLS,
+        columnGap: 4,
+        alignItems: "center",
+        padding: "10px 0",
+        borderBottom: last ? "none" : `1px solid ${T.hair}`,
+        fontSize: 12.5,
       }}
     >
+      <span style={{ fontSize: 12.5, color: T.muted, fontWeight: 400 }}>{row.label}</span>
       <span
         style={{
-          ...finMetricLabelStyle,
-          paddingRight: 8,
+          fontSize: 12.5,
+          color: T.body,
+          fontWeight: 400,
+          textAlign: "left",
+          wordBreak: "break-word",
+          fontFamily: T.mono,
+          fontVariantNumeric: "tabular-nums",
         }}
       >
-        {row.label}
-      </span>
-      <span className={FIN_METRIC_VALUE_CLASS} style={finMetricValueColStyle}>
         {row.value}
       </span>
-      <span className="fin-metric-source-col" style={finMetricSourceColStyle}>
+      <span
+        style={{
+          fontSize: 11,
+          color: T.muted,
+          textAlign: "right",
+          whiteSpace: "nowrap",
+          paddingLeft: 8,
+        }}
+      >
         {row.source}
       </span>
     </div>
   );
 }
 
-function MetricSectionBody({
-  section,
-  fillAvailable = false,
-}: {
-  section: FinancialMetricSection;
-  fillAvailable?: boolean;
-}) {
-  const rows = section.rows.map((row, i) => (
-    <MetricRow
-      key={row.label}
-      row={row}
-      last={i === section.rows.length - 1}
-    />
-  ));
-
-  const metricsBody = (
-    <>
-      <PeriodHeader period={section.periodDisplay} />
-      <div
-        style={{
-          padding: `0 ${finMetricsContentXPad}px`,
-          paddingBottom: 4,
-        }}
-      >
-        {rows}
-      </div>
-    </>
-  );
-
-  if (!fillAvailable) {
-    return metricsBody;
-  }
-
+function MetricSectionBody({ section }: { section: FinancialMetricSection }) {
   return (
-    <div
-      style={{
-        flex: 1,
-        minHeight: 0,
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflow: "auto",
-        }}
-      >
-        {metricsBody}
-      </div>
+    <div style={{ padding: "8px 16px 14px" }}>
+      <PeriodHeader period={section.periodDisplay} />
+      {section.rows.map((row, i) => (
+        <MetricRow
+          key={row.label}
+          row={row}
+          last={i === section.rows.length - 1}
+        />
+      ))}
     </div>
   );
 }
 
-function ViewMoreArrow({ onClick }: { onClick: () => void }) {
+function BenchmarkTabBody({ data }: { data: BenchmarkPeersData }) {
   return (
-    <button
-      type="button"
-      aria-label="View full financial metrics"
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      style={{
-        background: "transparent",
-        border: "none",
-        cursor: "pointer",
-        fontSize: 12,
-        color: T.azure,
-        fontWeight: 500,
-        lineHeight: 1,
-        padding: "0 2px",
-      }}
-    >
-      →
-    </button>
+    <div style={{ padding: "6px 16px 14px" }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1.4fr 1fr 1fr 56px",
+          gap: 8,
+          padding: "8px 0 6px",
+          borderBottom: `1px solid ${T.hair}`,
+          fontSize: 10,
+          color: T.muted,
+          fontWeight: 500,
+          textTransform: "uppercase",
+          letterSpacing: 0.4,
+        }}
+      >
+        <div>Metric</div>
+        <div style={{ textAlign: "right" }}>{data.companyName}</div>
+        <div style={{ textAlign: "right" }}>Peer median</div>
+        <div style={{ textAlign: "center" }}>vs.</div>
+      </div>
+      {data.rows.map((row, i) => {
+        const tone = benchmarkDeltaTone(row.companyValue, row.peerMedian);
+        return (
+          <div
+            key={row.label}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1.4fr 1fr 1fr 56px",
+              gap: 8,
+              padding: "9px 0",
+              borderBottom:
+                i === data.rows.length - 1 ? "none" : `1px solid ${T.hair}`,
+              fontSize: 12.5,
+              alignItems: "center",
+            }}
+          >
+            <div style={{ color: T.muted }}>{row.label}</div>
+            <div
+              style={{
+                textAlign: "right",
+                fontFamily: T.mono,
+                color: T.ink,
+                fontVariantNumeric: "tabular-nums",
+                fontWeight: 500,
+              }}
+            >
+              {row.companyValue}
+            </div>
+            <div
+              style={{
+                textAlign: "right",
+                fontFamily: T.mono,
+                color: T.muted,
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {row.peerMedian}
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <Pill tone={tone === "up" ? "up" : tone === "down" ? "down" : "ghost"}>
+                {tone === "up" ? "▲" : tone === "down" ? "▼" : "–"}
+              </Pill>
+            </div>
+          </div>
+        );
+      })}
+      {data.footnote ? (
+        <div
+          style={{
+            marginTop: 10,
+            fontSize: 11,
+            color: T.muted,
+            lineHeight: 1.5,
+          }}
+        >
+          {data.footnote}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -182,84 +213,130 @@ function TabHeader<T extends string>({
   activeTab,
   onTabChange,
   suffixForTab,
-  onViewMore,
 }: {
   tabs: { id: T; label: string }[];
   activeTab: T;
   onTabChange: (tab: T) => void;
   suffixForTab?: (tabId: T) => string | undefined;
-  onViewMore?: () => void;
 }) {
   return (
-    <div role="tablist" style={FIN_METRICS_TAB_BAR_STYLE}>
+    <div
+      role="tablist"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "14px 16px 12px",
+        borderBottom: `1px solid ${T.hair}`,
+        gap: 12,
+        flexShrink: 0,
+      }}
+    >
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 14,
-          flexWrap: "nowrap",
+          flexWrap: "wrap",
           minWidth: 0,
-          flex: 1,
-          overflowX: "auto",
-          scrollbarWidth: "none",
-          msOverflowStyle: "none",
+          fontFamily: T.sans,
+          fontSize: 13.5,
+          fontWeight: 600,
         }}
-        className="fin-tab-scroll"
       >
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            onClick={(e) => {
-              e.stopPropagation();
-              onTabChange(tab.id);
-            }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              background: "transparent",
-              border: "none",
-              padding: 0,
-              cursor: "pointer",
-              ...FIN_METRICS_TAB_STYLE,
-              color: activeTab === tab.id ? T.ink : T.muted,
-              fontWeight: activeTab === tab.id ? 600 : 500,
-              borderBottom: `2px solid ${activeTab === tab.id ? T.azure : "transparent"}`,
-              whiteSpace: "nowrap",
-              flexShrink: 0,
-              transition: "color 120ms, border-color 120ms",
-            }}
-          >
-            {tab.label}
-            {suffixForTab?.(tab.id) ?? ""}
-          </button>
+        {tabs.map((tab, index) => (
+          <React.Fragment key={tab.id}>
+            {index > 0 ? (
+              <span
+                style={{
+                  color: T.faint,
+                  padding: "0 8px",
+                  fontWeight: 600,
+                  userSelect: "none",
+                }}
+                aria-hidden
+              >
+                ·
+              </span>
+            ) : null}
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                onTabChange(tab.id);
+              }}
+              style={{
+                background: "transparent",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontSize: "inherit",
+                fontWeight: "inherit",
+                color: activeTab === tab.id ? T.ink : T.muted,
+                whiteSpace: "nowrap",
+                transition: "color 120ms",
+              }}
+            >
+              {tab.label}
+              {suffixForTab?.(tab.id) ?? ""}
+            </button>
+          </React.Fragment>
         ))}
       </div>
-      {onViewMore ? <ViewMoreArrow onClick={onViewMore} /> : null}
+      <div
+        style={{
+          fontSize: 14,
+          color: T.azure,
+          fontWeight: 500,
+          lineHeight: 1,
+          padding: "2px 4px",
+          flexShrink: 0,
+        }}
+        aria-hidden
+      >
+        →
+      </div>
+    </div>
+  );
+}
+
+function BenchmarkPlaceholder() {
+  return (
+    <div
+      style={{
+        padding: "24px 16px 28px",
+        fontSize: 13,
+        color: T.muted,
+        lineHeight: 1.55,
+        textAlign: "center",
+      }}
+    >
+      Benchmark vs Peers is under development.
     </div>
   );
 }
 
 function PrimaryFinCard({
+  currencySuffix,
   primary,
+  benchmarkData,
   hasIncomeStatement,
   incomeStatementRows,
   incomeStatementCurrency,
-  fillGridCell = false,
-  onViewMore,
 }: {
+  currencySuffix: string;
   primary: FinancialMetricSection;
+  benchmarkData: BenchmarkPeersData | null;
   hasIncomeStatement: boolean;
   incomeStatementRows: IncomeStatementRow[];
   incomeStatementCurrency: string;
-  fillGridCell?: boolean;
-  onViewMore?: () => void;
 }) {
   const tabs = useMemo(() => {
     const list: { id: PrimaryFinTab; label: string }[] = [
       { id: "metrics", label: "Financial Metrics" },
+      { id: "benchmark", label: "Benchmark vs Peers" },
     ];
     if (hasIncomeStatement) {
       list.push({ id: "income", label: "Income Statement" });
@@ -276,33 +353,29 @@ function PrimaryFinCard({
   }, [tabs, activeTab]);
 
   return (
-    <LinkPanel fillGridCell={fillGridCell} className="fin-metrics-card--primary">
+    <LinkPanel>
       <TabHeader
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onViewMore={onViewMore}
+        suffixForTab={(id) => (id === "metrics" ? currencySuffix : undefined)}
       />
-      <div
-        style={
-          fillGridCell
-            ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }
-            : undefined
-        }
-      >
       {activeTab === "metrics" ? (
-        <MetricSectionBody section={primary} fillAvailable={fillGridCell} />
+        <MetricSectionBody section={primary} />
+      ) : activeTab === "benchmark" ? (
+        benchmarkData ? (
+          <BenchmarkTabBody data={benchmarkData} />
+        ) : (
+          <BenchmarkPlaceholder />
+        )
       ) : activeTab === "income" && hasIncomeStatement ? (
-        <div style={fillGridCell ? { flex: 1, minHeight: 0, overflow: "auto" } : undefined}>
-          <IncomeStatementTable
-            rows={incomeStatementRows}
-            currency={incomeStatementCurrency}
-          />
-        </div>
+        <IncomeStatementTable
+          rows={incomeStatementRows}
+          currency={incomeStatementCurrency}
+        />
       ) : (
-        <MetricSectionBody section={primary} fillAvailable={fillGridCell} />
+        <MetricSectionBody section={primary} />
       )}
-      </div>
     </LinkPanel>
   );
 }
@@ -310,13 +383,9 @@ function PrimaryFinCard({
 function SecondaryFinCard({
   subscription,
   other,
-  fillGridCell = false,
-  onViewMore,
 }: {
   subscription: FinancialMetricSection;
   other: FinancialMetricSection;
-  fillGridCell?: boolean;
-  onViewMore?: () => void;
 }) {
   const tabs: { id: SecondaryFinTab; label: string }[] = [
     { id: "subscription", label: "Subscription Metrics" },
@@ -326,60 +395,26 @@ function SecondaryFinCard({
   const [activeTab, setActiveTab] = useState<SecondaryFinTab>("subscription");
 
   return (
-    <LinkPanel fillGridCell={fillGridCell} className="fin-metrics-card--secondary">
-      <TabHeader
-        tabs={tabs}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        onViewMore={onViewMore}
-      />
-      <div
-        style={
-          fillGridCell
-            ? {
-                flex: 1,
-                minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-              }
-            : undefined
-        }
-      >
-        {activeTab === "subscription" ? (
-          <MetricSectionBody section={subscription} fillAvailable={fillGridCell} />
-        ) : (
-          <MetricSectionBody section={other} fillAvailable={fillGridCell} />
-        )}
-      </div>
+    <LinkPanel>
+      <TabHeader tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+      {activeTab === "subscription" ? (
+        <MetricSectionBody section={subscription} />
+      ) : (
+        <MetricSectionBody section={other} />
+      )}
     </LinkPanel>
   );
 }
 
-export function FinMetricsPrimaryCard(
-  props: Omit<React.ComponentProps<typeof PrimaryFinCard>, "fillGridCell"> & {
-    fillGridCell?: boolean;
-  }
-) {
-  return <PrimaryFinCard {...props} />;
-}
-
-export function FinMetricsSecondaryCard(
-  props: Omit<React.ComponentProps<typeof SecondaryFinCard>, "fillGridCell"> & {
-    fillGridCell?: boolean;
-  }
-) {
-  return <SecondaryFinCard {...props} />;
-}
-
 export function FinMetricsIncomeCard({
+  currencySuffix = "",
   data,
+  benchmarkData = null,
   hasIncomeStatement = false,
   incomeStatementRows = [],
   incomeStatementCurrency = "",
   fillGridCell = true,
-  onViewMore,
-}: Props & { onViewMore?: () => void }) {
+}: Props) {
   return (
     <div
       style={{
@@ -394,16 +429,16 @@ export function FinMetricsIncomeCard({
       }}
     >
       <PrimaryFinCard
+        currencySuffix={currencySuffix}
         primary={data.primary}
+        benchmarkData={benchmarkData}
         hasIncomeStatement={hasIncomeStatement}
         incomeStatementRows={incomeStatementRows}
         incomeStatementCurrency={incomeStatementCurrency}
-        onViewMore={onViewMore}
       />
       <SecondaryFinCard
         subscription={data.subscription}
         other={data.other}
-        onViewMore={onViewMore}
       />
     </div>
   );

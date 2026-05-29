@@ -96,6 +96,44 @@ function DataRow({
   );
 }
 
+export function IncomeStatementTable({
+  rows,
+  currency = "",
+}: {
+  rows: IncomeStatementRow[];
+  currency?: string;
+}) {
+  const titleCurrency = currency.trim();
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <div style={{ minWidth: 320 }}>
+        {titleCurrency ? (
+          <div
+            style={{
+              padding: "10px 16px 0",
+              fontSize: 12,
+              color: T.muted,
+              fontWeight: 500,
+            }}
+          >
+            Currency: {titleCurrency}
+          </div>
+        ) : null}
+        <ColHeader />
+        <div style={{ padding: "4px 0" }}>
+          {rows.map((row, index) => (
+            <DataRow
+              key={row.id}
+              row={row}
+              last={index === rows.length - 1}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function IncomeStatementSection({ rows, currency = "" }: Props) {
   const titleCurrency = currency.trim();
   return (
@@ -110,20 +148,7 @@ export function IncomeStatementSection({ rows, currency = "" }: Props) {
       <LinkedH showArrow={false}>
         Income statement{titleCurrency ? ` (${titleCurrency})` : ""}
       </LinkedH>
-      <div style={{ overflowX: "auto" }}>
-        <div style={{ minWidth: 320 }}>
-          <ColHeader />
-          <div style={{ padding: "4px 0" }}>
-            {rows.map((row, index) => (
-              <DataRow
-                key={row.id}
-                row={row}
-                last={index === rows.length - 1}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
+      <IncomeStatementTable rows={rows} currency={currency} />
     </div>
   );
 }
