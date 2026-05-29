@@ -47,12 +47,12 @@ function ColHeader() {
         display: "grid",
         gridTemplateColumns: COL,
         alignItems: "center",
-        gap: 10,
-        padding: "8px 16px",
+        gap: 6,
+        padding: "4px 14px",
         background: T.paper,
         borderBottom: `1px solid ${T.hair}`,
         ...metricLabelStyle,
-        fontSize: 10.5,
+        fontSize: 10,
         fontWeight: 500,
         textTransform: "uppercase",
         letterSpacing: 0.4,
@@ -81,8 +81,8 @@ function DataRow({
         display: "grid",
         gridTemplateColumns: COL,
         alignItems: "center",
-        gap: 10,
-        padding: "10px 16px",
+        gap: 6,
+        padding: "4px 14px",
         borderBottom: last ? "none" : `1px solid ${T.hair}`,
       }}
     >
@@ -110,8 +110,8 @@ export function IncomeStatementTable({
         {titleCurrency ? (
           <div
             style={{
-              padding: "10px 16px 0",
-              fontSize: 12,
+              padding: "6px 14px 0",
+              fontSize: 11,
               color: T.muted,
               fontWeight: 500,
             }}

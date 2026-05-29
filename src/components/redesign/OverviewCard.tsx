@@ -288,9 +288,9 @@ export function OverviewCard({
       <LinkedH right={ticker ? undefined : undefined}>Overview</LinkedH>
       <div
         style={{
-          padding: "4px 16px 10px",
+          padding: "2px 14px 8px",
           ...(fillGridCell
-            ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }
+            ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "flex-start" }
             : {}),
         }}
       >
@@ -303,7 +303,6 @@ export function OverviewCard({
             k={row.k}
             v={row.v}
             last={i === visible.length - 1}
-            style={fillGridCell ? { flex: 1, alignItems: "center", minHeight: 0 } : undefined}
           />
         ))}
       </div>

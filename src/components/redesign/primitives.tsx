@@ -109,7 +109,7 @@ export function LinkedH({
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "14px 16px 12px",
+        padding: "12px 14px 10px",
         borderBottom: `1px solid ${T.hair}`,
       }}
     >
@@ -167,6 +167,7 @@ export function LinkPanel({
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
+        position: "relative" as const,
         background: T.panel,
         border: `1px solid ${hover ? T.cardHoverBorder : T.divider}`,
         borderRadius: T.rLg,
@@ -338,11 +339,12 @@ export function KV({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "120px 1fr",
-        gap: 10,
-        padding: "5px 0",
+        gridTemplateColumns: "108px 1fr",
+        gap: 8,
+        padding: "4px 0",
         borderBottom: last ? "none" : `1px solid ${T.hair}`,
-        fontSize: 12.5,
+        fontSize: 12,
+        lineHeight: 1.35,
         alignItems: "start",
         ...style,
       }}

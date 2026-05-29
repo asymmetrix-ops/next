@@ -34,7 +34,7 @@ type Props = {
   fillGridCell?: boolean;
 };
 
-const GRID_COLS = "minmax(180px, 220px) 1fr auto";
+const GRID_COLS = "minmax(0, 1.15fr) minmax(0, 0.85fr) auto";
 
 function PeriodHeader({ period }: { period?: string }) {
   if (!period) return null;
@@ -43,10 +43,11 @@ function PeriodHeader({ period }: { period?: string }) {
       style={{
         display: "grid",
         gridTemplateColumns: GRID_COLS,
-        marginBottom: 4,
-        fontSize: 13,
+        marginBottom: 2,
+        fontSize: 11,
         color: T.muted,
         fontWeight: 500,
+        columnGap: 6,
       }}
     >
       <span />
@@ -57,7 +58,7 @@ function PeriodHeader({ period }: { period?: string }) {
           color: T.muted,
           textAlign: "right",
           whiteSpace: "nowrap",
-          paddingLeft: 8,
+          paddingLeft: 4,
         }}
       >
         Source
@@ -73,19 +74,20 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
       style={{
         display: "grid",
         gridTemplateColumns: GRID_COLS,
-        columnGap: 4,
+        columnGap: 6,
         alignItems: "center",
-        padding: "10px 0",
+        padding: "4px 0",
         borderBottom: last ? "none" : `1px solid ${T.hair}`,
-        fontSize: 12.5,
+        fontSize: 12,
+        lineHeight: 1.3,
       }}
     >
-      <span style={{ fontSize: 12.5, color: T.muted, fontWeight: 400 }}>{row.label}</span>
+      <span style={{ fontSize: 12, color: T.muted, fontWeight: 400 }}>{row.label}</span>
       <span
         style={{
-          fontSize: 12.5,
+          fontSize: 12,
           color: T.body,
-          fontWeight: 400,
+          fontWeight: 500,
           textAlign: "left",
           wordBreak: "break-word",
           fontFamily: T.mono,
@@ -96,11 +98,11 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
       </span>
       <span
         style={{
-          fontSize: 11,
+          fontSize: 10.5,
           color: T.muted,
           textAlign: "right",
           whiteSpace: "nowrap",
-          paddingLeft: 8,
+          paddingLeft: 4,
         }}
       >
         {row.source}
@@ -111,7 +113,7 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
 
 function MetricSectionBody({ section }: { section: FinancialMetricSection }) {
   return (
-    <div style={{ padding: "8px 16px 14px" }}>
+    <div style={{ padding: "4px 14px 10px" }}>
       <PeriodHeader period={section.periodDisplay} />
       {section.rows.map((row, i) => (
         <MetricRow
@@ -126,13 +128,13 @@ function MetricSectionBody({ section }: { section: FinancialMetricSection }) {
 
 function BenchmarkTabBody({ data }: { data: BenchmarkPeersData }) {
   return (
-    <div style={{ padding: "6px 16px 14px" }}>
+    <div style={{ padding: "4px 14px 10px" }}>
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1.4fr 1fr 1fr 56px",
-          gap: 8,
-          padding: "8px 0 6px",
+          gridTemplateColumns: "1.4fr 1fr 1fr 48px",
+          gap: 6,
+          padding: "4px 0 4px",
           borderBottom: `1px solid ${T.hair}`,
           fontSize: 10,
           color: T.muted,
@@ -153,9 +155,9 @@ function BenchmarkTabBody({ data }: { data: BenchmarkPeersData }) {
             key={row.label}
             style={{
               display: "grid",
-              gridTemplateColumns: "1.4fr 1fr 1fr 56px",
-              gap: 8,
-              padding: "9px 0",
+              gridTemplateColumns: "1.4fr 1fr 1fr 48px",
+              gap: 6,
+              padding: "5px 0",
               borderBottom:
                 i === data.rows.length - 1 ? "none" : `1px solid ${T.hair}`,
               fontSize: 12.5,
@@ -219,6 +221,8 @@ function TabHeader<T extends string>({
   onTabChange: (tab: T) => void;
   suffixForTab?: (tabId: T) => string | undefined;
 }) {
+  const tabFontSize = tabs.length > 2 ? 11.5 : 12.5;
+
   return (
     <div
       role="tablist"
@@ -226,21 +230,24 @@ function TabHeader<T extends string>({
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "14px 16px 12px",
+        padding: "12px 14px 10px",
         borderBottom: `1px solid ${T.hair}`,
-        gap: 12,
+        gap: 6,
         flexShrink: 0,
+        minWidth: 0,
       }}
     >
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          flexWrap: "wrap",
+          flexWrap: "nowrap",
+          flex: 1,
           minWidth: 0,
           fontFamily: T.sans,
-          fontSize: 13.5,
+          fontSize: tabFontSize,
           fontWeight: 600,
+          lineHeight: 1.25,
         }}
       >
         {tabs.map((tab, index) => (
@@ -249,9 +256,10 @@ function TabHeader<T extends string>({
               <span
                 style={{
                   color: T.faint,
-                  padding: "0 8px",
+                  padding: "0 4px",
                   fontWeight: 600,
                   userSelect: "none",
+                  flexShrink: 0,
                 }}
                 aria-hidden
               >
@@ -276,6 +284,7 @@ function TabHeader<T extends string>({
                 fontWeight: "inherit",
                 color: activeTab === tab.id ? T.ink : T.muted,
                 whiteSpace: "nowrap",
+                flexShrink: 0,
                 transition: "color 120ms",
               }}
             >
@@ -306,8 +315,8 @@ function BenchmarkPlaceholder() {
   return (
     <div
       style={{
-        padding: "24px 16px 28px",
-        fontSize: 13,
+        padding: "24px 14px 20px",
+        fontSize: 12,
         color: T.muted,
         lineHeight: 1.55,
         textAlign: "center",
@@ -325,6 +334,7 @@ function PrimaryFinCard({
   hasIncomeStatement,
   incomeStatementRows,
   incomeStatementCurrency,
+  fillGridCell = false,
 }: {
   currencySuffix: string;
   primary: FinancialMetricSection;
@@ -332,6 +342,7 @@ function PrimaryFinCard({
   hasIncomeStatement: boolean;
   incomeStatementRows: IncomeStatementRow[];
   incomeStatementCurrency: string;
+  fillGridCell?: boolean;
 }) {
   const tabs = useMemo(() => {
     const list: { id: PrimaryFinTab; label: string }[] = [
@@ -353,13 +364,20 @@ function PrimaryFinCard({
   }, [tabs, activeTab]);
 
   return (
-    <LinkPanel>
+    <LinkPanel fillGridCell={fillGridCell}>
       <TabHeader
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         suffixForTab={(id) => (id === "metrics" ? currencySuffix : undefined)}
       />
+      <div
+        style={
+          fillGridCell
+            ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }
+            : undefined
+        }
+      >
       {activeTab === "metrics" ? (
         <MetricSectionBody section={primary} />
       ) : activeTab === "benchmark" ? (
@@ -369,13 +387,16 @@ function PrimaryFinCard({
           <BenchmarkPlaceholder />
         )
       ) : activeTab === "income" && hasIncomeStatement ? (
-        <IncomeStatementTable
-          rows={incomeStatementRows}
-          currency={incomeStatementCurrency}
-        />
+        <div style={fillGridCell ? { flex: 1, minHeight: 0, overflow: "auto" } : undefined}>
+          <IncomeStatementTable
+            rows={incomeStatementRows}
+            currency={incomeStatementCurrency}
+          />
+        </div>
       ) : (
         <MetricSectionBody section={primary} />
       )}
+      </div>
     </LinkPanel>
   );
 }
@@ -383,9 +404,11 @@ function PrimaryFinCard({
 function SecondaryFinCard({
   subscription,
   other,
+  fillGridCell = false,
 }: {
   subscription: FinancialMetricSection;
   other: FinancialMetricSection;
+  fillGridCell?: boolean;
 }) {
   const tabs: { id: SecondaryFinTab; label: string }[] = [
     { id: "subscription", label: "Subscription Metrics" },
@@ -395,15 +418,39 @@ function SecondaryFinCard({
   const [activeTab, setActiveTab] = useState<SecondaryFinTab>("subscription");
 
   return (
-    <LinkPanel>
+    <LinkPanel fillGridCell={fillGridCell}>
       <TabHeader tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+      <div
+        style={
+          fillGridCell
+            ? { flex: 1, minHeight: 0, overflow: "auto" }
+            : undefined
+        }
+      >
       {activeTab === "subscription" ? (
         <MetricSectionBody section={subscription} />
       ) : (
         <MetricSectionBody section={other} />
       )}
+      </div>
     </LinkPanel>
   );
+}
+
+export function FinMetricsPrimaryCard(
+  props: Omit<React.ComponentProps<typeof PrimaryFinCard>, "fillGridCell"> & {
+    fillGridCell?: boolean;
+  }
+) {
+  return <PrimaryFinCard {...props} />;
+}
+
+export function FinMetricsSecondaryCard(
+  props: Omit<React.ComponentProps<typeof SecondaryFinCard>, "fillGridCell"> & {
+    fillGridCell?: boolean;
+  }
+) {
+  return <SecondaryFinCard {...props} />;
 }
 
 export function FinMetricsIncomeCard({
