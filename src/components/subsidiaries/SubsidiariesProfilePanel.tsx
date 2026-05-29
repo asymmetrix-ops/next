@@ -17,11 +17,69 @@ export type SubsidiaryProfileRecord = {
     linkedin_employee?: number | null;
     linkedin_logo?: string;
   };
-  /** When API provides a YoY % for LinkedIn / headcount growth */
+  /** Nested LinkedIn payload on Get_new_company subsidiaries */
+  linkedin_data?: {
+    linkedin_growth_1y_pct?: number | string | null;
+    LinkedIn_Growth_1y_Pct?: number | string | null;
+  };
+  /** YoY LinkedIn / headcount growth from API (`linkedin_growth_1y_pct`) */
+  linkedin_growth_1y_pct?: number | string | null;
+  /** Pre-normalized YoY % (optional; panel also reads `linkedin_growth_1y_pct`) */
   linkedin_growth_pct?: number | null;
   /** Normalized counts for sparkline (e.g. monthly headcount); min length 2 to draw */
   linkedin_growth_spark?: number[] | null;
 };
+
+/** Parse a raw YoY growth value (number, percent string, or decimal fraction). */
+export function parseLinkedInGrowthPctValue(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    const pct = Math.abs(raw) <= 1 && raw !== 0 ? raw * 100 : raw;
+    return Math.round(pct * 10) / 10;
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    const num = Number(raw.replace(/[^0-9.-]/g, ""));
+    if (!Number.isFinite(num)) return null;
+    const pct = Math.abs(num) <= 1 && num !== 0 ? num * 100 : num;
+    return Math.round(pct * 10) / 10;
+  }
+  return null;
+}
+
+/** Parse subsidiary YoY growth from API fields (number or string). */
+export function parseSubsidiaryLinkedInGrowthPct(
+  sub: SubsidiaryProfileRecord
+): number | null {
+  const candidates = [
+    sub.linkedin_growth_1y_pct,
+    sub.linkedin_growth_pct,
+    sub.linkedin_data?.linkedin_growth_1y_pct,
+    sub.linkedin_data?.LinkedIn_Growth_1y_Pct,
+  ];
+  for (const raw of candidates) {
+    const parsed = parseLinkedInGrowthPctValue(raw);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+/** Simple trend sparkline when only YoY % is available (no monthly series). */
+export function growthPctToSpark(pct: number): number[] {
+  if (pct === 0) return [48, 49, 50, 51];
+  const sign = pct >= 0 ? 1 : -1;
+  const amt = Math.min(Math.abs(pct), 40) * 0.35;
+  return [
+    50 - sign * amt * 0.25,
+    50 - sign * amt * 0.08,
+    50 + sign * amt * 0.3,
+    50 + sign * amt,
+  ];
+}
+
+function formatGrowthPctLabel(pct: number): string {
+  const abs = Math.abs(pct);
+  const text = abs % 1 === 0 ? String(pct) : pct.toFixed(1);
+  return pct > 0 ? `+${text}%` : pct < 0 ? `${text}%` : "0%";
+}
 
 type SubsidiariesProfilePanelProps = {
   tokens: SubsidiariesProfileTokens;
@@ -56,12 +114,20 @@ function headcountValue(s: SubsidiaryProfileRecord): number | null {
 
 function LogoLetter({
   name,
+  logo,
   T,
 }: {
   name: string;
+  logo?: string | null;
   T: SubsidiariesProfileTokens;
 }) {
   const letter = (name.trim()[0] || "?").toUpperCase();
+  const src = logo
+    ? logo.startsWith("data:") || logo.startsWith("http")
+      ? logo
+      : `data:image/jpeg;base64,${logo}`
+    : null;
+
   return (
     <div
       style={{
@@ -77,9 +143,15 @@ function LogoLetter({
         justifyContent: "center",
         fontFamily: T.sans,
         flexShrink: 0,
+        overflow: "hidden",
       }}
     >
-      {letter}
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt={name} width={24} height={24} style={{ objectFit: "cover", display: "block" }} />
+      ) : (
+        letter
+      )}
     </div>
   );
 }
@@ -222,16 +294,14 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
               {displayed.map((subsidiary, index) => {
                 const hc = headcountValue(subsidiary);
                 const last = index === displayed.length - 1;
+                const pct = parseSubsidiaryLinkedInGrowthPct(subsidiary);
                 const spark =
                   Array.isArray(subsidiary.linkedin_growth_spark) &&
                   subsidiary.linkedin_growth_spark.length >= 2
                     ? subsidiary.linkedin_growth_spark
-                    : null;
-                const pct =
-                  typeof subsidiary.linkedin_growth_pct === "number" &&
-                  Number.isFinite(subsidiary.linkedin_growth_pct)
-                    ? subsidiary.linkedin_growth_pct
-                    : null;
+                    : pct !== null
+                      ? growthPctToSpark(pct)
+                      : null;
 
                 const cellPad = narrow ? "10px 8px" : "10px 12px";
                 return (
@@ -250,7 +320,11 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                           minWidth: 0,
                         }}
                       >
-                        <LogoLetter name={subsidiary.name} T={T} />
+                        <LogoLetter
+                          name={subsidiary.name}
+                          logo={subsidiary._linkedin_data_of_new_company?.linkedin_logo}
+                          T={T}
+                        />
                         <span
                           style={{
                             minWidth: 0,
@@ -306,7 +380,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                           {hc === null ? "—" : hc.toLocaleString()}
                         </td>
                         <td style={{ padding: cellPad }}>
-                          {spark && pct !== null ? (
+                          {pct !== null ? (
                             <div
                               style={{
                                 display: "flex",
@@ -315,20 +389,20 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                               }}
                             >
                               <MiniSpark
-                                data={spark}
+                                data={spark ?? growthPctToSpark(pct)}
                                 w={80}
                                 h={22}
-                                stroke={T.azure}
+                                stroke={pct >= 0 ? T.up : T.down}
                               />
                               <span
                                 style={{
                                   fontFamily: T.mono,
-                                  color: T.up,
+                                  color: pct >= 0 ? T.up : T.down,
                                   fontSize: 11,
+                                  fontWeight: 500,
                                 }}
                               >
-                                {pct >= 0 ? "+" : ""}
-                                {pct}%
+                                {formatGrowthPctLabel(pct)}
                               </span>
                             </div>
                           ) : (
