@@ -1115,6 +1115,7 @@ const CompanyDetail = () => {
     useState<CompanyFinancialMetrics | null>(null);
   const [aiRiskAxes, setAiRiskAxes] = useState<AIRiskAxis[] | null>(null);
   const [aiRisksLoading, setAiRisksLoading] = useState(false);
+  const [productServicesData, setProductServicesData] = useState<ProductUsersSection[] | null>(null);
   // New investors from company_investors API endpoint
   const [apiInvestors, setApiInvestors] = useState<
     CompanyInvestorFromAPI[]
@@ -1379,6 +1380,32 @@ const CompanyDetail = () => {
       setAiRiskAxes(null);
     } finally {
       setAiRisksLoading(false);
+    }
+  }, []);
+
+  // Fetch Products & Users from company_products_services API
+  const fetchProductServices = useCallback(async (id: string | number) => {
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const headers: Record<string, string> = {
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+      const base = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_products_services`;
+      const params = new URLSearchParams({ new_company_id: String(id) });
+      const res = await fetch(`${base}?${params.toString()}`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { title: string; body: string }[];
+      if (!Array.isArray(data) || data.length === 0) return;
+      setProductServicesData(
+        data.map((item) => ({ title: item.title, items: [item.body] }))
+      );
+    } catch {
+      // Non-fatal; fall back to static data
     }
   }, []);
 
@@ -1676,6 +1703,7 @@ const CompanyDetail = () => {
       fetchCompanyInvestors(companyId);
       fetchCompanyTransactionStatus(companyId);
       fetchCompanyAiRisksData(companyId);
+      fetchProductServices(companyId);
     }
   }, [
     companyId,
@@ -1685,6 +1713,7 @@ const CompanyDetail = () => {
     fetchCompanyInvestors,
     fetchCompanyTransactionStatus,
     fetchCompanyAiRisksData,
+    fetchProductServices,
   ]);
 
 
@@ -3741,12 +3770,13 @@ const CompanyDetail = () => {
             <div className="company-grid-product-users">
               <ProductUsersListCard
                 sections={
-                  productUsersAccordionSections.length > 0
+                  productServicesData ??
+                  (productUsersAccordionSections.length > 0
                     ? productUsersAccordionSections
-                    : undefined
+                    : undefined)
                 }
                 lines={
-                  productUsersAccordionSections.length > 0
+                  productServicesData || productUsersAccordionSections.length > 0
                     ? []
                     : productUsersSegments
                 }
