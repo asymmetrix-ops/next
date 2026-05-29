@@ -1,5 +1,96 @@
 import type { AIRiskAxis, AIRiskAxisGroup } from "@/components/redesign/AIRiskCard";
 
+// ── V2 API types ─────────────────────────────────────────────────────────────
+export type CompanyAiRiskV2Item = {
+  factor: string;
+  assessment: string;
+  body: string;
+  risk_score: number;
+  defense_score: number;
+};
+
+const COMPANY_AI_RISKS_V2_BASE =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_ai_risks_v2";
+
+/**
+ * Derive radar axis key + colour group from the factor label.
+ * Risk factors (replicability, accuracy, stakes) sit in the red wedge;
+ * defensibility factors (moats, authority, history) sit in the green wedge.
+ */
+function inferAxisMeta(
+  factor: string
+): { key: string; group: AIRiskAxisGroup; label: string } {
+  const f = factor.toLowerCase();
+  if (f.includes("replicab")) return { key: "replic", group: "risk", label: factor };
+  if (f.includes("accuracy")) return { key: "accuracy", group: "risk", label: factor };
+  if (f.includes("size") || f.includes("value at stake") || f.includes("decision"))
+    return { key: "stakes", group: "risk", label: factor };
+  if (f.includes("workflow")) return { key: "workflow", group: "def", label: factor };
+  if (f.includes("authority")) return { key: "authority", group: "def", label: factor };
+  if (f.includes("historical")) return { key: "history", group: "def", label: factor };
+  if (f.includes("data moat")) return { key: "data", group: "def", label: factor };
+  if (f.includes("human") || f.includes("expert") || f.includes("judgement"))
+    return { key: "human", group: "def", label: factor };
+  // Unknown factor: derive key from text, default def group
+  const key = f.replace(/[^a-z0-9]/g, "").slice(0, 14) || "other";
+  return { key, group: "def", label: factor };
+}
+
+function clampV2(value: number): number {
+  return Math.min(5, Math.max(1, Math.round(value)));
+}
+
+/**
+ * Map the v2 API response to radar axes.
+ * We use defense_score as the radar score: higher = stronger defense against AI.
+ * The assessment + body fields come directly from the API.
+ */
+export function mapAiRisksV2ToAxes(
+  items: CompanyAiRiskV2Item[]
+): AIRiskAxis[] | null {
+  if (!Array.isArray(items) || items.length === 0) return null;
+  const axes: AIRiskAxis[] = items.map((item) => {
+    const { key, group, label } = inferAxisMeta(item.factor);
+    return {
+      key,
+      label,
+      group,
+      score: clampV2(item.defense_score),
+      tier: item.assessment,
+      blurb: item.body.replace(/&nbsp;/g, " ").trim(),
+    };
+  });
+  return axes.length >= 3 ? axes : null;
+}
+
+export async function fetchCompanyAiRisksV2(
+  newCompanyId: string | number
+): Promise<AIRiskAxis[] | null> {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("asymmetrix_auth_token")
+      : null;
+  if (!token) return null;
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/json",
+  };
+
+  const params = new URLSearchParams({ new_company_id: String(newCompanyId) });
+  const res = await fetch(`${COMPANY_AI_RISKS_V2_BASE}?${params.toString()}`, {
+    method: "GET",
+    headers,
+    credentials: "include",
+  });
+
+  if (!res.ok) return null;
+  const data: unknown = await res.json();
+  if (!Array.isArray(data) || data.length === 0) return null;
+  return mapAiRisksV2ToAxes(data as CompanyAiRiskV2Item[]);
+}
+
+// ── V1 API types (legacy fallback) ───────────────────────────────────────────
 export type CompanyAiRiskScores = {
   replicability?: number | null;
   accuracy_matters?: number | null;
