@@ -38,6 +38,7 @@ import { AIRiskCard } from "@/components/redesign/AIRiskCard";
 import type { AIRiskAxis } from "@/components/redesign/AIRiskCard";
 import {
   fetchCompanyAiRisks,
+  fetchCompanyAiRisksV2,
   mapCompanyAiRisksToAxes,
 } from "@/lib/companyAiRisks";
 import { ContentArticle } from "@/types/insightsAnalysis";
@@ -1374,6 +1375,13 @@ const CompanyDetail = () => {
   const fetchCompanyAiRisksData = useCallback(async (id: string | number) => {
     setAiRisksLoading(true);
     try {
+      // Try v2 first (richer data with assessment + body per factor)
+      const v2Axes = await fetchCompanyAiRisksV2(id);
+      if (v2Axes) {
+        setAiRiskAxes(v2Axes);
+        return;
+      }
+      // Fall back to v1
       const record = await fetchCompanyAiRisks(id);
       setAiRiskAxes(mapCompanyAiRisksToAxes(record));
     } catch {
