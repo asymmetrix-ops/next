@@ -149,9 +149,9 @@ export const normalizeDealRadarResponse = (
     next_offset != null ||
     next_page != null;
 
-  // API uses 1-based row cursors (page 2 → offset 26 when page_size is 25).
+  // API uses 0-based row cursors (page 2 → offset 25 when page_size is 25).
   if (next_offset == null && next_page != null && next_page > current_page) {
-    next_offset = (next_page - 1) * limit + 1;
+    next_offset = (next_page - 1) * limit;
   }
 
   return {

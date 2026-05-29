@@ -956,7 +956,7 @@ export default function HomeUserPage() {
       dealRadarNextOffsetRef.current = null;
       dealRadarLoadedOffsetsRef.current = new Set();
 
-      const initialOffset = 1;
+      const initialOffset = 0;
       const res = await dashboardApiService.getDealRadar({
         limit: DEAL_RADAR_PAGE_LIMIT,
         offset: initialOffset,
