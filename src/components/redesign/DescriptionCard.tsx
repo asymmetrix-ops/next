@@ -27,13 +27,15 @@ export function DescriptionCard({
 }: Props) {
   const body = text?.trim() || EM;
 
+  const stretchToOverview = fillGridCell && !expanded;
+
   return (
-    <LinkPanel fillGridCell={fillGridCell}>
+    <LinkPanel fillGridCell={stretchToOverview}>
       <LinkedH>Description</LinkedH>
       <div
         style={{
           padding: "14px 22px 16px",
-          flex: 1,
+          flex: stretchToOverview ? 1 : undefined,
           minHeight: 0,
           display: "flex",
           flexDirection: "column",
@@ -46,10 +48,9 @@ export function DescriptionCard({
             lineHeight: 1.65,
             color: T.body,
             textAlign: "justify" as const,
-            overflow: "hidden",
-            display: expanded ? "block" : "-webkit-box",
-            WebkitBoxOrient: "vertical",
-            WebkitLineClamp: expanded ? "unset" : 8,
+            flex: stretchToOverview ? 1 : undefined,
+            minHeight: 0,
+            overflow: expanded ? "visible" : "hidden",
           }}
         >
           {body}
@@ -68,6 +69,7 @@ export function DescriptionCard({
               fontWeight: 500,
               cursor: "pointer",
               alignSelf: "flex-start",
+              flexShrink: 0,
               fontFamily: T.sans,
             }}
           >

@@ -28,9 +28,16 @@ import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import {
   CANONICAL_COMPANY_COLUMN_KEYS,
   DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS,
+  PROD_DEFAULT_COMPANY_COLUMN_KEYS,
+  enforceColumnKeyOrder,
   columnKeysToVisibility,
   visibilityToColumnKeys,
 } from "@/components/companies/companiesColumnCategories";
+import {
+  compareSortValues,
+  getColumnSortKind,
+  getSortValueForColumn,
+} from "@/components/companies/companiesTableSort";
 import {
   fetchCompanyTableDataByIds,
   selectedColumnsNeedTableData,
@@ -1060,7 +1067,9 @@ const getValidColumnKeys = (keys: string[]): string[] => {
       valid.push(key);
     }
   });
-  return valid.length > 0 ? valid : DEFAULT_COMPANY_COLUMN_KEYS;
+  return enforceColumnKeyOrder(
+    valid.length > 0 ? valid : [...PROD_DEFAULT_COMPANY_COLUMN_KEYS]
+  );
 };
 
 // Company Card Component for Mobile - Optimized with React state
@@ -3616,6 +3625,10 @@ const CompanySection = ({
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
   const [exportsLeft, setExportsLeft] = useState(0);
   const [showColumnsModal, setShowColumnsModal] = useState(false);
+  const [sortState, setSortState] = useState<{
+    key: string;
+    dir: "asc" | "desc";
+  } | null>(null);
   const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(false);
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
     DEFAULT_COMPANY_COLUMN_KEYS
@@ -3719,6 +3732,55 @@ const CompanySection = ({
     },
     []
   );
+
+  useEffect(() => {
+    if (sortState && !selectedColumnKeys.includes(sortState.key)) {
+      setSortState(null);
+    }
+  }, [selectedColumnKeys, sortState]);
+
+  const handleSortColumn = useCallback((columnKey: string) => {
+    if (!getColumnSortKind(columnKey)) return;
+    setSortState((current) => {
+      if (current?.key !== columnKey) return { key: columnKey, dir: "asc" };
+      return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
+    });
+  }, []);
+
+  const sortedCompanies = useMemo(() => {
+    if (!sortState || !getColumnSortKind(sortState.key)) {
+      return companies;
+    }
+    const { key, dir } = sortState;
+    return [...companies].sort((companyA, companyB) => {
+      const rowA = {
+        ...companyA,
+        ...(companyTableDataById.get(companyA.id) || {}),
+      } as Record<string, unknown>;
+      const rowB = {
+        ...companyB,
+        ...(companyTableDataById.get(companyB.id) || {}),
+      } as Record<string, unknown>;
+      return compareSortValues(
+        getSortValueForColumn(rowA, key),
+        getSortValueForColumn(rowB, key),
+        dir
+      );
+    });
+  }, [companies, companyTableDataById, sortState]);
+
+  const getTableColumnClassName = (
+    column: CompanyColumnDefinition,
+    extra?: string
+  ): string | undefined => {
+    const classes = [
+      extra,
+      column.wrap ? "company-table-cell-wrap" : undefined,
+      column.key === "logo" ? "company-table-sticky-logo" : undefined,
+      column.key === "name" ? "company-table-sticky-name" : undefined,
+    ].filter(Boolean);
+    return classes.length > 0 ? classes.join(" ") : undefined;
+  };
 
   // Check if any filters are applied
   const hasActiveFilters = () => {
@@ -4209,7 +4271,7 @@ const CompanySection = ({
 
   const tableRows = useMemo(
     () =>
-      companies.map((company, index) => {
+      sortedCompanies.map((company, index) => {
         const tableData = companyTableDataById.get(company.id) || {};
         const displayCompany = {
           ...company,
@@ -4221,7 +4283,7 @@ const CompanySection = ({
             {selectedColumns.map((column) => (
               <td
                 key={`${company.id || index}-${column.key}`}
-                className={column.wrap ? "company-table-cell-wrap" : undefined}
+                className={getTableColumnClassName(column)}
                 style={{ minWidth: column.minWidth }}
               >
                 {column.render(displayCompany, {
@@ -4249,7 +4311,13 @@ const CompanySection = ({
           </tr>
         );
       }),
-    [companies, companyTableDataById, handleCompanyClick, onEditCompany, selectedColumns]
+    [
+      sortedCompanies,
+      companyTableDataById,
+      handleCompanyClick,
+      onEditCompany,
+      selectedColumns,
+    ]
   );
 
   const generatePaginationButtons = () => {
@@ -4432,10 +4500,19 @@ const CompanySection = ({
       border-collapse: collapse;
       table-layout: auto;
     }
-    .company-table-wrapper {
-      overflow-x: auto;
+    .company-table-scroll {
+      overflow: auto;
       -webkit-overflow-scrolling: touch;
       width: 100%;
+      max-height: min(72vh, calc(100vh - 240px));
+      border-radius: 8px;
+      box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1);
+      background: #fff;
+    }
+    .company-table-scroll .company-table {
+      box-shadow: none;
+      border-radius: 0;
+      margin: 0;
     }
     .company-columns-button {
       border: 1px solid #e2e8f0;
@@ -4488,6 +4565,41 @@ const CompanySection = ({
       font-size: 14px;
       background: #f9fafb;
       border-bottom: 2px solid #e2e8f0;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    .company-table-th-sortable {
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .company-table-th-sortable:hover {
+      background: #f1f5f9;
+    }
+    .company-table-sort-indicator {
+      margin-left: 4px;
+      font-size: 10px;
+      color: #64748b;
+    }
+    .company-table-sticky-logo {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      background: #fff;
+      box-shadow: 2px 0 4px rgba(15, 23, 42, 0.06);
+    }
+    .company-table-sticky-name {
+      position: sticky;
+      left: 112px;
+      z-index: 1;
+      background: #fff;
+      box-shadow: 2px 0 4px rgba(15, 23, 42, 0.06);
+    }
+    .company-table thead th.company-table-sticky-logo,
+    .company-table thead th.company-table-sticky-name {
+      z-index: 4;
+      background: #f9fafb;
     }
     .company-table td {
       font-size: 14px;
@@ -5161,7 +5273,7 @@ const CompanySection = ({
     React.createElement(
       "div",
       { className: "company-cards" },
-      companies.map((company, index) =>
+      sortedCompanies.map((company, index) =>
         React.createElement(CompanyCard, {
           key: company.id || index,
           company: company,
@@ -5171,7 +5283,7 @@ const CompanySection = ({
     ),
     React.createElement(
       "div",
-      { className: "company-table-wrapper" },
+      { className: "company-table-scroll" },
       React.createElement(
         "table",
         { className: "company-table" },
@@ -5181,17 +5293,38 @@ const CompanySection = ({
           React.createElement(
             "tr",
             null,
-            ...selectedColumns.map((column) =>
-              React.createElement(
+            ...selectedColumns.map((column) => {
+              const sortKind = getColumnSortKind(column.key);
+              const isActive = sortState?.key === column.key;
+              return React.createElement(
                 "th",
                 {
                   key: column.key,
-                  className: column.wrap ? "company-table-cell-wrap" : undefined,
+                  className: getTableColumnClassName(
+                    column,
+                    sortKind ? "company-table-th-sortable" : undefined
+                  ),
                   style: { minWidth: column.minWidth },
+                  onClick: sortKind
+                    ? () => handleSortColumn(column.key)
+                    : undefined,
+                  "aria-sort": sortKind
+                    ? isActive
+                      ? sortState?.dir === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                    : undefined,
                 },
-                column.label
-              )
-            ),
+                column.label,
+                sortKind &&
+                  React.createElement(
+                    "span",
+                    { className: "company-table-sort-indicator" },
+                    isActive ? (sortState?.dir === "asc" ? " ▲" : " ▼") : " ⇅"
+                  )
+              );
+            }),
             ...(onEditCompany
               ? [React.createElement("th", { key: "edit" }, "Edit")]
               : [])

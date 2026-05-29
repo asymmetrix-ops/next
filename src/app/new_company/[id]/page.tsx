@@ -7,6 +7,11 @@ import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { FollowButton } from "@/components/FollowButton";
+import {
+  BellIcon,
+  ArrowUpTrayIcon,
+  PlusIcon,
+} from "@heroicons/react/24/outline";
 import { CorporateEventsProfilePanel } from "@/components/corporate-events/CorporateEventsProfilePanel";
 import { SubsidiariesProfilePanel } from "@/components/subsidiaries/SubsidiariesProfilePanel";
 import { ManagementProfilePanel } from "@/components/company/ManagementProfilePanel";
@@ -22,7 +27,9 @@ import {
   type ProductUsersSection,
 } from "@/components/redesign/ProductUsersListCard";
 import { LinkPanel } from "@/components/redesign/primitives";
-import { IncomeStatementSection } from "@/components/redesign/IncomeStatementSection";
+import { FinMetricsIncomeCard } from "@/components/redesign/FinMetricsIncomeCard";
+import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
+import { buildBenchmarkPeersData } from "@/lib/buildBenchmarkPeersData";
 import { AIRiskCard } from "@/components/redesign/AIRiskCard";
 import type { AIRiskAxis } from "@/components/redesign/AIRiskCard";
 import {
@@ -527,10 +534,6 @@ interface CompanyResponse {
 
 // Normalize displays like "40 EUR" -> "EUR 40" and allow fallback currency
 // normalizeCurrencyDisplay removed; we now show currency once in heading
-const formatNumber = (num: number | undefined): string => {
-  if (num === undefined || num === null) return "0";
-  return num.toLocaleString();
-};
 
 const formatWholeNumber = (value?: number | string | null): string => {
   const n = getNumeric(value);
@@ -1747,23 +1750,40 @@ const CompanyDetail = () => {
         return;
       }
 
-      const computedStyle = window.getComputedStyle(element);
-      const lineHeight = parseFloat(computedStyle.lineHeight || "0");
-      if (!lineHeight) {
-        setIsDescriptionExpandable(false);
+      if (isDescriptionExpanded) {
+        setIsDescriptionExpandable(true);
         return;
       }
 
-      // Match the template's eight-line collapsed description preview.
-      const collapsedHeight = lineHeight * 8;
-      setIsDescriptionExpandable(element.scrollHeight > collapsedHeight + 1);
+      setIsDescriptionExpandable(
+        element.scrollHeight > element.clientHeight + 1
+      );
     };
 
     checkDescriptionOverflow();
+    const rafId = requestAnimationFrame(checkDescriptionOverflow);
+
+    const element = descriptionRef.current;
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined" && element) {
+      resizeObserver = new ResizeObserver(checkDescriptionOverflow);
+      resizeObserver.observe(element);
+    }
+
     window.addEventListener("resize", checkDescriptionOverflow);
 
-    return () => window.removeEventListener("resize", checkDescriptionOverflow);
-  }, [company?.description, isMobile]);
+    return () => {
+      cancelAnimationFrame(rafId);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", checkDescriptionOverflow);
+    };
+  }, [
+    company?.description,
+    isMobile,
+    isDescriptionExpanded,
+    apiInvestorsLoading,
+    transactionStatusDisplayLabel,
+  ]);
 
   // Update page title when company data is loaded
   useEffect(() => {
@@ -2238,6 +2258,26 @@ const CompanyDetail = () => {
       ? employeeData[employeeData.length - 1].employees_count
       : 0;
 
+  const finMetricsData = buildFinancialMetricsSections({
+    financialMetrics,
+    hasIncomeStatementData,
+    revenuePlain,
+    ebitdaPlain,
+    evPlain,
+    currentEmployeeCount,
+    getSourceText,
+    formatPercent,
+    formatMultiple,
+    formatPlainNumber,
+    formatWholeNumber,
+    getNumeric,
+    periodDisplay: financialMetricsPeriodDisplay || undefined,
+  });
+
+  const benchmarkPeersData = buildBenchmarkPeersData({
+    companyName: company.name?.trim() || "Company",
+  });
+
   // Determine if there are subsidiaries to display
   const hasSubsidiaries = Boolean(
     company.have_subsidiaries_companies?.have_subsidiaries_companies &&
@@ -2293,14 +2333,6 @@ const CompanyDetail = () => {
 
   // Market Overview removed: no TradingView symbols computation
 
-  // Build a readable former name string if present
-  const formerNameDisplay =
-    Array.isArray(company?.Former_name) && company.Former_name.length > 0
-      ? company.Former_name.filter(
-          (v) => typeof v === "string" && v.trim().length > 0
-        ).join(", ")
-      : null;
-
   const productTypeRows = parseStructuredArray<CompanyProductTypeItem>(
     company.Product_Type
   )
@@ -2335,7 +2367,6 @@ const CompanyDetail = () => {
     }))
     .filter((item) => item.label);
 
-  const ownershipLabel = company._ownership_type?.ownership || "";
   const tickerDisplay = company.ticker && company.exchange
     ? `${company.exchange}: ${company.ticker}`
     : company.ticker || null;
@@ -3116,50 +3147,18 @@ const CompanyDetail = () => {
           display: "flex", alignItems: "center", justifyContent: "space-between",
           flexWrap: "wrap" as const, gap: "12px", padding: "22px 0 16px",
         }}>
-          {/* Left: logo, name, badges */}
+          {/* Left: logo + name */}
           <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0, flex: 1 }}>
                   <CompanyLogo
                     logo={company._linkedin_data_of_new_company?.linkedin_logo}
                     name={company.name}
                   />
-                  <div style={{ minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap" as const, gap: "8px" }}>
-                <span style={{
-                  fontSize: "24px", fontWeight: 600, color: T.ink,
-                  letterSpacing: "-0.4px", lineHeight: 1.2, fontFamily: T.sans,
-                }}>
-                      {company.name}
-                </span>
-                {tickerDisplay && (
                   <span style={{
-                    display: "inline-flex", alignItems: "center",
-                    fontSize: "11.5px", fontWeight: 500, color: T.body,
-                    backgroundColor: T.inset, border: `1px solid ${T.divider}`,
-                    borderRadius: "4px", padding: "2px 8px",
-                    whiteSpace: "nowrap" as const, lineHeight: 1.5,
+                    fontSize: "24px", fontWeight: 600, color: T.ink,
+                    letterSpacing: "-0.4px", lineHeight: 1.2, fontFamily: T.sans,
                   }}>
-                    {tickerDisplay}
+                    {company.name}
                   </span>
-                )}
-                {ownershipLabel && (
-                  <span style={{
-                    display: "inline-flex", alignItems: "center",
-                    fontSize: "11.5px", fontWeight: 500,
-                    color: T.emerald, backgroundColor: T.emeraldSoft,
-                    border: "1px solid transparent",
-                    borderRadius: "4px", padding: "2px 8px",
-                    whiteSpace: "nowrap" as const, lineHeight: 1.5,
-                  }}>
-                    {ownershipLabel}
-                  </span>
-                )}
-                    </div>
-                    {formerNameDisplay && (
-                <div style={{ fontSize: "12px", color: T.muted, marginTop: "3px", fontFamily: T.sans }}>
-                  Formerly {formerNameDisplay}
-                      </div>
-                    )}
-                  </div>
                 </div>
 
           {/* Right: action buttons */}
@@ -3169,6 +3168,7 @@ const CompanyDetail = () => {
                       followKey="followed_companies"
                       entityId={Number(companyId)}
                       label="Company"
+                      icon={<BellIcon width={15} height={15} strokeWidth={2} aria-hidden />}
                     />
                   )}
             <div ref={pdfExportMenuRef} style={{ position: "relative", display: "inline-block" }}>
@@ -3182,12 +3182,13 @@ const CompanyDetail = () => {
                   display: "inline-flex", alignItems: "center", gap: "5px",
                   fontFamily: T.sans, fontSize: "12.5px", fontWeight: 600,
                   color: "#fff",
-                  backgroundColor: exportingPdf ? T.faint : T.azure,
+                  backgroundColor: exportingPdf ? T.faint : "#475569",
                   border: "none", borderRadius: "6px",
                   padding: "8px 14px",
                   cursor: exportingPdf || !company?.id ? "not-allowed" : "pointer",
                       }}
                     >
+                      <ArrowUpTrayIcon width={15} height={15} strokeWidth={2} aria-hidden />
                       {exportingPdf
                         ? exportingPdfType === "financial_metrics"
                           ? "Exporting Metrics..."
@@ -3227,13 +3228,14 @@ const CompanyDetail = () => {
                     target="_blank"
                     rel="noopener noreferrer"
               style={{
-                display: "inline-flex", alignItems: "center",
+                display: "inline-flex", alignItems: "center", gap: "5px",
                 fontFamily: T.sans, fontSize: "12.5px", fontWeight: 600,
                 color: "#fff", backgroundColor: T.emerald,
                 borderRadius: "6px", padding: "8px 14px",
                 textDecoration: "none",
               }}
                   >
+                    <PlusIcon width={15} height={15} strokeWidth={2} aria-hidden />
                     Contribute Data
                   </a>
                 </div>
@@ -3692,7 +3694,10 @@ const CompanyDetail = () => {
             </div>{/* end overview card wrapper */}
 
             {/* ── Description card (grid row 1, col 2) ── */}
-            <div className="overview-description company-grid-description">
+            <div
+              style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}
+              className="overview-description company-grid-description"
+            >
               <DescriptionCard
                 text={company.description ?? ""}
                 expanded={isDescriptionExpanded}
@@ -3886,7 +3891,7 @@ const CompanyDetail = () => {
               </div>
             )}
 
-            {/* ══ Col 3: Financial metrics (from company page) ══ */}
+            {/* ══ Col 3: Financial metrics (merged tab card) ══ */}
             <div
               className="company-grid-finance desktop-financial-metrics v3-right-rail"
               style={{
@@ -3897,355 +3902,16 @@ const CompanyDetail = () => {
                 alignSelf: "stretch",
               }}
             >
-              <div
-                style={{ ...styles.card, padding: "14px 16px", flex: 1, minHeight: 0, overflow: "auto" }}
-                className="card"
-              >
-              <h2 style={styles.sectionTitle}>
-                Financial Metrics{metricsCurrencySuffix}
-              </h2>
-              {financialMetricsPeriodDisplay && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
-                    marginTop: "-12px",
-                    marginBottom: "4px",
-                    fontSize: "13px",
-                    color: "#6b7280",
-                    fontWeight: 500,
-                  }}
-                >
-                  <span></span>
-                  <span style={{ textAlign: "left" }}>
-                    {financialMetricsPeriodDisplay}
-                  </span>
-                  <span style={{ ...styles.finSourceValue, fontSize: "11px" }}>
-                    Source
-                  </span>
-                </div>
-              )}
-              {!hasIncomeStatementData && (
-                <div style={styles.finInfoRow} className="info-row">
-                  <span style={styles.label}>Revenue (m):</span>
-                  <span style={styles.value}>{revenuePlain}</span>
-                  <span style={styles.finSourceValue}>
-                    {getSourceText(
-                      financialMetrics?.Revenue_source_label,
-                      financialMetrics?.Rev_source
-                    )}
-                  </span>
-                </div>
-              )}
-              {!hasIncomeStatementData && (
-                <div style={styles.finInfoRow} className="info-row">
-                  <span style={styles.label}>EBITDA (m):</span>
-                  <span style={styles.value}>{ebitdaPlain}</span>
-                  <span style={styles.finSourceValue}>
-                    {getSourceText(
-                      financialMetrics?.EBITDA_source_label,
-                      financialMetrics?.EBITDA_source
-                    )}
-                  </span>
-                </div>
-              )}
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Enterprise Value (m):</span>
-                <span style={styles.value}>{evPlain}</span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.EV_source_label,
-                    financialMetrics?.EV_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Revenue multiple:</span>
-                <span style={styles.value}>
-                  {formatMultiple(financialMetrics?.Revenue_multiple)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Revenue_multiple_source_label,
-                    financialMetrics?.Rev_x_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Revenue Growth:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Rev_Growth_PC)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Rev_growth_source_label,
-                    financialMetrics?.Rev_Growth_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>EBITDA margin:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.EBITDA_margin)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.EBITDA_margin_source_label,
-                    financialMetrics?.EBITDA_margin_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Rule of 40:</span>
-                <span style={styles.value}>
-                  {(() => {
-                    const n = getNumeric(financialMetrics?.Rule_of_40);
-                    return n !== undefined
-                      ? Math.round(n).toLocaleString()
-                      : "Not available";
-                  })()}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Rule_of_40_source_label,
-                    financialMetrics?.Rule_of_40_source
-                  )}
-                </span>
-              </div>
-              {hasIncomeStatementData && (
-                <IncomeStatementSection
-                  rows={normalizedIncomeStatements}
-                  currency={evCurrency || revenueCurrency || ""}
-                />
-              )}
-              {/* Subscription Metrics */}
-              <div style={{ marginTop: 20, marginBottom: 2 }}>
-                <h3 style={styles.sectionTitle}>Subscription Metrics</h3>
-              </div>
-              {financialMetricsPeriodDisplay && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
-                    marginBottom: "4px",
-                    fontSize: "12px",
-                    color: "#6b7280",
-                    fontWeight: 500,
-                  }}
-                >
-                  <span />
-                  <span style={{ textAlign: "left" }}>{financialMetricsPeriodDisplay}</span>
-                  <span style={{ ...styles.finSourceValue, fontSize: "11px" }}>Source</span>
-                </div>
-              )}
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Recurring Revenue:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.ARR_pc)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.ARR_source_label,
-                    financialMetrics?.ARR_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>ARR (m):</span>
-                <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.ARR_m)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.ARR_source_label,
-                    financialMetrics?.ARR_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Churn:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Churn_pc)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Churn_source_label,
-                    financialMetrics?.Churn_Source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>GRR:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.GRR_pc)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.GRR_source_label,
-                    financialMetrics?.GRR_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Upsell:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Upsell_pc)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Upsell_source_label,
-                    financialMetrics?.Upsell_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Cross-sell:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Cross_sell_pc)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Cross_sell_source_label,
-                    financialMetrics?.Cross_sell_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Price increase:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Price_increase_pc)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Price_increase_source_label,
-                    financialMetrics?.Price_increase_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Revenue expansion:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Rev_expansion_pc)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Rev_expansion_source_label,
-                    financialMetrics?.Rev_expansion_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>NRR:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.NRR)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.NRR_source_label,
-                    financialMetrics?.NRR_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>New clients revenue growth:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.New_client_growth_pc)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.New_client_growth_source_label,
-                    financialMetrics?.New_Client_Growth_Source
-                  )}
-                </span>
-              </div>
-
-              {/* Other Metrics */}
-              <div style={{ marginTop: 20, marginBottom: 2 }}>
-                <h3 style={styles.sectionTitle}>Other Metrics</h3>
-              </div>
-              {financialMetricsPeriodDisplay && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
-                    marginBottom: "4px",
-                    fontSize: "12px",
-                    color: "#6b7280",
-                    fontWeight: 500,
-                  }}
-                >
-                  <span />
-                  <span style={{ textAlign: "left" }}>{financialMetricsPeriodDisplay}</span>
-                  <span style={{ ...styles.finSourceValue, fontSize: "11px" }}>Source</span>
-                </div>
-              )}
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>EBIT (m):</span>
-                <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.EBIT_m)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.EBIT_source_label,
-                    financialMetrics?.EBIT_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Number of clients:</span>
-                <span style={styles.value}>
-                  {typeof financialMetrics?.No_of_Clients === "number"
-                    ? financialMetrics.No_of_Clients.toLocaleString()
-                    : "Not available"}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.No_of_Clients_source_label,
-                    financialMetrics?.No_Clients_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Revenue per client:</span>
-                <span style={styles.value}>
-                  {formatWholeNumber(financialMetrics?.Rev_per_client)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Rev_per_client_source_label,
-                    financialMetrics?.Rev_per_client_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Number of employees:</span>
-                <span style={styles.value}>
-                  {typeof financialMetrics?.No_Employees === "number"
-                    ? financialMetrics.No_Employees.toLocaleString()
-                    : formatNumber(currentEmployeeCount)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.No_Employees_source_label,
-                    financialMetrics?.No_Employees_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Revenue per employee:</span>
-                <span style={styles.value}>
-                  {formatWholeNumber(financialMetrics?.Revenue_per_employee)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Revenue_per_employee_source_label,
-                    financialMetrics?.Rev_per_employee_source
-                  )}
-                </span>
-              </div>
-              </div>
+              <FinMetricsIncomeCard
+                fillGridCell
+                currencySuffix={metricsCurrencySuffix}
+                data={finMetricsData}
+                benchmarkData={benchmarkPeersData}
+                hasIncomeStatement={hasIncomeStatementData}
+                incomeStatementRows={normalizedIncomeStatements}
+                incomeStatementCurrency={evCurrency || revenueCurrency || ""}
+              />
             </div>
-
 
             {/* Market Overview removed */}
           </div>
@@ -4255,355 +3921,15 @@ const CompanyDetail = () => {
             style={{ display: "none", marginTop: "8px" }}
             className="mobile-financial-metrics"
           >
-            <div
-              style={{
-                ...styles.card,
-                width: "100%",
-                padding: "20px 16px",
-              }}
-            >
-              <h2 style={styles.sectionTitle}>
-                Financial Metrics{metricsCurrencySuffix}
-              </h2>
-              {financialMetricsPeriodDisplay && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
-                    marginTop: "-10px",
-                    marginBottom: "4px",
-                    fontSize: "13px",
-                    color: "#6b7280",
-                    fontWeight: 500,
-                  }}
-                >
-                  <span></span>
-                  <span style={{ textAlign: "left" }}>
-                    {financialMetricsPeriodDisplay}
-                  </span>
-                  <span style={{ ...styles.sourceValue, fontSize: "11px" }}>
-                    Source
-                  </span>
-                </div>
-              )}
-              {!hasIncomeStatementData && (
-                <div style={styles.infoRow}>
-                  <span style={styles.label}>Revenue (m):</span>
-                  <span style={styles.value}>{revenuePlain}</span>
-                  <span style={styles.sourceValue}>
-                    {getSourceText(
-                      financialMetrics?.Revenue_source_label,
-                      financialMetrics?.Rev_source
-                    )}
-                  </span>
-                </div>
-              )}
-              {!hasIncomeStatementData && (
-                <div style={styles.infoRow}>
-                  <span style={styles.label}>EBITDA (m):</span>
-                  <span style={styles.value}>{ebitdaPlain}</span>
-                  <span style={styles.sourceValue}>
-                    {getSourceText(
-                      financialMetrics?.EBITDA_source_label,
-                      financialMetrics?.EBITDA_source
-                    )}
-                  </span>
-                </div>
-              )}
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Enterprise Value (m):</span>
-                <span style={styles.value}>{evPlain}</span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.EV_source_label,
-                    financialMetrics?.EV_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue multiple:</span>
-                <span style={styles.value}>
-                  {formatMultiple(financialMetrics?.Revenue_multiple)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Revenue_multiple_source_label,
-                    financialMetrics?.Rev_x_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Revenue Growth:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Rev_Growth_PC)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Rev_growth_source_label,
-                    financialMetrics?.Rev_Growth_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>EBITDA margin:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.EBITDA_margin)}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.EBITDA_margin_source_label,
-                    financialMetrics?.EBITDA_margin_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.label}>Rule of 40:</span>
-                <span style={styles.value}>
-                  {(() => {
-                    const n = getNumeric(financialMetrics?.Rule_of_40);
-                    return n !== undefined
-                      ? Math.round(n).toLocaleString()
-                      : "Not available";
-                  })()}
-                </span>
-                <span style={styles.sourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Rule_of_40_source_label,
-                    financialMetrics?.Rule_of_40_source
-                  )}
-                </span>
-              </div>
-              {hasIncomeStatementData && (
-                <IncomeStatementSection
-                  rows={normalizedIncomeStatements}
-                  currency={evCurrency || revenueCurrency || ""}
-                />
-              )}
-              {/* Subscription Metrics */}
-              <div style={{ marginTop: 20, marginBottom: 2 }}>
-                <h3 style={styles.sectionTitle}>Subscription Metrics</h3>
-              </div>
-              {financialMetricsPeriodDisplay && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
-                    marginBottom: "4px",
-                    fontSize: "12px",
-                    color: "#6b7280",
-                    fontWeight: 500,
-                  }}
-                >
-                  <span />
-                  <span style={{ textAlign: "left" }}>{financialMetricsPeriodDisplay}</span>
-                  <span style={{ ...styles.finSourceValue, fontSize: "11px" }}>Source</span>
-                </div>
-              )}
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Recurring Revenue:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.ARR_pc)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.ARR_source_label,
-                    financialMetrics?.ARR_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>ARR (m):</span>
-                <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.ARR_m)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.ARR_source_label,
-                    financialMetrics?.ARR_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Churn:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Churn_pc)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Churn_source_label,
-                    financialMetrics?.Churn_Source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>GRR:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.GRR_pc)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.GRR_source_label,
-                    financialMetrics?.GRR_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Upsell:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Upsell_pc)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Upsell_source_label,
-                    financialMetrics?.Upsell_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Cross-sell:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Cross_sell_pc)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Cross_sell_source_label,
-                    financialMetrics?.Cross_sell_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Price increase:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Price_increase_pc)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Price_increase_source_label,
-                    financialMetrics?.Price_increase_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Revenue expansion:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.Rev_expansion_pc)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Rev_expansion_source_label,
-                    financialMetrics?.Rev_expansion_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>NRR:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.NRR)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.NRR_source_label,
-                    financialMetrics?.NRR_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>New clients revenue growth:</span>
-                <span style={styles.value}>
-                  {formatPercent(financialMetrics?.New_client_growth_pc)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.New_client_growth_source_label,
-                    financialMetrics?.New_Client_Growth_Source
-                  )}
-                </span>
-              </div>
-
-              {/* Other Metrics */}
-              <div style={{ marginTop: 20, marginBottom: 2 }}>
-                <h3 style={styles.sectionTitle}>Other Metrics</h3>
-              </div>
-              {financialMetricsPeriodDisplay && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "minmax(180px, 220px) 1fr auto",
-                    marginBottom: "4px",
-                    fontSize: "12px",
-                    color: "#6b7280",
-                    fontWeight: 500,
-                  }}
-                >
-                  <span />
-                  <span style={{ textAlign: "left" }}>{financialMetricsPeriodDisplay}</span>
-                  <span style={{ ...styles.finSourceValue, fontSize: "11px" }}>Source</span>
-                </div>
-              )}
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>EBIT (m):</span>
-                <span style={styles.value}>
-                  {formatPlainNumber(financialMetrics?.EBIT_m)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.EBIT_source_label,
-                    financialMetrics?.EBIT_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Number of clients:</span>
-                <span style={styles.value}>
-                  {typeof financialMetrics?.No_of_Clients === "number"
-                    ? financialMetrics.No_of_Clients.toLocaleString()
-                    : "Not available"}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.No_of_Clients_source_label,
-                    financialMetrics?.No_Clients_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Revenue per client:</span>
-                <span style={styles.value}>
-                  {formatWholeNumber(financialMetrics?.Rev_per_client)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Rev_per_client_source_label,
-                    financialMetrics?.Rev_per_client_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Number of employees:</span>
-                <span style={styles.value}>
-                  {typeof financialMetrics?.No_Employees === "number"
-                    ? financialMetrics.No_Employees.toLocaleString()
-                    : formatNumber(currentEmployeeCount)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.No_Employees_source_label,
-                    financialMetrics?.No_Employees_source
-                  )}
-                </span>
-              </div>
-              <div style={styles.finInfoRow} className="info-row">
-                <span style={styles.label}>Revenue per employee:</span>
-                <span style={styles.value}>
-                  {formatWholeNumber(financialMetrics?.Revenue_per_employee)}
-                </span>
-                <span style={styles.finSourceValue}>
-                  {getSourceText(
-                    financialMetrics?.Revenue_per_employee_source_label,
-                    financialMetrics?.Rev_per_employee_source
-                  )}
-                </span>
-              </div>
+            <FinMetricsIncomeCard
+              fillGridCell={false}
+              currencySuffix={metricsCurrencySuffix}
+              data={finMetricsData}
+              benchmarkData={benchmarkPeersData}
+              hasIncomeStatement={hasIncomeStatementData}
+              incomeStatementRows={normalizedIncomeStatements}
+              incomeStatementCurrency={evCurrency || revenueCurrency || ""}
+            />
 
               <div style={{ marginTop: 20 }}>
                 <HeadcountCard
@@ -4662,7 +3988,6 @@ const CompanyDetail = () => {
                   />
                 </div>
               )}
-            </div>
           </div>
 
           {/* LinkedIn section (desktop only) removed per request */}

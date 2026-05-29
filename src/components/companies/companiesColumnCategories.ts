@@ -75,7 +75,7 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
         columnKey: "follow",
         label: "Follow",
         type: "follow",
-        defaultVisible: true,
+        defaultVisible: false,
         badge: "New",
       },
       {
@@ -421,9 +421,49 @@ export const CANONICAL_COMPANY_COLUMN_KEYS = ALL_COMPANIES_COLUMN_META.map(
   (column) => column.columnKey
 );
 
-export const DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS = ALL_COMPANIES_COLUMN_META.filter(
-  (column) => column.defaultVisible
-).map((column) => column.columnKey);
+/** Current PROD default visible columns (reset in customise modal). */
+export const PROD_DEFAULT_COMPANY_COLUMN_KEYS = [
+  "logo",
+  "name",
+  "description",
+  "primary_sectors",
+  "secondary_sectors",
+  "ownership",
+  "linkedin_members",
+  "country",
+] as const;
+
+/** Always visible, frozen in table — first columns, not hideable. */
+export const FROZEN_COLUMN_KEYS = ["logo", "name"] as const;
+
+export const DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS: string[] = [
+  ...PROD_DEFAULT_COMPANY_COLUMN_KEYS,
+];
+
+export function enforceColumnKeyOrder(keys: string[]): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+
+  for (const key of FROZEN_COLUMN_KEYS) {
+    if (CANONICAL_COMPANY_COLUMN_KEYS.includes(key) && !seen.has(key)) {
+      seen.add(key);
+      ordered.push(key);
+    }
+  }
+
+  for (const key of keys) {
+    if (
+      CANONICAL_COMPANY_COLUMN_KEYS.includes(key) &&
+      !seen.has(key) &&
+      !(FROZEN_COLUMN_KEYS as readonly string[]).includes(key)
+    ) {
+      seen.add(key);
+      ordered.push(key);
+    }
+  }
+
+  return ordered.length > 0 ? ordered : [...PROD_DEFAULT_COMPANY_COLUMN_KEYS];
+}
 
 export const columnKeysToVisibility = (
   keys: string[]
@@ -461,5 +501,7 @@ export const visibilityToColumnKeys = (
     }
   });
 
-  return ordered.length > 0 ? ordered : DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS;
+  const base =
+    ordered.length > 0 ? ordered : [...PROD_DEFAULT_COMPANY_COLUMN_KEYS];
+  return enforceColumnKeyOrder(base);
 };
