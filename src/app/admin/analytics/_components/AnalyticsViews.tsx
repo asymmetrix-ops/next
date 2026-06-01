@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
@@ -2374,6 +2374,693 @@ export function PageInsightsTab() {
           dateKey="last_viewed"
         />
       )}
+    </div>
+  );
+}
+
+// ─── Email Analytics ──────────────────────────────────────────────────────────
+
+type EAHeatStatus = "opened" | "clicked" | "sent" | "bounced" | "none";
+
+type EAHeatCell = { date: string; status: EAHeatStatus };
+
+type EAMessage = {
+  messageId: string;
+  subject: string;
+  sentAt: string;
+  status: string;
+  tag: string | null;
+  opened: boolean;
+  clicked: boolean;
+  firstOpenedAt: string | null;
+  firstClickedAt: string | null;
+};
+
+type EAUser = {
+  userId: number;
+  name: string;
+  email: string;
+  activeAlerts: number;
+  alertTypes: string[];
+  frequency: string | null;
+  lastSentAtUtc: number | null;
+  sentCount: number;
+  openedCount: number;
+  clickedCount: number;
+  bouncedCount: number;
+  openRate: number;
+  clickRate: number;
+  lastOpened: string | null;
+  messageHistory: EAMessage[];
+  heatmap: EAHeatCell[];
+};
+
+type EADebug = {
+  postmarkMessagesError: string | null;
+  postmarkOpensError: string | null;
+  postmarkClicksError: string | null;
+  postmarkRawMessageCount: number;
+  postmarkFilteredMessageCount: number;
+  postmarkOpensCount: number;
+  postmarkClicksCount: number;
+  postmarkMsgSample: unknown;
+  postmarkOpensSample: unknown;
+  xanoUserCount: number;
+  xanoAlertCount: number;
+  unmatchedPostmarkEmails: number;
+};
+
+type EAData = {
+  meta: { fromDate: string; toDate: string; days: number; hours: number | null };
+  stats: {
+    totalSent: number;
+    totalOpened: number;
+    totalClicked: number;
+    avgOpenRate: number;
+    overallOpenRate: number;
+    overallClickRate: number;
+    neverOpened: number;
+    bounced: number;
+  };
+  users: EAUser[];
+  _debug: EADebug;
+};
+
+type EATab = "all" | "stale" | "bounced" | "inactive";
+
+type EAAuditRow =
+  | { user: EAUser; msg: EAMessage; result: "opened" | "sent" | "bounced" }
+  | { user: EAUser; msg: null; result: "none" };
+
+const EA_HEAT_COLORS: Record<EAHeatStatus, string> = {
+  clicked: "#1D9E75",
+  opened: "#9FE1CB",
+  sent: "#e5e7eb",
+  bounced: "#E24B4A",
+  none: "transparent",
+};
+
+const EA_HEAT_LABELS: Record<EAHeatStatus, string> = {
+  clicked: "Opened + clicked",
+  opened: "Opened",
+  sent: "Sent, no open",
+  bounced: "Bounced",
+  none: "No email",
+};
+
+function eaFmtDate(val: string | number | null): string {
+  if (!val) return "—";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(typeof val === "number" ? val : val));
+}
+
+function eaDaysSince(iso: string | null): number {
+  if (!iso) return Infinity;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+
+function EAHeatCell({ cell }: { cell: EAHeatCell }) {
+  return (
+    <div
+      title={`${cell.date}: ${EA_HEAT_LABELS[cell.status]}`}
+      className="rounded-sm flex-shrink-0"
+      style={{
+        width: 12,
+        height: 12,
+        backgroundColor: EA_HEAT_COLORS[cell.status],
+        border:
+          cell.status === "sent" || cell.status === "none"
+            ? "0.5px solid #e5e7eb"
+            : "none",
+      }}
+    />
+  );
+}
+
+function EAUserRow({ user }: { user: EAUser }) {
+  const [expanded, setExpanded] = useState(false);
+  const stale = eaDaysSince(user.lastOpened) > 7;
+
+  const badge =
+    user.bouncedCount > 0
+      ? { label: "Bounced", cls: "bg-red-50 text-red-700" }
+      : user.activeAlerts === 0
+      ? { label: "Inactive", cls: "bg-gray-100 text-gray-500" }
+      : user.openRate === 0 && user.sentCount > 0
+      ? { label: "No opens", cls: "bg-amber-50 text-amber-700" }
+      : stale
+      ? { label: "Stale", cls: "bg-amber-50 text-amber-700" }
+      : { label: "Active", cls: "bg-green-50 text-green-700" };
+
+  return (
+    <>
+      <tr
+        onClick={() => setExpanded((e) => !e)}
+        className="cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-0"
+      >
+        <td className="px-3 py-2">
+          <div className="text-sm font-medium">{user.name || "—"}</div>
+          <div className="text-xs text-gray-500">{user.email}</div>
+        </td>
+        <td className="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">
+          {user.frequency ?? "—"}
+        </td>
+        <td
+          className={`px-3 py-2 text-xs whitespace-nowrap ${
+            stale ? "text-red-600" : "text-gray-700"
+          }`}
+        >
+          {eaFmtDate(user.lastOpened)}
+        </td>
+        <td className="px-3 py-2 text-sm font-medium">{user.openRate}%</td>
+        <td className="px-3 py-2">
+          <div className="flex gap-0.5 flex-nowrap overflow-hidden" style={{ maxWidth: 340 }}>
+            {user.heatmap.map((cell) => (
+              <EAHeatCell key={cell.date} cell={cell} />
+            ))}
+          </div>
+        </td>
+        <td className="px-3 py-2">
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${badge.cls}`}
+          >
+            {badge.label}
+          </span>
+        </td>
+      </tr>
+      {expanded && (
+        <tr>
+          <td
+            colSpan={6}
+            className="bg-gray-50 px-4 py-3 border-b border-gray-100"
+          >
+            <div className="text-xs font-medium text-gray-600 mb-2">
+              Message history — last {user.messageHistory.length} sends
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    {["Subject", "Sent", "Type", "Opened", "Clicked"].map(
+                      (h) => (
+                        <th
+                          key={h}
+                          className="text-left font-normal text-gray-500 pb-1.5 pr-4"
+                        >
+                          {h}
+                        </th>
+                      )
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {user.messageHistory.slice(0, 20).map((m) => (
+                    <tr
+                      key={m.messageId}
+                      className="border-b border-gray-100 last:border-0"
+                    >
+                      <td className="py-1.5 pr-4 max-w-xs truncate">
+                        {m.subject}
+                      </td>
+                      <td className="py-1.5 pr-4 text-gray-500 whitespace-nowrap">
+                        {eaFmtDate(m.sentAt)}
+                      </td>
+                      <td className="py-1.5 pr-4 text-gray-500">
+                        {m.tag ?? "—"}
+                      </td>
+                      <td
+                        className={`py-1.5 pr-4 whitespace-nowrap ${
+                          m.opened ? "text-green-700" : "text-gray-400"
+                        }`}
+                      >
+                        {m.opened ? eaFmtDate(m.firstOpenedAt) : "—"}
+                      </td>
+                      <td
+                        className={`py-1.5 pr-4 whitespace-nowrap ${
+                          m.clicked ? "text-green-700" : "text-gray-400"
+                        }`}
+                      >
+                        {m.clicked ? eaFmtDate(m.firstClickedAt) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+// period: "24h" | "7" | "30" | "90"
+type EAPeriod = "24h" | "7" | "30" | "90";
+
+function eaPeriodLabel(p: EAPeriod) {
+  return p === "24h" ? "Last 24 hours" : `Last ${p} days`;
+}
+
+function eaPeriodToParams(p: EAPeriod) {
+  return p === "24h" ? "hours=24" : `days=${p}`;
+}
+
+function eaPeriodToDays(p: EAPeriod) {
+  return p === "24h" ? 1 : parseInt(p);
+}
+
+export function EmailAnalyticsTab() {
+  const [data, setData] = useState<EAData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [period, setPeriod] = useState<EAPeriod>("30");
+  const [tab, setTab] = useState<EATab>("all");
+  const [showDebug, setShowDebug] = useState(false);
+  const [auditDate, setAuditDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("asymmetrix_auth_token")
+          : "";
+      const res = await fetch(
+        `/api/admin/email-analytics?${eaPeriodToParams(period)}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      );
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`${res.status} ${text}`);
+      }
+      setData(await res.json());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load");
+    } finally {
+      setLoading(false);
+    }
+  }, [period]);
+
+  const days = eaPeriodToDays(period);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const filteredUsers = useMemo(() => {
+    if (!data) return [];
+    switch (tab) {
+      case "stale":
+        return data.users.filter(
+          (u) => eaDaysSince(u.lastOpened) > 7 && u.sentCount > 0
+        );
+      case "bounced":
+        return data.users.filter((u) => u.bouncedCount > 0);
+      case "inactive":
+        return data.users.filter((u) => u.activeAlerts === 0);
+      default:
+        return data.users;
+    }
+  }, [data, tab]);
+
+  const tabCounts = useMemo(() => {
+    if (!data) return { all: 0, stale: 0, bounced: 0, inactive: 0 };
+    return {
+      all: data.users.length,
+      stale: data.users.filter((u) => eaDaysSince(u.lastOpened) > 7 && u.sentCount > 0).length,
+      bounced: data.users.filter((u) => u.bouncedCount > 0).length,
+      inactive: data.users.filter((u) => u.activeAlerts === 0).length,
+    };
+  }, [data]);
+
+  const auditRows = useMemo((): EAAuditRow[] => {
+    if (!data) return [];
+    return data.users.flatMap((u): EAAuditRow[] => {
+      const dayMsgs = u.messageHistory.filter((m) =>
+        m.sentAt?.startsWith(auditDate)
+      );
+      if (dayMsgs.length === 0) {
+        if (u.activeAlerts === 0) return [];
+        return [{ user: u, msg: null, result: "none" }];
+      }
+      return dayMsgs.map((m): EAAuditRow => ({
+        user: u,
+        msg: m,
+        result:
+          m.status === "Bounced"
+            ? "bounced"
+            : m.opened
+            ? "opened"
+            : "sent",
+      }));
+    });
+  }, [data, auditDate]);
+
+  const tabs: Array<[EATab, string]> = [
+    ["all", "All users"],
+    ["stale", "Not opened 7d+"],
+    ["bounced", "Bounced"],
+    ["inactive", "Inactive"],
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Controls */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as EAPeriod)}
+            className="text-sm border rounded px-2 py-1.5"
+          >
+            <option value="24h">Last 24 hours</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            className="text-sm border rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {loading ? "Loading…" : "↻ Refresh"}
+          </button>
+          <button
+            onClick={() => setShowDebug((s) => !s)}
+            className="text-xs border rounded px-2 py-1.5 text-gray-500 hover:bg-gray-50"
+            title="Toggle debug info"
+          >
+            {showDebug ? "Hide debug" : "Debug"}
+          </button>
+        </div>
+        {data && (
+          <span className="text-xs text-gray-500">
+            {data.meta.fromDate} → {data.meta.toDate}
+          </span>
+        )}
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-50 text-red-700 rounded border border-red-200 px-3 py-2 text-sm">
+          Failed to load: {error}
+        </div>
+      )}
+
+      {/* Stat cards */}
+      {data && (
+        <div className="grid grid-cols-3 gap-3">
+          {/* Row 1 */}
+          <div className="bg-white rounded border px-4 py-3">
+            <div className="text-xs text-gray-500 mb-1">Emails sent</div>
+            <div className="text-2xl font-medium text-gray-900">{data.stats.totalSent.toLocaleString()}</div>
+            <div className="text-xs text-gray-400 mt-1">
+              {data.users.filter((u) => u.sentCount > 0).length} recipients · {eaPeriodLabel(period)}
+            </div>
+          </div>
+          <div className="bg-white rounded border px-4 py-3">
+            <div className="text-xs text-gray-500 mb-1">Open rate (overall)</div>
+            <div className="text-2xl font-medium text-green-700">
+              {data.stats.overallOpenRate}%
+            </div>
+            <div className="text-xs text-gray-400 mt-1">
+              {data.stats.totalOpened.toLocaleString()} of {data.stats.totalSent.toLocaleString()} messages opened
+            </div>
+          </div>
+          <div className="bg-white rounded border px-4 py-3">
+            <div className="text-xs text-gray-500 mb-1">Click rate (overall)</div>
+            <div className="text-2xl font-medium text-blue-700">
+              {data.stats.overallClickRate}%
+            </div>
+            <div className="text-xs text-gray-400 mt-1">
+              {data.stats.totalClicked.toLocaleString()} of {data.stats.totalSent.toLocaleString()} messages clicked
+            </div>
+          </div>
+          {/* Row 2 */}
+          <div className="bg-white rounded border px-4 py-3">
+            <div className="text-xs text-gray-500 mb-1">Avg open rate per user</div>
+            <div className="text-2xl font-medium text-green-700">{data.stats.avgOpenRate}%</div>
+            <div className="text-xs text-gray-400 mt-1">across users who received email</div>
+          </div>
+          <div className="bg-white rounded border px-4 py-3">
+            <div className="text-xs text-gray-500 mb-1">Never opened</div>
+            <div className="text-2xl font-medium text-amber-700">{data.stats.neverOpened}</div>
+            <div className="text-xs text-gray-400 mt-1">
+              users received email but 0 opens
+            </div>
+          </div>
+          <div className="bg-white rounded border px-4 py-3">
+            <div className="text-xs text-gray-500 mb-1">Bounced</div>
+            <div className="text-2xl font-medium text-red-700">{data.stats.bounced}</div>
+            <div className="text-xs text-gray-400 mt-1">hard bounce, needs action</div>
+          </div>
+        </div>
+      )}
+
+      {/* Debug panel */}
+      {data && showDebug && (
+        <div className="bg-gray-900 text-gray-100 rounded border border-gray-700 px-4 py-3 text-xs font-mono space-y-1">
+          <div className="text-gray-400 font-sans font-medium text-xs mb-2">
+            Postmark / Xano debug
+          </div>
+          {data._debug.postmarkMessagesError && (
+            <div className="text-red-400">⚠ Messages: {data._debug.postmarkMessagesError}</div>
+          )}
+          {data._debug.postmarkOpensError && (
+            <div className="text-red-400">⚠ Opens: {data._debug.postmarkOpensError}</div>
+          )}
+          {data._debug.postmarkClicksError && (
+            <div className="text-red-400">⚠ Clicks: {data._debug.postmarkClicksError}</div>
+          )}
+          <div>
+            Messages:{" "}
+            <span className="text-green-400">{data._debug.postmarkRawMessageCount}</span> fetched →{" "}
+            <span className="text-green-400">{data._debug.postmarkFilteredMessageCount}</span> in window
+            {" · "}Opens:{" "}
+            <span className="text-green-400">{data._debug.postmarkOpensCount}</span>
+            {" · "}Clicks:{" "}
+            <span className="text-green-400">{data._debug.postmarkClicksCount}</span>
+          </div>
+          <div>
+            Xano users: <span className="text-blue-400">{data._debug.xanoUserCount}</span>
+            {" · "}Alerts: <span className="text-blue-400">{data._debug.xanoAlertCount}</span>
+            {" · "}Unmatched Postmark emails:{" "}
+            <span className="text-yellow-400">{data._debug.unmatchedPostmarkEmails}</span>
+          </div>
+          {!!data._debug.postmarkMsgSample && (
+            <details className="mt-1">
+              <summary className="cursor-pointer text-gray-400 hover:text-gray-200">
+                Message sample (2)
+              </summary>
+              <pre className="mt-1 text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap">
+                {JSON.stringify(data._debug.postmarkMsgSample, null, 2)}
+              </pre>
+            </details>
+          )}
+          {!!data._debug.postmarkOpensSample && (
+            <details className="mt-1">
+              <summary className="cursor-pointer text-gray-400 hover:text-gray-200">
+                Opens sample (2)
+              </summary>
+              <pre className="mt-1 text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap">
+                {JSON.stringify(data._debug.postmarkOpensSample, null, 2)}
+              </pre>
+            </details>
+          )}
+        </div>
+      )}
+
+      {/* Per-user engagement table */}
+      <div className="bg-white rounded border">
+        <div className="flex items-center justify-between px-4 pt-4 pb-2">
+          <h2 className="text-sm font-medium">Per-user engagement</h2>
+          <div className="flex items-center gap-3 text-xs text-gray-500">
+            {[
+              { color: "#1D9E75", label: "Opened + clicked" },
+              { color: "#9FE1CB", label: "Opened" },
+              { color: "#e5e7eb", label: "Sent, no open", border: true },
+              { color: "#E24B4A", label: "Bounced" },
+            ].map(({ color, label, border }) => (
+              <span key={label} className="flex items-center gap-1">
+                <span
+                  className="inline-block rounded-sm"
+                  style={{
+                    width: 10,
+                    height: 10,
+                    background: color,
+                    border: border ? "0.5px solid #d1d5db" : "none",
+                  }}
+                />
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Sub-tabs */}
+        <div className="flex border-b border-gray-200 px-4">
+          {tabs.map(([t, label]) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`text-sm py-2 px-3 border-b-2 mr-1 ${
+                tab === t
+                  ? "border-gray-900 text-gray-900 font-medium"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {label}
+              {data && (
+                <span className="ml-1.5 text-xs text-gray-400">
+                  ({tabCounts[t]})
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="overflow-x-auto">
+          {loading ? (
+            <div className="text-center py-8 text-sm text-gray-500">
+              Loading…
+            </div>
+          ) : (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  {[
+                    "User",
+                    "Frequency",
+                    "Last opened",
+                    "Open rate",
+                    `Last ${days} days`,
+                    "Status",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="text-left font-normal text-xs text-gray-500 px-3 py-2"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="text-center py-8 text-sm text-gray-500"
+                    >
+                      No users match this filter.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredUsers.map((u) => (
+                    <EAUserRow key={u.userId} user={u} />
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* Daily send audit */}
+      <div className="bg-white rounded border">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+          <h2 className="text-sm font-medium">Daily send audit</h2>
+          <input
+            type="date"
+            value={auditDate}
+            onChange={(e) => setAuditDate(e.target.value)}
+            className="text-sm border rounded px-2 py-1"
+          />
+        </div>
+        {!data ? (
+          <div className="text-center py-8 text-sm text-gray-500">
+            Loading…
+          </div>
+        ) : auditRows.length === 0 ? (
+          <div className="text-center py-8 text-sm text-gray-500">
+            No activity for this date.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  {["User", "Alert type", "Sent at", "Opened at", "Result"].map(
+                    (h) => (
+                      <th
+                        key={h}
+                        className="text-left font-normal text-xs text-gray-500 px-3 py-2"
+                      >
+                        {h}
+                      </th>
+                    )
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {auditRows.map((row, i) => (
+                  <tr key={i} className="border-b border-gray-100 last:border-0">
+                    <td className="px-3 py-2">
+                      <div className="font-medium text-sm">{row.user.name}</div>
+                      <div className="text-xs text-gray-500">
+                        {row.user.email}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-xs text-gray-600">
+                      {row.msg?.tag ?? (row.user.alertTypes.join(", ") || "—")}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">
+                      {row.msg ? eaFmtDate(row.msg.sentAt) : "—"}
+                    </td>
+                    <td
+                      className={`px-3 py-2 text-xs whitespace-nowrap ${
+                        row.msg?.opened ? "text-green-700" : "text-gray-400"
+                      }`}
+                    >
+                      {row.msg?.firstOpenedAt
+                        ? eaFmtDate(row.msg.firstOpenedAt)
+                        : "—"}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.result === "opened" && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">
+                          Opened
+                        </span>
+                      )}
+                      {row.result === "bounced" && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700">
+                          Bounced
+                        </span>
+                      )}
+                      {row.result === "sent" && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
+                          Sent
+                        </span>
+                      )}
+                      {row.result === "none" && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
+                          No email sent
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

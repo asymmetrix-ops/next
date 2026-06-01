@@ -7,6 +7,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import {
   CompanySearchTab,
   ContentInsightsTab,
+  EmailAnalyticsTab,
   PageInsightsTab,
   PdfExportTab,
   PlatformWideSearchTab,
@@ -19,7 +20,8 @@ type AnalyticsTab =
   | "page-insights"
   | "platform-wide-search"
   | "company-search"
-  | "pdf-export";
+  | "pdf-export"
+  | "email-analytics";
 
 const ALLOWED_ANALYTICS_EMAILS = new Set<string>([
   "j.bochner@asymmetrixintelligence.com",
@@ -147,6 +149,16 @@ export default function AdminAnalyticsPage() {
         >
           PDF Export
         </button>
+        <button
+          onClick={() => setActiveTab("email-analytics")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "email-analytics"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Email Analytics
+        </button>
       </div>
 
       {activeTab === "user-activity" && <UserActivityTab />}
@@ -155,6 +167,7 @@ export default function AdminAnalyticsPage() {
       {activeTab === "platform-wide-search" && <PlatformWideSearchTab />}
       {activeTab === "company-search" && <CompanySearchTab />}
       {activeTab === "pdf-export" && <PdfExportTab />}
+      {activeTab === "email-analytics" && <EmailAnalyticsTab />}
     </div>
   );
 }
