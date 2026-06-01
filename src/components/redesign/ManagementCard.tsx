@@ -71,7 +71,7 @@ function ColHeader() {
     >
       <div />
       <div>Name</div>
-      <div style={{ textAlign: "center", justifySelf: "center" }}>Role</div>
+      <div style={{ textAlign: "center" }}>Role</div>
       <div style={{ textAlign: "right" }}>Tenure</div>
     </div>
   );
@@ -134,10 +134,9 @@ function PersonRow({
       </div>
       <div
         style={{
-          fontSize: 12,
+          fontSize: 12.5,
           color: T.body,
           textAlign: "center",
-          justifySelf: "center",
           whiteSpace: "nowrap",
           overflow: "hidden",
           textOverflow: "ellipsis",
@@ -147,8 +146,7 @@ function PersonRow({
       </div>
       <div
         style={{
-          fontFamily: T.mono,
-          fontSize: 11,
+          fontSize: 12.5,
           color: T.muted,
           whiteSpace: "nowrap",
           textAlign: "right",
@@ -166,7 +164,7 @@ function SectionLabel({ label }: { label: string }) {
       style={{
         padding: "10px 16px 2px",
         fontSize: 10.5,
-        fontWeight: 600,
+        fontWeight: 500,
         color: T.muted,
         textTransform: "uppercase",
         letterSpacing: 0.4,
@@ -216,15 +214,14 @@ export function ManagementCard({
         {visible.map(({ person, section }, idx) => {
           const showLabel = hasBoth && section !== lastSection && section !== "current";
           if (showLabel) lastSection = section;
-          const isLast =
-            idx === visible.length - 1 && (!needsToggle || expanded);
+          const isLastVisibleRow = idx === visible.length - 1;
           return (
             <React.Fragment key={`${section}-${person.id ?? idx}`}>
               {showLabel && <SectionLabel label="Past" />}
               <PersonRow
                 person={person}
                 index={idx}
-                last={isLast && !needsToggle}
+                last={isLastVisibleRow}
               />
             </React.Fragment>
           );

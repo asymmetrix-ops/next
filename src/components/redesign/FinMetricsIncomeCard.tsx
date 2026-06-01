@@ -6,7 +6,7 @@
  * 2. Subscription Metrics · Other Metrics
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { LinkPanel, LinkedH, Pill, T, KV_LABEL_COL, finMetricLabelStyle, finMetricRowStyle, finMetricValueStyle, overviewBodyPadding, FIN_METRIC_GRID_COLS, tableColHeaderBarStyle } from "./primitives";
+import { LinkPanel, LinkedH, Pill, T, CARD_TITLE_STYLE, KV_LABEL_COL, finMetricLabelStyle, finMetricRowStyle, finMetricValueStyle, overviewBodyPadding, FIN_METRIC_GRID_COLS, tableColHeaderBarStyle } from "./primitives";
 import {
   IncomeStatementTable,
   type IncomeStatementRow,
@@ -47,7 +47,7 @@ function PeriodHeader({ period }: { period?: string }) {
       }}
     >
       <span />
-      <span>{period}</span>
+      <span style={{ textAlign: "center" }}>{period}</span>
       <span style={{ textAlign: "right" }}>Source</span>
     </div>
   );
@@ -63,7 +63,7 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
       }}
     >
       <span style={finMetricLabelStyle}>{row.label}</span>
-      <span style={{ ...finMetricValueStyle, textAlign: "left", wordBreak: "break-word" }}>
+      <span style={{ ...finMetricValueStyle, textAlign: "center", wordBreak: "break-word" }}>
         {row.value}
       </span>
       <span style={{ ...finMetricLabelStyle, textAlign: "right" }}>{row.source}</span>
@@ -71,20 +71,52 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
   );
 }
 
-function MetricSectionBody({ section }: { section: FinancialMetricSection }) {
+function MetricSectionBody({
+  section,
+  fillAvailable = false,
+}: {
+  section: FinancialMetricSection;
+  fillAvailable?: boolean;
+}) {
+  const rows = section.rows.map((row, i) => (
+    <MetricRow
+      key={row.label}
+      row={row}
+      last={i === section.rows.length - 1}
+    />
+  ));
+
+  if (!fillAvailable) {
+    return (
+      <>
+        <PeriodHeader period={section.periodDisplay} />
+        <div style={{ padding: overviewBodyPadding }}>{rows}</div>
+      </>
+    );
+  }
+
   return (
-    <>
+    <div
+      style={{
+        flex: 1,
+        minHeight: 0,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
       <PeriodHeader period={section.periodDisplay} />
-      <div style={{ padding: overviewBodyPadding }}>
-        {section.rows.map((row, i) => (
-          <MetricRow
-            key={row.label}
-            row={row}
-            last={i === section.rows.length - 1}
-          />
-        ))}
+      <div
+        style={{
+          padding: overviewBodyPadding,
+          flex: 1,
+          minHeight: 0,
+          overflow: "auto",
+        }}
+      >
+        {rows}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -162,11 +194,12 @@ function TabHeader<T extends string>({
 }) {
   return (
     <div role="tablist" style={{ flexShrink: 0, minWidth: 0 }}>
-      <LinkedH>
+      <LinkedH showArrow={false}>
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-end",
+            gap: 18,
             flexWrap: "nowrap",
             minWidth: 0,
             flex: 1,
@@ -177,48 +210,33 @@ function TabHeader<T extends string>({
           }}
           className="fin-tab-scroll"
         >
-          {tabs.map((tab, index) => (
-            <React.Fragment key={tab.id}>
-              {index > 0 ? (
-                <span
-                  style={{
-                    color: T.faint,
-                    padding: "0 4px",
-                    fontWeight: 600,
-                    userSelect: "none",
-                    flexShrink: 0,
-                  }}
-                  aria-hidden
-                >
-                  ·
-                </span>
-              ) : null}
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeTab === tab.id}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onTabChange(tab.id);
-                }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  padding: 0,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  fontSize: "inherit",
-                  fontWeight: "inherit",
-                  color: activeTab === tab.id ? T.ink : T.muted,
-                  whiteSpace: "nowrap",
-                  flexShrink: 0,
-                  transition: "color 120ms",
-                }}
-              >
-                {tab.label}
-                {suffixForTab?.(tab.id) ?? ""}
-              </button>
-            </React.Fragment>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                onTabChange(tab.id);
+              }}
+              style={{
+                background: "transparent",
+                border: "none",
+                padding: 0,
+                paddingBottom: 4,
+                cursor: "pointer",
+                ...CARD_TITLE_STYLE,
+                color: activeTab === tab.id ? T.ink : T.muted,
+                borderBottom: `2px solid ${activeTab === tab.id ? T.azure : "transparent"}`,
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+                transition: "color 120ms, border-color 120ms",
+              }}
+            >
+              {tab.label}
+              {suffixForTab?.(tab.id) ?? ""}
+            </button>
           ))}
         </div>
       </LinkedH>
@@ -294,7 +312,7 @@ function PrimaryFinCard({
         }
       >
       {activeTab === "metrics" ? (
-        <MetricSectionBody section={primary} />
+        <MetricSectionBody section={primary} fillAvailable={fillGridCell} />
       ) : activeTab === "benchmark" ? (
         benchmarkData ? (
           <BenchmarkTabBody data={benchmarkData} />
@@ -309,7 +327,7 @@ function PrimaryFinCard({
           />
         </div>
       ) : (
-        <MetricSectionBody section={primary} />
+        <MetricSectionBody section={primary} fillAvailable={fillGridCell} />
       )}
       </div>
     </LinkPanel>
@@ -338,14 +356,14 @@ function SecondaryFinCard({
       <div
         style={
           fillGridCell
-            ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "auto" }
+            ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }
             : undefined
         }
       >
       {activeTab === "subscription" ? (
-        <MetricSectionBody section={subscription} />
+        <MetricSectionBody section={subscription} fillAvailable={fillGridCell} />
       ) : (
-        <MetricSectionBody section={other} />
+        <MetricSectionBody section={other} fillAvailable={fillGridCell} />
       )}
       </div>
     </LinkPanel>

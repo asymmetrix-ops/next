@@ -171,84 +171,6 @@ function Pop({
   );
 }
 
-// ── TypeChip (field type icon) ──────────────────────────────────────────────
-
-function TypeChip({ type }: { type: FilterTypeIcon }) {
-  const base: React.CSSProperties = {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    flexShrink: 0,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontFamily: "var(--font-sans)",
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: "-0.01em",
-    background: "var(--ax-gray-50)",
-    color: "var(--ax-gray-600, #64748b)",
-    border: "1px solid var(--ax-gray-200)",
-  };
-  if (type === "$")
-    return (
-      <span
-        style={{
-          ...base,
-          color: "var(--ax-cyan-700)",
-          background: "var(--ax-cyan-50)",
-          borderColor: "var(--ax-cyan-100)",
-        }}
-      >
-        $
-      </span>
-    );
-  if (type === "#")
-    return (
-      <span
-        style={{
-          ...base,
-          color: "var(--ax-positive)",
-          background: "var(--ax-positive-bg)",
-          borderColor: "#C6E8D6",
-        }}
-      >
-        #
-      </span>
-    );
-  if (type === "%")
-    return (
-      <span
-        style={{
-          ...base,
-          color: "#7A4E0E",
-          background: "var(--ax-warning-bg)",
-          borderColor: "#F2E1B4",
-        }}
-      >
-        %
-      </span>
-    );
-  if (type === "date")
-    return (
-      <span style={base}>
-        <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-          <rect
-            x="1.5"
-            y="2.5"
-            width="9"
-            height="8"
-            rx="1"
-            stroke="currentColor"
-            strokeWidth="1.2"
-          />
-          <path d="M1.5 4.5h9" stroke="currentColor" strokeWidth="1.2" />
-        </svg>
-      </span>
-    );
-  return <span style={base}>Aa</span>;
-}
-
 // ── Summarize filter value ──────────────────────────────────────────────────
 
 function formatRangeValue(
@@ -296,7 +218,6 @@ interface ChipProps {
   def: FilterDef;
   value: unknown;
   chipStyle?: "cyan" | "neutral" | "outlined";
-  showIcon?: boolean;
   onEdit: () => void;
   onRemove: () => void;
 }
@@ -305,7 +226,6 @@ function Chip({
   def,
   value,
   chipStyle = "neutral",
-  showIcon = false,
   onEdit,
   onRemove,
 }: ChipProps) {
@@ -367,7 +287,6 @@ function Chip({
           fontWeight: 500,
         }}
       >
-        {showIcon && <TypeChip type={def.type} />}
         <span>{def.label}:</span>
       </span>
       <span
@@ -455,7 +374,6 @@ function PickerRow({ def, onPick }: PickerRowProps) {
           fontFamily: "inherit",
         }}
       >
-        <TypeChip type={def.type} />
         <span
           style={{
             flex: 1,
@@ -1799,7 +1717,6 @@ export function CompaniesFilterBar({
                   def={def}
                   value={f.value}
                   chipStyle="cyan"
-                  showIcon
                   onEdit={() => setEditing(f.id)}
                   onRemove={() => removeFilter(f.id)}
                 />

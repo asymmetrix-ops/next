@@ -1259,8 +1259,10 @@ const CompanyDetail = () => {
   const [showPdfExportOptions, setShowPdfExportOptions] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [overviewCellHeight, setOverviewCellHeight] = useState(0);
+  const [financePrimaryCellHeight, setFinancePrimaryCellHeight] = useState(0);
   const descriptionRef = useRef<HTMLDivElement | null>(null);
   const overviewGridRef = useRef<HTMLDivElement | null>(null);
+  const financePrimaryGridRef = useRef<HTMLDivElement | null>(null);
   const pdfExportMenuRef = useRef<HTMLDivElement | null>(null);
 
   const transactionStatusDisplayLabel = useMemo(() => {
@@ -1940,6 +1942,17 @@ const CompanyDetail = () => {
     ro.observe(el);
     return () => ro.disconnect();
   }, [company]);
+
+  // Measure Financial Metrics card height so Subscription / Other Metrics can match it
+  useEffect(() => {
+    const el = financePrimaryGridRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => setFinancePrimaryCellHeight(el.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [company, financialMetrics]);
 
 
   // Update page title when company data is loaded
@@ -3119,7 +3132,7 @@ const CompanyDetail = () => {
       min-height: 0;
       display: flex;
       flex-direction: column;
-      align-self: stretch;
+      align-self: start;
     }
     .company-grid-insights { grid-column: 1 / span 2; grid-row: 2; min-height: 0; align-self: stretch; }
     .company-grid-product-mix { grid-column: 1; grid-row: 3; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
@@ -3220,6 +3233,7 @@ const CompanyDetail = () => {
     }
     .desktop-financial-metrics .info-row > :nth-child(2) {
       min-width: 0;
+      text-align: center;
     }
     .mobile-financial-metrics .info-row {
       padding: 4px 0 !important;
@@ -3228,6 +3242,7 @@ const CompanyDetail = () => {
     }
     .mobile-financial-metrics .info-row > :nth-child(2) {
       min-width: 0;
+      text-align: center;
     }
     /* Corporate Events styles (mirrors corporate-events list page) */
     .corporate-event-table { width: 100%; background: #fff; padding: 20px 24px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
@@ -4046,8 +4061,9 @@ const CompanyDetail = () => {
 
             {/* ══ Col 3 row 1: Primary financial metrics (aligned with Overview + Description) ══ */}
             <div
+              ref={financePrimaryGridRef}
               className="company-grid-finance-primary desktop-financial-metrics v3-right-rail"
-              style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}
+              style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", width: "100%" }}
             >
               <FinMetricsPrimaryCard
                 fillGridCell
@@ -4063,7 +4079,16 @@ const CompanyDetail = () => {
             {/* ══ Col 3 row 2: Subscription / other metrics (aligned with Insights) ══ */}
             <div
               className="company-grid-finance-secondary desktop-financial-metrics v3-right-rail"
-              style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}
+              style={{
+                minWidth: 0,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                width: "100%",
+                ...(financePrimaryCellHeight > 0
+                  ? { height: financePrimaryCellHeight, overflow: "hidden" }
+                  : {}),
+              }}
             >
               <FinMetricsSecondaryCard
                 fillGridCell

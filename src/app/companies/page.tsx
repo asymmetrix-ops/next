@@ -33,10 +33,17 @@ import {
   PROD_DEFAULT_COMPANY_COLUMN_KEYS,
   FROZEN_COLUMN_KEYS,
   enforceColumnKeyOrder,
+  getEffectiveFrozenColumnKeys,
   columnKeysToVisibility,
   visibilityToColumnKeys,
   reorderColumnKeys,
 } from "@/components/companies/companiesColumnCategories";
+import {
+  buildColumnLinkedFilterDefs,
+  EXTRA_FILTER_DEFS,
+  FILTER_PINNED_TOOLTIP,
+  getColumnKeysForActiveFilters,
+} from "@/components/companies/companiesColumnFilterMap";
 import {
   compareSortValues,
   getColumnSortKind,
@@ -306,12 +313,15 @@ const EMPTY_OWNERSHIP_COUNTS: CompaniesOwnershipCounts = {
 
 const useCompaniesAPI = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const lastRequestIdRef = useRef(0);
+  const lastCountsRequestIdRef = useRef(0);
+  const countsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentFiltersRef = useRef<Filters | undefined>(undefined);
   const [currentFilters, setCurrentFilters] = useState<Filters | undefined>(
     undefined
-  ); // Track current filters
+  );
   const [pagination, setPagination] = useState({
     itemsReceived: 0,
     curPage: 1,
@@ -324,24 +334,47 @@ const useCompaniesAPI = () => {
   const [ownershipCounts, setOwnershipCounts] =
     useState<CompaniesOwnershipCounts>(EMPTY_OWNERSHIP_COUNTS);
 
+  const scheduleCountsFetch = useCallback((countsFilters: ServerFilters) => {
+    if (countsTimeoutRef.current) clearTimeout(countsTimeoutRef.current);
+    countsTimeoutRef.current = setTimeout(() => {
+      const countsRequestId = ++lastCountsRequestIdRef.current;
+      void fetchCompaniesCountsServer(countsFilters)
+        .then((countsData) => {
+          if (countsRequestId !== lastCountsRequestIdRef.current || !countsData) {
+            return;
+          }
+          setOwnershipCounts({
+            totalCount: countsData.totalCount || 0,
+            publicCompanies: countsData.publicCompanies || 0,
+            peOwnedCompanies: countsData.peOwnedCompanies || 0,
+            vcOwnedCompanies: countsData.vcOwnedCompanies || 0,
+            privateCompanies: countsData.privateCompanies || 0,
+            subsidiaryCompanies: countsData.subsidiaryCompanies || 0,
+            acquiredCompanies: countsData.acquiredCompanies || 0,
+            otherCompanies: countsData.otherCompanies || 0,
+          });
+        })
+        .catch((countsError) => {
+          console.error("Error fetching companies counts:", countsError);
+        });
+    }, 400);
+  }, []);
+
   const fetchCompanies = useCallback(
     async (page: number = 1, filters?: Filters) => {
+      const requestId = ++lastRequestIdRef.current;
       setLoading(true);
       setError(null);
 
-      // Update current filters if new filters are provided
       if (filters !== undefined) {
+        currentFiltersRef.current = filters;
         setCurrentFilters(filters);
       }
 
-      // Use current filters if no filters provided (for pagination)
-      const filtersToUse = filters !== undefined ? filters : currentFilters;
+      const filtersToUse =
+        filters !== undefined ? filters : currentFiltersRef.current;
 
       try {
-        const requestId = ++lastRequestIdRef.current;
-
-        // Convert local Filters type to server action filters
-        // Note: build the object first to avoid excess-property checks.
         const serverFilters: ServerFilters = (() => {
           if (!filtersToUse) return {};
           const serverFiltersBase = {
@@ -363,7 +396,6 @@ const useCompaniesAPI = () => {
             keywordSearch: ENABLE_COMPANIES_KEYWORD_SEARCH
               ? filtersToUse.keywordSearch
               : "",
-            // Financial Metrics
             revenueMin: filtersToUse.revenueMin,
             revenueMax: filtersToUse.revenueMax,
             ebitdaMin: filtersToUse.ebitdaMin,
@@ -378,7 +410,6 @@ const useCompaniesAPI = () => {
             ebitdaMarginMax: filtersToUse.ebitdaMarginMax,
             ruleOf40Min: filtersToUse.ruleOf40Min,
             ruleOf40Max: filtersToUse.ruleOf40Max,
-            // Subscription Metrics
             arrMin: filtersToUse.arrMin,
             arrMax: filtersToUse.arrMax,
             arrPcMin: filtersToUse.arrPcMin,
@@ -400,13 +431,12 @@ const useCompaniesAPI = () => {
           return serverFiltersBase;
         })();
 
-        const countsFilters: ServerFilters = {
-          ...serverFilters,
-          ownershipTypes: [],
-        };
-
-        // Start counts fetch immediately (parallel with list — doesn't block table render)
-        const countsPromise = fetchCompaniesCountsServer(countsFilters);
+        if (page === 1) {
+          scheduleCountsFetch({
+            ...serverFilters,
+            ownershipTypes: [],
+          });
+        }
 
         const data = await fetchCompaniesServer(page, serverFilters);
 
@@ -414,7 +444,6 @@ const useCompaniesAPI = () => {
           throw new Error("Failed to fetch companies - authentication required");
         }
 
-        // Ignore stale responses
         if (requestId === lastRequestIdRef.current) {
           setCompanies(data.result1?.items || []);
           setPagination({
@@ -427,34 +456,20 @@ const useCompaniesAPI = () => {
             pageTotal: data.result1?.pageTotal || 0,
           });
         }
-
-        void countsPromise
-          .then((countsData) => {
-            if (requestId !== lastRequestIdRef.current || !countsData) return;
-            setOwnershipCounts({
-              totalCount: countsData.totalCount || 0,
-              publicCompanies: countsData.publicCompanies || 0,
-              peOwnedCompanies: countsData.peOwnedCompanies || 0,
-              vcOwnedCompanies: countsData.vcOwnedCompanies || 0,
-              privateCompanies: countsData.privateCompanies || 0,
-              subsidiaryCompanies: countsData.subsidiaryCompanies || 0,
-              acquiredCompanies: countsData.acquiredCompanies || 0,
-              otherCompanies: countsData.otherCompanies || 0,
-            });
-          })
-          .catch((countsError) => {
-            console.error("Error fetching companies counts:", countsError);
-          });
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch companies"
-        );
+        if (requestId === lastRequestIdRef.current) {
+          setError(
+            err instanceof Error ? err.message : "Failed to fetch companies"
+          );
+        }
         console.error("Error fetching companies:", err);
       } finally {
-        setLoading(false);
+        if (requestId === lastRequestIdRef.current) {
+          setLoading(false);
+        }
       }
     },
-    [currentFilters]
+    [scheduleCountsFetch]
   );
 
   // Initial fetch on mount
@@ -944,7 +959,10 @@ const ALL_COMPANY_COLUMNS = COMPANY_COLUMN_GROUPS.flatMap((group) => group.cols)
 const ALL_COMPANY_COLUMN_KEYS = CANONICAL_COMPANY_COLUMN_KEYS;
 const DEFAULT_COMPANY_COLUMN_KEYS = DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS;
 
-const getValidColumnKeys = (keys: string[]): string[] => {
+const getValidColumnKeys = (
+  keys: string[],
+  filterPinnedKeys: string[] = []
+): string[] => {
   const seen = new Set<string>();
   const valid: string[] = [];
   keys.forEach((key) => {
@@ -954,7 +972,8 @@ const getValidColumnKeys = (keys: string[]): string[] => {
     }
   });
   return enforceColumnKeyOrder(
-    valid.length > 0 ? valid : [...PROD_DEFAULT_COMPANY_COLUMN_KEYS]
+    valid.length > 0 ? valid : [...PROD_DEFAULT_COMPANY_COLUMN_KEYS],
+    filterPinnedKeys
   );
 };
 
@@ -1155,6 +1174,7 @@ const FILTER_CATEGORIES: FilterCategory[] = [
   { id: "company",      name: "Company details" },
   { id: "financial",    name: "Financial metrics" },
   { id: "subscription", name: "Subscription metrics" },
+  { id: "other",        name: "Other metrics" },
 ];
 
 function buildCompaniesFilterDefs({
@@ -1176,40 +1196,153 @@ function buildCompaniesFilterDefs({
   secondarySectors: SecondarySector[];
   ownershipTypes: OwnershipType[];
 }): FilterDef[] {
-  return [
-    // Location
-    { id: "region", label: "Region", fullLabel: "Continental Region", category: "location", type: "Aa", editor: "enum", options: continentalRegions },
-    { id: "sub_region", label: "Sub-region", fullLabel: "Sub-Region", category: "location", type: "Aa", editor: "enum", options: subRegions },
-    { id: "country", label: "Country", fullLabel: "Country", category: "location", type: "Aa", editor: "enum", options: countries.map((c) => c.locations_Country) },
-    { id: "state", label: "State / Province", fullLabel: "State / Province", category: "location", type: "Aa", editor: "enum", options: provinces.map((p) => p.State__Province__County) },
-    { id: "city", label: "City", fullLabel: "City", category: "location", type: "Aa", editor: "enum", options: cities.map((c) => c.City) },
-    // Sectors
-    { id: "primary_sector", label: "Primary sector", fullLabel: "Primary Sector(s)", category: "sectors", type: "Aa", editor: "enum", options: primarySectors.map((s) => s.sector_name) },
-    { id: "secondary_sector", label: "Secondary sector", fullLabel: "Secondary Sector(s)", category: "sectors", type: "Aa", editor: "enum", options: secondarySectors.map((s) => s.sector_name) },
-    { id: "business_focus", label: "Business focus", fullLabel: "Business Focus", category: "sectors", type: "Aa", editor: "segmented", options: ["Pure-play D&A", "Has non-D&A", "Either"] },
-    // Company details
-    { id: "ownership", label: "Ownership", fullLabel: "Ownership Type", category: "company", type: "Aa", editor: "enum", options: ownershipTypes.map((o) => o.ownership) },
-    { id: "transaction", label: "Transaction status", fullLabel: "Transaction Status", category: "company", type: "Aa", editor: "enum", options: ["Rumoured in Market", "Transaction anticipated within 18 months", "Reported in Market"] },
-    { id: "headcount", label: "LinkedIn members", fullLabel: "LinkedIn Members", category: "company", type: "#", editor: "range", min: 0, max: 100000, presets: [["Small <100", 0, 100], ["Mid 100-1k", 100, 1000], ["Large 1k-10k", 1000, 10000], ["Enterprise 10k+", 10000, 100000]] },
-    { id: "headcount_growth", label: "Headcount growth (YoY)", fullLabel: "LinkedIn Growth (%)", category: "company", type: "%", editor: "range", unit: "%", min: -50, max: 200, presets: [["≥10%", 10, 200], ["≥25%", 25, 200], ["≥50%", 50, 200], ["Declining", -50, 0]] },
-    { id: "years_since_inv", label: "Years since last investment", fullLabel: "Years Since Last Investment", category: "company", type: "#", editor: "range", unit: "yrs", min: 0, max: 20, presets: [["0-2y", 0, 2], ["3-5y", 3, 5], ["5+y", 5, 20]] },
-    { id: "followed", label: "Followed only", fullLabel: "Followed companies only", category: "company", type: "Aa", editor: "boolean" },
-    // Financial metrics
-    { id: "revenue", label: "Revenue", fullLabel: "Revenue ($m)", category: "financial", type: "$", editor: "range", unit: "$m", min: 0, max: 5000, presets: [["<$10m", 0, 10], ["$10–50m", 10, 50], ["$50–500m", 50, 500], ["$500m+", 500, 5000]] },
-    { id: "ebitda", label: "EBITDA", fullLabel: "EBITDA ($m)", category: "financial", type: "$", editor: "range", unit: "$m", min: -100, max: 2000, presets: [["Profitable", 0, 2000], ["$10m+", 10, 2000], ["$50m+", 50, 2000]] },
-    { id: "enterprise_value", label: "Enterprise value", fullLabel: "Enterprise Value ($m)", category: "financial", type: "$", editor: "range", unit: "$m", min: 0, max: 50000, presets: [["<$100m", 0, 100], ["$100m–$1b", 100, 1000], ["$1–10b", 1000, 10000], ["Mega", 10000, 50000]] },
-    { id: "rev_growth", label: "Revenue growth", fullLabel: "Revenue Growth (%)", category: "financial", type: "%", editor: "range", unit: "%", min: -50, max: 200, presets: [["≥10%", 10, 200], ["≥25%", 25, 200], ["≥50%", 50, 200]] },
-    { id: "ebitda_margin", label: "EBITDA margin", fullLabel: "EBITDA Margin (%)", category: "financial", type: "%", editor: "range", unit: "%", min: -50, max: 80, presets: [["≥20%", 20, 80], ["≥30%", 30, 80], ["≥40%", 40, 80]] },
-    { id: "rev_multiple", label: "Revenue multiple", fullLabel: "Revenue Multiple (x)", category: "financial", type: "#", editor: "range", unit: "x", min: 0, max: 30, presets: [["<3x", 0, 3], ["3–7x", 3, 7], ["7x+", 7, 30]] },
-    { id: "rule_40", label: "Rule of 40", fullLabel: "Rule of 40 (%)", category: "financial", type: "%", editor: "range", unit: "%", min: 0, max: 150, presets: [["≥40%", 40, 150], ["≥60%", 60, 150]] },
-    // Subscription metrics
-    { id: "arr", label: "ARR", fullLabel: "ARR ($m)", category: "subscription", type: "$", editor: "range", unit: "$m", min: 0, max: 5000, presets: [["$10m+", 10, 5000], ["$50m+", 50, 5000], ["$100m+", 100, 5000]] },
-    { id: "arr_growth", label: "ARR growth", fullLabel: "ARR Growth (%)", category: "subscription", type: "%", editor: "range", unit: "%", min: -20, max: 200, presets: [["≥20%", 20, 200], ["≥40%", 40, 200]] },
-    { id: "churn", label: "Churn", fullLabel: "Churn (%)", category: "subscription", type: "%", editor: "range", unit: "%", min: 0, max: 50, presets: [["<5%", 0, 5], ["<10%", 0, 10]] },
-    { id: "nrr", label: "NRR", fullLabel: "NRR (%)", category: "subscription", type: "%", editor: "range", unit: "%", min: 50, max: 200, presets: [["≥100%", 100, 200], ["≥110%", 110, 200], ["≥120%", 120, 200]] },
-    { id: "grr", label: "GRR", fullLabel: "GRR (%)", category: "subscription", type: "%", editor: "range", unit: "%", min: 50, max: 100, presets: [["≥90%", 90, 100], ["≥95%", 95, 100]] },
-    { id: "new_client_growth", label: "New-client growth", fullLabel: "New Clients Revenue Growth (%)", category: "subscription", type: "%", editor: "range", unit: "%", min: -20, max: 100, presets: [["≥10%", 10, 100], ["≥25%", 25, 100]] },
-  ];
+  const overrides: Record<string, Partial<FilterDef>> = {
+    region: { options: continentalRegions },
+    sub_region: { options: subRegions },
+    country: { options: countries.map((c) => c.locations_Country) },
+    state: { options: provinces.map((p) => p.State__Province__County) },
+    city: { options: cities.map((c) => c.City) },
+    primary_sector: { options: primarySectors.map((s) => s.sector_name) },
+    secondary_sector: { options: secondarySectors.map((s) => s.sector_name) },
+    ownership: { options: ownershipTypes.map((o) => o.ownership) },
+    transaction: {
+      options: [
+        "Rumoured in Market",
+        "Transaction anticipated within 18 months",
+        "Reported in Market",
+      ],
+    },
+    headcount: {
+      min: 0,
+      max: 100000,
+      presets: [
+        ["Small <100", 0, 100],
+        ["Mid 100-1k", 100, 1000],
+        ["Large 1k-10k", 1000, 10000],
+        ["Enterprise 10k+", 10000, 100000],
+      ],
+    },
+    headcount_growth: {
+      unit: "%",
+      min: -50,
+      max: 200,
+      presets: [
+        ["≥10%", 10, 200],
+        ["≥25%", 25, 200],
+        ["≥50%", 50, 200],
+        ["Declining", -50, 0],
+      ],
+    },
+    years_since_inv: {
+      unit: "yrs",
+      min: 0,
+      max: 20,
+      presets: [
+        ["0-2y", 0, 2],
+        ["3-5y", 3, 5],
+        ["5+y", 5, 20],
+      ],
+    },
+    revenue: {
+      unit: "$m",
+      min: 0,
+      max: 5000,
+      presets: [
+        ["<$10m", 0, 10],
+        ["$10–50m", 10, 50],
+        ["$50–500m", 50, 500],
+        ["$500m+", 500, 5000],
+      ],
+    },
+    ebitda: {
+      unit: "$m",
+      min: -100,
+      max: 2000,
+      presets: [
+        ["Profitable", 0, 2000],
+        ["$10m+", 10, 2000],
+        ["$50m+", 50, 2000],
+      ],
+    },
+    enterprise_value: {
+      unit: "$m",
+      min: 0,
+      max: 50000,
+      presets: [
+        ["<$100m", 0, 100],
+        ["$100m–$1b", 100, 1000],
+        ["$1–10b", 1000, 10000],
+        ["Mega", 10000, 50000],
+      ],
+    },
+    rev_growth: {
+      unit: "%",
+      min: -50,
+      max: 200,
+      presets: [["≥10%", 10, 200], ["≥25%", 25, 200], ["≥50%", 50, 200]],
+    },
+    ebitda_margin: {
+      unit: "%",
+      min: -50,
+      max: 80,
+      presets: [["≥20%", 20, 80], ["≥30%", 30, 80], ["≥40%", 40, 80]],
+    },
+    rev_multiple: {
+      unit: "x",
+      min: 0,
+      max: 30,
+      presets: [["<3x", 0, 3], ["3–7x", 3, 7], ["7x+", 7, 30]],
+    },
+    rule_40: {
+      unit: "%",
+      min: 0,
+      max: 150,
+      presets: [["≥40%", 40, 150], ["≥60%", 60, 150]],
+    },
+    arr: {
+      unit: "$m",
+      min: 0,
+      max: 5000,
+      presets: [["$10m+", 10, 5000], ["$50m+", 50, 5000], ["$100m+", 100, 5000]],
+    },
+    arr_growth: {
+      unit: "%",
+      min: -20,
+      max: 200,
+      presets: [["≥20%", 20, 200], ["≥40%", 40, 200]],
+    },
+    churn: {
+      unit: "%",
+      min: 0,
+      max: 50,
+      presets: [["<5%", 0, 5], ["<10%", 0, 10]],
+    },
+    nrr: {
+      unit: "%",
+      min: 50,
+      max: 200,
+      presets: [["≥100%", 100, 200], ["≥110%", 110, 200], ["≥120%", 120, 200]],
+    },
+    grr: {
+      unit: "%",
+      min: 50,
+      max: 100,
+      presets: [["≥90%", 90, 100], ["≥95%", 95, 100]],
+    },
+    new_client_growth: {
+      unit: "%",
+      min: -20,
+      max: 100,
+      presets: [["≥10%", 10, 100], ["≥25%", 25, 100]],
+    },
+  };
+
+  const extras: FilterDef[] = EXTRA_FILTER_DEFS.map((extra) => ({
+    ...extra,
+    ...overrides[extra.id],
+  }));
+
+  return [...extras, ...buildColumnLinkedFilterDefs(overrides)];
 }
 
 function buildFiltersFromState(
@@ -1377,9 +1510,86 @@ function buildFiltersFromState(
   return f;
 }
 
+/** Xano ownership_type ids used by ownership tab filters. */
+const OTHER_OWNERSHIP_TYPE_IDS = [
+  6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 21, 22,
+] as const;
+
+type OwnershipTab =
+  | "all"
+  | "public"
+  | "pe"
+  | "vc"
+  | "private"
+  | "subsidiary"
+  | "acquired"
+  | "other";
+
+const OWNERSHIP_TAB_CONFIG: Record<
+  Exclude<OwnershipTab, "all">,
+  {
+    label: string;
+    dot: string;
+    countKey: keyof CompaniesOwnershipCounts;
+    ownershipTypeIds: readonly number[];
+  }
+> = {
+  public: {
+    label: "Public",
+    dot: "#7c3aed",
+    countKey: "publicCompanies",
+    ownershipTypeIds: [7],
+  },
+  pe: {
+    label: "PE-owned",
+    dot: "#0ea5e9",
+    countKey: "peOwnedCompanies",
+    ownershipTypeIds: [1],
+  },
+  vc: {
+    label: "VC-owned",
+    dot: "#10b981",
+    countKey: "vcOwnedCompanies",
+    ownershipTypeIds: [3],
+  },
+  private: {
+    label: "Private",
+    dot: "#f59e0b",
+    countKey: "privateCompanies",
+    ownershipTypeIds: [2],
+  },
+  subsidiary: {
+    label: "Subsidiary",
+    dot: "#6366f1",
+    countKey: "subsidiaryCompanies",
+    ownershipTypeIds: [5],
+  },
+  acquired: {
+    label: "Acquired",
+    dot: "#ec4899",
+    countKey: "acquiredCompanies",
+    ownershipTypeIds: [4],
+  },
+  other: {
+    label: "Other",
+    dot: "#78716c",
+    countKey: "otherCompanies",
+    ownershipTypeIds: OTHER_OWNERSHIP_TYPE_IDS,
+  },
+};
+
+function applyOwnershipTabToFilters(
+  filters: Filters,
+  tab: OwnershipTab,
+): void {
+  if (tab === "all") return;
+  filters.ownershipTypes = [...OWNERSHIP_TAB_CONFIG[tab].ownershipTypeIds];
+}
+
 // Filters Component
 const CompanyDashboard = ({
   onSearch,
+  onFilterColumnsChange,
   initialSearch,
   ownershipCounts = EMPTY_OWNERSHIP_COUNTS,
   onColumnsClick,
@@ -1387,6 +1597,10 @@ const CompanyDashboard = ({
   columnsCount = 0,
 }: {
   onSearch?: (filters: Filters) => void;
+  onFilterColumnsChange?: (payload: {
+    filterIds: string[];
+    ownershipTabActive: boolean;
+  }) => void;
   initialSearch?: string;
   ownershipCounts?: CompaniesOwnershipCounts;
   onColumnsClick?: () => void;
@@ -1401,69 +1615,6 @@ const CompanyDashboard = ({
   });
 
   // Ownership quick-filter tab — independent of FilterBar chips
-  type OwnershipTab =
-    | "all"
-    | "public"
-    | "pe"
-    | "vc"
-    | "private"
-    | "subsidiary"
-    | "acquired"
-    | "other";
-
-  const OWNERSHIP_TAB_CONFIG: Record<
-    Exclude<OwnershipTab, "all">,
-    {
-      label: string;
-      dot: string;
-      countKey: keyof CompaniesOwnershipCounts;
-      names: string[];
-    }
-  > = {
-    public: {
-      label: "Public",
-      dot: "#7c3aed",
-      countKey: "publicCompanies",
-      names: ["Public"],
-    },
-    pe: {
-      label: "PE-owned",
-      dot: "#0ea5e9",
-      countKey: "peOwnedCompanies",
-      names: ["PE-owned", "PE Owned"],
-    },
-    vc: {
-      label: "VC-owned",
-      dot: "#10b981",
-      countKey: "vcOwnedCompanies",
-      names: ["VC-owned", "VC Owned"],
-    },
-    private: {
-      label: "Private",
-      dot: "#f59e0b",
-      countKey: "privateCompanies",
-      names: ["Private"],
-    },
-    subsidiary: {
-      label: "Subsidiary",
-      dot: "#6366f1",
-      countKey: "subsidiaryCompanies",
-      names: ["Subsidiary", "Subsidiaries"],
-    },
-    acquired: {
-      label: "Acquired",
-      dot: "#ec4899",
-      countKey: "acquiredCompanies",
-      names: ["Acquired"],
-    },
-    other: {
-      label: "Other",
-      dot: "#78716c",
-      countKey: "otherCompanies",
-      names: ["Other"],
-    },
-  };
-
   const [activeOwnershipTab, setActiveOwnershipTab] = useState<OwnershipTab>("all");
 
   // Option data (fetched from API)
@@ -1544,9 +1695,42 @@ const CompanyDashboard = ({
     [continentalRegions, subRegions, countries, provinces, cities, primarySectors, secondarySectors, ownershipTypes]
   );
 
+  const onFilterColumnsChangeRef = useRef(onFilterColumnsChange);
+  onFilterColumnsChangeRef.current = onFilterColumnsChange;
+
+  useEffect(() => {
+    onFilterColumnsChangeRef.current?.({
+      filterIds: filterBarState.filters.map((filter) => filter.id),
+      ownershipTabActive: activeOwnershipTab !== "all",
+    });
+  }, [filterBarState.filters, activeOwnershipTab]);
+
   // ── Auto-search on filter state or ownership tab changes ──────────────
+  const buildSearchFilters = useCallback((): Filters => {
+    const filters = buildFiltersFromState(filterBarState, {
+      primarySectors,
+      secondarySectors,
+      hybridBusinessFocuses,
+      ownershipTypes,
+    });
+    applyOwnershipTabToFilters(filters, activeOwnershipTab);
+    return filters;
+  }, [
+    filterBarState,
+    activeOwnershipTab,
+    primarySectors,
+    secondarySectors,
+    hybridBusinessFocuses,
+    ownershipTypes,
+  ]);
+
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipInitialSearchRef = useRef(true);
+  const buildSearchFiltersRef = useRef(buildSearchFilters);
+  buildSearchFiltersRef.current = buildSearchFilters;
+  const onSearchRef = useRef(onSearch);
+  onSearchRef.current = onSearch;
+
   useEffect(() => {
     if (skipInitialSearchRef.current) {
       skipInitialSearchRef.current = false;
@@ -1554,27 +1738,21 @@ const CompanyDashboard = ({
     }
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
-      const filters = buildFiltersFromState(filterBarState, {
-        primarySectors,
-        secondarySectors,
-        hybridBusinessFocuses,
-        ownershipTypes,
-      });
-      // Merge ownership tab as an extra filter (overrides any chip-level ownership)
-      if (activeOwnershipTab !== "all") {
-        const tabConfig = OWNERSHIP_TAB_CONFIG[activeOwnershipTab];
-        const ownershipId = tabConfig.names
-          .map((name) => ownershipTypes.find((t) => t.ownership === name)?.id)
-          .find((id): id is number => id != null);
-        if (ownershipId) filters.ownershipTypes = [ownershipId];
-      }
-      onSearch?.(filters);
+      onSearchRef.current?.(buildSearchFiltersRef.current());
     }, 350);
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterBarState, activeOwnershipTab]);
+  }, [filterBarState]);
+
+  const skipInitialOwnershipTabRef = useRef(true);
+  useEffect(() => {
+    if (skipInitialOwnershipTabRef.current) {
+      skipInitialOwnershipTabRef.current = false;
+      return;
+    }
+    onSearchRef.current?.(buildSearchFiltersRef.current());
+  }, [activeOwnershipTab]);
 
   // ── Ownership tabs data ────────────────────────────────────────────────
   const ownershipTabOrder: Exclude<OwnershipTab, "all">[] = [
@@ -1775,6 +1953,7 @@ const CompanySection = ({
   ownershipCounts,
   fetchCompanies,
   currentFilters,
+  filterPinnedColumnKeys = [],
   onEditCompany,
   externalShowColumnsModal,
   externalSetShowColumnsModal,
@@ -1796,6 +1975,7 @@ const CompanySection = ({
   ownershipCounts: CompaniesOwnershipCounts;
   fetchCompanies: (page?: number, filters?: Filters) => Promise<void>;
   currentFilters: Filters | undefined;
+  filterPinnedColumnKeys?: string[];
   onEditCompany?: (id: number) => void;
   externalShowColumnsModal?: boolean;
   externalSetShowColumnsModal?: (v: boolean) => void;
@@ -1817,6 +1997,23 @@ const CompanySection = ({
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
     DEFAULT_COMPANY_COLUMN_KEYS
   );
+
+  useEffect(() => {
+    if (filterPinnedColumnKeys.length === 0) return;
+    setSelectedColumnKeys((current) => {
+      const merged = enforceColumnKeyOrder(
+        Array.from(new Set([...current, ...filterPinnedColumnKeys])),
+        filterPinnedColumnKeys
+      );
+      if (
+        merged.length === current.length &&
+        merged.every((key, index) => key === current[index])
+      ) {
+        return current;
+      }
+      return merged;
+    });
+  }, [filterPinnedColumnKeys]);
   const [companyTableDataById, setCompanyTableDataById] = useState<
     Map<number, Record<string, unknown>>
   >(new Map());
@@ -1951,10 +2148,10 @@ const CompanySection = ({
 
   const selectedColumns = useMemo(() => {
     const columnsByKey = new Map(ALL_COMPANY_COLUMNS.map((column) => [column.key, column]));
-    return getValidColumnKeys(selectedColumnKeys)
+    return getValidColumnKeys(selectedColumnKeys, filterPinnedColumnKeys)
       .map((key) => columnsByKey.get(key))
       .filter((column): column is CompanyColumnDefinition => Boolean(column));
-  }, [selectedColumnKeys]);
+  }, [selectedColumnKeys, filterPinnedColumnKeys]);
 
   const columnVisibilityInitial = useMemo(
     () => columnKeysToVisibility(selectedColumnKeys),
@@ -1964,22 +2161,28 @@ const CompanySection = ({
   const handleApplyColumnVisibility = useCallback(
     (visible: Record<string, boolean>, order?: string[]) => {
       if (order && order.length > 0) {
-        setSelectedColumnKeys(getValidColumnKeys(order));
+        setSelectedColumnKeys(getValidColumnKeys(order, filterPinnedColumnKeys));
       } else {
         setSelectedColumnKeys((current) =>
-          getValidColumnKeys(visibilityToColumnKeys(visible, current))
+          getValidColumnKeys(
+            visibilityToColumnKeys(visible, current),
+            filterPinnedColumnKeys
+          )
         );
       }
       setShowColumnsModal(false);
     },
-    [setShowColumnsModal]
+    [filterPinnedColumnKeys, setShowColumnsModal]
   );
 
   const handleReorderTableColumns = useCallback((dragKey: string, dropKey: string) => {
     setSelectedColumnKeys((current) =>
-      getValidColumnKeys(reorderColumnKeys(current, dragKey, dropKey))
+      getValidColumnKeys(
+        reorderColumnKeys(current, dragKey, dropKey, filterPinnedColumnKeys),
+        filterPinnedColumnKeys
+      )
     );
-  }, []);
+  }, [filterPinnedColumnKeys]);
 
   useEffect(() => {
     if (sortState && !selectedColumnKeys.includes(sortState.key)) {
@@ -2038,7 +2241,11 @@ const CompanySection = ({
   };
 
   const isFrozenColumnKey = (key: string) =>
-    (FROZEN_COLUMN_KEYS as readonly string[]).includes(key);
+    getEffectiveFrozenColumnKeys(filterPinnedColumnKeys).includes(key);
+
+  const isFilterPinnedColumnKey = (key: string) =>
+    filterPinnedColumnKeys.includes(key) &&
+    !(FROZEN_COLUMN_KEYS as readonly string[]).includes(key);
 
 
   // Handle CSV export using backend endpoint and include active filters
@@ -2803,6 +3010,13 @@ const CompanySection = ({
       font-size: 10px;
       color: #64748b;
     }
+    .company-table-pin-indicator {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 4px;
+      color: #94a3b8;
+      vertical-align: middle;
+    }
     .company-table-sticky-logo {
       position: sticky;
       left: 0;
@@ -3440,6 +3654,7 @@ const CompanySection = ({
       React.createElement(ColumnsControlRoom, {
         initial: columnVisibilityInitial,
         initialOrder: selectedColumnKeys,
+        filterPinnedColumnKeys,
         onCancel: () => setShowColumnsModal(false),
         onApply: handleApplyColumnVisibility,
       }),
@@ -3538,6 +3753,40 @@ const CompanySection = ({
                     : undefined,
                 },
                 column.label,
+                isFilterPinnedColumnKey(column.key) &&
+                  React.createElement(
+                    "span",
+                    {
+                      className: "company-table-pin-indicator",
+                      title: FILTER_PINNED_TOOLTIP,
+                      "aria-label": FILTER_PINNED_TOOLTIP,
+                    },
+                    React.createElement(
+                      "svg",
+                      {
+                        width: 11,
+                        height: 11,
+                        viewBox: "0 0 12 12",
+                        fill: "none",
+                        "aria-hidden": true,
+                      },
+                      React.createElement("rect", {
+                        x: 2.25,
+                        y: 5.25,
+                        width: 7.5,
+                        height: 5.5,
+                        rx: 1.1,
+                        stroke: "currentColor",
+                        strokeWidth: 1.2,
+                      }),
+                      React.createElement("path", {
+                        d: "M4 5.25V3.75a2 2 0 014 0v1.5",
+                        stroke: "currentColor",
+                        strokeWidth: 1.2,
+                        strokeLinecap: "round",
+                      })
+                    )
+                  ),
                 sortKind &&
                   React.createElement(
                     "span",
@@ -3610,10 +3859,28 @@ function CompaniesPageInner() {
 
   const handleSearch = useCallback(
     (filters: Filters) => {
-      console.log("Searching with filters:", filters);
       fetchCompanies(1, filters);
     },
     [fetchCompanies]
+  );
+
+  const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(
+    []
+  );
+
+  const handleFilterColumnsChange = useCallback(
+    ({
+      filterIds,
+      ownershipTabActive,
+    }: {
+      filterIds: string[];
+      ownershipTabActive: boolean;
+    }) => {
+      setFilterPinnedColumnKeys(
+        getColumnKeysForActiveFilters(filterIds, ownershipTabActive)
+      );
+    },
+    []
   );
 
   const [initialSearch, setInitialSearch] = useState<string | undefined>(
@@ -3638,6 +3905,7 @@ function CompaniesPageInner() {
       <Header />
       <CompanyDashboard
         onSearch={handleSearch}
+        onFilterColumnsChange={handleFilterColumnsChange}
         initialSearch={initialSearch}
         ownershipCounts={ownershipCounts}
         onColumnsClick={() => setShowColumnsModal(true)}
@@ -3652,6 +3920,7 @@ function CompaniesPageInner() {
         ownershipCounts={ownershipCounts}
         fetchCompanies={fetchCompanies}
         currentFilters={currentFilters}
+        filterPinnedColumnKeys={filterPinnedColumnKeys}
         onEditCompany={React.useContext(CompaniesEditContext)}
         externalShowColumnsModal={showColumnsModal}
         externalSetShowColumnsModal={setShowColumnsModal}

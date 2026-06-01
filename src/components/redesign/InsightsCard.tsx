@@ -106,7 +106,7 @@ function SkeletonRow() {
         display: "grid",
         gridTemplateColumns: "140px 1fr",
         gap: 16,
-        padding: "14px 18px",
+        padding: "14px 16px",
         borderBottom: `1px solid ${T.hair}`,
       }}
     >
@@ -139,7 +139,7 @@ function DemoRow({ item }: { item: (typeof DEMO_ARTICLES)[number] }) {
         display: "grid",
         gridTemplateColumns: "140px 1fr",
         gap: 16,
-        padding: "14px 18px",
+        padding: "14px 16px",
         borderBottom: `1px solid ${T.hair}`,
       }}
     >
@@ -147,9 +147,9 @@ function DemoRow({ item }: { item: (typeof DEMO_ARTICLES)[number] }) {
         <Pill tone={item.tone}>{item.tag}</Pill>
         <div
           style={{
-            fontSize: 11.5,
+            fontSize: 12,
             color: T.muted,
-            fontFamily: T.mono,
+            fontVariantNumeric: "tabular-nums",
             marginTop: 8,
           }}
         >
@@ -342,7 +342,7 @@ function ArticleRow({
         display: "grid",
         gridTemplateColumns: "140px 1fr",
         gap: 16,
-        padding: "14px 18px",
+        padding: "14px 16px",
         borderBottom: `1px solid ${T.hair}`,
       }}
     >
@@ -350,9 +350,9 @@ function ArticleRow({
         <Pill tone={tone}>{tag}</Pill>
         <div
           style={{
-            fontSize: 11.5,
+            fontSize: 12,
             color: T.muted,
-            fontFamily: T.mono,
+            fontVariantNumeric: "tabular-nums",
             marginTop: 8,
           }}
         >
@@ -542,7 +542,7 @@ export function InsightsCard({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "10px 18px",
+          padding: "10px 16px",
           borderTop: `1px solid ${T.hair}`,
           fontFamily: T.sans,
           fontSize: 12,
@@ -551,7 +551,7 @@ export function InsightsCard({
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <PagerBtn label="‹" enabled={canPrev} onClick={onPrev} ariaLabel="Previous insights" />
           <PagerBtn label="›" enabled={canNext} onClick={onNext} ariaLabel="Next insights" />
-          <span style={{ color: T.muted, fontFamily: T.mono, fontSize: 11.5 }}>
+          <span style={{ color: T.muted, fontSize: 12 }}>
             {loading ? "—" : `Showing ${rangeLabel}`}
           </span>
         </div>

@@ -440,7 +440,7 @@ export const CorporateEventsProfilePanel: React.FC<
                     textAlign: h === "Amount" ? "right" : "left",
                     padding: "10px 12px",
                     color: T.muted,
-                    fontSize: "11px",
+                    fontSize: "10.5px",
                     fontWeight: 500,
                     textTransform: "uppercase",
                     letterSpacing: 0.4,
@@ -471,7 +471,7 @@ export const CorporateEventsProfilePanel: React.FC<
                     ? { background: T.coralSoft, color: T.down }
                     : { background: T.inset, color: T.muted };
 
-                const cellPad = narrow ? "10px 8px" : "12px";
+                const cellPad = narrow ? "10px 8px" : "10px 12px";
                 return (
                   <tr
                     key={event.id ?? `ce-${index}`}
@@ -480,7 +480,6 @@ export const CorporateEventsProfilePanel: React.FC<
                     <td
                       style={{
                         padding: cellPad,
-                        fontFamily: T.mono,
                         color: T.body,
                         whiteSpace: narrow ? "nowrap" : undefined,
                       }}
@@ -492,7 +491,6 @@ export const CorporateEventsProfilePanel: React.FC<
                             color: T.azure,
                             textDecoration: "underline",
                             cursor: "pointer",
-                            fontFamily: T.mono,
                           }}
                           onClick={(e) => {
                             e.preventDefault();
@@ -565,9 +563,9 @@ export const CorporateEventsProfilePanel: React.FC<
                         <td
                           style={{
                             padding: cellPad,
-                            fontFamily: T.mono,
                             textAlign: "right",
                             color: T.body,
+                            fontVariantNumeric: "tabular-nums",
                           }}
                         >
                           {formatAmountCell(event)}
