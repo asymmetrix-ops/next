@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Suspense } from "react";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import Script from "next/script";
 import "./globals.css";
 import { AnalyticsProvider } from "@/components/providers/AnalyticsProvider";
@@ -7,8 +9,10 @@ import { AuthProvider } from "@/components/providers/AuthProvider";
 import { PortfolioHydrator } from "@/components/providers/PortfolioHydrator";
 import { Toaster } from "react-hot-toast";
 import TitleUpdater from "@/components/TitleUpdater";
-
-const inter = Inter({ subsets: ["latin"] });
+import ChunkErrorRecovery from "@/components/ChunkErrorRecovery";
+import TrialRouteGuard from "@/components/TrialRouteGuard";
+import RouteTracker from "@/components/RouteTracker";
+import ErrorTracker from "@/components/ErrorTracker";
 
 export const metadata: Metadata = {
   title: "Asymmetrix - Data & Analytics Demystified",
@@ -127,11 +131,17 @@ export default function RootLayout({
           `}
         </Script>
       </head>
-      <body className={inter.className}>
+      <body className={`${GeistSans.variable} ${GeistMono.variable} ${GeistSans.className}`}>
         <AuthProvider>
           <PortfolioHydrator />
           <AnalyticsProvider>
+            <ChunkErrorRecovery />
             <TitleUpdater />
+            <TrialRouteGuard />
+            <Suspense fallback={null}>
+              <RouteTracker />
+            </Suspense>
+            <ErrorTracker />
             {children}
             {showTestBanner && (
               <div className="fixed bottom-3 right-3 z-[9999] pointer-events-none">

@@ -31,8 +31,8 @@ export const T = {
   down:         "oklch(55% 0.17 25)",
   r:            6,
   rLg:          10,
-  sans:         '"Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
-  mono:         '"Geist Mono", ui-monospace, "SF Mono", Menlo, monospace',
+  sans:         'var(--font-geist-sans, "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif)',
+  mono:         'var(--font-geist-mono, "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace)',
   /** Card hover — blue highlight without heavy inset ring */
   cardHoverBorder: "oklch(58% 0.16 258 / 0.42)",
   cardHoverShadow: "0 8px 28px oklch(54% 0.18 258 / 0.14)",
