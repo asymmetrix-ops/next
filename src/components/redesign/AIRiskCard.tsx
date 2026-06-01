@@ -5,6 +5,7 @@
  */
 import React, { useState } from "react";
 import { T } from "./tokens.jsx";
+import { AI_SCORE_MAX, scoreToTierName } from "@/lib/companyAiRisks";
 
 export type AIRiskAxisGroup = "risk" | "def";
 
@@ -21,63 +22,63 @@ export const AI_RISK_AXES: AIRiskAxis[] = [
   {
     key: "replic",
     label: "Replicability",
-    score: 4,
+    score: 3,
     group: "risk",
-    tier: "Limited Risk of Replicability",
+    tier: "High",
     blurb:
       "AI can classify merchants and infer spending patterns from partial data, but cannot reconstruct transactions never captured through permissioned card relationships.",
   },
   {
     key: "accuracy",
     label: "Accuracy Matters",
-    score: 4,
+    score: 3,
     group: "risk",
-    tier: "High Defensibility",
+    tier: "High",
     blurb:
       "Outputs inform campaign ROI, audience targeting and merchant-funded offers — users will not swap observed purchase data for AI-generated estimates where budgets are at stake.",
   },
   {
     key: "stakes",
     label: "Value at Stake",
-    score: 4,
+    score: 3,
     group: "risk",
-    tier: "High Defensibility",
+    tier: "High",
     blurb:
       "Dataset supports decisions across media spend, retail-media investment and bank engagement — real purchase evidence outweighs modelled intent.",
   },
   {
     key: "workflow",
     label: "Workflow Moat",
-    score: 3,
+    score: 2,
     group: "def",
-    tier: "Moderate Workflow Moat",
+    tier: "Moderate",
     blurb:
       "Embedded in marketing workflows via Snowflake Marketplace, AWS Clean Rooms, MS Curate for Commerce — moat deepens with recurring campaign use.",
   },
   {
     key: "authority",
     label: "Authority",
-    score: 3,
+    score: 2,
     group: "def",
-    tier: "Moderate Defensibility",
+    tier: "Moderate",
     blurb:
       "Observed spending behaviour beats survey- or impression-based proxies, but it is not the only source of truth for purchase measurement.",
   },
   {
     key: "history",
     label: "Historical Data",
-    score: 5,
+    score: 3,
     group: "def",
-    tier: "Strong Differentiator",
+    tier: "High",
     blurb:
       "AI can analyse historical data once it exists, but cannot reconstruct a comparable permissioned transaction history after the fact.",
   },
   {
     key: "data",
     label: "Data Moat",
-    score: 5,
+    score: 3,
     group: "def",
-    tier: "Deep Moat",
+    tier: "High",
     blurb:
       "Defensibility comes from access to permissioned debit and credit card transaction data — not approximable from surveys, web traffic or social signals.",
   },
@@ -109,11 +110,10 @@ type Tone = {
 
 function tierTone(score: number, group?: AIRiskAxisGroup): Tone {
   if (group && GROUP_TONE[group]) return GROUP_TONE[group];
-  if (score >= 5)
+  const s = Math.round(Math.min(AI_SCORE_MAX, Math.max(1, score)));
+  if (s >= 3)
     return { fg: T.up, bg: "oklch(95% 0.06 150)", ring: "oklch(65% 0.16 150)" };
-  if (score >= 4)
-    return { fg: T.azure, bg: T.azureSoft, ring: "oklch(70% 0.15 258)" };
-  if (score >= 3)
+  if (s >= 2)
     return { fg: T.signal, bg: T.signalSoft, ring: "oklch(72% 0.13 48)" };
   return { fg: T.down, bg: "oklch(95% 0.05 25)", ring: "oklch(70% 0.14 25)" };
 }
@@ -131,7 +131,7 @@ function RadarChart({
   active,
   onPick,
   size = 280,
-  maxScore = 5,
+  maxScore = AI_SCORE_MAX,
 }: RadarChartProps) {
   const cx = size / 2;
   const cy = size / 2;
@@ -322,7 +322,7 @@ function RadarChart({
           fill={T.muted}
           style={{ fontVariantNumeric: "tabular-nums" }}
         >
-          {ax.score}/{maxScore}
+          {scoreToTierName(ax.score)}
         </text>
       </g>
     );
@@ -437,15 +437,19 @@ export function AIRiskCard({
   const riskAxes = axes.filter((a) => a.group === "risk");
   const defAxes = axes.filter((a) => a.group === "def");
   const riskAvg =
-    riskAxes.reduce((s, a) => s + a.score, 0) / riskAxes.length;
-  const defAvg = defAxes.reduce((s, a) => s + a.score, 0) / defAxes.length;
-  const avg = axes.reduce((s, a) => s + a.score, 0) / axes.length;
+    riskAxes.length > 0
+      ? riskAxes.reduce((s, a) => s + a.score, 0) / riskAxes.length
+      : 0;
+  const defAvg =
+    defAxes.length > 0
+      ? defAxes.reduce((s, a) => s + a.score, 0) / defAxes.length
+      : 0;
   const headlineTier =
-    avg >= 4.3
+    defAvg >= 2.5 && riskAvg <= 2
       ? "Strong overall moat vs. AI"
-      : avg >= 3.6
+      : defAvg >= 2 && riskAvg <= 2.3
         ? "Resilient — selective AI exposure"
-        : avg >= 2.8
+        : defAvg >= 1.5 || riskAvg <= 2.5
           ? "Moderate — partial exposure"
           : "Limited — AI substitution risk";
 
@@ -509,7 +513,7 @@ export function AIRiskCard({
                 background: GROUP_TONE.risk.fill,
               }}
             />
-            <span>Risk {riskAvg.toFixed(1)}</span>
+            <span>Risk {riskAvg.toFixed(1)}/{AI_SCORE_MAX}</span>
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
             <span
@@ -520,7 +524,7 @@ export function AIRiskCard({
                 background: GROUP_TONE.def.fill,
               }}
             />
-            <span>Def {defAvg.toFixed(1)}</span>
+            <span>Def {defAvg.toFixed(1)}/{AI_SCORE_MAX}</span>
           </span>
         </span>
       </div>

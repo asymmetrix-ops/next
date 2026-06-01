@@ -7,7 +7,7 @@
  */
 import React, { useState } from "react";
 import Link from "next/link";
-import { LinkPanel, LinkedH, T } from "./primitives";
+import { LinkPanel, LinkedH, T, tableColHeaderBarStyle } from "./primitives";
 
 export type ManagementPerson = {
   id?: number;
@@ -20,7 +20,7 @@ export type ManagementPerson = {
 type Props = {
   current: ManagementPerson[];
   past?: ManagementPerson[];
-  /** Number of rows shown before "See more". Default 6. */
+  /** Number of rows shown before "See more". Default 4. */
   maxVisible?: number;
   fillGridCell?: boolean;
 };
@@ -57,29 +57,21 @@ function Avatar({ name, index }: { name: string; index: number }) {
   );
 }
 
-const COL = "32px 1.4fr 1fr auto";
+const COL = "28px 1fr 0.9fr auto";
+const COL_GAP = 6;
 
 function ColHeader() {
   return (
     <div
       style={{
-        display: "grid",
+        ...tableColHeaderBarStyle,
         gridTemplateColumns: COL,
-        alignItems: "center",
-        gap: 10,
-        padding: "8px 16px",
-        background: T.paper,
-        borderBottom: `1px solid ${T.hair}`,
-        fontSize: 10.5,
-        fontWeight: 500,
-        color: T.muted,
-        textTransform: "uppercase",
-        letterSpacing: 0.4,
+        gap: COL_GAP,
       }}
     >
       <div />
       <div>Name</div>
-      <div style={{ textAlign: "center" }}>Role</div>
+      <div style={{ textAlign: "center", justifySelf: "center" }}>Role</div>
       <div style={{ textAlign: "right" }}>Tenure</div>
     </div>
   );
@@ -100,7 +92,7 @@ function PersonRow({
         display: "grid",
         gridTemplateColumns: COL,
         alignItems: "center",
-        gap: 10,
+        gap: COL_GAP,
         padding: "10px 16px",
         borderBottom: last ? "none" : `1px solid ${T.hair}`,
       }}
@@ -145,6 +137,7 @@ function PersonRow({
           fontSize: 12,
           color: T.body,
           textAlign: "center",
+          justifySelf: "center",
           whiteSpace: "nowrap",
           overflow: "hidden",
           textOverflow: "ellipsis",
@@ -189,7 +182,7 @@ function SectionLabel({ label }: { label: string }) {
 export function ManagementCard({
   current,
   past = [],
-  maxVisible = 6,
+  maxVisible = 4,
   fillGridCell = false,
 }: Props) {
   const [expanded, setExpanded] = useState(false);

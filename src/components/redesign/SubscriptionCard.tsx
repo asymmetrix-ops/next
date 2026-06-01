@@ -4,7 +4,7 @@
  * ARR / NRR / GDR / Upsell / New logos mini-rows.
  */
 import React from "react";
-import { LinkPanel, LinkedH, MiniKV, Delta, T } from "./primitives";
+import { LinkPanel, LinkedH, MiniKV, Delta, T, overviewBodyPadding } from "./primitives";
 
 export type SubscriptionMetrics = {
   recurringRev?: string;
@@ -91,7 +91,7 @@ export function SubscriptionCard({
   return (
     <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH>Subscription metrics</LinkedH>
-      <div style={{ padding: "8px 16px 14px", flex: 1, minHeight: 0 }}>
+      <div style={{ padding: overviewBodyPadding, flex: 1, minHeight: 0 }}>
         {rows.map((row, i) => (
           <MiniKV
             key={row.k}

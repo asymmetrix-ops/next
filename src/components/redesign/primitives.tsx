@@ -38,6 +38,80 @@ export const T = {
   cardHoverShadow: "0 8px 28px oklch(54% 0.18 258 / 0.14)",
 } as const;
 
+/** Card header title — matches LinkedH / Overview / Description. */
+export const CARD_TITLE_STYLE: React.CSSProperties = {
+  fontFamily: T.sans,
+  fontSize: 13.5,
+  fontWeight: 600,
+  color: T.ink,
+  lineHeight: 1.25,
+};
+
+/** Overview KV label column width. */
+export const KV_LABEL_COL = "minmax(118px, auto)";
+
+/** Overview-aligned row label (field names). */
+export const kvLabelStyle: React.CSSProperties = {
+  color: T.muted,
+  fontFamily: T.sans,
+  fontSize: 12,
+  fontWeight: 400,
+  lineHeight: 1.35,
+};
+
+/** Overview-aligned row value. */
+export const kvValueStyle: React.CSSProperties = {
+  color: T.body,
+  fontFamily: T.sans,
+  fontVariantNumeric: "tabular-nums",
+  fontSize: 12,
+  lineHeight: 1.5,
+};
+
+/** Shared horizontal padding for card body content (Overview, Financials). */
+export const CARD_BODY_X_PAD = 14;
+export const overviewBodyPadding = "2px 14px 8px";
+
+/** Financial metrics row grid — label column matches Overview KV. */
+export const FIN_METRIC_GRID_COLS = `${KV_LABEL_COL} minmax(0, 1fr) auto`;
+
+export const finMetricRowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: FIN_METRIC_GRID_COLS,
+  columnGap: 8,
+  alignItems: "start",
+  padding: "4px 0",
+  borderBottom: `1px solid ${T.hair}`,
+};
+
+export const finMetricLabelStyle: React.CSSProperties = {
+  ...kvLabelStyle,
+  whiteSpace: "nowrap",
+};
+
+export const finMetricValueStyle: React.CSSProperties = {
+  ...kvValueStyle,
+};
+
+/** Table column header bar — matches Management card. */
+export const tableColHeaderStyle: React.CSSProperties = {
+  fontFamily: T.sans,
+  fontSize: 10.5,
+  fontWeight: 500,
+  color: T.muted,
+  textTransform: "uppercase",
+  letterSpacing: 0.4,
+};
+
+export const tableColHeaderBarStyle: React.CSSProperties = {
+  display: "grid",
+  alignItems: "center",
+  padding: "8px 16px",
+  background: T.paper,
+  borderBottom: `1px solid ${T.hair}`,
+  ...tableColHeaderStyle,
+};
+
 // ── Pill ────────────────────────────────────────────────────────────────────
 type PillTone = "neutral" | "azure" | "lavender" | "coral" | "emerald" | "up" | "down" | "ghost";
 const PILL_TONES: Record<PillTone, { bg: string; fg: string; bd: string }> = {
@@ -109,25 +183,34 @@ export function LinkedH({
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
+        gap: 8,
         padding: "12px 14px 10px",
         borderBottom: `1px solid ${T.hair}`,
+        minWidth: 0,
       }}
     >
       <div
         style={{
-          fontFamily: T.sans,
-          fontSize: 13.5,
-          fontWeight: 600,
-          color: T.ink,
+          ...CARD_TITLE_STYLE,
           display: "flex",
           alignItems: "center",
           gap: 8,
+          flex: 1,
+          minWidth: 0,
+          overflow: "hidden",
         }}
       >
         {leftSlot}
         {children}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          flexShrink: 0,
+        }}
+      >
         {right && <div style={{ fontSize: 11.5, color: T.muted }}>{right}</div>}
         {showArrow && (
           <div
@@ -219,7 +302,7 @@ export function PctBar({ pct, color }: { pct: number; color: string }) {
   );
 }
 
-// ── MiniKV — compact key/value row (right-rail style) ───────────────────────
+// ── MiniKV — compact key/value row (aligned with Overview KV) ───────────────
 export function MiniKV({
   k,
   v,
@@ -234,21 +317,17 @@ export function MiniKV({
   return (
     <div
       style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "7px 0",
-        borderBottom: last ? "none" : `1px solid ${T.hair}`,
-        fontSize: 12.5,
+        ...finMetricRowStyle,
+        gridTemplateColumns: `${KV_LABEL_COL} 1fr`,
+        borderBottom: last ? "none" : finMetricRowStyle.borderBottom,
       }}
     >
-      <div style={{ color: T.muted }}>{k}</div>
+      <div style={finMetricLabelStyle}>{k}</div>
       <div
         style={{
-          color: T.ink,
+          ...finMetricValueStyle,
           fontFamily: mono ? T.mono : T.sans,
-          fontVariantNumeric: "tabular-nums",
-          fontWeight: 500,
+          textAlign: "right",
         }}
       >
         {v}
@@ -339,7 +418,7 @@ export function KV({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "108px 1fr",
+        gridTemplateColumns: `${KV_LABEL_COL} 1fr`,
         gap: 8,
         padding: "4px 0",
         borderBottom: last ? "none" : `1px solid ${T.hair}`,
@@ -349,15 +428,8 @@ export function KV({
         ...style,
       }}
     >
-      <div style={{ color: T.muted, fontFamily: T.sans, paddingTop: 1 }}>{k}</div>
-      <div
-        style={{
-          color: T.body,
-          fontFamily: mono ? T.mono : T.sans,
-          fontVariantNumeric: "tabular-nums",
-          lineHeight: 1.5,
-        }}
-      >
+      <div style={{ ...kvLabelStyle, whiteSpace: "nowrap" }}>{k}</div>
+      <div style={{ ...kvValueStyle, fontFamily: mono ? T.mono : T.sans }}>
         {v}
       </div>
     </div>
