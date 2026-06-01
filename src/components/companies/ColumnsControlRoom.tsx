@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import {
   COMPANIES_COLUMN_CATEGORIES,
   ALL_COMPANIES_COLUMN_META,
@@ -41,27 +41,6 @@ const AX = {
   fontSans:
     'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
 };
-
-function DragHandle({ disabled }: { disabled?: boolean }) {
-  return (
-    <svg
-      width="10"
-      height="16"
-      viewBox="0 0 10 16"
-      fill="none"
-      style={{
-        flexShrink: 0,
-        opacity: disabled ? 0.25 : 0.55,
-        cursor: disabled ? "not-allowed" : "grab",
-      }}
-    >
-      {[2, 7, 12].flatMap((y, i) => [
-        <circle key={`l${i}`} cx="2" cy={y} r="1.2" fill="currentColor" />,
-        <circle key={`r${i}`} cx="8" cy={y} r="1.2" fill="currentColor" />,
-      ])}
-    </svg>
-  );
-}
 
 function LockIcon() {
   return (
@@ -109,6 +88,22 @@ function ResetIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function ChevronUpIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <path d="M2.5 7.5L6 4l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <path d="M2.5 4.5L6 8l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -302,7 +297,7 @@ function TabPill({
   active: boolean;
   onClick: () => void;
   label: string;
-  count: number;
+  count?: number;
 }) {
   return (
     <button
@@ -316,15 +311,17 @@ function TabPill({
       }}
     >
       <span style={{ fontWeight: 600 }}>{label}</span>
-      <span
-        style={{
-          fontWeight: 500,
-          fontVariantNumeric: "tabular-nums",
-          color: active ? "rgba(255,255,255,0.7)" : AX.fg3,
-        }}
-      >
-        {count}
-      </span>
+      {count !== undefined && (
+        <span
+          style={{
+            fontWeight: 500,
+            fontVariantNumeric: "tabular-nums",
+            color: active ? "rgba(255,255,255,0.7)" : AX.fg3,
+          }}
+        >
+          {count}
+        </span>
+      )}
     </button>
   );
 }
@@ -353,9 +350,6 @@ function ColumnRow({
         transition: "background 120ms ease-out",
       }}
     >
-      <span style={{ color: AX.gray400, display: "inline-flex" }}>
-        <DragHandle disabled={column.locked} />
-      </span>
       <TypeIcon type={column.type} />
       <span
         style={{
@@ -403,7 +397,7 @@ function ColumnRow({
             borderRadius: 4,
           }}
         >
-          <LockIcon /> Locked
+          <LockIcon /> Frozen
         </span>
       )}
       <span style={{ flex: 1 }} />
@@ -417,10 +411,219 @@ function ColumnRow({
   );
 }
 
+function ReorderRow({
+  column,
+  position,
+  isSelected,
+  isFirst,
+  isLast,
+  onSelect,
+  onMoveUp,
+  onMoveDown,
+}: {
+  column: CompanyColumnMeta;
+  position: number;
+  isSelected: boolean;
+  isFirst: boolean;
+  isLast: boolean;
+  onSelect: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <li
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onClick={onSelect}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "7px 6px 7px 10px",
+        borderRadius: 7,
+        background: isSelected
+          ? "#EFF6FF"
+          : hover
+            ? AX.gray25
+            : "transparent",
+        border: isSelected ? "1.5px solid #BFDBFE" : "1.5px solid transparent",
+        cursor: "pointer",
+        transition: "background 100ms ease-out, border-color 100ms ease-out",
+        userSelect: "none",
+      }}
+    >
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: isSelected ? "#1D4ED8" : AX.fg4,
+          fontVariantNumeric: "tabular-nums",
+          minWidth: 20,
+          textAlign: "right",
+          flexShrink: 0,
+        }}
+      >
+        {position}
+      </span>
+      <TypeIcon type={column.type} />
+      <span
+        style={{
+          fontSize: 14,
+          fontWeight: 500,
+          color: isSelected ? "#1E40AF" : AX.fg1,
+          flex: 1,
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {column.label}
+      </span>
+      {column.badge && (
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "2px 6px",
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            color: AX.cyan700,
+            background: AX.cyan50,
+            border: `1px solid ${AX.cyan100}`,
+            borderRadius: 4,
+            flexShrink: 0,
+          }}
+        >
+          {column.badge}
+        </span>
+      )}
+      <div style={{ display: "flex", gap: 3, flexShrink: 0, marginLeft: 4 }} onClick={e => e.stopPropagation()}>
+        <button
+          type="button"
+          title="Move up"
+          disabled={isFirst}
+          onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
+          style={{
+            width: 26,
+            height: 26,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: isFirst ? AX.gray50 : isSelected ? "white" : AX.gray50,
+            border: `1px solid ${isFirst ? AX.gray100 : AX.gray200}`,
+            borderRadius: 5,
+            cursor: isFirst ? "not-allowed" : "pointer",
+            color: isFirst ? AX.fg4 : AX.fg2,
+            padding: 0,
+            transition: "background 100ms, border-color 100ms",
+          }}
+        >
+          <ChevronUpIcon />
+        </button>
+        <button
+          type="button"
+          title="Move down"
+          disabled={isLast}
+          onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
+          style={{
+            width: 26,
+            height: 26,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: isLast ? AX.gray50 : isSelected ? "white" : AX.gray50,
+            border: `1px solid ${isLast ? AX.gray100 : AX.gray200}`,
+            borderRadius: 5,
+            cursor: isLast ? "not-allowed" : "pointer",
+            color: isLast ? AX.fg4 : AX.fg2,
+            padding: 0,
+            transition: "background 100ms, border-color 100ms",
+          }}
+        >
+          <ChevronDownIcon />
+        </button>
+      </div>
+    </li>
+  );
+}
+
+function FrozenColumnRow({
+  column,
+  position,
+}: {
+  column: CompanyColumnMeta;
+  position: number;
+}) {
+  return (
+    <li
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "7px 6px 7px 10px",
+        borderRadius: 7,
+        background: "#FFFBEB",
+        border: "1.5px solid #F3E8C8",
+        marginBottom: 3,
+        userSelect: "none",
+      }}
+    >
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: "#D97706",
+          fontVariantNumeric: "tabular-nums",
+          minWidth: 20,
+          textAlign: "right",
+          flexShrink: 0,
+        }}
+      >
+        {position}
+      </span>
+      <TypeIcon type={column.type} />
+      <span
+        style={{
+          fontSize: 14,
+          fontWeight: 500,
+          color: AX.fg1,
+          flex: 1,
+        }}
+      >
+        {column.label}
+      </span>
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          padding: "2px 7px 2px 6px",
+          fontSize: 10,
+          fontWeight: 600,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: "#B45309",
+          background: "#FFFBEB",
+          border: "1px solid #F0DDB0",
+          borderRadius: 4,
+          flexShrink: 0,
+        }}
+      >
+        <LockIcon /> Frozen
+      </span>
+    </li>
+  );
+}
+
 export interface ColumnsControlRoomProps {
   initial: Record<string, boolean>;
+  initialOrder?: string[];
   onClose: () => void;
-  onApply: (visible: Record<string, boolean>) => void;
+  onApply: (visible: Record<string, boolean>, order?: string[]) => void;
   categories?: CompanyColumnCategory[];
   title?: string;
   subtitle?: string;
@@ -428,6 +631,7 @@ export interface ColumnsControlRoomProps {
 
 export function ColumnsControlRoom({
   initial,
+  initialOrder,
   onClose,
   onApply,
   categories = COMPANIES_COLUMN_CATEGORIES,
@@ -450,7 +654,56 @@ export function ColumnsControlRoom({
 
   const [visible, setVisible] = useState(() => buildState());
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<"all" | "visible" | "hidden">("all");
+  const [tab, setTab] = useState<"all" | "visible" | "hidden" | "reorder">("all");
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+
+  const allMeta = useMemo(
+    () => categories.flatMap((cat) => cat.columns),
+    [categories]
+  );
+  const lockedMeta = useMemo(() => allMeta.filter((c) => c.locked), [allMeta]);
+  const lockedColumnKeys = useMemo(
+    () => new Set(lockedMeta.map((c) => c.columnKey)),
+    [lockedMeta]
+  );
+
+  const [orderedKeys, setOrderedKeys] = useState<string[]>(() => {
+    const visibleIds = new Set(
+      Object.entries(initial)
+        .filter(([, v]) => v)
+        .map(([k]) => k)
+    );
+    const visibleColumnKeys = allMeta
+      .filter((c) => !c.locked && visibleIds.has(c.id))
+      .map((c) => c.columnKey);
+    const visibleKeySet = new Set(visibleColumnKeys);
+
+    if (initialOrder && initialOrder.length > 0) {
+      const result = initialOrder.filter(
+        (k) => !lockedColumnKeys.has(k) && visibleKeySet.has(k)
+      );
+      visibleColumnKeys.forEach((k) => {
+        if (!result.includes(k)) result.push(k);
+      });
+      return result;
+    }
+    return visibleColumnKeys;
+  });
+
+  const toggle = useCallback((id: string, on: boolean) => {
+    setVisible((current) => ({ ...current, [id]: on }));
+    const meta = allMeta.find((c) => c.id === id);
+    if (!meta || meta.locked) return;
+    setOrderedKeys((current) => {
+      if (on) {
+        return current.includes(meta.columnKey)
+          ? current
+          : [...current, meta.columnKey];
+      } else {
+        return current.filter((k) => k !== meta.columnKey);
+      }
+    });
+  }, [allMeta]);
 
   const allIds = useMemo(
     () => categories.flatMap((category) => category.columns.map((column) => column.id)),
@@ -459,11 +712,15 @@ export function ColumnsControlRoom({
   const visCount = allIds.filter((id) => visible[id]).length;
   const hiddenCount = allIds.length - visCount;
 
-  const toggle = (id: string, on: boolean) =>
-    setVisible((current) => ({ ...current, [id]: on }));
-
-  const reset = () =>
-    setVisible(columnKeysToVisibility([...PROD_DEFAULT_COMPANY_COLUMN_KEYS]));
+  const reset = () => {
+    const defaultVisible = columnKeysToVisibility([...PROD_DEFAULT_COMPANY_COLUMN_KEYS]);
+    setVisible(defaultVisible);
+    const defaultVisibleKeys = allMeta
+      .filter((c) => !c.locked && defaultVisible[c.id])
+      .map((c) => c.columnKey);
+    setOrderedKeys(defaultVisibleKeys);
+    setSelectedKey(null);
+  };
 
   const filterCol = (column: CompanyColumnMeta) => {
     if (query && !column.label.toLowerCase().includes(query.toLowerCase())) {
@@ -472,6 +729,57 @@ export function ColumnsControlRoom({
     if (tab === "visible" && !visible[column.id]) return false;
     if (tab === "hidden" && visible[column.id]) return false;
     return true;
+  };
+
+  const orderedVisibleMeta = useMemo(() => {
+    return orderedKeys
+      .map((k) => allMeta.find((c) => c.columnKey === k && !c.locked))
+      .filter((c): c is CompanyColumnMeta => Boolean(c));
+  }, [orderedKeys, allMeta]);
+
+  const moveUp = useCallback((columnKey: string) => {
+    setOrderedKeys((current) => {
+      const idx = current.indexOf(columnKey);
+      if (idx <= 0) return current;
+      const next = [...current];
+      [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+      return next;
+    });
+  }, []);
+
+  const moveDown = useCallback((columnKey: string) => {
+    setOrderedKeys((current) => {
+      const idx = current.indexOf(columnKey);
+      if (idx < 0 || idx >= current.length - 1) return current;
+      const next = [...current];
+      [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (tab !== "reorder" || !selectedKey) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        moveUp(selectedKey);
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        moveDown(selectedKey);
+      } else if (e.key === "Escape") {
+        setSelectedKey(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [tab, selectedKey, moveUp, moveDown]);
+
+  const handleApply = () => {
+    const lockedVisibleKeys = lockedMeta
+      .filter((c) => visible[c.id])
+      .map((c) => c.columnKey);
+    const finalOrder = [...lockedVisibleKeys, ...orderedKeys];
+    onApply(visible, finalOrder);
   };
 
   return (
@@ -504,7 +812,7 @@ export function ColumnsControlRoom({
           </span>
           <input
             type="text"
-            placeholder="Search columns…"
+            placeholder={tab === "reorder" ? "Search to filter…" : "Search columns…"}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             style={modalStyles.searchInput}
@@ -531,6 +839,11 @@ export function ColumnsControlRoom({
               label="Hidden"
               count={hiddenCount}
             />
+            <TabPill
+              active={tab === "reorder"}
+              onClick={() => { setTab("reorder"); setQuery(""); }}
+              label="Reorder"
+            />
           </div>
           <button type="button" onClick={reset} style={modalStyles.reset}>
             <ResetIcon /> Reset
@@ -538,80 +851,189 @@ export function ColumnsControlRoom({
         </div>
 
         <div style={modalStyles.list}>
-          {categories.map((category) => {
-            const cols = category.columns.filter(filterCol);
-            if (cols.length === 0) return null;
-            const onCount = category.columns.filter((column) => visible[column.id]).length;
-            return (
-              <section key={category.id} style={modalStyles.section}>
-                <header style={modalStyles.sectionHead}>
-                  <div
+          {tab === "reorder" ? (
+            <div>
+              <div style={{
+                fontSize: 12,
+                color: AX.fg3,
+                padding: "4px 10px 10px",
+                lineHeight: 1.5,
+              }}>
+                Click a row to select it, then use{" "}
+                <kbd style={modalStyles.kbd}>▲</kbd>{" "}
+                <kbd style={modalStyles.kbd}>▼</kbd>{" "}
+                buttons or keyboard arrow keys to reposition. Logo and Name are frozen to the first two columns.
+              </div>
+
+              <ul style={{ ...modalStyles.rowList, paddingBottom: 8 }}>
+                {lockedMeta.map((col, i) => (
+                  <FrozenColumnRow key={col.id} column={col} position={i + 1} />
+                ))}
+              </ul>
+
+              {orderedVisibleMeta.length > 0 ? (
+                <ul style={modalStyles.rowList}>
+                  {orderedVisibleMeta
+                    .filter((col) =>
+                      !query ||
+                      col.label.toLowerCase().includes(query.toLowerCase())
+                    )
+                    .map((col, idx, arr) => (
+                      <ReorderRow
+                        key={col.id}
+                        column={col}
+                        position={lockedMeta.length + idx + 1}
+                        isSelected={selectedKey === col.columnKey}
+                        isFirst={idx === 0}
+                        isLast={idx === arr.length - 1}
+                        onSelect={() =>
+                          setSelectedKey(
+                            selectedKey === col.columnKey ? null : col.columnKey
+                          )
+                        }
+                        onMoveUp={() => moveUp(col.columnKey)}
+                        onMoveDown={() => moveDown(col.columnKey)}
+                      />
+                    ))}
+                </ul>
+              ) : (
+                <div style={{ ...modalStyles.empty, paddingTop: 24 }}>
+                  No reorderable visible columns.{" "}
+                  <button
+                    type="button"
+                    onClick={() => setTab("all")}
                     style={{
-                      display: "flex",
-                      alignItems: "baseline",
-                      gap: 10,
-                      flex: 1,
-                      minWidth: 0,
+                      background: "none",
+                      border: "none",
+                      color: AX.fgLink,
+                      cursor: "pointer",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      padding: 0,
                     }}
                   >
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        color: AX.fg3,
-                      }}
-                    >
-                      {category.name}
-                    </span>
-                    {category.description && (
-                      <span
+                    Enable some columns first.
+                  </button>
+                </div>
+              )}
+
+              {selectedKey && (
+                <div style={{
+                  margin: "10px 0 4px",
+                  padding: "8px 12px",
+                  background: "#EFF6FF",
+                  border: "1px solid #BFDBFE",
+                  borderRadius: 7,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: 13,
+                  color: "#1D4ED8",
+                }}>
+                  <span style={{ flex: 1 }}>
+                    <strong>
+                      {orderedVisibleMeta.find(c => c.columnKey === selectedKey)?.label}
+                    </strong>{" "}selected · use{" "}
+                    <kbd style={{ ...modalStyles.kbd, borderColor: "#93C5FD", background: "white" }}>↑</kbd>{" "}
+                    <kbd style={{ ...modalStyles.kbd, borderColor: "#93C5FD", background: "white" }}>↓</kbd>{" "}
+                    to move
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedKey(null)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#93C5FD",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      padding: "0 2px",
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {categories.map((category) => {
+                const cols = category.columns.filter(filterCol);
+                if (cols.length === 0) return null;
+                const onCount = category.columns.filter((column) => visible[column.id]).length;
+                return (
+                  <section key={category.id} style={modalStyles.section}>
+                    <header style={modalStyles.sectionHead}>
+                      <div
                         style={{
-                          fontSize: 12,
-                          color: AX.fg3,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
+                          display: "flex",
+                          alignItems: "baseline",
+                          gap: 10,
+                          flex: 1,
+                          minWidth: 0,
                         }}
                       >
-                        {category.description}
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            color: AX.fg3,
+                          }}
+                        >
+                          {category.name}
+                        </span>
+                        {category.description && (
+                          <span
+                            style={{
+                              fontSize: 12,
+                              color: AX.fg3,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {category.description}
+                          </span>
+                        )}
+                      </div>
+                      <span style={modalStyles.sectionCount}>
+                        {onCount}
+                        <span style={{ color: AX.fg4 }}>/{category.columns.length}</span>
                       </span>
-                    )}
-                  </div>
-                  <span style={modalStyles.sectionCount}>
-                    {onCount}
-                    <span style={{ color: AX.fg4 }}>/{category.columns.length}</span>
-                  </span>
-                </header>
-                <ul style={modalStyles.rowList}>
-                  {cols.map((column) => (
-                    <ColumnRow
-                      key={column.id}
-                      column={column}
-                      visible={!!visible[column.id]}
-                      onToggle={(on) => toggle(column.id, on)}
-                    />
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
+                    </header>
+                    <ul style={modalStyles.rowList}>
+                      {cols.map((column) => (
+                        <ColumnRow
+                          key={column.id}
+                          column={column}
+                          visible={!!visible[column.id]}
+                          onToggle={(on) => toggle(column.id, on)}
+                        />
+                      ))}
+                    </ul>
+                  </section>
+                );
+              })}
 
-          {categories.every(
-            (category) => category.columns.filter(filterCol).length === 0
-          ) && (
-            <div style={modalStyles.empty}>
-              No columns match{" "}
-              <span style={{ color: AX.fg1, fontWeight: 600 }}>&quot;{query}&quot;</span>
-              {tab !== "all" && (
-                <>
-                  {" "}
-                  in <em style={{ fontStyle: "normal", fontWeight: 600 }}>{tab}</em>
-                </>
+              {categories.every(
+                (category) => category.columns.filter(filterCol).length === 0
+              ) && (
+                <div style={modalStyles.empty}>
+                  No columns match{" "}
+                  <span style={{ color: AX.fg1, fontWeight: 600 }}>&quot;{query}&quot;</span>
+                  {tab !== "all" && (
+                    <>
+                      {" "}
+                      in <em style={{ fontStyle: "normal", fontWeight: 600 }}>{tab}</em>
+                    </>
+                  )}
+                  .
+                </div>
               )}
-              .
-            </div>
+            </>
           )}
         </div>
 
@@ -629,7 +1051,7 @@ export function ColumnsControlRoom({
             </button>
             <button
               type="button"
-              onClick={() => onApply(visible)}
+              onClick={handleApply}
               style={modalStyles.btnPrimary}
             >
               Apply
@@ -720,8 +1142,10 @@ const modalStyles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "space-between",
     padding: "14px 24px 10px",
+    flexWrap: "wrap",
+    gap: 8,
   },
-  tabs: { display: "flex", gap: 6 },
+  tabs: { display: "flex", gap: 6, flexWrap: "wrap" },
   tab: {
     display: "inline-flex",
     alignItems: "center",
@@ -760,7 +1184,7 @@ const modalStyles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "space-between",
     padding: "0 6px 6px",
-    borderBottom: `1px solid ${AX.gray100}`,
+    borderBottom: `1px solid #E5E7EB`,
     marginBottom: 4,
   },
   sectionCount: {
@@ -810,6 +1234,17 @@ const modalStyles: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     cursor: "pointer",
     boxShadow: "0 1px 2px rgba(3, 112, 170, 0.20)",
+  },
+  kbd: {
+    display: "inline-block",
+    padding: "1px 5px",
+    fontSize: 11,
+    fontFamily: "inherit",
+    background: AX.gray50,
+    border: `1px solid ${AX.gray200}`,
+    borderRadius: 4,
+    color: AX.fg2,
+    fontWeight: 600,
   },
 };
 

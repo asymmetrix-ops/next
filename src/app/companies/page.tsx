@@ -3638,6 +3638,57 @@ const CompanySection = ({
   >(new Map());
   const [companyTableDataLoading, setCompanyTableDataLoading] = useState(false);
 
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
+  const phantomScrollRef = useRef<HTMLDivElement | null>(null);
+  const [tableScrollWidth, setTableScrollWidth] = useState(0);
+  const [showPhantomScroll, setShowPhantomScroll] = useState(false);
+
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      setTableScrollWidth(el.scrollWidth);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowPhantomScroll(!!entry?.isIntersecting),
+      { threshold: 0.01 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const table = tableScrollRef.current;
+    const phantom = phantomScrollRef.current;
+    if (!table || !phantom) return;
+    let syncing = false;
+    const syncFromTable = () => {
+      if (syncing) return;
+      syncing = true;
+      phantom.scrollLeft = table.scrollLeft;
+      syncing = false;
+    };
+    const syncFromPhantom = () => {
+      if (syncing) return;
+      syncing = true;
+      table.scrollLeft = phantom.scrollLeft;
+      syncing = false;
+    };
+    table.addEventListener("scroll", syncFromTable, { passive: true });
+    phantom.addEventListener("scroll", syncFromPhantom, { passive: true });
+    return () => {
+      table.removeEventListener("scroll", syncFromTable);
+      phantom.removeEventListener("scroll", syncFromPhantom);
+    };
+  }, [showPhantomScroll]);
+
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(COMPANIES_COLUMNS_STORAGE_KEY);
@@ -3724,10 +3775,14 @@ const CompanySection = ({
   );
 
   const handleApplyColumnVisibility = useCallback(
-    (visible: Record<string, boolean>) => {
-      setSelectedColumnKeys((current) =>
-        getValidColumnKeys(visibilityToColumnKeys(visible, current))
-      );
+    (visible: Record<string, boolean>, order?: string[]) => {
+      if (order && order.length > 0) {
+        setSelectedColumnKeys(getValidColumnKeys(order));
+      } else {
+        setSelectedColumnKeys((current) =>
+          getValidColumnKeys(visibilityToColumnKeys(visible, current))
+        );
+      }
       setShowColumnsModal(false);
     },
     []
@@ -4585,20 +4640,23 @@ const CompanySection = ({
     .company-table-sticky-logo {
       position: sticky;
       left: 0;
-      z-index: 1;
+      z-index: 3;
       background: #fff;
       box-shadow: 2px 0 4px rgba(15, 23, 42, 0.06);
+      min-width: 88px;
+      max-width: 88px;
+      width: 88px;
     }
     .company-table-sticky-name {
       position: sticky;
-      left: 112px;
-      z-index: 1;
+      left: 88px;
+      z-index: 3;
       background: #fff;
       box-shadow: 2px 0 4px rgba(15, 23, 42, 0.06);
     }
     .company-table thead th.company-table-sticky-logo,
     .company-table thead th.company-table-sticky-name {
-      z-index: 4;
+      z-index: 5;
       background: #f9fafb;
     }
     .company-table td {
@@ -5267,6 +5325,7 @@ const CompanySection = ({
     showColumnsModal &&
       React.createElement(ColumnsControlRoom, {
         initial: columnVisibilityInitial,
+        initialOrder: selectedColumnKeys,
         onClose: () => setShowColumnsModal(false),
         onApply: handleApplyColumnVisibility,
       }),
@@ -5283,7 +5342,7 @@ const CompanySection = ({
     ),
     React.createElement(
       "div",
-      { className: "company-table-scroll" },
+      { className: "company-table-scroll", ref: tableScrollRef },
       React.createElement(
         "table",
         { className: "company-table" },
@@ -5333,6 +5392,29 @@ const CompanySection = ({
         React.createElement("tbody", null, tableRows)
       )
     ),
+    showPhantomScroll &&
+      React.createElement(
+        "div",
+        {
+          ref: phantomScrollRef,
+          style: {
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 14,
+            overflowX: "auto",
+            overflowY: "hidden",
+            zIndex: 50,
+            background: "rgba(255,255,255,0.95)",
+            boxShadow: "0 -1px 6px rgba(0,0,0,0.10)",
+            borderTop: "1px solid #e2e8f0",
+          },
+        },
+        React.createElement("div", {
+          style: { width: tableScrollWidth, height: 1 },
+        })
+      ),
     React.createElement(
       "div",
       { className: "pagination" },
