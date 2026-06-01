@@ -12,19 +12,21 @@ import Image from "next/image";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { locationsService } from "@/lib/locationsService";
-import SearchableSelect from "@/components/ui/SearchableSelect";
 import {
   CompaniesCSVExporter,
   CompanyCSVRow as BaseCompanyCSVRow,
 } from "@/utils/companiesCSVExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
-import { useAuth } from "@/components/providers/AuthProvider";
-import { trackEvent } from "@/lib/tracking";
 import { fetchCompaniesServer, CompaniesFilters as ServerFilters } from "./actions";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
+import {
+  CompaniesFilterBar,
+  FilterBarState,
+  FilterDef,
+  FilterCategory,
+} from "@/components/companies/CompaniesFilterBar";
 import {
   CANONICAL_COMPANY_COLUMN_KEYS,
   DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS,
@@ -257,152 +259,6 @@ interface ExportCompanyJson {
 }
 
 // Shared styles object
-const styles = {
-  container: {
-    backgroundColor: "#f9fafb",
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-  },
-  maxWidth: {
-    padding: "16px",
-    display: "flex" as const,
-    flexDirection: "column" as const,
-    gap: "12px",
-  },
-  card: {
-    backgroundColor: "white",
-    borderRadius: "8px",
-    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-    padding: "16px",
-    marginBottom: "0",
-  },
-  heading: {
-    fontSize: "20px",
-    fontWeight: "700",
-    color: "#1a202c",
-    marginBottom: "4px",
-    marginTop: "0px",
-  },
-  subHeading: {
-    fontSize: "16px",
-    fontWeight: "600",
-    color: "#1a202c",
-    marginBottom: "8px",
-  },
-  searchDiv: {
-    display: "flex" as const,
-    flexDirection: "column" as const,
-  },
-  input: {
-    width: "100%",
-    maxWidth: "560px",
-    padding: "8px 12px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "6px",
-    fontSize: "14px",
-    color: "#4a5568",
-    outline: "none",
-    marginBottom: "8px",
-  },
-  button: {
-    width: "100%",
-    maxWidth: "300px",
-    backgroundColor: "#0075df",
-    color: "white",
-    fontWeight: "600",
-    padding: "8px 12px",
-    borderRadius: "6px",
-    border: "none",
-    cursor: "pointer",
-    marginTop: "4px",
-  },
-  linkButton: {
-    color: "#000",
-    fontWeight: "400",
-    textDecoration: "underline",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "14px",
-    marginTop: "16px",
-  },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(5, 1fr)",
-    gap: "12px 20px",
-    marginBottom: "12px",
-    marginTop: "12px",
-  },
-  gridItem: {
-    display: "flex" as const,
-    flexDirection: "column" as const,
-  },
-  label: {
-    color: "#00050B",
-    fontWeight: "600",
-    fontSize: "16px",
-    marginBottom: "6px",
-    marginTop: "8px",
-  },
-  toggleRow: {
-    display: "flex" as const,
-    gap: "8px",
-    marginBottom: "8px",
-  },
-  toggleButton: {
-    flex: 1,
-    padding: "8px 10px",
-    borderRadius: "6px",
-    border: "1px solid #e2e8f0",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "700",
-    backgroundColor: "#ffffff",
-    color: "#1a202c",
-  },
-  toggleButtonActive: {
-    backgroundColor: "#0075df",
-    borderColor: "#0075df",
-    color: "#ffffff",
-  },
-  select: {
-    width: "100%",
-    padding: "13px 14px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "6px",
-    fontSize: "16px",
-    color: "#718096",
-    outline: "none",
-    marginBottom: "0px",
-    appearance: "none" as const,
-    background:
-      "white url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%234a5568' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E\") no-repeat right 12px center",
-    cursor: "pointer",
-  },
-  rangeInput: {
-    width: "100%",
-    padding: "13px 14px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "6px",
-    fontSize: "16px",
-    color: "#4a5568",
-    outline: "none",
-    marginBottom: "12px",
-  },
-  loading: {
-    textAlign: "center" as const,
-    padding: "20px",
-    color: "#666",
-  },
-  error: {
-    textAlign: "center" as const,
-    padding: "20px",
-    color: "#e53e3e",
-    backgroundColor: "#fed7d7",
-    borderRadius: "6px",
-    marginBottom: "16px",
-  },
-};
 
 // Utility functions
 const formatNumber = (num: number | undefined): string => {
@@ -1261,6 +1117,236 @@ const CompanyDescriptionBase = ({
 const CompanyDescription = React.memo(CompanyDescriptionBase);
 CompanyDescription.displayName = "CompanyDescription";
 
+// ── Filter helpers ─────────────────────────────────────────────────────────
+
+const FILTER_CATEGORIES: FilterCategory[] = [
+  { id: "location",     name: "Location" },
+  { id: "sectors",      name: "Sectors" },
+  { id: "company",      name: "Company details" },
+  { id: "financial",    name: "Financial metrics" },
+  { id: "subscription", name: "Subscription metrics" },
+];
+
+function buildCompaniesFilterDefs({
+  continentalRegions,
+  subRegions,
+  countries,
+  provinces,
+  cities,
+  primarySectors,
+  secondarySectors,
+  ownershipTypes,
+}: {
+  continentalRegions: string[];
+  subRegions: string[];
+  countries: Country[];
+  provinces: Province[];
+  cities: City[];
+  primarySectors: PrimarySector[];
+  secondarySectors: SecondarySector[];
+  ownershipTypes: OwnershipType[];
+}): FilterDef[] {
+  return [
+    // Location
+    { id: "region", label: "Region", fullLabel: "Continental Region", category: "location", type: "Aa", editor: "enum", options: continentalRegions },
+    { id: "sub_region", label: "Sub-region", fullLabel: "Sub-Region", category: "location", type: "Aa", editor: "enum", options: subRegions },
+    { id: "country", label: "Country", fullLabel: "Country", category: "location", type: "Aa", editor: "enum", options: countries.map((c) => c.locations_Country) },
+    { id: "state", label: "State / Province", fullLabel: "State / Province", category: "location", type: "Aa", editor: "enum", options: provinces.map((p) => p.State__Province__County) },
+    { id: "city", label: "City", fullLabel: "City", category: "location", type: "Aa", editor: "enum", options: cities.map((c) => c.City) },
+    // Sectors
+    { id: "primary_sector", label: "Primary sector", fullLabel: "Primary Sector(s)", category: "sectors", type: "Aa", editor: "enum", options: primarySectors.map((s) => s.sector_name) },
+    { id: "secondary_sector", label: "Secondary sector", fullLabel: "Secondary Sector(s)", category: "sectors", type: "Aa", editor: "enum", options: secondarySectors.map((s) => s.sector_name) },
+    { id: "business_focus", label: "Business focus", fullLabel: "Business Focus", category: "sectors", type: "Aa", editor: "segmented", options: ["Pure-play D&A", "Has non-D&A", "Either"] },
+    // Company details
+    { id: "ownership", label: "Ownership", fullLabel: "Ownership Type", category: "company", type: "Aa", editor: "enum", options: ownershipTypes.map((o) => o.ownership) },
+    { id: "transaction", label: "Transaction status", fullLabel: "Transaction Status", category: "company", type: "Aa", editor: "enum", options: ["Rumoured in Market", "Transaction anticipated within 18 months", "Reported in Market"] },
+    { id: "headcount", label: "LinkedIn members", fullLabel: "LinkedIn Members", category: "company", type: "#", editor: "range", min: 0, max: 100000, presets: [["Small <100", 0, 100], ["Mid 100-1k", 100, 1000], ["Large 1k-10k", 1000, 10000], ["Enterprise 10k+", 10000, 100000]] },
+    { id: "headcount_growth", label: "Headcount growth (YoY)", fullLabel: "LinkedIn Growth (%)", category: "company", type: "%", editor: "range", unit: "%", min: -50, max: 200, presets: [["≥10%", 10, 200], ["≥25%", 25, 200], ["≥50%", 50, 200], ["Declining", -50, 0]] },
+    { id: "years_since_inv", label: "Years since last investment", fullLabel: "Years Since Last Investment", category: "company", type: "#", editor: "range", unit: "yrs", min: 0, max: 20, presets: [["0-2y", 0, 2], ["3-5y", 3, 5], ["5+y", 5, 20]] },
+    { id: "followed", label: "Followed only", fullLabel: "Followed companies only", category: "company", type: "Aa", editor: "boolean" },
+    // Financial metrics
+    { id: "revenue", label: "Revenue", fullLabel: "Revenue ($m)", category: "financial", type: "$", editor: "range", unit: "$m", min: 0, max: 5000, presets: [["<$10m", 0, 10], ["$10–50m", 10, 50], ["$50–500m", 50, 500], ["$500m+", 500, 5000]] },
+    { id: "ebitda", label: "EBITDA", fullLabel: "EBITDA ($m)", category: "financial", type: "$", editor: "range", unit: "$m", min: -100, max: 2000, presets: [["Profitable", 0, 2000], ["$10m+", 10, 2000], ["$50m+", 50, 2000]] },
+    { id: "enterprise_value", label: "Enterprise value", fullLabel: "Enterprise Value ($m)", category: "financial", type: "$", editor: "range", unit: "$m", min: 0, max: 50000, presets: [["<$100m", 0, 100], ["$100m–$1b", 100, 1000], ["$1–10b", 1000, 10000], ["Mega", 10000, 50000]] },
+    { id: "rev_growth", label: "Revenue growth", fullLabel: "Revenue Growth (%)", category: "financial", type: "%", editor: "range", unit: "%", min: -50, max: 200, presets: [["≥10%", 10, 200], ["≥25%", 25, 200], ["≥50%", 50, 200]] },
+    { id: "ebitda_margin", label: "EBITDA margin", fullLabel: "EBITDA Margin (%)", category: "financial", type: "%", editor: "range", unit: "%", min: -50, max: 80, presets: [["≥20%", 20, 80], ["≥30%", 30, 80], ["≥40%", 40, 80]] },
+    { id: "rev_multiple", label: "Revenue multiple", fullLabel: "Revenue Multiple (x)", category: "financial", type: "#", editor: "range", unit: "x", min: 0, max: 30, presets: [["<3x", 0, 3], ["3–7x", 3, 7], ["7x+", 7, 30]] },
+    { id: "rule_40", label: "Rule of 40", fullLabel: "Rule of 40 (%)", category: "financial", type: "%", editor: "range", unit: "%", min: 0, max: 150, presets: [["≥40%", 40, 150], ["≥60%", 60, 150]] },
+    // Subscription metrics
+    { id: "arr", label: "ARR", fullLabel: "ARR ($m)", category: "subscription", type: "$", editor: "range", unit: "$m", min: 0, max: 5000, presets: [["$10m+", 10, 5000], ["$50m+", 50, 5000], ["$100m+", 100, 5000]] },
+    { id: "arr_growth", label: "ARR growth", fullLabel: "ARR Growth (%)", category: "subscription", type: "%", editor: "range", unit: "%", min: -20, max: 200, presets: [["≥20%", 20, 200], ["≥40%", 40, 200]] },
+    { id: "churn", label: "Churn", fullLabel: "Churn (%)", category: "subscription", type: "%", editor: "range", unit: "%", min: 0, max: 50, presets: [["<5%", 0, 5], ["<10%", 0, 10]] },
+    { id: "nrr", label: "NRR", fullLabel: "NRR (%)", category: "subscription", type: "%", editor: "range", unit: "%", min: 50, max: 200, presets: [["≥100%", 100, 200], ["≥110%", 110, 200], ["≥120%", 120, 200]] },
+    { id: "grr", label: "GRR", fullLabel: "GRR (%)", category: "subscription", type: "%", editor: "range", unit: "%", min: 50, max: 100, presets: [["≥90%", 90, 100], ["≥95%", 95, 100]] },
+    { id: "new_client_growth", label: "New-client growth", fullLabel: "New Clients Revenue Growth (%)", category: "subscription", type: "%", editor: "range", unit: "%", min: -20, max: 100, presets: [["≥10%", 10, 100], ["≥25%", 25, 100]] },
+  ];
+}
+
+function buildFiltersFromState(
+  state: FilterBarState,
+  data: {
+    primarySectors: PrimarySector[];
+    secondarySectors: SecondarySector[];
+    hybridBusinessFocuses: HybridBusinessFocus[];
+    ownershipTypes: OwnershipType[];
+  }
+): Filters {
+  const f = createDefaultFilters();
+  f.searchQuery = state.searchText.trim();
+
+  for (const item of state.filters) {
+    const v = item.value;
+    if (v == null) continue;
+    switch (item.id) {
+      case "region":
+        f.continentalRegions = Array.isArray(v) ? (v as string[]) : [];
+        break;
+      case "sub_region":
+        f.subRegions = Array.isArray(v) ? (v as string[]) : [];
+        break;
+      case "country":
+        f.countries = Array.isArray(v) ? (v as string[]) : [];
+        break;
+      case "state":
+        f.provinces = Array.isArray(v) ? (v as string[]) : [];
+        break;
+      case "city":
+        f.cities = Array.isArray(v) ? (v as string[]) : [];
+        break;
+      case "primary_sector": {
+        const names = Array.isArray(v) ? (v as string[]) : [];
+        f.primarySectors = names
+          .map((name) => data.primarySectors.find((s) => s.sector_name === name)?.id)
+          .filter((id): id is number => id != null);
+        break;
+      }
+      case "secondary_sector": {
+        const names = Array.isArray(v) ? (v as string[]) : [];
+        f.secondarySectors = names
+          .map((name) => data.secondarySectors.find((s) => s.sector_name === name)?.id)
+          .filter((id): id is number => id != null);
+        break;
+      }
+      case "business_focus": {
+        const seg = v as string;
+        f.exclude_business_focus =
+          seg === "Pure-play D&A" ? true : seg === "Has non-D&A" ? false : null;
+        break;
+      }
+      case "ownership": {
+        const names = Array.isArray(v) ? (v as string[]) : [];
+        f.ownershipTypes = names
+          .map((name) => data.ownershipTypes.find((o) => o.ownership === name)?.id)
+          .filter((id): id is number => id != null);
+        break;
+      }
+      case "transaction":
+        f.transactionStatus = Array.isArray(v) ? (v as string[]) : [];
+        break;
+      case "headcount": {
+        const rv = v as { min?: number; max?: number };
+        f.linkedinMembersMin = rv.min ?? null;
+        f.linkedinMembersMax = rv.max ?? null;
+        break;
+      }
+      case "headcount_growth": {
+        const rv = v as { min?: number; max?: number };
+        f.minGrowthPercent = rv.min ?? null;
+        f.maxGrowthPercent = rv.max ?? null;
+        break;
+      }
+      case "years_since_inv": {
+        const rv = v as { min?: number; max?: number };
+        f.lastInvestmentYearsMin = rv.min ?? null;
+        f.lastInvestmentYearsMax = rv.max ?? null;
+        break;
+      }
+      case "followed":
+        f.portfolio_only = v === true;
+        break;
+      case "revenue": {
+        const rv = v as { min?: number; max?: number };
+        f.revenueMin = rv.min ?? null;
+        f.revenueMax = rv.max ?? null;
+        break;
+      }
+      case "ebitda": {
+        const rv = v as { min?: number; max?: number };
+        f.ebitdaMin = rv.min ?? null;
+        f.ebitdaMax = rv.max ?? null;
+        break;
+      }
+      case "enterprise_value": {
+        const rv = v as { min?: number; max?: number };
+        f.enterpriseValueMin = rv.min ?? null;
+        f.enterpriseValueMax = rv.max ?? null;
+        break;
+      }
+      case "rev_growth": {
+        const rv = v as { min?: number; max?: number };
+        f.revenueGrowthMin = rv.min ?? null;
+        f.revenueGrowthMax = rv.max ?? null;
+        break;
+      }
+      case "ebitda_margin": {
+        const rv = v as { min?: number; max?: number };
+        f.ebitdaMarginMin = rv.min ?? null;
+        f.ebitdaMarginMax = rv.max ?? null;
+        break;
+      }
+      case "rev_multiple": {
+        const rv = v as { min?: number; max?: number };
+        f.revenueMultipleMin = rv.min ?? null;
+        f.revenueMultipleMax = rv.max ?? null;
+        break;
+      }
+      case "rule_40": {
+        const rv = v as { min?: number; max?: number };
+        f.ruleOf40Min = rv.min ?? null;
+        f.ruleOf40Max = rv.max ?? null;
+        break;
+      }
+      case "arr": {
+        const rv = v as { min?: number; max?: number };
+        f.arrMin = rv.min ?? null;
+        f.arrMax = rv.max ?? null;
+        break;
+      }
+      case "arr_growth": {
+        const rv = v as { min?: number; max?: number };
+        f.arrPcMin = rv.min ?? null;
+        f.arrPcMax = rv.max ?? null;
+        break;
+      }
+      case "churn": {
+        const rv = v as { min?: number; max?: number };
+        f.churnMin = rv.min ?? null;
+        f.churnMax = rv.max ?? null;
+        break;
+      }
+      case "nrr": {
+        const rv = v as { min?: number; max?: number };
+        f.nrrMin = rv.min ?? null;
+        f.nrrMax = rv.max ?? null;
+        break;
+      }
+      case "grr": {
+        const rv = v as { min?: number; max?: number };
+        f.grrMin = rv.min ?? null;
+        f.grrMax = rv.max ?? null;
+        break;
+      }
+      case "new_client_growth": {
+        const rv = v as { min?: number; max?: number };
+        f.newClientsRevenueGrowthMin = rv.min ?? null;
+        f.newClientsRevenueGrowthMax = rv.max ?? null;
+        break;
+      }
+    }
+  }
+  return f;
+}
+
 // Filters Component
 const CompanyDashboard = ({
   onSearch,
@@ -1273,6 +1359,9 @@ const CompanyDashboard = ({
     privateCompanies: 0,
     subsidiaryCompanies: 0,
   },
+  onColumnsClick,
+  onExportCSVClick,
+  columnsCount = 0,
 }: {
   onSearch?: (filters: Filters) => void;
   initialSearch?: string;
@@ -1284,2306 +1373,309 @@ const CompanyDashboard = ({
     privateCompanies: number;
     subsidiaryCompanies: number;
   };
+  onColumnsClick?: () => void;
+  onExportCSVClick?: () => void;
+  columnsCount?: number;
 }) => {
-  const { user } = useAuth();
-  const [searchTerm, setSearchTerm] = useState(initialSearch || "");
-  const [keywordSearch] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-  const [pendingPortfolioOnly, setPendingPortfolioOnly] = useState(false);
+  // Unified filter bar state — replaces all the individual selected-* state vars
+  const [filterBarState, setFilterBarState] = useState<FilterBarState>({
+    filters: [],
+    viewId: null,
+    searchText: initialSearch || "",
+  });
 
-  // Filter data state
+  // Ownership quick-filter tab — independent of FilterBar chips
+  type OwnershipTab = "all" | "public" | "pe" | "vc" | "private";
+  const [activeOwnershipTab, setActiveOwnershipTab] = useState<OwnershipTab>("all");
+
+  const OWNERSHIP_TAB_TO_NAME: Record<string, string> = {
+    public: "Public",
+    pe: "PE-owned",
+    vc: "VC-owned",
+    private: "Private",
+  };
+
+  // Option data (fetched from API)
   const [countries, setCountries] = useState<Country[]>([]);
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
-  const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
-    []
-  );
-  const [hybridBusinessFocuses, setHybridBusinessFocuses] = useState<
-    HybridBusinessFocus[]
-  >([]);
+  const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>([]);
+  const [hybridBusinessFocuses, setHybridBusinessFocuses] = useState<HybridBusinessFocus[]>([]);
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipType[]>([]);
 
-  // Selected filters state
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
-  const [selectedContinentalRegions, setSelectedContinentalRegions] = useState<
-    string[]
-  >([]);
-  const [selectedSubRegions, setSelectedSubRegions] = useState<string[]>([]);
-  const [selectedProvinces, setSelectedProvinces] = useState<string[]>([]);
-  const [selectedCities, setSelectedCities] = useState<string[]>([]);
-  const [selectedPrimarySectors, setSelectedPrimarySectors] = useState<
-    number[]
-  >([]);
-  const [selectedSecondarySectors, setSelectedSecondarySectors] = useState<
-    number[]
-  >([]);
-  const [selectedHybridBusinessFocuses, setSelectedHybridBusinessFocuses] =
-    useState<number[]>([]);
-  // null means the business focus filter is not applied yet.
-  const [excludeBusinessFocus, setExcludeBusinessFocus] = useState<boolean | null>(
-    null
-  );
-  const [selectedOwnershipTypes, setSelectedOwnershipTypes] = useState<
-    number[]
-  >([]);
-  const [linkedinMembersMin, setLinkedinMembersMin] = useState<number | null>(
-    null
-  );
-  const [linkedinMembersMax, setLinkedinMembersMax] = useState<number | null>(
-    null
-  );
-  const [lastInvestmentYearsMin, setLastInvestmentYearsMin] =
-    useState<number | null>(null);
-  const [lastInvestmentYearsMax, setLastInvestmentYearsMax] =
-    useState<number | null>(null);
-  // Local display states for linkedin members inputs — committed only on blur/Enter
-  const [linkedinMembersMinInput, setLinkedinMembersMinInput] = useState<string>("");
-  const [linkedinMembersMaxInput, setLinkedinMembersMaxInput] = useState<string>("");
+  // ── Derived selected values for dependent fetches ───────────────────────
+  const selectedCountries = useMemo(() => {
+    const item = filterBarState.filters.find((f) => f.id === "country");
+    return Array.isArray(item?.value) ? (item.value as string[]) : [];
+  }, [filterBarState.filters]);
 
-  // Financial Metrics min/max
-  const [revenueMin, setRevenueMin] = useState<number | null>(null);
-  const [revenueMax, setRevenueMax] = useState<number | null>(null);
-  const [ebitdaMin, setEbitdaMin] = useState<number | null>(null);
-  const [ebitdaMax, setEbitdaMax] = useState<number | null>(null);
-  const [enterpriseValueMin, setEnterpriseValueMin] = useState<number | null>(null);
-  const [enterpriseValueMax, setEnterpriseValueMax] = useState<number | null>(null);
-  const [revenueMultipleMin, setRevenueMultipleMin] = useState<number | null>(null);
-  const [revenueMultipleMax, setRevenueMultipleMax] = useState<number | null>(null);
-  const [revenueGrowthMin, setRevenueGrowthMin] = useState<number | null>(null);
-  const [revenueGrowthMax, setRevenueGrowthMax] = useState<number | null>(null);
-  const [ebitdaMarginMin, setEbitdaMarginMin] = useState<number | null>(null);
-  const [ebitdaMarginMax, setEbitdaMarginMax] = useState<number | null>(null);
-  const [ruleOf40Min, setRuleOf40Min] = useState<number | null>(null);
-  const [ruleOf40Max, setRuleOf40Max] = useState<number | null>(null);
+  const selectedProvinces = useMemo(() => {
+    const item = filterBarState.filters.find((f) => f.id === "state");
+    return Array.isArray(item?.value) ? (item.value as string[]) : [];
+  }, [filterBarState.filters]);
 
-  // Subscription Metrics min/max
-  const [arrMin, setArrMin] = useState<number | null>(null);
-  const [arrMax, setArrMax] = useState<number | null>(null);
-  const [arrPcMin, setArrPcMin] = useState<number | null>(null);
-  const [arrPcMax, setArrPcMax] = useState<number | null>(null);
-  const [churnMin, setChurnMin] = useState<number | null>(null);
-  const [churnMax, setChurnMax] = useState<number | null>(null);
-  const [grrMin, setGrrMin] = useState<number | null>(null);
-  const [grrMax, setGrrMax] = useState<number | null>(null);
-  const [nrrMin, setNrrMin] = useState<number | null>(null);
-  const [nrrMax, setNrrMax] = useState<number | null>(null);
-  const [newClientsRevenueGrowthMin, setNewClientsRevenueGrowthMin] = useState<number | null>(null);
-  const [newClientsRevenueGrowthMax, setNewClientsRevenueGrowthMax] = useState<number | null>(null);
-  const [minGrowthPercent, setMinGrowthPercent] = useState<number | null>(null);
-  const [maxGrowthPercent, setMaxGrowthPercent] = useState<number | null>(null);
-  const [timeFrame, setTimeFrame] = useState<string>("");
+  const selectedPrimaryNames = useMemo(() => {
+    const item = filterBarState.filters.find((f) => f.id === "primary_sector");
+    return Array.isArray(item?.value) ? (item.value as string[]) : [];
+  }, [filterBarState.filters]);
 
-  const [selectedTransactionStatus, setSelectedTransactionStatus] = useState<string[]>(
-    []
-  );
-  const TRANSACTION_STATUS_OPTIONS = [
-    "Rumoured in Market",
-    "Transaction anticipated within 18 months",
-    "Reported in Market",
-  ] as const;
-
-  // Loading states
-  const [loadingCountries, setLoadingCountries] = useState(false);
-  const [loadingProvinces, setLoadingProvinces] = useState(false);
-  const [loadingCities, setLoadingCities] = useState(false);
-  const [loadingPrimarySectors, setLoadingPrimarySectors] = useState(false);
-  const [loadingSecondarySectors, setLoadingSecondarySectors] = useState(false);
-  const [loadingHybridBusinessFocuses, setLoadingHybridBusinessFocuses] =
-    useState(false);
-  const [loadingOwnershipTypes, setLoadingOwnershipTypes] = useState(false);
-
-  // Fetch countries and primary sectors on component mount
+  // ── Reference data fetching ───────────────────────────────────────────
   useEffect(() => {
-    const fetchCountries = async () => {
-      try {
-        setLoadingCountries(true);
-        const countriesData = await locationsService.getCountries();
-        setCountries(countriesData);
-      } catch (error) {
-        console.error("Error fetching countries:", error);
-      } finally {
-        setLoadingCountries(false);
-      }
-    };
-
-    const fetchContinentalRegions = async () => {
-      try {
-        const list = await locationsService.getContinentalRegions();
-        setContinentalRegions(list);
-      } catch (error) {
-        console.error("Error fetching continental regions:", error);
-      }
-    };
-
-    const fetchSubRegions = async () => {
-      try {
-        const list = await locationsService.getSubRegions();
-        setSubRegions(list);
-      } catch (error) {
-        console.error("Error fetching sub-regions:", error);
-      }
-    };
-
-    const fetchPrimarySectors = async () => {
-      try {
-        setLoadingPrimarySectors(true);
-        const sectorsData = await locationsService.getPrimarySectors();
-        setPrimarySectors(sectorsData);
-      } catch (error) {
-        console.error("Error fetching primary sectors:", error);
-      } finally {
-        setLoadingPrimarySectors(false);
-      }
-    };
-
-    const fetchHybridBusinessFocuses = async () => {
-      try {
-        setLoadingHybridBusinessFocuses(true);
-        const hybridData = await locationsService.getHybridBusinessFocuses();
-        setHybridBusinessFocuses(hybridData);
-      } catch (error) {
-        console.error("Error fetching hybrid business focuses:", error);
-      } finally {
-        setLoadingHybridBusinessFocuses(false);
-      }
-    };
-
-    const fetchOwnershipTypes = async () => {
-      try {
-        setLoadingOwnershipTypes(true);
-        const ownershipData = await locationsService.getOwnershipTypes();
-        setOwnershipTypes(ownershipData);
-      } catch (error) {
-        console.error("Error fetching ownership types:", error);
-      } finally {
-        setLoadingOwnershipTypes(false);
-      }
-    };
-
-    fetchCountries();
-    fetchPrimarySectors();
-    fetchContinentalRegions();
-    fetchSubRegions();
-    fetchHybridBusinessFocuses();
-    fetchOwnershipTypes();
+    locationsService.getCountries().then(setCountries).catch(console.error);
+    locationsService.getContinentalRegions().then(setContinentalRegions).catch(console.error);
+    locationsService.getSubRegions().then(setSubRegions).catch(console.error);
+    locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
+    locationsService.getHybridBusinessFocuses().then(setHybridBusinessFocuses).catch(console.error);
+    locationsService.getOwnershipTypes().then(setOwnershipTypes).catch(console.error);
   }, []);
 
-  // Fetch provinces when countries are selected
+  // Provinces depend on selected countries
   useEffect(() => {
-    const fetchProvinces = async () => {
-      if (selectedCountries.length === 0) {
-        setProvinces([]);
-        setSelectedProvinces([]);
-        return;
-      }
-
-      try {
-        setLoadingProvinces(true);
-        const provincesData = await locationsService.getProvinces(
-          selectedCountries
-        );
-        setProvinces(provincesData);
-        // Reset selected provinces when countries change
-        setSelectedProvinces([]);
-      } catch (error) {
-        console.error("Error fetching provinces:", error);
-      } finally {
-        setLoadingProvinces(false);
-      }
-    };
-
-    fetchProvinces();
+    if (selectedCountries.length === 0) { setProvinces([]); return; }
+    locationsService.getProvinces(selectedCountries).then(setProvinces).catch(console.error);
   }, [selectedCountries]);
 
-  // Fetch cities when countries or provinces are selected
+  // Cities depend on selected countries + provinces
   useEffect(() => {
-    const fetchCities = async () => {
-      if (selectedCountries.length === 0) {
-        setCities([]);
-        setSelectedCities([]);
-        return;
-      }
-
-      try {
-        setLoadingCities(true);
-        const citiesData = await locationsService.getCities(
-          selectedCountries,
-          selectedProvinces
-        );
-        setCities(citiesData);
-        // Reset selected cities when countries or provinces change
-        setSelectedCities([]);
-      } catch (error) {
-        console.error("Error fetching cities:", error);
-      } finally {
-        setLoadingCities(false);
-      }
-    };
-
-    fetchCities();
+    if (selectedCountries.length === 0) { setCities([]); return; }
+    locationsService.getCities(selectedCountries, selectedProvinces).then(setCities).catch(console.error);
   }, [selectedCountries, selectedProvinces]);
 
-  const removeCountry = (country: string) => {
-    setSelectedCountries(selectedCountries.filter((c) => c !== country));
-  };
-
-  const removeProvince = (province: string) => {
-    setSelectedProvinces(selectedProvinces.filter((p) => p !== province));
-  };
-
-  const removeCity = (city: string) => {
-    setSelectedCities(selectedCities.filter((c) => c !== city));
-  };
-
-  const removePrimarySector = (sectorId: number) => {
-    setSelectedPrimarySectors(
-      selectedPrimarySectors.filter((s) => s !== sectorId)
-    );
-  };
-
-  // Fetch secondary sectors when primary sectors are selected
+  // Secondary sectors depend on selected primary sectors
   useEffect(() => {
-    const fetchSecondarySectors = async () => {
-      if (selectedPrimarySectors.length === 0) {
-        setSecondarySectors([]);
-        setSelectedSecondarySectors([]);
-        return;
+    if (selectedPrimaryNames.length === 0) { setSecondarySectors([]); return; }
+    const ids = selectedPrimaryNames
+      .map((name) => primarySectors.find((s) => s.sector_name === name)?.id)
+      .filter((id): id is number => id != null);
+    if (ids.length > 0) {
+      locationsService.getSecondarySectors(ids).then(setSecondarySectors).catch(console.error);
+    } else {
+      setSecondarySectors([]);
+    }
+  }, [selectedPrimaryNames, primarySectors]);
+
+  // ── Build dynamic filter defs from API data ────────────────────────────
+  const filterDefs = useMemo(
+    () =>
+      buildCompaniesFilterDefs({
+        continentalRegions,
+        subRegions,
+        countries,
+        provinces,
+        cities,
+        primarySectors,
+        secondarySectors,
+        ownershipTypes,
+      }),
+    [continentalRegions, subRegions, countries, provinces, cities, primarySectors, secondarySectors, ownershipTypes]
+  );
+
+  // ── Auto-search on filter state or ownership tab changes ──────────────
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      const filters = buildFiltersFromState(filterBarState, {
+        primarySectors,
+        secondarySectors,
+        hybridBusinessFocuses,
+        ownershipTypes,
+      });
+      // Merge ownership tab as an extra filter (overrides any chip-level ownership)
+      if (activeOwnershipTab !== "all") {
+        const ownershipName = OWNERSHIP_TAB_TO_NAME[activeOwnershipTab];
+        const ownershipId = ownershipTypes.find((t) => t.ownership === ownershipName)?.id;
+        if (ownershipId) filters.ownershipTypes = [ownershipId];
       }
-
-      try {
-        setLoadingSecondarySectors(true);
-
-        // Get the IDs of selected primary sectors
-        const selectedPrimarySectorIds = primarySectors
-          .filter((sector) => selectedPrimarySectors.includes(sector.id))
-          .map((sector) => sector.id);
-
-        const secondarySectorsData = await locationsService.getSecondarySectors(
-          selectedPrimarySectorIds
-        );
-        setSecondarySectors(secondarySectorsData);
-        // Reset selected secondary sectors when primary sectors change
-        setSelectedSecondarySectors([]);
-      } catch (error) {
-        console.error("Error fetching secondary sectors:", error);
-      } finally {
-        setLoadingSecondarySectors(false);
-      }
+      onSearch?.(filters);
+    }, 350);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
-
-    fetchSecondarySectors();
-  }, [selectedPrimarySectors, primarySectors]);
-
-  const removeSecondarySector = (sectorId: number) => {
-    setSelectedSecondarySectors(
-      selectedSecondarySectors.filter((s) => s !== sectorId)
-    );
-  };
-
-  const removeHybridBusinessFocus = (focusId: number) => {
-    setSelectedHybridBusinessFocuses(
-      selectedHybridBusinessFocuses.filter((f) => f !== focusId)
-    );
-  };
-
-  const removeOwnershipType = (ownershipTypeId: number) => {
-    setSelectedOwnershipTypes(
-      selectedOwnershipTypes.filter((o) => o !== ownershipTypeId)
-    );
-  };
-
-  const removeTransactionStatus = (status: string) => {
-    setSelectedTransactionStatus(
-      selectedTransactionStatus.filter((value) => value !== status)
-    );
-  };
-
-  const handleSearch = useCallback(
-    (overrides?: Partial<
-      Pick<Filters, "exclude_business_focus" | "portfolio_only">
-    >) => {
-      const filters: Filters = {
-        countries: selectedCountries,
-        continentalRegions: selectedContinentalRegions,
-        subRegions: selectedSubRegions,
-        provinces: selectedProvinces,
-        cities: selectedCities,
-        primarySectors: selectedPrimarySectors,
-        secondarySectors: selectedSecondarySectors,
-        hybridBusinessFocuses: selectedHybridBusinessFocuses,
-        exclude_business_focus:
-          overrides?.exclude_business_focus ?? excludeBusinessFocus,
-        ownershipTypes: selectedOwnershipTypes,
-        linkedinMembersMin,
-        linkedinMembersMax,
-        lastInvestmentYearsMin,
-        lastInvestmentYearsMax,
-        searchQuery: searchTerm,
-        keywordSearch: ENABLE_COMPANIES_KEYWORD_SEARCH ? keywordSearch : "",
-        // Financial Metrics min/max
-        revenueMin,
-        revenueMax,
-        ebitdaMin,
-        ebitdaMax,
-        enterpriseValueMin,
-        enterpriseValueMax,
-        revenueMultipleMin,
-        revenueMultipleMax,
-        revenueGrowthMin,
-        revenueGrowthMax,
-        ebitdaMarginMin,
-        ebitdaMarginMax,
-        ruleOf40Min,
-        ruleOf40Max,
-        // Subscription Metrics min/max
-        arrMin,
-        arrMax,
-        arrPcMin,
-        arrPcMax,
-        churnMin,
-        churnMax,
-        grrMin,
-        grrMax,
-        nrrMin,
-        nrrMax,
-        newClientsRevenueGrowthMin,
-        newClientsRevenueGrowthMax,
-        minGrowthPercent,
-        maxGrowthPercent,
-        timeFrame,
-        transactionStatus: selectedTransactionStatus,
-        portfolio_only: overrides?.portfolio_only ?? pendingPortfolioOnly,
-      };
-      console.log("Searching with filters:", filters);
-
-      // Call the search function from parent component
-      if (onSearch) {
-        onSearch(filters);
-      }
-    },
-    [
-      onSearch,
-      selectedCountries,
-      selectedContinentalRegions,
-      selectedSubRegions,
-      selectedProvinces,
-      selectedCities,
-      selectedPrimarySectors,
-      selectedSecondarySectors,
-      selectedHybridBusinessFocuses,
-      excludeBusinessFocus,
-      selectedOwnershipTypes,
-      linkedinMembersMin,
-      linkedinMembersMax,
-      lastInvestmentYearsMin,
-      lastInvestmentYearsMax,
-      searchTerm,
-      keywordSearch,
-      // Financial Metrics min/max
-      revenueMin,
-      revenueMax,
-      ebitdaMin,
-      ebitdaMax,
-      enterpriseValueMin,
-      enterpriseValueMax,
-      revenueMultipleMin,
-      revenueMultipleMax,
-      revenueGrowthMin,
-      revenueGrowthMax,
-      ebitdaMarginMin,
-      ebitdaMarginMax,
-      ruleOf40Min,
-      ruleOf40Max,
-      // Subscription Metrics min/max
-      arrMin,
-      arrMax,
-      arrPcMin,
-      arrPcMax,
-      churnMin,
-      churnMax,
-      grrMin,
-      grrMax,
-      nrrMin,
-      nrrMax,
-      newClientsRevenueGrowthMin,
-      newClientsRevenueGrowthMax,
-      minGrowthPercent,
-      maxGrowthPercent,
-      timeFrame,
-      selectedTransactionStatus,
-      pendingPortfolioOnly,
-    ]
-  );
-
-  const handleFollowedToggle = useCallback(
-    (checked: boolean) => {
-      if (checked === pendingPortfolioOnly) return;
-      setPendingPortfolioOnly(checked);
-      handleSearch({ portfolio_only: checked });
-    },
-    [pendingPortfolioOnly, handleSearch]
-  );
-
-  const handleBusinessFocusToggle = useCallback(
-    (nextExcludeBusinessFocus: boolean) => {
-      if (nextExcludeBusinessFocus === excludeBusinessFocus) return;
-
-      setExcludeBusinessFocus(nextExcludeBusinessFocus);
-      handleSearch({
-        exclude_business_focus: nextExcludeBusinessFocus,
-      });
-    },
-    [excludeBusinessFocus, handleSearch]
-  );
-
-  const handleSearchClick = useCallback(() => {
-    // Fire-and-forget activity tracking (do not block the actual search)
-    try {
-      const parsedUserId = Number.parseInt(String(user?.id || ""), 10);
-      const userId =
-        Number.isFinite(parsedUserId) && parsedUserId > 0
-          ? (parsedUserId as number)
-          : undefined;
-
-      const query =
-        typeof searchTerm === "string" && searchTerm.trim()
-          ? searchTerm.trim()
-          : null;
-
-      const range = (min: number | null, max: number | null) => {
-        if (min == null && max == null) return undefined;
-        return { min, max };
-      };
-
-      const primarySectorsUsed =
-        selectedPrimarySectors.length > 0
-          ? selectedPrimarySectors.map((id) => {
-              const sector = primarySectors.find((s) => s.id === id);
-              return {
-                sector_id: id,
-                sector_name: sector?.sector_name ?? null,
-              };
-            })
-          : undefined;
-
-      const secondarySectorsUsed =
-        selectedSecondarySectors.length > 0
-          ? selectedSecondarySectors.map((id) => {
-              const sector = secondarySectors.find((s) => s.id === id);
-              return {
-                sector_id: id,
-                sector_name: sector?.sector_name ?? null,
-              };
-            })
-          : undefined;
-
-      const ownershipTypesUsed =
-        selectedOwnershipTypes.length > 0
-          ? selectedOwnershipTypes.map((id) => {
-              const o = ownershipTypes.find((x) => x.id === id);
-              return {
-                ownership_type_id: id,
-                ownership_type_name: o?.ownership ?? null,
-              };
-            })
-          : undefined;
-
-      const hybridFocusUsed =
-        selectedHybridBusinessFocuses.length > 0
-          ? {
-              mode:
-                excludeBusinessFocus === true
-                  ? "without"
-                  : excludeBusinessFocus === false
-                    ? "with"
-                    : null,
-              focuses: selectedHybridBusinessFocuses.map((id) => {
-                const f = hybridBusinessFocuses.find((x) => x.id === id);
-                return {
-                  focus_id: id,
-                  focus_name: f?.business_focus ?? null,
-                };
-              }),
-            }
-          : undefined;
-
-      const filtersUsed: Record<string, unknown> = {};
-
-      if (selectedContinentalRegions.length > 0) {
-        filtersUsed.continental_regions = selectedContinentalRegions.slice();
-      }
-      if (selectedSubRegions.length > 0) {
-        filtersUsed.sub_regions = selectedSubRegions.slice();
-      }
-      if (selectedCountries.length > 0) {
-        filtersUsed.countries = selectedCountries.slice();
-      }
-      if (selectedProvinces.length > 0) {
-        filtersUsed.provinces = selectedProvinces.slice();
-      }
-      if (selectedCities.length > 0) {
-        filtersUsed.cities = selectedCities.slice();
-      }
-      if (primarySectorsUsed) {
-        filtersUsed.primary_sectors = primarySectorsUsed;
-      }
-      if (secondarySectorsUsed) {
-        filtersUsed.secondary_sectors = secondarySectorsUsed;
-      }
-      if (ownershipTypesUsed) {
-        filtersUsed.ownership_types = ownershipTypesUsed;
-      }
-      if (hybridFocusUsed) {
-        filtersUsed.hybrid_business_focus = hybridFocusUsed;
-      }
-      if (selectedTransactionStatus.length > 0) {
-        filtersUsed.transaction_statuses = selectedTransactionStatus.slice();
-      }
-      if (pendingPortfolioOnly) {
-        filtersUsed.portfolio_only = true;
-      }
-
-      const linkedinRange = range(linkedinMembersMin, linkedinMembersMax);
-      if (linkedinRange) {
-        filtersUsed.linkedin_members = linkedinRange;
-      }
-      const lastInvestmentRange = range(
-        lastInvestmentYearsMin,
-        lastInvestmentYearsMax
-      );
-      if (lastInvestmentRange) {
-        filtersUsed.years_since_last_investment = lastInvestmentRange;
-      }
-
-      const financial: Record<string, unknown> = {};
-      const revenueRange = range(revenueMin, revenueMax);
-      const ebitdaRange = range(ebitdaMin, ebitdaMax);
-      const evRange = range(enterpriseValueMin, enterpriseValueMax);
-      const revenueMultipleRange = range(revenueMultipleMin, revenueMultipleMax);
-      const revenueGrowthRange = range(revenueGrowthMin, revenueGrowthMax);
-      const ebitdaMarginRange = range(ebitdaMarginMin, ebitdaMarginMax);
-      const ruleOf40Range = range(ruleOf40Min, ruleOf40Max);
-      if (revenueRange) financial.revenue_m = revenueRange;
-      if (ebitdaRange) financial.ebitda_m = ebitdaRange;
-      if (evRange) financial.enterprise_value_m = evRange;
-      if (revenueMultipleRange) financial.revenue_multiple_x = revenueMultipleRange;
-      if (revenueGrowthRange) financial.revenue_growth_pct = revenueGrowthRange;
-      if (ebitdaMarginRange) financial.ebitda_margin_pct = ebitdaMarginRange;
-      if (ruleOf40Range) financial.rule_of_40_pct = ruleOf40Range;
-      if (Object.keys(financial).length > 0) {
-        filtersUsed.financial_metrics = financial;
-      }
-
-      const subscription: Record<string, unknown> = {};
-      const arrRange = range(arrMin, arrMax);
-      const arrPcRange = range(arrPcMin, arrPcMax);
-      const churnRange = range(churnMin, churnMax);
-      const grrRange = range(grrMin, grrMax);
-      const nrrRange = range(nrrMin, nrrMax);
-      const newClientsRange = range(
-        newClientsRevenueGrowthMin,
-        newClientsRevenueGrowthMax
-      );
-      if (arrRange) subscription.arr_m = arrRange;
-      if (arrPcRange) subscription.arr_pct = arrPcRange;
-      if (churnRange) subscription.churn_pct = churnRange;
-      if (grrRange) subscription.grr_pct = grrRange;
-      if (nrrRange) subscription.nrr_pct = nrrRange;
-      if (newClientsRange)
-        subscription.new_clients_revenue_growth_pct = newClientsRange;
-      if (Object.keys(subscription).length > 0) {
-        filtersUsed.subscription_metrics = subscription;
-      }
-
-      trackEvent({
-        eventType: "company_search",
-        userId,
-        pageHeading: "Asymmetrix – Companies",
-        query,
-        filtersUsed,
-      });
-    } catch {
-      // ignore tracking failures
-    }
-
-    handleSearch();
-  }, [
-    user?.id,
-    searchTerm,
-    selectedContinentalRegions,
-    selectedSubRegions,
-    selectedCountries,
-    selectedProvinces,
-    selectedCities,
-    selectedPrimarySectors,
-    selectedSecondarySectors,
-    selectedOwnershipTypes,
-    selectedTransactionStatus,
-    selectedHybridBusinessFocuses,
-    excludeBusinessFocus,
-    primarySectors,
-    secondarySectors,
-    ownershipTypes,
-    hybridBusinessFocuses,
-    linkedinMembersMin,
-    linkedinMembersMax,
-    lastInvestmentYearsMin,
-    lastInvestmentYearsMax,
-    revenueMin,
-    revenueMax,
-    ebitdaMin,
-    ebitdaMax,
-    enterpriseValueMin,
-    enterpriseValueMax,
-    revenueMultipleMin,
-    revenueMultipleMax,
-    revenueGrowthMin,
-    revenueGrowthMax,
-    ebitdaMarginMin,
-    ebitdaMarginMax,
-    ruleOf40Min,
-    ruleOf40Max,
-    arrMin,
-    arrMax,
-    arrPcMin,
-    arrPcMax,
-    churnMin,
-    churnMax,
-    grrMin,
-    grrMax,
-    nrrMin,
-    nrrMax,
-    newClientsRevenueGrowthMin,
-    newClientsRevenueGrowthMax,
-    pendingPortfolioOnly,
-    handleSearch,
-  ]);
-
-  const handleResetFilters = useCallback(() => {
-    setSearchTerm("");
-    setSelectedContinentalRegions([]);
-    setSelectedSubRegions([]);
-    setSelectedCountries([]);
-    setSelectedProvinces([]);
-    setSelectedCities([]);
-    setSelectedPrimarySectors([]);
-    setSelectedSecondarySectors([]);
-    setSelectedHybridBusinessFocuses([]);
-    setExcludeBusinessFocus(null);
-    setSelectedOwnershipTypes([]);
-    setLinkedinMembersMin(null);
-    setLinkedinMembersMax(null);
-    setLastInvestmentYearsMin(null);
-    setLastInvestmentYearsMax(null);
-    setLinkedinMembersMinInput("");
-    setLinkedinMembersMaxInput("");
-    setRevenueMin(null);
-    setRevenueMax(null);
-    setEbitdaMin(null);
-    setEbitdaMax(null);
-    setEnterpriseValueMin(null);
-    setEnterpriseValueMax(null);
-    setRevenueMultipleMin(null);
-    setRevenueMultipleMax(null);
-    setRevenueGrowthMin(null);
-    setRevenueGrowthMax(null);
-    setEbitdaMarginMin(null);
-    setEbitdaMarginMax(null);
-    setRuleOf40Min(null);
-    setRuleOf40Max(null);
-    setArrMin(null);
-    setArrMax(null);
-    setArrPcMin(null);
-    setArrPcMax(null);
-    setChurnMin(null);
-    setChurnMax(null);
-    setGrrMin(null);
-    setGrrMax(null);
-    setNrrMin(null);
-    setNrrMax(null);
-    setNewClientsRevenueGrowthMin(null);
-    setNewClientsRevenueGrowthMax(null);
-    setMinGrowthPercent(null);
-    setMaxGrowthPercent(null);
-    setTimeFrame("");
-    setSelectedTransactionStatus([]);
-    setPendingPortfolioOnly(false);
-    if (onSearch) onSearch(createDefaultFilters());
-  }, [onSearch]);
-
-  // Auto-run search if initialSearch prop is provided
-  useEffect(() => {
-    if (initialSearch) {
-      setSearchTerm(initialSearch);
-      handleSearch(); // Trigger search with initial term
-    }
-  }, [initialSearch, handleSearch]);
-
-  // Auto-apply new location filters without requiring a button click
-  useEffect(() => {
-    // Only trigger when user has applied at least one of the new filters
-    if (
-      selectedContinentalRegions.length > 0 ||
-      selectedSubRegions.length > 0
-    ) {
-      handleSearch();
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedContinentalRegions, selectedSubRegions]);
+  }, [filterBarState, activeOwnershipTab]);
+
+  // ── Ownership tabs data ────────────────────────────────────────────────
+  const totalOwnership =
+    ownershipCounts.publicCompanies +
+    ownershipCounts.peOwnedCompanies +
+    ownershipCounts.vcOwnedCompanies +
+    ownershipCounts.privateCompanies +
+    ownershipCounts.subsidiaryCompanies;
+
+  const ownershipTabs: { id: OwnershipTab; label: string; count: number; dot: string }[] = [
+    { id: "all",     label: "All",      count: totalOwnership,                       dot: "#64748b" },
+    { id: "public",  label: "Public",   count: ownershipCounts.publicCompanies,       dot: "#7c3aed" },
+    { id: "pe",      label: "PE-owned", count: ownershipCounts.peOwnedCompanies,      dot: "#0ea5e9" },
+    { id: "vc",      label: "VC-owned", count: ownershipCounts.vcOwnedCompanies,      dot: "#10b981" },
+    { id: "private", label: "Private",  count: ownershipCounts.privateCompanies,      dot: "#f59e0b" },
+  ];
 
   return (
-    <div style={styles.container}>
-      <div style={styles.maxWidth}>
+    <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+      <div style={{ width: "100%", padding: "20px 28px 0" }}>
+
+        {/* ── Header row: eyebrow + title + action buttons ── */}
         <div
           style={{
-            ...styles.card,
-            ...(showFilters ? {} : { padding: "12px 16px" }),
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 16,
+            flexWrap: "wrap",
+            marginBottom: 18,
           }}
-          className="filters-card"
         >
-          {/* Page Title */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "12px",
-              flexWrap: "wrap",
-              marginBottom: "16px",
-            }}
-          >
-            <h2
-              style={{ ...styles.heading, marginBottom: 0 }}
-              className="filters-heading"
+          <div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.09em",
+                textTransform: "uppercase",
+                color: "#94a3b8",
+                marginBottom: 5,
+              }}
             >
               Companies
-            </h2>
-            <RequestDataResearchButton
-              label="Request Company Profile"
-              context="company"
-              sourcePage="Companies Search"
-            />
+            </div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 26,
+                fontWeight: 700,
+                color: "#0f172a",
+                display: "flex",
+                alignItems: "baseline",
+                gap: 10,
+                lineHeight: 1.2,
+              }}
+            >
+              Company search
+              <span style={{ fontSize: 16, fontWeight: 400, color: "#94a3b8" }}>
+                {totalCount.toLocaleString()} matches
+              </span>
+            </h1>
           </div>
 
-          {/* Stat cards row – 5 cards: type name, X companies */}
-          <div
-            style={{
-              display: "flex",
-              gap: "12px",
-              flexWrap: "wrap",
-              marginBottom: "16px",
-            }}
-          >
-            {[
-              {
-                label: "Companies",
-                value: totalCount,
-                color: "#2563EB",
-                letter: "C",
-              },
-              {
-                label: "Public",
-                value: ownershipCounts.publicCompanies,
-                color: "#0891B2",
-                letter: "P",
-              },
-              {
-                label: "PE-owned",
-                value: ownershipCounts.peOwnedCompanies,
-                color: "#7C3AED",
-                letter: "PE",
-              },
-              {
-                label: "VC-owned",
-                value: ownershipCounts.vcOwnedCompanies,
-                color: "#059669",
-                letter: "VC",
-              },
-              {
-                label: "Private",
-                value: ownershipCounts.privateCompanies,
-                color: "#b45309",
-                letter: "Pr",
-              },
-            ].map((card) => (
-              <div
-                key={card.label}
+          {/* Action buttons */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 6 }}>
+            <button
+              onClick={onColumnsClick}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                height: 36, padding: "0 14px",
+                background: "#fff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 8,
+                fontSize: 13, fontWeight: 500, color: "#374151",
+                cursor: "pointer",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+              }}
+            >
+              <svg width="14" height="10" viewBox="0 0 14 10" fill="none" aria-hidden="true">
+                <path d="M0 1h14M0 5h10M0 9h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              Columns {columnsCount}/{ALL_COMPANY_COLUMN_KEYS.length}
+            </button>
+            <button
+              onClick={onExportCSVClick}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                height: 36, padding: "0 14px",
+                background: "#fff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 8,
+                fontSize: 13, fontWeight: 500, color: "#374151",
+                cursor: "pointer",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+              }}
+            >
+              <svg width="12" height="14" viewBox="0 0 12 14" fill="none" aria-hidden="true">
+                <path d="M6 1v8M3 6l3 3 3-3M1 13h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Export CSV
+            </button>
+            <button
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                height: 36, padding: "0 16px",
+                background: "#0f172a", color: "#fff",
+                border: "none", borderRadius: 8,
+                fontSize: 13, fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              + Add to portfolio
+            </button>
+          </div>
+        </div>
+
+        {/* ── Ownership quick-filter tabs ── */}
+        <div style={{ display: "flex", gap: 4 }}>
+          {ownershipTabs.map((tab) => {
+            const active = activeOwnershipTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveOwnershipTab(tab.id)}
                 style={{
-                  flex: "1 1 160px",
-                  minWidth: "140px",
-                  background: "#fff",
-                  border: "1px solid #E2E8F0",
-                  borderRadius: "8px",
-                  padding: "12px 14px",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                  display: "flex", alignItems: "center", gap: 6,
+                  height: 34, padding: "0 14px",
+                  background: active ? "#0f172a" : "transparent",
+                  color: active ? "#fff" : "#64748b",
+                  border: "1px solid",
+                  borderColor: active ? "#0f172a" : "transparent",
+                  borderBottom: "none",
+                  borderRadius: "8px 8px 0 0",
+                  fontSize: 13, fontWeight: active ? 600 : 500,
+                  cursor: "pointer",
+                  transition: "background 0.12s, color 0.12s",
+                  whiteSpace: "nowrap",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-                  <div
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: "50%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "10px",
-                      fontWeight: 700,
-                      color: "#fff",
-                      flexShrink: 0,
-                      background: card.color,
-                    }}
-                  >
-                    {card.letter}
-                  </div>
-                  <span style={{ fontSize: "14px", fontWeight: 600, color: "#1a202c" }}>
-                    {card.label}
-                  </span>
-                </div>
-                <div style={{ fontSize: "13px", color: "#64748B" }}>
-                  <span style={{ fontWeight: 700, color: "#0F172A", fontSize: "15px" }}>
-                    {card.value.toLocaleString()}
-                  </span>{" "}
-                  companies
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Search row - input, actions, and develop-only portfolio filter */}
-          <div className="companies-search-row">
-            <input
-              type="text"
-              placeholder="Enter company name here"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="companies-search-input filters-input"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSearchClick();
-              }}
-            />
-            <button
-              type="button"
-              className="companies-search-button companies-search-button-primary filters-button"
-              onClick={handleSearchClick}
-            >
-              Search
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowFilters(!showFilters)}
-              className="companies-search-button companies-search-button-secondary"
-              style={{
-                backgroundColor: "#fff",
-                color: "#1a202c",
-                border: "1px solid #e2e8f0",
-                fontWeight: 500,
-              }}
-            >
-              {showFilters ? "Hide Filters" : "Show Filters"}
-            </button>
-            <button
-              type="button"
-              onClick={handleResetFilters}
-              className="companies-search-button companies-search-button-secondary"
-              style={{
-                backgroundColor: "#fff",
-                color: "#1a202c",
-                border: "1px solid #e2e8f0",
-                fontWeight: 500,
-              }}
-            >
-              Reset Filters
-            </button>
-            <label className="followed-filter-card">
-              <input
-                type="checkbox"
-                checked={pendingPortfolioOnly}
-                onChange={(e) => handleFollowedToggle(e.target.checked)}
-                className="followed-filter-checkbox"
-              />
-              <span className="followed-filter-content">
-                <span className="followed-filter-title">Followed Only</span>
-                <span className="followed-filter-description">
-                  Show companies tagged to your followed sectors or portfolio.
+                <span
+                  style={{
+                    width: 7, height: 7, borderRadius: "50%",
+                    background: active ? "rgba(255,255,255,0.7)" : tab.dot,
+                    flexShrink: 0,
+                  }}
+                />
+                {tab.label}
+                <span style={{ fontSize: 12, opacity: 0.75 }}>
+                  {tab.count.toLocaleString()}
                 </span>
-              </span>
-            </label>
-          </div>
-
-          {showFilters && (
-            <div style={styles.grid} className="filters-grid">
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Location
-                </h3>
-                <span style={styles.label}>By Continental Region</span>
-                <SearchableSelect
-                  options={continentalRegions.map((r) => ({
-                    value: r,
-                    label: r,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedContinentalRegions.includes(value)
-                    ) {
-                      setSelectedContinentalRegions([
-                        ...selectedContinentalRegions,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder={"Select Continental Region"}
-                  style={styles.select}
-                />
-                {selectedContinentalRegions.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "6px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedContinentalRegions.map((r) => (
-                      <span
-                        key={r}
-                        style={{
-                          backgroundColor: "#e3f2fd",
-                          color: "#1976d2",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {r}
-                        <button
-                          onClick={() =>
-                            setSelectedContinentalRegions(
-                              selectedContinentalRegions.filter((x) => x !== r)
-                            )
-                          }
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#1976d2",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <span style={styles.label}>By Sub-Region</span>
-                <SearchableSelect
-                  options={subRegions.map((r) => ({ value: r, label: r }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedSubRegions.includes(value)
-                    ) {
-                      setSelectedSubRegions([...selectedSubRegions, value]);
-                    }
-                  }}
-                  placeholder={"Select Sub-Region"}
-                  style={styles.select}
-                />
-                {selectedSubRegions.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "6px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedSubRegions.map((r) => (
-                      <span
-                        key={r}
-                        style={{
-                          backgroundColor: "#e3f2fd",
-                          color: "#1976d2",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {r}
-                        <button
-                          onClick={() =>
-                            setSelectedSubRegions(
-                              selectedSubRegions.filter((x) => x !== r)
-                            )
-                          }
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#1976d2",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <span style={styles.label}>By Country</span>
-                <SearchableSelect
-                  options={countries.map((country) => ({
-                    value: country.locations_Country,
-                    label: country.locations_Country,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedCountries.includes(value)
-                    ) {
-                      setSelectedCountries([...selectedCountries, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingCountries ? "Loading countries..." : "Select Country"
-                  }
-                  disabled={loadingCountries}
-                  style={styles.select}
-                />
-
-                {/* Selected Countries Tags */}
-                {selectedCountries.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedCountries.map((country) => (
-                      <span
-                        key={country}
-                        style={{
-                          backgroundColor: "#e3f2fd",
-                          color: "#1976d2",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {country}
-                        <button
-                          onClick={() => removeCountry(country)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#1976d2",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <span style={styles.label}>By State/County/Province</span>
-                <SearchableSelect
-                  options={provinces.map((province) => ({
-                    value: province.State__Province__County,
-                    label: province.State__Province__County,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedProvinces.includes(value)
-                    ) {
-                      setSelectedProvinces([...selectedProvinces, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingProvinces
-                      ? "Loading provinces..."
-                      : selectedCountries.length === 0
-                      ? "Select country first"
-                      : "Select Province"
-                  }
-                  disabled={loadingProvinces || selectedCountries.length === 0}
-                  style={styles.select}
-                />
-
-                {/* Selected Provinces Tags */}
-                {selectedProvinces.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedProvinces.map((province) => (
-                      <span
-                        key={province}
-                        style={{
-                          backgroundColor: "#e8f5e8",
-                          color: "#2e7d32",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {province}
-                        <button
-                          onClick={() => removeProvince(province)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#2e7d32",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <span style={styles.label}>By City</span>
-                <SearchableSelect
-                  options={cities.map((city) => ({
-                    value: city.City,
-                    label: city.City,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedCities.includes(value)
-                    ) {
-                      setSelectedCities([...selectedCities, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingCities
-                      ? "Loading cities..."
-                      : selectedCountries.length === 0
-                      ? "Select country first"
-                      : "Select City"
-                  }
-                  disabled={loadingCities || selectedCountries.length === 0}
-                  style={styles.select}
-                />
-
-                {/* Selected Cities Tags */}
-                {selectedCities.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedCities.map((city) => (
-                      <span
-                        key={city}
-                        style={{
-                          backgroundColor: "#fff3e0",
-                          color: "#f57c00",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {city}
-                        <button
-                          onClick={() => removeCity(city)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#f57c00",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Sectors
-                </h3>
-                <span style={styles.label}>By Primary Sectors</span>
-                <SearchableSelect
-                  options={primarySectors.map((sector) => ({
-                    value: sector.id,
-                    label: sector.sector_name,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "number" &&
-                      value &&
-                      !selectedPrimarySectors.includes(value)
-                    ) {
-                      setSelectedPrimarySectors([
-                        ...selectedPrimarySectors,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder={
-                    loadingPrimarySectors
-                      ? "Loading sectors..."
-                      : "Select Primary Sector"
-                  }
-                  disabled={loadingPrimarySectors}
-                  style={styles.select}
-                />
-
-                {/* Selected Primary Sectors Tags */}
-                {selectedPrimarySectors.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedPrimarySectors.map((sectorId) => {
-                      const sector = primarySectors.find(
-                        (s) => s.id === sectorId
-                      );
-                      return (
-                        <span
-                          key={sectorId}
-                          style={{
-                            backgroundColor: "#f3e5f5",
-                            color: "#7b1fa2",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            fontSize: "12px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          {sector?.sector_name || `Sector ${sectorId}`}
-                          <button
-                            onClick={() => removePrimarySector(sectorId)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#7b1fa2",
-                              cursor: "pointer",
-                              fontWeight: "bold",
-                              fontSize: "14px",
-                            }}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-                <span style={styles.label}>By Secondary Sectors</span>
-                <SearchableSelect
-                  options={secondarySectors.map((sector) => ({
-                    value: sector.id,
-                    label: sector.sector_name,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "number" &&
-                      value &&
-                      !selectedSecondarySectors.includes(value)
-                    ) {
-                      setSelectedSecondarySectors([
-                        ...selectedSecondarySectors,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder={
-                    loadingSecondarySectors
-                      ? "Loading sectors..."
-                      : selectedPrimarySectors.length === 0
-                      ? "Select primary sectors first"
-                      : "Select Secondary Sector"
-                  }
-                  disabled={
-                    loadingSecondarySectors ||
-                    selectedPrimarySectors.length === 0
-                  }
-                  style={styles.select}
-                />
-
-                {/* Selected Secondary Sectors Tags */}
-                {selectedSecondarySectors.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedSecondarySectors.map((sectorId) => {
-                      const sector = secondarySectors.find(
-                        (s) => s.id === sectorId
-                      );
-                      return (
-                        <span
-                          key={sectorId}
-                          style={{
-                            backgroundColor: "#e8f5e8",
-                            color: "#2e7d32",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            fontSize: "12px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          {sector?.sector_name || `Sector ${sectorId}`}
-                          <button
-                            onClick={() => removeSecondarySector(sectorId)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#2e7d32",
-                              cursor: "pointer",
-                              fontWeight: "bold",
-                              fontSize: "14px",
-                            }}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <span style={styles.label}>
-                Data & Analytics Companies with/without non-D&A Products/Services
-                </span>
-                <div style={styles.toggleRow}>
-                  <button
-                    type="button"
-                    onClick={() => handleBusinessFocusToggle(true)}
-                    aria-pressed={excludeBusinessFocus === true}
-                    style={{
-                      ...styles.toggleButton,
-                      ...(excludeBusinessFocus === true
-                        ? styles.toggleButtonActive
-                        : {}),
-                    }}
-                  >
-                    Without
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleBusinessFocusToggle(false)}
-                    aria-pressed={excludeBusinessFocus === false}
-                    style={{
-                      ...styles.toggleButton,
-                      ...(excludeBusinessFocus === false
-                        ? styles.toggleButtonActive
-                        : {}),
-                    }}
-                  >
-                    With
-                  </button>
-                </div>
-                <SearchableSelect
-                  options={hybridBusinessFocuses.map((focus) => ({
-                    value: focus.id,
-                    label: focus.business_focus,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "number" &&
-                      value &&
-                      !selectedHybridBusinessFocuses.includes(value)
-                    ) {
-                      setSelectedHybridBusinessFocuses([
-                        ...selectedHybridBusinessFocuses,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder={
-                    loadingHybridBusinessFocuses
-                      ? "Loading business focuses..."
-                      : "Select Business Focus"
-                  }
-                  disabled={loadingHybridBusinessFocuses}
-                  style={styles.select}
-                />
-
-                {/* Selected Hybrid Business Focuses Tags */}
-                {selectedHybridBusinessFocuses.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedHybridBusinessFocuses.map((focusId) => {
-                      const focus = hybridBusinessFocuses.find(
-                        (f) => f.id === focusId
-                      );
-                      return (
-                        <span
-                          key={focusId}
-                          style={{
-                            backgroundColor: "#fff8e1",
-                            color: "#f57f17",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            fontSize: "12px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          {focus?.business_focus || `Focus ${focusId}`}
-                          <button
-                            onClick={() => removeHybridBusinessFocus(focusId)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#f57f17",
-                              cursor: "pointer",
-                              fontWeight: "bold",
-                              fontSize: "14px",
-                            }}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Company Details
-                </h3>
-                <span style={styles.label}>By Ownership Type</span>
-                <SearchableSelect
-                  options={ownershipTypes.map((ownershipType) => ({
-                    value: ownershipType.id,
-                    label: ownershipType.ownership,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "number" &&
-                      value &&
-                      !selectedOwnershipTypes.includes(value)
-                    ) {
-                      setSelectedOwnershipTypes([
-                        ...selectedOwnershipTypes,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder={
-                    loadingOwnershipTypes
-                      ? "Loading ownership types..."
-                      : "Select Ownership Type"
-                  }
-                  disabled={loadingOwnershipTypes}
-                  style={styles.select}
-                />
-
-                {/* Selected Ownership Types Tags */}
-                {selectedOwnershipTypes.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedOwnershipTypes.map((ownershipTypeId) => {
-                      const ownershipType = ownershipTypes.find(
-                        (o) => o.id === ownershipTypeId
-                      );
-                      return (
-                        <span
-                          key={ownershipTypeId}
-                          style={{
-                            backgroundColor: "#f3e5f5",
-                            color: "#7b1fa2",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            fontSize: "12px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          {ownershipType?.ownership ||
-                            `Ownership ${ownershipTypeId}`}
-                          <button
-                            onClick={() => removeOwnershipType(ownershipTypeId)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#7b1fa2",
-                              cursor: "pointer",
-                              fontWeight: "bold",
-                              fontSize: "14px",
-                            }}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-                <span style={styles.label}>Transaction Status</span>
-                <SearchableSelect
-                  options={TRANSACTION_STATUS_OPTIONS.map((opt) => ({
-                    value: opt,
-                    label: opt,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedTransactionStatus.includes(value)
-                    ) {
-                      setSelectedTransactionStatus([
-                        ...selectedTransactionStatus,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder="All Transaction Statuses"
-                  style={styles.select}
-                />
-                {selectedTransactionStatus.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "8px",
-                      marginBottom: "12px",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "4px",
-                    }}
-                  >
-                    {selectedTransactionStatus.map((status) => (
-                      <span
-                        key={status}
-                        style={{
-                          backgroundColor: "#e0f2fe",
-                          color: "#0369a1",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {status}
-                        <button
-                          onClick={() => removeTransactionStatus(status)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#0369a1",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            fontSize: "14px",
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <span style={styles.label}>LinkedIn Members Range</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={linkedinMembersMinInput}
-                    onChange={(e) => setLinkedinMembersMinInput(e.target.value)}
-                    onBlur={(e) =>
-                      setLinkedinMembersMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        const val = (e.target as HTMLInputElement).value;
-                        setLinkedinMembersMin(val ? Number(val) : null);
-                      }
-                    }}
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={linkedinMembersMaxInput}
-                    onChange={(e) => setLinkedinMembersMaxInput(e.target.value)}
-                    onBlur={(e) =>
-                      setLinkedinMembersMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        const val = (e.target as HTMLInputElement).value;
-                        setLinkedinMembersMax(val ? Number(val) : null);
-                      }
-                    }}
-                  />
-                </div>
-
-                <span style={styles.label}>LinkedIn Growth (%) Range</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min %"
-                    value={minGrowthPercent ?? ""}
-                    onChange={(e) =>
-                      setMinGrowthPercent(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max %"
-                    value={maxGrowthPercent ?? ""}
-                    onChange={(e) =>
-                      setMaxGrowthPercent(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>Years Since Last Investment</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min years"
-                    value={lastInvestmentYearsMin ?? ""}
-                    onChange={(e) =>
-                      setLastInvestmentYearsMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max years"
-                    value={lastInvestmentYearsMax ?? ""}
-                    onChange={(e) =>
-                      setLastInvestmentYearsMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>Growth Time Frame</span>
-                <select
-                  style={styles.select}
-                  value={timeFrame}
-                  onChange={(e) => setTimeFrame(e.target.value)}
-                >
-                  <option value="">Select Time Frame</option>
-                  <option value="Last Quarter">Last Quarter</option>
-                  <option value="Last Year">Last Year</option>
-                  <option value="Last 4 Quarters">Last 4 Quarters</option>
-                  <option value="YTD">YTD</option>
-                  <option value="Last 2 Years">Last 2 Years</option>
-                </select>
-              </div>
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Financial Metrics
-                </h3>
-                <span style={styles.label}>Revenue ($m)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={revenueMin ?? ""}
-                    onChange={(e) =>
-                      setRevenueMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={revenueMax ?? ""}
-                    onChange={(e) =>
-                      setRevenueMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>EBITDA ($m)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={ebitdaMin ?? ""}
-                    onChange={(e) =>
-                      setEbitdaMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={ebitdaMax ?? ""}
-                    onChange={(e) =>
-                      setEbitdaMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>Enterprise Value ($m)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={enterpriseValueMin ?? ""}
-                    onChange={(e) =>
-                      setEnterpriseValueMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={enterpriseValueMax ?? ""}
-                    onChange={(e) =>
-                      setEnterpriseValueMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>Revenue Multiple (x)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={revenueMultipleMin ?? ""}
-                    onChange={(e) =>
-                      setRevenueMultipleMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={revenueMultipleMax ?? ""}
-                    onChange={(e) =>
-                      setRevenueMultipleMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>Revenue Growth (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={revenueGrowthMin ?? ""}
-                    onChange={(e) =>
-                      setRevenueGrowthMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={revenueGrowthMax ?? ""}
-                    onChange={(e) =>
-                      setRevenueGrowthMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>EBITDA Margin (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={ebitdaMarginMin ?? ""}
-                    onChange={(e) =>
-                      setEbitdaMarginMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={ebitdaMarginMax ?? ""}
-                    onChange={(e) =>
-                      setEbitdaMarginMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>Rule of 40 (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={ruleOf40Min ?? ""}
-                    onChange={(e) =>
-                      setRuleOf40Min(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={ruleOf40Max ?? ""}
-                    onChange={(e) =>
-                      setRuleOf40Max(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-              </div>
-              <div style={styles.gridItem}>
-                <h3 style={styles.subHeading} className="filters-sub-heading">
-                  Subscription Metrics
-                </h3>
-                <span style={styles.label}>ARR ($m)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={arrMin ?? ""}
-                    onChange={(e) =>
-                      setArrMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={arrMax ?? ""}
-                    onChange={(e) =>
-                      setArrMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>ARR (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={arrPcMin ?? ""}
-                    onChange={(e) =>
-                      setArrPcMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={arrPcMax ?? ""}
-                    onChange={(e) =>
-                      setArrPcMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>Churn (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={churnMin ?? ""}
-                    onChange={(e) =>
-                      setChurnMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={churnMax ?? ""}
-                    onChange={(e) =>
-                      setChurnMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>GRR (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={grrMin ?? ""}
-                    onChange={(e) =>
-                      setGrrMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={grrMax ?? ""}
-                    onChange={(e) =>
-                      setGrrMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>NRR (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={nrrMin ?? ""}
-                    onChange={(e) =>
-                      setNrrMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={nrrMax ?? ""}
-                    onChange={(e) =>
-                      setNrrMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-
-                <span style={styles.label}>New Clients Revenue Growth (%)</span>
-                <div style={{ display: "flex", gap: "14px" }}>
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Min"
-                    value={newClientsRevenueGrowthMin ?? ""}
-                    onChange={(e) =>
-                      setNewClientsRevenueGrowthMin(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    style={styles.rangeInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="Max"
-                    value={newClientsRevenueGrowthMax ?? ""}
-                    onChange={(e) =>
-                      setNewClientsRevenueGrowthMax(
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
+              </button>
+            );
+          })}
         </div>
-        <style>{`
-          .companies-search-row {
-            display: flex;
-            align-items: stretch;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 0;
-          }
+      </div>
 
-          .companies-search-input {
-            flex: 1 1 320px;
-            min-width: 240px;
-            max-width: 560px;
-            height: 44px;
-            box-sizing: border-box;
-            padding: 0 14px;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            color: #1a202c;
-            font-size: 16px;
-            line-height: 1.25;
-            outline: none;
-          }
-
-          .companies-search-input::placeholder {
-            color: #94a3b8;
-          }
-
-          .companies-search-input:focus {
-            border-color: #0075df;
-            box-shadow: 0 0 0 2px rgba(0, 117, 223, 0.14);
-          }
-
-          .companies-search-button {
-            flex: 0 0 auto;
-            min-width: max-content;
-            height: 44px;
-            box-sizing: border-box;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 18px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            line-height: 1;
-            white-space: nowrap;
-          }
-
-          .companies-search-button-primary {
-            background-color: #0075df;
-            border: 1px solid #0075df;
-            color: #fff;
-            font-weight: 600;
-          }
-
-          .followed-filter-card {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            min-height: 44px;
-            max-width: 320px;
-            box-sizing: border-box;
-            padding: 8px 10px;
-            margin: 0;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            background: #f8fafc;
-            cursor: pointer;
-          }
-
-          .followed-filter-checkbox {
-            width: 16px;
-            height: 16px;
-            margin-top: 1px;
-            accent-color: #0075df;
-            cursor: pointer;
-            flex-shrink: 0;
-          }
-
-          .followed-filter-content {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-          }
-
-          .followed-filter-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: #1a202c;
-            line-height: 1.2;
-          }
-
-          .followed-filter-description {
-            font-size: 11px;
-            line-height: 1.35;
-            color: #4a5568;
-            margin: 0;
-          }
-
-          @media (max-width: 768px) {
-            .companies-search-row {
-              gap: 8px;
-            }
-
-            .companies-search-input {
-              flex-basis: 100%;
-              max-width: none;
-              min-width: 0;
-            }
-
-            .companies-search-button {
-              flex: 1 1 calc(33.333% - 8px);
-              padding: 0 10px;
-              font-size: 14px;
-            }
-
-            .followed-filter-card {
-              flex: 1 1 100%;
-              max-width: none;
-            }
-          }
-        `}</style>
+      {/* ── Filter bar card ── */}
+      <div
+        style={{
+          background: "#fff",
+          borderTop: "1px solid #e2e8f0",
+          borderBottom: "1px solid #e2e8f0",
+        }}
+      >
+        <div style={{ width: "100%", padding: "10px 28px 12px" }}>
+          <CompaniesFilterBar
+            filterDefs={filterDefs}
+            filterCategories={FILTER_CATEGORIES}
+            state={filterBarState}
+            onStateChange={setFilterBarState}
+            totalCount={totalCount}
+          />
+        </div>
       </div>
     </div>
   );
 };
+
 
 // Main Companies Component
 const CompanySection = ({
@@ -3595,6 +1687,10 @@ const CompanySection = ({
   fetchCompanies,
   currentFilters,
   onEditCompany,
+  externalShowColumnsModal,
+  externalSetShowColumnsModal,
+  onColumnsCountChange,
+  onRegisterExportCSV,
 }: {
   companies: Company[];
   loading: boolean;
@@ -3618,13 +1714,18 @@ const CompanySection = ({
   fetchCompanies: (page?: number, filters?: Filters) => Promise<void>;
   currentFilters: Filters | undefined;
   onEditCompany?: (id: number) => void;
+  externalShowColumnsModal?: boolean;
+  externalSetShowColumnsModal?: (v: boolean) => void;
+  onColumnsCountChange?: (count: number) => void;
+  onRegisterExportCSV?: (fn: () => void) => void;
 }) => {
   const router = useRouter();
-  const { isTrialActive } = useAuth();
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
   const [exportsLeft, setExportsLeft] = useState(0);
-  const [showColumnsModal, setShowColumnsModal] = useState(false);
+  const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
+  const showColumnsModal = externalShowColumnsModal !== undefined ? externalShowColumnsModal : internalShowColumnsModal;
+  const setShowColumnsModal = externalSetShowColumnsModal ?? setInternalShowColumnsModal;
   const [sortState, setSortState] = useState<{
     key: string;
     dir: "asc" | "desc";
@@ -3794,6 +1895,12 @@ const CompanySection = ({
     }
   }, [selectedColumnKeys, sortState]);
 
+  // Report selected columns count to parent (for header button label)
+  useEffect(() => {
+    onColumnsCountChange?.(selectedColumns.length);
+  }, [selectedColumns.length, onColumnsCountChange]);
+
+
   const handleSortColumn = useCallback((columnKey: string) => {
     if (!getColumnSortKind(columnKey)) return;
     setSortState((current) => {
@@ -3837,62 +1944,6 @@ const CompanySection = ({
     return classes.length > 0 ? classes.join(" ") : undefined;
   };
 
-  // Check if any filters are applied
-  const hasActiveFilters = () => {
-    if (!currentFilters) return false;
-    return (
-      (currentFilters.continentalRegions || []).length > 0 ||
-      (currentFilters.subRegions || []).length > 0 ||
-      currentFilters.countries.length > 0 ||
-      currentFilters.provinces.length > 0 ||
-      currentFilters.cities.length > 0 ||
-      currentFilters.primarySectors.length > 0 ||
-      currentFilters.secondarySectors.length > 0 ||
-      typeof currentFilters.exclude_business_focus === "boolean" ||
-      currentFilters.hybridBusinessFocuses.length > 0 ||
-      currentFilters.ownershipTypes.length > 0 ||
-      currentFilters.linkedinMembersMin !== null ||
-      currentFilters.linkedinMembersMax !== null ||
-      currentFilters.lastInvestmentYearsMin !== null ||
-      currentFilters.lastInvestmentYearsMax !== null ||
-      currentFilters.searchQuery.trim() !== "" ||
-      (ENABLE_COMPANIES_KEYWORD_SEARCH &&
-        currentFilters.keywordSearch.trim() !== "") ||
-      // Financial Metrics
-      currentFilters.revenueMin !== null ||
-      currentFilters.revenueMax !== null ||
-      currentFilters.ebitdaMin !== null ||
-      currentFilters.ebitdaMax !== null ||
-      currentFilters.enterpriseValueMin !== null ||
-      currentFilters.enterpriseValueMax !== null ||
-      currentFilters.revenueMultipleMin !== null ||
-      currentFilters.revenueMultipleMax !== null ||
-      currentFilters.revenueGrowthMin !== null ||
-      currentFilters.revenueGrowthMax !== null ||
-      currentFilters.ebitdaMarginMin !== null ||
-      currentFilters.ebitdaMarginMax !== null ||
-      currentFilters.ruleOf40Min !== null ||
-      currentFilters.ruleOf40Max !== null ||
-      // Subscription Metrics
-      currentFilters.arrMin !== null ||
-      currentFilters.arrMax !== null ||
-      currentFilters.arrPcMin !== null ||
-      currentFilters.arrPcMax !== null ||
-      currentFilters.churnMin !== null ||
-      currentFilters.churnMax !== null ||
-      currentFilters.grrMin !== null ||
-      currentFilters.grrMax !== null ||
-      currentFilters.nrrMin !== null ||
-      currentFilters.nrrMax !== null ||
-      currentFilters.newClientsRevenueGrowthMin !== null ||
-      currentFilters.newClientsRevenueGrowthMax !== null ||
-      currentFilters.minGrowthPercent !== null ||
-      currentFilters.maxGrowthPercent !== null ||
-      currentFilters.timeFrame.trim() !== "" ||
-      (currentFilters.transactionStatus || []).length > 0 ||
-      currentFilters.portfolio_only === true
-    );
-  };
 
   // Handle CSV export using backend endpoint and include active filters
   const handleExportCSV = useCallback(async () => {
@@ -4304,6 +2355,12 @@ const CompanySection = ({
     }
   }, [currentFilters, companies]);
 
+  // Register export function with parent so header Export CSV button works
+  useEffect(() => {
+    onRegisterExportCSV?.(handleExportCSV);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handleExportCSV]);
+
   const handleCompanyClick = useCallback(
     (companyId: number) => {
       router.push(`/company/${companyId}`);
@@ -4503,8 +2560,8 @@ const CompanySection = ({
       100% { background-position: -200% 0; }
     }
     .company-section {
-      padding: 16px 12px;
-      border-radius: 8px;
+      width: 100%;
+      padding: 16px 28px;
     }
     .company-stats {
       background: #fff;
@@ -5270,58 +3327,6 @@ const CompanySection = ({
         )
       )
     ),
-    // Export Button - Show only when filters are applied
-    hasActiveFilters() &&
-      companies.length > 0 &&
-      React.createElement(
-        "div",
-        {
-          style: {
-            display: "flex",
-            justifyContent: "flex-end",
-            marginBottom: "16px",
-          },
-        },
-        React.createElement(
-          "button",
-          {
-            onClick: handleExportCSV,
-            className: "export-button",
-            disabled: loading || isTrialActive,
-            title: isTrialActive ? "Export disabled during Trial" : undefined,
-          },
-          loading ? "Exporting..." : "Export CSV"
-        )
-      ),
-    React.createElement(
-      "div",
-      {
-        style: {
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: "12px",
-          flexWrap: "wrap",
-          marginBottom: "12px",
-        },
-      },
-      React.createElement(
-        "span",
-        { style: { color: "#64748b", fontSize: "13px" } },
-        companyTableDataLoading
-          ? `${selectedColumns.length} columns selected · loading custom data...`
-          : `${selectedColumns.length} columns selected`
-      ),
-      React.createElement(
-        "button",
-        {
-          type: "button",
-          className: "company-columns-button primary",
-          onClick: () => setShowColumnsModal(true),
-        },
-        "Customise columns"
-      )
-    ),
     showColumnsModal &&
       React.createElement(ColumnsControlRoom, {
         initial: columnVisibilityInitial,
@@ -5329,6 +3334,12 @@ const CompanySection = ({
         onClose: () => setShowColumnsModal(false),
         onApply: handleApplyColumnVisibility,
       }),
+    companyTableDataLoading &&
+      React.createElement(
+        "div",
+        { style: { fontSize: 12, color: "#94a3b8", marginBottom: 8 } },
+        "Loading custom column data…"
+      ),
     React.createElement(
       "div",
       { className: "company-cards" },
@@ -5466,6 +3477,11 @@ function CompaniesPageInner() {
     }
   }, []);
 
+  // Lifted state for Columns modal + Export CSV (shared between header and table)
+  const [showColumnsModal, setShowColumnsModal] = useState(false);
+  const [columnsCount, setColumnsCount] = useState(DEFAULT_COMPANY_COLUMN_KEYS.length);
+  const exportCSVRef = useRef<(() => void) | null>(null);
+
   return (
     <div className="min-h-screen">
       <Header />
@@ -5474,6 +3490,9 @@ function CompaniesPageInner() {
         initialSearch={initialSearch}
         totalCount={pagination.itemsReceived}
         ownershipCounts={ownershipCounts}
+        onColumnsClick={() => setShowColumnsModal(true)}
+        onExportCSVClick={() => exportCSVRef.current?.()}
+        columnsCount={columnsCount}
       />
       <CompanySection
         companies={companies}
@@ -5484,6 +3503,10 @@ function CompaniesPageInner() {
         fetchCompanies={fetchCompanies}
         currentFilters={currentFilters}
         onEditCompany={React.useContext(CompaniesEditContext)}
+        externalShowColumnsModal={showColumnsModal}
+        externalSetShowColumnsModal={setShowColumnsModal}
+        onColumnsCountChange={setColumnsCount}
+        onRegisterExportCSV={(fn) => { exportCSVRef.current = fn; }}
       />
       <Footer />
     </div>
