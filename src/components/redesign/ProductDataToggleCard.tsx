@@ -55,7 +55,7 @@ function DataValue({ value }: { value: string }) {
 
 function ProductTypeBody({ productRows }: { productRows: ProductBarRow[] }) {
   return (
-    <div style={{ padding: "8px 18px 14px", flex: 1, minHeight: 0 }}>
+    <div style={{ padding: "8px 16px 14px", flex: 1, minHeight: 0 }}>
       {productRows.map((p, i) => (
         <div
           key={`${p.label}-${i}`}
@@ -149,7 +149,7 @@ export function ProductDataToggleCard({
     return (
       <LinkPanel fillGridCell={fillGridCell}>
         <LinkedH right={productSubtitle ? (
-          <span style={{ fontFamily: T.mono, fontSize: 11, color: T.muted, fontWeight: 500 }}>
+          <span style={{ fontSize: 11.5, color: T.muted }}>
             {productSubtitle}
           </span>
         ) : undefined}>

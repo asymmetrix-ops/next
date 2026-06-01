@@ -9,6 +9,7 @@ import {
   type CompanyColumnCategory,
   type CompanyColumnMeta,
 } from "./companiesColumnCategories";
+import { FILTER_PINNED_TOOLTIP } from "./companiesColumnFilterMap";
 
 const AX = {
   gray25: "#F9FAFB",
@@ -214,12 +215,17 @@ function TabPill({
 function ColumnRow({
   column,
   visible,
+  locked,
+  lockTooltip,
   onToggle,
 }: {
   column: CompanyColumnMeta;
   visible: boolean;
+  locked?: boolean;
+  lockTooltip?: string;
   onToggle: (on: boolean) => void;
 }) {
+  const isLocked = locked ?? column.locked;
   const [hover, setHover] = useState(false);
   return (
     <li
@@ -241,9 +247,21 @@ function ColumnRow({
           fontWeight: 500,
           color: visible ? AX.fg1 : AX.fg2,
           flex: "0 0 auto",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
         }}
       >
         {column.label}
+        {isLocked && (
+          <span
+            style={{ color: AX.fg3, display: "inline-flex" }}
+            aria-label={lockTooltip ?? "Locked column"}
+            title={lockTooltip ?? "Locked column"}
+          >
+            <LockIcon />
+          </span>
+        )}
       </span>
       {column.badge && (
         <span
@@ -267,7 +285,7 @@ function ColumnRow({
       <span style={{ flex: 1 }} />
       <Toggle
         on={visible}
-        disabled={column.locked}
+        disabled={isLocked}
         onChange={onToggle}
         ariaLabel={`Show ${column.label}`}
       />
@@ -412,9 +430,11 @@ function ReorderRow({
 function FrozenColumnRow({
   column,
   position,
+  lockTooltip = "Locked column",
 }: {
   column: CompanyColumnMeta;
   position: number;
+  lockTooltip?: string;
 }) {
   return (
     <li
@@ -457,8 +477,8 @@ function FrozenColumnRow({
         {column.label}
         <span
           style={{ color: AX.fg3, display: "inline-flex" }}
-          aria-label="Locked column"
-          title="Locked column"
+          aria-label={lockTooltip}
+          title={lockTooltip}
         >
           <LockIcon />
         </span>
@@ -470,6 +490,7 @@ function FrozenColumnRow({
 export interface ColumnsControlRoomProps {
   initial: Record<string, boolean>;
   initialOrder?: string[];
+  filterPinnedColumnKeys?: string[];
   onCancel: () => void;
   onApply: (visible: Record<string, boolean>, order?: string[]) => void;
   categories?: CompanyColumnCategory[];
@@ -480,6 +501,7 @@ export interface ColumnsControlRoomProps {
 export function ColumnsControlRoom({
   initial,
   initialOrder,
+  filterPinnedColumnKeys = [],
   onCancel,
   onApply,
   categories = COMPANIES_COLUMN_CATEGORIES,
@@ -511,10 +533,29 @@ export function ColumnsControlRoom({
     () => categories.flatMap((cat) => cat.columns),
     [categories]
   );
+  const filterPinnedSet = useMemo(
+    () => new Set(filterPinnedColumnKeys),
+    [filterPinnedColumnKeys]
+  );
+  const isColumnLocked = useCallback(
+    (column: CompanyColumnMeta) =>
+      Boolean(column.locked) || filterPinnedSet.has(column.columnKey),
+    [filterPinnedSet]
+  );
   const lockedMeta = useMemo(() => allMeta.filter((c) => c.locked), [allMeta]);
   const lockedColumnKeys = useMemo(
     () => new Set(lockedMeta.map((c) => c.columnKey)),
     [lockedMeta]
+  );
+  const filterPinnedMeta = useMemo(
+    () =>
+      allMeta.filter(
+        (c) =>
+          !c.locked &&
+          filterPinnedSet.has(c.columnKey) &&
+          visible[c.id]
+      ),
+    [allMeta, filterPinnedSet, visible]
   );
 
   const [orderedKeys, setOrderedKeys] = useState<string[]>(() => {
@@ -524,13 +565,21 @@ export function ColumnsControlRoom({
         .map(([k]) => k)
     );
     const visibleColumnKeys = allMeta
-      .filter((c) => !c.locked && visibleIds.has(c.id))
+      .filter(
+        (c) =>
+          !c.locked &&
+          !filterPinnedSet.has(c.columnKey) &&
+          visibleIds.has(c.id)
+      )
       .map((c) => c.columnKey);
     const visibleKeySet = new Set(visibleColumnKeys);
 
     if (initialOrder && initialOrder.length > 0) {
       const result = initialOrder.filter(
-        (k) => !lockedColumnKeys.has(k) && visibleKeySet.has(k)
+        (k) =>
+          !lockedColumnKeys.has(k) &&
+          !filterPinnedSet.has(k) &&
+          visibleKeySet.has(k)
       );
       visibleColumnKeys.forEach((k) => {
         if (!result.includes(k)) result.push(k);
@@ -540,20 +589,37 @@ export function ColumnsControlRoom({
     return visibleColumnKeys;
   });
 
+  useEffect(() => {
+    if (filterPinnedColumnKeys.length === 0) return;
+    setVisible((current) => {
+      let changed = false;
+      const next = { ...current };
+      for (const column of allMeta) {
+        if (filterPinnedSet.has(column.columnKey) && !next[column.id]) {
+          next[column.id] = true;
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+    setOrderedKeys((current) =>
+      current.filter((key) => !filterPinnedSet.has(key))
+    );
+  }, [filterPinnedColumnKeys, filterPinnedSet, allMeta]);
+
   const toggle = useCallback((id: string, on: boolean) => {
-    setVisible((current) => ({ ...current, [id]: on }));
     const meta = allMeta.find((c) => c.id === id);
-    if (!meta || meta.locked) return;
+    if (!meta || isColumnLocked(meta)) return;
+    setVisible((current) => ({ ...current, [id]: on }));
     setOrderedKeys((current) => {
       if (on) {
         return current.includes(meta.columnKey)
           ? current
           : [...current, meta.columnKey];
-      } else {
-        return current.filter((k) => k !== meta.columnKey);
       }
+      return current.filter((k) => k !== meta.columnKey);
     });
-  }, [allMeta]);
+  }, [allMeta, isColumnLocked]);
 
   const allIds = useMemo(
     () => categories.flatMap((category) => category.columns.map((column) => column.id)),
@@ -583,9 +649,16 @@ export function ColumnsControlRoom({
 
   const orderedVisibleMeta = useMemo(() => {
     return orderedKeys
-      .map((k) => allMeta.find((c) => c.columnKey === k && !c.locked))
+      .map((k) =>
+        allMeta.find(
+          (c) =>
+            c.columnKey === k && !c.locked && !filterPinnedSet.has(c.columnKey)
+        )
+      )
       .filter((c): c is CompanyColumnMeta => Boolean(c));
-  }, [orderedKeys, allMeta]);
+  }, [orderedKeys, allMeta, filterPinnedSet]);
+
+  const frozenColumnCount = lockedMeta.length + filterPinnedMeta.length;
 
   const moveUp = useCallback((columnKey: string) => {
     setOrderedKeys((current) => {
@@ -628,7 +701,12 @@ export function ColumnsControlRoom({
     const lockedVisibleKeys = lockedMeta
       .filter((c) => visible[c.id])
       .map((c) => c.columnKey);
-    const finalOrder = [...lockedVisibleKeys, ...orderedKeys];
+    const filterPinnedVisibleKeys = filterPinnedMeta.map((c) => c.columnKey);
+    const finalOrder = [
+      ...lockedVisibleKeys,
+      ...filterPinnedVisibleKeys,
+      ...orderedKeys,
+    ];
     onApply(visible, finalOrder);
   };
 
@@ -717,11 +795,20 @@ export function ColumnsControlRoom({
                 lineHeight: 1.5,
               }}>
                 Drag rows to reorder. Logo and Name stay fixed as the first two columns.
+                Filtered columns are pinned automatically.
               </div>
 
               <ul style={{ ...modalStyles.rowList, paddingBottom: 8 }}>
                 {lockedMeta.map((col, i) => (
                   <FrozenColumnRow key={col.id} column={col} position={i + 1} />
+                ))}
+                {filterPinnedMeta.map((col, i) => (
+                  <FrozenColumnRow
+                    key={col.id}
+                    column={col}
+                    position={lockedMeta.length + i + 1}
+                    lockTooltip={FILTER_PINNED_TOOLTIP}
+                  />
                 ))}
               </ul>
 
@@ -736,7 +823,7 @@ export function ColumnsControlRoom({
                       <ReorderRow
                         key={col.id}
                         column={col}
-                        position={lockedMeta.length + idx + 1}
+                        position={frozenColumnCount + idx + 1}
                         isSelected={selectedKey === col.columnKey}
                         isDragging={dragKey === col.columnKey}
                         isDragOver={dragOverKey === col.columnKey && dragKey !== col.columnKey}
@@ -872,6 +959,12 @@ export function ColumnsControlRoom({
                           key={column.id}
                           column={column}
                           visible={!!visible[column.id]}
+                          locked={isColumnLocked(column)}
+                          lockTooltip={
+                            filterPinnedSet.has(column.columnKey)
+                              ? FILTER_PINNED_TOOLTIP
+                              : undefined
+                          }
                           onToggle={(on) => toggle(column.id, on)}
                         />
                       ))}

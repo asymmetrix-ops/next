@@ -278,7 +278,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                         h === "Headcount" ? "right" : "left",
                       padding: "10px 12px",
                       color: T.muted,
-                      fontSize: "11px",
+                      fontSize: "10.5px",
                       fontWeight: 500,
                       textTransform: "uppercase",
                       letterSpacing: 0.4,
@@ -360,7 +360,6 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                     <td
                       style={{
                         padding: cellPad,
-                        fontFamily: T.mono,
                         color: T.body,
                         whiteSpace: narrow ? "nowrap" : undefined,
                       }}
@@ -372,9 +371,9 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                         <td
                           style={{
                             padding: cellPad,
-                            fontFamily: T.mono,
                             color: T.body,
                             textAlign: "right",
+                            fontVariantNumeric: "tabular-nums",
                           }}
                         >
                           {hc === null ? "—" : hc.toLocaleString()}
@@ -396,10 +395,10 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                               />
                               <span
                                 style={{
-                                  fontFamily: T.mono,
                                   color: pct >= 0 ? T.up : T.down,
-                                  fontSize: 11,
+                                  fontSize: 12,
                                   fontWeight: 500,
+                                  fontVariantNumeric: "tabular-nums",
                                 }}
                               >
                                 {formatGrowthPctLabel(pct)}

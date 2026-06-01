@@ -433,11 +433,30 @@ export const DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS: string[] = [
   ...PROD_DEFAULT_COMPANY_COLUMN_KEYS,
 ];
 
-export function enforceColumnKeyOrder(keys: string[]): string[] {
+export function getEffectiveFrozenColumnKeys(
+  filterPinnedKeys: string[] = []
+): string[] {
+  const seen = new Set<string>(FROZEN_COLUMN_KEYS);
+  const ordered: string[] = [...FROZEN_COLUMN_KEYS];
+  for (const key of filterPinnedKeys) {
+    if (CANONICAL_COMPANY_COLUMN_KEYS.includes(key) && !seen.has(key)) {
+      seen.add(key);
+      ordered.push(key);
+    }
+  }
+  return ordered;
+}
+
+export function enforceColumnKeyOrder(
+  keys: string[],
+  filterPinnedKeys: string[] = []
+): string[] {
+  const frozenKeys = getEffectiveFrozenColumnKeys(filterPinnedKeys);
+  const frozenSet = new Set(frozenKeys);
   const seen = new Set<string>();
   const ordered: string[] = [];
 
-  for (const key of FROZEN_COLUMN_KEYS) {
+  for (const key of frozenKeys) {
     if (CANONICAL_COMPANY_COLUMN_KEYS.includes(key) && !seen.has(key)) {
       seen.add(key);
       ordered.push(key);
@@ -448,7 +467,7 @@ export function enforceColumnKeyOrder(keys: string[]): string[] {
     if (
       CANONICAL_COMPANY_COLUMN_KEYS.includes(key) &&
       !seen.has(key) &&
-      !(FROZEN_COLUMN_KEYS as readonly string[]).includes(key)
+      !frozenSet.has(key)
     ) {
       seen.add(key);
       ordered.push(key);
@@ -499,15 +518,18 @@ export const visibilityToColumnKeys = (
   return enforceColumnKeyOrder(base);
 };
 
-/** Move one column before another; logo/name cannot be dragged. */
+/** Move one column before another; logo/name and filter-pinned columns cannot be dragged. */
 export function reorderColumnKeys(
   keys: string[],
   dragKey: string,
-  dropKey: string
+  dropKey: string,
+  filterPinnedKeys: string[] = []
 ): string[] {
-  const ordered = enforceColumnKeyOrder(keys);
+  const frozenKeys = getEffectiveFrozenColumnKeys(filterPinnedKeys);
+  const frozenSet = new Set(frozenKeys);
+  const ordered = enforceColumnKeyOrder(keys, filterPinnedKeys);
   if (dragKey === dropKey) return ordered;
-  if ((FROZEN_COLUMN_KEYS as readonly string[]).includes(dragKey)) {
+  if (frozenSet.has(dragKey)) {
     return ordered;
   }
 
@@ -517,8 +539,8 @@ export function reorderColumnKeys(
   let toIndex = ordered.indexOf(dropKey);
   if (toIndex < 0) return ordered;
 
-  if ((FROZEN_COLUMN_KEYS as readonly string[]).includes(dropKey)) {
-    toIndex = FROZEN_COLUMN_KEYS.reduce((max, frozenKey) => {
+  if (frozenSet.has(dropKey)) {
+    toIndex = frozenKeys.reduce((max, frozenKey) => {
       const idx = ordered.indexOf(frozenKey);
       return idx >= 0 ? Math.max(max, idx) : max;
     }, -1);
@@ -530,5 +552,5 @@ export function reorderColumnKeys(
   const [item] = next.splice(fromIndex, 1);
   const insertAt = fromIndex < toIndex ? toIndex - 1 : toIndex;
   next.splice(insertAt, 0, item);
-  return enforceColumnKeyOrder(next);
+  return enforceColumnKeyOrder(next, filterPinnedKeys);
 }

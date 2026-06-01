@@ -91,7 +91,7 @@ export const ManagementProfilePanel: React.FC<ManagementProfilePanelProps> = ({
                   textAlign: "left",
                   padding: "10px 12px",
                   color: T.muted,
-                  fontSize: "11px",
+                  fontSize: "10.5px",
                   fontWeight: 500,
                   textTransform: "uppercase",
                   letterSpacing: 0.4,
@@ -155,7 +155,7 @@ export const ManagementProfilePanel: React.FC<ManagementProfilePanelProps> = ({
                 <td
                   style={{
                     padding: "10px 12px",
-                    color: T.muted,
+                    color: T.body,
                     verticalAlign: "top",
                     lineHeight: 1.45,
                   }}
@@ -173,12 +173,14 @@ export const ManagementProfilePanel: React.FC<ManagementProfilePanelProps> = ({
   const sectionLabel = (label: string) => (
     <div
       style={{
-        padding: "12px 16px 0",
-        fontSize: "11px",
-        fontWeight: 600,
+        padding: "10px 16px 2px",
+        fontSize: "10.5px",
+        fontWeight: 500,
         color: T.muted,
         textTransform: "uppercase",
         letterSpacing: 0.4,
+        background: T.paper,
+        borderBottom: `1px solid ${T.hair}`,
       }}
     >
       {label}

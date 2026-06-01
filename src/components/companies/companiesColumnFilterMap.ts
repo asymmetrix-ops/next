@@ -1,8 +1,5 @@
 import type { FilterDef, FilterTypeIcon } from "./CompaniesFilterBar";
 import {
-  isRestrictiveYesNoDualFilter,
-} from "@/lib/yesNoDualFilter";
-import {
   ALL_COMPANIES_COLUMN_META,
   type CompanyColumnMeta,
   type CompanyColumnType,
@@ -11,27 +8,11 @@ import {
 export const FILTER_PINNED_TOOLTIP =
   "Pinned automatically — a filter is active on this column.";
 
-/**
- * Columns that intentionally have no filter.
- * Includes identity/free-text columns and text columns with no backend filter
- * support (no matching case in buildFiltersFromState / no API param).
- * Location-flavored text columns (hq) are covered by city/state/country filters.
- */
+/** Columns that intentionally have no filter (always-on identity / free text). */
 export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
+  "logo",
   "name",
   "description",
-  // Portfolio filter is provided via EXTRA_FILTER_DEFS (id: followed)
-  "follow",
-  // URL columns — not filterable
-  "website",
-  "linkedin_url",
-  // Text fields with no backend filter endpoint
-  "hq",
-  "investors",
-  "lifecycle_stage",
-  "product_type",
-  "data_collection_method",
-  "revenue_model",
 ]);
 
 /**
@@ -39,14 +20,13 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
  * Filter ids match buildFiltersFromState switch cases where API-backed.
  */
 export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
-  country: "hq",
+  country: "country",
   state: "state",
   city: "city",
   primary_sector: "primary_sectors",
   secondary_sector: "secondary_sectors",
   ownership: "ownership",
   transaction: "transaction_status",
-  date_added: "created_at",
   headcount: "linkedin_members",
   headcount_growth: "linkedin_growth",
   years_since_inv: "years_since_last_investment",
@@ -58,12 +38,16 @@ export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   ebitda_margin: "ebitda_margin",
   rev_multiple: "revenue_multiple",
   rule_40: "rule_of_40",
+  arr: "arr_m",
+  arr_growth: "arr_pc",
   churn: "churn_pc",
   nrr: "nrr",
   grr: "grr_pc",
   new_client_growth: "new_client_growth_pc",
   website: "website",
+  list_count: "list_count",
   year_founded: "year_founded",
+  hq: "hq",
   linkedin_url: "linkedin_url",
   investors: "investors",
   lifecycle_stage: "lifecycle_stage",
@@ -80,7 +64,6 @@ export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   num_employees: "no_employees",
   rev_per_employee: "rev_per_employee",
   financial_year: "financial_year",
-  has_mcp: "has_mcp",
 };
 
 export const COLUMN_KEY_TO_FILTER_ID: Record<string, string> = Object.fromEntries(
@@ -113,15 +96,12 @@ const CANONICAL_FILTER_COLUMN_KEYS = ALL_COMPANIES_COLUMN_META.map(
 );
 
 export function getColumnKeysForActiveFilters(
-  filters: Array<{ id: string; value?: unknown }>,
+  filterIds: string[],
   ownershipTabActive = false
 ): string[] {
   const keys = new Set<string>();
-  for (const filter of filters) {
-    if (filter.id === "has_mcp" && !isRestrictiveYesNoDualFilter(filter.value)) {
-      continue;
-    }
-    const columnKey = getColumnKeyForFilterId(filter.id);
+  for (const filterId of filterIds) {
+    const columnKey = getColumnKeyForFilterId(filterId);
     if (columnKey) keys.add(columnKey);
   }
   if (ownershipTabActive) {
@@ -135,9 +115,6 @@ export function getColumnKeysForActiveFilters(
 function mapColumnCategoryToFilterCategory(
   column: CompanyColumnMeta
 ): string {
-  if (column.columnKey === "follow") {
-    return "lists";
-  }
   if (
     column.columnKey === "primary_sectors" ||
     column.columnKey === "secondary_sectors"
@@ -145,6 +122,7 @@ function mapColumnCategoryToFilterCategory(
     return "sectors";
   }
   if (
+    column.columnKey === "country" ||
     column.columnKey === "city" ||
     column.columnKey === "state" ||
     column.columnKey === "hq"
@@ -166,8 +144,8 @@ function mapColumnCategoryToFilterCategory(
   }
   if (
     [
-      "subscription_revenue_pc",
-      "subscription_revenue_m",
+      "arr_pc",
+      "arr_m",
       "churn_pc",
       "grr_pc",
       "nrr",
@@ -213,24 +191,6 @@ function mapColumnTypeToFilter(
     return { type: "Aa", editor: "boolean" };
   }
 
-  if (column.columnKey === "has_mcp") {
-    return { type: "Aa", editor: "yes_no_dual" };
-  }
-
-  if (column.columnKey === "years_since_last_investment") {
-    return {
-      type: "#",
-      editor: "range",
-      unit: "yrs",
-      min: 0,
-      max: 20,
-    };
-  }
-
-  if (column.columnKey === "created_at") {
-    return { type: "date", editor: "date_range" };
-  }
-
   if (column.type === "number" || column.type === "currency") {
     const unit =
       column.type === "currency"
@@ -239,13 +199,15 @@ function mapColumnTypeToFilter(
           ? "%"
           : column.columnKey === "revenue_multiple"
             ? "x"
-            : undefined;
+            : column.columnKey === "years_since_last_investment"
+              ? "yrs"
+              : undefined;
     return {
       type: typeIcon(column.type),
       editor: "range",
       unit,
       min: 0,
-      max: unit === "%" ? 200 : unit === "x" ? 30 : 10000,
+      max: unit === "%" ? 200 : unit === "x" ? 30 : unit === "yrs" ? 20 : 10000,
     };
   }
 
@@ -312,35 +274,8 @@ export const EXTRA_FILTER_DEFS: Pick<
   },
   {
     id: "sub_region",
-    label: "Sub-Region",
+    label: "Sub-region",
     fullLabel: "Sub-Region",
-    category: "location",
-    type: "Aa",
-    editor: "enum",
-    options: [],
-  },
-  {
-    id: "country",
-    label: "Country",
-    fullLabel: "Country",
-    category: "location",
-    type: "Aa",
-    editor: "enum",
-    options: [],
-  },
-  {
-    id: "state",
-    label: "State",
-    fullLabel: "State",
-    category: "location",
-    type: "Aa",
-    editor: "enum",
-    options: [],
-  },
-  {
-    id: "city",
-    label: "City",
-    fullLabel: "City",
     category: "location",
     type: "Aa",
     editor: "enum",
@@ -354,14 +289,6 @@ export const EXTRA_FILTER_DEFS: Pick<
     type: "Aa",
     editor: "segmented",
     options: ["Pure-play D&A", "Has non-D&A", "Either"],
-  },
-  {
-    id: "followed",
-    label: "My Portfolio",
-    fullLabel: "My Portfolio",
-    category: "lists",
-    type: "Aa",
-    editor: "boolean",
   },
 ];
 

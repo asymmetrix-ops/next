@@ -158,9 +158,9 @@ export function HeadcountCard({
         justifyContent: "center",
         width: 22,
         height: 22,
-        backgroundColor: "#0077b5",
+        backgroundColor: T.azure,
         borderRadius: 4,
-        color: "white",
+        color: "#fff",
         textDecoration: "none",
         flexShrink: 0,
       }}
