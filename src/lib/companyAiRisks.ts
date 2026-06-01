@@ -1,5 +1,66 @@
 import type { AIRiskAxis, AIRiskAxisGroup } from "@/components/redesign/AIRiskCard";
 
+/** Low = 1, Moderate = 2, High = 3 */
+export const AI_SCORE_MAX = 3;
+
+export function scoreToTierName(score: number): string {
+  const s = Math.round(Math.min(AI_SCORE_MAX, Math.max(1, score)));
+  if (s === 1) return "Low";
+  if (s === 2) return "Moderate";
+  return "High";
+}
+
+/** Map API / legacy numeric or assessment text to a 1–3 tier score. */
+export function normalizeToThreeScore(
+  value: unknown,
+  assessment?: string | null,
+  group?: AIRiskAxisGroup
+): number {
+  const text = (assessment ?? "").toLowerCase();
+  if (text) {
+    if (
+      text.includes("limited risk") ||
+      text.includes("low exposure") ||
+      text.includes("limited ai exposure") ||
+      (group === "risk" && /\blow\b/.test(text)) ||
+      (group === "def" &&
+        (text.includes("weak") ||
+          text.includes("limited moat") ||
+          /\blow\b/.test(text)))
+    )
+      return 1;
+
+    if (
+      /\bmoderate\b/.test(text) ||
+      text.includes("selective") ||
+      text.includes("partial") ||
+      text.includes("medium")
+    )
+      return 2;
+
+    if (
+      /\bhigh\b/.test(text) ||
+      text.includes("strong") ||
+      text.includes("deep") ||
+      text.includes("elevated exposure") ||
+      (group === "risk" && text.includes("elevated"))
+    )
+      return 3;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const n = Math.round(value);
+    if (n >= 1 && n <= AI_SCORE_MAX) return n;
+    if (n >= 1 && n <= 5) {
+      if (n <= 2) return 1;
+      if (n === 3) return 2;
+      return 3;
+    }
+  }
+
+  return 2;
+}
+
 // ── V2 API types ─────────────────────────────────────────────────────────────
 export type CompanyAiRiskV2Item = {
   factor: string;
@@ -31,19 +92,13 @@ function inferAxisMeta(
   if (f.includes("data moat")) return { key: "data", group: "def", label: factor };
   if (f.includes("human") || f.includes("expert") || f.includes("judgement"))
     return { key: "human", group: "def", label: factor };
-  // Unknown factor: derive key from text, default def group
   const key = f.replace(/[^a-z0-9]/g, "").slice(0, 14) || "other";
   return { key, group: "def", label: factor };
 }
 
-function clampV2(value: number): number {
-  return Math.min(5, Math.max(1, Math.round(value)));
-}
-
 /**
- * Map the v2 API response to radar axes.
- * We use defense_score as the radar score: higher = stronger defense against AI.
- * The assessment + body fields come directly from the API.
+ * Map the v2 API response to radar axes (1–3 tier scores).
+ * Risk-group factors use `risk_score`; defensibility factors use `defense_score`.
  */
 export function mapAiRisksV2ToAxes(
   items: CompanyAiRiskV2Item[]
@@ -51,12 +106,14 @@ export function mapAiRisksV2ToAxes(
   if (!Array.isArray(items) || items.length === 0) return null;
   const axes: AIRiskAxis[] = items.map((item) => {
     const { key, group, label } = inferAxisMeta(item.factor);
+    const rawScore = group === "risk" ? item.risk_score : item.defense_score;
+    const score = normalizeToThreeScore(rawScore, item.assessment, group);
     return {
       key,
       label,
       group,
-      score: clampV2(item.defense_score),
-      tier: item.assessment,
+      score,
+      tier: scoreToTierName(score),
       blurb: item.body.replace(/&nbsp;/g, " ").trim(),
     };
   });
@@ -179,28 +236,11 @@ const AXIS_META: AxisMeta[] = [
   },
 ];
 
-function clampScore(value: unknown): number | null {
-  if (typeof value !== "number" || !Number.isFinite(value)) return null;
-  return Math.min(5, Math.max(1, Math.round(value)));
+export function scoreTierLabel(score: number): string {
+  return scoreToTierName(score);
 }
 
-export function scoreTierLabel(score: number, group: AIRiskAxisGroup): string {
-  const s = Math.round(Math.min(5, Math.max(1, score)));
-  if (group === "def") {
-    if (s >= 5) return "Deep moat";
-    if (s >= 4) return "Strong defensibility";
-    if (s >= 3) return "Moderate defensibility";
-    if (s >= 2) return "Limited moat";
-    return "Weak moat";
-  }
-  if (s >= 5) return "Limited AI exposure";
-  if (s >= 4) return "Moderate exposure";
-  if (s >= 3) return "Selective exposure";
-  if (s >= 2) return "Elevated exposure";
-  return "High AI exposure";
-}
-
-/** Map Xano `company_ai_risks` row to radar axes (risk.* for risk group, defense.* for def group). */
+/** Map Xano `company_ai_risks` row to radar axes (1–3 tier scores). */
 export function mapCompanyAiRisksToAxes(
   record: CompanyAiRiskRecord | null | undefined
 ): AIRiskAxis[] | null {
@@ -212,14 +252,14 @@ export function mapCompanyAiRisksToAxes(
       meta.group === "risk"
         ? record.risk?.[meta.apiKey]
         : record.defense?.[meta.apiKey];
-    const score = clampScore(raw);
-    if (score === null) continue;
+    if (typeof raw !== "number" || !Number.isFinite(raw)) continue;
+    const score = normalizeToThreeScore(raw, undefined, meta.group);
     axes.push({
       key: meta.key,
       label: meta.label,
       group: meta.group,
       score,
-      tier: scoreTierLabel(score, meta.group),
+      tier: scoreTierLabel(score),
       blurb: meta.blurb,
     });
   }

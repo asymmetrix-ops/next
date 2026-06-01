@@ -6,7 +6,7 @@
  * 2. Subscription Metrics · Other Metrics
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { LinkPanel, Pill, T } from "./primitives";
+import { LinkPanel, LinkedH, Pill, T, KV_LABEL_COL, finMetricLabelStyle, finMetricRowStyle, finMetricValueStyle, overviewBodyPadding, FIN_METRIC_GRID_COLS, tableColHeaderBarStyle } from "./primitives";
 import {
   IncomeStatementTable,
   type IncomeStatementRow,
@@ -34,35 +34,21 @@ type Props = {
   fillGridCell?: boolean;
 };
 
-const GRID_COLS = "minmax(0, 1.15fr) minmax(0, 0.85fr) auto";
+const GRID_COLS = FIN_METRIC_GRID_COLS;
 
 function PeriodHeader({ period }: { period?: string }) {
   if (!period) return null;
   return (
     <div
       style={{
-        display: "grid",
+        ...tableColHeaderBarStyle,
         gridTemplateColumns: GRID_COLS,
-        marginBottom: 2,
-        fontSize: 11,
-        color: T.muted,
-        fontWeight: 500,
-        columnGap: 6,
+        gap: 8,
       }}
     >
       <span />
-      <span style={{ textAlign: "left" }}>{period}</span>
-      <span
-        style={{
-          fontSize: 11,
-          color: T.muted,
-          textAlign: "right",
-          whiteSpace: "nowrap",
-          paddingLeft: 4,
-        }}
-      >
-        Source
-      </span>
+      <span>{period}</span>
+      <span style={{ textAlign: "right" }}>Source</span>
     </div>
   );
 }
@@ -72,81 +58,52 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
     <div
       className="info-row"
       style={{
-        display: "grid",
-        gridTemplateColumns: GRID_COLS,
-        columnGap: 6,
-        alignItems: "center",
-        padding: "4px 0",
-        borderBottom: last ? "none" : `1px solid ${T.hair}`,
-        fontSize: 12,
-        lineHeight: 1.3,
+        ...finMetricRowStyle,
+        borderBottom: last ? "none" : finMetricRowStyle.borderBottom,
       }}
     >
-      <span style={{ fontSize: 12, color: T.muted, fontWeight: 400 }}>{row.label}</span>
-      <span
-        style={{
-          fontSize: 12,
-          color: T.body,
-          fontWeight: 500,
-          textAlign: "left",
-          wordBreak: "break-word",
-          fontFamily: T.mono,
-          fontVariantNumeric: "tabular-nums",
-        }}
-      >
+      <span style={finMetricLabelStyle}>{row.label}</span>
+      <span style={{ ...finMetricValueStyle, textAlign: "left", wordBreak: "break-word" }}>
         {row.value}
       </span>
-      <span
-        style={{
-          fontSize: 10.5,
-          color: T.muted,
-          textAlign: "right",
-          whiteSpace: "nowrap",
-          paddingLeft: 4,
-        }}
-      >
-        {row.source}
-      </span>
+      <span style={{ ...finMetricLabelStyle, textAlign: "right" }}>{row.source}</span>
     </div>
   );
 }
 
 function MetricSectionBody({ section }: { section: FinancialMetricSection }) {
   return (
-    <div style={{ padding: "4px 14px 10px" }}>
+    <>
       <PeriodHeader period={section.periodDisplay} />
-      {section.rows.map((row, i) => (
-        <MetricRow
-          key={row.label}
-          row={row}
-          last={i === section.rows.length - 1}
-        />
-      ))}
-    </div>
+      <div style={{ padding: overviewBodyPadding }}>
+        {section.rows.map((row, i) => (
+          <MetricRow
+            key={row.label}
+            row={row}
+            last={i === section.rows.length - 1}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 
 function BenchmarkTabBody({ data }: { data: BenchmarkPeersData }) {
   return (
-    <div style={{ padding: "4px 14px 10px" }}>
+    <div style={{ padding: overviewBodyPadding }}>
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1.4fr 1fr 1fr 48px",
-          gap: 6,
-          padding: "4px 0 4px",
+          gridTemplateColumns: `${KV_LABEL_COL} 1fr 1fr 48px`,
+          gap: 8,
+          padding: "4px 0",
           borderBottom: `1px solid ${T.hair}`,
-          fontSize: 10,
-          color: T.muted,
-          fontWeight: 500,
-          textTransform: "uppercase",
-          letterSpacing: 0.4,
         }}
       >
-        <div>Metric</div>
-        <div style={{ textAlign: "right" }}>{data.companyName}</div>
-        <div style={{ textAlign: "right" }}>Peer median</div>
-        <div style={{ textAlign: "center" }}>vs.</div>
+        <div style={finMetricLabelStyle}>Metric</div>
+        <div style={{ ...finMetricLabelStyle, textAlign: "right" }}>{data.companyName}</div>
+        <div style={{ ...finMetricLabelStyle, textAlign: "right" }}>Peer median</div>
+        <div style={{ ...finMetricLabelStyle, textAlign: "center" }}>vs.</div>
       </div>
       {data.rows.map((row, i) => {
         const tone = benchmarkDeltaTone(row.companyValue, row.peerMedian);
@@ -155,35 +112,17 @@ function BenchmarkTabBody({ data }: { data: BenchmarkPeersData }) {
             key={row.label}
             style={{
               display: "grid",
-              gridTemplateColumns: "1.4fr 1fr 1fr 48px",
-              gap: 6,
-              padding: "5px 0",
+              gridTemplateColumns: `${KV_LABEL_COL} 1fr 1fr 48px`,
+              gap: 8,
+              padding: "4px 0",
               borderBottom:
                 i === data.rows.length - 1 ? "none" : `1px solid ${T.hair}`,
-              fontSize: 12.5,
-              alignItems: "center",
+              alignItems: "start",
             }}
           >
-            <div style={{ color: T.muted }}>{row.label}</div>
-            <div
-              style={{
-                textAlign: "right",
-                fontFamily: T.mono,
-                color: T.ink,
-                fontVariantNumeric: "tabular-nums",
-                fontWeight: 500,
-              }}
-            >
-              {row.companyValue}
-            </div>
-            <div
-              style={{
-                textAlign: "right",
-                fontFamily: T.mono,
-                color: T.muted,
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
+            <div style={finMetricLabelStyle}>{row.label}</div>
+            <div style={{ ...finMetricValueStyle, textAlign: "right" }}>{row.companyValue}</div>
+            <div style={{ ...finMetricValueStyle, textAlign: "right", color: T.muted }}>
               {row.peerMedian}
             </div>
             <div style={{ textAlign: "center" }}>
@@ -221,92 +160,68 @@ function TabHeader<T extends string>({
   onTabChange: (tab: T) => void;
   suffixForTab?: (tabId: T) => string | undefined;
 }) {
-  const tabFontSize = tabs.length > 2 ? 11.5 : 12.5;
-
   return (
-    <div
-      role="tablist"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "12px 14px 10px",
-        borderBottom: `1px solid ${T.hair}`,
-        gap: 6,
-        flexShrink: 0,
-        minWidth: 0,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          flexWrap: "nowrap",
-          flex: 1,
-          minWidth: 0,
-          fontFamily: T.sans,
-          fontSize: tabFontSize,
-          fontWeight: 600,
-          lineHeight: 1.25,
-        }}
-      >
-        {tabs.map((tab, index) => (
-          <React.Fragment key={tab.id}>
-            {index > 0 ? (
-              <span
-                style={{
-                  color: T.faint,
-                  padding: "0 4px",
-                  fontWeight: 600,
-                  userSelect: "none",
-                  flexShrink: 0,
+    <div role="tablist" style={{ flexShrink: 0, minWidth: 0 }}>
+      <LinkedH>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            flexWrap: "nowrap",
+            minWidth: 0,
+            flex: 1,
+            overflowX: "auto",
+            overflowY: "hidden",
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+          }}
+          className="fin-tab-scroll"
+        >
+          {tabs.map((tab, index) => (
+            <React.Fragment key={tab.id}>
+              {index > 0 ? (
+                <span
+                  style={{
+                    color: T.faint,
+                    padding: "0 4px",
+                    fontWeight: 600,
+                    userSelect: "none",
+                    flexShrink: 0,
+                  }}
+                  aria-hidden
+                >
+                  ·
+                </span>
+              ) : null}
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTabChange(tab.id);
                 }}
-                aria-hidden
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  fontSize: "inherit",
+                  fontWeight: "inherit",
+                  color: activeTab === tab.id ? T.ink : T.muted,
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  transition: "color 120ms",
+                }}
               >
-                ·
-              </span>
-            ) : null}
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              onClick={(e) => {
-                e.stopPropagation();
-                onTabChange(tab.id);
-              }}
-              style={{
-                background: "transparent",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                fontSize: "inherit",
-                fontWeight: "inherit",
-                color: activeTab === tab.id ? T.ink : T.muted,
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-                transition: "color 120ms",
-              }}
-            >
-              {tab.label}
-              {suffixForTab?.(tab.id) ?? ""}
-            </button>
-          </React.Fragment>
-        ))}
-      </div>
-      <div
-        style={{
-          fontSize: 14,
-          color: T.azure,
-          fontWeight: 500,
-          lineHeight: 1,
-          padding: "2px 4px",
-          flexShrink: 0,
-        }}
-        aria-hidden
-      >
-        →
-      </div>
+                {tab.label}
+                {suffixForTab?.(tab.id) ?? ""}
+              </button>
+            </React.Fragment>
+          ))}
+        </div>
+      </LinkedH>
     </div>
   );
 }
@@ -369,7 +284,14 @@ function PrimaryFinCard({
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        suffixForTab={(id) => (id === "metrics" ? currencySuffix : undefined)}
+        suffixForTab={(id) => {
+          if (id === "metrics") return currencySuffix;
+          if (id === "income") {
+            const code = incomeStatementCurrency.trim();
+            return code ? ` (${code})` : undefined;
+          }
+          return undefined;
+        }}
       />
       <div
         style={
@@ -423,7 +345,7 @@ function SecondaryFinCard({
       <div
         style={
           fillGridCell
-            ? { flex: 1, minHeight: 0, overflow: "auto" }
+            ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "auto" }
             : undefined
         }
       >

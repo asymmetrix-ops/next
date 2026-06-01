@@ -773,6 +773,38 @@ function buildProductUsersAccordionSections(
   })).filter((s) => s.items.length > 0);
 }
 
+function buildCoreProductsSections(
+  company: Company,
+  caSections: ProductUsersSection[] | null
+): ProductUsersSection[] {
+  if (caSections && caSections.length > 0) return caSections;
+  const accordion = buildProductUsersAccordionSections(company);
+  if (accordion.length > 0) return accordion;
+  const raw = company.product_users;
+  const lines: string[] = [];
+  if (Array.isArray(raw)) {
+    lines.push(...raw.map((x) => String(x).trim()).filter(Boolean));
+  } else if (typeof raw === "string" && raw.trim()) {
+    try {
+      const j = JSON.parse(raw) as unknown;
+      if (Array.isArray(j)) {
+        lines.push(...j.map((x) => String(x).trim()).filter(Boolean));
+      }
+    } catch {
+      lines.push(
+        ...raw
+          .split(/[,;\n]/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+      );
+    }
+  }
+  if (lines.length > 0) {
+    return lines.map((title) => ({ title }));
+  }
+  return PRODUCT_USERS_DEMO.map((title) => ({ title }));
+}
+
 // formatInsightBadgeLabel moved to InsightsCard component
 
 function formatWebsiteDisplayLabel(raw: string): string {
@@ -1489,7 +1521,7 @@ const CompanyDetail = () => {
     }
   }, []);
 
-  // Fetch Products & Users from company_products_services API
+  // Fetch Core Products & Services from company_products_services API (CA)
   const fetchProductServices = useCallback(async (id: string | number) => {
     try {
       const token = localStorage.getItem("asymmetrix_auth_token");
@@ -1508,7 +1540,10 @@ const CompanyDetail = () => {
       const data = (await res.json()) as { title: string; body: string }[];
       if (!Array.isArray(data) || data.length === 0) return;
       setProductServicesData(
-        data.map((item) => ({ title: item.title, items: [item.body] }))
+        data.map((item) => ({
+          title: item.title,
+          body: item.body?.replace(/&nbsp;/g, " ").trim(),
+        }))
       );
     } catch {
       // Non-fatal; fall back to static data
@@ -3018,29 +3053,10 @@ const CompanyDetail = () => {
     T.muted,
   ];
 
-  const productUsersAccordionSections = buildProductUsersAccordionSections(company);
-
-  const productUsersSegments = (() => {
-    const raw = company.product_users;
-    if (Array.isArray(raw)) {
-      return raw.map((x) => String(x).trim()).filter(Boolean);
-    }
-    if (typeof raw === "string" && raw.trim()) {
-      try {
-        const j = JSON.parse(raw) as unknown;
-        if (Array.isArray(j)) {
-          return j.map((x) => String(x).trim()).filter(Boolean);
-        }
-      } catch {
-        /* fall through */
-      }
-      return raw
-        .split(/[,;\n]/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-    }
-    return [...PRODUCT_USERS_DEMO];
-  })();
+  const coreProductsSections = buildCoreProductsSections(
+    company,
+    productServicesData
+  );
 
   const productTypeBarRows =
     productTypeRows.length > 0
@@ -3193,19 +3209,22 @@ const CompanyDetail = () => {
       z-index: 21;
       pointer-events: none;
     }
-    /* Tighter rows inside Financial Metrics */
+    /* Financial Metrics rows aligned with Overview KV layout */
+    .fin-tab-scroll::-webkit-scrollbar {
+      display: none;
+    }
     .desktop-financial-metrics .info-row {
       padding: 4px 0 !important;
-      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr) auto !important;
-      column-gap: 6px !important;
+      grid-template-columns: minmax(118px, auto) minmax(0, 1fr) auto !important;
+      column-gap: 8px !important;
     }
     .desktop-financial-metrics .info-row > :nth-child(2) {
       min-width: 0;
     }
     .mobile-financial-metrics .info-row {
       padding: 4px 0 !important;
-      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr) auto !important;
-      column-gap: 6px !important;
+      grid-template-columns: minmax(118px, auto) minmax(0, 1fr) auto !important;
+      column-gap: 8px !important;
     }
     .mobile-financial-metrics .info-row > :nth-child(2) {
       min-width: 0;
@@ -3900,17 +3919,7 @@ const CompanyDetail = () => {
 
             <div className="company-grid-product-users">
               <ProductUsersListCard
-                sections={
-                  productServicesData ??
-                  (productUsersAccordionSections.length > 0
-                    ? productUsersAccordionSections
-                    : undefined)
-                }
-                lines={
-                  productServicesData || productUsersAccordionSections.length > 0
-                    ? []
-                    : productUsersSegments
-                }
+                sections={coreProductsSections}
                 fillGridCell
               />
             </div>
@@ -4030,7 +4039,7 @@ const CompanyDetail = () => {
                   fillGridCell
                   current={managementCurrentPeople}
                   past={managementPastPeople}
-                  maxVisible={6}
+                  maxVisible={4}
                 />
               </div>
             )}

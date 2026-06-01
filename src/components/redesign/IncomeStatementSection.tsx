@@ -1,7 +1,14 @@
 "use client";
 
 import React from "react";
-import { LinkedH, T } from "./primitives";
+import {
+  LinkedH,
+  T,
+  KV_LABEL_COL,
+  kvLabelStyle,
+  kvValueStyle,
+  tableColHeaderBarStyle,
+} from "./primitives";
 
 export type IncomeStatementRow = {
   id: number;
@@ -18,22 +25,8 @@ type Props = {
   currency?: string;
 };
 
-const COL = "minmax(88px, 1.15fr) 1fr 1fr 1fr";
-
-const metricLabelStyle: React.CSSProperties = {
-  fontFamily: T.sans,
-  fontSize: 12.5,
-  fontWeight: 400,
-  color: T.muted,
-};
-
-const metricValueStyle: React.CSSProperties = {
-  fontFamily: T.sans,
-  fontSize: 12.5,
-  fontWeight: 400,
-  color: T.body,
-  textAlign: "right",
-};
+const COL = `${KV_LABEL_COL} 1fr 1fr 1fr`;
+const ROW_GAP = 10;
 
 function formatIncomeValue(value: number | null | undefined): string {
   if (typeof value !== "number") return "—";
@@ -44,18 +37,9 @@ function ColHeader() {
   return (
     <div
       style={{
-        display: "grid",
+        ...tableColHeaderBarStyle,
         gridTemplateColumns: COL,
-        alignItems: "center",
-        gap: 6,
-        padding: "4px 14px",
-        background: T.paper,
-        borderBottom: `1px solid ${T.hair}`,
-        ...metricLabelStyle,
-        fontSize: 10,
-        fontWeight: 500,
-        textTransform: "uppercase",
-        letterSpacing: 0.4,
+        gap: ROW_GAP,
       }}
     >
       <div>Financial period</div>
@@ -81,44 +65,34 @@ function DataRow({
         display: "grid",
         gridTemplateColumns: COL,
         alignItems: "center",
-        gap: 6,
-        padding: "4px 14px",
+        gap: ROW_GAP,
+        padding: "10px 16px",
         borderBottom: last ? "none" : `1px solid ${T.hair}`,
       }}
     >
-      <div style={{ ...metricLabelStyle, textAlign: "left" }}>
-        {period || "—"}
+      <div style={kvLabelStyle}>{period || "—"}</div>
+      <div style={{ ...kvValueStyle, textAlign: "right" }}>
+        {formatIncomeValue(row.revenue)}
       </div>
-      <div style={metricValueStyle}>{formatIncomeValue(row.revenue)}</div>
-      <div style={metricValueStyle}>{formatIncomeValue(row.ebit)}</div>
-      <div style={metricValueStyle}>{formatIncomeValue(row.ebitda)}</div>
+      <div style={{ ...kvValueStyle, textAlign: "right" }}>
+        {formatIncomeValue(row.ebit)}
+      </div>
+      <div style={{ ...kvValueStyle, textAlign: "right" }}>
+        {formatIncomeValue(row.ebitda)}
+      </div>
     </div>
   );
 }
 
 export function IncomeStatementTable({
   rows,
-  currency = "",
 }: {
   rows: IncomeStatementRow[];
   currency?: string;
 }) {
-  const titleCurrency = currency.trim();
   return (
     <div style={{ overflowX: "auto" }}>
       <div style={{ minWidth: 320 }}>
-        {titleCurrency ? (
-          <div
-            style={{
-              padding: "6px 14px 0",
-              fontSize: 11,
-              color: T.muted,
-              fontWeight: 500,
-            }}
-          >
-            Currency: {titleCurrency}
-          </div>
-        ) : null}
         <ColHeader />
         <div style={{ padding: "4px 0" }}>
           {rows.map((row, index) => (
