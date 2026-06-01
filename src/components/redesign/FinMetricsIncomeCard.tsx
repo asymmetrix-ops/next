@@ -284,14 +284,7 @@ function PrimaryFinCard({
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        suffixForTab={(id) => {
-          if (id === "metrics") return currencySuffix;
-          if (id === "income") {
-            const code = incomeStatementCurrency.trim();
-            return code ? ` (${code})` : undefined;
-          }
-          return undefined;
-        }}
+        suffixForTab={(id) => (id === "metrics" ? currencySuffix : undefined)}
       />
       <div
         style={
