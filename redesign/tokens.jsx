@@ -43,8 +43,8 @@ export const T = {
   shadow2: '0 1px 2px rgba(15,17,21,0.04), 0 4px 16px rgba(15,17,21,0.04)',
 
   // type
-  sans: '"Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
-  mono: '"Geist Mono", ui-monospace, "SF Mono", Menlo, monospace',
+  sans: 'var(--font-geist-sans, "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif)',
+  mono: 'var(--font-geist-mono, "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace)',
   serif: '"Fraunces", Georgia, serif',
   editorial: 'oklch(38% 0.12 30)',
 };

@@ -2531,8 +2531,8 @@ const CompanyDetail = () => {
     down:    "oklch(55% 0.17 25)",
     r:       6,
     rLg:     10,
-    sans:    '"Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
-    mono:    '"Geist Mono", ui-monospace, "SF Mono", Menlo, monospace',
+    sans:    'var(--font-geist-sans, "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif)',
+    mono:    'var(--font-geist-mono, "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace)',
   };
 
   const styles = {

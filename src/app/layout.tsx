@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Inter } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import Script from "next/script";
 import "./globals.css";
 import { AnalyticsProvider } from "@/components/providers/AnalyticsProvider";
@@ -12,8 +13,6 @@ import ChunkErrorRecovery from "@/components/ChunkErrorRecovery";
 import TrialRouteGuard from "@/components/TrialRouteGuard";
 import RouteTracker from "@/components/RouteTracker";
 import ErrorTracker from "@/components/ErrorTracker";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Asymmetrix - Data & Analytics Demystified",
@@ -132,7 +131,7 @@ export default function RootLayout({
           `}
         </Script>
       </head>
-      <body className={inter.className}>
+      <body className={`${GeistSans.variable} ${GeistMono.variable} ${GeistSans.className}`}>
         <AuthProvider>
           <PortfolioHydrator />
           <AnalyticsProvider>
