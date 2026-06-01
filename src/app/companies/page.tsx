@@ -19,7 +19,7 @@ import {
 } from "@/utils/companiesCSVExport";
 import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
-import { fetchCompaniesServer, CompaniesFilters as ServerFilters } from "./actions";
+import { fetchCompaniesServer, fetchCompaniesCountsServer, CompaniesFilters as ServerFilters } from "./actions";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import {
   CompaniesFilterBar,
@@ -282,6 +282,28 @@ const isExportCompanyJson = (value: unknown): value is ExportCompanyJson => {
 
 
 // API service
+type CompaniesOwnershipCounts = {
+  totalCount: number;
+  publicCompanies: number;
+  peOwnedCompanies: number;
+  vcOwnedCompanies: number;
+  privateCompanies: number;
+  subsidiaryCompanies: number;
+  acquiredCompanies: number;
+  otherCompanies: number;
+};
+
+const EMPTY_OWNERSHIP_COUNTS: CompaniesOwnershipCounts = {
+  totalCount: 0,
+  publicCompanies: 0,
+  peOwnedCompanies: 0,
+  vcOwnedCompanies: 0,
+  privateCompanies: 0,
+  subsidiaryCompanies: 0,
+  acquiredCompanies: 0,
+  otherCompanies: 0,
+};
+
 const useCompaniesAPI = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
@@ -299,13 +321,8 @@ const useCompaniesAPI = () => {
     perPage: 20,
     pageTotal: 0,
   });
-  const [ownershipCounts, setOwnershipCounts] = useState({
-    publicCompanies: 0,
-    peOwnedCompanies: 0,
-    vcOwnedCompanies: 0,
-    privateCompanies: 0,
-    subsidiaryCompanies: 0,
-  });
+  const [ownershipCounts, setOwnershipCounts] =
+    useState<CompaniesOwnershipCounts>(EMPTY_OWNERSHIP_COUNTS);
 
   const fetchCompanies = useCallback(
     async (page: number = 1, filters?: Filters) => {
@@ -383,7 +400,14 @@ const useCompaniesAPI = () => {
           return serverFiltersBase;
         })();
 
-        // Use server action for data fetching
+        const countsFilters: ServerFilters = {
+          ...serverFilters,
+          ownershipTypes: [],
+        };
+
+        // Start counts fetch immediately (parallel with list — doesn't block table render)
+        const countsPromise = fetchCompaniesCountsServer(countsFilters);
+
         const data = await fetchCompaniesServer(page, serverFilters);
 
         if (!data) {
@@ -399,19 +423,28 @@ const useCompaniesAPI = () => {
             nextPage: data.result1?.nextPage || null,
             prevPage: data.result1?.prevPage || null,
             offset: data.result1?.offset || 0,
-            perPage: data.result1?.perPage || 25,
+            perPage: data.result1?.perPage || 20,
             pageTotal: data.result1?.pageTotal || 0,
           });
-
-          const ownershipData = data.result1?.ownershipCounts || {};
-          setOwnershipCounts({
-            publicCompanies: ownershipData.publicCompanies || 0,
-            peOwnedCompanies: ownershipData.peOwnedCompanies || 0,
-            vcOwnedCompanies: ownershipData.vcOwnedCompanies || 0,
-            privateCompanies: ownershipData.privateCompanies || 0,
-            subsidiaryCompanies: ownershipData.subsidiaryCompanies || 0,
-          });
         }
+
+        void countsPromise
+          .then((countsData) => {
+            if (requestId !== lastRequestIdRef.current || !countsData) return;
+            setOwnershipCounts({
+              totalCount: countsData.totalCount || 0,
+              publicCompanies: countsData.publicCompanies || 0,
+              peOwnedCompanies: countsData.peOwnedCompanies || 0,
+              vcOwnedCompanies: countsData.vcOwnedCompanies || 0,
+              privateCompanies: countsData.privateCompanies || 0,
+              subsidiaryCompanies: countsData.subsidiaryCompanies || 0,
+              acquiredCompanies: countsData.acquiredCompanies || 0,
+              otherCompanies: countsData.otherCompanies || 0,
+            });
+          })
+          .catch((countsError) => {
+            console.error("Error fetching companies counts:", countsError);
+          });
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to fetch companies"
@@ -1348,28 +1381,14 @@ function buildFiltersFromState(
 const CompanyDashboard = ({
   onSearch,
   initialSearch,
-  totalCount = 0,
-  ownershipCounts = {
-    publicCompanies: 0,
-    peOwnedCompanies: 0,
-    vcOwnedCompanies: 0,
-    privateCompanies: 0,
-    subsidiaryCompanies: 0,
-  },
+  ownershipCounts = EMPTY_OWNERSHIP_COUNTS,
   onColumnsClick,
   onExportCSVClick,
   columnsCount = 0,
 }: {
   onSearch?: (filters: Filters) => void;
   initialSearch?: string;
-  totalCount?: number;
-  ownershipCounts?: {
-    publicCompanies: number;
-    peOwnedCompanies: number;
-    vcOwnedCompanies: number;
-    privateCompanies: number;
-    subsidiaryCompanies: number;
-  };
+  ownershipCounts?: CompaniesOwnershipCounts;
   onColumnsClick?: () => void;
   onExportCSVClick?: () => void;
   columnsCount?: number;
@@ -1382,15 +1401,70 @@ const CompanyDashboard = ({
   });
 
   // Ownership quick-filter tab — independent of FilterBar chips
-  type OwnershipTab = "all" | "public" | "pe" | "vc" | "private";
-  const [activeOwnershipTab, setActiveOwnershipTab] = useState<OwnershipTab>("all");
+  type OwnershipTab =
+    | "all"
+    | "public"
+    | "pe"
+    | "vc"
+    | "private"
+    | "subsidiary"
+    | "acquired"
+    | "other";
 
-  const OWNERSHIP_TAB_TO_NAME: Record<string, string> = {
-    public: "Public",
-    pe: "PE-owned",
-    vc: "VC-owned",
-    private: "Private",
+  const OWNERSHIP_TAB_CONFIG: Record<
+    Exclude<OwnershipTab, "all">,
+    {
+      label: string;
+      dot: string;
+      countKey: keyof CompaniesOwnershipCounts;
+      names: string[];
+    }
+  > = {
+    public: {
+      label: "Public",
+      dot: "#7c3aed",
+      countKey: "publicCompanies",
+      names: ["Public"],
+    },
+    pe: {
+      label: "PE-owned",
+      dot: "#0ea5e9",
+      countKey: "peOwnedCompanies",
+      names: ["PE-owned", "PE Owned"],
+    },
+    vc: {
+      label: "VC-owned",
+      dot: "#10b981",
+      countKey: "vcOwnedCompanies",
+      names: ["VC-owned", "VC Owned"],
+    },
+    private: {
+      label: "Private",
+      dot: "#f59e0b",
+      countKey: "privateCompanies",
+      names: ["Private"],
+    },
+    subsidiary: {
+      label: "Subsidiary",
+      dot: "#6366f1",
+      countKey: "subsidiaryCompanies",
+      names: ["Subsidiary", "Subsidiaries"],
+    },
+    acquired: {
+      label: "Acquired",
+      dot: "#ec4899",
+      countKey: "acquiredCompanies",
+      names: ["Acquired"],
+    },
+    other: {
+      label: "Other",
+      dot: "#78716c",
+      countKey: "otherCompanies",
+      names: ["Other"],
+    },
   };
+
+  const [activeOwnershipTab, setActiveOwnershipTab] = useState<OwnershipTab>("all");
 
   // Option data (fetched from API)
   const [countries, setCountries] = useState<Country[]>([]);
@@ -1472,7 +1546,12 @@ const CompanyDashboard = ({
 
   // ── Auto-search on filter state or ownership tab changes ──────────────
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipInitialSearchRef = useRef(true);
   useEffect(() => {
+    if (skipInitialSearchRef.current) {
+      skipInitialSearchRef.current = false;
+      return;
+    }
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
       const filters = buildFiltersFromState(filterBarState, {
@@ -1483,8 +1562,10 @@ const CompanyDashboard = ({
       });
       // Merge ownership tab as an extra filter (overrides any chip-level ownership)
       if (activeOwnershipTab !== "all") {
-        const ownershipName = OWNERSHIP_TAB_TO_NAME[activeOwnershipTab];
-        const ownershipId = ownershipTypes.find((t) => t.ownership === ownershipName)?.id;
+        const tabConfig = OWNERSHIP_TAB_CONFIG[activeOwnershipTab];
+        const ownershipId = tabConfig.names
+          .map((name) => ownershipTypes.find((t) => t.ownership === name)?.id)
+          .find((id): id is number => id != null);
         if (ownershipId) filters.ownershipTypes = [ownershipId];
       }
       onSearch?.(filters);
@@ -1496,20 +1577,31 @@ const CompanyDashboard = ({
   }, [filterBarState, activeOwnershipTab]);
 
   // ── Ownership tabs data ────────────────────────────────────────────────
-  const totalOwnership =
-    ownershipCounts.publicCompanies +
-    ownershipCounts.peOwnedCompanies +
-    ownershipCounts.vcOwnedCompanies +
-    ownershipCounts.privateCompanies +
-    ownershipCounts.subsidiaryCompanies;
+  const ownershipTabOrder: Exclude<OwnershipTab, "all">[] = [
+    "public",
+    "pe",
+    "vc",
+    "private",
+    "subsidiary",
+    "acquired",
+    "other",
+  ];
 
   const ownershipTabs: { id: OwnershipTab; label: string; count: number; dot: string }[] = [
-    { id: "all",     label: "All",      count: totalOwnership,                       dot: "#64748b" },
-    { id: "public",  label: "Public",   count: ownershipCounts.publicCompanies,       dot: "#7c3aed" },
-    { id: "pe",      label: "PE-owned", count: ownershipCounts.peOwnedCompanies,      dot: "#0ea5e9" },
-    { id: "vc",      label: "VC-owned", count: ownershipCounts.vcOwnedCompanies,      dot: "#10b981" },
-    { id: "private", label: "Private",  count: ownershipCounts.privateCompanies,      dot: "#f59e0b" },
+    { id: "all", label: "All", count: ownershipCounts.totalCount, dot: "#64748b" },
+    ...ownershipTabOrder.map((id) => ({
+      id,
+      label: OWNERSHIP_TAB_CONFIG[id].label,
+      count: ownershipCounts[OWNERSHIP_TAB_CONFIG[id].countKey],
+      dot: OWNERSHIP_TAB_CONFIG[id].dot,
+    })),
   ];
+
+  const matchCount =
+    activeOwnershipTab === "all"
+      ? ownershipCounts.totalCount
+      : ownershipTabs.find((tab) => tab.id === activeOwnershipTab)?.count ??
+        ownershipCounts.totalCount;
 
   return (
     <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
@@ -1553,7 +1645,7 @@ const CompanyDashboard = ({
             >
               Company search
               <span style={{ fontSize: 16, fontWeight: 400, color: "#94a3b8" }}>
-                {totalCount.toLocaleString()} matches
+                {matchCount.toLocaleString()} matches
               </span>
             </h1>
           </div>
@@ -1612,7 +1704,7 @@ const CompanyDashboard = ({
         </div>
 
         {/* ── Ownership quick-filter tabs ── */}
-        <div style={{ display: "flex", gap: 4 }}>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {ownershipTabs.map((tab) => {
             const active = activeOwnershipTab === tab.id;
             return (
@@ -1665,7 +1757,7 @@ const CompanyDashboard = ({
             filterCategories={FILTER_CATEGORIES}
             state={filterBarState}
             onStateChange={setFilterBarState}
-            totalCount={totalCount}
+            totalCount={matchCount}
           />
         </div>
       </div>
@@ -1701,13 +1793,7 @@ const CompanySection = ({
     perPage: number;
     pageTotal: number;
   };
-  ownershipCounts: {
-    publicCompanies: number;
-    peOwnedCompanies: number;
-    vcOwnedCompanies: number;
-    privateCompanies: number;
-    subsidiaryCompanies: number;
-  };
+  ownershipCounts: CompaniesOwnershipCounts;
   fetchCompanies: (page?: number, filters?: Filters) => Promise<void>;
   currentFilters: Filters | undefined;
   onEditCompany?: (id: number) => void;
@@ -3553,7 +3639,6 @@ function CompaniesPageInner() {
       <CompanyDashboard
         onSearch={handleSearch}
         initialSearch={initialSearch}
-        totalCount={pagination.itemsReceived}
         ownershipCounts={ownershipCounts}
         onColumnsClick={() => setShowColumnsModal(true)}
         onExportCSVClick={() => exportCSVRef.current?.()}
