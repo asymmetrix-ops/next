@@ -202,6 +202,47 @@ export async function GET(req: NextRequest) {
   // Build per-user summaries
   const effectiveDays = hours ? Math.ceil(hours / 24) + 1 : days;
 
+  type MsgRecord = {
+    messageId: string; subject: string; sentAt: string; status: string;
+    tag: string | null; opened: boolean; clicked: boolean;
+    firstOpenedAt: string | null; firstClickedAt: string | null;
+  };
+
+  type HeatCell = { date: string; status: "opened" | "clicked" | "sent" | "bounced" | "none" };
+
+  function buildHeatmap(msgs: MsgRecord[], numDays: number): HeatCell[] {
+    const cells: HeatCell[] = [];
+    for (let i = numDays - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = fmt(d);
+      const dayMsgs = msgs.filter((m) => m.sentAt?.startsWith(dateStr));
+      let status: HeatCell["status"] = "none";
+      if (dayMsgs.some((m) => m.clicked)) status = "clicked";
+      else if (dayMsgs.some((m) => m.opened)) status = "opened";
+      else if (dayMsgs.some((m) => m.status === "Bounced")) status = "bounced";
+      else if (dayMsgs.length > 0) status = "sent";
+      cells.push({ date: dateStr, status });
+    }
+    return cells;
+  }
+
+  function msgStats(msgs: MsgRecord[]) {
+    const sentCount = msgs.length;
+    const openedCount = msgs.filter((m) => m.opened).length;
+    const clickedCount = msgs.filter((m) => m.clicked).length;
+    const bouncedCount = msgs.filter((m) => m.status === "Bounced").length;
+    return {
+      sentCount,
+      openedCount,
+      clickedCount,
+      bouncedCount,
+      openRate: sentCount > 0 ? Math.round((openedCount / sentCount) * 100) : 0,
+      clickRate: sentCount > 0 ? Math.round((clickedCount / sentCount) * 100) : 0,
+      lastOpened: msgs.find((m) => m.opened)?.firstOpenedAt ?? null,
+    };
+  }
+
   const userSummaries = Object.values(userByEmail).map((user) => {
     const userAlerts = alertsByUserId[user.id] ?? [];
     const userMessages = msgsByEmail[user.email] ?? [];
@@ -211,46 +252,67 @@ export async function GET(req: NextRequest) {
       (a, b) => (b.last_sent_at_utc ?? 0) - (a.last_sent_at_utc ?? 0)
     )[0];
 
-    const messageHistory = userMessages
-      .map((m) => {
-        const firstOpenedAt = firstOpenByMsgId[m.MessageID] ?? null;
-        const firstClickedAt = firstClickByMsgId[m.MessageID] ?? null;
-        return {
-          messageId: m.MessageID,
-          subject: m.Subject ?? "",
-          sentAt: m.ReceivedAt ?? "",
-          status: m.Status ?? "",
-          tag: m.Tag ?? null,
-          opened: !!firstOpenedAt,
-          clicked: !!firstClickedAt,
-          firstOpenedAt,
-          firstClickedAt,
-        };
-      })
+    const messageHistory: MsgRecord[] = userMessages
+      .map((m) => ({
+        messageId: m.MessageID,
+        subject: m.Subject ?? "",
+        sentAt: m.ReceivedAt ?? "",
+        status: m.Status ?? "",
+        tag: m.Tag ?? null,
+        opened: !!firstOpenByMsgId[m.MessageID],
+        clicked: !!firstClickByMsgId[m.MessageID],
+        firstOpenedAt: firstOpenByMsgId[m.MessageID] ?? null,
+        firstClickedAt: firstClickByMsgId[m.MessageID] ?? null,
+      }))
       .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
 
-    const sentCount = messageHistory.length;
-    const openedCount = messageHistory.filter((m) => m.opened).length;
-    const clickedCount = messageHistory.filter((m) => m.clicked).length;
-    const bouncedCount = messageHistory.filter((m) => m.status === "Bounced").length;
-    const openRate = sentCount > 0 ? Math.round((openedCount / sentCount) * 100) : 0;
-    const clickRate = sentCount > 0 ? Math.round((clickedCount / sentCount) * 100) : 0;
-    const lastOpened = messageHistory.find((m) => m.opened)?.firstOpenedAt ?? null;
+    const overall = msgStats(messageHistory);
 
-    // Heatmap: one cell per day in the range
-    const heatmap: { date: string; status: "opened" | "clicked" | "sent" | "bounced" | "none" }[] = [];
-    for (let i = effectiveDays - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = fmt(d);
-      const dayMsgs = messageHistory.filter((m) => m.sentAt?.startsWith(dateStr));
-      let status: "opened" | "clicked" | "sent" | "bounced" | "none" = "none";
-      if (dayMsgs.some((m) => m.clicked)) status = "clicked";
-      else if (dayMsgs.some((m) => m.opened)) status = "opened";
-      else if (dayMsgs.some((m) => m.status === "Bounced")) status = "bounced";
-      else if (dayMsgs.length > 0) status = "sent";
-      heatmap.push({ date: dateStr, status });
-    }
+    // Per-alert-type breakdown
+    // Named types come from Xano subscriptions + distinct Postmark tags
+    const namedTypes = new Set([
+      ...activeAlerts.map((a) => a.item_type),
+      ...messageHistory.map((m) => m.tag).filter(Boolean) as string[],
+    ]);
+
+    const namedRows = Array.from(namedTypes).map((alertType) => {
+      const typeMsgs = messageHistory.filter((m) => m.tag === alertType);
+      const alert = userAlerts.find((a) => a.item_type === alertType);
+      const stats = msgStats(typeMsgs);
+      return {
+        alertType,
+        frequency: alert?.email_frequency ?? null,
+        isActive: alert?.is_active ?? false,
+        lastSentAtUtc: alert?.last_sent_at_utc ?? null,
+        nextRunAtUtc: alert?.next_run_at_utc ?? null,
+        isUntaggedGroup: false,
+        ...stats,
+        heatmap: buildHeatmap(typeMsgs, effectiveDays),
+        messageHistory: typeMsgs,
+      };
+    }).sort((a, b) => b.sentCount - a.sentCount || a.alertType.localeCompare(b.alertType));
+
+    // Messages that have no matching tag get grouped as "__untagged__".
+    // This is the common case when Postmark is not configured with per-type tags.
+    const untaggedMsgs = messageHistory.filter(
+      (m) => !m.tag || !namedTypes.has(m.tag)
+    );
+    const untaggedRow = untaggedMsgs.length > 0
+      ? [{
+          alertType: "__untagged__",
+          frequency: null,
+          isActive: true,
+          lastSentAtUtc: null,
+          nextRunAtUtc: null,
+          isUntaggedGroup: true,
+          ...msgStats(untaggedMsgs),
+          heatmap: buildHeatmap(untaggedMsgs, effectiveDays),
+          messageHistory: untaggedMsgs,
+        }]
+      : [];
+
+    // Put subscription-info rows first, then untagged catch-all at the bottom
+    const byAlertType = [...namedRows, ...untaggedRow];
 
     return {
       userId: user.id,
@@ -261,15 +323,10 @@ export async function GET(req: NextRequest) {
       frequency: lastAlert?.email_frequency ?? null,
       lastSentAtUtc: lastAlert?.last_sent_at_utc ?? null,
       nextRunAtUtc: lastAlert?.next_run_at_utc ?? null,
-      sentCount,
-      openedCount,
-      clickedCount,
-      bouncedCount,
-      openRate,
-      clickRate,
-      lastOpened,
+      ...overall,
       messageHistory,
-      heatmap,
+      heatmap: buildHeatmap(messageHistory, effectiveDays),
+      byAlertType,
     };
   });
 

@@ -2396,6 +2396,23 @@ type EAMessage = {
   firstClickedAt: string | null;
 };
 
+type EABreakdown = {
+  alertType: string;
+  frequency: string | null;
+  isActive: boolean;
+  lastSentAtUtc: number | null;
+  isUntaggedGroup: boolean;
+  sentCount: number;
+  openedCount: number;
+  clickedCount: number;
+  bouncedCount: number;
+  openRate: number;
+  clickRate: number;
+  lastOpened: string | null;
+  heatmap: EAHeatCell[];
+  messageHistory: EAMessage[];
+};
+
 type EAUser = {
   userId: number;
   name: string;
@@ -2413,6 +2430,7 @@ type EAUser = {
   lastOpened: string | null;
   messageHistory: EAMessage[];
   heatmap: EAHeatCell[];
+  byAlertType: EABreakdown[];
 };
 
 type EADebug = {
@@ -2482,6 +2500,16 @@ function eaDaysSince(iso: string | null): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
 
+const EA_ALERT_LABELS: Record<string, { label: string; cls: string }> = {
+  corporate_events:   { label: "Corporate Events",   cls: "bg-violet-50 text-violet-700" },
+  insights_analysis:  { label: "Insights & Analysis", cls: "bg-blue-50 text-blue-700" },
+  digest:             { label: "Digest",              cls: "bg-teal-50 text-teal-700" },
+};
+
+function eaAlertLabel(type: string) {
+  return EA_ALERT_LABELS[type] ?? { label: type, cls: "bg-gray-100 text-gray-600" };
+}
+
 function EAHeatCell({ cell }: { cell: EAHeatCell }) {
   return (
     <div
@@ -2499,6 +2527,180 @@ function EAHeatCell({ cell }: { cell: EAHeatCell }) {
     />
   );
 }
+
+// ── Level-2: message list for a single alert type ─────────────────────────────
+
+function EAMessageList({ messages }: { messages: EAMessage[] }) {
+  if (messages.length === 0) {
+    return (
+      <p className="text-xs text-gray-400 py-2 px-3">No messages in this period.</p>
+    );
+  }
+  return (
+    <table className="w-full text-xs border-collapse">
+      <thead>
+        <tr className="border-b border-gray-200">
+          {["Subject", "Sent", "Opened at", "Clicked at", "Status"].map((h) => (
+            <th key={h} className="text-left font-normal text-gray-400 py-1.5 pr-4 first:pl-3">
+              {h}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {messages.slice(0, 30).map((m) => (
+          <tr key={m.messageId} className="border-b border-gray-100 last:border-0 hover:bg-white">
+            <td className="py-1.5 pr-4 pl-3 max-w-xs truncate">{m.subject || "—"}</td>
+            <td className="py-1.5 pr-4 text-gray-500 whitespace-nowrap">{eaFmtDate(m.sentAt)}</td>
+            <td className={`py-1.5 pr-4 whitespace-nowrap ${m.opened ? "text-green-700" : "text-gray-400"}`}>
+              {m.opened ? eaFmtDate(m.firstOpenedAt) : "—"}
+            </td>
+            <td className={`py-1.5 pr-4 whitespace-nowrap ${m.clicked ? "text-green-700" : "text-gray-400"}`}>
+              {m.clicked ? eaFmtDate(m.firstClickedAt) : "—"}
+            </td>
+            <td className="py-1.5 pr-4">
+              {m.status === "Bounced" ? (
+                <span className="text-red-600">Bounced</span>
+              ) : m.opened ? (
+                <span className="text-green-700">Opened</span>
+              ) : (
+                <span className="text-gray-400">Sent</span>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// ── Level-1: one row per alert type inside an expanded user row ───────────────
+
+function EABreakdownRow({ bd }: { bd: EABreakdown }) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Untagged catch-all — rendered differently
+  if (bd.isUntaggedGroup) {
+    return (
+      <>
+        <tr
+          onClick={() => setExpanded((e) => !e)}
+          className="cursor-pointer hover:bg-white border-b border-gray-100 last:border-0 bg-amber-50/40"
+        >
+          <td className="pl-8 pr-3 py-2 w-52">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
+                All sends (untagged)
+              </span>
+            </div>
+            <div className="text-xs text-amber-600 mt-0.5 ml-0">
+              Postmark tag not set — can&apos;t split by type
+            </div>
+          </td>
+          <td className="px-3 py-2 text-xs text-gray-400">—</td>
+          <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">
+            {eaFmtDate(bd.lastOpened)}
+          </td>
+          <td className="px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-green-700">{bd.openRate}%</span>
+              <span className="text-xs text-gray-400">{bd.openedCount}/{bd.sentCount}</span>
+            </div>
+          </td>
+          <td className="px-3 py-2">
+            <div className="flex gap-0.5 flex-nowrap overflow-hidden" style={{ maxWidth: 340 }}>
+              {bd.heatmap.map((cell) => (
+                <EAHeatCell key={cell.date} cell={cell} />
+              ))}
+            </div>
+          </td>
+          <td className="px-3 py-2 text-right">
+            <span className="text-xs text-gray-500 mr-1">{bd.sentCount} sent</span>
+            <span className="text-xs text-gray-400">{expanded ? "▲" : "▼"}</span>
+          </td>
+        </tr>
+        {expanded && (
+          <tr>
+            <td colSpan={6} className="bg-white border-b border-gray-100 px-4 py-2">
+              <EAMessageList messages={bd.messageHistory} />
+            </td>
+          </tr>
+        )}
+      </>
+    );
+  }
+
+  // Named subscription row
+  const { label, cls } = eaAlertLabel(bd.alertType);
+  const noMessages = bd.sentCount === 0;
+
+  return (
+    <>
+      <tr
+        onClick={noMessages ? undefined : () => setExpanded((e) => !e)}
+        className={`border-b border-gray-100 last:border-0 ${noMessages ? "opacity-60" : "cursor-pointer hover:bg-white"}`}
+      >
+        <td className="pl-8 pr-3 py-2 w-52">
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${cls}`}>
+              {label}
+            </span>
+            {!bd.isActive && (
+              <span className="text-xs text-gray-400">(inactive)</span>
+            )}
+          </div>
+          {noMessages && (
+            <div className="text-xs text-gray-400 mt-0.5">
+              No messages tagged &quot;{bd.alertType}&quot; in Postmark
+            </div>
+          )}
+        </td>
+        <td className="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">
+          {bd.frequency ?? "—"}
+        </td>
+        <td className={`px-3 py-2 text-xs whitespace-nowrap ${eaDaysSince(bd.lastOpened) > 7 && bd.sentCount > 0 ? "text-red-600" : "text-gray-700"}`}>
+          {eaFmtDate(bd.lastOpened)}
+        </td>
+        <td className="px-3 py-2">
+          {noMessages ? (
+            <span className="text-xs text-gray-400">—</span>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-green-700">{bd.openRate}%</span>
+              <span className="text-xs text-gray-400">{bd.openedCount}/{bd.sentCount}</span>
+            </div>
+          )}
+        </td>
+        <td className="px-3 py-2">
+          {!noMessages && (
+            <div className="flex gap-0.5 flex-nowrap overflow-hidden" style={{ maxWidth: 340 }}>
+              {bd.heatmap.map((cell) => (
+                <EAHeatCell key={cell.date} cell={cell} />
+              ))}
+            </div>
+          )}
+        </td>
+        <td className="px-3 py-2 text-right">
+          {!noMessages && (
+            <>
+              <span className="text-xs text-gray-400 mr-1">{bd.sentCount} sent</span>
+              <span className="text-xs text-gray-400">{expanded ? "▲" : "▼"}</span>
+            </>
+          )}
+        </td>
+      </tr>
+      {expanded && (
+        <tr>
+          <td colSpan={6} className="bg-white border-b border-gray-100 px-4 py-2">
+            <EAMessageList messages={bd.messageHistory} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+// ── Level-0: user summary row ─────────────────────────────────────────────────
 
 function EAUserRow({ user }: { user: EAUser }) {
   const [expanded, setExpanded] = useState(false);
@@ -2519,100 +2721,49 @@ function EAUserRow({ user }: { user: EAUser }) {
     <>
       <tr
         onClick={() => setExpanded((e) => !e)}
-        className="cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-0"
+        className="cursor-pointer hover:bg-gray-50 border-b border-gray-200"
       >
-        <td className="px-3 py-2">
-          <div className="text-sm font-medium">{user.name || "—"}</div>
-          <div className="text-xs text-gray-500">{user.email}</div>
+        <td className="px-3 py-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-400">{expanded ? "▼" : "▶"}</span>
+            <div>
+              <div className="text-sm font-medium">{user.name || "—"}</div>
+              <div className="text-xs text-gray-500">{user.email}</div>
+            </div>
+          </div>
         </td>
-        <td className="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">
-          {user.frequency ?? "—"}
+        <td className="px-3 py-2.5 text-xs text-gray-500">
+          {user.byAlertType.length} alert{user.byAlertType.length !== 1 ? "s" : ""}
         </td>
-        <td
-          className={`px-3 py-2 text-xs whitespace-nowrap ${
-            stale ? "text-red-600" : "text-gray-700"
-          }`}
-        >
+        <td className={`px-3 py-2.5 text-xs whitespace-nowrap ${stale ? "text-red-600" : "text-gray-700"}`}>
           {eaFmtDate(user.lastOpened)}
         </td>
-        <td className="px-3 py-2 text-sm font-medium">{user.openRate}%</td>
-        <td className="px-3 py-2">
+        <td className="px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{user.openRate}%</span>
+            {user.sentCount > 0 && (
+              <span className="text-xs text-gray-400">
+                {user.openedCount}/{user.sentCount}
+              </span>
+            )}
+          </div>
+        </td>
+        <td className="px-3 py-2.5">
           <div className="flex gap-0.5 flex-nowrap overflow-hidden" style={{ maxWidth: 340 }}>
             {user.heatmap.map((cell) => (
               <EAHeatCell key={cell.date} cell={cell} />
             ))}
           </div>
         </td>
-        <td className="px-3 py-2">
-          <span
-            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${badge.cls}`}
-          >
+        <td className="px-3 py-2.5">
+          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${badge.cls}`}>
             {badge.label}
           </span>
         </td>
       </tr>
-      {expanded && (
-        <tr>
-          <td
-            colSpan={6}
-            className="bg-gray-50 px-4 py-3 border-b border-gray-100"
-          >
-            <div className="text-xs font-medium text-gray-600 mb-2">
-              Message history — last {user.messageHistory.length} sends
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    {["Subject", "Sent", "Type", "Opened", "Clicked"].map(
-                      (h) => (
-                        <th
-                          key={h}
-                          className="text-left font-normal text-gray-500 pb-1.5 pr-4"
-                        >
-                          {h}
-                        </th>
-                      )
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {user.messageHistory.slice(0, 20).map((m) => (
-                    <tr
-                      key={m.messageId}
-                      className="border-b border-gray-100 last:border-0"
-                    >
-                      <td className="py-1.5 pr-4 max-w-xs truncate">
-                        {m.subject}
-                      </td>
-                      <td className="py-1.5 pr-4 text-gray-500 whitespace-nowrap">
-                        {eaFmtDate(m.sentAt)}
-                      </td>
-                      <td className="py-1.5 pr-4 text-gray-500">
-                        {m.tag ?? "—"}
-                      </td>
-                      <td
-                        className={`py-1.5 pr-4 whitespace-nowrap ${
-                          m.opened ? "text-green-700" : "text-gray-400"
-                        }`}
-                      >
-                        {m.opened ? eaFmtDate(m.firstOpenedAt) : "—"}
-                      </td>
-                      <td
-                        className={`py-1.5 pr-4 whitespace-nowrap ${
-                          m.clicked ? "text-green-700" : "text-gray-400"
-                        }`}
-                      >
-                        {m.clicked ? eaFmtDate(m.firstClickedAt) : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </td>
-        </tr>
-      )}
+      {expanded && user.byAlertType.map((bd) => (
+        <EABreakdownRow key={bd.alertType} bd={bd} />
+      ))}
     </>
   );
 }
@@ -2936,7 +3087,7 @@ export function EmailAnalyticsTab() {
                 <tr className="border-b border-gray-200">
                   {[
                     "User",
-                    "Frequency",
+                    "Alerts",
                     "Last opened",
                     "Open rate",
                     `Last ${days} days`,
