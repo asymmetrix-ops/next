@@ -31,9 +31,11 @@ import {
   CANONICAL_COMPANY_COLUMN_KEYS,
   DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS,
   PROD_DEFAULT_COMPANY_COLUMN_KEYS,
+  FROZEN_COLUMN_KEYS,
   enforceColumnKeyOrder,
   columnKeysToVisibility,
   visibilityToColumnKeys,
+  reorderColumnKeys,
 } from "@/components/companies/companiesColumnCategories";
 import {
   compareSortValues,
@@ -670,11 +672,6 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
           </a>
         ),
       },
-      makeTextColumn("ticker", "Ticker", "Identity", [
-        "ticker",
-        "Ticker",
-        "stock_ticker",
-      ]),
       makeTextColumn("website", "Website", "Identity", ["url", "website", "Website"], {
         wrap: true,
         minWidth: 220,
@@ -1738,6 +1735,9 @@ const CompanySection = ({
     Map<number, Record<string, unknown>>
   >(new Map());
   const [companyTableDataLoading, setCompanyTableDataLoading] = useState(false);
+  const [headerDragKey, setHeaderDragKey] = useState<string | null>(null);
+  const [headerDragOverKey, setHeaderDragOverKey] = useState<string | null>(null);
+  const headerDidDragRef = useRef(false);
 
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const phantomScrollRef = useRef<HTMLDivElement | null>(null);
@@ -1886,8 +1886,14 @@ const CompanySection = ({
       }
       setShowColumnsModal(false);
     },
-    []
+    [setShowColumnsModal]
   );
+
+  const handleReorderTableColumns = useCallback((dragKey: string, dropKey: string) => {
+    setSelectedColumnKeys((current) =>
+      getValidColumnKeys(reorderColumnKeys(current, dragKey, dropKey))
+    );
+  }, []);
 
   useEffect(() => {
     if (sortState && !selectedColumnKeys.includes(sortState.key)) {
@@ -1933,16 +1939,20 @@ const CompanySection = ({
 
   const getTableColumnClassName = (
     column: CompanyColumnDefinition,
-    extra?: string
+    extra?: string | (string | undefined)[]
   ): string | undefined => {
+    const extras = extra == null ? [] : Array.isArray(extra) ? extra : [extra];
     const classes = [
-      extra,
+      ...extras,
       column.wrap ? "company-table-cell-wrap" : undefined,
       column.key === "logo" ? "company-table-sticky-logo" : undefined,
       column.key === "name" ? "company-table-sticky-name" : undefined,
     ].filter(Boolean);
     return classes.length > 0 ? classes.join(" ") : undefined;
   };
+
+  const isFrozenColumnKey = (key: string) =>
+    (FROZEN_COLUMN_KEYS as readonly string[]).includes(key);
 
 
   // Handle CSV export using backend endpoint and include active filters
@@ -2689,6 +2699,19 @@ const CompanySection = ({
     .company-table-th-sortable:hover {
       background: #f1f5f9;
     }
+    .company-table-th-draggable {
+      cursor: grab;
+    }
+    .company-table-th-draggable:active {
+      cursor: grabbing;
+    }
+    .company-table-th-dragging {
+      opacity: 0.55;
+    }
+    .company-table-th-drag-over {
+      box-shadow: inset 0 -3px 0 #0370aa;
+      background: #eff6ff;
+    }
     .company-table-sort-indicator {
       margin-left: 4px;
       font-size: 10px;
@@ -3331,7 +3354,7 @@ const CompanySection = ({
       React.createElement(ColumnsControlRoom, {
         initial: columnVisibilityInitial,
         initialOrder: selectedColumnKeys,
-        onClose: () => setShowColumnsModal(false),
+        onCancel: () => setShowColumnsModal(false),
         onApply: handleApplyColumnVisibility,
       }),
     companyTableDataLoading &&
@@ -3366,17 +3389,59 @@ const CompanySection = ({
             ...selectedColumns.map((column) => {
               const sortKind = getColumnSortKind(column.key);
               const isActive = sortState?.key === column.key;
+              const isDraggable = !isFrozenColumnKey(column.key);
+              const isDragging = headerDragKey === column.key;
+              const isDragOver =
+                headerDragOverKey === column.key && headerDragKey !== column.key;
               return React.createElement(
                 "th",
                 {
                   key: column.key,
-                  className: getTableColumnClassName(
-                    column,
-                    sortKind ? "company-table-th-sortable" : undefined
-                  ),
+                  className: getTableColumnClassName(column, [
+                    sortKind ? "company-table-th-sortable" : undefined,
+                    isDraggable ? "company-table-th-draggable" : undefined,
+                    isDragging ? "company-table-th-dragging" : undefined,
+                    isDragOver ? "company-table-th-drag-over" : undefined,
+                  ]),
                   style: { minWidth: column.minWidth },
+                  draggable: isDraggable,
+                  onDragStart: isDraggable
+                    ? (event: React.DragEvent<HTMLTableCellElement>) => {
+                        headerDidDragRef.current = false;
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", column.key);
+                        setHeaderDragKey(column.key);
+                        setHeaderDragOverKey(null);
+                      }
+                    : undefined,
+                  onDragOver: (event: React.DragEvent<HTMLTableCellElement>) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                    setHeaderDragOverKey(column.key);
+                  },
+                  onDrop: (event: React.DragEvent<HTMLTableCellElement>) => {
+                    event.preventDefault();
+                    const dragKey =
+                      event.dataTransfer.getData("text/plain") || headerDragKey;
+                    if (dragKey) {
+                      headerDidDragRef.current = true;
+                      handleReorderTableColumns(dragKey, column.key);
+                    }
+                    setHeaderDragKey(null);
+                    setHeaderDragOverKey(null);
+                  },
+                  onDragEnd: () => {
+                    setHeaderDragKey(null);
+                    setHeaderDragOverKey(null);
+                  },
                   onClick: sortKind
-                    ? () => handleSortColumn(column.key)
+                    ? () => {
+                        if (headerDidDragRef.current) {
+                          headerDidDragRef.current = false;
+                          return;
+                        }
+                        handleSortColumn(column.key);
+                      }
                     : undefined,
                   "aria-sort": sortKind
                     ? isActive

@@ -8,7 +8,6 @@ import {
   columnKeysToVisibility,
   type CompanyColumnCategory,
   type CompanyColumnMeta,
-  type CompanyColumnType,
 } from "./companiesColumnCategories";
 
 const AX = {
@@ -92,143 +91,29 @@ function ResetIcon() {
   );
 }
 
-function ChevronUpIcon() {
+function DragHandleIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-      <path d="M2.5 7.5L6 4l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true">
+      <circle cx="2" cy="2" r="1.2" />
+      <circle cx="8" cy="2" r="1.2" />
+      <circle cx="2" cy="7" r="1.2" />
+      <circle cx="8" cy="7" r="1.2" />
+      <circle cx="2" cy="12" r="1.2" />
+      <circle cx="8" cy="12" r="1.2" />
     </svg>
   );
 }
 
-function ChevronDownIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-      <path d="M2.5 4.5L6 8l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function TypeIcon({ type }: { type: CompanyColumnType }) {
-  const wrap: React.CSSProperties = {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    flexShrink: 0,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: AX.gray50,
-    color: AX.gray600,
-    border: `1px solid ${AX.gray200}`,
-    fontFamily: AX.fontSans,
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: "-0.01em",
-  };
-  const moneyWrap = {
-    ...wrap,
-    color: AX.cyan700,
-    background: AX.cyan50,
-    borderColor: AX.cyan100,
-  };
-  const numWrap = {
-    ...wrap,
-    color: AX.positive,
-    background: AX.positiveBg,
-    borderColor: "#C6E8D6",
-  };
-  const pctWrap = {
-    ...wrap,
-    color: "#7A4E0E",
-    background: AX.warningBg,
-    borderColor: "#F2E1B4",
-  };
-
-  switch (type) {
-    case "text":
-      return <span style={wrap}>Aa</span>;
-    case "paragraph":
-      return (
-        <span style={wrap}>
-          <svg width="11" height="10" viewBox="0 0 12 10" fill="none">
-            <path
-              d="M1 1.5h10M1 5h10M1 8.5h6"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-            />
-          </svg>
-        </span>
-      );
-    case "url":
-      return (
-        <span style={wrap}>
-          <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-            <path
-              d="M3.5 8.5L8.5 3.5M4.5 3.5h4v4"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </span>
-      );
-    case "number":
-      return <span style={numWrap}>#</span>;
-    case "currency":
-      return <span style={moneyWrap}>$</span>;
-    case "percent":
-      return <span style={pctWrap}>%</span>;
-    case "date":
-      return (
-        <span style={wrap}>
-          <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-            <rect
-              x="1.5"
-              y="2.5"
-              width="9"
-              height="8"
-              rx="1.2"
-              stroke="currentColor"
-              strokeWidth="1.2"
-            />
-            <path
-              d="M1.5 4.5h9M4 1.5v2M8 1.5v2"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </span>
-      );
-    case "logo":
-      return (
-        <span style={wrap}>
-          <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-            <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2" />
-            <path d="M6 1.5v9" stroke="currentColor" strokeWidth="1.2" />
-          </svg>
-        </span>
-      );
-    case "follow":
-      return (
-        <span
-          style={{
-            ...wrap,
-            color: AX.accentAmber,
-            background: AX.accentAmberBg,
-            borderColor: "#F0DDB0",
-          }}
-        >
-          <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor">
-            <path d="M6 1.4l1.45 2.94 3.25.47-2.35 2.3.56 3.24L6 8.82 3.09 10.35l.56-3.24L1.3 4.81l3.25-.47L6 1.4z" />
-          </svg>
-        </span>
-      );
-    default:
-      return <span style={wrap}>·</span>;
-  }
+function reorderStringKeys(keys: string[], dragKey: string, dropKey: string): string[] {
+  if (dragKey === dropKey) return keys;
+  const fromIndex = keys.indexOf(dragKey);
+  const toIndex = keys.indexOf(dropKey);
+  if (fromIndex < 0 || toIndex < 0) return keys;
+  const next = [...keys];
+  const [item] = next.splice(fromIndex, 1);
+  const insertAt = fromIndex < toIndex ? toIndex - 1 : toIndex;
+  next.splice(insertAt, 0, item);
+  return next;
 }
 
 function Toggle({
@@ -343,14 +228,13 @@ function ColumnRow({
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 12,
-        padding: "8px 6px 8px 4px",
+        gap: 8,
+        padding: "8px 6px 8px 10px",
         borderRadius: 6,
         background: hover ? AX.gray25 : "transparent",
         transition: "background 120ms ease-out",
       }}
     >
-      <TypeIcon type={column.type} />
       <span
         style={{
           fontSize: 14,
@@ -380,26 +264,6 @@ function ColumnRow({
           {column.badge}
         </span>
       )}
-      {column.locked && (
-        <span
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            padding: "2px 6px 2px 5px",
-            fontSize: 10,
-            fontWeight: 600,
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
-            color: AX.fg3,
-            background: AX.gray50,
-            border: `1px solid ${AX.gray200}`,
-            borderRadius: 4,
-          }}
-        >
-          <LockIcon /> Frozen
-        </span>
-      )}
       <span style={{ flex: 1 }} />
       <Toggle
         on={visible}
@@ -415,24 +279,45 @@ function ReorderRow({
   column,
   position,
   isSelected,
-  isFirst,
-  isLast,
+  isDragging,
+  isDragOver,
   onSelect,
-  onMoveUp,
-  onMoveDown,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
 }: {
   column: CompanyColumnMeta;
   position: number;
   isSelected: boolean;
-  isFirst: boolean;
-  isLast: boolean;
+  isDragging: boolean;
+  isDragOver: boolean;
   onSelect: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
+  onDragStart: () => void;
+  onDragOver: () => void;
+  onDrop: () => void;
+  onDragEnd: () => void;
 }) {
   const [hover, setHover] = useState(false);
   return (
     <li
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", column.columnKey);
+        onDragStart();
+      }}
+      onDragOver={(event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        onDragOver();
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onDrop();
+      }}
+      onDragEnd={onDragEnd}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onClick={onSelect}
@@ -442,17 +327,37 @@ function ReorderRow({
         gap: 10,
         padding: "7px 6px 7px 10px",
         borderRadius: 7,
-        background: isSelected
-          ? "#EFF6FF"
-          : hover
-            ? AX.gray25
-            : "transparent",
-        border: isSelected ? "1.5px solid #BFDBFE" : "1.5px solid transparent",
-        cursor: "pointer",
-        transition: "background 100ms ease-out, border-color 100ms ease-out",
+        background: isDragging
+          ? "#F8FAFC"
+          : isDragOver
+            ? "#EFF6FF"
+            : isSelected
+              ? "#EFF6FF"
+              : hover
+                ? AX.gray25
+                : "transparent",
+        border: isDragOver
+          ? "1.5px solid #93C5FD"
+          : isSelected
+            ? "1.5px solid #BFDBFE"
+            : "1.5px solid transparent",
+        cursor: "grab",
+        opacity: isDragging ? 0.55 : 1,
+        transition: "background 100ms ease-out, border-color 100ms ease-out, opacity 100ms ease-out",
         userSelect: "none",
       }}
     >
+      <span
+        style={{
+          color: AX.fg4,
+          display: "inline-flex",
+          flexShrink: 0,
+          cursor: "grab",
+        }}
+        aria-hidden="true"
+      >
+        <DragHandleIcon />
+      </span>
       <span
         style={{
           fontSize: 11,
@@ -466,7 +371,6 @@ function ReorderRow({
       >
         {position}
       </span>
-      <TypeIcon type={column.type} />
       <span
         style={{
           fontSize: 14,
@@ -501,52 +405,6 @@ function ReorderRow({
           {column.badge}
         </span>
       )}
-      <div style={{ display: "flex", gap: 3, flexShrink: 0, marginLeft: 4 }} onClick={e => e.stopPropagation()}>
-        <button
-          type="button"
-          title="Move up"
-          disabled={isFirst}
-          onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
-          style={{
-            width: 26,
-            height: 26,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: isFirst ? AX.gray50 : isSelected ? "white" : AX.gray50,
-            border: `1px solid ${isFirst ? AX.gray100 : AX.gray200}`,
-            borderRadius: 5,
-            cursor: isFirst ? "not-allowed" : "pointer",
-            color: isFirst ? AX.fg4 : AX.fg2,
-            padding: 0,
-            transition: "background 100ms, border-color 100ms",
-          }}
-        >
-          <ChevronUpIcon />
-        </button>
-        <button
-          type="button"
-          title="Move down"
-          disabled={isLast}
-          onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
-          style={{
-            width: 26,
-            height: 26,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: isLast ? AX.gray50 : isSelected ? "white" : AX.gray50,
-            border: `1px solid ${isLast ? AX.gray100 : AX.gray200}`,
-            borderRadius: 5,
-            cursor: isLast ? "not-allowed" : "pointer",
-            color: isLast ? AX.fg4 : AX.fg2,
-            padding: 0,
-            transition: "background 100ms, border-color 100ms",
-          }}
-        >
-          <ChevronDownIcon />
-        </button>
-      </div>
     </li>
   );
 }
@@ -585,9 +443,11 @@ function FrozenColumnRow({
       >
         {position}
       </span>
-      <TypeIcon type={column.type} />
       <span
         style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
           fontSize: 14,
           fontWeight: 500,
           color: AX.fg1,
@@ -595,25 +455,13 @@ function FrozenColumnRow({
         }}
       >
         {column.label}
-      </span>
-      <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 4,
-          padding: "2px 7px 2px 6px",
-          fontSize: 10,
-          fontWeight: 600,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          color: "#B45309",
-          background: "#FFFBEB",
-          border: "1px solid #F0DDB0",
-          borderRadius: 4,
-          flexShrink: 0,
-        }}
-      >
-        <LockIcon /> Frozen
+        <span
+          style={{ color: AX.fg3, display: "inline-flex" }}
+          aria-label="Locked column"
+          title="Locked column"
+        >
+          <LockIcon />
+        </span>
       </span>
     </li>
   );
@@ -622,7 +470,7 @@ function FrozenColumnRow({
 export interface ColumnsControlRoomProps {
   initial: Record<string, boolean>;
   initialOrder?: string[];
-  onClose: () => void;
+  onCancel: () => void;
   onApply: (visible: Record<string, boolean>, order?: string[]) => void;
   categories?: CompanyColumnCategory[];
   title?: string;
@@ -632,7 +480,7 @@ export interface ColumnsControlRoomProps {
 export function ColumnsControlRoom({
   initial,
   initialOrder,
-  onClose,
+  onCancel,
   onApply,
   categories = COMPANIES_COLUMN_CATEGORIES,
   title = "Customise columns",
@@ -656,6 +504,8 @@ export function ColumnsControlRoom({
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<"all" | "visible" | "hidden" | "reorder">("all");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
   const allMeta = useMemo(
     () => categories.flatMap((cat) => cat.columns),
@@ -782,8 +632,15 @@ export function ColumnsControlRoom({
     onApply(visible, finalOrder);
   };
 
+  const handleReorderDrop = useCallback((targetKey: string) => {
+    if (!dragKey || dragKey === targetKey) return;
+    setOrderedKeys((current) => reorderStringKeys(current, dragKey, targetKey));
+    setDragKey(null);
+    setDragOverKey(null);
+  }, [dragKey]);
+
   return (
-    <div style={modalStyles.scrim} onClick={onClose} role="presentation">
+    <div style={modalStyles.scrim} onClick={handleApply} role="presentation">
       <div
         style={modalStyles.modal}
         onClick={(event) => event.stopPropagation()}
@@ -859,10 +716,7 @@ export function ColumnsControlRoom({
                 padding: "4px 10px 10px",
                 lineHeight: 1.5,
               }}>
-                Click a row to select it, then use{" "}
-                <kbd style={modalStyles.kbd}>▲</kbd>{" "}
-                <kbd style={modalStyles.kbd}>▼</kbd>{" "}
-                buttons or keyboard arrow keys to reposition. Logo and Name are frozen to the first two columns.
+                Drag rows to reorder. Logo and Name stay fixed as the first two columns.
               </div>
 
               <ul style={{ ...modalStyles.rowList, paddingBottom: 8 }}>
@@ -878,21 +732,29 @@ export function ColumnsControlRoom({
                       !query ||
                       col.label.toLowerCase().includes(query.toLowerCase())
                     )
-                    .map((col, idx, arr) => (
+                    .map((col, idx) => (
                       <ReorderRow
                         key={col.id}
                         column={col}
                         position={lockedMeta.length + idx + 1}
                         isSelected={selectedKey === col.columnKey}
-                        isFirst={idx === 0}
-                        isLast={idx === arr.length - 1}
+                        isDragging={dragKey === col.columnKey}
+                        isDragOver={dragOverKey === col.columnKey && dragKey !== col.columnKey}
                         onSelect={() =>
                           setSelectedKey(
                             selectedKey === col.columnKey ? null : col.columnKey
                           )
                         }
-                        onMoveUp={() => moveUp(col.columnKey)}
-                        onMoveDown={() => moveDown(col.columnKey)}
+                        onDragStart={() => {
+                          setDragKey(col.columnKey);
+                          setDragOverKey(null);
+                        }}
+                        onDragOver={() => setDragOverKey(col.columnKey)}
+                        onDrop={() => handleReorderDrop(col.columnKey)}
+                        onDragEnd={() => {
+                          setDragKey(null);
+                          setDragOverKey(null);
+                        }}
                       />
                     ))}
                 </ul>
@@ -933,7 +795,7 @@ export function ColumnsControlRoom({
                   <span style={{ flex: 1 }}>
                     <strong>
                       {orderedVisibleMeta.find(c => c.columnKey === selectedKey)?.label}
-                    </strong>{" "}selected · use{" "}
+                    </strong>{" "}selected · drag to move or use{" "}
                     <kbd style={{ ...modalStyles.kbd, borderColor: "#93C5FD", background: "white" }}>↑</kbd>{" "}
                     <kbd style={{ ...modalStyles.kbd, borderColor: "#93C5FD", background: "white" }}>↓</kbd>{" "}
                     to move
@@ -1046,7 +908,7 @@ export function ColumnsControlRoom({
             </span>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" onClick={onClose} style={modalStyles.btnSecondary}>
+            <button type="button" onClick={onCancel} style={modalStyles.btnSecondary}>
               Cancel
             </button>
             <button
