@@ -8,7 +8,6 @@ export const COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
   logo: NOT_SORTABLE,
   name: NOT_SORTABLE,
   description: NOT_SORTABLE,
-  ticker: NOT_SORTABLE,
   website: NOT_SORTABLE,
   follow: NOT_SORTABLE,
   list_count: NOT_SORTABLE,

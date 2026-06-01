@@ -50,13 +50,6 @@ export const COMPANIES_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
         defaultVisible: true,
       },
       {
-        id: "ticker",
-        columnKey: "ticker",
-        label: "Ticker",
-        type: "text",
-        defaultVisible: false,
-      },
-      {
         id: "website",
         columnKey: "website",
         label: "Website",
@@ -505,3 +498,37 @@ export const visibilityToColumnKeys = (
     ordered.length > 0 ? ordered : [...PROD_DEFAULT_COMPANY_COLUMN_KEYS];
   return enforceColumnKeyOrder(base);
 };
+
+/** Move one column before another; logo/name cannot be dragged. */
+export function reorderColumnKeys(
+  keys: string[],
+  dragKey: string,
+  dropKey: string
+): string[] {
+  const ordered = enforceColumnKeyOrder(keys);
+  if (dragKey === dropKey) return ordered;
+  if ((FROZEN_COLUMN_KEYS as readonly string[]).includes(dragKey)) {
+    return ordered;
+  }
+
+  const fromIndex = ordered.indexOf(dragKey);
+  if (fromIndex < 0) return ordered;
+
+  let toIndex = ordered.indexOf(dropKey);
+  if (toIndex < 0) return ordered;
+
+  if ((FROZEN_COLUMN_KEYS as readonly string[]).includes(dropKey)) {
+    toIndex = FROZEN_COLUMN_KEYS.reduce((max, frozenKey) => {
+      const idx = ordered.indexOf(frozenKey);
+      return idx >= 0 ? Math.max(max, idx) : max;
+    }, -1);
+    if (toIndex < 0) toIndex = 0;
+    else toIndex += 1;
+  }
+
+  const next = [...ordered];
+  const [item] = next.splice(fromIndex, 1);
+  const insertAt = fromIndex < toIndex ? toIndex - 1 : toIndex;
+  next.splice(insertAt, 0, item);
+  return enforceColumnKeyOrder(next);
+}
