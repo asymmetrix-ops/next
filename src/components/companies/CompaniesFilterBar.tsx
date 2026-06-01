@@ -4,24 +4,9 @@ import React, {
   useState,
   useMemo,
   useRef,
-  useLayoutEffect,
+  useEffect,
   useCallback,
 } from "react";
-import {
-  DEFAULT_YES_NO_DUAL_VALUE,
-  normalizeYesNoDualFilterValue,
-  summarizeYesNoDualFilter,
-  type YesNoDualFilterValue,
-} from "@/lib/yesNoDualFilter";
-import {
-  AnchoredPopover,
-  FILTER_POPOVER_SCROLL_STYLE,
-} from "@/components/filters/AnchoredPopover";
-import {
-  ListViewCityEnumEditor,
-  TargetCompanyEnumEditor,
-} from "@/components/filters/ListViewFilterEditors";
-import { targetCompanyFilterChipLabel } from "@/lib/corporateEventsTargetCompanyFilter";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -30,13 +15,7 @@ export interface FilterCategory {
   name: string;
 }
 
-export type FilterEditorType =
-  | "enum"
-  | "range"
-  | "date_range"
-  | "segmented"
-  | "boolean"
-  | "yes_no_dual";
+export type FilterEditorType = "enum" | "range" | "segmented" | "boolean";
 export type FilterTypeIcon = "Aa" | "#" | "$" | "%" | "date";
 
 export interface FilterDef {
@@ -47,8 +26,6 @@ export interface FilterDef {
   type: FilterTypeIcon;
   editor: FilterEditorType;
   options?: string[];
-  /** Optional display labels keyed by option value (e.g. API enum keys). */
-  optionLabels?: Record<string, string>;
   unit?: string;
   min?: number;
   max?: number;
@@ -56,149 +33,14 @@ export interface FilterDef {
 }
 
 export interface FilterItem {
-  /** Filter type id (e.g. "country"). */
   id: string;
-  /** Unique instance key — allows multiple filters of the same type. */
-  key: string;
   value: unknown;
-  /** How this filter combines with the previous one (ignored for the first filter). */
-  combineLogic?: FilterCombineLogic;
-}
-
-let filterInstanceCounter = 0;
-
-export function createFilterInstanceKey(): string {
-  filterInstanceCounter += 1;
-  return `filter-${filterInstanceCounter}-${Date.now()}`;
-}
-
-export type FilterCombineLogic = "and" | "or";
-
-function getFilterEnumValues(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return value.filter((entry): entry is string => typeof entry === "string");
-  }
-  if (typeof value === "string" && value.trim()) return [value];
-  return [];
-}
-
-function getLocationScopeFromFilters(filters: FilterItem[]) {
-  const countries: string[] = [];
-  const provinces: string[] = [];
-
-  for (const filter of filters) {
-    if (filter.id === "country") {
-      countries.push(...getFilterEnumValues(filter.value));
-    }
-    if (filter.id === "state") {
-      provinces.push(...getFilterEnumValues(filter.value));
-    }
-  }
-
-  return { countries, provinces };
-}
-
-function isEmptyFilterValue(def: FilterDef, value: unknown): boolean {
-  if (value == null) return true;
-  if (def.editor === "enum") {
-    return !Array.isArray(value) || value.length === 0;
-  }
-  if (def.editor === "range") {
-    const v = value as { min?: number; max?: number };
-    return v.min === undefined && v.max === undefined;
-  }
-  if (def.editor === "date_range") {
-    const v = value as { from?: string; to?: string };
-    return !v.from?.trim() && !v.to?.trim();
-  }
-  if (def.editor === "segmented") {
-    return typeof value !== "string" || !value.trim();
-  }
-  if (def.editor === "boolean") {
-    return value !== true;
-  }
-  if (def.editor === "yes_no_dual") {
-    const v = normalizeYesNoDualFilterValue(value);
-    return !v.yes && !v.no;
-  }
-  return false;
-}
-
-/** Values already chosen in other instances of the same filter type. */
-function getValuesReservedBySiblingFilters(
-  filters: FilterItem[],
-  filterId: string,
-  excludeInstanceKey: string
-): Set<string> {
-  const reserved = new Set<string>();
-  for (const filter of filters) {
-    if (filter.id !== filterId || filter.key === excludeInstanceKey) continue;
-    for (const value of getFilterEnumValues(filter.value)) {
-      reserved.add(value);
-    }
-  }
-  return reserved;
-}
-
-function filterDefHasAvailableOptions(def: FilterDef, filters: FilterItem[]): boolean {
-  if (def.editor === "boolean" || def.editor === "yes_no_dual") {
-    return !filters.some((filter) => filter.id === def.id);
-  }
-
-  const siblingFilters = filters.filter((filter) => filter.id === def.id);
-  if (siblingFilters.length === 0) return true;
-
-  if (
-    siblingFilters.some((filter) => isEmptyFilterValue(def, filter.value))
-  ) {
-    return false;
-  }
-
-  if (def.editor === "enum") {
-    const options = def.options ?? [];
-    if (options.length === 0) return true;
-    const used = new Set<string>();
-    for (const filter of siblingFilters) {
-      for (const value of getFilterEnumValues(filter.value)) {
-        used.add(value);
-      }
-    }
-    return options.some((option) => !used.has(option));
-  }
-
-  if (def.editor === "segmented") {
-    const options = def.options ?? [];
-    if (options.length === 0) return true;
-    const used = new Set(
-      siblingFilters
-        .map((filter) =>
-          typeof filter.value === "string" ? filter.value : null
-        )
-        .filter((value): value is string => Boolean(value))
-    );
-    return options.some((option) => !used.has(option));
-  }
-
-  // Range filters may overlap intentionally (OR widens, AND narrows).
-  return true;
 }
 
 export interface FilterBarState {
   filters: FilterItem[];
   viewId: string | null;
   searchText: string;
-  /** Default combine logic for newly added filters (after the first). */
-  filterLogic: FilterCombineLogic;
-}
-
-function describeActiveFilterLogic(
-  filters: FilterItem[],
-  defaultLogic: FilterCombineLogic
-): string {
-  if (filters.length <= 1) return defaultLogic;
-  const logics = filters.slice(1).map((f) => f.combineLogic ?? defaultLogic);
-  const first = logics[0];
-  return logics.every((logic) => logic === first) ? first : "mixed";
 }
 
 export interface CompaniesFilterBarProps {
@@ -209,9 +51,6 @@ export interface CompaniesFilterBarProps {
     updater: FilterBarState | ((prev: FilterBarState) => FilterBarState)
   ) => void;
   totalCount?: number;
-  entityLabel?: string;
-  portfolioOnlyChipLabel?: string;
-  portfolioBooleanDescription?: string;
 }
 
 // ── CSS variables scoped to the component ─────────────────────────────────
@@ -260,21 +99,163 @@ const FILTER_BAR_CSS = `
   .cfb-root .ax-numeric { font-variant-numeric: tabular-nums; }
 `;
 
-// ── Summarize filter value ──────────────────────────────────────────────────
+// ── Pop (floating anchored popover) ────────────────────────────────────────
 
-/** Treat sentinel / huge upper bounds as "no limit" (e.g. ≥ presets). */
-function isUnboundedMax(max: number | undefined): boolean {
-  if (max === undefined) return false;
-  return max >= 1e15 || max === Number.MAX_SAFE_INTEGER;
+interface PopProps {
+  anchorRef: React.RefObject<HTMLElement | null>;
+  onDismiss: () => void;
+  children: React.ReactNode;
+  offset?: number;
+  align?: "start" | "end";
 }
+
+function Pop({
+  anchorRef,
+  onDismiss,
+  children,
+  offset = 8,
+  align = "start",
+}: PopProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    function place() {
+      if (!anchorRef.current || !ref.current) return;
+      const a = anchorRef.current.getBoundingClientRect();
+      const p = ref.current.getBoundingClientRect();
+      let left = align === "end" ? a.right - p.width : a.left;
+      const vw = window.innerWidth;
+      if (left + p.width > vw - 8) left = vw - p.width - 8;
+      if (left < 8) left = 8;
+      setPos({ top: a.bottom + offset, left });
+    }
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [anchorRef, align, offset]);
+
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (!ref.current) return;
+      if (ref.current.contains(e.target as Node)) return;
+      if (
+        anchorRef.current &&
+        anchorRef.current.contains(e.target as Node)
+      )
+        return;
+      onDismiss();
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onDismiss();
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [onDismiss, anchorRef]);
+
+  return (
+    <div
+      ref={ref}
+      style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ── TypeChip (field type icon) ──────────────────────────────────────────────
+
+function TypeChip({ type }: { type: FilterTypeIcon }) {
+  const base: React.CSSProperties = {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    flexShrink: 0,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontFamily: "var(--font-sans)",
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "-0.01em",
+    background: "var(--ax-gray-50)",
+    color: "var(--ax-gray-600, #64748b)",
+    border: "1px solid var(--ax-gray-200)",
+  };
+  if (type === "$")
+    return (
+      <span
+        style={{
+          ...base,
+          color: "var(--ax-cyan-700)",
+          background: "var(--ax-cyan-50)",
+          borderColor: "var(--ax-cyan-100)",
+        }}
+      >
+        $
+      </span>
+    );
+  if (type === "#")
+    return (
+      <span
+        style={{
+          ...base,
+          color: "var(--ax-positive)",
+          background: "var(--ax-positive-bg)",
+          borderColor: "#C6E8D6",
+        }}
+      >
+        #
+      </span>
+    );
+  if (type === "%")
+    return (
+      <span
+        style={{
+          ...base,
+          color: "#7A4E0E",
+          background: "var(--ax-warning-bg)",
+          borderColor: "#F2E1B4",
+        }}
+      >
+        %
+      </span>
+    );
+  if (type === "date")
+    return (
+      <span style={base}>
+        <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+          <rect
+            x="1.5"
+            y="2.5"
+            width="9"
+            height="8"
+            rx="1"
+            stroke="currentColor"
+            strokeWidth="1.2"
+          />
+          <path d="M1.5 4.5h9" stroke="currentColor" strokeWidth="1.2" />
+        </svg>
+      </span>
+    );
+  return <span style={base}>Aa</span>;
+}
+
+// ── Summarize filter value ──────────────────────────────────────────────────
 
 function formatRangeValue(
   v: { min?: number; max?: number } | null | undefined,
-  unit?: string,
-  type?: string
+  unit?: string
 ): string {
   if (!v) return "";
-  const isYear = type === "date";
   const fmt = (n: number) => {
     if (unit === "$m" && Math.abs(n) >= 1000)
       return `$${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}b`;
@@ -283,74 +264,29 @@ function formatRangeValue(
     if (unit === "%") return `${n}%`;
     if (unit === "x") return `${n}x`;
     if (unit === "yrs") return `${n}y`;
-    if (isYear) return String(n);
     return n.toLocaleString();
   };
-  if (v.min !== undefined && v.max !== undefined) {
-    if (isUnboundedMax(v.max)) {
-      return `${fmt(v.min)} – no limit`;
-    }
+  if (v.min !== undefined && v.max !== undefined)
     return `${fmt(v.min)} – ${fmt(v.max)}`;
-  }
   if (v.min !== undefined) return `≥ ${fmt(v.min)}`;
   if (v.max !== undefined) return `≤ ${fmt(v.max)}`;
   return "";
 }
 
-function getFilterOptionLabel(def: FilterDef, value: string): string {
-  if (def.id === "target_company" || value.includes("|")) {
-    return targetCompanyFilterChipLabel(value);
-  }
-  return def.optionLabels?.[value] ?? value;
-}
-
-function summarize(
-  def: FilterDef,
-  value: unknown,
-  portfolioOnlyChipLabel = "My Portfolio only"
-): string {
+function summarize(def: FilterDef, value: unknown): string {
   if (value == null) return "";
   if (def.editor === "enum") {
     if (!Array.isArray(value) || value.length === 0) return "";
-    const labels = value.map((entry) =>
-      getFilterOptionLabel(def, String(entry))
-    );
-    if (labels.length === 1) return labels[0];
-    return `${labels[0]} +${labels.length - 1}`;
+    if (value.length === 1) return String(value[0]);
+    return `${String(value[0])} +${value.length - 1}`;
   }
   if (def.editor === "range")
     return formatRangeValue(
       value as { min?: number; max?: number },
-      def.unit,
-      def.type
+      def.unit
     );
-  if (def.editor === "date_range") {
-    const v = value as { from?: string; to?: string };
-    const fmt = (raw: string) => {
-      const date = new Date(raw);
-      if (Number.isNaN(date.getTime())) return raw;
-      return date.toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    };
-    if (v.from?.trim() && v.to?.trim()) {
-      return `${fmt(v.from.trim())} – ${fmt(v.to.trim())}`;
-    }
-    if (v.from?.trim()) return `From ${fmt(v.from.trim())}`;
-    if (v.to?.trim()) return `Until ${fmt(v.to.trim())}`;
-    return "";
-  }
   if (def.editor === "segmented") return String(value);
-  if (def.editor === "boolean") {
-    if (value !== true) return "";
-    if (def.id === "followed") return portfolioOnlyChipLabel;
-    return "On";
-  }
-  if (def.editor === "yes_no_dual") {
-    return summarizeYesNoDualFilter(value);
-  }
+  if (def.editor === "boolean") return (value as boolean) ? "On" : "Off";
   return "";
 }
 
@@ -360,21 +296,21 @@ interface ChipProps {
   def: FilterDef;
   value: unknown;
   chipStyle?: "cyan" | "neutral" | "outlined";
+  showIcon?: boolean;
   onEdit: () => void;
   onRemove: () => void;
-  portfolioOnlyChipLabel?: string;
 }
 
 function Chip({
   def,
   value,
   chipStyle = "neutral",
+  showIcon = false,
   onEdit,
   onRemove,
-  portfolioOnlyChipLabel,
 }: ChipProps) {
   const [hover, setHover] = useState(false);
-  const summary = summarize(def, value, portfolioOnlyChipLabel);
+  const summary = summarize(def, value);
 
   let bg: string,
     fg: string,
@@ -431,6 +367,7 @@ function Chip({
           fontWeight: 500,
         }}
       >
+        {showIcon && <TypeChip type={def.type} />}
         <span>{def.label}:</span>
       </span>
       <span
@@ -492,15 +429,11 @@ function PickerRow({ def, onPick }: PickerRowProps) {
       ? `${def.options?.length ?? 0} options`
       : def.editor === "range"
         ? `range${def.unit ? ` (${def.unit})` : ""}`
-        : def.editor === "date_range"
-          ? "date range"
-          : def.editor === "segmented"
-            ? "choice"
-            : def.editor === "boolean"
-              ? "toggle"
-              : def.editor === "yes_no_dual"
-                ? "Yes / No"
-                : "";
+        : def.editor === "segmented"
+          ? "choice"
+          : def.editor === "boolean"
+            ? "toggle"
+            : "";
   return (
     <li>
       <button
@@ -522,6 +455,7 @@ function PickerRow({ def, onPick }: PickerRowProps) {
           fontFamily: "inherit",
         }}
       >
+        <TypeChip type={def.type} />
         <span
           style={{
             flex: 1,
@@ -582,113 +516,25 @@ function PickerRow({ def, onPick }: PickerRowProps) {
   );
 }
 
-function getInitialFilterValue(def: FilterDef): unknown {
-  if (def.editor === "enum") return null;
-  if (def.editor === "date_range") return null;
-  if (def.editor === "range" && def.presets?.length) {
-    const p = def.presets[0];
-    return { min: p[1], max: p[2] };
-  }
-  if (def.editor === "segmented") return def.options?.[0] ?? null;
-  if (def.editor === "boolean") return true;
-  if (def.editor === "yes_no_dual") return DEFAULT_YES_NO_DUAL_VALUE;
-  return null;
-}
-
 interface AddFilterPickerProps {
   availableDefs: FilterDef[];
   categories: FilterCategory[];
-  filters: FilterItem[];
-  onApply: (def: FilterDef, value: unknown) => void;
+  onPick: (def: FilterDef) => void;
   onClose: () => void;
-  onContentLayout?: () => void;
-  focusToken?: number;
-}
-
-function FilterPanelCloseButton({
-  onClick,
-  label = "Close",
-}: {
-  onClick: () => void;
-  label?: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      onClick={onClick}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: 24,
-        height: 24,
-        padding: 0,
-        border: "none",
-        borderRadius: "var(--r-sm)",
-        background: "transparent",
-        color: "var(--fg-4)",
-        cursor: "pointer",
-        flexShrink: 0,
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = "var(--ax-gray-50)";
-        e.currentTarget.style.color = "var(--fg-2)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = "transparent";
-        e.currentTarget.style.color = "var(--fg-4)";
-      }}
-    >
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-        <path
-          d="M3 3l6 6M9 3l-6 6"
-          stroke="currentColor"
-          strokeWidth="1.6"
-          strokeLinecap="round"
-        />
-      </svg>
-    </button>
-  );
 }
 
 function AddFilterPicker({
   availableDefs,
   categories,
-  filters,
-  onApply,
+  onPick,
   onClose,
-  onContentLayout,
-  focusToken = 0,
 }: AddFilterPickerProps) {
-  const [activeDef, setActiveDef] = useState<FilterDef | null>(null);
   const [q, setQ] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const focusSearchInput = useCallback(() => {
-    if (activeDef) return;
-    requestAnimationFrame(() => {
-      inputRef.current?.focus({ preventScroll: true });
-    });
-  }, [activeDef]);
-
-  useLayoutEffect(() => {
-    if (focusToken > 0) focusSearchInput();
-  }, [focusToken, focusSearchInput]);
-
-  useLayoutEffect(() => {
-    onContentLayout?.();
-  }, [activeDef, onContentLayout]);
-
-  const activeReservedValues = useMemo(() => {
-    if (!activeDef) return new Set<string>();
-    return getValuesReservedBySiblingFilters(filters, activeDef.id, "");
-  }, [filters, activeDef]);
-
-  const activeInitialValue = useMemo(
-    () => (activeDef ? getInitialFilterValue(activeDef) : null),
-    [activeDef]
-  );
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   const filtered = useMemo(() => {
     const ql = q.toLowerCase().trim();
@@ -710,27 +556,6 @@ function AddFilterPicker({
     }
     return map;
   }, [filtered, categories]);
-
-  const handleClose = useCallback(() => {
-    setActiveDef(null);
-    onClose();
-  }, [onClose]);
-
-  if (activeDef) {
-    return (
-      <FilterEditor
-        key={activeDef.id}
-        def={activeDef}
-        value={activeInitialValue}
-        reservedValues={activeReservedValues}
-        filters={filters}
-        onChange={(value) => onApply(activeDef, value)}
-        onClose={() => setActiveDef(null)}
-        onBack={() => setActiveDef(null)}
-        onDismiss={handleClose}
-      />
-    );
-  }
 
   const kbdStyle: React.CSSProperties = {
     display: "inline-block",
@@ -769,10 +594,9 @@ function AddFilterPicker({
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: "baseline",
             justifyContent: "space-between",
             marginBottom: 8,
-            gap: 8,
           }}
         >
           <div
@@ -785,20 +609,10 @@ function AddFilterPicker({
             Add filter
           </div>
           <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              flexShrink: 0,
-            }}
+            style={{ fontSize: 11, color: "var(--fg-4)" }}
+            className="ax-numeric"
           >
-            <div
-              style={{ fontSize: 11, color: "var(--fg-4)" }}
-              className="ax-numeric"
-            >
-              {availableDefs.length} available
-            </div>
-            <FilterPanelCloseButton onClick={handleClose} />
+            {availableDefs.length} available
           </div>
         </div>
         <div
@@ -875,14 +689,7 @@ function AddFilterPicker({
       </div>
 
       {/* List */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "6px 6px 8px",
-          ...FILTER_POPOVER_SCROLL_STYLE,
-        }}
-      >
+      <div style={{ flex: 1, overflowY: "auto", padding: "6px 6px 8px" }}>
         {categories.map((cat) => {
           const defs = byCat[cat.id];
           if (!defs || defs.length === 0) return null;
@@ -911,7 +718,10 @@ function AddFilterPicker({
                   <PickerRow
                     key={d.id}
                     def={d}
-                    onPick={() => setActiveDef(d)}
+                    onPick={() => {
+                      onPick(d);
+                      onClose();
+                    }}
                   />
                 ))}
               </ul>
@@ -949,7 +759,7 @@ function AddFilterPicker({
         }}
       >
         <span>
-          <kbd style={kbdStyle}>↑↓</kbd> navigate · <kbd style={kbdStyle}>↵</kbd> select
+          <kbd style={kbdStyle}>↑↓</kbd> navigate · <kbd style={kbdStyle}>↵</kbd> add
         </span>
         <span style={{ color: "var(--fg-link)" }}>Same fields as columns</span>
       </div>
@@ -962,25 +772,16 @@ function AddFilterPicker({
 interface AddFilterButtonProps {
   availableDefs: FilterDef[];
   categories: FilterCategory[];
-  filters: FilterItem[];
-  onApply: (def: FilterDef, value: unknown) => void;
-  boundaryRef?: React.RefObject<HTMLElement | null>;
+  onPick: (def: FilterDef) => void;
 }
 
 function AddFilterButton({
   availableDefs,
   categories,
-  filters,
-  onApply,
-  boundaryRef,
+  onPick,
 }: AddFilterButtonProps) {
   const [open, setOpen] = useState(false);
-  const [layoutKey, setLayoutKey] = useState(0);
-  const [focusToken, setFocusToken] = useState(0);
   const anchor = useRef<HTMLButtonElement>(null);
-  const notifyContentLayout = useCallback(() => {
-    setLayoutKey((k) => k + 1);
-  }, []);
 
   return (
     <>
@@ -1017,24 +818,20 @@ function AddFilterButton({
         Add filter
       </button>
       {open && (
-        <AnchoredPopover
+        <Pop
           anchorRef={anchor}
-          boundaryRef={boundaryRef}
-          layoutKey={layoutKey}
-          width={380}
           onDismiss={() => setOpen(false)}
-          onPositioned={() => setFocusToken((t) => t + 1)}
         >
           <AddFilterPicker
             availableDefs={availableDefs}
             categories={categories}
-            filters={filters}
-            onApply={onApply}
+            onPick={(def) => {
+              setOpen(false);
+              onPick(def);
+            }}
             onClose={() => setOpen(false)}
-            onContentLayout={notifyContentLayout}
-            focusToken={focusToken}
           />
-        </AnchoredPopover>
+        </Pop>
       )}
     </>
   );
@@ -1048,8 +845,6 @@ interface EditorShellProps {
   footer?: React.ReactNode;
   children: React.ReactNode;
   width?: number;
-  compact?: boolean;
-  onDismiss?: () => void;
 }
 
 function EditorShell({
@@ -1058,12 +853,9 @@ function EditorShell({
   footer,
   children,
   width = 320,
-  compact = false,
-  onDismiss,
 }: EditorShellProps) {
   return (
     <div
-      onMouseDown={(e) => e.stopPropagation()}
       style={{
         width,
         background: "white",
@@ -1077,42 +869,28 @@ function EditorShell({
     >
       <div
         style={{
-          padding: compact ? "8px 12px 6px" : "10px 14px 8px",
+          padding: "10px 14px 8px",
           borderBottom: "1px solid var(--ax-gray-100)",
           display: "flex",
-          alignItems: "center",
+          alignItems: "baseline",
           justifyContent: "space-between",
-          gap: 8,
+          gap: 10,
         }}
       >
         <div
           style={{
-            fontSize: compact ? "var(--fs-12)" : "var(--fs-13)",
+            fontSize: "var(--fs-13)",
             fontWeight: 700,
             color: "var(--fg-1)",
-            minWidth: 0,
           }}
         >
           {title}
         </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            flexShrink: 0,
-            marginLeft: "auto",
-          }}
-        >
-          {hint && (
-            <div style={{ fontSize: 10, color: "var(--fg-4)" }}>{hint}</div>
-          )}
-          {onDismiss && <FilterPanelCloseButton onClick={onDismiss} />}
-        </div>
+        {hint && (
+          <div style={{ fontSize: 11, color: "var(--fg-4)" }}>{hint}</div>
+        )}
       </div>
-      <div style={{ padding: compact ? "8px 12px 10px" : "10px 14px 12px" }}>
-        {children}
-      </div>
+      <div style={{ padding: "10px 14px 12px" }}>{children}</div>
       {footer && (
         <div
           style={{
@@ -1159,7 +937,6 @@ interface EditorFooterProps {
   onClear?: (() => void) | null;
   onApply: () => void;
   onRemove?: () => void;
-  onBack?: () => void;
   applyLabel?: string;
   applyDisabled?: boolean;
 }
@@ -1168,18 +945,12 @@ function EditorFooter({
   onClear,
   onApply,
   onRemove,
-  onBack,
   applyLabel = "Apply",
   applyDisabled,
 }: EditorFooterProps) {
   return (
     <>
       <div style={{ display: "flex", gap: 6 }}>
-        {onBack && (
-          <button type="button" onClick={onBack} style={btnGhost}>
-            Back
-          </button>
-        )}
         {onClear && (
           <button type="button" onClick={onClear} style={btnGhost}>
             Clear
@@ -1216,22 +987,16 @@ function EditorFooter({
 interface EnumEditorProps {
   def: FilterDef;
   value: unknown;
-  reservedValues?: Set<string>;
   onChange: (v: string[]) => void;
   onRemove?: () => void;
-  onBack?: () => void;
-  onDismiss?: () => void;
   onClose: () => void;
 }
 
 function EnumEditor({
   def,
   value,
-  reservedValues,
   onChange,
   onRemove,
-  onBack,
-  onDismiss,
   onClose,
 }: EnumEditorProps) {
   const initial = Array.isArray(value)
@@ -1243,21 +1008,13 @@ function EnumEditor({
   const [q, setQ] = useState("");
 
   const opts = useMemo(() => {
-    const all = def.options ?? [];
-    if (!q) return all;
-    const query = q.toLowerCase();
-    return all.filter((option) => {
-      const label = getFilterOptionLabel(def, option);
-      return (
-        option.toLowerCase().includes(query) ||
-        label.toLowerCase().includes(query)
-      );
-    });
-  }, [q, def]);
+    if (!q) return def.options ?? [];
+    return (def.options ?? []).filter((o) =>
+      o.toLowerCase().includes(q.toLowerCase())
+    );
+  }, [q, def.options]);
 
   const toggle = (o: string) => {
-    const reserved = reservedValues?.has(o) && !picked.includes(o);
-    if (reserved) return;
     setPicked((p) => (p.includes(o) ? p.filter((x) => x !== o) : [...p, o]));
   };
 
@@ -1265,12 +1022,10 @@ function EnumEditor({
     <EditorShell
       title={def.fullLabel}
       hint={`${picked.length} selected`}
-      onDismiss={onDismiss}
       footer={
         <EditorFooter
           onClear={picked.length ? () => setPicked([]) : null}
           onRemove={onRemove}
-          onBack={onBack}
           onApply={() => {
             onChange(picked);
             onClose();
@@ -1329,7 +1084,7 @@ function EnumEditor({
           }}
         />
       </div>
-      <div style={{ maxHeight: 240, overflowY: "auto", margin: "0 -4px", ...FILTER_POPOVER_SCROLL_STYLE }}>
+      <div style={{ maxHeight: 240, overflowY: "auto", margin: "0 -4px" }}>
         {opts.length === 0 && (
           <div
             style={{
@@ -1344,18 +1099,11 @@ function EnumEditor({
         )}
         {opts.map((o) => {
           const on = picked.includes(o);
-          const reserved = Boolean(reservedValues?.has(o) && !on);
           return (
             <button
               key={o}
               type="button"
               onClick={() => toggle(o)}
-              disabled={reserved}
-              title={
-                reserved
-                  ? "Already used in another filter of this type"
-                  : undefined
-              }
               style={{
                 width: "100%",
                 display: "flex",
@@ -1365,21 +1113,18 @@ function EnumEditor({
                 borderRadius: "var(--r-sm)",
                 background: "transparent",
                 border: "none",
-                cursor: reserved ? "not-allowed" : "pointer",
+                cursor: "pointer",
                 fontFamily: "inherit",
                 fontSize: "var(--fs-13)",
-                color: reserved ? "var(--fg-4)" : "var(--fg-1)",
+                color: "var(--fg-1)",
                 textAlign: "left",
-                opacity: reserved ? 0.55 : 1,
               }}
-              onMouseEnter={(e) => {
-                if (!reserved) {
-                  e.currentTarget.style.background = "var(--ax-gray-25)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
-              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "var(--ax-gray-25)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
             >
               <span
                 style={{
@@ -1409,7 +1154,7 @@ function EnumEditor({
                   </svg>
                 )}
               </span>
-              <span style={{ flex: 1 }}>{getFilterOptionLabel(def, o)}</span>
+              <span style={{ flex: 1 }}>{o}</span>
             </button>
           );
         })}
@@ -1430,8 +1175,6 @@ interface RangeEditorProps {
   value: unknown;
   onChange: (v: RangeValue | null) => void;
   onRemove?: () => void;
-  onBack?: () => void;
-  onDismiss?: () => void;
   onClose: () => void;
 }
 
@@ -1440,8 +1183,6 @@ function RangeEditor({
   value,
   onChange,
   onRemove,
-  onBack,
-  onDismiss,
   onClose,
 }: RangeEditorProps) {
   const v = (value as RangeValue) || {};
@@ -1449,18 +1190,21 @@ function RangeEditor({
     v.min !== undefined ? String(v.min) : ""
   );
   const [hi, setHi] = useState<string>(
-    v.max !== undefined && !isUnboundedMax(v.max) ? String(v.max) : ""
+    v.max !== undefined ? String(v.max) : ""
   );
 
   const applyPreset = ([, mn, mx]: [string, number, number]) => {
     setLo(String(mn));
-    setHi(isUnboundedMax(mx) ? "" : String(mx));
+    setHi(String(mx));
   };
 
   const defMin = def.min ?? 0;
   const defMax = def.max ?? 100;
-  const isYearRange = def.type === "date";
-  const shellWidth = isYearRange ? 268 : 248;
+  const span = defMax - defMin;
+  const trackLo = lo === "" ? defMin : Math.max(defMin, Number(lo));
+  const trackHi = hi === "" ? defMax : Math.min(defMax, Number(hi));
+  const left = Math.max(0, ((trackLo - defMin) / span) * 100);
+  const right = Math.min(100, ((trackHi - defMin) / span) * 100);
 
   const fmt = (n: number) => {
     const u = def.unit;
@@ -1471,8 +1215,6 @@ function RangeEditor({
     if (u === "%") return `${n}%`;
     if (u === "x") return `${n}x`;
     if (u === "yrs") return `${n}y`;
-    // Years should never be formatted with thousand-separators
-    if (isYearRange) return String(n);
     return n.toLocaleString();
   };
 
@@ -1480,13 +1222,10 @@ function RangeEditor({
     <EditorShell
       title={def.fullLabel}
       hint={def.unit ? `unit: ${def.unit}` : undefined}
-      compact
-      onDismiss={onDismiss}
       footer={
         <EditorFooter
           onClear={lo !== "" || hi !== "" ? () => { setLo(""); setHi(""); } : null}
           onRemove={onRemove}
-          onBack={onBack}
           onApply={() => {
             const next: RangeValue = {};
             if (lo !== "") next.min = Number(lo);
@@ -1497,33 +1236,24 @@ function RangeEditor({
           applyDisabled={lo === "" && hi === ""}
         />
       }
-      width={shellWidth}
+      width={320}
     >
       {def.presets && (
         <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 3,
-            marginBottom: 8,
-          }}
+          style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}
         >
           {def.presets.map((p) => {
-            const active =
-              lo === String(p[1]) &&
-              (isUnboundedMax(p[2]) ? hi === "" : hi === String(p[2]));
+            const active = lo === String(p[1]) && hi === String(p[2]);
             return (
               <button
                 key={p[0]}
                 type="button"
-                onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => applyPreset(p)}
                 style={{
-                  padding: "2px 7px",
-                  fontSize: 10,
+                  padding: "3px 9px",
+                  fontSize: 11,
                   fontFamily: "inherit",
                   fontWeight: 600,
-                  lineHeight: 1.4,
                   background: active
                     ? "var(--ax-cyan-50)"
                     : "var(--ax-gray-50)",
@@ -1531,7 +1261,6 @@ function RangeEditor({
                   border: `1px solid ${active ? "var(--ax-cyan-200)" : "var(--border-1)"}`,
                   borderRadius: 999,
                   cursor: "pointer",
-                  whiteSpace: "nowrap",
                 }}
               >
                 {p[0]}
@@ -1541,28 +1270,65 @@ function RangeEditor({
         </div>
       )}
 
-      {!isYearRange && def.unit && (
+      {/* Track preview */}
+      <div
+        style={{
+          position: "relative",
+          height: 6,
+          background: "var(--ax-gray-100)",
+          borderRadius: 3,
+          margin: "14px 4px 6px",
+        }}
+      >
         <div
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: 9,
-            color: "var(--fg-4)",
-            marginBottom: 6,
-            padding: "0 2px",
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: `${left}%`,
+            right: `${100 - right}%`,
+            background: "var(--ax-cyan-400)",
+            borderRadius: 3,
           }}
-        >
-          <span>{fmt(defMin)}</span>
-          <span>{fmt(defMax)}+</span>
-        </div>
-      )}
-
+        />
+        {[left, right].map((pct, i) => (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: `${pct}%`,
+              width: 10,
+              height: 10,
+              marginLeft: -5,
+              marginTop: -5,
+              borderRadius: "50%",
+              background: "white",
+              border: "2px solid var(--ax-cyan-700)",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
+            }}
+          />
+        ))}
+      </div>
       <div
         style={{
           display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          justifyContent: "space-between",
+          fontSize: 10,
+          color: "var(--fg-4)",
+          padding: "0 4px 10px",
+        }}
+      >
+        <span>{fmt(defMin)}</span>
+        <span>{fmt(defMax)}+</span>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr auto 1fr",
           gap: 6,
+          alignItems: "center",
         }}
       >
         <NumberInput
@@ -1570,158 +1336,16 @@ function RangeEditor({
           onChange={setLo}
           placeholder="Min"
           unit={def.unit}
-          compact
         />
-        <span
-          style={{
-            color: "var(--fg-4)",
-            fontSize: "var(--fs-12)",
-            flexShrink: 0,
-          }}
-        >
+        <span style={{ color: "var(--fg-4)", fontSize: "var(--fs-13)" }}>
           to
         </span>
         <NumberInput
           value={hi}
           onChange={setHi}
-          placeholder={lo !== "" ? "No limit" : "Max"}
+          placeholder="Max"
           unit={def.unit}
-          compact
         />
-      </div>
-    </EditorShell>
-  );
-}
-
-interface DateRangeValue {
-  from?: string;
-  to?: string;
-}
-
-interface DateRangeEditorProps {
-  def: FilterDef;
-  value: unknown;
-  onChange: (v: DateRangeValue | null) => void;
-  onRemove?: () => void;
-  onBack?: () => void;
-  onDismiss?: () => void;
-  onClose: () => void;
-}
-
-function DateRangeEditor({
-  def,
-  value,
-  onChange,
-  onRemove,
-  onBack,
-  onDismiss,
-  onClose,
-}: DateRangeEditorProps) {
-  const v = (value as DateRangeValue) || {};
-  const [from, setFrom] = useState(v.from ?? "");
-  const [to, setTo] = useState(v.to ?? "");
-
-  return (
-    <EditorShell
-      title={def.fullLabel}
-      hint="Leave blank for open start/end"
-      compact
-      onDismiss={onDismiss}
-      footer={
-        <EditorFooter
-          onClear={
-            from !== "" || to !== ""
-              ? () => {
-                  setFrom("");
-                  setTo("");
-                }
-              : null
-          }
-          onRemove={onRemove}
-          onBack={onBack}
-          onApply={() => {
-            const next: DateRangeValue = {};
-            if (from.trim()) next.from = from.trim();
-            if (to.trim()) next.to = to.trim();
-            onChange(Object.keys(next).length ? next : null);
-            onClose();
-          }}
-          applyDisabled={from.trim() === "" && to.trim() === ""}
-        />
-      }
-      width={288}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 6,
-        }}
-      >
-        <label
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            flex: 1,
-            padding: "4px 6px",
-            background: "white",
-            border: "1px solid var(--border-1)",
-            borderRadius: "var(--r-md)",
-          }}
-        >
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            aria-label="From date"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              border: "none",
-              outline: "none",
-              fontFamily: "var(--font-sans)",
-              fontSize: "var(--fs-12)",
-              color: "var(--fg-1)",
-            }}
-          />
-        </label>
-        <span
-          style={{
-            color: "var(--fg-4)",
-            fontSize: "var(--fs-12)",
-            flexShrink: 0,
-          }}
-        >
-          to
-        </span>
-        <label
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            flex: 1,
-            padding: "4px 6px",
-            background: "white",
-            border: "1px solid var(--border-1)",
-            borderRadius: "var(--r-md)",
-          }}
-        >
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            aria-label="To date"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              border: "none",
-              outline: "none",
-              fontFamily: "var(--font-sans)",
-              fontSize: "var(--fs-12)",
-              color: "var(--fg-1)",
-            }}
-          />
-        </label>
       </div>
     </EditorShell>
   );
@@ -1732,23 +1356,19 @@ function NumberInput({
   onChange,
   placeholder,
   unit,
-  compact = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
   unit?: string;
-  compact?: boolean;
 }) {
   return (
     <label
       style={{
-        display: "inline-flex",
+        display: "flex",
         alignItems: "center",
-        gap: 3,
-        width: compact ? 76 : undefined,
-        flex: compact ? "0 0 76px" : 1,
-        padding: compact ? "4px 6px" : "6px 8px",
+        gap: 4,
+        padding: "6px 8px",
         background: "white",
         border: "1px solid var(--border-1)",
         borderRadius: "var(--r-md)",
@@ -1773,26 +1393,23 @@ function NumberInput({
         onWheel={(e) => e.currentTarget.blur()}
         style={{
           flex: 1,
-          width: compact ? 36 : undefined,
           minWidth: 0,
           border: "none",
           outline: "none",
           fontFamily: "var(--font-sans)",
           fontVariantNumeric: "tabular-nums",
-          fontSize: compact ? "var(--fs-12)" : "var(--fs-13)",
+          fontSize: "var(--fs-13)",
           color: "var(--fg-1)",
         }}
       />
       {unit && unit !== "$m" && unit !== "$k" && (
-        <span style={{ color: "var(--fg-4)", fontSize: compact ? 10 : 11 }}>
-          {unit}
-        </span>
+        <span style={{ color: "var(--fg-4)", fontSize: 11 }}>{unit}</span>
       )}
       {unit === "$m" && (
-        <span style={{ color: "var(--fg-4)", fontSize: compact ? 10 : 11 }}>m</span>
+        <span style={{ color: "var(--fg-4)", fontSize: 11 }}>m</span>
       )}
       {unit === "$k" && (
-        <span style={{ color: "var(--fg-4)", fontSize: compact ? 10 : 11 }}>k</span>
+        <span style={{ color: "var(--fg-4)", fontSize: 11 }}>k</span>
       )}
     </label>
   );
@@ -1803,38 +1420,28 @@ function NumberInput({
 interface SegmentedEditorProps {
   def: FilterDef;
   value: unknown;
-  reservedValues?: Set<string>;
   onChange: (v: string) => void;
   onRemove?: () => void;
-  onBack?: () => void;
-  onDismiss?: () => void;
   onClose: () => void;
 }
 
 function SegmentedEditor({
   def,
   value,
-  reservedValues,
   onChange,
   onRemove,
-  onBack,
-  onDismiss,
   onClose,
 }: SegmentedEditorProps) {
   const opts = def.options ?? [];
-  const firstAvailable =
-    opts.find((option) => !reservedValues?.has(option)) ?? opts[0] ?? "";
   const [pick, setPick] = useState<string>(
-    String(value ?? firstAvailable)
+    String(value ?? opts[opts.length - 1] ?? "")
   );
   return (
     <EditorShell
       title={def.fullLabel}
-      onDismiss={onDismiss}
       footer={
         <EditorFooter
           onRemove={onRemove}
-          onBack={onBack}
           onApply={() => {
             onChange(pick);
             onClose();
@@ -1855,34 +1462,24 @@ function SegmentedEditor({
       >
         {opts.map((o) => {
           const on = pick === o;
-          const reserved = Boolean(reservedValues?.has(o) && !on);
           return (
             <button
               key={o}
               type="button"
-              onClick={() => {
-                if (!reserved) setPick(o);
-              }}
-              disabled={reserved}
-              title={
-                reserved
-                  ? "Already used in another filter of this type"
-                  : undefined
-              }
+              onClick={() => setPick(o)}
               style={{
                 padding: "7px 10px",
                 fontFamily: "inherit",
                 fontSize: "var(--fs-13)",
                 fontWeight: on ? 600 : 500,
                 background: on ? "white" : "transparent",
-                color: reserved ? "var(--fg-4)" : on ? "var(--fg-1)" : "var(--fg-2)",
+                color: on ? "var(--fg-1)" : "var(--fg-2)",
                 border: "none",
                 borderRadius: 5,
                 boxShadow: on
                   ? "0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px var(--border-1)"
                   : "none",
-                cursor: reserved ? "not-allowed" : "pointer",
-                opacity: reserved ? 0.55 : 1,
+                cursor: "pointer",
               }}
             >
               {o}
@@ -1901,10 +1498,7 @@ interface BooleanEditorProps {
   value: unknown;
   onChange: (v: boolean) => void;
   onRemove?: () => void;
-  onBack?: () => void;
-  onDismiss?: () => void;
   onClose: () => void;
-  portfolioBooleanDescription?: string;
 }
 
 function BooleanEditor({
@@ -1912,44 +1506,27 @@ function BooleanEditor({
   value,
   onChange,
   onRemove,
-  onBack,
-  onDismiss,
   onClose,
-  portfolioBooleanDescription,
 }: BooleanEditorProps) {
-  const [on, setOn] = useState<boolean>(value === true);
-  const isPortfolioFilter = def.id === "followed";
-
-  const handleApply = () => {
-    if (on) {
-      onChange(true);
-      onClose();
-      return;
-    }
-    // Unchecked: remove active filter (if any) and show all companies.
-    if (onRemove) {
-      onRemove();
-    }
-    onClose();
-  };
-
+  const [on, setOn] = useState<boolean>(value !== false);
   return (
     <EditorShell
       title={def.fullLabel}
-      onDismiss={onDismiss}
       footer={
         <EditorFooter
           onRemove={onRemove}
-          onBack={onBack}
-          onApply={handleApply}
+          onApply={() => {
+            onChange(on);
+            onClose();
+          }}
         />
       }
-      width={300}
+      width={260}
     >
       <label
         style={{
           display: "flex",
-          alignItems: "flex-start",
+          alignItems: "center",
           gap: 10,
           padding: "8px 10px",
           borderRadius: "var(--r-md)",
@@ -1962,133 +1539,12 @@ function BooleanEditor({
           type="checkbox"
           checked={on}
           onChange={(e) => setOn(e.target.checked)}
-          style={{
-            width: 16,
-            height: 16,
-            marginTop: 2,
-            accentColor: "var(--ax-cyan-700)",
-          }}
+          style={{ width: 16, height: 16, accentColor: "var(--ax-cyan-700)" }}
         />
-        <span style={{ fontSize: "var(--fs-13)", color: "var(--fg-1)", lineHeight: 1.45 }}>
-          {isPortfolioFilter
-            ? portfolioBooleanDescription ||
-              "Show only My Portfolio companies (followed or on a list)"
-            : def.fullLabel}
+        <span style={{ fontSize: "var(--fs-13)", color: "var(--fg-1)" }}>
+          {def.fullLabel}
         </span>
       </label>
-      {isPortfolioFilter && (
-        <p
-          style={{
-            margin: "8px 0 0",
-            fontSize: "var(--fs-12)",
-            color: "var(--fg-4)",
-            lineHeight: 1.45,
-          }}
-        >
-          Uncheck and apply to show all companies, or remove the filter chip.
-        </p>
-      )}
-    </EditorShell>
-  );
-}
-
-// Yes / No dual-checkbox editor (at least one must remain checked)
-
-interface YesNoDualEditorProps {
-  def: FilterDef;
-  value: unknown;
-  onChange: (v: YesNoDualFilterValue) => void;
-  onRemove?: () => void;
-  onBack?: () => void;
-  onDismiss?: () => void;
-  onClose: () => void;
-}
-
-function YesNoDualEditor({
-  def,
-  value,
-  onChange,
-  onRemove,
-  onBack,
-  onDismiss,
-  onClose,
-}: YesNoDualEditorProps) {
-  const initial = normalizeYesNoDualFilterValue(value);
-  const [yes, setYes] = useState(initial.yes);
-  const [no, setNo] = useState(initial.no);
-
-  const toggleYes = (checked: boolean) => {
-    if (!checked && !no) return;
-    setYes(checked);
-  };
-
-  const toggleNo = (checked: boolean) => {
-    if (!checked && !yes) return;
-    setNo(checked);
-  };
-
-  const handleApply = () => {
-    onChange({ yes, no });
-    onClose();
-  };
-
-  const checkboxRow = (label: string, checked: boolean, onToggle: (next: boolean) => void) => (
-    <label
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 10,
-        padding: "8px 10px",
-        borderRadius: "var(--r-md)",
-        background: "var(--ax-gray-25)",
-        border: "1px solid var(--border-1)",
-        cursor: "pointer",
-      }}
-    >
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onToggle(e.target.checked)}
-        style={{
-          width: 16,
-          height: 16,
-          marginTop: 2,
-          accentColor: "var(--ax-cyan-700)",
-        }}
-      />
-      <span style={{ fontSize: "var(--fs-13)", color: "var(--fg-1)", lineHeight: 1.45 }}>
-        {label}
-      </span>
-    </label>
-  );
-
-  return (
-    <EditorShell
-      title={def.fullLabel}
-      onDismiss={onDismiss}
-      footer={
-        <EditorFooter
-          onRemove={onRemove}
-          onBack={onBack}
-          onApply={handleApply}
-        />
-      }
-      width={300}
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {checkboxRow("Yes", yes, toggleYes)}
-        {checkboxRow("No", no, toggleNo)}
-      </div>
-      <p
-        style={{
-          margin: "8px 0 0",
-          fontSize: "var(--fs-12)",
-          color: "var(--fg-4)",
-          lineHeight: 1.45,
-        }}
-      >
-        Select both to show all companies. At least one option must stay checked.
-      </p>
     </EditorShell>
   );
 }
@@ -2098,88 +1554,25 @@ function YesNoDualEditor({
 interface FilterEditorProps {
   def: FilterDef;
   value: unknown;
-  reservedValues?: Set<string>;
-  filters: FilterItem[];
   onChange: (v: unknown) => void;
+  onRemove: () => void;
   onClose: () => void;
-  onRemove?: () => void;
-  onBack?: () => void;
-  onDismiss?: () => void;
-  portfolioBooleanDescription?: string;
 }
 
 function FilterEditor({
   def,
   value,
-  reservedValues,
-  filters,
   onChange,
   onRemove,
-  onBack,
-  onDismiss,
   onClose,
-  portfolioBooleanDescription,
 }: FilterEditorProps) {
-  const locationScope = useMemo(
-    () => getLocationScopeFromFilters(filters),
-    [filters]
-  );
-
-  if (def.id === "target_company" && def.editor === "enum") {
-    const initial = Array.isArray(value)
-      ? (value as string[])
-      : value
-        ? [String(value)]
-        : [];
-    return (
-      <TargetCompanyEnumEditor
-        def={def}
-        value={initial}
-        onApply={(picked) => {
-          onChange(picked);
-          onClose();
-        }}
-        onRemove={onRemove}
-        onBack={onBack}
-        onDismiss={onDismiss}
-      />
-    );
-  }
-
-  if (def.id === "city" && def.editor === "enum") {
-    const initial = Array.isArray(value)
-      ? (value as string[])
-      : value
-        ? [String(value)]
-        : [];
-    return (
-      <ListViewCityEnumEditor
-        def={def}
-        countries={locationScope.countries}
-        provinces={locationScope.provinces}
-        value={initial}
-        reservedValues={reservedValues}
-        onApply={(picked) => {
-          onChange(picked);
-          onClose();
-        }}
-        onRemove={onRemove}
-        onBack={onBack}
-        onDismiss={onDismiss}
-      />
-    );
-  }
-
   if (def.editor === "enum")
     return (
       <EnumEditor
         def={def}
         value={value}
-        reservedValues={reservedValues}
         onChange={onChange as (v: string[]) => void}
         onRemove={onRemove}
-        onBack={onBack}
-        onDismiss={onDismiss}
         onClose={onClose}
       />
     );
@@ -2190,20 +1583,6 @@ function FilterEditor({
         value={value}
         onChange={onChange as (v: RangeValue | null) => void}
         onRemove={onRemove}
-        onBack={onBack}
-        onDismiss={onDismiss}
-        onClose={onClose}
-      />
-    );
-  if (def.editor === "date_range")
-    return (
-      <DateRangeEditor
-        def={def}
-        value={value}
-        onChange={onChange as (v: DateRangeValue | null) => void}
-        onRemove={onRemove}
-        onBack={onBack}
-        onDismiss={onDismiss}
         onClose={onClose}
       />
     );
@@ -2212,11 +1591,8 @@ function FilterEditor({
       <SegmentedEditor
         def={def}
         value={value}
-        reservedValues={reservedValues}
         onChange={onChange as (v: string) => void}
         onRemove={onRemove}
-        onBack={onBack}
-        onDismiss={onDismiss}
         onClose={onClose}
       />
     );
@@ -2227,177 +1603,10 @@ function FilterEditor({
         value={value}
         onChange={onChange as (v: boolean) => void}
         onRemove={onRemove}
-        onBack={onBack}
-        onDismiss={onDismiss}
-        onClose={onClose}
-        portfolioBooleanDescription={portfolioBooleanDescription}
-      />
-    );
-  if (def.editor === "yes_no_dual")
-    return (
-      <YesNoDualEditor
-        def={def}
-        value={value}
-        onChange={onChange}
-        onRemove={onRemove}
-        onBack={onBack}
-        onDismiss={onDismiss}
         onClose={onClose}
       />
     );
   return null;
-}
-
-// ── Filter logic toggle (AND / OR) ─────────────────────────────────────────
-
-function FilterLogicToggle({
-  value,
-  onChange,
-}: {
-  value: FilterCombineLogic;
-  onChange: (v: FilterCombineLogic) => void;
-}) {
-  const options: { id: FilterCombineLogic; label: string; title: string }[] = [
-    {
-      id: "and",
-      label: "AND",
-      title: "Next filter will combine with AND",
-    },
-    {
-      id: "or",
-      label: "OR",
-      title: "Next filter will combine with OR",
-    },
-  ];
-
-  return (
-    <div
-      role="group"
-      aria-label="Default filter combination for new filters"
-      title="Default AND/OR when adding another filter"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        flexShrink: 0,
-      }}
-    >
-      <span
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          color: "var(--fg-4)",
-          letterSpacing: "0.02em",
-          whiteSpace: "nowrap",
-        }}
-      >
-        Match
-      </span>
-      <div
-        style={{
-          display: "inline-flex",
-          background: "var(--ax-gray-50)",
-          border: "1px solid var(--border-1)",
-          borderRadius: "var(--r-md)",
-          padding: 2,
-          height: 30,
-        }}
-      >
-        {options.map((opt) => {
-          const active = value === opt.id;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              title={opt.title}
-              aria-pressed={active}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => {
-                if (!active) onChange(opt.id);
-              }}
-              style={{
-                padding: "0 10px",
-                fontFamily: "inherit",
-                fontSize: 11,
-                fontWeight: active ? 700 : 600,
-                letterSpacing: "0.04em",
-                background: active ? "white" : "transparent",
-                color: active ? "var(--ax-cyan-700)" : "var(--fg-3)",
-                border: "none",
-                borderRadius: 4,
-                boxShadow: active
-                  ? "0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px var(--border-1)"
-                  : "none",
-                cursor: "pointer",
-                height: "100%",
-                transition: "color 120ms, background 120ms",
-              }}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function FilterLogicSeparator({
-  logic,
-  onToggle,
-}: {
-  logic: FilterCombineLogic;
-  onToggle?: () => void;
-}) {
-  const label = logic.toUpperCase();
-  const style: React.CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: 28,
-    padding: "0 2px",
-    fontSize: 10,
-    fontWeight: 700,
-    letterSpacing: "0.06em",
-    color: "var(--fg-4)",
-    userSelect: "none",
-  };
-
-  if (!onToggle) {
-    return (
-      <span aria-hidden="true" style={style}>
-        {label}
-      </span>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      aria-label={`Switch to ${logic === "and" ? "OR" : "AND"} between filters`}
-      title={`Combine with ${logic === "and" ? "OR" : "AND"} — click to switch`}
-      onMouseDown={(e) => e.stopPropagation()}
-      onClick={onToggle}
-      style={{
-        ...style,
-        border: "none",
-        background: "transparent",
-        cursor: "pointer",
-        borderRadius: 4,
-        transition: "color 120ms, background 120ms",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.color = "var(--ax-cyan-700)";
-        e.currentTarget.style.background = "var(--ax-cyan-50)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.color = "var(--fg-4)";
-        e.currentTarget.style.background = "transparent";
-      }}
-    >
-      {label}
-    </button>
-  );
 }
 
 // ── Main CompaniesFilterBar ────────────────────────────────────────────────
@@ -2408,18 +1617,8 @@ export function CompaniesFilterBar({
   state,
   onStateChange,
   totalCount,
-  entityLabel = "companies",
-  portfolioOnlyChipLabel = "My Portfolio only",
-  portfolioBooleanDescription,
 }: CompaniesFilterBarProps) {
-  const { filters, searchText, filterLogic } = state;
-
-  const setFilterLogic = useCallback(
-    (next: FilterCombineLogic) => {
-      onStateChange((s) => ({ ...s, filterLogic: next, viewId: null }));
-    },
-    [onStateChange]
-  );
+  const { filters, searchText } = state;
 
   const setFilters = useCallback(
     (updater: FilterItem[] | ((prev: FilterItem[]) => FilterItem[])) => {
@@ -2432,70 +1631,42 @@ export function CompaniesFilterBar({
     [onStateChange]
   );
 
-  const toggleFilterCombineLogic = useCallback(
-    (filterIndex: number) => {
-      if (filterIndex <= 0) return;
-      setFilters((prev) =>
-        prev.map((f, i) => {
-          if (i !== filterIndex) return f;
-          const current = f.combineLogic ?? filterLogic;
-          return { ...f, combineLogic: current === "and" ? "or" : "and" };
-        })
-      );
-    },
-    [setFilters, filterLogic]
-  );
-
   const [editing, setEditing] = useState<string | null>(null);
   const chipRefs = useRef<Record<string, React.RefObject<HTMLSpanElement>>>({});
-  const filterBarRef = useRef<HTMLDivElement>(null);
 
-  const commitFilter = useCallback(
-    (def: FilterDef, value: unknown) => {
-      if (isEmptyFilterValue(def, value)) return;
-      const instanceKey = createFilterInstanceKey();
-      onStateChange((s) => ({
-        ...s,
-        viewId: null,
-        filters: [
-          ...s.filters,
-          {
-            id: def.id,
-            key: instanceKey,
-            value,
-            ...(s.filters.length > 0 ? { combineLogic: s.filterLogic } : {}),
-          },
-        ],
-      }));
+  const usedIds = useMemo(() => new Set(filters.map((f) => f.id)), [filters]);
+  const available = useMemo(
+    () => filterDefs.filter((d) => !usedIds.has(d.id)),
+    [filterDefs, usedIds]
+  );
+
+  const addFilter = useCallback(
+    (def: FilterDef) => {
+      let initial: unknown = null;
+      if (def.editor === "enum") initial = null;
+      else if (def.editor === "range" && def.presets?.length) {
+        const p = def.presets[0];
+        initial = { min: p[1], max: p[2] };
+      } else if (def.editor === "segmented")
+        initial = def.options?.[0] ?? null;
+      else if (def.editor === "boolean") initial = true;
+      setFilters((f) => [...f, { id: def.id, value: initial }]);
+      setEditing(def.id);
     },
-    [onStateChange]
+    [setFilters]
   );
 
   const updateFilter = useCallback(
-    (instanceKey: string, value: unknown) => {
-      const existing = filters.find((x) => x.key === instanceKey);
-      const def = existing
-        ? filterDefs.find((d) => d.id === existing.id)
-        : undefined;
-      if (
-        def?.editor === "boolean" &&
-        value !== true
-      ) {
-        setFilters((f) => f.filter((x) => x.key !== instanceKey));
-        setEditing((e) => (e === instanceKey ? null : e));
-        return;
-      }
-      setFilters((f) =>
-        f.map((x) => (x.key === instanceKey ? { ...x, value } : x))
-      );
+    (id: string, value: unknown) => {
+      setFilters((f) => f.map((x) => (x.id === id ? { ...x, value } : x)));
     },
-    [setFilters, filters, filterDefs]
+    [setFilters]
   );
 
   const removeFilter = useCallback(
-    (instanceKey: string) => {
-      setFilters((f) => f.filter((x) => x.key !== instanceKey));
-      setEditing((e) => (e === instanceKey ? null : e));
+    (id: string) => {
+      setFilters((f) => f.filter((x) => x.id !== id));
+      setEditing((e) => (e === id ? null : e));
     },
     [setFilters]
   );
@@ -2505,30 +1676,13 @@ export function CompaniesFilterBar({
     setEditing(null);
   }, [setFilters]);
 
-  const editingFilter = filters.find((f) => f.key === editing);
+  const editingFilter = filters.find((f) => f.id === editing);
   const editingDef = editingFilter
     ? filterDefs.find((d) => d.id === editingFilter.id)
     : null;
 
-  const availableFilterDefs = useMemo(
-    () =>
-      filterDefs.filter((def) =>
-        filterDefHasAvailableOptions(def, filters)
-      ),
-    [filterDefs, filters]
-  );
-
-  const editingReservedValues = useMemo(() => {
-    if (!editingFilter) return new Set<string>();
-    return getValuesReservedBySiblingFilters(
-      filters,
-      editingFilter.id,
-      editingFilter.key
-    );
-  }, [filters, editingFilter]);
-
   return (
-    <div className="cfb-root" ref={filterBarRef}>
+    <div className="cfb-root">
       <style>{FILTER_BAR_CSS}</style>
       <div
         style={{
@@ -2634,47 +1788,30 @@ export function CompaniesFilterBar({
           </label>
 
           {/* Active filter chips */}
-          {filters.map((f, index) => {
+          {filters.map((f) => {
             const def = filterDefs.find((d) => d.id === f.id);
             if (!def) return null;
-            if (!chipRefs.current[f.key])
-              chipRefs.current[f.key] = { current: null } as React.RefObject<HTMLSpanElement>;
+            if (!chipRefs.current[f.id])
+              chipRefs.current[f.id] = { current: null } as React.RefObject<HTMLSpanElement>;
             return (
-              <React.Fragment key={f.key}>
-                {index > 0 && (
-                  <FilterLogicSeparator
-                    logic={f.combineLogic ?? filterLogic}
-                    onToggle={() => toggleFilterCombineLogic(index)}
-                  />
-                )}
-                <span ref={chipRefs.current[f.key]}>
-                  <Chip
-                    def={def}
-                    value={f.value}
-                    chipStyle="cyan"
-                    onEdit={() => setEditing(f.key)}
-                    onRemove={() => removeFilter(f.key)}
-                    portfolioOnlyChipLabel={portfolioOnlyChipLabel}
-                  />
-                </span>
-              </React.Fragment>
+              <span key={f.id} ref={chipRefs.current[f.id]}>
+                <Chip
+                  def={def}
+                  value={f.value}
+                  chipStyle="cyan"
+                  showIcon
+                  onEdit={() => setEditing(f.id)}
+                  onRemove={() => removeFilter(f.id)}
+                />
+              </span>
             );
           })}
 
-          {filters.length > 0 && (
-            <FilterLogicToggle
-              value={filterLogic}
-              onChange={setFilterLogic}
-            />
-          )}
-
           {/* Add filter button */}
           <AddFilterButton
-            availableDefs={availableFilterDefs}
+            availableDefs={available}
             categories={filterCategories}
-            filters={filters}
-            onApply={commitFilter}
-            boundaryRef={filterBarRef}
+            onPick={addFilter}
           />
         </div>
 
@@ -2734,14 +1871,6 @@ export function CompaniesFilterBar({
                 >
                   {filters.length} filter{filters.length === 1 ? "" : "s"} active
                 </strong>
-                {filters.length > 0 && (
-                  <>
-                    <span>·</span>
-                    <span style={{ textTransform: "uppercase", fontWeight: 600 }}>
-                      {describeActiveFilterLogic(filters, filterLogic)} logic
-                    </span>
-                  </>
-                )}
                 <span>·</span>
               </>
             )}
@@ -2753,7 +1882,7 @@ export function CompaniesFilterBar({
                 >
                   {totalCount.toLocaleString()}
                 </strong>
-                <span> {entityLabel}</span>
+                <span> companies</span>
               </span>
             )}
           </span>
@@ -2764,26 +1893,20 @@ export function CompaniesFilterBar({
           editingDef &&
           editingFilter &&
           chipRefs.current[editing]?.current && (
-            <AnchoredPopover
+            <Pop
               anchorRef={
                 chipRefs.current[editing] as React.RefObject<HTMLElement>
               }
-              boundaryRef={filterBarRef}
-              width={380}
               onDismiss={() => setEditing(null)}
             >
               <FilterEditor
-                key={editing}
                 def={editingDef}
                 value={editingFilter.value}
-                reservedValues={editingReservedValues}
-                filters={filters}
                 onChange={(v) => updateFilter(editing, v)}
                 onRemove={() => removeFilter(editing)}
                 onClose={() => setEditing(null)}
-                portfolioBooleanDescription={portfolioBooleanDescription}
               />
-            </AnchoredPopover>
+            </Pop>
           )}
       </div>
     </div>
