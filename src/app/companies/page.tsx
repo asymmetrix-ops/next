@@ -29,6 +29,7 @@ const ENABLE_COMPANIES_KEYWORD_SEARCH = false;
 
 // Extended CSV row type that includes financial and subscription metrics
 interface CompanyCSVRow extends BaseCompanyCSVRow {
+  "Asymmetrix Profile Link"?: string;
   Revenue?: string;
   EBITDA?: string;
   "Enterprise Value"?: string;
@@ -3369,6 +3370,7 @@ const CompanySection = ({
             Country: it.country ?? "N/A",
             "Company Link": companyLink || "N/A",
             "Company URL": it.url ?? "",
+            "Asymmetrix Profile Link": it.company_link ?? "",
             // Financial Metrics - exact field names from API
             Revenue:
               it.Revenue_m != null && it.Revenue_m !== ""
@@ -3421,7 +3423,7 @@ const CompanySection = ({
           throw new Error("CSV content is empty after conversion");
         }
         const timestamp = new Date().toISOString().split("T")[0];
-        downloadFile(csv, `companies_filtered_${timestamp}.csv`);
+        await downloadFile(csv, `companies_filtered_${timestamp}.csv`);
       } else {
         // Fallback: If API returns CSV directly, use it as-is
         // Note: This may not include all financial columns if the server CSV is incomplete
@@ -3429,7 +3431,7 @@ const CompanySection = ({
         console.warn("API returned CSV directly - financial columns may be missing and only first page will be exported");
         const normalized = firstPageText.replace(/\r?\n/g, "\r\n");
         const contentWithBOM = "\uFEFF" + normalized;
-        downloadFile(contentWithBOM, "companies_filtered.csv");
+        await downloadFile(contentWithBOM, "companies_filtered.csv");
       }
     } catch (e) {
       console.error("Error exporting CSV:", e);

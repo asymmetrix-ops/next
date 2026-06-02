@@ -239,7 +239,7 @@ export class CompaniesCSVExporter {
   static downloadCSV(csvContent: string, filename: string = "companies"): void {
     const timestamp = new Date().toISOString().split("T")[0];
     const fullFilename = `${filename}_${timestamp}.csv`;
-    downloadFile(csvContent, fullFilename);
+    void downloadFile(csvContent, fullFilename);
   }
 
   static exportCompanies(companies: Company[], filename?: string): void {

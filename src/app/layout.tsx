@@ -7,6 +7,7 @@ import "react-h5-audio-player/lib/styles.css";
 import { AnalyticsProvider } from "@/components/providers/AnalyticsProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { Toaster } from "react-hot-toast";
+import DownloadMessageListener from "@/components/DownloadMessageListener";
 import TitleUpdater from "@/components/TitleUpdater";
 import ChunkErrorRecovery from "@/components/ChunkErrorRecovery";
 import TrialRouteGuard from "@/components/TrialRouteGuard";
@@ -143,6 +144,7 @@ export default function RootLayout({
               <RouteTracker />
             </Suspense>
             <ErrorTracker />
+            <DownloadMessageListener />
             <PageRemountOnLogin>{children}</PageRemountOnLogin>
             <AuthLoginModal />
             <Toaster position="top-right" />
