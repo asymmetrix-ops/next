@@ -3419,23 +3419,33 @@ const CompanySection = ({
         if (!csv || csv.trim() === "" || csv === "\uFEFF") {
           throw new Error("CSV content is empty after conversion");
         }
-        // Trigger download directly
+        // Trigger download — use window.top to escape any sandboxed iframe,
+        // fall back to a data: URI opened in a new tab if cross-origin.
         const timestamp = new Date().toISOString().split("T")[0];
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-        const blobUrl = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        anchor.href = blobUrl;
-        anchor.download = `companies_filtered_${timestamp}.csv`;
-        anchor.style.position = "fixed";
-        anchor.style.opacity = "0";
-        document.body.appendChild(anchor);
-        anchor.dispatchEvent(
-          new MouseEvent("click", { bubbles: true, cancelable: true, view: window })
-        );
-        setTimeout(() => {
-          document.body.removeChild(anchor);
-          URL.revokeObjectURL(blobUrl);
-        }, 200);
+        const filename = `companies_filtered_${timestamp}.csv`;
+        try {
+          const targetWin = (window.top ?? window) as Window;
+          const targetDoc = targetWin.document;
+          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+          const blobUrl = URL.createObjectURL(blob);
+          const anchor = targetDoc.createElement("a");
+          anchor.href = blobUrl;
+          anchor.download = filename;
+          anchor.style.cssText = "position:fixed;opacity:0;pointer-events:none;";
+          targetDoc.body.appendChild(anchor);
+          anchor.dispatchEvent(
+            new MouseEvent("click", { bubbles: true, cancelable: true, view: targetWin })
+          );
+          setTimeout(() => {
+            targetDoc.body.removeChild(anchor);
+            URL.revokeObjectURL(blobUrl);
+          }, 200);
+        } catch {
+          // Cross-origin iframe: open as a data: URI in a new tab
+          const dataUri =
+            "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+          window.open(dataUri, "_blank");
+        }
       } else {
         // Fallback: If API returns CSV directly, use it as-is
         // Note: This may not include all financial columns if the server CSV is incomplete

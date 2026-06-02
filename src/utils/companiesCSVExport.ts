@@ -238,22 +238,29 @@ export class CompaniesCSVExporter {
     const timestamp = new Date().toISOString().split("T")[0];
     const fullFilename = `${filename}_${timestamp}.csv`;
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fullFilename;
-    link.style.position = "fixed";
-    link.style.opacity = "0";
-    link.style.pointerEvents = "none";
-    document.body.appendChild(link);
-    link.dispatchEvent(
-      new MouseEvent("click", { bubbles: true, cancelable: true, view: window })
-    );
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 200);
+    try {
+      const targetWin = (window.top ?? window) as Window;
+      const targetDoc = targetWin.document;
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = targetDoc.createElement("a");
+      link.href = url;
+      link.download = fullFilename;
+      link.style.cssText = "position:fixed;opacity:0;pointer-events:none;";
+      targetDoc.body.appendChild(link);
+      link.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true, view: targetWin })
+      );
+      setTimeout(() => {
+        targetDoc.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 200);
+    } catch {
+      // Cross-origin iframe fallback: open as data: URI in new tab
+      const dataUri =
+        "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
+      window.open(dataUri, "_blank");
+    }
   }
 
   static exportCompanies(companies: Company[], filename?: string): void {
