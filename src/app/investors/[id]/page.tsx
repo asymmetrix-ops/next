@@ -1748,6 +1748,7 @@ const InvestorDetailPage = () => {
                 <FollowButton
                   followKey="followed_investors"
                   entityId={Number(investorId)}
+                  entityType="investor"
                   label="Investor"
                   className="export-button"
                 />

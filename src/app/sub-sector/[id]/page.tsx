@@ -2011,6 +2011,7 @@ const SubSectorPage = () => {
               <FollowButton
                 followKey="followed_sectors"
                 entityId={subSectorId}
+                entityType="sector"
                 label="Sub-Sector"
               />
             )}

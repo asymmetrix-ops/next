@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
+import { InlineFollowButton } from "@/components/InlineFollowButton";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
@@ -1200,7 +1201,18 @@ const AdvisorsPage = () => {
           )
         ),
         React.createElement("td", null, formatNumber(advisor.linkedin_members)),
-        React.createElement("td", null, advisor.country || "N/A")
+        React.createElement("td", null, advisor.country || "N/A"),
+        React.createElement(
+          "td",
+          { style: { textAlign: "center" } },
+          advisor.id
+            ? React.createElement(InlineFollowButton, {
+                followKey: "followed_advisors",
+                entityId: advisor.id,
+                label: advisor.name || "",
+              })
+            : null
+        )
       );
     });
   };
@@ -2500,6 +2512,7 @@ const AdvisorsPage = () => {
                 <th>Advised D&A Sectors</th>
                 <th>LinkedIn Members</th>
                 <th>Country</th>
+                <th style={{ textAlign: "center" }}>Follow</th>
               </tr>
             </thead>
             <tbody>{generateTableRows()}</tbody>

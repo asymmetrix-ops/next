@@ -3333,6 +3333,7 @@ const CompanyDetail = () => {
                     <FollowButton
                       followKey="followed_companies"
                       entityId={Number(companyId)}
+                      entityType="company"
                       label="Company"
                       icon={<BellIcon width={15} height={15} strokeWidth={2} aria-hidden />}
                     />

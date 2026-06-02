@@ -246,6 +246,7 @@ export default function IndividualProfilePage() {
             <FollowButton
               followKey="followed_individuals"
               entityId={individualId}
+              entityType="individual"
               label="Individual"
             />
           )}
