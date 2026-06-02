@@ -135,6 +135,64 @@ import {
   SEARCH_PAGE_TYPE_LABELS,
 } from "@/lib/globalSearch";
 
+function contentTypeBadgeStyle(contentType?: string) {
+  const t = (contentType || "").toLowerCase().trim();
+  if (t === "company analysis") {
+    return {
+      backgroundColor: "#ecfdf5",
+      color: "#065f46",
+      borderColor: "#a7f3d0",
+    };
+  }
+  if (t === "deal analysis") {
+    return {
+      backgroundColor: "#eff6ff",
+      color: "#1e40af",
+      borderColor: "#bfdbfe",
+    };
+  }
+  if (t === "deal perspective") {
+    return {
+      backgroundColor: "#ecfeff",
+      color: "#155e75",
+      borderColor: "#a5f3fc",
+    };
+  }
+  if (t === "market commentary") {
+    return {
+      backgroundColor: "#fefce8",
+      color: "#854d0e",
+      borderColor: "#fde68a",
+    };
+  }
+  if (t === "sector analysis") {
+    return {
+      backgroundColor: "#f5f3ff",
+      color: "#5b21b6",
+      borderColor: "#ddd6fe",
+    };
+  }
+  if (t === "hot take") {
+    return {
+      backgroundColor: "#fff7ed",
+      color: "#9a3412",
+      borderColor: "#fed7aa",
+    };
+  }
+  if (t === "executive interview") {
+    return {
+      backgroundColor: "#f0fdf4",
+      color: "#166534",
+      borderColor: "#bbf7d0",
+    };
+  }
+  return {
+    backgroundColor: "#f3f4f6",
+    color: "#374151",
+    borderColor: "#e5e7eb",
+  };
+}
+
 // Removed NewCompany interface along with the related UI section
 
 export default function HomeUserPage() {
@@ -2005,7 +2063,10 @@ export default function HomeUserPage() {
                         className="p-4 rounded-xl border border-blue-100 bg-white shadow-sm hover:shadow transition-shadow"
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg border border-blue-100">
+                          <span
+                            className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-lg border"
+                            style={contentTypeBadgeStyle(ct)}
+                          >
                             {ct || "Insight"}
                           </span>
                           <span className="text-xs text-gray-500">
