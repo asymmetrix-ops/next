@@ -1,3 +1,5 @@
+import { downloadFile } from "@/utils/downloadFile";
+
 // Types for companies data
 interface Company {
   id: number;
@@ -237,30 +239,7 @@ export class CompaniesCSVExporter {
   static downloadCSV(csvContent: string, filename: string = "companies"): void {
     const timestamp = new Date().toISOString().split("T")[0];
     const fullFilename = `${filename}_${timestamp}.csv`;
-
-    try {
-      const targetWin = (window.top ?? window) as Window;
-      const targetDoc = targetWin.document;
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = targetDoc.createElement("a");
-      link.href = url;
-      link.download = fullFilename;
-      link.style.cssText = "position:fixed;opacity:0;pointer-events:none;";
-      targetDoc.body.appendChild(link);
-      link.dispatchEvent(
-        new MouseEvent("click", { bubbles: true, cancelable: true, view: targetWin })
-      );
-      setTimeout(() => {
-        targetDoc.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }, 200);
-    } catch {
-      // Cross-origin iframe fallback: open as data: URI in new tab
-      const dataUri =
-        "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
-      window.open(dataUri, "_blank");
-    }
+    downloadFile(csvContent, fullFilename);
   }
 
   static exportCompanies(companies: Company[], filename?: string): void {
