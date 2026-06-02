@@ -210,6 +210,7 @@ interface ExportCompanyJson {
   ownership?: string;
   linkedin_members?: number | string;
   country?: string;
+  url?: string;
   asymmetrix_url?: string;
   company_link?: string;
   // Financial Metrics (exact API field names)
@@ -3004,6 +3005,7 @@ const CompanySection = ({
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const [showExportLimitModal, setShowExportLimitModal] = useState(false);
   const [exportsLeft, setExportsLeft] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Check if any filters are applied
   const hasActiveFilters = () => {
@@ -3061,6 +3063,8 @@ const CompanySection = ({
 
   // Handle CSV export using backend endpoint and include active filters
   const handleExportCSV = useCallback(async () => {
+    if (isExporting) return;
+    setIsExporting(true);
     try {
       // Check export limit first
       const limitCheck = await checkExportLimit();
@@ -3363,7 +3367,7 @@ const CompanySection = ({
             ),
             Country: it.country ?? "N/A",
             "Company Link": companyLink || "N/A",
-            "Company URL": it.company_link ?? "",
+            "Company URL": it.url ?? "",
             // Financial Metrics - exact field names from API
             Revenue:
               it.Revenue_m != null && it.Revenue_m !== ""
@@ -3412,7 +3416,26 @@ const CompanySection = ({
         });
         
         const csv = CompaniesCSVExporter.convertToCSV(rows);
-        CompaniesCSVExporter.downloadCSV(csv, "companies_filtered");
+        if (!csv || csv.trim() === "" || csv === "\uFEFF") {
+          throw new Error("CSV content is empty after conversion");
+        }
+        // Trigger download directly
+        const timestamp = new Date().toISOString().split("T")[0];
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const blobUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = blobUrl;
+        anchor.download = `companies_filtered_${timestamp}.csv`;
+        anchor.style.position = "fixed";
+        anchor.style.opacity = "0";
+        document.body.appendChild(anchor);
+        anchor.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true, view: window })
+        );
+        setTimeout(() => {
+          document.body.removeChild(anchor);
+          URL.revokeObjectURL(blobUrl);
+        }, 200);
       } else {
         // Fallback: If API returns CSV directly, use it as-is
         // Note: This may not include all financial columns if the server CSV is incomplete
@@ -3457,8 +3480,10 @@ const CompanySection = ({
           "companies_filtered"
         );
       }
+    } finally {
+      setIsExporting(false);
     }
-  }, [currentFilters, companies]);
+  }, [currentFilters, companies, isExporting]);
 
   const handleCompanyClick = useCallback(
     (companyId: number) => {
@@ -4422,10 +4447,10 @@ const CompanySection = ({
           {
             onClick: handleExportCSV,
             className: "export-button",
-            disabled: loading || isTrialActive,
+            disabled: loading || isTrialActive || isExporting,
             title: isTrialActive ? "Export disabled during Trial" : undefined,
           },
-          loading ? "Exporting..." : "Export CSV"
+          isExporting ? "Exporting..." : "Export CSV"
         )
       ),
     React.createElement(

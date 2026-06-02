@@ -235,23 +235,25 @@ export class CompaniesCSVExporter {
   }
 
   static downloadCSV(csvContent: string, filename: string = "companies"): void {
-    // Add timestamp to filename
     const timestamp = new Date().toISOString().split("T")[0];
     const fullFilename = `${filename}_${timestamp}.csv`;
 
-    // Create blob and download
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute("href", url);
-      link.setAttribute("download", fullFilename);
-      link.style.visibility = "hidden";
-      document.body.appendChild(link);
-      link.click();
+    link.href = url;
+    link.download = fullFilename;
+    link.style.position = "fixed";
+    link.style.opacity = "0";
+    link.style.pointerEvents = "none";
+    document.body.appendChild(link);
+    link.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true, view: window })
+    );
+    setTimeout(() => {
       document.body.removeChild(link);
-    }
+      URL.revokeObjectURL(url);
+    }, 200);
   }
 
   static exportCompanies(companies: Company[], filename?: string): void {
