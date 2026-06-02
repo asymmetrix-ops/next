@@ -12,6 +12,7 @@ import React, {
 
 import {
   type ChangeRequestCompanyNotInDb,
+  type ChangeRequestCompanyRef,
   type ChangeRequestItem,
   type ChangeRequestResponse,
   formatAiReasoningCard,
@@ -140,6 +141,120 @@ function CompanyNotInDbCard({
         </p>
       ) : null}
       <span className="sr-only">{`Company not in DB ${index + 1}`}</span>
+    </div>
+  );
+}
+
+const COMPANIES_IN_DB_COLLAPSED_LIMIT = 6;
+const COMPANIES_NOT_IN_DB_COLLAPSED_LIMIT = 3;
+
+function ExpandCountButton({
+  hiddenCount,
+  expanded,
+  onToggle,
+}: {
+  hiddenCount: number;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  if (hiddenCount <= 0 && !expanded) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="inline-flex cursor-pointer items-center rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-medium text-blue-600 transition hover:border-blue-200 hover:bg-blue-50"
+      aria-expanded={expanded}
+    >
+      {expanded ? "Show less" : `+${hiddenCount} more`}
+    </button>
+  );
+}
+
+function ChangeRequestCompaniesCell({
+  companies,
+  companiesNotInDb,
+}: {
+  companies: ChangeRequestCompanyRef[];
+  companiesNotInDb: ChangeRequestCompanyNotInDb[];
+}) {
+  const [showAllInDb, setShowAllInDb] = useState(false);
+  const [showAllNotInDb, setShowAllNotInDb] = useState(false);
+
+  const inDbCollapsed = companies.length > COMPANIES_IN_DB_COLLAPSED_LIMIT;
+  const visibleInDb =
+    showAllInDb || !inDbCollapsed
+      ? companies
+      : companies.slice(0, COMPANIES_IN_DB_COLLAPSED_LIMIT);
+  const hiddenInDbCount = inDbCollapsed
+    ? companies.length - COMPANIES_IN_DB_COLLAPSED_LIMIT
+    : 0;
+
+  const notInDbCollapsed =
+    companiesNotInDb.length > COMPANIES_NOT_IN_DB_COLLAPSED_LIMIT;
+  const visibleNotInDb =
+    showAllNotInDb || !notInDbCollapsed
+      ? companiesNotInDb
+      : companiesNotInDb.slice(0, COMPANIES_NOT_IN_DB_COLLAPSED_LIMIT);
+  const hiddenNotInDbCount = notInDbCollapsed
+    ? companiesNotInDb.length - COMPANIES_NOT_IN_DB_COLLAPSED_LIMIT
+    : 0;
+
+  if (companies.length === 0 && companiesNotInDb.length === 0) {
+    return <span className="text-xs text-gray-300">—</span>;
+  }
+
+  return (
+    <div className="flex h-full min-h-full flex-col gap-2">
+      {companies.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {visibleInDb.map((c) => (
+            <Link
+              key={c.id}
+              href={`/company/${c.id}`}
+              className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium leading-snug text-slate-700 hover:bg-slate-100 [overflow-wrap:anywhere]"
+            >
+              {c.name}
+            </Link>
+          ))}
+          <ExpandCountButton
+            hiddenCount={hiddenInDbCount}
+            expanded={showAllInDb}
+            onToggle={() => setShowAllInDb((prev) => !prev)}
+          />
+        </div>
+      ) : null}
+      {companiesNotInDb.length > 0 ? (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">
+            Not in DB
+            {notInDbCollapsed && !showAllNotInDb ? (
+              <span className="ml-1.5 font-bold normal-case tracking-normal text-amber-700">
+                ({companiesNotInDb.length})
+              </span>
+            ) : null}
+            {companiesNotInDb.some((c) => c.verdict === "da") ? (
+              <span className="ml-1.5 rounded bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal text-white">
+                D&A found
+              </span>
+            ) : null}
+          </p>
+          <div className="space-y-2">
+            {visibleNotInDb.map((entry, idx) => (
+              <CompanyNotInDbCard
+                key={`${entry.company_name ?? entry.website ?? idx}-${idx}`}
+                entry={entry}
+                index={idx}
+              />
+            ))}
+          </div>
+          <ExpandCountButton
+            hiddenCount={hiddenNotInDbCount}
+            expanded={showAllNotInDb}
+            onToggle={() => setShowAllNotInDb((prev) => !prev)}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -546,7 +661,7 @@ export function ChangeStateTab() {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
         <div>
           <h2 className="text-sm font-semibold text-gray-900">
@@ -685,17 +800,17 @@ export function ChangeStateTab() {
         <div
           className={`w-full overflow-x-auto ${loading ? "opacity-60" : ""}`}
         >
-          <table className="w-full table-fixed border-collapse text-left">
+          <table className="w-full min-w-[960px] table-fixed border-collapse text-left">
             <colgroup>
               <col style={{ width: "2.8%" }} />
+              <col style={{ width: "3%" }} />
               <col style={{ width: "3.2%" }} />
-              <col style={{ width: "4.5%" }} />
-              <col style={{ width: "6.5%" }} />
-              <col style={{ width: "14%" }} />
-              <col style={{ width: "20%" }} />
-              <col style={{ width: "46.1%" }} />
-              <col style={{ width: "2.4%" }} />
-              <col style={{ width: "1.4%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "17%" }} />
+              <col style={{ width: "32.5%" }} />
+              <col style={{ width: "16%" }} />
+              <col style={{ width: "8.5%" }} />
             </colgroup>
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
@@ -835,58 +950,17 @@ export function ChangeStateTab() {
                       </div>
                     </td>
                     <td className="h-full min-w-0 align-top px-3 py-4 sm:px-4">
-                      <div className="flex h-full min-h-full flex-col gap-2">
-                        {companies.length > 0 ? (
-                          <div className="flex flex-wrap gap-1.5">
-                            {companies.slice(0, 6).map((c) => (
-                              <Link
-                                key={c.id}
-                                href={`/company/${c.id}`}
-                                className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium leading-snug text-slate-700 hover:bg-slate-100 [overflow-wrap:anywhere]"
-                              >
-                                {c.name}
-                              </Link>
-                            ))}
-                            {companies.length > 6 ? (
-                              <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500">
-                                +{companies.length - 6}
-                              </span>
-                            ) : null}
-                          </div>
-                        ) : null}
-                        {companiesNotInDb.length > 0 ? (
-                          <div className="space-y-1.5">
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">
-                              Not in DB
-                              {companiesNotInDb.some((c) => c.verdict === "da") ? (
-                                <span className="ml-1.5 rounded bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal text-white">
-                                  D&A found
-                                </span>
-                              ) : null}
-                            </p>
-                            <div className="space-y-2">
-                              {companiesNotInDb.map((entry, idx) => (
-                                <CompanyNotInDbCard
-                                  key={`${item.id}-${idx}-${entry.company_name ?? entry.website ?? idx}`}
-                                  entry={entry}
-                                  index={idx}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        ) : null}
-                        {companies.length === 0 &&
-                        companiesNotInDb.length === 0 ? (
-                          <span className="text-xs text-gray-300">—</span>
-                        ) : null}
-                      </div>
+                      <ChangeRequestCompaniesCell
+                        companies={companies}
+                        companiesNotInDb={companiesNotInDb}
+                      />
                     </td>
                     <td className="h-full min-w-0 align-top px-3 py-4 sm:px-4">
                       <div className="flex h-full min-h-full">
                         <AddedDiffBlock items={addedItems} />
                       </div>
                     </td>
-                    <td className="h-full w-[1%] max-w-[7rem] align-top px-1.5 py-4 sm:px-2">
+                    <td className="h-full min-w-0 align-top px-1.5 py-4 sm:px-2">
                       <div className="flex h-full min-h-full flex-col justify-start">
                         {item.watch_url ? (
                           <a
@@ -894,7 +968,7 @@ export function ChangeStateTab() {
                             target="_blank"
                             rel="noopener noreferrer"
                             title={item.watch_url}
-                            className={`${linkClass} block truncate`}
+                            className={`${linkClass} block break-all [overflow-wrap:anywhere]`}
                           >
                             {item.watch_url}
                           </a>
@@ -903,7 +977,7 @@ export function ChangeStateTab() {
                         )}
                       </div>
                     </td>
-                    <td className="h-full w-[1%] whitespace-nowrap align-top px-1.5 py-4 sm:px-2">
+                    <td className="h-full min-w-0 align-top px-1.5 py-4 sm:px-2">
                       <div className="flex h-full min-h-full flex-col justify-start">
                         {bucketLabel ? (
                           <span className="w-fit rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
