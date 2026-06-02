@@ -2698,6 +2698,7 @@ const CompanyDetail = () => {
                     <FollowButton
                       followKey="followed_companies"
                       entityId={Number(companyId)}
+                      entityType="company"
                       label="Company"
                     />
                   )}

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { InlineFollowButton } from "@/components/InlineFollowButton";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { locationsService } from "@/lib/locationsService";
@@ -50,7 +51,7 @@ const SectorCard = ({
   sector: Sector;
   onClick: () => void;
   href: string;
-}) => {
+  }) => {
   const formatNumber = (num: number | undefined) => {
     if (num === undefined || num === null) return "0";
     return num.toLocaleString();
@@ -238,18 +239,39 @@ const SectorCard = ({
             borderRadius: "6px",
           },
         },
-        React.createElement(
-          "span",
-          { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
-          "Private"
-        ),
-        React.createElement(
-          "span",
-          { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
-          formatNumber(sector.Number_of_Private)
-        )
+      React.createElement(
+        "span",
+        { style: { color: "#6b7280", marginBottom: "2px", fontSize: "10px" } },
+        "Private"
+      ),
+      React.createElement(
+        "span",
+        { style: { fontWeight: "700", fontSize: "14px", color: "#1a202c" } },
+        formatNumber(sector.Number_of_Private)
       )
     )
+  ),
+  React.createElement(
+    "div",
+    {
+      style: {
+        marginTop: "12px",
+        paddingTop: "10px",
+        borderTop: "1px solid #e2e8f0",
+        display: "flex",
+        justifyContent: "flex-end",
+      },
+      onClick: (e: React.MouseEvent) => e.stopPropagation(),
+    },
+    sector.id
+      ? React.createElement(InlineFollowButton, {
+          followKey: "followed_sectors",
+          entityId: sector.id,
+          label: sector.sector_name || "",
+          showLabel: true,
+        })
+      : null
+  )
   );
 };
 

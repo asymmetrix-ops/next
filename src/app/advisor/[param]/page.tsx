@@ -1419,6 +1419,7 @@ export default function AdvisorProfilePage() {
             <FollowButton
               followKey="followed_advisors"
               entityId={Advisor.id}
+              entityType="advisor"
               label="Advisor"
               className="report-button"
               style={{ marginRight: 8 }}

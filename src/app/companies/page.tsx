@@ -10,6 +10,7 @@ import React, {
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
+import { InlineFollowButton } from "@/components/InlineFollowButton";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { locationsService } from "@/lib/locationsService";
@@ -2723,6 +2724,15 @@ const CompanySection = ({
                 </button>
               </td>
             )}
+            <td style={{ textAlign: "center" }}>
+              {company.id ? (
+                <InlineFollowButton
+                  followKey="followed_companies"
+                  entityId={company.id}
+                  label={String(displayCompany.name || "")}
+                />
+              ) : null}
+            </td>
           </tr>
         );
       }),
@@ -3431,7 +3441,8 @@ const CompanySection = ({
             React.createElement("th", null, "Country"),
             ...(onEditCompany
               ? [React.createElement("th", { key: "edit" }, "")]
-              : [])
+              : []),
+            React.createElement("th", { key: "follow", style: { textAlign: "center" } }, "Follow")
           )
         ),
         React.createElement(
@@ -3797,7 +3808,8 @@ const CompanySection = ({
             }),
             ...(onEditCompany
               ? [React.createElement("th", { key: "edit" }, "Edit")]
-              : [])
+              : []),
+            React.createElement("th", { key: "follow", style: { textAlign: "center" } }, "Follow")
           )
         ),
         React.createElement("tbody", null, tableRows)

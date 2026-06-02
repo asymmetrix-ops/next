@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
+import { InlineFollowButton } from "@/components/InlineFollowButton";
 import { IndividualsResponse, Individual } from "../../types/individuals";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -544,6 +545,15 @@ const IndividualsTable = ({
           "Not available"}
       </td>
       <td>{formatLocation(individual._locations_individual)}</td>
+      <td style={{ textAlign: "center" }}>
+        {individual.id ? (
+          <InlineFollowButton
+            followKey="followed_individuals"
+            entityId={individual.id}
+            label={individual.advisor_individuals || ""}
+          />
+        ) : null}
+      </td>
     </tr>
   ));
 
@@ -564,6 +574,7 @@ const IndividualsTable = ({
             <th>Current Companies</th>
             <th>Current Roles</th>
             <th>Location</th>
+            <th style={{ textAlign: "center" }}>Follow</th>
           </tr>
         </thead>
         <tbody>{tableRows}</tbody>
