@@ -1871,9 +1871,41 @@ const CompanyDetail = () => {
             sector_id: toNumber(it?.id),
           }))
           .filter((s) => Boolean(s.sector_name));
+      const primary = toPrimary(payload.primary_sectors || []);
+      const secondary = toSecondary(payload.secondary_sectors || []);
+
+      const secondaryIds = new Set(
+        secondary.map((s) => s.sector_id).filter((id) => id > 0)
+      );
+      const secondaryNames = new Set(
+        secondary
+          .map((s) => s.sector_name.toLowerCase())
+          .filter(Boolean)
+      );
+
+      // When the API lists the same sector as both primary and secondary,
+      // secondary importance wins (e.g. Private Equity for CEPRES).
+      const reconciledPrimary = primary.filter(
+        (s) =>
+          !(s.sector_id > 0 && secondaryIds.has(s.sector_id)) &&
+          !secondaryNames.has(s.sector_name.toLowerCase())
+      );
+
+      const dedupedSecondary: CompanySector[] = [];
+      const seenSecondaryKeys = new Set<string>();
+      for (const sector of secondary) {
+        const key =
+          sector.sector_id > 0
+            ? `id:${sector.sector_id}`
+            : `name:${sector.sector_name.toLowerCase()}`;
+        if (seenSecondaryKeys.has(key)) continue;
+        seenSecondaryKeys.add(key);
+        dedupedSecondary.push(sector);
+      }
+
       return {
-        primary: toPrimary(payload.primary_sectors || []),
-        secondary: toSecondary(payload.secondary_sectors || []),
+        primary: reconciledPrimary,
+        secondary: dedupedSecondary,
       };
     } catch {
       return null;
@@ -1881,8 +1913,9 @@ const CompanyDetail = () => {
   })();
 
   // Determine sectors to display:
-  // Prefer `new_sectors_data.sectors_payload` (it already splits primary vs secondary).
-  // Only fall back to `company.sectors_id` when `new_sectors_data` is missing/unparseable.
+  // Prefer `new_sectors_data.sectors_payload` for sector lists; if a sector appears in
+  // both primary and secondary, treat it as secondary. Fall back to `company.sectors_id`
+  // when `new_sectors_data` is missing/unparseable.
   const hasNewSectors = parsedNewSectors !== null;
 
   const primarySectors =
