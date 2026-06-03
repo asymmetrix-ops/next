@@ -1,27 +1,27 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   followPortfolioEntity,
   unfollowPortfolioEntity,
   type PortfolioFollowKey,
 } from "@/lib/portfolioFollow";
-import { usePortfolioStore } from "@/store/portfolioStore";
+import { usePortfolioStore, getNamedPortfolios } from "@/store/portfolioStore";
 import {
-  getPortfolioLists,
-  addEntityToList,
-  removeEntityFromList,
-  getListsContainingEntity,
-  type PortfolioList,
-  type ListEntityType,
-} from "@/lib/portfolioLists";
+  addEntityToPortfolioApi,
+  removeEntityFromPortfolioApi,
+  getPortfoliosContainingEntity,
+  isEntityInPortfolio,
+  type PortfolioEntityType,
+} from "@/lib/portfolioEntity";
+import { toast } from "react-hot-toast";
 
 type FollowButtonProps = {
   followKey: PortfolioFollowKey;
   entityId: number;
   label: string;
   /** Entity type for list membership checks. When omitted, list dropdown is hidden. */
-  entityType?: ListEntityType;
+  entityType?: PortfolioEntityType;
   style?: React.CSSProperties;
   className?: string;
   icon?: React.ReactNode;
@@ -38,31 +38,32 @@ export function FollowButton({
 }: FollowButtonProps) {
   const [loading, setLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [lists, setLists] = useState<PortfolioList[]>([]);
-  const [membershipMap, setMembershipMap] = useState<Record<string, boolean>>({});
+  const [togglingListId, setTogglingListId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const isFollowed = usePortfolioStore((s) => s.isFollowed(followKey, entityId));
+  const xanoPortfolios = usePortfolioStore((s) => s.portfolios);
   const fetchPortfolio = usePortfolioStore((s) => s.fetchPortfolio);
   const portfolioLoading = usePortfolioStore((s) => s.loading);
 
-  // Refresh list data whenever dropdown opens or entity changes
-  const refreshLists = useCallback(() => {
-    const all = getPortfolioLists();
-    setLists(all);
-    if (!entityType) return;
-    const map: Record<string, boolean> = {};
-    for (const list of all) {
-      map[list.id] = list.entities.some(
-        (e) => e.entityType === entityType && e.entityId === entityId
-      );
-    }
-    setMembershipMap(map);
-  }, [entityType, entityId]);
+  const namedPortfolios = useMemo(
+    () => getNamedPortfolios(xanoPortfolios),
+    [xanoPortfolios]
+  );
 
-  useEffect(() => {
-    if (dropdownOpen) refreshLists();
-  }, [dropdownOpen, refreshLists]);
+  const membershipMap = useMemo(() => {
+    if (!entityType) return {};
+    const map: Record<number, boolean> = {};
+    for (const p of namedPortfolios) {
+      map[p.id] = isEntityInPortfolio(p, entityType, entityId);
+    }
+    return map;
+  }, [namedPortfolios, entityType, entityId]);
+
+  const containingLists = useMemo(() => {
+    if (!entityType) return [];
+    return getPortfoliosContainingEntity(namedPortfolios, entityType, entityId);
+  }, [namedPortfolios, entityType, entityId]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -109,27 +110,43 @@ export function FollowButton({
   }, [followKey, entityId, isFollowed, fetchPortfolio]);
 
   const handleListToggle = useCallback(
-    (listId: string, listName: string, currentlyIn: boolean) => {
-      if (!entityType) return;
-      if (currentlyIn) {
-        removeEntityFromList(listId, entityType, entityId);
-      } else {
-        addEntityToList(listId, { entityType, entityId, name: label });
+    async (portfolioId: number, portfolioLabel: string, currentlyIn: boolean) => {
+      if (!entityType || togglingListId != null) return;
+
+      setTogglingListId(portfolioId);
+      try {
+        if (currentlyIn) {
+          await removeEntityFromPortfolioApi({
+            portfolioId,
+            entityType,
+            entityId,
+          });
+          await fetchPortfolio();
+          toast.success(`Removed from "${portfolioLabel}"`);
+        } else {
+          await addEntityToPortfolioApi({
+            portfolioId,
+            entityType,
+            entityId,
+          });
+          await fetchPortfolio();
+          toast.success(`Added to "${portfolioLabel}"`);
+        }
+      } catch (e) {
+        toast.error(
+          e instanceof Error ? e.message : "Failed to update portfolio"
+        );
+      } finally {
+        setTogglingListId(null);
       }
-      refreshLists();
     },
-    [entityType, entityId, label, refreshLists]
+    [entityType, entityId, togglingListId, fetchPortfolio]
   );
 
   const isLoading = loading || portfolioLoading;
 
-  // Lists this entity is already in (for chip display)
-  const containingLists =
-    entityType ? getListsContainingEntity(entityType, entityId) : [];
-
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
-      {/* Main follow / unfollow button */}
       <button
         type="button"
         onClick={handleFollowClick}
@@ -165,13 +182,12 @@ export function FollowButton({
           : `Follow ${label}`}
       </button>
 
-      {/* Add to list dropdown — only shown when entityType is provided */}
       {entityType && (
         <div ref={dropdownRef} style={{ position: "relative" }}>
           <button
             type="button"
             onClick={() => setDropdownOpen((v) => !v)}
-            title="Add to list"
+            title="Add to portfolio"
             style={{
               padding: "8px 10px",
               backgroundColor: "#f3f4f6",
@@ -222,12 +238,12 @@ export function FollowButton({
                   letterSpacing: "0.05em",
                 }}
               >
-                Add to list
+                Add to portfolio
               </div>
 
-              {lists.length === 0 ? (
+              {namedPortfolios.length === 0 ? (
                 <div style={{ padding: "10px 12px", fontSize: "13px", color: "#9ca3af" }}>
-                  No lists yet.{" "}
+                  No portfolios yet.{" "}
                   <a
                     href="/my-portfolio"
                     style={{ color: "#7c3aed", textDecoration: "underline" }}
@@ -236,31 +252,40 @@ export function FollowButton({
                   </a>
                 </div>
               ) : (
-                lists.map((list) => {
-                  const inList = membershipMap[list.id] ?? false;
+                namedPortfolios.map((p) => {
+                  const inList = membershipMap[p.id] ?? false;
+                  const isToggling = togglingListId === p.id;
                   return (
                     <label
-                      key={list.id}
+                      key={p.id}
                       style={{
                         display: "flex",
                         alignItems: "center",
                         gap: "10px",
                         padding: "8px 12px",
-                        cursor: "pointer",
+                        cursor: isToggling ? "wait" : "pointer",
                         fontSize: "13px",
                         color: "#111827",
                         backgroundColor: inList ? "#faf5ff" : "transparent",
                         transition: "background 0.12s",
+                        opacity: isToggling ? 0.6 : 1,
                       }}
                     >
                       <input
                         type="checkbox"
                         checked={inList}
-                        onChange={() => handleListToggle(list.id, list.name, inList)}
+                        disabled={isToggling || togglingListId != null}
+                        onChange={() =>
+                          void handleListToggle(
+                            p.id,
+                            p.portfolio_label,
+                            inList
+                          )
+                        }
                         style={{ accentColor: "#7c3aed", width: "15px", height: "15px" }}
                       />
                       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {list.name}
+                        {p.portfolio_label}
                       </span>
                     </label>
                   );
@@ -271,12 +296,11 @@ export function FollowButton({
         </div>
       )}
 
-      {/* "In list" chips */}
       {containingLists.length > 0 && (
         <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "2px" }}>
-          {containingLists.map((list) => (
+          {containingLists.map((p) => (
             <span
-              key={list.id}
+              key={p.id}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -292,7 +316,7 @@ export function FollowButton({
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none">
                 <path d="M19 11H7.83l4.88-4.88c.39-.39.39-1.03 0-1.42-.39-.39-1.02-.39-1.41 0l-6.59 6.59c-.39.39-.39 1.02 0 1.41l6.59 6.59c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41L7.83 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" />
               </svg>
-              {list.name}
+              {p.portfolio_label}
             </span>
           ))}
         </div>

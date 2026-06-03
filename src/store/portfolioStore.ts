@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { parseFollowedEntities } from "@/lib/portfolioEntity";
 
 export type PortfolioFollowKey =
   | "followed_companies"
@@ -29,10 +30,74 @@ export interface PortfolioData {
 }
 
 function normalizeIds(arr: unknown): number[] {
-  const items = Array.isArray(arr) ? arr : arr != null ? [arr] : [];
-  return items
-    .filter((v) => typeof v === "number" && Number.isFinite(v) && v > 0)
-    .map((v) => v as number);
+  return parseFollowedEntities(arr).map((e) => e.id);
+}
+
+/** Stable tab order: creation time, then id — never by label. */
+export function sortPortfoliosStable(items: XanoPortfolio[]): XanoPortfolio[] {
+  return [...items].sort((a, b) => {
+    if (a.created_at !== b.created_at) return a.created_at - b.created_at;
+    return a.id - b.id;
+  });
+}
+
+/** Named list tabs only (non-default portfolios), in stable order. */
+export function getNamedPortfolios(items: XanoPortfolio[]): XanoPortfolio[] {
+  return sortPortfoliosStable(items.filter((p) => p.portfolio_label.trim()));
+}
+
+function portfolioHasEntities(p: XanoPortfolio): boolean {
+  return (
+    p.followed_companies.length +
+    p.followed_advisors.length +
+    p.followed_investors.length +
+    p.followed_sectors.length +
+    p.followed_individuals.length >
+    0
+  );
+}
+
+function normalizeXanoPortfolio(raw: Record<string, unknown>): XanoPortfolio {
+  const idRaw = raw.id;
+  const id =
+    typeof idRaw === "number"
+      ? idRaw
+      : typeof idRaw === "string"
+      ? Number.parseInt(idRaw, 10)
+      : 0;
+
+  const userIdRaw = raw.user_id;
+  const userId =
+    typeof userIdRaw === "number"
+      ? userIdRaw
+      : typeof userIdRaw === "string"
+      ? Number.parseInt(userIdRaw, 10)
+      : 0;
+
+  const createdRaw = raw.created_at;
+  const created_at =
+    typeof createdRaw === "number"
+      ? createdRaw
+      : typeof createdRaw === "string"
+      ? Number.parseInt(createdRaw, 10)
+      : 0;
+
+  return {
+    id,
+    created_at,
+    portfolio_label:
+      typeof raw.portfolio_label === "string"
+        ? raw.portfolio_label
+        : typeof raw.label === "string"
+        ? raw.label
+        : "",
+    user_id: userId,
+    followed_companies: normalizeIds(raw.followed_companies),
+    followed_advisors: normalizeIds(raw.followed_advisors),
+    followed_investors: normalizeIds(raw.followed_investors),
+    followed_sectors: normalizeIds(raw.followed_sectors),
+    followed_individuals: normalizeIds(raw.followed_individuals),
+  };
 }
 
 /** Merge followed_* arrays from all portfolios into one deduplicated set. */
@@ -78,6 +143,8 @@ interface PortfolioState {
   lastFetched: number | null;
   fetchPortfolio: () => Promise<void>;
   setPortfolio: (raw: unknown) => void;
+  /** Update or insert one portfolio record (e.g. after PATCH rename). */
+  upsertPortfolio: (raw: Record<string, unknown>) => void;
   isFollowed: (followKey: PortfolioFollowKey, entityId: number) => boolean;
   reset: () => void;
 }
@@ -142,28 +209,61 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
 
     // Array of portfolios — new format from get_users_portfolio
     if (Array.isArray(raw)) {
-      const items = raw as XanoPortfolio[];
+      const items = sortPortfoliosStable(
+        raw
+          .filter((item) => item && typeof item === "object")
+          .map((item) => normalizeXanoPortfolio(item as Record<string, unknown>))
+      );
       set({ portfolios: items, data: mergePortfolios(items) });
       return;
     }
 
-    // Single portfolio object — legacy fallback
+    // Single portfolio object — upsert into existing list
     if (typeof raw === "object") {
-      const r = raw as Record<string, unknown>;
-      set({
-        portfolios: [],
-        data: {
-          followed_companies: normalizeIds(r.followed_companies),
-          followed_advisors: normalizeIds(r.followed_advisors),
-          followed_investors: normalizeIds(r.followed_investors),
-          followed_sectors: normalizeIds(r.followed_sectors),
-          followed_individuals: normalizeIds(r.followed_individuals),
-        },
-      });
+      get().upsertPortfolio(raw as Record<string, unknown>);
       return;
     }
 
     set({ data: emptyData, portfolios: [] });
+  },
+
+  upsertPortfolio: (raw) => {
+    const next = normalizeXanoPortfolio(raw);
+    if (!next.id) return;
+
+    const { portfolios } = get();
+    const idx = portfolios.findIndex((p) => p.id === next.id);
+    const merged =
+      idx >= 0
+        ? portfolios.map((p, i) => {
+            if (i !== idx) return p;
+            const keepFollowed = !portfolioHasEntities(next);
+            return {
+              ...p,
+              portfolio_label: next.portfolio_label || p.portfolio_label,
+              created_at: next.created_at || p.created_at,
+              user_id: next.user_id || p.user_id,
+              followed_companies: keepFollowed
+                ? p.followed_companies
+                : next.followed_companies,
+              followed_advisors: keepFollowed
+                ? p.followed_advisors
+                : next.followed_advisors,
+              followed_investors: keepFollowed
+                ? p.followed_investors
+                : next.followed_investors,
+              followed_sectors: keepFollowed
+                ? p.followed_sectors
+                : next.followed_sectors,
+              followed_individuals: keepFollowed
+                ? p.followed_individuals
+                : next.followed_individuals,
+            };
+          })
+        : [...portfolios, next];
+
+    const sorted = sortPortfoliosStable(merged);
+    set({ portfolios: sorted, data: mergePortfolios(sorted) });
   },
 
   isFollowed: (followKey, entityId) => {
